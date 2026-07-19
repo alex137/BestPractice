@@ -1,0 +1,97 @@
+# Repository notes for Claude
+
+<!-- Template: instantiate per BestPractice INSTALL.md §1. Replace <angle-bracket>
+     placeholders with this repo's real content; keep the section structure.
+     Every rule you add should cite the incident that motivated it (practice 5). -->
+
+**Orientation: read `MAP.md` first** — the repository map. It covers the key
+deliverables and indexes which documents back each part of each one.
+
+## Where things are (quick index — check here BEFORE searching the repo)
+
+<!-- Add a row whenever a session is observed hunting for something (practice 3). -->
+
+| Looking for… | Go to |
+|---|---|
+| Canonical names for <domain things> — use these names, don't invent new ones | `GLOSSARY.md` |
+| <key deliverable> and its builder | `<path>` |
+| <recurring lookup> | `<path>` |
+| Open items: analyses, verifications, decisions | `TODO.md` |
+| Practice layer: vendored BestPractice copy, manifest, scrub blocklist | `process/` |
+
+## <Deliverable build workflow>
+
+<!-- The canonical builder(s), the registry that drives them (practice 7), and
+     the audits that gate them (practice 6). State the single source of truth
+     explicitly and what wins when documents disagree with it. -->
+
+### Build-environment gotchas — do NOT rediscover these
+
+<!-- Every expensive environment discovery, WITH its story (practice 4).
+     Mirror the fixes into .claude/hooks/session-start.sh (practice 13). -->
+
+- <package/tool that must be installed, what failed without it, how long it cost>
+- <tool that does not work here; what to use instead>
+
+## Git / workflow
+
+- Develop on a feature branch; open a PR; merge only when the user says so.
+- **Start every thread by merging latest `origin/<default-branch>` into your
+  branch**; avoid two concurrent threads editing the same <conflict-prone
+  file class>.
+
+### Merging a thread branch (runbook — follow, don't improvise)
+
+Conflicts in shared files are EXPECTED. The fast, safe path:
+
+0. **Capture gate — before the merge, in the thread that did the work**
+   (practice 10): did this thread's work imply anything that must be
+   captured — a document update, a registry entry, a decision record? Fold
+   it now; the thread that built the rationale is the one that knows what to
+   record. Also run the parking-lot grep: `grep -rl "<your staging
+   markers>" <docs-root>/` and fold anything ready.
+   **0b. Export gate** (practice 14): did this thread improve a *generic*
+   practice? Fold the abstracted form into `process/upstream/` now, per
+   `process/upstream/INSTALL.md` §3, and run the scrub audit.
+1. Fetch and merge the default branch locally.
+2. Resolve by fixed per-file-class rules (practice 9):
+   - Registries: **union** of both sides — never drop an entry or a status.
+   - Logs / index files: **append-only — keep both sides' additions.**
+   - Same content file edited on both sides: keep both sides' text;
+     renumber the side not yet referenced elsewhere.
+   - **Generated outputs: never hand-merge.** The side matching the
+     committed manifest wins; unshipped builds are deleted and rebuilt.
+3. Run the audits — **all must pass before the merge commits**:
+   `<your audit commands>` and
+   `python3 process/upstream/tools/practice_audit.py`.
+4. Commit the merge, push, land per this repo's convention.
+
+## Conventions
+
+- **Doc references are links** (practice 11): in-repo docs reference other
+  repo files as relative markdown links, never bare backticked names. New
+  text always links; a thread touching a document fixes the references in
+  the parts it touches.
+- **`≈`, not `~`, for "approximately"** — two stray tildes render as
+  strikethrough on GitHub. `python3 process/upstream/tools/doc_lint.py`
+  checks both conventions on files changed vs the default branch; run it on
+  what you touch before committing.
+- **Reply convention** (practice 12): every reply that created or modified
+  files ends with a "Files touched" list — branch link + post-merge link +
+  one-line description per file — so the reader can open the work from the
+  chat.
+
+## Practice export — BestPractice (policy)
+
+- `process/upstream/` is a vendored copy of the public BestPractice repo
+  (`<upstream URL>`), tracked in this repo. **Public-safe invariant:**
+  nothing proprietary may appear under `process/upstream/`, ever.
+  `python3 process/upstream/tools/practice_audit.py` enforces this against
+  `process/scrub_blocklist.txt` and must pass before committing anything
+  that touches `process/`.
+- <If parts of this repo are categorically never exported, name them here.>
+- Export gate = merge runbook step 0b. Periodic check-in per
+  `process/upstream/INSTALL.md` §4 (recurring item in `TODO.md`).
+- `process/manifest.json` is the installed-practices registry; when a
+  practice file changes locally, export + re-baseline, or flip the entry to
+  `diverged`.

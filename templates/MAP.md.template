@@ -1,0 +1,32 @@
+# Repository map — where to find things
+
+<!-- Template: instantiate per BestPractice INSTALL.md §1 (practice 2).
+     Purpose: any session reads this FIRST and knows where everything lives.
+     Keep it current: a thread that adds a document adds its row. -->
+
+**Purpose:** orientation for any thread picking up work here. The repo's key
+deliverables are <name them>, and this map indexes each one down to the
+documents, models, and sources that back it.
+
+Companions: `CLAUDE.md` (build machinery + workflow — read before touching
+<build dir>), `TODO.md` (open items across sessions).
+
+## Top-level layout
+
+| Path | What it is |
+|---|---|
+| `GLOSSARY.md` | **Canonical names** — the one list. Use its names; don't invent new ones. |
+| `<deliverable dir>/` | <what it is, its builder, which output is the shippable one> |
+| `<supporting dir>/` | <what it holds> |
+| `process/` | Practice layer (vendored BestPractice + manifest + blocklist) — see `CLAUDE.md` "Practice export". |
+| `TODO.md` | Cross-session open items. |
+
+## <Deliverable 1>
+
+<!-- The part-by-part index: for each part/section of the deliverable, which
+     documents back it. This is the map's highest-value section — it answers
+     "where is the support for X?" without a search. -->
+
+| Part | Backed by |
+|---|---|
+| <part> | <docs, models, sources> |

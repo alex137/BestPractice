@@ -1,0 +1,37 @@
+{
+  "_comment": "Template: .claude/settings.json for a dependent repo (practice 13). Allowlist the routine safe commands sessions run constantly, so work doesn't stall on permission prompts. Add your repo's own audit/build commands.",
+  "permissions": {
+    "allow": [
+      "Bash(grep *)",
+      "Bash(git fetch *)",
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git switch *)",
+      "Bash(git merge *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push -u origin *)",
+      "Bash(git check-ignore *)",
+      "Bash(git check-attr *)",
+      "Bash(python3 process/upstream/tools/doc_lint.py *)",
+      "Bash(python3 process/upstream/tools/practice_audit.py)",
+      "Bash(python3 process/upstream/tools/practice_audit.py *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

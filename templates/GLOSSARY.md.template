@@ -1,0 +1,14 @@
+# Canonical names
+
+<!-- Template: instantiate per BestPractice INSTALL.md §1 (practice 1).
+     One file owns the nomenclature. Sessions use these names and do not
+     invent new ones; a new thing gets its row here in the thread that
+     creates it. Link each entry to its defining document (practice 11). -->
+
+The one list of names for <domain things: products, components, systems,
+code words>. **Use these names; don't invent new ones.** If two documents
+disagree with this file, this file wins — fix the documents.
+
+| Name | What it is | Defined in |
+|---|---|---|
+| <Name> | <one-line role/description, key parameters> | [<doc>](<path>) |
