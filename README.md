@@ -188,7 +188,7 @@ agent teams share one contract).
 
 ## Git, minimally, for this way of working
 
-You don't need to know git deeply to use this; you need seven ideas:
+You don't need to know git deeply to use this; you need eight ideas:
 
 - **The default branch (`main`) is the shared truth.** It is what every new
   session reads for orientation. Nothing is "real" until it lands there.
@@ -224,6 +224,19 @@ You don't need to know git deeply to use this; you need seven ideas:
   safe: anything can be diffed against any earlier state and reverted. This
   is what makes "the repo is the memory" trustworthy — memory that can't be
   silently lost or rewritten.
+- **One agent can work on branches of several repositories at once.**
+  Nothing about git or agents limits a session to a single repo: give it
+  access to two (or more) repositories — on GitHub, each repo the agent's
+  app installation is permitted to touch; in the Claude Code app
+  specifically, you pick which repos the session can access when you
+  create it — and it can hold a branch open in each and commit to all of
+  them in one conversation. This is not a BestPractice feature, just a
+  practical fact coding tools take for granted that matters here: it is
+  how **cross-cutting work** gets done — moving content from one repo to
+  another, reorganizing which repo owns what, keeping a shared layer in
+  sync across repos. This repo's own check-in loop is the worked example:
+  a dual-repo session abstracts a practice in the private dependent repo
+  and lands it here, in a single thread.
 - **An agent session's repo access is fixed when the session starts.** On
   hosted agent platforms, a session can write only to the repo(s) you
   selected when creating it. A session opened on one repo can usually still
