@@ -52,6 +52,49 @@ The trade: you maintain the files. The practices in this repo exist to make
 that maintenance nearly automatic — each session updates the map, the TODO,
 and the lore as part of finishing its work.
 
+## The working method: branches, plain text, and composed prompts
+
+The sections above say where state lives. This one is the philosophy of how
+a human actually drives the work — four commitments that make the whole
+system compose:
+
+- **Branches instead of a shared canvas.** Shared-workspace tools (Cowork
+  and similar) put every contributor — human or agent — on one live copy of
+  the work, so two threads touching the same document either clobber each
+  other or must take turns. Git replaces that with structure: each thread
+  works on its own branch, isolated while working, and reconciliation
+  happens once, at merge time, under the runbook's fixed per-file-class
+  rules with the audits as the safety net. The point is not that conflicts
+  disappear — it's that **conflict resolution becomes a protocol agents can
+  execute**, instead of an accident humans must untangle. That is what
+  makes it safe to run several agent threads against the same repo at once.
+
+- **Markdown and HTML are the source; office formats are outputs.** Work is
+  authored in plain text — markdown for documents, HTML where a rendered
+  deliverable is needed. Never Word, PDF, or PowerPoint as the *source*:
+  binary formats can't be diffed line by line, can't be text-merged across
+  branches, and can't be reviewed in a PR, so as sources they break every
+  mechanism this repo relies on. When a .docx, .pdf, or slide deck must
+  ship, a builder generates it from the markdown source (practice 8 gives
+  it provenance) and nobody ever hand-edits the output.
+
+- **Edit by critique, not by hand.** To change a document, don't open it
+  and start typing — write a critique: what's wrong, what you want instead,
+  and why. Hand that to the agent. An agent applying a critique can improve
+  on your idea, carry it consistently through every affected document, fix
+  the cross-references, and run the audits; a direct hand edit does none of
+  that, and silently skips the gates the repo depends on. You work at the
+  level of intent; the machinery handles propagation.
+
+- **Composed prompts, not dictation.** Draft instructions in a separate
+  editor — the length of a considered email — then paste them to the agent.
+  Type directly only for short commands ("merge"). Pure dictation is an
+  anti-pattern: cleaning up your own thinking before tasking an agent is
+  real work that pays for itself, because the agent's output quality tracks
+  the prompt's clarity, and a stream of consciousness makes the agent guess
+  which half-formed thought was the requirement. The prompt is the first
+  draft of the work; treat it like one.
+
 ## Quick start: using BestPractice on a brand-new repo
 
 For a beginner, start to finish. You need a GitHub account and a Claude
