@@ -103,7 +103,7 @@ agent teams share one contract).
 
 ## Git, minimally, for this way of working
 
-You don't need to know git deeply to use this; you need four ideas:
+You don't need to know git deeply to use this; you need six ideas:
 
 - **The default branch (`main`) is the shared truth.** It is what every new
   session reads for orientation. Nothing is "real" until it lands there.
@@ -111,12 +111,30 @@ You don't need to know git deeply to use this; you need four ideas:
   a session (or a person) can make any number of commits without disturbing
   anyone else. Two threads on two branches never conflict *while working*;
   reconciliation happens once, at merge time, under the runbook's rules.
+- **Branch work is invisible to everyone else until it lands on `main` —
+  and they catch up.** Publishing takes two steps: your branch must be
+  *merged* into `main`, and then each collaborator (human or agent session)
+  must *pull* the updated `main` into their own copy. Until both happen,
+  don't expect others to see your work — a pushed branch technically exists
+  on the server, but nobody working from `main` will encounter it. The same
+  holds in reverse: someone else's unmerged branch is invisible to you,
+  which is why "it's not in the repo" really means "it's not in `main` yet."
 - **A pull request (PR) is a reviewable bundle of changes** — "here is
   everything branch X wants to add to main, as a diff." If several people
   (or several agent threads) touch the same repo, PRs are where a second
   pair of eyes goes: you can ask a colleague, or another agent session, to
   review a branch before it merges. For a solo repo, PRs are optional —
   merging directly is fine; the audits are the real gate either way.
+- **Permissions decide who may merge.** On a repo someone else owns, you may
+  find you can push branches and open PRs but not merge them — the owner
+  reviews and merges on their schedule; that's normal, not an error. The
+  same lever works for you in the other direction: when your repo gains a
+  second contributor, you can require that all changes to `main` go through
+  a PR that only you approve and merge (on GitHub: repo Settings →
+  Branches → a branch protection/ruleset on `main` requiring pull requests
+  before merging). Contributors then work freely on branches while every
+  change to the shared truth waits for your review — a good default the
+  moment a repo stops being solo.
 - **History is permanent.** Every commit is recoverable, so bold edits are
   safe: anything can be diffed against any earlier state and reverted. This
   is what makes "the repo is the memory" trustworthy — memory that can't be
