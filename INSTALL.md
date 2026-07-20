@@ -100,18 +100,37 @@ If yes, in the **same branch**:
 
 ## 4. Periodic check-in (propose upstream)
 
+**Session scope note (hosted agent platforms).** Repo access is typically
+fixed when a session is created: a session opened on the dependent repo
+alone can usually *read* the public BestPractice repo (clone, fetch, diff)
+but **cannot push branches or open PRs there** — writes fail even though
+the day-to-day export loop (§3) works fine, because that loop is purely
+local commits. So: **open check-in sessions with BOTH repos selected at
+creation.** Everything else can be prepared, scrubbed, and audited in
+ordinary single-repo sessions; only this step needs the dual-repo session.
+
 On a schedule (a recurring `TODO.md` item), in a session with access to the
-BestPractice repo:
+BestPractice repo. [tools/checkin.py](tools/checkin.py) drives the
+mechanical steps against a local clone of the upstream repo; the deliberate
+steps (review, PR, merge) stay manual:
 
 1. Review the vendored tree's accumulated changes and every `diverged`
    manifest entry — export what's ready, or record in the entry's notes why
    an entry genuinely stays local.
-2. **Re-run the scrub audit.** It must pass.
-3. Open a PR against BestPractice with the `process/upstream/` diff. Human
-   review of that PR is the second scrub line — the blocklist catches known
-   vocabulary; the reviewer catches what the blocklist doesn't know yet
-   (and adds it to the blocklist).
-4. When the PR merges, update `upstream.commit` and `--update-baseline`.
+   `python3 process/upstream/tools/checkin.py status <upstream-clone>`
+   lists exactly what has accumulated.
+2. `python3 process/upstream/tools/checkin.py push <upstream-clone>` —
+   runs the **scrub audit first (must pass; nothing is copied on failure)**,
+   then mirrors the vendored tree into the clone's working tree.
+3. Commit in the clone on a branch and open a PR against BestPractice.
+   Human review of that PR is the second scrub line — the blocklist catches
+   known vocabulary; the reviewer catches what the blocklist doesn't know
+   yet (and adds it to the blocklist).
+4. When the PR merges:
+   `python3 process/upstream/tools/checkin.py record <upstream-clone> --note "PR #N"`
+   — pulls the upstream default branch, **verifies it is byte-identical to
+   the vendored tree**, and writes the landed hash into `upstream.commit`.
+   Commit the manifest change (and `--update-baseline` if entries moved).
 
 ## 5. The manifest schema (`process/manifest.json`)
 
