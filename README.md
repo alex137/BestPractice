@@ -16,6 +16,7 @@ improvements back here.
 | [INSTALL.md](INSTALL.md) | The agent playbook: install into a dependent repo, take updates, copy improvements back, and the proprietary-scrub gate. |
 | `templates/` | Skeletons a dependent repo instantiates: `AGENTS.md.template` (the harness-neutral instructions file), `MAP.md.template`, `TODO.md.template`, `GLOSSARY.md.template`, `bootstrap.sh`, and `harness/` (per-agent adapters: Claude Code, Codex, Gemini CLI — installable side by side). |
 | `tools/` | Portable scripts run in place: [doc_lint.py](tools/doc_lint.py) (markdown hygiene), [practice_audit.py](tools/practice_audit.py) (manifest drift + scrub gate), and [checkin.py](tools/checkin.py) (drives the §4 check-in: status / scrubbed push / verified record). |
+| `deck/` | Presentations as code: [build_deck.py](deck/build_deck.py) (the slide-deck engine), [README](deck/README.md) (the practice + conventions), [sample/](deck/sample/) (a working deck about this repo). See "Presentations" below. |
 
 ## Why this, instead of a chat thread or a memory feature?
 
@@ -94,6 +95,47 @@ system compose:
   the prompt's clarity, and a stream of consciousness makes the agent guess
   which half-formed thought was the requirement. The prompt is the first
   draft of the work; treat it like one.
+
+## Presentations: slides are files, decks are builds
+
+The working method above applies to slide decks too, via
+[deck/build_deck.py](deck/build_deck.py) (full practice + conventions in
+[deck/README.md](deck/README.md)):
+
+- **Each slide is its own markdown file; the deck manifest (`deck.json`)
+  picks the shipped set.** That is what makes decks safe for concurrent
+  threads: one thread reworks slide 4 while another drafts two competing
+  versions of slide 9, nothing collides, and **any thread can rebuild the
+  whole presentation at any time** — the build is just "assemble the
+  manifest's preferred slides." Promoting a competing draft is a one-line
+  manifest edit, reviewable like any other change.
+- **Two builds from one source.** The *review build* shows speaker notes
+  below every slide (and includes `review_only` slides — internal caveats,
+  staging notes, drafts). The *send build* **removes** notes and
+  review-only slides from the file — they are not merely hidden, so an
+  external copy cannot be un-hidden into the internal one. Send only the
+  send build.
+
+  ```
+  python3 process/upstream/deck/build_deck.py <deck-dir>          # review: <Output>.html
+  python3 process/upstream/deck/build_deck.py <deck-dir> --send   # external: <Output>_send.html
+  ```
+
+- **Accessing them:** both outputs land next to the deck's `deck.json` and
+  open in any browser — arrows navigate, `P` presents full-screen, and
+  printing gives one slide per page (that's the PDF path: generated *from*
+  the HTML, never a source). The file is fully self-contained — figures,
+  theme, everything inlined, verified at build time — so it survives being
+  downloaded, emailed, or attached to a chat. Convention: an agent that
+  builds a deck delivers the HTML into the conversation as a viewable file
+  in the same reply.
+- **Decks are content and live in your repo's own directories** — only the
+  engine is public. In a private dependent repo, deck sources are exactly
+  what the scrub blocklist keeps out of the vendored tree.
+
+Try it: `python3 process/upstream/deck/build_deck.py process/upstream/deck/sample`
+builds this repo's own pitch — a deck about BestPractice, dogfooding the
+practice it describes.
 
 ## Quick start: using BestPractice on a brand-new repo
 
