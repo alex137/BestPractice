@@ -15,7 +15,7 @@ improvements back here.
 | [PRACTICES.md](PRACTICES.md) | The catalog: each practice as a rule, the (abstracted) incident that motivated it, and how to install it. |
 | [INSTALL.md](INSTALL.md) | The agent playbook: install into a dependent repo, take updates, copy improvements back, and the proprietary-scrub gate. |
 | `templates/` | Skeletons a dependent repo instantiates: `AGENTS.md.template` (the harness-neutral instructions file), `MAP.md.template`, `TODO.md.template`, `GLOSSARY.md.template`, `bootstrap.sh`, and `harness/` (per-agent adapters: Claude Code, Codex, Gemini CLI — installable side by side). |
-| `tools/` | Portable scripts run in place: [doc_lint.py](tools/doc_lint.py) (markdown hygiene) and [practice_audit.py](tools/practice_audit.py) (manifest drift + scrub gate). |
+| `tools/` | Portable scripts run in place: [doc_lint.py](tools/doc_lint.py) (markdown hygiene), [practice_audit.py](tools/practice_audit.py) (manifest drift + scrub gate), and [checkin.py](tools/checkin.py) (drives the §4 check-in: status / scrubbed push / verified record). |
 
 ## Why this, instead of a chat thread or a memory feature?
 
@@ -103,7 +103,7 @@ agent teams share one contract).
 
 ## Git, minimally, for this way of working
 
-You don't need to know git deeply to use this; you need six ideas:
+You don't need to know git deeply to use this; you need seven ideas:
 
 - **The default branch (`main`) is the shared truth.** It is what every new
   session reads for orientation. Nothing is "real" until it lands there.
@@ -139,6 +139,15 @@ You don't need to know git deeply to use this; you need six ideas:
   safe: anything can be diffed against any earlier state and reverted. This
   is what makes "the repo is the memory" trustworthy — memory that can't be
   silently lost or rewritten.
+- **An agent session's repo access is fixed when the session starts.** On
+  hosted agent platforms, a session can write only to the repo(s) you
+  selected when creating it. A session opened on one repo can usually still
+  *read* a public repo (clone it, diff against it) but cannot push branches
+  or open PRs there — writes fail even though reads work, which is
+  confusing the first time you hit it. So decide up front: if a session's
+  plan includes pushing to a second repo (the check-in step below, for
+  example), **select both repos when you create the session** — you
+  generally can't add write access mid-session.
 
 ## How it's used (short version)
 
@@ -155,7 +164,9 @@ You don't need to know git deeply to use this; you need six ideas:
    export gate), and `practice_audit.py` verifies nothing proprietary rode
    along.
 4. **Check in:** periodically, propose the accumulated `process/upstream/`
-   changes back to this repo as a pull request.
+   changes back to this repo as a pull request — in a session opened with
+   **both** your repo and BestPractice selected (see the session-scope idea
+   in the git section above, and [INSTALL.md](INSTALL.md) §4).
 
 Step 4 in the wild:
 [PR #1](https://github.com/alex137/BestPractice/pull/1) is a real check-in —
