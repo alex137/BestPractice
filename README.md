@@ -14,7 +14,7 @@ improvements back here.
 |---|---|
 | [PRACTICES.md](PRACTICES.md) | The catalog: each practice as a rule, the (abstracted) incident that motivated it, and how to install it. |
 | [INSTALL.md](INSTALL.md) | The agent playbook: install into a dependent repo, take updates, copy improvements back, and the proprietary-scrub gate. |
-| `templates/` | Skeletons a dependent repo instantiates: `CLAUDE.md.template`, `MAP.md.template`, `TODO.md.template`, `GLOSSARY.md.template`, `settings.json`, `session-start.sh`. |
+| `templates/` | Skeletons a dependent repo instantiates: `AGENTS.md.template` (the harness-neutral instructions file), `MAP.md.template`, `TODO.md.template`, `GLOSSARY.md.template`, `bootstrap.sh`, and `harness/` (per-agent adapters: Claude Code, Codex, Gemini CLI — installable side by side). |
 | `tools/` | Portable scripts run in place: [doc_lint.py](tools/doc_lint.py) (markdown hygiene) and [practice_audit.py](tools/practice_audit.py) (manifest drift + scrub gate). |
 
 ## Why this, instead of a chat thread or a memory feature?
@@ -79,8 +79,9 @@ works in the Claude Code CLI or desktop app if you prefer a terminal).
    - Words/names that must never appear in the public vendored tree:
      <your project's private names and code words, for the scrub blocklist>.
 
-   Create MAP.md, TODO.md, GLOSSARY.md and the instructions file from the
-   templates, write process/manifest.json, run
+   Create MAP.md, TODO.md, GLOSSARY.md and AGENTS.md from the templates,
+   apply the harness adapter for this agent (templates/harness/), write
+   process/manifest.json, run
    python3 process/upstream/tools/practice_audit.py (it must pass), and
    commit everything on a branch.
    ```
@@ -91,6 +92,14 @@ works in the Claude Code CLI or desktop app if you prefer a terminal).
 5. **Work normally.** From now on, every session orients from `MAP.md`,
    records open items in `TODO.md`, and runs the export gate before merging.
    That's the whole system — the practices maintain themselves from here.
+
+**Not a Claude Code user?** The practice layer is agent-agnostic: the
+canonical instructions file is `AGENTS.md` (read natively by Codex and
+others), and everything else is git + markdown + plain Python. The same
+bootstrap prompt works in any agent that can read a public repo; see
+[templates/harness/README.md](templates/harness/README.md) for the per-agent
+wiring (Claude Code, Codex, Gemini CLI — installable side by side, so mixed
+agent teams share one contract).
 
 ## Git, minimally, for this way of working
 

@@ -1,8 +1,11 @@
-# Repository notes for Claude
+# Repository instructions — read me first
 
-<!-- Template: instantiate per BestPractice INSTALL.md §1. Replace <angle-bracket>
-     placeholders with this repo's real content; keep the section structure.
-     Every rule you add should cite the incident that motivated it (practice 5). -->
+<!-- Template: instantiate per BestPractice INSTALL.md §1 as AGENTS.md — the
+     harness-neutral instructions file (read natively by several agent CLIs;
+     other harnesses get a pointer file via templates/harness/, see practice 13).
+     Replace <angle-bracket> placeholders with this repo's real content; keep
+     the section structure. Every rule you add should cite the incident that
+     motivated it (practice 5). -->
 
 **Orientation: read `MAP.md` first** — the repository map. It covers the key
 deliverables and indexes which documents back each part of each one.
@@ -28,7 +31,11 @@ deliverables and indexes which documents back each part of each one.
 ### Build-environment gotchas — do NOT rediscover these
 
 <!-- Every expensive environment discovery, WITH its story (practice 4).
-     Mirror the fixes into .claude/hooks/session-start.sh (practice 13). -->
+     Mirror the fixes into the bootstrap script (practice 13) so they apply
+     themselves; if your harness has no session hook, keep the next line: -->
+
+- At session start, run `bash tools/bootstrap.sh` before other work (harnesses
+  with a hook mechanism run it automatically — see `templates/harness/`).
 
 - <package/tool that must be installed, what failed without it, how long it cost>
 - <tool that does not work here; what to use instead>
