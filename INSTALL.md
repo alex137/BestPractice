@@ -19,15 +19,22 @@ drift and proprietary leakage loud instead of silent.
    upstream commit hash you copied from (used by updates, step 2).
 2. **Instantiate the templates** (adaptive — rewrite with the repo's actual
    subject matter, don't copy verbatim):
-   - `templates/CLAUDE.md.template` → repo-root instructions file. Fill the
-     quick-index table with this repo's real lookups; adapt the merge
-     runbook's file classes; keep the section structure.
+   - `templates/AGENTS.md.template` → `AGENTS.md` at the repo root: the
+     **harness-neutral** canonical instructions file. Fill the quick-index
+     table with this repo's real lookups; adapt the merge runbook's file
+     classes; keep the section structure.
    - `templates/MAP.md.template` → `MAP.md`; `templates/TODO.md.template` →
      `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
      domain-appropriate name).
-   - `templates/settings.json` → `.claude/settings.json`;
-     `templates/session-start.sh` → `.claude/hooks/session-start.sh`
-     (add the repo's own bootstrap needs).
+   - `templates/bootstrap.sh` → `tools/bootstrap.sh` (add the repo's own
+     setup needs).
+   - **Apply the harness adapter(s)** for whichever agent(s) will work this
+     repo — see [templates/harness/README.md](templates/harness/README.md).
+     E.g. Claude Code: `harness/claude-code/CLAUDE.md` → repo root (a
+     one-line import of `AGENTS.md`), `harness/claude-code/settings.json` →
+     `.claude/settings.json`, `harness/claude-code/hooks/session-start.sh` →
+     `.claude/hooks/session-start.sh`. Codex reads `AGENTS.md` natively.
+     Multiple adapters can be installed side by side.
    - `tools/doc_lint.py` → run it from `process/upstream/tools/` in place,
      or copy to the repo's tools dir if it needs local adaptation.
 3. **Write the manifest** at `process/manifest.json` — see §5 for the

@@ -16,7 +16,8 @@ Repos that kept context in threads paid a re-derivation tax every session —
 re-finding files, re-learning environment quirks, re-making settled decisions.
 
 **Install.** The three living documents below (MAP, TODO, GLOSSARY) plus a
-project instructions file (`CLAUDE.md` or equivalent). Everything else in this
+project instructions file (`AGENTS.md`, plus a per-harness pointer file —
+see practice 13). Everything else in this
 catalog is a refinement of this rule.
 
 ## 2. An orientation map, read first
@@ -45,7 +46,7 @@ deliverable?"). Rows are added exactly when a session is observed searching
 for something — the index is built from real misses, not speculation.
 
 **Install.** Part of
-[templates/CLAUDE.md.template](templates/CLAUDE.md.template).
+[templates/AGENTS.md.template](templates/AGENTS.md.template).
 
 ## 4. Recorded lore: environment gotchas with their stories
 
@@ -61,7 +62,7 @@ failure never recurred — and the story is what lets a future session judge
 whether the note still applies.
 
 **Install.** A gotchas section in the instructions file
-([templates/CLAUDE.md.template](templates/CLAUDE.md.template)), plus practice
+([templates/AGENTS.md.template](templates/AGENTS.md.template)), plus practice
 13 (encode the fixes as a bootstrap hook so they apply themselves).
 
 ## 5. Conventions cite the incident that created them
@@ -150,7 +151,7 @@ dropped a registry entry. Fixed rules plus a loud audit made merges fast
 *and* safer than careful manual resolution.
 
 **Install.** Runbook section in
-[templates/CLAUDE.md.template](templates/CLAUDE.md.template); adapt the file
+[templates/AGENTS.md.template](templates/AGENTS.md.template); adapt the file
 classes to your repo.
 
 ## 10. Capture in the thread that created the need — before the merge
@@ -170,7 +171,7 @@ ended without folding it in. The gate that fixed it: before any merge, ask
 for known parking-lot markers, run at thread end.
 
 **Install.** Step 0 of the runbook in
-[templates/CLAUDE.md.template](templates/CLAUDE.md.template). The
+[templates/AGENTS.md.template](templates/AGENTS.md.template). The
 practice-export gate (practice 14) is this same rule applied to process
 improvements.
 
@@ -200,7 +201,7 @@ its post-merge location, with a one-line description. The reader must be able
 to open the work from the chat, not merely learn it exists.
 
 **Install.** Convention in
-[templates/CLAUDE.md.template](templates/CLAUDE.md.template).
+[templates/AGENTS.md.template](templates/AGENTS.md.template).
 
 ## 13. Session bootstrap is code, not memory
 
@@ -213,9 +214,12 @@ in a permissions allowlist so sessions don't stall on prompts.
 having it apply itself is better. The hook is where "install the one package
 whose absence cost two sessions" lives as code.
 
-**Install.** [templates/session-start.sh](templates/session-start.sh) and
-[templates/settings.json](templates/settings.json) (Claude Code shapes;
-adapt for other harnesses).
+**Install.** [templates/bootstrap.sh](templates/bootstrap.sh) →
+`tools/bootstrap.sh` (harness-neutral; all real setup lives here), wired in
+per-harness via [templates/harness/](templates/harness/README.md): a hook
+that runs it automatically where the harness supports one (hard guarantee),
+an instructions-file directive where it doesn't (soft guarantee), plus a
+permission allowlist where the harness has that concept.
 
 ## 14. The practice-export loop (how this repo propagates)
 

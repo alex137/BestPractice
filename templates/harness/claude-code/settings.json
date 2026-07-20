@@ -1,5 +1,5 @@
 {
-  "_comment": "Template: .claude/settings.json for a dependent repo (practice 13). Allowlist the routine safe commands sessions run constantly, so work doesn't stall on permission prompts. Add your repo's own audit/build commands.",
+  "_comment": "Claude Code adapter: install to .claude/settings.json (practice 13). Wires the SessionStart hook (which execs tools/bootstrap.sh) and allowlists the routine safe commands sessions run constantly, so work doesn't stall on permission prompts. Add your repo's own audit/build commands.",
   "permissions": {
     "allow": [
       "Bash(grep *)",
