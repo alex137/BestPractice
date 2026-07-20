@@ -1,0 +1,5 @@
+{
+  "PR": "pull request — a reviewable bundle of changes proposed for the default branch",
+  "scrub": "the mechanical scan of the public-bound tree against the private-vocabulary blocklist",
+  "manifest": "the machine-readable registry a repo's scripts and sessions treat as the single source of truth"
+}

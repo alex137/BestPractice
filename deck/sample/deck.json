@@ -1,0 +1,18 @@
+{
+  "title": "BestPractice",
+  "subtitle": "the repo is the memory",
+  "output": "BestPractice_Deck",
+  "footer": "BestPractice — a portable process layer for agent-driven repos",
+  "glossary": "glossary.json",
+  "slides": [
+    "slides/01_cover.md",
+    "slides/02_problem.md",
+    "slides/03_repo_is_memory.md",
+    "slides/04_working_method.md",
+    "slides/05_export_loop.md",
+    "slides/06_audits.md",
+    "slides/07_decks.md",
+    {"file": "slides/08_review_only.md", "review_only": true},
+    "slides/09_close.md"
+  ]
+}
