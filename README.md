@@ -139,6 +139,15 @@ You don't need to know git deeply to use this; you need four ideas:
 4. **Check in:** periodically, propose the accumulated `process/upstream/`
    changes back to this repo as a pull request.
 
+Step 4 in the wild:
+[PR #1](https://github.com/alex137/BestPractice/pull/1) is a real check-in —
+a dependent repo reworked the templates inside its vendored copy (the
+harness-neutral split now in `templates/harness/`), ran the scrub audit, and
+proposed the diff back here; once it merged, the dependent repo recorded the
+new upstream commit in its manifest. The merged check-in PRs are this repo's
+changelog: each one is a practice improvement that was earned in a real repo,
+abstracted, and scrubbed on its way in.
+
 This repo is public. Content contributed back from private dependent repos
 must pass the scrub gate in [INSTALL.md](INSTALL.md) first — patterns and
 abstracted lessons only; no names, numbers, codes, or incident text from the
