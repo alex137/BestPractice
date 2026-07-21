@@ -8,9 +8,27 @@ so any session can pick up cold — plus the machinery to install these practice
 into a *dependent repo*, adapt them to its subject matter, and flow
 improvements back here.
 
+## The premise: you work through agents
+
+One idea underlies everything in this repo: **you don't work on the files;
+you work through agents.** You ask the questions your project exists to
+answer, and you direct agents — by critique, not by hand-editing — to keep
+the documents that answer them current. Your contribution is intent: what
+the work should say, what is wrong with it, what to pursue next. The
+agent's contribution is everything mechanical that intent implies:
+carrying a change consistently through every affected document, fixing the
+cross-references, running the audits, committing with the reason recorded.
+(See [the working method](#the-working-method-branches-plain-text-and-composed-prompts)
+for how this is driven in practice.)
+
+Taken seriously, the premise has a consequence: agents forget everything
+between sessions and honor conventions only when something enforces them.
+So the project itself must carry the memory and the discipline — which is
+exactly what the rest of this repo implements.
+
 ## Central concepts
 
-Five ideas everything else here builds on:
+Four commitments that make the premise workable:
 
 - **A git repository is the shared file system** — for every human and AI
   agent involved in the project. Committed files mean every change records
@@ -21,10 +39,6 @@ Five ideas everything else here builds on:
   format agents handle best, it diffs and merges like code, and it keeps
   humans on creating knowledge rather than formatting it — presentation
   waits until the moment you actually present.
-- **You work through agents, not directly on the files.** Ask the questions
-  your project exists to answer, and direct agents — by critique, not by
-  hand-editing — to keep the markdown that answers them current. (See
-  [the working method](#the-working-method-branches-plain-text-and-composed-prompts).)
 - **The whole project runs from a phone.** Because driving the work is a
   conversation, the Claude Code mobile app is a full workstation: review
   what an agent produced, redirect it, merge — from anywhere. Prompts stay
