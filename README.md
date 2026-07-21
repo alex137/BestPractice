@@ -8,6 +8,33 @@ so any session can pick up cold — plus the machinery to install these practice
 into a *dependent repo*, adapt them to its subject matter, and flow
 improvements back here.
 
+## Central concepts
+
+Four ideas everything else here builds on:
+
+- **A git repository is the shared file system** — for every human and AI
+  agent involved in the project. Committed files mean every change records
+  who, when, what, and why, and concurrent work reconciles through branches
+  and merges instead of overwrites. (See
+  [Git, minimally](#git-minimally-for-this-way-of-working) below.)
+- **Markdown is the shared format for the project's knowledge.** It is the
+  format agents handle best, it diffs and merges like code, and it keeps
+  humans on creating knowledge rather than formatting it — presentation
+  waits until the moment you actually present.
+- **You work through agents, not directly on the files.** Ask the questions
+  your project exists to answer, and direct agents — by critique, not by
+  hand-editing — to keep the markdown that answers them current. (See
+  [the working method](#the-working-method-branches-plain-text-and-composed-prompts).)
+  Because driving the work is just a conversation, the whole project is
+  workable from a phone in the Claude Code app.
+- **Word, PDF, and PowerPoint are output formats — and HTML usually beats
+  them.** A single HTML file travels with every figure inlined, opens in
+  any browser, and with inline JavaScript can be interactive, animated, or
+  carry video. Agents build markedly better HTML than PowerPoint, and with
+  slides as files, agents working for different team members can develop
+  different slides at once while any one of them composes the deck. (See
+  [Presentations](#presentations-slides-are-files-decks-are-builds).)
+
 ## Layout
 
 | Path | What it is |
