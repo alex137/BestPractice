@@ -287,6 +287,19 @@ every line, but sessions read file *content*, not commit metadata — in a
 repo-is-the-memory system, a date that isn't in the text effectively
 doesn't exist for the session reading the rule.
 
+Two corollaries. **Durable rules earn a record, not just a date:** for a
+rule whose age is its authority, capture the tenure and the exception
+history inline — *in effect since `<date>`; N exceptions in that time, each
+under `<circumstances>`* — because that survival record is institutional
+memory that otherwise lives only in people's heads, and it is exactly what
+tells a reader how seriously to take the rule. **Rules about model behavior
+are the most volatile class of all:** a rule that encodes "the agent's
+model handles X this way — route/decide/format accordingly" breaks
+silently when the model is upgraded under you, so it carries not just a
+date but the model it was verified against — *verified `<date>` on
+`<model>`* — and a model change is itself a re-verify trigger, not a wait
+for symptoms.
+
 **Install.** A writing habit with a natural audit extension (practice 6):
 tag rules with a review-by date or a volatility marker and a small script
 can flag overdue ones — the drift check's shape, applied to time instead of
