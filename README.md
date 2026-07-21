@@ -1,12 +1,19 @@
 # BestPractice
 
-A portable process layer for repositories where an AI agent (or a rotating cast
-of humans and agents) does the work across many short sessions: **the repo is
-the memory**. Conventions, templates, and small audit tools that keep
-orientation, open items, decisions, and hard-won lessons in committed files —
-so any session can pick up cold — plus the machinery to install these practices
-into a *dependent repo*, adapt them to its subject matter, and flow
-improvements back here.
+A chat assistant forgets everything when the conversation ends, and its
+built-in memory feature is a box you can't open or audit. BestPractice
+takes the opposite approach: **make a git repository the memory.** Like a
+kitchen run by a rotating crew of cooks — none of whom remembers
+yesterday's shift — everything worth knowing is written on the walls, so
+anyone, human or AI, can walk in cold and get straight to work.
+
+In precise terms: a portable process layer for repositories where an AI
+agent (or a rotating cast of humans and agents) does the work across many
+short sessions. Conventions, templates, and small audit tools keep
+orientation, open items, decisions, and hard-won lessons in committed
+files — so any session can pick up cold — plus the machinery to install
+these practices into a *dependent repo*, adapt them to its subject matter,
+and flow improvements back here.
 
 ## The premise: you work through agents
 
@@ -89,16 +96,6 @@ Three commitments that make the premise workable:
   session. Both are optimizations, not requirements — a typed question is
   a fine way to start.
 
-## Layout
-
-| Path | What it is |
-|---|---|
-| [PRACTICES.md](PRACTICES.md) | The catalog: each practice as a rule, the (abstracted) incident that motivated it, and how to install it. |
-| [INSTALL.md](INSTALL.md) | The agent playbook: install into a dependent repo, take updates, copy improvements back, and the proprietary-scrub gate. |
-| `templates/` | Skeletons a dependent repo instantiates: `AGENTS.md.template` (the harness-neutral instructions file), `MAP.md.template`, `TODO.md.template`, `GLOSSARY.md.template`, `bootstrap.sh`, and `harness/` (per-agent adapters: Claude Code, Codex, Gemini CLI — installable side by side). |
-| `tools/` | Portable scripts run in place: [doc_lint.py](tools/doc_lint.py) (markdown hygiene), [practice_audit.py](tools/practice_audit.py) (manifest drift + scrub gate), and [checkin.py](tools/checkin.py) (drives the §4 check-in: status / scrubbed push / verified record). |
-| `deck/` | Presentations as code: [build_deck.py](deck/build_deck.py) (the slide-deck engine), [README](deck/README.md) (the practice + conventions), [sample/](deck/sample/) (a working deck about this repo). See "Presentations" below. |
-
 ## Why this, instead of a chat thread or a memory feature?
 
 Chat assistants keep state in two places: the conversation (gone, for
@@ -133,6 +130,16 @@ repository, which buys you:
 The trade: you maintain the files. The practices in this repo exist to make
 that maintenance nearly automatic — each session updates the map, the TODO,
 and the lore as part of finishing its work.
+
+## Layout
+
+| Path | What it is |
+|---|---|
+| [PRACTICES.md](PRACTICES.md) | The catalog: each practice as a rule, the (abstracted) incident that motivated it, and how to install it. |
+| [INSTALL.md](INSTALL.md) | The agent playbook: install into a dependent repo, take updates, copy improvements back, and the proprietary-scrub gate. |
+| `templates/` | Skeletons a dependent repo instantiates: `AGENTS.md.template` (the harness-neutral instructions file), `MAP.md.template`, `TODO.md.template`, `GLOSSARY.md.template`, `bootstrap.sh`, and `harness/` (per-agent adapters: Claude Code, Codex, Gemini CLI — installable side by side). |
+| `tools/` | Portable scripts run in place: [doc_lint.py](tools/doc_lint.py) (markdown hygiene), [practice_audit.py](tools/practice_audit.py) (manifest drift + scrub gate), and [checkin.py](tools/checkin.py) (drives the §4 check-in: status / scrubbed push / verified record). |
+| `deck/` | Presentations as code: [build_deck.py](deck/build_deck.py) (the slide-deck engine), [README](deck/README.md) (the practice + conventions), [sample/](deck/sample/) (a working deck about this repo). See "Presentations" below. |
 
 ## The working method: branches, plain text, and composed prompts
 
@@ -227,6 +234,13 @@ builds this repo's own pitch — a deck about BestPractice, dogfooding the
 practice it describes.
 
 ## Quick start: using BestPractice on a brand-new repo
+
+**Just exploring?** You don't need to install anything to evaluate this.
+Open a [Claude Code](https://claude.ai/code) session on this public repo
+and ask it questions, or paste this README into any chat assistant and
+interrogate it there. (Ordinary chat assistants often can't fetch a
+github.com page directly — as of 2026-07, pasting the text is the path
+that works everywhere.)
 
 For a beginner, start to finish. You need a GitHub account and a Claude
 account with [Claude Code on the web](https://claude.ai/code) (the same flow
