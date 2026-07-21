@@ -83,6 +83,11 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   strikethrough on GitHub. `python3 process/upstream/tools/doc_lint.py`
   checks both conventions on files changed vs the default branch; run it on
   what you touch before committing.
+- **Volatile rules carry their dates** (practice 16): a rule that depends
+  on the outside world (an external platform, someone else's algorithm, a
+  tool quirk) carries *as of / verified `<date>`* inline, and a session
+  that re-confirms it updates the date. Old + unverified in a shifting
+  domain = re-verify before relying on it.
 - **Reply convention** (practice 12): every reply that created or modified
   files ends with a "Files touched" list — branch link + post-merge link +
   one-line description per file — so the reader can open the work from the

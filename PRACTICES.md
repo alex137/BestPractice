@@ -266,3 +266,29 @@ cannot be un-published.
 **Install.** Blocklist format and gate wiring in [INSTALL.md](INSTALL.md).
 Scrub before every commit that touches `process/`; re-run at check-in time
 before opening the upstream PR.
+
+## 16. Volatile rules carry their dates
+
+**Rule.** A rule whose truth depends on the outside world — the behavior of
+an external platform, an algorithm someone else changes, a tool quirk, a
+price — carries an inline date: *as of `<date>`* when adopted, updated to
+*verified `<date>`* whenever a session reaffirms it still holds. Optionally
+add a review-by cadence for rules in domains known to shift. Stable internal
+conventions don't need this; their origin story (practice 5) is enough.
+
+**Why.** Age means opposite things in different domains. A convention that
+has survived years of internal use is battle-tested; a rule about an
+external platform that has sat untouched for a year may describe a world
+that no longer exists — teams whose whole craft is tracking a
+constantly-retuned external algorithm learn this the hard way, and their
+hardest-won rules decay the fastest. The date is what lets a reader apply
+the right lens. And it must be **inline**: version control does timestamp
+every line, but sessions read file *content*, not commit metadata — in a
+repo-is-the-memory system, a date that isn't in the text effectively
+doesn't exist for the session reading the rule.
+
+**Install.** A writing habit with a natural audit extension (practice 6):
+tag rules with a review-by date or a volatility marker and a small script
+can flag overdue ones — the drift check's shape, applied to time instead of
+content. The environment-gotchas section (practice 4) is the most
+decay-prone rule set most repos have; date its entries first.
