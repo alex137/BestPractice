@@ -12,22 +12,30 @@ improvements back here.
 
 One idea underlies everything in this repo: **you don't work on the files;
 you work through agents — and you should rarely need to open a file at
-all.** To learn what the project knows, ask the agent a question — the
-questions your project exists to answer — and it assembles the answer from
-the committed files. To change what the project knows, hand the agent a
-critique — what is wrong, what you want instead — never a hand edit. Your
-contribution is intent: the questions, the judgments, what to pursue next.
-The agent's contribution is everything mechanical that intent implies:
-reading the relevant documents, carrying a change consistently through
-every affected one, fixing the cross-references, running the audits,
-committing with the reason recorded. The files are the system's memory,
-not your workspace.
+all.** An agent here is an AI assistant, like Claude Code, that can read
+the project's files, edit them, run its checks, and commit changes. To
+learn what the project knows, ask the agent the questions your project
+exists to answer; it assembles answers from the committed files. To change
+what the project knows, hand the agent a critique — what is wrong, what
+you want instead — never a hand edit. In practice:
+
+> *"What did we decide about pricing, and why?"* — the agent answers from
+> the decision log. *"The intro reads too technical for investors — make
+> it plain-English."* — the agent rewrites it, carries the change through
+> every document that quotes it, and commits with the reason recorded.
+
+Your contribution is intent: the questions, the judgments, what to pursue
+next. The agent's contribution is everything mechanical that intent
+implies: reading the relevant documents, applying changes consistently,
+fixing the cross-references, running the audits, keeping the history.
+The files are the system's memory, not your workspace.
 (See [the working method](#the-working-method-branches-plain-text-and-composed-prompts)
 for how this is driven in practice.)
 
-Taken seriously, the premise has a consequence: agents forget everything
-between sessions and honor conventions only when something enforces them.
-So the project itself must carry the memory and the discipline — which is
+Taken seriously, the premise has a consequence: an agent starts every
+session (each new conversation) knowing nothing but what is in the files,
+and it honors conventions only when something enforces them. So the
+project itself must carry the memory and the discipline — which is
 exactly what the rest of this repo implements.
 
 ## Central concepts
@@ -39,34 +47,38 @@ Three commitments that make the premise workable:
   who, when, what, and why, and concurrent work reconciles through branches
   and merges instead of overwrites. (See
   [Git, minimally](#git-minimally-for-this-way-of-working) below.)
-- **Plain text is the source; office formats only cross the boundary.**
-  The project's knowledge lives in the formats agents handle best and git
-  can diff: markdown for documents, HTML for rendered deliverables, and
-  Python for models — where you might once have built a spreadsheet, the
-  agent maintains a Python model. This keeps humans creating knowledge
-  rather than formatting it; presentation waits until the moment you
-  actually present.
-  - *Outbound*, Word, PDF, PowerPoint, and Excel are output formats,
-    generated from the sources on demand — and HTML usually beats them: a
-    single file with every figure inlined, interactive or animated with
-    inline JavaScript, and agents build markedly better HTML than
-    PowerPoint. With slides as files, agents working for different team
-    members can develop different slides at once while any one of them
-    composes the deck. (See
+- **Plain text is the source; Word, Excel, PowerPoint, and PDF are only
+  ever inputs or outputs.** The project's knowledge lives in the formats
+  agents handle best and git can diff: markdown for documents, HTML for
+  rendered deliverables, and Python for models — where you might once have
+  built a spreadsheet, the agent maintains a Python model, which you query
+  the same way as everything else: through the agent, not by reading code.
+  This keeps humans creating knowledge rather than formatting it;
+  presentation waits until the moment you actually present.
+  - **Going out:** Word, PDF, PowerPoint, and Excel files are generated
+    from the sources on demand — and HTML usually beats them: a single
+    file with every figure inlined, interactive or animated with inline
+    JavaScript, and agents build markedly better HTML than PowerPoint.
+    With slides as files, agents working for different team members can
+    develop different slides at once while any one of them composes the
+    deck. (See
     [Presentations](#presentations-slides-are-files-decks-are-builds).)
-  - *Inbound*, an arriving Excel workbook (or Word file, or PDF) is
+  - **Coming in:** an arriving Excel workbook (or Word file, or PDF) is
     extracted and analyzed by an agent into the plain-text sources. The
     original is committed to the repo so it is never lost — but per the
     premise, you should rarely need to open it again.
-- **The whole project runs from a phone.** Because driving the work is a
-  conversation, the Claude Code mobile app is a full workstation: review
-  what an agent produced, redirect it, merge — from anywhere. Prompts stay
-  composed rather than dictated (see
+- **Everything runs through the Claude Code app — desktop or mobile.**
+  Because driving the work is a conversation, either one is a full
+  workstation: review what an agent produced, redirect it, merge — from
+  anywhere, including a phone, so the gap between having an idea and
+  tasking an agent with it shrinks to wherever you are. Two optional
+  habits improve results (see
   [the working method](#the-working-method-branches-plain-text-and-composed-prompts)):
-  draft your thinking in the phone's notepad app as the thoughts arrive,
-  then paste the finished prompt into Claude Code when it's ready to act
-  on. The gap between having an idea and tasking an agent with it shrinks
-  to wherever your phone is.
+  draft your prompt in a notepad app and paste it in when it's ready,
+  rather than dictating a stream of thought; stronger still, refine the
+  prompt in a separate chat instance before handing it to the working
+  session. Both are optimizations, not requirements — a typed question is
+  a fine way to start.
 
 ## Layout
 
@@ -154,8 +166,10 @@ system compose:
 - **Composed prompts, not dictation.** Draft instructions in a separate
   editor — the length of a considered email — then paste them to the agent.
   On a phone that editor is the notepad app: capture and shape the thought
-  there, then paste it into the Claude Code app. Type directly only for
-  short commands ("merge"). Pure dictation is an
+  there, then paste it into the Claude Code app. The strongest version:
+  refine the prompt in a separate chat instance first, and hand the
+  working session the result. Type directly only for short commands
+  ("merge"). Pure dictation is an
   anti-pattern: cleaning up your own thinking before tasking an agent is
   real work that pays for itself, because the agent's output quality tracks
   the prompt's clarity, and a stream of consciousness makes the agent guess
