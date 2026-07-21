@@ -32,6 +32,15 @@ The files are the system's memory, not your workspace.
 (See [the working method](#the-working-method-branches-plain-text-and-composed-prompts)
 for how this is driven in practice.)
 
+Working through agents does not mean working blind. Every reply that
+created or modified files ends with a **"Files touched"** list: each file
+linked twice — as it stands on the working branch (the change, readable
+immediately) and as it stands on `main` (the shared version it will
+replace) — with a one-line description
+([practice 12](PRACTICES.md#12-every-reply-links-the-files-it-touched)).
+You see what happened in every interchange, and checking any change is
+one click, not a hunt through the repo.
+
 Taken seriously, the premise has a consequence: an agent starts every
 session (each new conversation) knowing nothing but what is in the files,
 and it honors conventions only when something enforces them. So the
