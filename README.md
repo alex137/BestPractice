@@ -11,13 +11,17 @@ improvements back here.
 ## The premise: you work through agents
 
 One idea underlies everything in this repo: **you don't work on the files;
-you work through agents.** You ask the questions your project exists to
-answer, and you direct agents — by critique, not by hand-editing — to keep
-the documents that answer them current. Your contribution is intent: what
-the work should say, what is wrong with it, what to pursue next. The
-agent's contribution is everything mechanical that intent implies:
-carrying a change consistently through every affected document, fixing the
-cross-references, running the audits, committing with the reason recorded.
+you work through agents — and you should rarely need to open a file at
+all.** To learn what the project knows, ask the agent a question — the
+questions your project exists to answer — and it assembles the answer from
+the committed files. To change what the project knows, hand the agent a
+critique — what is wrong, what you want instead — never a hand edit. Your
+contribution is intent: the questions, the judgments, what to pursue next.
+The agent's contribution is everything mechanical that intent implies:
+reading the relevant documents, carrying a change consistently through
+every affected one, fixing the cross-references, running the audits,
+committing with the reason recorded. The files are the system's memory,
+not your workspace.
 (See [the working method](#the-working-method-branches-plain-text-and-composed-prompts)
 for how this is driven in practice.)
 
@@ -28,17 +32,32 @@ exactly what the rest of this repo implements.
 
 ## Central concepts
 
-Four commitments that make the premise workable:
+Three commitments that make the premise workable:
 
 - **A git repository is the shared file system** — for every human and AI
   agent involved in the project. Committed files mean every change records
   who, when, what, and why, and concurrent work reconciles through branches
   and merges instead of overwrites. (See
   [Git, minimally](#git-minimally-for-this-way-of-working) below.)
-- **Markdown is the shared format for the project's knowledge.** It is the
-  format agents handle best, it diffs and merges like code, and it keeps
-  humans on creating knowledge rather than formatting it — presentation
-  waits until the moment you actually present.
+- **Plain text is the source; office formats only cross the boundary.**
+  The project's knowledge lives in the formats agents handle best and git
+  can diff: markdown for documents, HTML for rendered deliverables, and
+  Python for models — where you might once have built a spreadsheet, the
+  agent maintains a Python model. This keeps humans creating knowledge
+  rather than formatting it; presentation waits until the moment you
+  actually present.
+  - *Outbound*, Word, PDF, PowerPoint, and Excel are output formats,
+    generated from the sources on demand — and HTML usually beats them: a
+    single file with every figure inlined, interactive or animated with
+    inline JavaScript, and agents build markedly better HTML than
+    PowerPoint. With slides as files, agents working for different team
+    members can develop different slides at once while any one of them
+    composes the deck. (See
+    [Presentations](#presentations-slides-are-files-decks-are-builds).)
+  - *Inbound*, an arriving Excel workbook (or Word file, or PDF) is
+    extracted and analyzed by an agent into the plain-text sources. The
+    original is committed to the repo so it is never lost — but per the
+    premise, you should rarely need to open it again.
 - **The whole project runs from a phone.** Because driving the work is a
   conversation, the Claude Code mobile app is a full workstation: review
   what an agent produced, redirect it, merge — from anywhere. Prompts stay
@@ -48,13 +67,6 @@ Four commitments that make the premise workable:
   then paste the finished prompt into Claude Code when it's ready to act
   on. The gap between having an idea and tasking an agent with it shrinks
   to wherever your phone is.
-- **Word, PDF, and PowerPoint are output formats — and HTML usually beats
-  them.** A single HTML file travels with every figure inlined, opens in
-  any browser, and with inline JavaScript can be interactive, animated, or
-  carry video. Agents build markedly better HTML than PowerPoint, and with
-  slides as files, agents working for different team members can develop
-  different slides at once while any one of them composes the deck. (See
-  [Presentations](#presentations-slides-are-files-decks-are-builds).)
 
 ## Layout
 
@@ -118,14 +130,18 @@ system compose:
   execute**, instead of an accident humans must untangle. That is what
   makes it safe to run several agent threads against the same repo at once.
 
-- **Markdown and HTML are the source; office formats are outputs.** Work is
-  authored in plain text — markdown for documents, HTML where a rendered
-  deliverable is needed. Never Word, PDF, or PowerPoint as the *source*:
+- **Markdown, HTML, and Python are the source; office formats are
+  outputs.** Work is authored in plain text — markdown for documents, HTML
+  where a rendered deliverable is needed, Python where the work is a model
+  or analysis. Never Word, Excel, PDF, or PowerPoint as the *source*:
   binary formats can't be diffed line by line, can't be text-merged across
   branches, and can't be reviewed in a PR, so as sources they break every
-  mechanism this repo relies on. When a .docx, .pdf, or slide deck must
-  ship, a builder generates it from the markdown source (practice 8 gives
-  it provenance) and nobody ever hand-edits the output.
+  mechanism this repo relies on. When a .docx, .xlsx, .pdf, or slide deck
+  must ship, a builder generates it from the plain-text source (practice 8
+  gives it provenance) and nobody ever hand-edits the output. Files that
+  *arrive* in office formats go the other way: an agent extracts and
+  analyzes them into the sources, and the original is committed for the
+  record rather than worked on.
 
 - **Edit by critique, not by hand.** To change a document, don't open it
   and start typing — write a critique: what's wrong, what you want instead,
