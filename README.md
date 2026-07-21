@@ -10,7 +10,7 @@ improvements back here.
 
 ## Central concepts
 
-Four ideas everything else here builds on:
+Five ideas everything else here builds on:
 
 - **A git repository is the shared file system** — for every human and AI
   agent involved in the project. Committed files mean every change records
@@ -25,8 +25,15 @@ Four ideas everything else here builds on:
   your project exists to answer, and direct agents — by critique, not by
   hand-editing — to keep the markdown that answers them current. (See
   [the working method](#the-working-method-branches-plain-text-and-composed-prompts).)
-  Because driving the work is just a conversation, the whole project is
-  workable from a phone in the Claude Code app.
+- **The whole project runs from a phone.** Because driving the work is a
+  conversation, the Claude Code mobile app is a full workstation: review
+  what an agent produced, redirect it, merge — from anywhere. Prompts stay
+  composed rather than dictated (see
+  [the working method](#the-working-method-branches-plain-text-and-composed-prompts)):
+  draft your thinking in the phone's notepad app as the thoughts arrive,
+  then paste the finished prompt into Claude Code when it's ready to act
+  on. The gap between having an idea and tasking an agent with it shrinks
+  to wherever your phone is.
 - **Word, PDF, and PowerPoint are output formats — and HTML usually beats
   them.** A single HTML file travels with every figure inlined, opens in
   any browser, and with inline JavaScript can be interactive, animated, or
@@ -116,7 +123,9 @@ system compose:
 
 - **Composed prompts, not dictation.** Draft instructions in a separate
   editor — the length of a considered email — then paste them to the agent.
-  Type directly only for short commands ("merge"). Pure dictation is an
+  On a phone that editor is the notepad app: capture and shape the thought
+  there, then paste it into the Claude Code app. Type directly only for
+  short commands ("merge"). Pure dictation is an
   anti-pattern: cleaning up your own thinking before tasking an agent is
   real work that pays for itself, because the agent's output quality tracks
   the prompt's clarity, and a stream of consciousness makes the agent guess
