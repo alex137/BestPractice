@@ -87,7 +87,10 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   on the outside world (an external platform, someone else's algorithm, a
   tool quirk) carries *as of / verified `<date>`* inline, and a session
   that re-confirms it updates the date. Old + unverified in a shifting
-  domain = re-verify before relying on it.
+  domain = re-verify before relying on it. Rules about model behavior also
+  name the model they were verified on (a model upgrade = re-verify); a
+  durable rule records its tenure and exceptions (*in effect since X; N
+  exceptions, each under Y*) — its survival record is its authority.
 - **Reply convention** (practice 12): every reply that created or modified
   files ends with a "Files touched" list — branch link + post-merge link +
   one-line description per file — so the reader can open the work from the
