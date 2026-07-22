@@ -3,11 +3,11 @@
 A chat assistant forgets everything when the conversation ends, and its
 built-in memory feature is a box you can't open or audit. BestPractice
 takes the opposite approach: **make a git repository the memory.** Think
-of a research lab's shared notebook: collaborators rotate through, and no
-one remembers every experiment — but the notebook records what was tried,
-what was decided and why, and what looks worth doing next, so anyone,
-human or AI, can pick up the work cold and carry it forward with their
-own judgment.
+of a hospital chart at shift change: clinicians rotate, but the chart
+carries every observation, every decision, and the reasoning behind it —
+if it isn't in the chart, it didn't happen — so the incoming doctor picks
+up the patient cold, exercises real judgment, and nothing learned on the
+last shift is lost in the handover.
 
 In precise terms: a portable process layer for repositories where an AI
 agent (or a rotating cast of humans and agents) does the work across many
