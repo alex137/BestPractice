@@ -19,6 +19,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Slide-deck engine + deck conventions | [deck/](deck/) — engine [build_deck.py](deck/build_deck.py), practice in [deck/README.md](deck/README.md) |
 | Portable audits | [tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py) |
 | Skeletons dependent repos instantiate | [templates/](templates/) (+ per-agent adapters in [templates/harness/](templates/harness/)) |
+| File-sharing service (spec + delivery plan; not yet implemented) | [share/](share/) — [SPEC.md](share/SPEC.md), [PLAN.md](share/PLAN.md) |
 
 ## Working in this repo
 
