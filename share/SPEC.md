@@ -14,18 +14,33 @@ capability URLs they hand to exactly the people who should read them.
 
 Two deliverables live in this directory when built:
 
-1. **The service** — a small self-contained web app any BestPractice
-   user can run: use an instance someone else operates, or stand up
-   their own with one command.
-2. **The client tooling** — a deployer that pushes/maintains the
-   service on a web host given an auth token, and a publisher an agent
-   uses to post files, track who they were for, and keep links alive.
+1. **The service** — a thin publish gateway any BestPractice user can
+   run: use an instance someone else operates, or stand up their own
+   with one command. It authenticates publishers and writes into
+   object storage; recipients read straight from the storage
+   provider, never through the service.
+2. **The client tooling** — a deployer that provisions/maintains the
+   gateway and its storage given the operator's tokens, and a
+   publisher an agent uses to post files, track who they were for,
+   and keep links alive.
+
+## Who needs which credential
+
+The design goal this table makes checkable: **all cloud friction
+lands on the operator, once; users and recipients never see it.**
+
+| Role | Needs | Obtained how |
+|---|---|---|
+| Recipient | Nothing — just the link | — |
+| User (publisher) | One password | Emailed automatically when the admin adds them |
+| Operator | A host token + a storage token | From the two providers' dashboards, once, at deploy time |
 
 ## Terms
 
 | Term | Meaning |
 |---|---|
-| *instance* | One running copy of the service, at one HTTPS origin. |
+| *gateway* | The running service: authenticates publishers, writes storage. |
+| *instance* | One gateway + its storage, at one HTTPS origin pair. |
 | *operator* | Whoever deployed the instance; holds the admin token. |
 | *user* | A person the operator authorized to publish (name + email). |
 | *password* | A server-generated secret proving a user may publish. |
@@ -36,28 +51,56 @@ Two deliverables live in this directory when built:
 ## Trust model
 
 - The **operator** controls who may publish (the user list) and holds
-  the keys (admin token, scope-hash secret, email credentials).
+  the keys (admin token, scope-hash secret, storage credentials,
+  email credentials).
 - A **user** controls who may read: read URLs contain the scope-hash,
-  which only the service can derive; a user shares a read URL with
+  which only the gateway can derive; a user shares a read URL with
   exactly the intended readers. Anyone holding the URL can read —
   that is the design (capability semantics), so the sharpest rule in
-  this spec is: **an `/out/` URL is a bearer credential; treat it like
+  this spec is: **a read URL is a bearer credential; treat it like
   one** (don't post it publicly, don't log it carelessly).
 - **Readers** need nothing: no account, no cookie, just the URL.
 - Content is whatever a user publishes. A shared instance's operator
   is hosting other people's files; see "Operating a shared instance"
   below.
 
-Everything rides on HTTPS; the service refuses to serve over plain
+Everything rides on HTTPS; the gateway refuses to serve over plain
 HTTP outside local development.
 
-## The service
+## Architecture: a thin gateway over object storage
 
-A single small Python application (standard library plus at most one
-or two vetted dependencies — final call in [PLAN.md](PLAN.md) M2),
-with a SQLite database for users and file metadata and a data
-directory for blobs. No external services required except outbound
-email.
+The gateway is a single small Python application. It owns the
+*write* path and the user list; the *read* path belongs to storage:
+
+```
+publisher ──POST /in/──► gateway ──put object──► bucket
+recipient ──────────────GET (read URL)─────────► bucket
+```
+
+Storage is a pluggable backend, chosen per instance:
+
+- **`bucket` (default):** any S3-compatible object store with public
+  read on a content bucket. The gateway writes objects under
+  scope-hash prefixes; read URLs point at the bucket's public
+  domain. Expiry is a platform lifecycle rule. The gateway holds no
+  blobs and needs no volume — its only state is the user table,
+  kept in a second, *private* bucket, which makes the gateway
+  effectively stateless and trivially rebuildable.
+- **`disk`:** the self-contained single-box variant — blobs on local
+  disk, the gateway also serves `GET /out/...` itself, an in-process
+  sweeper enforces expiry. No storage provider needed; suited to a
+  VPS or anywhere a bucket is unwanted. Everything user-facing is
+  identical.
+
+Why bucket mode is the default: recipients' reads get
+platform-grade availability — **if the gateway is down, publishing
+pauses but every existing link keeps working** — and egress, serving
+load, and deletion policy all shift to infrastructure built for
+them. The gateway shrinks to the two things a bucket can't do:
+per-user publish auth with the emailed-password onboarding, and
+scope-hash derivation.
+
+## The gateway
 
 ### Publishing: `POST /in/...`
 
@@ -69,26 +112,28 @@ POST /in/{password}/{scope}/{path...}   (no Authorization header)
 ```
 
 The request body is the file's bytes; the request `Content-Type` is
-stored and replayed on reads (default `application/octet-stream`).
+stored on the object and replayed on reads (default
+`application/octet-stream`).
 
 The header form is **recommended**: URLs are copied into shell
 history, chat messages, and proxy logs, and a password embedded in a
 path travels with them. The path form is kept because it makes the
 service usable from anything that can POST to a URL, per the original
-design intent — with the mitigation that the service **never writes
+design intent — with the mitigation that the gateway **never writes
 `/in/` paths to its logs** (see "Logging rules").
 
 On success the response is `303 See Other` with
 
 ```
-Location: /out/{scope-hash}/{path...}
+Location: {content_base_url}/{scope-hash}/{path...}
 ```
 
 and a JSON body `{"url": ..., "expires_at": ...}` for clients that
-prefer parsing to redirect-following. Re-POSTing the same
-scope + path replaces the content and resets that file's expiry
-clock — this is the **refresh** operation; nothing else is needed to
-keep a link alive.
+prefer parsing to redirect-following. `content_base_url` is the
+content bucket's public domain (bucket mode) or the gateway's own
+`/out` route (disk mode). Re-POSTing the same scope + path replaces
+the content and resets that file's expiry clock — this is the
+**refresh** operation; nothing else is needed to keep a link alive.
 
 `DELETE` with the same two auth forms unpublishes early: a full path
 deletes one file; a bare scope deletes every file in the scope.
@@ -97,12 +142,12 @@ Path rules: 1–64 segments, each matching `[A-Za-z0-9._-]{1,128}`,
 no segment equal to `.` or `..`, no empty segments. Scope matches
 `[A-Za-z0-9_-]{1,64}`. Anything else is `400`.
 
-### Reading: `GET /out/{scope-hash}/{path...}`
+### Reading
 
-Serves the stored bytes with the stored `Content-Type`. `HEAD` works.
-A path ending in `/` is served as that path plus `index.html`.
-Unknown scope-hash or path, or expired content: `404` —
-indistinguishable from never-existed, so the URL space leaks nothing.
+`GET {content_base_url}/{scope-hash}/{path...}` serves the stored
+bytes with the stored `Content-Type`; `HEAD` works. Unknown
+scope-hash or path, or expired content: `404` — indistinguishable
+from never-existed, so the URL space leaks nothing.
 
 Because the full path structure is preserved under one stable prefix,
 **relative links keep working**: publish `site/index.html`,
@@ -111,10 +156,17 @@ reference each other exactly as they would on any static host. That
 is the mechanism that lets a whole rendered site travel as a set of
 individual file POSTs.
 
+One asymmetry between backends: a bare bucket does not map a
+directory URL (`.../site/`) to `index.html`, so **read links always
+name an explicit file** (`.../site/index.html`); the publisher tool
+emits them that way. Disk mode additionally honors the
+trailing-slash → `index.html` convention, but clients must not rely
+on it.
+
 ### Passwords: generated, mailed, stored hashed
 
 The admin API (below) creates a user from a name and email address.
-The service then:
+The gateway then:
 
 1. generates a random password: 26 characters of base32 (130 bits of
    entropy) — users never choose passwords;
@@ -126,7 +178,7 @@ never human-chosen — a fast unsalted hash is sound here: there is no
 dictionary to attack and no rainbow table for a 130-bit random space.
 This is a deliberate deviation from the usual "always use a slow
 salted KDF" rule, and it buys the property the URL design needs:
-the service finds the user by **O(1) hash lookup** on the presented
+the gateway finds the user by **O(1) hash lookup** on the presented
 password, so the `/in/{password}/...` form needs no username and
 costs no KDF work per request. If user-chosen passwords are ever
 allowed, this decision must be revisited (that would require
@@ -152,24 +204,32 @@ scope_hash = base32( HMAC-SHA256( SCOPE_KEY, email + "\n" + scope ) )[:26]
   across refreshes, and relative links work.
 - 26 base32 characters ≈ 130 bits: unguessable by enumeration.
 
-Rotating `SCOPE_KEY` invalidates every outstanding read URL at once —
+Rotating `SCOPE_KEY` orphans every outstanding read URL at once
+(new writes land under new prefixes; old content ages out via TTL) —
 that is the instance-wide kill switch.
 
 ### Retention: three days, refreshable
 
-Every file records `expires_at = last_write + TTL` (default 72 h,
-configurable per instance via `SHARE_TTL_HOURS`). An in-process
-sweeper deletes expired files (and their metadata) at least every
-15 minutes; expired means `404` immediately even if the sweep hasn't
-run yet. Longer lifetimes are the **client's** job: the publisher
-tool (below) re-POSTs on a schedule. This keeps the service free of
-per-file policy — it enforces one simple invariant, and durability
-beyond 72 h always has a live owner actively renewing it.
+Every file lives `TTL` after its last write (default 72 h,
+configurable per instance via `SHARE_TTL_HOURS`).
 
-A useful consequence: losing the instance's disk is an inconvenience,
-not a disaster — every live link's content is re-published by its
-owner's next refresh cycle. Persistent storage is still preferred
-(links stay unbroken *between* refreshes) but not load-bearing.
+- **Bucket mode:** enforced by a storage lifecycle rule (delete
+  objects N days after upload); an overwrite is a new upload, so a
+  refresh resets the clock. The rule is provisioned by the deployer.
+  Lifecycle granularity is daily on the major providers, so bucket
+  TTL is expressed in whole days (default 3).
+- **Disk mode:** an in-process sweeper deletes expired files at
+  least every 15 minutes; expired means `404` immediately even if
+  the sweep hasn't run yet.
+
+Longer lifetimes are the **client's** job: the publisher tool
+(below) re-POSTs on a schedule. This keeps the service free of
+per-file policy — it enforces one simple invariant, and durability
+beyond the TTL always has a live owner actively renewing it.
+
+A useful consequence: losing the instance's storage is an
+inconvenience, not a disaster — every live link's content is
+re-published by its owner's next refresh cycle.
 
 ### Admin API
 
@@ -205,7 +265,7 @@ password, and two sentences of usage.
   the user's total: `413` with a JSON body saying so.
 - Failed publish auth is rate-limited per source IP (default
   10/minute, then `429`) so the password space can't be probed.
-- No rate limit on `/out/` reads beyond the host's own.
+- No rate limit on reads beyond the storage provider's own.
 
 ### Logging rules
 
@@ -214,10 +274,12 @@ specified, not left to taste:
 
 - **Never** log the path of an `/in/` request (it may contain a
   password). Log method, scope-hash, outcome, byte count.
-- Log `/out/` requests at metadata level (scope-hash prefix, status);
-  full `/out/` paths are capabilities and stay out of logs kept
-  anywhere less protected than the instance itself.
-- Never log passwords, `ADMIN_TOKEN`, `SCOPE_KEY`, or email bodies.
+- Read URLs are capabilities; they stay out of any log kept
+  anywhere less protected than the instance itself (relevant to
+  disk mode's `/out/` route and to bucket access logs, which the
+  deployer leaves disabled by default).
+- Never log passwords, `ADMIN_TOKEN`, `SCOPE_KEY`, storage
+  credentials, or email bodies.
 
 ### Configuration reference
 
@@ -225,42 +287,56 @@ specified, not left to taste:
 |---|---|---|
 | `SHARE_ADMIN_TOKEN` | Admin bearer token | required |
 | `SHARE_SCOPE_KEY` | HMAC secret for scope-hashes | required |
+| `SHARE_STORAGE` | `bucket` or `disk` | `bucket` |
 | `SHARE_TTL_HOURS` | File lifetime after last write | `72` |
 | `SHARE_MAX_FILE_BYTES` | Per-file cap | `52428800` |
 | `SHARE_MAX_USER_BYTES` | Per-user total cap | `524288000` |
-| `SHARE_DATA_DIR` | Blob + SQLite location | `./data` |
+| `SHARE_S3_ENDPOINT` | S3-compatible API endpoint | bucket mode |
+| `SHARE_S3_KEY_ID` / `SHARE_S3_SECRET` | Storage credentials | bucket mode |
+| `SHARE_S3_CONTENT_BUCKET` | Public content bucket name | bucket mode |
+| `SHARE_S3_STATE_BUCKET` | Private state bucket (user table) | bucket mode |
+| `SHARE_CONTENT_BASE_URL` | Public base URL for read links | bucket mode |
+| `SHARE_DATA_DIR` | Blob + user-table location | disk mode: `./data` |
 | `SHARE_EMAIL_BACKEND` | `smtp` or `console` | `console` |
 | `SHARE_SMTP_*` | `HOST`, `PORT`, `USER`, `PASSWORD`, `FROM` | — |
 
 ## Hosting and the deployer
 
-### What a host must provide
+### What the gateway's host must provide
 
 1. Run a long-lived Python HTTP service (container or buildpack).
 2. HTTPS with a usable hostname, out of the box.
 3. **Fully API-driven deploys with a token** — the whole point of the
    deployer function is that an agent holding a token can create,
    deploy, and maintain the instance without a human at a dashboard.
-4. A persistent volume (preferred, not load-bearing — see Retention).
-5. Outbound SMTP or HTTPS for email.
+4. Outbound HTTPS/SMTP (storage API + email). In bucket mode no
+   volume is needed; disk mode needs one.
+
+### What the storage provider must provide (bucket mode)
+
+1. S3-compatible object API, scoped API tokens.
+2. Public read on the content bucket via an HTTPS domain
+   (custom domain preferred).
+3. Lifecycle rules deleting objects N days after upload, where an
+   overwrite resets the clock — **load-bearing for refresh**;
+   verified in [PLAN.md](PLAN.md) M1.
 
 ### Chosen targets (as of 2026-07 — verify in PLAN M1)
 
-- **Primary: Fly.io.** Token-driven Machines API and `flyctl`,
-  attachable volumes, per-app secrets, HTTPS by default; small
-  instances are cheap to free. Fits every requirement.
-- **Secondary: Render.** API-token deploys, persistent disks on paid
-  plans, HTTPS by default. Kept as the proof that the deployer's host
-  interface is really host-neutral.
-- **Escape hatch:** any Docker host — the service ships as one image,
-  so a VPS works with `docker run` and a TLS proxy; no adapter needed.
-- **Rejected: Cloudflare Workers/Pages, Vercel, Netlify** — no
-  long-lived Python process with local disk; would force a rewrite
-  into JS + object storage for no gain at this scale.
+- **Gateway host, primary: Fly.io.** Token-driven Machines API and
+  `flyctl`, per-app secrets, HTTPS by default; small instances are
+  cheap to free, and the stateless gateway needs the smallest one.
+- **Storage, primary: Cloudflare R2.** S3-compatible, zero egress
+  fees, generous free tier, per-bucket API tokens, lifecycle rules,
+  public buckets with custom domains. Amazon S3 works identically
+  through the same backend (that is what "S3-compatible" is for);
+  R2 is preferred on egress cost.
+- **Escape hatch:** any Docker host in disk mode — one image,
+  `docker run`, a TLS proxy; no storage provider, no adapter.
 
-Host capabilities and pricing are volatile; every claim above is
-dated, and PLAN M1 re-verifies them against live docs before any code
-depends on them (practice 16).
+Host and provider capabilities are volatile; every claim above is
+dated, and PLAN M1 re-verifies them against live docs before any
+code depends on them (practice 16).
 
 ### The deployer
 
@@ -271,12 +347,16 @@ depends on them (practice 16).
 python3 share/deploy.py --host fly --app my-share [--region ...]
 ```
 
-- Reads the host token from the environment (`FLY_API_TOKEN` /
-  `RENDER_API_KEY`); never from a flag, never written to disk.
-- Creates the app if absent; generates `SHARE_ADMIN_TOKEN` and
-  `SHARE_SCOPE_KEY` on first deploy and sets them as host secrets
-  (printing the admin token once, to the operator);
-  sets email configuration from the environment.
+- Reads the operator's two tokens from the environment
+  (`FLY_API_TOKEN`, `SHARE_S3_*` / a Cloudflare token); never from
+  flags, never written to disk.
+- Provisions storage: creates the content and state buckets if
+  absent, enables public read + custom domain on content, sets the
+  lifecycle rule from the TTL.
+- Provisions the gateway: creates the app if absent; generates
+  `SHARE_ADMIN_TOKEN` and `SHARE_SCOPE_KEY` on first deploy and sets
+  them as host secrets (printing the admin token once, to the
+  operator); wires storage and email configuration.
 - Builds and pushes the service image; waits for `GET /healthz` to
   return the deployed version.
 - Re-run any time: no-op when current, redeploy when the local
@@ -286,7 +366,7 @@ python3 share/deploy.py --host fly --app my-share [--region ...]
 
 `publish.py` (in this directory when built) — what an agent runs
 inside a working repo. Configuration via environment:
-`SHARE_ORIGIN` (instance URL) and `SHARE_PASSWORD` (the user's mailed
+`SHARE_ORIGIN` (gateway URL) and `SHARE_PASSWORD` (the user's mailed
 password — a secret, so it lives in the agent environment or a
 local untracked file, **never committed**).
 
@@ -306,7 +386,7 @@ of what has been shared, for whom, for how long:
       "lifetime_days": 30,
       "first_published": "2026-07-24",
       "last_refreshed": "2026-07-24T09:00:00Z",
-      "url": "https://my-share.fly.dev/out/GEZDGNBVGY3TQOJQ.../Q3_Update_send.html"
+      "url": "https://share.example.com/GEZDGNBVGY3TQOJQ.../Q3_Update_send.html"
     }
   ]
 }
@@ -328,7 +408,7 @@ of what has been shared, for whom, for how long:
 | Command | Effect |
 |---|---|
 | `publish FILE... --id ID --to LABEL --days N` | New scope, POST each file, record entry, print the read URL(s). |
-| `refresh` | For every entry within its lifetime: re-POST all files (resetting the 72 h clock); prune entries past their lifetime (DELETE the scope server-side). |
+| `refresh` | For every entry within its lifetime: re-POST all files (resetting the TTL clock); prune entries past their lifetime (DELETE the scope server-side). |
 | `list` | The registry as a table: id, recipients, expiry of the *lifetime*, last refresh. |
 | `revoke ID` | DELETE the scope server-side, mark the entry revoked. |
 
@@ -351,6 +431,13 @@ forwards the link over Signal or WhatsApp. For the next month, any
 refresh cycle keeps it alive; on day 31 the entry is pruned and the
 service forgets the file ≤72 h later.
 
+Worth remembering: for a **single self-contained HTML file** (which
+the [deck engine](../deck/README.md) produces by design), simply
+attaching the file to the chat remains the zero-infrastructure
+path — no link, no expiry, no service. Share earns its keep when the
+artifact is multi-file, or the recipient experience must be
+click-a-link.
+
 ## Operating a shared instance
 
 A shared instance means the operator is hosting files they didn't
@@ -359,13 +446,14 @@ front page; the admin API's user list plus per-user byte counts is
 the accountability mechanism (every file traces to an authorized
 user); `DELETE /admin/users/{email}?purge=1` is the remedy. The
 72 h TTL is itself the best abuse limiter — nothing stays up without
-an active owner. Operators should also know their host's terms of
-service make them, not the users, answerable for content.
+an active owner. Operators should also know their host's and storage
+provider's terms of service make them, not the users, answerable for
+content.
 
 ## Relation to the scrub gate
 
 Publishing a file from a private repo takes it outside the repo's
-protections — an `/out/` URL can be forwarded by any recipient. The
+protections — a read URL can be forwarded by any recipient. The
 publisher therefore runs the same check the check-in gate uses: if
 the repo has a `process/scrub_blocklist.txt`, `publish` scans the
 outgoing bytes and refuses on a hit (override with
@@ -378,12 +466,18 @@ point). Deliberate, auditable, one flag.
    dependencies, matches repo ethos, fine at this scale) vs a
    minimal framework (FastAPI/uvicorn — nicer routing and testing,
    two dependencies). Spec leans stdlib; confirm.
-2. **Read-side auth:** is capability-URL-only right, or should a
+2. **Single-provider variant:** the gateway is now stateless enough
+   to run as a Cloudflare Worker in front of R2 — one provider, one
+   operator token, free tier — at the price of leaving Python for
+   JS/TS. Spec keeps Python-on-Fly primary for repo-ethos reasons;
+   decide whether the Worker variant is worth speccing as a first-
+   class deployment target or noted as future work.
+3. **Read-side auth:** is capability-URL-only right, or should a
    scope optionally require a read password too? Spec says
    capability-only (matches the stated design); flag if the threat
    model needs more.
-3. **Shared flagship instance:** does anyone stand up a public
+4. **Shared flagship instance:** does anyone stand up a public
    instance for BestPractice users at large, and who operates it?
    The spec works either way; the README wording depends on it.
-4. **Quota defaults** (50 MB/file, 500 MB/user, 72 h): confirm or
+5. **Quota defaults** (50 MB/file, 500 MB/user, 72 h): confirm or
    adjust.
