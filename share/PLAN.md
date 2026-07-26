@@ -10,70 +10,76 @@ built so far).
 
 ### M0 — Spec sign-off *(this PR)*
 
-Review [SPEC.md](SPEC.md); answer its five open questions (framework,
-single-provider Worker variant, read-side auth, shared instance,
-quota defaults). Decisions get recorded by editing the spec — the
-spec stays the single source of truth; this plan only sequences it.
+Review [SPEC.md](SPEC.md); answer its three open questions
+(read-side auth, shared instance, quota defaults). Decisions get
+recorded by editing the spec — the spec stays the single source of
+truth; this plan only sequences it.
 
 **Done when:** open-questions section is empty and the PR is merged.
 
-### M1 — Provider verification spike *(small; no service code)*
+### M1 — Platform verification spike *(small; no service code)*
 
-The host and storage claims in the spec are dated 2026-07 and
-unverified against live APIs. Before code depends on them, verify by
-actually doing each once with scratch resources:
+The Cloudflare claims in the spec are dated 2026-07 and unverified
+against live APIs. Before code depends on them, verify by actually
+doing each once with scratch resources and a scoped token:
 
-- **Cloudflare R2 (storage, primary):** scoped-token bucket
-  creation; public read via custom domain; lifecycle rule deleting
-  N days after upload; and the load-bearing one — **an overwrite
-  resets the lifecycle clock** (the whole refresh design leans on
-  this; if it fails, refresh must become delete-and-rewrite or
-  copy-in-place, and the spec's Retention section changes).
-- **Fly.io (gateway host):** token-scoped app creation, secret
-  setting, deploy, all API/CLI-driven end to end.
+- **Workers:** `wrangler` deploy driven end to end by
+  `CLOUDFLARE_API_TOKEN` alone (no dashboard); secret setting;
+  request-body limit vs the 50 MB file cap; a platform
+  rate-limiting rule attached to a route.
+- **R2:** bucket creation; public read via custom domain; private
+  bucket via Worker binding; lifecycle rule deleting N days after
+  upload; and the load-bearing one — **an overwrite resets the
+  lifecycle clock** (the whole refresh design leans on this; if it
+  fails, refresh must become delete-and-rewrite or copy-in-place,
+  and the spec's Retention section changes).
+- **Email API:** one adapter's happy path (Resend or SES) called
+  from a scratch Worker.
 - Record results *with dates* in a short `HOSTS.md` in this
-  directory: exact API endpoints/CLI invocations used, token scopes
+  directory: exact commands/API endpoints used, token scopes
   needed, anything that contradicts the spec (practice 16: volatile
   facts carry verification dates).
 
 **Done when:** `HOSTS.md` exists with dated, reproduced-by-hand
-steps for both providers and an explicit verdict on
-overwrite-resets-lifecycle.
+steps and an explicit verdict on overwrite-resets-lifecycle and on
+the body-size limit.
 
 ### M2 — Gateway core *(the heart of the work)*
 
-`share/service.py` (plus the storage abstraction): publish, expiry,
-both backends.
+`share/gateway/` — the TypeScript/Hono project (one codebase, two
+runtimes per the spec): publish, expiry, storage abstraction.
 
-- Storage backend interface with both implementations: `bucket`
-  (S3-compatible: put/delete/list, user table in the private state
-  bucket) and `disk` (blobs + user table on disk, `GET /out/...`
-  route, in-process TTL sweeper).
+- Storage interface with three implementations: R2 bindings
+  (workers), S3-compatible client and local disk (container; disk
+  adds the `GET /out/...` route and the in-process TTL sweeper).
+  User table in the private bucket / state dir.
 - `POST`/`DELETE /in/...` — both auth forms; path validation;
   content-type capture; 303 + JSON response with the
-  backend-appropriate `content_base_url`.
+  mode-appropriate `content_base_url`.
 - Scope-hash HMAC derivation; quota enforcement (per-file and
-  per-user); auth-failure rate limiting.
+  per-user); container-mode auth-failure rate limiting (workers
+  mode uses the platform rule, provisioned in M4).
 - Logging exactly per the spec's logging rules.
 - Users are inserted by a dev script for now (admin API is M3);
   passwords hashed per spec from day one.
-- Tests (`share/test_service.py`, stdlib `unittest`, disk backend +
-  a fake in-memory bucket): the auth matrix (header form, path
-  form, bad password, rate limit), path traversal attempts, quota
-  edges, expiry-resets-on-rewrite, the relative-links property
-  (publish two files, follow a relative reference), and log-hygiene
-  (assert `/in/` paths never appear in captured logs).
+- Tests (vitest + the Workers local runtime via `wrangler`, plus
+  Node-runtime runs against disk and a fake S3): the auth matrix
+  (header form, path form, bad password), path traversal attempts,
+  quota edges, expiry-resets-on-rewrite, the relative-links
+  property (publish two files, follow a relative reference), and
+  log-hygiene (assert `/in/` paths never appear in captured logs).
 
-**Done when:** tests pass; a local `curl` round-trip in disk mode
-(POST → redirect → GET, wait past a short test TTL → 404) works as
-scripted in the module docstring; the same round-trip works in
-bucket mode against a real R2 bucket by hand.
+**Done when:** tests pass on both runtimes; a local `curl`
+round-trip in container-disk mode (POST → redirect → GET, wait past
+a short test TTL → 404) works as scripted in the project README;
+the same round-trip works by hand against a real R2 bucket.
 
 ### M3 — Admin API + email *(small)*
 
 - `PUT`/`DELETE`/`GET /admin/users...`, `GET /healthz` per spec.
-- Email backends: `smtp` (stdlib) and `console`; the
-  password-generation → mail → store-hash-only flow.
+- Email backends: `api` (adapter interface; Resend + SES adapters)
+  and `console`; the password-generation → mail → store-hash-only
+  flow.
 - Tests: rotation replaces the hash, `?purge=1` removes content,
   admin routes reject non-admin tokens, console backend never runs
   under a production flag.
@@ -84,15 +90,16 @@ mailed (printed) password.
 
 ### M4 — Deployer *(depends on M1, M3)*
 
-`share/deploy.py` per spec: Fly.io gateway + R2 storage.
+`share/deploy.py` per spec: plain Python driving `wrangler` and the
+Cloudflare API.
 
-- Idempotent provision/deploy/verify loop across both providers:
-  buckets (create, public read, custom domain, lifecycle rule from
-  TTL) and gateway (app, secrets generated on first deploy, image,
-  health-check gate on `/healthz` version). Tokens from environment
-  only.
-- Dockerfile for the gateway (also the disk-mode escape-hatch
-  artifact).
+- Idempotent provision/deploy/verify loop: buckets (create, public
+  read + custom domain, lifecycle rule from TTL), Worker (secrets
+  generated on first deploy, bindings, rate-limit rule, deploy),
+  health-check gate on `/healthz` version. Token from environment
+  only; friendly preflight for Node + `wrangler`.
+- Dockerfile for the container escape hatch, built from the same
+  gateway source.
 - A real instance is deployed and stays up as the reference/test
   instance (operator + billing per the M0 shared-instance answer).
 
@@ -102,12 +109,13 @@ produces a live instance then a verified no-op, documented in
 
 ### M5 — Publisher *(depends on M2; can start in parallel with M4)*
 
-`share/publish.py` per spec: registry, `publish` / `refresh` /
-`list` / `revoke`, scrub-blocklist check, staleness warning,
-explicit-file read links (no directory URLs).
+`share/publish.py` per spec — plain Python stdlib (this is the piece
+dependent repos vendor): registry, `publish` / `refresh` / `list` /
+`revoke`, scrub-blocklist check, staleness warning, explicit-file
+read links (no directory URLs).
 
-- Tests against a local disk-mode instance: fresh scope per entry,
-  refresh resets server expiry, prune-after-lifetime deletes
+- Tests against a local container-disk instance: fresh scope per
+  entry, refresh resets server expiry, prune-after-lifetime deletes
   server-side, revoke, blocklist refusal + override flag.
 - Docs: a "how a dependent repo wires the refresh cadence" section —
   Routine/cron, session-start hook, or manual — with the
@@ -118,11 +126,12 @@ explicit-file read links (no directory URLs).
 the M4 instance: one command publishes, the registry commit shows
 who it was for, `refresh` keeps it alive, lifetime expiry prunes it.
 
-### M6 — Hardening + storage neutrality *(cleanup)*
+### M6 — Hardening + container-mode proof *(cleanup)*
 
-- Prove the bucket backend is genuinely S3-neutral by running it
-  against Amazon S3 (or another S3-compatible store) unchanged;
-  record differences in `HOSTS.md`.
+- Prove the escape hatch for real: the Docker image running on one
+  ordinary container host with the S3 backend pointed at a
+  non-Cloudflare store, same test suite green; record differences
+  in `HOSTS.md`.
 - Abuse-posture items: instance front page with operator contact,
   `list`-style admin visibility already in place from M3.
 - Revisit quotas/limits against real usage; fold lessons back into
@@ -131,31 +140,31 @@ who it was for, `refresh` keeps it alive, lifetime expiry prunes it.
   and [AGENTS.md](../AGENTS.md) quick index (row added at M0 already
   points here).
 
-**Done when:** the same gateway build runs green against two
-S3-compatible providers, and the spec matches what is actually
-running.
+**Done when:** the same gateway build runs green on Workers and in
+the container, and the spec matches what is actually running.
 
 ## Sequencing at a glance
 
 ```
-M0 spec ──► M1 providers ──────► M4 deployer ──► M6 hardening
+M0 spec ──► M1 platform ───────► M4 deployer ──► M6 hardening
    │                                  ▲               ▲
    └──────► M2 gateway ──► M3 admin ──┘               │
                  └───────► M5 publisher ──────────────┘
 ```
 
-M2 is the long pole; M1 is deliberately first and tiny so provider
+M2 is the long pole; M1 is deliberately first and tiny so platform
 surprises — above all the lifecycle-reset question — arrive before,
-not after, the service is built around them.
+not after, the gateway is built around them.
 
 ## Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
 | Lifecycle rules don't reset on overwrite | M1 verifies this first, by hand, before M2 starts; fallback designs (delete-and-rewrite refresh) identified in M1. |
-| Provider API drift invalidates deployer assumptions | M1 verifies by doing, `HOSTS.md` dates everything (practice 16); disk-mode Dockerfile means no provider is load-bearing. |
+| Workers platform limits (body size, CPU) bite | M1 measures against the real limits; file cap is configurable under whatever the platform allows. |
+| Provider API drift invalidates deployer assumptions | M1 verifies by doing, `HOSTS.md` dates everything (practice 16); the container image means Cloudflare is not load-bearing. |
 | Secret leakage via logs or URLs | Logging rules are spec'd, not advisory; M2 has a test asserting `/in/` paths never hit logs; bucket access logs stay disabled. |
 | Storage loss breaks live links | By design: refresh cycles republish everything (spec, Retention). |
-| Email deliverability (passwords not arriving) | SMTP backend is provider-agnostic; admin rotation is the retry path; M3 keeps `console` for dev only. |
+| Email deliverability (passwords not arriving) | Adapter interface keeps the provider swappable; admin rotation is the retry path; M3 keeps `console` for dev only. |
 | Shared-instance abuse | 72 h TTL, per-user quotas + accounting, purge remedy, operator contact (spec, Operating a shared instance). |
 | Capability URLs committed to a public repo | Registry-location caveat in spec + publisher docs (M5); scrub gate integration refuses blocklisted content. |
