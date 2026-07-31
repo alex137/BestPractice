@@ -9,13 +9,26 @@ if it isn't in the chart, it didn't happen — so the incoming doctor picks
 up the patient cold, exercises real judgment, and nothing learned on the
 last shift is lost in the handover.
 
-In precise terms: a portable process layer for repositories where an AI
-agent (or a rotating cast of humans and agents) does the work across many
-short sessions. Conventions, templates, and small audit tools keep
-orientation, open items, decisions, and hard-won lessons in committed
-files — so any session can pick up cold — plus the machinery to install
-these practices into a *dependent repo*, adapt them to its subject matter,
-and flow improvements back here.
+BestPractice keeps a project's AI memory in a git repository — instead of
+losing it in overlong chat threads or scattering it across a filesystem
+with no change tracking. The memory is markdown files, and an index file
+tells every new session exactly where to look. That is what lets several
+chat threads work on the project at once, sharing what they produce
+through the repo and handing off through commit messages instead of
+manual catch-ups — and it is why someone new to the project, human or AI,
+can open a coding agent on the repo, ask questions, and know everything
+they need within minutes. (New to git? Start with
+[Git, minimally](GIT.md).)
+
+You can still ask for Word, Excel, PowerPoint, or PDF outputs, but the
+system encourages HTML: coding agents build much better HTML than office
+files, and the conventions here make sure every graphic and animation is
+inlined, so a deliverable still ships as a single file — with far more
+room for interactivity than the office formats allow.
+
+This repo is that practice layer, packaged to install: conventions,
+templates, and small audit tools you copy into your own repo and adapt to
+its subject matter, with improvements flowing back here as pull requests.
 
 ## The premise: you work through agents
 
@@ -63,8 +76,7 @@ Three commitments that make the premise workable:
 - **A git repository is the shared file system** — for every human and AI
   agent involved in the project. Committed files mean every change records
   who, when, what, and why, and concurrent work reconciles through branches
-  and merges instead of overwrites. (See
-  [Git, minimally](#git-minimally-for-this-way-of-working) below.)
+  and merges instead of overwrites. (See [Git, minimally](GIT.md).)
 - **Plain text is the source; Word, Excel, PowerPoint, and PDF are only
   ever inputs or outputs.** The project's knowledge lives in the formats
   agents handle best and git can diff: markdown for documents, HTML for
@@ -139,6 +151,7 @@ and the lore as part of finishing its work.
 |---|---|
 | [PRACTICES.md](PRACTICES.md) | The catalog: each practice as a rule, the (abstracted) incident that motivated it, and how to install it. |
 | [INSTALL.md](INSTALL.md) | The agent playbook: install into a dependent repo, take updates, copy improvements back, and the proprietary-scrub gate. |
+| [GIT.md](GIT.md) | The eight git ideas this way of working needs — branches, merges, PRs, permissions — for readers new to git. |
 | `templates/` | Skeletons a dependent repo instantiates: `AGENTS.md.template` (the harness-neutral instructions file), `MAP.md.template`, `TODO.md.template`, `GLOSSARY.md.template`, `bootstrap.sh`, and `harness/` (per-agent adapters: Claude Code, Codex, Gemini CLI — installable side by side). |
 | `tools/` | Portable scripts run in place: [doc_lint.py](tools/doc_lint.py) (markdown hygiene), [practice_audit.py](tools/practice_audit.py) (manifest drift + scrub gate), and [checkin.py](tools/checkin.py) (drives the §4 check-in: status / scrubbed push / verified record). |
 | `deck/` | Presentations as code: [build_deck.py](deck/build_deck.py) (the slide-deck engine), [README](deck/README.md) (the practice + conventions), [sample/](deck/sample/) (a working deck about this repo). See "Presentations" below. |
@@ -237,26 +250,33 @@ practice it describes.
 
 ## Quick start: using BestPractice on a brand-new repo
 
-**Just exploring?** You don't need to install anything to evaluate this.
-Open a [Claude Code](https://claude.ai/code) session on this public repo
-and ask it questions, or paste this README into any chat assistant and
-interrogate it there. (Ordinary chat assistants often can't fetch a
-github.com page directly — as of 2026-07, pasting the text is the path
-that works everywhere.)
+**Just exploring?** Paste this README into any chat assistant and ask it
+questions — no install, no accounts.
 
-For a beginner, start to finish. You need a GitHub account and a Claude
-account with [Claude Code on the web](https://claude.ai/code) (the same flow
-works in the Claude Code CLI or desktop app if you prefer a terminal).
+For a beginner, start to finish:
 
-1. **Create the repo.** On github.com: **+ → New repository** → give it a
-   name → select **Private** (recommended for your own work; see the scrub
-   gate below for what "private" protects) → check **Add a README file** →
-   **Create repository**.
-2. **Open Claude Code on it.** Go to [claude.ai/code](https://claude.ai/code)
-   and start a new session on that repository. The first time, you'll be
-   asked to connect GitHub and authorize access to the repo (an
-   install/permission screen from GitHub) — approve it for the new repo.
-3. **Paste a bootstrap prompt** like this as your first message, filling in
+0. **Get two accounts**, if you don't have them already: a git host —
+   [GitHub](https://github.com) is the worked example throughout, but any
+   host your agent can reach works — and a coding agent, e.g.
+   [Claude Code](https://claude.ai/code),
+   [Codex](https://openai.com/codex/),
+   [Gemini CLI](https://github.com/google-gemini/gemini-cli), or
+   [Grok](https://grok.com/). The practice layer is agent-agnostic: the
+   canonical instructions file is
+   [`AGENTS.md`](templates/AGENTS.md.template), everything else is git +
+   markdown + plain Python, and per-agent adapters for Claude Code,
+   Codex, and Gemini CLI install side by side (see
+   [templates/harness/README.md](templates/harness/README.md)), so mixed
+   agent teams share one contract.
+1. **Open your coding agent on a repo** — brand-new or existing. If
+   creating one on github.com (**+ → New repository**), select
+   **Private** (recommended for your own work; see the scrub gate below
+   for what "private" protects) and check **Add a README file** — that
+   option has nothing to do with BestPractice; it just gives the empty
+   repo a first commit so agents have something to open. The first time,
+   you'll be asked to authorize the agent's access to the repo — approve
+   it.
+2. **Paste a bootstrap prompt** like this as your first message, filling in
    the two blanks:
 
    ```
@@ -276,81 +296,18 @@ works in the Claude Code CLI or desktop app if you prefer a terminal).
    commit everything on a branch.
    ```
 
-4. **Review and merge.** The agent will push a branch; skim the generated
+   (When creating a new repo, github.com also offers a box that hands a
+   first prompt to its Copilot agent. As of 2026-07 the bootstrap prompt
+   is untested there — it needs to clone this public repo, generate
+   files, and run a Python audit — so prefer a full coding-agent session,
+   the verified path.)
+
+3. **Review and merge.** The agent will push a branch; skim the generated
    files (especially the instructions file — it's the contract every future
    session works under), then merge.
-5. **Work normally.** From now on, every session orients from `MAP.md`,
+4. **Work normally.** From now on, every session orients from `MAP.md`,
    records open items in `TODO.md`, and runs the export gate before merging.
    That's the whole system — the practices maintain themselves from here.
-
-**Not a Claude Code user?** The practice layer is agent-agnostic: the
-canonical instructions file is `AGENTS.md` (read natively by Codex and
-others), and everything else is git + markdown + plain Python. The same
-bootstrap prompt works in any agent that can read a public repo; see
-[templates/harness/README.md](templates/harness/README.md) for the per-agent
-wiring (Claude Code, Codex, Gemini CLI — installable side by side, so mixed
-agent teams share one contract).
-
-## Git, minimally, for this way of working
-
-You don't need to know git deeply to use this; you need eight ideas:
-
-- **The default branch (`main`) is the shared truth.** It is what every new
-  session reads for orientation. Nothing is "real" until it lands there.
-- **Each thread works on its own branch** — a private copy of the repo where
-  a session (or a person) can make any number of commits without disturbing
-  anyone else. Two threads on two branches never conflict *while working*;
-  reconciliation happens once, at merge time, under the runbook's rules.
-- **Branch work is invisible to everyone else until it lands on `main` —
-  and they catch up.** Publishing takes two steps: your branch must be
-  *merged* into `main`, and then each collaborator (human or agent session)
-  must *pull* the updated `main` into their own copy. Until both happen,
-  don't expect others to see your work — a pushed branch technically exists
-  on the server, but nobody working from `main` will encounter it. The same
-  holds in reverse: someone else's unmerged branch is invisible to you,
-  which is why "it's not in the repo" really means "it's not in `main` yet."
-- **A pull request (PR) is a reviewable bundle of changes** — "here is
-  everything branch X wants to add to main, as a diff." If several people
-  (or several agent threads) touch the same repo, PRs are where a second
-  pair of eyes goes: you can ask a colleague, or another agent session, to
-  review a branch before it merges. For a solo repo, PRs are optional —
-  merging directly is fine; the audits are the real gate either way.
-- **Permissions decide who may merge.** On a repo someone else owns, you may
-  find you can push branches and open PRs but not merge them — the owner
-  reviews and merges on their schedule; that's normal, not an error. The
-  same lever works for you in the other direction: when your repo gains a
-  second contributor, you can require that all changes to `main` go through
-  a PR that only you approve and merge (on GitHub: repo Settings →
-  Branches → a branch protection/ruleset on `main` requiring pull requests
-  before merging). Contributors then work freely on branches while every
-  change to the shared truth waits for your review — a good default the
-  moment a repo stops being solo.
-- **History is permanent.** Every commit is recoverable, so bold edits are
-  safe: anything can be diffed against any earlier state and reverted. This
-  is what makes "the repo is the memory" trustworthy — memory that can't be
-  silently lost or rewritten.
-- **One agent can work on branches of several repositories at once.**
-  Nothing about git or agents limits a session to a single repo: give it
-  access to two (or more) repositories — on GitHub, each repo the agent's
-  app installation is permitted to touch; in the Claude Code app
-  specifically, you pick which repos the session can access when you
-  create it — and it can hold a branch open in each and commit to all of
-  them in one conversation. This is not a BestPractice feature, just a
-  practical fact coding tools take for granted that matters here: it is
-  how **cross-cutting work** gets done — moving content from one repo to
-  another, reorganizing which repo owns what, keeping a shared layer in
-  sync across repos. This repo's own check-in loop is the worked example:
-  a dual-repo session abstracts a practice in the private dependent repo
-  and lands it here, in a single thread.
-- **An agent session's repo access is fixed when the session starts.** On
-  hosted agent platforms, a session can write only to the repo(s) you
-  selected when creating it. A session opened on one repo can usually still
-  *read* a public repo (clone it, diff against it) but cannot push branches
-  or open PRs there — writes fail even though reads work, which is
-  confusing the first time you hit it. So decide up front: if a session's
-  plan includes pushing to a second repo (the check-in step below, for
-  example), **select both repos when you create the session** — you
-  generally can't add write access mid-session.
 
 ## How it's used (short version)
 
@@ -369,7 +326,7 @@ You don't need to know git deeply to use this; you need eight ideas:
 4. **Check in:** periodically, propose the accumulated `process/upstream/`
    changes back to this repo as a pull request — in a session opened with
    **both** your repo and BestPractice selected (see the session-scope idea
-   in the git section above, and [INSTALL.md](INSTALL.md) §4).
+   in [Git, minimally](GIT.md), and [INSTALL.md](INSTALL.md) §4).
 
 Step 4 in the wild:
 [PR #1](https://github.com/alex137/BestPractice/pull/1) is a real check-in —
