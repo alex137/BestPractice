@@ -305,3 +305,104 @@ tag rules with a review-by date or a volatility marker and a small script
 can flag overdue ones — the drift check's shape, applied to time instead of
 content. The environment-gotchas section (practice 4) is the most
 decay-prone rule set most repos have; date its entries first.
+
+## 17. Acronyms are expanded, and a central glossary holds them
+
+**Rule.** A domain-dense repo accumulates far more acronyms and coined terms
+than any reader — human or agent — keeps in their head. So: (a) **expand an
+acronym on first use** in a document — *long form (ACRONYM)* — and/or carry a
+short **"Acronyms" note at the bottom** of a document that uses several; and
+(b) keep **one central glossary file** as the living master list, so an
+expansion is never re-derived from scratch. When a session uses a term that
+isn't in the glossary, it adds it there in the same pass. Identifiers that
+already have their own registry (a code table, a component index) are pointed
+to, not duplicated.
+
+**Why.** In a repo-is-the-memory system the reader arriving at a document is
+usually *not* the person who wrote it and often has none of the surrounding
+context — the exact case an acronym silently assumes. One undefined initialism
+can make a paragraph unreadable, and the cost compounds: a suite with dozens
+of coined two- and three-letter terms becomes navigable only to its authors,
+which defeats the point of writing it down. The central list is the same
+single-source-of-truth instinct as practice 7 — derive the expansion in one
+place, reference it everywhere — and the bottom-of-document note is the local,
+low-friction form for the reader who won't leave the page.
+
+**Install.** A writing convention plus one living file (a `GLOSSARY.md` grouped
+by theme, alphabetical within a group), and the natural audit extension
+(practice 6) is built: [tools/doc_lint.py](tools/doc_lint.py) check 3 scans each
+changed document for ALL-CAPS tokens absent from `GLOSSARY.md` — skipping ones
+defined inline on the line (`long form (TOKEN)`) and a stoplist of common
+words/units — and warns, the same "convention → loud check" shape as its
+link/strikethrough checks. Warning-only and auto-disabled when the repo has no
+`GLOSSARY.md`, so it never blocks a repo that hasn't adopted the practice.
+
+## 18. Filenames have no version suffix; the VCS is the version
+
+**Rule.** A new file is named for what it *is*, with no `_v1` / `_rev2` label —
+the repository already versions every line, so a version number baked into the
+filename is redundant at best and misleading at worst (it goes stale the moment
+the file is edited without a rename). A numeric suffix earns its place only when
+two versions must **coexist** and a reader has to tell them apart (a successor
+kept beside its predecessor for history); then it is the *new* file that is
+suffixed, not the old one retro-renamed. An existing suffixed backlog is left
+alone — bulk-renaming breaks the very references (links, records) the names are
+load-bearing for; drop the suffix only from a file already being moved for
+another reason, fixing its references in the same pass.
+
+**Why.** "`_v1`" is the classic redundant-with-VCS habit: it answers a question
+the version-control history already answers, and unlike the history it does not
+update itself — a `_v1` file edited fifty times still says `_v1`, so the label
+actively lies. It also invites a rename on every real revision (churning the
+references), or worse, a `_v2` copy that forks the file and splits its history.
+Naming for identity instead keeps one stable handle per document and lets the
+tool whose job is versioning do the versioning.
+
+**Install.** A naming convention; no tooling needed. The one judgment call —
+"do two versions genuinely need to coexist?" — is rare and deliberate, so it is
+left to the author rather than a lint.
+
+## 19. Computed numbers live in scripts; documents embed sync-gated generated blocks
+
+**Rule.** When a document presents content that a script computes — a summary
+table, a cost rollup, a comparison grid — the document region is wrapped in
+invisible sentinels:
+
+    <!--gen:NAME-->
+    ...generated markdown...
+    <!--/gen:NAME-->
+
+the script gains an `--emit NAME` mode that prints exactly that block, and the
+(document, block, script) triple is registered with a small sync tool
+(`tools/doc_sync.py`). The bare tool run is a **drift gate** — it fails loudly
+when the document's block no longer matches the script's output — and runs with
+the repo's other pre-commit gates; `--write` regenerates the blocks in place.
+Never hand-edit inside a generated block: the numbers live in the script, the
+document is a render target.
+
+**Why.** Derived numbers quoted in prose silently lag the source that computes
+them. Nothing breaks; a human just has to *notice* the staleness — and in one
+dependent repo a headline comparison table lagged the scripts behind it until
+the repo owner had to ask "did you update the table?". The reminder itself was
+the bug: consistency between a computing script and the documents quoting it is
+exactly the kind of convention that must become an audit (practice 6), because
+it is mechanical to check and embarrassing to miss. The sentinel form matters:
+HTML comments render as nothing on hosted markdown, so the plumbing is
+invisible to readers, and the block boundaries make regeneration deterministic
+(no fuzzy matching against drifting prose).
+
+**Install.** Copy `tools/doc_sync.py`; register pairs in its `PAIRS` list; wrap
+the generated regions; give each computing script an `--emit` mode. Wire the
+bare run into the same "run before committing" list as the other gates. Start
+with whichever document has already bitten you — the one someone had to be
+reminded to update.
+
+Two extensions the tool enforces once pairs exist. **The provenance footer:**
+every registered document ends with a `**Numbers by:**` footer naming each
+script that feeds it (the tool fails on a missing footer or an unnamed
+script) — so a reader of the rendered page always knows which code produced
+the numbers, without opening the sync tool's registry. **Composition:** an
+emitting script may import other computing scripts and re-emit their numbers
+in a new arrangement (a per-product sheet drawing on several models); the
+sync gate then flags every downstream document when any upstream script
+changes — the dependency graph rides the registry for free.
