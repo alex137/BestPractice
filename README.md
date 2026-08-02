@@ -54,7 +54,9 @@ back into BestPractice for everyone ([INSTALL.md](INSTALL.md) §4).
 1. **Set up a GitHub repository** for your project — brand-new or one
    that already has your files in it
    ([how, and why GitHub](GIT.md)).
-2. **Open the repository in Claude Code or Codex** and paste:
+2. **Open the repository in Claude Code or Codex** (for Claude: go to
+   [claude.ai/code](https://claude.ai/code) and start a session on the
+   repository) and paste:
 
    > Follow the instructions at
    > https://github.com/alex137/BestPractice/blob/main/SETUP.md

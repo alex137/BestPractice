@@ -54,17 +54,16 @@ else to set up.
 
 1. Open Codex (in ChatGPT or at its own interface) and connect it to
    `<OWNER/REPOSITORY>`.
-2. Codex reads this repository's `AGENTS.md` natively.
+2. Codex follows the project's instruction files automatically.
 3. Give it a task or a question, the same way as any coding session.
 
 ## ChatGPT users
 
 A plain ChatGPT conversation with the GitHub connector can **read** this
-project and answer questions dependably. **Writing** (changing files,
-opening pull requests) from a plain conversation is not currently treated
-as reliable *(as of 2026-08)* — route changes through Codex or ask a
-teammate with a coding agent; the repository's automatic checks protect
-the result either way.
+project and answer questions dependably. **Making changes** from a plain
+conversation is not currently reliable *(as of 2026-08)* — have Codex
+make the changes, or hand them to a teammate who uses Claude Code or
+Codex; the project's automatic checks protect the result either way.
 
 1. Connect the GitHub connector to `<OWNER/REPOSITORY>` if you haven't.
 2. Start each new project conversation with:
@@ -74,18 +73,18 @@ the result either way.
 
 3. Then ask your question or describe the change you want.
 
-Working from an iPhone a lot? The project's practice layer includes an
-iPhone Shortcut recipe that prepares this starting message for you — see
-`process/upstream/MOBILE.md`.
+Working from an iPhone a lot? This project includes an iPhone Shortcut
+recipe that prepares this starting message for you — see the phone guide
+at `process/upstream/MOBILE.md`.
 
 ## Gemini users
 
-The Gemini CLI (a desktop tool) works with this project through an
-installed adapter that points it at the repository's instructions.
-*(As of 2026-08; a phone-based Gemini workflow is unverified.)* If you
-use the Gemini app rather than the CLI, follow the "Any other assistant"
-instruction below for reading and questions, and route file changes
-through a teammate with a coding agent.
+The Gemini CLI (a desktop tool) is already wired to this project's
+instructions — nothing for you to configure. *(As of 2026-08; a
+phone-based Gemini workflow is unverified.)* If you use the Gemini app
+rather than the CLI, follow the "Any other assistant" line below for
+reading and questions, and hand changes to a teammate who uses Claude
+Code or Codex.
 
 ## Grok users
 
@@ -93,12 +92,12 @@ Not yet verified with this workflow *(as of 2026-08)*. If Grok can reach
 the repository, use the same starting instruction as ChatGPT users above.
 Otherwise, treat Grok as a disconnected assistant: paste in the documents
 you're discussing, work out what you want changed, and hand the change
-request to a teammate with a coding agent.
+request to a teammate who uses Claude Code or Codex.
 
 ## Any other assistant
 
-Any assistant that can read this repository can follow the same universal
-instruction:
+Any assistant that can read this repository understands the same one-line
+opener:
 
 > Work on `<OWNER/REPOSITORY>`. Start with its README and follow the
 > repository's agent instructions before answering.
@@ -115,7 +114,8 @@ instruction:
   a hand edit skips the checks the project relies on.
 - **Your work lands on its own working copy.** Nothing you do can break
   the shared project; changes only join it after review and approval.
-- **Office files are welcome, but they're traffic, not the source.** Send
+- **Office files are welcome, but they're for input and output — not
+  where the project's knowledge lives.** Send
   the assistant a Word, Excel, PowerPoint, or PDF file and it will
   extract what matters into the project (the original is kept for the
   record). Ask for one and it will be generated for you — though a
@@ -124,5 +124,5 @@ instruction:
   several people can develop slides at once).
 - **Compose bigger requests.** For anything substantial, draft your
   request in a notes app first, then paste it — the assistant's output
-  quality tracks the clarity of what you hand it. (More habits like this:
-  `process/upstream/METHOD.md`.)
+  quality tracks the clarity of what you hand it. (More habits like this
+  in the project's method guide: `process/upstream/METHOD.md`.)
