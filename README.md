@@ -1,12 +1,11 @@
 # BestPractice
 
-> **Working with an AI assistant?** Ask it: “Work on `alex137/BestPractice`.
-> Start with its README and follow the repository's agent instructions before
-> answering.” Agents working on this repository should then read
-> [AGENTS.md](AGENTS.md). See [Working on a phone](MOBILE.md) for ChatGPT,
-> Claude Code, and iPhone Shortcut setup.
+<!-- AI assistants working on this repository: read AGENTS.md before
+     answering questions or changing files. -->
 
 BestPractice helps people and AI assistants work together on a shared project without losing decisions, repeating work, or passing around outdated files.
+
+This README is for the **project administrator** — the person who sets up the repository and decides how the team works. Project members never need to read it: they get a link to a Getting Started file inside your project with instructions for their own AI tool (see [Onboarding members](#onboarding-members) below).
 
 You work by talking to an AI assistant:
 
@@ -19,9 +18,9 @@ Behind the scenes, the project lives in a GitHub repository. GitHub keeps the cu
 
 Think of a hospital chart at shift change: clinicians rotate, but the chart carries every observation, every decision, and the reasoning behind it — if it isn't in the chart, it didn't happen — so the incoming doctor picks up the patient cold and nothing learned on the last shift is lost in the handover. The repository is that chart for your project.
 
-**You do not need to be a programmer.** Most day-to-day work happens through conversation. GitHub is the shared filing system underneath it.
+**Nobody on the team needs to be a programmer.** Most day-to-day work happens through conversation. GitHub is the shared filing system underneath it.
 
-## What using it feels like
+## What your members experience
 
 You might ask:
 
@@ -37,15 +36,15 @@ The assistant finds the relevant material, makes the changes consistently, check
 
 You provide the intent and judgment. The assistant handles the files, cross-references, checks, and history.
 
-## The basic workflow
+All of this works from a phone — members can ask, review, and approve from the Claude Code mobile app or their assistant's app. [MOBILE.md](MOBILE.md) has the per-assistant mobile workflows, an iPhone Shortcut, and the current reliability status of each assistant (dated, since platforms change).
 
-1. Open the project with an AI assistant that can access its GitHub repository.
-2. Tell the assistant to start with the README and follow the repository's agent instructions.
-3. Tell the assistant what you want to know or change.
-4. Review its answer or proposed changes.
-5. Approve the change so the rest of the team receives it.
+## How members get started
 
-That is the core of BestPractice. The rest of this repository supports and safeguards that workflow.
+Members receive one link: to `GETTING_STARTED.md` in your repository. BestPractice installs that file and keeps it current, with a table of contents and specific instructions for each kind of AI user — Claude (Claude Code), Codex, ChatGPT, and Grok. A member opens the section for their tool, follows a few steps, and starts asking questions; the repository's own instruction files take it from there.
+
+The file is instantiated from [templates/GETTING_STARTED.md.template](templates/GETTING_STARTED.md.template), so improvements to the onboarding instructions propagate to your project whenever your vendored copy of BestPractice is updated ([INSTALL.md](INSTALL.md) §2).
+
+That is the core of BestPractice for your team: you administer the repository; members just talk to their assistant. The rest of this repository supports and safeguards that workflow.
 
 ## Why keep the project in GitHub?
 
@@ -59,36 +58,18 @@ BestPractice gives the team a shared, inspectable memory:
 - Several people can work without silently overwriting one another.
 - A new person or AI session can understand the project by reading its map and asking questions.
 - Changes record what happened and why.
+- Rules that matter are enforced by automatic checks, not by reminding people.
 
 The repository is the memory. The chat is the way you work with it.
 
 GitHub is the worked example throughout these documents, and BestPractice currently leans on GitHub features (pull requests, Actions checks) deliberately. The layer itself is plain git, markdown, and Python, so equivalents on other hosts such as Gitea can be added later — see [TODO.md](TODO.md).
-
-## Working from a phone
-
-BestPractice can be driven from a phone. The simplest universal starting instruction is:
-
-> Work on `OWNER/REPOSITORY`. Start with its README and follow the repository's agent instructions before answering.
-
-A BestPractice repository's README routes the assistant to `AGENTS.md`, which contains the canonical working rules, and `MAP.md`, which locates the project's knowledge.
-
-Claude Code can load repository-backed instructions through its coding-agent interface. A GitHub-connected ChatGPT conversation needs the short starting instruction at the beginning of each new project conversation. Repository checks such as Markdown lint can run through GitHub Actions even when the chat has no local terminal.
-
-See [Working with BestPractice on a phone](MOBILE.md) for:
-
-- Claude Code and ChatGPT mobile workflows;
-- the compact and defensive starting instructions;
-- an iPhone Shortcut that selects a repository, asks for a task, prepares the prompt, and opens ChatGPT;
-- a text-replacement alternative; and
-- reviewing branches, checks, and pull requests from a phone.
-
-*Platform behavior verified August 2, 2026. Product interfaces and connector capabilities can change.*
 
 ## What the assistant should read first
 
 Each installed BestPractice project has a small set of orientation files:
 
 - `README.md` — the universal entry point for people and assistants.
+- `GETTING_STARTED.md` — how each kind of AI user joins and starts working.
 - `AGENTS.md` — how agents must work in this project.
 - `MAP.md` — where the project's important knowledge lives.
 - `TODO.md` — open work and unresolved questions.
@@ -96,7 +77,7 @@ Each installed BestPractice project has a small set of orientation files:
 
 You usually do not need to open these yourself. Their job is to help each new agent session become useful quickly and behave consistently.
 
-The README should contain a short marked block that points assistants to `AGENTS.md` and `MAP.md`. Install it from [templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template). The README is the router; `AGENTS.md` remains authoritative.
+The project README carries a short agent-entry block, installed from [templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template): an HTML comment — invisible on the rendered page, but read by any assistant that opens the file — routing agents to `AGENTS.md`, plus one visible line pointing people to `GETTING_STARTED.md`. The README is the router; `AGENTS.md` remains authoritative.
 
 ## What happens when something changes?
 
@@ -143,19 +124,13 @@ HTML is often the preferred final format because it can remain a single self-con
 
 Slide decks follow the same rules. Each slide is its own markdown file, a manifest picks the shipped set, and [deck/build_deck.py](deck/build_deck.py) builds the deck as a single self-contained HTML file that opens in any browser — one build for internal review (with speaker notes), and a separate send build for external sharing with the notes physically removed. Several threads can develop different slides at the same time, and any thread can rebuild the whole deck. The full practice and conventions are in [deck/README.md](deck/README.md).
 
-## Getting started
+## Getting started (for administrators)
 
-You need:
+You need a GitHub account, a repository for the project — brand-new or already full of work, either is fine — and a coding agent that can access it.
 
-- A GitHub account.
-- A private or public GitHub repository for the project.
-- An AI assistant that can work with the repository.
-
-For a new project:
-
-1. Create a GitHub repository. Private is a sensible default for internal or personal work — and the scrub gate in [INSTALL.md](INSTALL.md) is what keeps private vocabulary out of anything that later leaves the repo.
-2. Open the repository in a coding agent.
-3. Paste a bootstrap prompt like this as your first message, filling in the two blanks:
+1. **Have a repository.** For a new project, create one on GitHub; Private is a sensible default for internal or personal work — and the scrub gate in [INSTALL.md](INSTALL.md) is what keeps private vocabulary out of anything that later leaves the repo. An existing repository needs no preparation.
+2. **Open the repository in a coding agent.**
+3. **Paste a bootstrap prompt** like this as your first message, filling in the two blanks:
 
    ```
    Install BestPractice into this repo. Fetch the public repo
@@ -167,19 +142,29 @@ For a new project:
    - Words/names that must never appear in the public vendored tree:
      <your project's private names and code words, for the scrub blocklist>.
 
-   Create MAP.md, TODO.md, GLOSSARY.md and AGENTS.md from the templates,
-   apply the harness adapter for this agent (templates/harness/), install
-   the README agent-entry block, write process/manifest.json, run
+   Create MAP.md, TODO.md, GLOSSARY.md, AGENTS.md and GETTING_STARTED.md
+   from the templates, apply the harness adapter for this agent
+   (templates/harness/), install the README agent-entry block, write
+   process/manifest.json, run
    python3 process/upstream/tools/practice_audit.py (it must pass), and
    commit everything on a branch.
    ```
 
    The second blank matters even for a solo project: it is where you decide, before anything is generated, which private names must never leak. (You can instead just ask the agent to follow [INSTALL.md](INSTALL.md) and answer its questions as it goes.)
-4. Review the generated README entry block, project map, and instructions file — the instructions file is the contract every future session works under — then merge.
-5. Enable the repository checks described in [GitHub Actions setup](GITHUB_ACTIONS.md).
-6. Begin working by naming the repository, directing the assistant to its README, and giving questions or critiques.
+4. **Review and merge.** Skim the generated files — especially the instructions file, which is the contract every future session works under, and `GETTING_STARTED.md`, which is what your members will see first.
+5. **Enable the repository checks** described in [GitHub Actions setup](GITHUB_ACTIONS.md).
+6. **Work normally** — name the repository to your assistant and give it questions or critiques.
 
 New to GitHub? Read [Git, minimally](GIT.md). It explains only the concepts this workflow needs.
+
+## Onboarding members
+
+Adding someone to the project is two steps:
+
+1. **Give them access on GitHub.** For a personal repository: repository **Settings → Collaborators → Add people**. In an organization, use your existing teams. Read access lets a member's assistant answer questions; write access lets it propose changes on branches. Whether they can merge is up to you — see the permissions idea in [Git, minimally](GIT.md).
+2. **Ask your project's agent to write their welcome.** For example: *"Generate a short welcome message for Dana, who joins the project to work on customer research and uses ChatGPT. Include the link to GETTING_STARTED.md, point out the section for their tool, and suggest a first task from TODO.md."* Paste the result into email, Slack, or wherever you talk to them.
+
+The member opens `GETTING_STARTED.md`, follows the section for their assistant, and starts asking questions. Nothing else to install, and nothing to teach them yourself.
 
 ## For installers and maintainers
 

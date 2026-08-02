@@ -113,16 +113,20 @@ Open those links in the GitHub app or browser. Approve or request changes in con
 
 ## What belongs in the README
 
-The root README is the universal entry point for people and assistants. Keep a short marked block near its top:
+The root README is the universal entry point for people and assistants. Keep a short marked block near its top, installed from [templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template):
 
 ```markdown
 <!-- bestpractice-agent-entry:start -->
-> **AI assistants:** Before answering questions or changing files, read
-> [AGENTS.md](AGENTS.md). Use [MAP.md](MAP.md) to find the project's current
-> knowledge and follow any task-specific instructions it identifies.
+<!-- AI assistants: before answering questions about this project or
+     changing its files, read AGENTS.md at the repository root. Use MAP.md
+     to find the project's current knowledge and follow any task-specific
+     instructions it identifies. -->
+
+> New to this project? Start with [GETTING_STARTED.md](GETTING_STARTED.md).
+
 <!-- bestpractice-agent-entry:end -->
 ```
 
-Do not duplicate the full agent contract in the README. `AGENTS.md` remains authoritative; the README only routes every assistant to it.
+The agent-entry text is deliberately an HTML comment: invisible on the rendered page (so it never distracts a human reader), but present in the file's source, which is what assistants read. The only visible line points people to `GETTING_STARTED.md`, the member onboarding page with per-assistant instructions.
 
-Install the reusable block from [templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template).
+Do not duplicate the full agent contract in the README. `AGENTS.md` remains authoritative; the README only routes every assistant to it.
