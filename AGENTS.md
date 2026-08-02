@@ -16,6 +16,11 @@ that skips them in this repo of all places is the joke writing itself.
 |---|---|
 | What each practice is and why | [PRACTICES.md](PRACTICES.md) |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) |
+| Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
+| The working method (branches, plain text, critique, prompts) | [METHOD.md](METHOD.md) |
+| Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](MOBILE.md) |
+| CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) |
+| Upstream open items / roadmap | [TODO.md](TODO.md) |
 | Slide-deck engine + deck conventions | [deck/](deck/) — engine [build_deck.py](deck/build_deck.py), practice in [deck/README.md](deck/README.md) |
 | Portable audits | [tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py) |
 | Skeletons dependent repos instantiate | [templates/](templates/) (+ per-agent adapters in [templates/harness/](templates/harness/)) |

@@ -17,6 +17,8 @@ You work by talking to an AI assistant:
 
 Behind the scenes, the project lives in a GitHub repository. GitHub keeps the current files, earlier versions, decisions, open questions, and change history together. That gives every person and every new AI session the same durable project memory.
 
+Think of a hospital chart at shift change: clinicians rotate, but the chart carries every observation, every decision, and the reasoning behind it — if it isn't in the chart, it didn't happen — so the incoming doctor picks up the patient cold and nothing learned on the last shift is lost in the handover. The repository is that chart for your project.
+
 **You do not need to be a programmer.** Most day-to-day work happens through conversation. GitHub is the shared filing system underneath it.
 
 ## What using it feels like
@@ -59,6 +61,8 @@ BestPractice gives the team a shared, inspectable memory:
 - Changes record what happened and why.
 
 The repository is the memory. The chat is the way you work with it.
+
+GitHub is the worked example throughout these documents, and BestPractice currently leans on GitHub features (pull requests, Actions checks) deliberately. The layer itself is plain git, markdown, and Python, so equivalents on other hosts such as Gitea can be added later — see [TODO.md](TODO.md).
 
 ## Working from a phone
 
@@ -123,13 +127,21 @@ Say:
 
 The assistant can then find the affected material, apply the change consistently, and run the checks the project requires.
 
+The full working method — branch-per-thread, plain-text sources, edit by critique, and composed prompts — is in [METHOD.md](METHOD.md). It is where the quality comes from once a project is real, but none of it is required to start.
+
 ## Source files and deliverables
 
 The project's lasting knowledge is kept in formats that agents and GitHub can inspect reliably, especially Markdown, HTML, and Python.
 
 Word, Excel, PowerPoint, and PDF files can still be accepted or produced. They are treated as inputs or generated deliverables rather than the only editable source of truth. This makes changes easier to compare, review, combine, and restore.
 
+The same applies to models and analysis: where you might once have built a spreadsheet, the agent maintains a Python model — which you query through the agent, not by reading code — and Excel becomes one more generated output. Files that arrive in office formats are extracted into the plain-text sources by an agent, with the original committed to the repository for the record.
+
 HTML is often the preferred final format because it can remain a single self-contained file while supporting richer layouts, figures, and interaction.
+
+## Presentations
+
+Slide decks follow the same rules. Each slide is its own markdown file, a manifest picks the shipped set, and [deck/build_deck.py](deck/build_deck.py) builds the deck as a single self-contained HTML file that opens in any browser — one build for internal review (with speaker notes), and a separate send build for external sharing with the notes physically removed. Several threads can develop different slides at the same time, and any thread can rebuild the whole deck. The full practice and conventions are in [deck/README.md](deck/README.md).
 
 ## Getting started
 
@@ -141,13 +153,31 @@ You need:
 
 For a new project:
 
-1. Create a GitHub repository. Private is a sensible default for internal or personal work.
+1. Create a GitHub repository. Private is a sensible default for internal or personal work — and the scrub gate in [INSTALL.md](INSTALL.md) is what keeps private vocabulary out of anything that later leaves the repo.
 2. Open the repository in a coding agent.
-3. Ask the agent to install BestPractice by following [INSTALL.md](INSTALL.md).
-4. Answer the agent's questions about the project.
-5. Review the generated README entry block, project map, and instructions.
-6. Enable the repository checks described in [GitHub Actions setup](GITHUB_ACTIONS.md).
-7. Begin working by naming the repository, directing the assistant to its README, and giving questions or critiques.
+3. Paste a bootstrap prompt like this as your first message, filling in the two blanks:
+
+   ```
+   Install BestPractice into this repo. Fetch the public repo
+   https://github.com/alex137/BestPractice (add it to this session, or clone
+   it) and copy its working tree into process/upstream/ here. Then follow
+   process/upstream/INSTALL.md §1 to instantiate it:
+
+   - This repo is about: <one or two sentences on your project>.
+   - Words/names that must never appear in the public vendored tree:
+     <your project's private names and code words, for the scrub blocklist>.
+
+   Create MAP.md, TODO.md, GLOSSARY.md and AGENTS.md from the templates,
+   apply the harness adapter for this agent (templates/harness/), install
+   the README agent-entry block, write process/manifest.json, run
+   python3 process/upstream/tools/practice_audit.py (it must pass), and
+   commit everything on a branch.
+   ```
+
+   The second blank matters even for a solo project: it is where you decide, before anything is generated, which private names must never leak. (You can instead just ask the agent to follow [INSTALL.md](INSTALL.md) and answer its questions as it goes.)
+4. Review the generated README entry block, project map, and instructions file — the instructions file is the contract every future session works under — then merge.
+5. Enable the repository checks described in [GitHub Actions setup](GITHUB_ACTIONS.md).
+6. Begin working by naming the repository, directing the assistant to its README, and giving questions or critiques.
 
 New to GitHub? Read [Git, minimally](GIT.md). It explains only the concepts this workflow needs.
 
@@ -162,11 +192,13 @@ The beginner workflow above is intentionally small. The detailed machinery remai
 | [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) | Install and require repository checks that agents without a terminal can use. |
 | [PRACTICES.md](PRACTICES.md) | The full catalog of rules, motivations, and implementation guidance. |
 | [GIT.md](GIT.md) | The Git and GitHub concepts needed by this workflow. |
+| [METHOD.md](METHOD.md) | The working method: branches per thread, plain-text sources, critique, composed prompts. |
+| [TODO.md](TODO.md) | Open items and roadmap for the practice layer itself. |
 | [templates/](templates/) | Project instructions, maps, task lists, glossaries, README entry block, workflows, and agent adapters. |
 | [tools/](tools/) | Portable checks and check-in tools. |
 | [deck/](deck/) | The presentation system and sample deck. |
 
-BestPractice itself is the reusable practice layer. Install it into another repository, adapt the project-specific files there, and send general improvements back here through a pull request.
+BestPractice itself is the reusable practice layer. Install it into another repository, adapt the project-specific files there, and send general improvements back here through a pull request — abstracted and scrubbed per [INSTALL.md](INSTALL.md) §4, so patterns travel but private subject matter never does. The merged check-in pull requests are this repo's changelog: each one is a practice improvement earned in a real project ([PR #1](https://github.com/alex137/BestPractice/pull/1) was the first).
 
 ## The idea in one sentence
 
