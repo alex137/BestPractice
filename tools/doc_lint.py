@@ -29,6 +29,11 @@ SCOPE: by default, only files CHANGED vs the default branch (the convention is
 "fix the parts you touch"; this also avoids editing frozen documents, where a
 `~`→`≈` change would be content drift). Pass explicit files, or --all to scan
 the whole tree (reports the legacy backlog; does not fail).
+Frozen-document artifacts (name prefixes in FROZEN_PREFIXES, per repo) are
+excluded from the default and --all selections — they are immutable records,
+so a lint hit on one is unfixable by design (origin: committing a frozen
+record failed the gate on its own internal `~` tildes). Passing one
+explicitly still scans it.
 
 Requires cmark-gfm for exact detection:  pip install cmarkgfm
 (If absent, the strikethrough check is SKIPPED with a notice rather than guessing.)
@@ -63,6 +68,15 @@ except Exception:
     HAVE_GFM = False
 
 REF_RE = re.compile(r'`([^`]+\.(?:md|py))`')          # backticked filename in code span
+
+# Immutable frozen records: excluded from default/--all selections (unfixable
+# by design). Dependent repos list their frozen-artifact name prefixes here.
+FROZEN_PREFIXES = ()
+
+def drop_frozen(files):
+    if not FROZEN_PREFIXES:
+        return files
+    return [f for f in files if not pathlib.PurePath(f).name.startswith(FROZEN_PREFIXES)]
 
 # ---- acronym check (check 3) ----
 ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 leading letters
@@ -156,11 +170,11 @@ def main():
     flags = {a for a in sys.argv[1:] if a.startswith('-')}
     fix = '--fix' in flags
     if '--all' in flags:
-        files, gate = tracked_md(), False
+        files, gate = drop_frozen(tracked_md()), False
     elif args:
         files, gate = args, True
     else:
-        files, gate = changed_md(), True
+        files, gate = drop_frozen(changed_md()), True
 
     if not HAVE_GFM:
         print("doc_lint: cmark-gfm not installed — strikethrough check SKIPPED "
