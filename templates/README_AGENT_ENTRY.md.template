@@ -1,0 +1,5 @@
+<!-- bestpractice-agent-entry:start -->
+> **AI assistants:** Before answering questions or changing files, read
+> [AGENTS.md](AGENTS.md). Use [MAP.md](MAP.md) to find the project's current
+> knowledge and follow any task-specific instructions it identifies.
+<!-- bestpractice-agent-entry:end -->
