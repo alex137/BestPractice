@@ -12,26 +12,32 @@ and the administrator green-lights changes, also with AI help, before
 they join the shared project. The output of every AI conversation becomes
 part of the project, so nothing is lost in chat history.
 
-Behind the scenes, the project lives in a GitHub repository. GitHub keeps
-the current files, earlier versions, decisions, open questions, and
-change history together — the same durable memory for every person and
-every new AI session. ([Why GitHub, and the little you need to know about
-it.](GIT.md))
-
 Think of a hospital chart at shift change: clinicians rotate, but the
 chart carries every observation, every decision, and the reasoning behind
 it — if it isn't in the chart, it didn't happen — so the incoming doctor
 picks up the patient cold and nothing learned on the last shift is lost
-in the handover. The repository is that chart for your project.
+in the handover. BestPractice gives your project that chart.
 
-**Nobody on the team needs to be a programmer.** Most day-to-day work
-happens through conversation, and changes are safe by construction: each
+Behind the scenes, the project lives in a GitHub repository. GitHub is a
+system originally built for programmers that keeps the current files,
+earlier versions, decisions, open questions, and change history together
+— the same durable memory for every person and every new AI session.
+BestPractice adapts it so you don't need to be a programmer to get those
+advantages for your project; you just need a few ground rules, captured
+in [Git, minimally](GIT.md). Changes are safe by construction: each
 change happens on its own working copy, is checked automatically, and
 joins the shared project only when it is approved.
 
-For Claude users, all of this works from a phone. Claude, Codex, ChatGPT,
-Gemini, and Grok all work from a desktop; mobile use with the others is
-possible with a little more setup. Details in [MOBILE.md](MOBILE.md).
+The main shift is that you stop using the general-purpose chat apps —
+ChatGPT, the ordinary Claude chat, and their workplace versions — and use
+**Claude Code** instead. Claude has automated the setup that used to
+require a programmer: it connects to your project's repository out of the
+box, on desktop and on a phone. We expect OpenAI and Grok to add the same
+kind of experience soon (they have not, as of 2026-08); until then,
+unless you want to set up a programming environment yourself, these
+documents assume you are a Claude Code user. Members who prefer other
+assistants still have supported paths — see the members' page below and
+[MOBILE.md](MOBILE.md).
 
 ## What your members will see
 
