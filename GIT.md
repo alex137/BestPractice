@@ -1,14 +1,44 @@
 # Git, minimally, for this way of working
 
+## Why GitHub at all?
+
+A normal chat thread is useful but temporary. Important context may be
+buried in an old conversation, known to only one person, or missing from
+another assistant's memory. Keeping the project in a GitHub repository
+gives the team a shared, inspectable memory instead:
+
+- Important decisions are written down.
+- Everyone works from the same current information.
+- Earlier versions can be reviewed or restored.
+- Several people can work without silently overwriting one another.
+- A new person or AI session can understand the project by reading its
+  map and asking questions.
+- Changes record what happened and why.
+- Rules that matter are enforced by automatic checks, not by reminding
+  people.
+
+The repository is the memory. The chat is the way you work with it.
+
+GitHub is the worked example throughout these documents, and BestPractice
+currently leans on GitHub features (pull requests, Actions checks)
+deliberately. The layer itself is plain git, markdown, and Python, so
+equivalents on other hosts such as Gitea can be added later — see
+[TODO.md](TODO.md).
+
+## The eight ideas
+
 You don't need to know git deeply to use [BestPractice](README.md); you
-need eight ideas:
+need eight ideas. (Throughout: a "repo" is short for repository — the
+project's shared folder on GitHub; a "session" is one AI conversation; a
+"commit" is one saved change with a note about what and why.)
 
 - **The default branch (`main`) is the shared truth.** It is what every new
   session reads for orientation. Nothing is "real" until it lands there.
 - **Each thread works on its own branch** — a private copy of the repo where
   a session (or a person) can make any number of commits without disturbing
   anyone else. Two threads on two branches never conflict *while working*;
-  reconciliation happens once, at merge time, under the runbook's rules.
+  reconciliation happens once, at merge time, under fixed rules the
+  project's instruction files set out.
 - **Branch work is invisible to everyone else until it lands on `main` —
   and they catch up.** Publishing takes two steps: your branch must be
   *merged* into `main`, and then each collaborator (human or agent session)
@@ -18,11 +48,13 @@ need eight ideas:
   holds in reverse: someone else's unmerged branch is invisible to you,
   which is why "it's not in the repo" really means "it's not in `main` yet."
 - **A pull request (PR) is a reviewable bundle of changes** — "here is
-  everything branch X wants to add to main, as a diff." If several people
-  (or several agent threads) touch the same repo, PRs are where a second
-  pair of eyes goes: you can ask a colleague, or another agent session, to
-  review a branch before it merges. For a solo repo, PRs are optional —
-  merging directly is fine; the audits are the real gate either way.
+  everything branch X wants to add to main," shown as a side-by-side
+  comparison of before and after. If several people (or several agent
+  threads) touch the same repo, PRs are where a second pair of eyes goes:
+  you can ask a colleague, or another agent session, to review a branch
+  before it merges. For a solo repo, PRs are optional — merging directly
+  is fine; the project's automatic checks are the real safeguard either
+  way.
 - **Permissions decide who may merge.** On a repo someone else owns, you may
   find you can push branches and open PRs but not merge them — the owner
   reviews and merges on their schedule; that's normal, not an error. The
@@ -47,16 +79,16 @@ need eight ideas:
   practical fact coding tools take for granted that matters here: it is
   how **cross-cutting work** gets done — moving content from one repo to
   another, reorganizing which repo owns what, keeping a shared layer in
-  sync across repos. This repo's own check-in loop is the worked example:
-  a dual-repo session abstracts a practice in the private dependent repo
-  and lands it here, in a single thread.
+  sync across repos. This repo's own improvement loop is the worked
+  example: one session generalizes a lesson learned in a private project
+  repo and lands it here, in a single thread.
 - **An agent session's repo access is fixed when the session starts.** On
   hosted agent platforms, a session can write only to the repo(s) you
   selected when creating it. A session opened on one repo can usually still
-  *read* a public repo (clone it, diff against it) but cannot push branches
-  or open PRs there — writes fail even though reads work, which is
-  confusing the first time you hit it. So decide up front: if a session's
+  *read* a public repo (copy it, compare against it) but cannot push
+  branches or open PRs there — writes fail even though reads work, which
+  is confusing the first time you hit it. So decide up front: if a session's
   plan includes pushing to a second repo (the check-in step in
-  [How it's used](README.md#how-its-used-short-version), for example),
+  [INSTALL.md](INSTALL.md) §4, for example),
   **select both repos when you create the session** — you generally can't
   add write access mid-session.

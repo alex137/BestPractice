@@ -26,6 +26,24 @@ drift and proprietary leakage loud instead of silent.
    - `templates/MAP.md.template` → `MAP.md`; `templates/TODO.md.template` →
      `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
      domain-appropriate name).
+   - `templates/GETTING_STARTED.md` → `GETTING_STARTED.md` at the repo
+     root: the member-facing onboarding page, one section per kind of AI
+     user. (This template keeps a plain `.md` name on purpose — it
+     doubles as the rendered sample linked from the README.) Replace the
+     backticked `<placeholders>` with the project's real values, adapt
+     the opening pitch to the project, and keep the per-assistant section
+     structure so upstream onboarding improvements propagate on updates
+     (§2). Refresh its dated assistant-capability notes from the upstream
+     [MOBILE.md](MOBILE.md) when taking updates. Improvements a project
+     makes to its own onboarding page are exported like any other
+     practice improvement: fold the generic form back into this template
+     in `process/upstream/` (§3), so better onboarding reaches every
+     project.
+   - `templates/README_AGENT_ENTRY.md.template` → insert near the top of
+     the repo's root README: an agent-entry HTML comment (invisible on the
+     rendered page, read by assistants opening the source) routing agents
+     to `AGENTS.md`, plus one visible line pointing people to
+     `GETTING_STARTED.md`.
    - `templates/bootstrap.sh` → `tools/bootstrap.sh` (add the repo's own
      setup needs).
    - **Apply the harness adapter(s)** for whichever agent(s) will work this
