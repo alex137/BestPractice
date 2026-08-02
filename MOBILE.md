@@ -1,86 +1,106 @@
 # Working with BestPractice on a phone
 
-BestPractice is designed so that the human can work through conversation while the repository carries the project's durable memory. A phone can therefore be a useful workstation, but the setup differs by assistant.
+Your whole project can be run from your phone: ask questions, request
+changes, review what came back, and approve it — from anywhere. How much
+setup that takes depends on your AI tool. **With Claude it works out of
+the box; the others take more effort.**
 
-**The shortest reliable path for a non-coder today is the Claude Code app** — it needs no custom development and no terminal, and it is the reference experience the other setups in this guide approximate.
+Product behavior in this guide was verified August 2, 2026, except where
+a section says otherwise. Apps and connectors change.
 
-Product behavior in this guide was verified August 2, 2026, except where a section says otherwise. Mobile interfaces and connector capabilities can change.
+## Claude — works out of the box (recommended)
 
-## The universal starting instruction
+1. Install the Claude app and sign in (or use
+   [claude.ai/code](https://claude.ai/code) in a browser).
+2. Open the **Code** area and pick your project's repository — the first
+   time, approve the access request.
+3. Talk to it like a colleague:
 
-Every BestPractice repository should place a short agent entry block near the top of its root README. That block directs an assistant to the repository's canonical instructions.
+   > Review the project, then tell me what needs my attention today.
 
-In a new general-purpose chat, use this compact instruction:
+   > The customer summary is too technical. Make it clearer, check
+   > related documents, and show me what changed.
 
-> Work on `OWNER/REPOSITORY`. Start with its README and follow the repository's agent instructions before answering.
+Claude reads the project's instruction files automatically, makes the
+changes, runs the project's checks, and replies with links you can open.
+There is nothing else to set up, and the same works on desktop.
 
-Replace `OWNER/REPOSITORY` with the GitHub repository name.
+## Reviewing changes from your phone
 
-This instruction is intentionally tool-neutral. The expected path is:
+Whichever tool made a change, checking it is the same: the assistant's
+reply ends with links to the files it touched — the proposed version and
+the current shared version. Open them in the GitHub app or your browser,
+then tell the assistant to make the change live, or ask for adjustments.
+Nothing becomes shared until it is approved, and the project's automatic
+checks must pass first.
 
-1. Open the repository README.
-2. Follow its link to `AGENTS.md`.
-3. Use `MAP.md` to locate the relevant project context.
-4. Follow any task-specific instructions and repository checks.
+## ChatGPT — reading works; changes need a workaround
 
-For a new assistant, an unfamiliar connector, or sensitive work, use the defensive form:
+What works today *(as of 2026-08)*: a ChatGPT conversation connected to
+GitHub can read your project and answer questions dependably. What
+doesn't work reliably yet: making changes (editing files, proposing
+updates) from a plain ChatGPT conversation. Until that improves (tracked
+in [TODO.md](TODO.md)), do the asking and reviewing in ChatGPT, and
+route actual changes through Codex or a teammate with a coding agent —
+the project's automatic checks ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md))
+protect the result no matter which tool made the change.
 
-> Work on `OWNER/REPOSITORY` as a BestPractice agent. Read its README and root `AGENTS.md` before answering, then use `MAP.md` to locate relevant context. Treat the repository as the shared project memory. Use a branch for changes, run or verify required checks, and finish file-changing replies with links to the files touched.
+To set up:
 
-Within one conversation, the instruction normally does not need to be repeated unless the repository or project context changes.
+1. Connect ChatGPT's GitHub connector to your project's repository.
+2. ChatGPT does not read the project's instruction files on its own, so
+   start each new project conversation by pasting this line (with your
+   own repository's name):
 
-## Claude Code on mobile (the recommended path)
+   > Work on `OWNER/REPOSITORY`. Start with its README and follow the
+   > repository's agent instructions before answering.
 
-Claude provides a repository-backed Claude Code experience in its mobile app. Open the project in that Code interface rather than an ordinary Claude conversation. All you need is a GitHub account and a Claude account with the mobile app — there is nothing to build or configure beyond authorizing repository access once.
+3. Then ask your question or describe what you want changed.
 
-A properly installed BestPractice repository includes a Claude adapter that directs Claude Code to the canonical `AGENTS.md`. Once the Code session is attached to the repository, a normal task prompt can be enough:
-
-> Review the project context, then tell me what needs my attention today.
-
-Or:
-
-> The customer summary is too technical. Make it clearer, check related documents, and show me what changed.
-
-Claude Code can work against the repository, edit files, run local checks, and prepare changes for review. The README entry block remains useful as a universal fallback and as an explanation for humans.
-
-## ChatGPT on mobile
-
-A GitHub-connected ChatGPT conversation can inspect repository content and, depending on the connected app's permissions, create branches, update files, open pull requests, and inspect checks.
-
-**Reliability status, as of 2026-08:** reading a connected repository and answering questions from it is dependable. Writing — creating branches, updating files, opening pull requests — from a plain ChatGPT conversation is **not treated as reliable here**: it depends on the connected GitHub app's permissions and on OpenAI's connector capabilities, which change. Until re-verified (tracked in [TODO.md](TODO.md)), use the split workflow: ask, read, and review through ChatGPT; route the actual changes through a coding agent (Codex or Claude Code); and let the repository's [GitHub Actions checks](GITHUB_ACTIONS.md) enforce the gates regardless of which tool made the change.
-
-An ordinary ChatGPT conversation does not automatically adopt `AGENTS.md` merely because GitHub is connected. Begin each new project conversation with the universal starting instruction:
-
-> Work on `OWNER/REPOSITORY`. Start with its README and follow the repository's agent instructions before answering.
-
-Then provide the task:
-
-> Rewrite the opening for non-technical readers. Preserve the underlying meaning, check related documentation, and prepare the change for review.
-
-For checks that require a shell, such as Markdown lint, install the repository's [GitHub Actions checks](GITHUB_ACTIONS.md). ChatGPT can then make a branch change, allow GitHub to run the check, and inspect the result without needing a local terminal.
+Typing that opener on a phone gets old — the iPhone Shortcut below
+prepares it for you.
 
 ## Gemini
 
-The Gemini CLI works with installed repositories through the harness adapter in [templates/harness/](templates/harness/), which points it at the canonical `AGENTS.md` — a desktop workflow. As of 2026-08, a phone-based Gemini workflow is unverified; Gemini app users should treat it like the "any other assistant" case: universal starting instruction for reading and questions, changes routed through a coding agent.
+The Gemini CLI is a desktop tool; installed projects include an adapter
+that points it at the project's instructions. *(As of 2026-08, a
+phone-based Gemini workflow is unverified.)* Gemini app users should
+follow the "Any other assistant" line below for reading and questions,
+and route changes through a coding agent.
 
 ## Grok
 
-Unverified, as of 2026-08: no repository-connected Grok workflow comparable to Claude Code or Codex has been tested with BestPractice. If Grok can reach your repository, the universal starting instruction above should apply unchanged. Until someone verifies it (tracked in [TODO.md](TODO.md)), treat Grok like a disconnected chat assistant: paste documents in, work by critique, and route the actual file changes through a coding agent.
+Not yet verified with this workflow *(as of 2026-08)*. If Grok can reach
+your repository, the same opener as ChatGPT should work. Otherwise treat
+it as a disconnected assistant: paste in the documents you are
+discussing, decide what you want changed, and hand the change request to
+a teammate with a coding agent.
 
-## Create an iPhone Shortcut
+## Any other assistant
 
-An iPhone Shortcut can prepare the bootstrap and task, copy the complete prompt, and open ChatGPT.
+Any assistant that can read your repository understands the same opener:
 
-Create a shortcut named **BestPractice Project** with these actions:
+> Work on `OWNER/REPOSITORY`. Start with its README and follow the
+> repository's agent instructions before answering.
+
+## Make starting easier: an iPhone Shortcut
+
+A Shortcut can pick the repository, ask what you want done, prepare the
+full opener, and hand it to ChatGPT. Create a shortcut named
+**BestPractice Project** with these actions:
 
 1. **Choose from Menu** with the repositories you use most often.
-2. For each menu choice, set a text variable to its `OWNER/REPOSITORY` value.
-3. Add an **Other repository** choice that uses **Ask for Input** for the repository name.
-4. Add **Ask for Input** with the prompt `What do you want done?` and save the answer as the task.
+2. For each menu choice, set a text variable to its `OWNER/REPOSITORY`
+   value.
+3. Add an **Other repository** choice that uses **Ask for Input** for the
+   repository name.
+4. Add **Ask for Input** with the prompt `What do you want done?` and
+   save the answer as the task.
 5. Add a **Text** action containing:
 
    ```text
-   Work on [Repository]. Start with its README and follow the repository's agent instructions before answering.
+   Work on [Repository]. Start with its README and follow the repository's
+   agent instructions before answering.
 
    Task: [Task]
    ```
@@ -89,35 +109,32 @@ Create a shortcut named **BestPractice Project** with these actions:
 7. Add **Open App** and select ChatGPT.
 8. Paste the prepared prompt into a new conversation and send it.
 
-The shortcut can be placed on the Home Screen, in a widget, in Control Center, or on an Action button where supported.
+The shortcut can live on the Home Screen, in a widget, in Control
+Center, or on an Action button. A simpler version can skip the task
+question and copy only the opener.
 
-A simpler shortcut can omit the task question and copy only the bootstrap, leaving the user to type the task in ChatGPT.
+If the Shortcut approach proves too clumsy in practice, the next step is
+a small companion app — pick a repository, type the task, open the
+assistant with the prompt prepared. That is real app development rather
+than documentation, and is tracked as an open item in [TODO.md](TODO.md).
 
-If the Shortcut approach proves too clumsy in practice, the next step is a small companion app — pick a repository, type the task, open the assistant with the prompt prepared. That is real app development rather than documentation, and is tracked as an open item in [TODO.md](TODO.md).
+## Even lighter: a text replacement
 
-## Text replacement alternative
-
-For an even lighter setup, create an iPhone text replacement such as `;bp` that expands to:
+Create an iPhone text replacement such as `;bp` that expands to:
 
 ```text
-Work on OWNER/REPOSITORY. Start with its README and follow the repository's agent instructions before answering.
+Work on OWNER/REPOSITORY. Start with its README and follow the repository's
+agent instructions before answering.
 ```
 
-Use a separate replacement for each frequently used repository, or keep the generic form and replace the repository name after pasting.
+Use one replacement per frequently used repository, or keep the generic
+form and fill in the repository name after pasting.
 
-## Review changes from a phone
+## For agents and installers: how the one-line opener works
 
-When an agent changes files, its reply should include direct links to:
-
-- the file on the working branch, which shows the proposed version;
-- the same file on the default branch, which shows the current shared version; and
-- the pull request, when one exists.
-
-Open those links in the GitHub app or browser. Approve or request changes in conversation. Merge only after the required repository checks have passed.
-
-## What belongs in the README
-
-The root README is the universal entry point for people and assistants. Keep a short marked block near its top, installed from [templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template):
+A BestPractice repository's README carries a short entry block, installed
+from
+[templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template):
 
 ```markdown
 <!-- bestpractice-agent-entry:start -->
@@ -131,6 +148,21 @@ The root README is the universal entry point for people and assistants. Keep a s
 <!-- bestpractice-agent-entry:end -->
 ```
 
-The agent-entry text is deliberately an HTML comment: invisible on the rendered page (so it never distracts a human reader), but present in the file's source, which is what assistants read. The only visible line points people to `GETTING_STARTED.md`, the member onboarding page with per-assistant instructions.
+The agent-entry text is deliberately an HTML comment: invisible on the
+rendered page, but present in the file's source, which is what assistants
+read. So the expected path behind the opener is: README → `AGENTS.md`
+(the working rules) → `MAP.md` (where the knowledge lives) → any
+task-specific instructions. Do not duplicate the agent contract in the
+README; `AGENTS.md` remains authoritative.
 
-Do not duplicate the full agent contract in the README. `AGENTS.md` remains authoritative; the README only routes every assistant to it.
+For a new assistant, an unfamiliar connector, or sensitive work, use the
+defensive form of the opener:
+
+> Work on `OWNER/REPOSITORY` as a BestPractice agent. Read its README and
+> root `AGENTS.md` before answering, then use `MAP.md` to locate relevant
+> context. Treat the repository as the shared project memory. Use a
+> branch for changes, run or verify required checks, and finish
+> file-changing replies with links to the files touched.
+
+Within one conversation, the opener normally does not need to be repeated
+unless the repository or project context changes.
