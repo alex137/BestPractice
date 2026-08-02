@@ -1,5 +1,11 @@
 # BestPractice
 
+> **Working with an AI assistant?** Ask it: “Work on `alex137/BestPractice`.
+> Start with its README and follow the repository's agent instructions before
+> answering.” Agents working on this repository should then read
+> [AGENTS.md](AGENTS.md). See [Working on a phone](MOBILE.md) for ChatGPT,
+> Claude Code, and iPhone Shortcut setup.
+
 BestPractice helps people and AI assistants work together on a shared project without losing decisions, repeating work, or passing around outdated files.
 
 You work by talking to an AI assistant:
@@ -32,8 +38,8 @@ You provide the intent and judgment. The assistant handles the files, cross-refe
 ## The basic workflow
 
 1. Open the project with an AI assistant that can access its GitHub repository.
-2. Tell the assistant what you want to know or change.
-3. Let it read the project instructions and relevant files.
+2. Tell the assistant to start with the README and follow the repository's agent instructions.
+3. Tell the assistant what you want to know or change.
 4. Review its answer or proposed changes.
 5. Approve the change so the rest of the team receives it.
 
@@ -56,56 +62,37 @@ The repository is the memory. The chat is the way you work with it.
 
 ## Working from a phone
 
-BestPractice can be driven from a phone, but Claude and ChatGPT currently enter the project in different ways.
+BestPractice can be driven from a phone. The simplest universal starting instruction is:
 
-### Claude on mobile
+> Work on `OWNER/REPOSITORY`. Start with its README and follow the repository's agent instructions before answering.
 
-Claude has a separate Claude Code experience in its mobile app. Open the repository-backed Code session and work there as you would on a computer.
+A BestPractice repository's README routes the assistant to `AGENTS.md`, which contains the canonical working rules, and `MAP.md`, which locates the project's knowledge.
 
-Claude Code reads its repository instructions as part of the coding-agent workflow. In a BestPractice project, the adapter points Claude to the canonical project instructions in `AGENTS.md`.
+Claude Code can load repository-backed instructions through its coding-agent interface. A GitHub-connected ChatGPT conversation needs the short starting instruction at the beginning of each new project conversation. Repository checks such as Markdown lint can run through GitHub Actions even when the chat has no local terminal.
 
-A typical mobile request is simply:
+See [Working with BestPractice on a phone](MOBILE.md) for:
 
-> Review the project context, then tell me what needs my attention today.
+- Claude Code and ChatGPT mobile workflows;
+- the compact and defensive starting instructions;
+- an iPhone Shortcut that selects a repository, asks for a task, prepares the prompt, and opens ChatGPT;
+- a text-replacement alternative; and
+- reviewing branches, checks, and pull requests from a phone.
 
-Or:
-
-> The customer summary is too technical. Make it clearer, check related documents, and show me what changed.
-
-Because the session is operating as Claude Code, it can follow the repository workflow, edit files, run checks, and prepare changes for review.
-
-*Platform behavior verified August 2, 2026. Product interfaces can change.*
-
-### ChatGPT on mobile
-
-ChatGPT can connect to GitHub and read or modify repositories through the connected GitHub tools. However, an ordinary ChatGPT conversation does **not** automatically adopt the repository's `AGENTS.md` instructions merely because the repository is connected.
-
-Start each new ChatGPT project conversation with this short instruction:
-
-> Work on the GitHub repository `OWNER/REPOSITORY` as a BestPractice agent. Before answering, read the root `AGENTS.md`, then follow its links to `MAP.md` and any other instructions relevant to this task. Treat the repository as the shared project memory. Use a branch for changes, follow the repository's checks, and finish file-changing replies with links to the files touched.
-
-Replace `OWNER/REPOSITORY` with the repository name, for example `alex137/BestPractice`.
-
-After that, give the actual request:
-
-> Rewrite the opening for non-technical readers. Preserve the underlying meaning, check related documentation, and prepare the change for review.
-
-The opening instruction is a **session bootstrap**. It tells ChatGPT to load the same project frame that a coding-agent environment would normally load automatically.
-
-Keep the bootstrap in a phone note or text shortcut so starting a new project session takes one paste.
-
-*GitHub-connected ChatGPT behavior verified August 2, 2026. Product interfaces and connector capabilities can change.*
+*Platform behavior verified August 2, 2026. Product interfaces and connector capabilities can change.*
 
 ## What the assistant should read first
 
-Each BestPractice project has a small set of orientation files:
+Each installed BestPractice project has a small set of orientation files:
 
+- `README.md` — the universal entry point for people and assistants.
 - `AGENTS.md` — how agents must work in this project.
 - `MAP.md` — where the project's important knowledge lives.
 - `TODO.md` — open work and unresolved questions.
 - `GLOSSARY.md` — project-specific language, when needed.
 
 You usually do not need to open these yourself. Their job is to help each new agent session become useful quickly and behave consistently.
+
+The README should contain a short marked block that points assistants to `AGENTS.md` and `MAP.md`. Install it from [templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template). The README is the router; `AGENTS.md` remains authoritative.
 
 ## What happens when something changes?
 
@@ -115,7 +102,7 @@ The assistant should:
 2. Read the relevant project context.
 3. Make the requested changes.
 4. Update related records when necessary.
-5. Run the project's checks.
+5. Run or verify the project's checks.
 6. Explain what changed and why.
 7. Give you direct links to the files for review.
 8. Merge only after the change is approved.
@@ -158,8 +145,9 @@ For a new project:
 2. Open the repository in a coding agent.
 3. Ask the agent to install BestPractice by following [INSTALL.md](INSTALL.md).
 4. Answer the agent's questions about the project.
-5. Review the generated project map and instructions.
-6. Begin working by asking questions and giving critiques.
+5. Review the generated README entry block, project map, and instructions.
+6. Enable the repository checks described in [GitHub Actions setup](GITHUB_ACTIONS.md).
+7. Begin working by naming the repository, directing the assistant to its README, and giving questions or critiques.
 
 New to GitHub? Read [Git, minimally](GIT.md). It explains only the concepts this workflow needs.
 
@@ -170,9 +158,11 @@ The beginner workflow above is intentionally small. The detailed machinery remai
 | Path | Purpose |
 |---|---|
 | [INSTALL.md](INSTALL.md) | Install, update, and contribute the practice layer. |
+| [MOBILE.md](MOBILE.md) | Work from ChatGPT or Claude Code on a phone and create an iPhone Shortcut. |
+| [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) | Install and require repository checks that agents without a terminal can use. |
 | [PRACTICES.md](PRACTICES.md) | The full catalog of rules, motivations, and implementation guidance. |
 | [GIT.md](GIT.md) | The Git and GitHub concepts needed by this workflow. |
-| [templates/](templates/) | Project instructions, maps, task lists, glossaries, and agent adapters. |
+| [templates/](templates/) | Project instructions, maps, task lists, glossaries, README entry block, workflows, and agent adapters. |
 | [tools/](tools/) | Portable checks and check-in tools. |
 | [deck/](deck/) | The presentation system and sample deck. |
 
