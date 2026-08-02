@@ -16,6 +16,8 @@ that skips them in this repo of all places is the joke writing itself.
 |---|---|
 | What each practice is and why | [PRACTICES.md](PRACTICES.md) |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) |
+| Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
+| Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
 | Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
 | The working method (branches, plain text, critique, prompts) | [METHOD.md](METHOD.md) |
 | Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](MOBILE.md) |

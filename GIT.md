@@ -1,5 +1,32 @@
 # Git, minimally, for this way of working
 
+## Why GitHub at all?
+
+A normal chat thread is useful but temporary. Important context may be
+buried in an old conversation, known to only one person, or missing from
+another assistant's memory. Keeping the project in a GitHub repository
+gives the team a shared, inspectable memory instead:
+
+- Important decisions are written down.
+- Everyone works from the same current information.
+- Earlier versions can be reviewed or restored.
+- Several people can work without silently overwriting one another.
+- A new person or AI session can understand the project by reading its
+  map and asking questions.
+- Changes record what happened and why.
+- Rules that matter are enforced by automatic checks, not by reminding
+  people.
+
+The repository is the memory. The chat is the way you work with it.
+
+GitHub is the worked example throughout these documents, and BestPractice
+currently leans on GitHub features (pull requests, Actions checks)
+deliberately. The layer itself is plain git, markdown, and Python, so
+equivalents on other hosts such as Gitea can be added later — see
+[TODO.md](TODO.md).
+
+## The eight ideas
+
 You don't need to know git deeply to use [BestPractice](README.md); you
 need eight ideas:
 

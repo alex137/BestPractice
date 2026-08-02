@@ -96,6 +96,32 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   one-line description per file — so the reader can open the work from the
   chat.
 
+## Administrator requests you must know how to handle
+
+<!-- These are conversational workflows the administrator triggers by
+     plain phrases. Guide them end-to-end in plain language — they may
+     not be a programmer. Keep this section when instantiating. -->
+
+- **"Add project members"** — guide the administrator through the whole
+  thing:
+  1. Ask, in one message: the member's GitHub username (or email), what
+     they'll work on, and which AI tool they use (Claude, Codex, ChatGPT,
+     Gemini, Grok, other).
+  2. Give the exact GitHub steps to grant access — for a personal repo:
+     repository **Settings → Collaborators → Add people**; in an
+     organization, their existing team flow. One sentence on the choice:
+     read access lets the member's assistant answer questions; write
+     access lets it propose changes (which still need approval to join
+     the project).
+  3. Generate a short personal welcome message the administrator can
+     paste into email or chat: greet the member by name, one sentence on
+     what the project is, the link to this repository's
+     `GETTING_STARTED.md` naming the section for their tool, and one
+     suggested first task drawn from `TODO.md`.
+  4. Confirm there is nothing else to install or configure — once access
+     exists, the member's Getting Started section is everything they
+     need.
+
 ## Practice export — BestPractice (policy)
 
 - `process/upstream/` is a vendored copy of the public BestPractice repo

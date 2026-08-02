@@ -59,6 +59,10 @@ Then provide the task:
 
 For checks that require a shell, such as Markdown lint, install the repository's [GitHub Actions checks](GITHUB_ACTIONS.md). ChatGPT can then make a branch change, allow GitHub to run the check, and inspect the result without needing a local terminal.
 
+## Gemini
+
+The Gemini CLI works with installed repositories through the harness adapter in [templates/harness/](templates/harness/), which points it at the canonical `AGENTS.md` — a desktop workflow. As of 2026-08, a phone-based Gemini workflow is unverified; Gemini app users should treat it like the "any other assistant" case: universal starting instruction for reading and questions, changes routed through a coding agent.
+
 ## Grok
 
 Unverified, as of 2026-08: no repository-connected Grok workflow comparable to Claude Code or Codex has been tested with BestPractice. If Grok can reach your repository, the universal starting instruction above should apply unchanged. Until someone verifies it (tracked in [TODO.md](TODO.md)), treat Grok like a disconnected chat assistant: paste documents in, work by critique, and route the actual file changes through a coding agent.
