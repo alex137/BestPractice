@@ -84,6 +84,6 @@ need eight ideas:
   or open PRs there — writes fail even though reads work, which is
   confusing the first time you hit it. So decide up front: if a session's
   plan includes pushing to a second repo (the check-in step in
-  [How it's used](README.md#how-its-used-short-version), for example),
+  [INSTALL.md](INSTALL.md) §4, for example),
   **select both repos when you create the session** — you generally can't
   add write access mid-session.
