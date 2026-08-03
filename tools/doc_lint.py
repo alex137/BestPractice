@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """doc_lint.py — markdown hygiene checks (BestPractice practice 11).
 
-Two checks, both born from real bugs (an outward-facing document that rendered
-with unintended strikethrough, and file references written as bare backticks
-instead of links):
+Markdown hygiene checks, each born from a real bug (an outward-facing document
+that rendered with unintended strikethrough; file references written as bare
+backticks instead of links; a link converted to an HTML anchor for new-tab
+behavior that GitHub silently neutered):
 
   1. ACCIDENTAL STRIKETHROUGH (error). GitHub renders `~text~` and `~~text~~` as
      <del> when the tildes flank properly. A lone `~` used for "approximately"
@@ -24,6 +25,12 @@ instead of links):
      expand the acronym on first use or add it to the glossary. Warning-only,
      deduped to one line per acronym; skipped entirely if there is no GLOSSARY.md
      (a repo without one opts out naturally).
+
+  4. HTML ANCHOR WITH target= (warning). GitHub's sanitizer strips target=
+     (and most other attributes) from raw HTML anchors in rendered markdown,
+     so an "open in new tab" link silently does nothing there (as of 2026-08;
+     origin: a thread spent two commits adding target="_blank" and reverting
+     it). Use a plain markdown link instead.
 
 SCOPE: by default, only files CHANGED vs the default branch (the convention is
 "fix the parts you touch"; this also avoids editing frozen documents, where a
@@ -68,6 +75,7 @@ except Exception:
     HAVE_GFM = False
 
 REF_RE = re.compile(r'`([^`]+\.(?:md|py))`')          # backticked filename in code span
+TARGET_RE = re.compile(r'<a\s[^>]*\btarget\s*=', re.IGNORECASE)  # HTML anchor with target=
 
 # Immutable frozen records: excluded from default/--all selections (unfixable
 # by design). Dependent repos list their frozen-artifact name prefixes here.
@@ -135,7 +143,7 @@ def iter_prose_lines(path):
             yield i, line
 
 def check_file(path, fix=False, known=None):
-    strikes, unlinked, unglossed = [], [], []
+    strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
     scan_acronyms = known is not None and path not in ACRONYM_SKIP_FILES
     seen_acr = set()
@@ -150,6 +158,10 @@ def check_file(path, fix=False, known=None):
             after = line[m.end():m.end()+2]
             if after != '](':
                 unlinked.append((i, m.group(1)))
+        # target= anchors: GitHub strips the attribute from rendered HTML (check 4);
+        # code spans stripped first so documenting the rule doesn't trip it
+        if TARGET_RE.search(re.sub(r'`[^`]*`', ' ', line)):
+            targeted.append((i, line.strip()[:100]))
         # unglossed acronyms: ALL-CAPS token not known and not defined inline this line
         if scan_acronyms:
             clean = _decontent(line)
@@ -163,7 +175,7 @@ def check_file(path, fix=False, known=None):
         for i, new in changed_lines.items():
             lines[i-1] = new
         (ROOT / path).write_text('\n'.join(lines) + '\n', encoding='utf-8')
-    return strikes, unlinked, unglossed, len(changed_lines)
+    return strikes, unlinked, unglossed, targeted, len(changed_lines)
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
@@ -181,12 +193,12 @@ def main():
               "(pip install cmarkgfm). Running reference check only.")
 
     known = None if fix else load_known_acronyms()
-    total_strikes = total_unlinked = total_unglossed = total_fixed = 0
-    strike_lines, unlinked_lines, unglossed_lines = [], [], []
+    total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
+    strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
     for f in files:
         if not (ROOT / f).exists():
             continue
-        s, u, g, nf = check_file(f, fix=fix, known=known)
+        s, u, g, t, nf = check_file(f, fix=fix, known=known)
         total_fixed += nf
         for i, txt in s:
             strike_lines.append(f"  {f}:{i}: {txt}")
@@ -194,7 +206,10 @@ def main():
             unlinked_lines.append(f"  {f}:{i}: `{ref}` is not a link")
         for i, tok in g:
             unglossed_lines.append(f"  {f}:{i}: {tok}")
+        for i, txt in t:
+            target_lines.append(f"  {f}:{i}: {txt}")
         total_strikes += len(s); total_unlinked += len(u); total_unglossed += len(g)
+        total_targeted += len(t)
 
     if fix:
         print(f"doc_lint --fix: rewrote ~ -> ≈ on {total_fixed} accidental-strikethrough line(s).")
@@ -215,10 +230,16 @@ def main():
         print('\n'.join(unglossed_lines[:40]))
         if total_unglossed > 40:
             print(f"  … and {total_unglossed - 40} more")
+    if target_lines:
+        print(f"\nTARGET= ANCHORS — {total_targeted} (warning; GitHub strips target= from "
+              f"rendered HTML, as of 2026-08 — use a plain markdown link):")
+        print('\n'.join(target_lines[:40]))
+        if total_targeted > 40:
+            print(f"  … and {total_targeted - 40} more")
 
-    if not strike_lines and not unlinked_lines and not unglossed_lines:
+    if not strike_lines and not unlinked_lines and not unglossed_lines and not target_lines:
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
-              f"no unlinked references, no unglossed acronyms.")
+              f"no unlinked references, no unglossed acronyms, no target= anchors.")
 
     # gate: fail only on strikethrough, only in gated (changed/explicit) scope
     if gate and strike_lines:

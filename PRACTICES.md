@@ -87,7 +87,13 @@ script's docstring.
 broken once despite being written down: a status flag not flipped caused a
 generated bundle to silently drop updated content; a renumbering left stale
 cross-references undetected for weeks; a markdown footgun garbled an external
-document. None recurred after promotion to an audit.
+document. None recurred after promotion to an audit. The binding layer
+matters as much as the check: a gate that lives only in a merge runbook
+binds only the sessions that run the runbook — a PR merged through the
+hosting platform's web UI skips it entirely (a dependent repo's first
+member merges bypassed the capture and export gates exactly this way,
+2026-08). A required CI check ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)) is
+the form that binds every path to the default branch.
 
 **Install.** [tools/doc_lint.py](tools/doc_lint.py) and
 [tools/practice_audit.py](tools/practice_audit.py) are audits of this kind
@@ -182,16 +188,24 @@ markdown links, never bare backticked filenames — docs are read on a web UI
 where a bare name is a dead end. New text always links; any thread touching a
 document fixes the references in the parts it touches. (b) Use `≈` for
 "approximately", never `~` — two stray tildes on a line render as
-strikethrough on GitHub, silently garbling text.
+strikethrough on GitHub, silently garbling text. (c) Links stay plain
+markdown — don't reach for a raw HTML anchor to control link behavior:
+GitHub's sanitizer strips `target=` (and most other attributes) from
+anchors in rendered markdown, so an "open in new tab" link silently does
+nothing there (*as of 2026-08*).
 
-**Why.** Both born from real bugs: readers hunting for referenced files, and
-an outward-facing document that rendered with unintended strikethrough.
+**Why.** All born from real bugs: readers hunting for referenced files, an
+outward-facing document that rendered with unintended strikethrough, and a
+thread that spent two commits converting a link to a `target="_blank"`
+anchor and reverting it once the rendered page proved the attribute was
+stripped.
 
-**Install.** [tools/doc_lint.py](tools/doc_lint.py) checks both — it gates on
-files changed vs the default branch (the "fix what you touch" scope, which
-also protects frozen documents), `--all` reports the backlog, `--fix`
-rewrites `~`→`≈` on struck lines. Requires `cmarkgfm` for exact detection
-with GitHub's own renderer.
+**Install.** [tools/doc_lint.py](tools/doc_lint.py) checks all three — it
+gates on files changed vs the default branch (the "fix what you touch"
+scope, which also protects frozen documents), `--all` reports the backlog,
+`--fix` rewrites `~`→`≈` on struck lines; `target=` anchors are reported as
+warnings. Requires `cmarkgfm` for exact detection with GitHub's own
+renderer.
 
 ## 12. Every reply links the files it touched
 
