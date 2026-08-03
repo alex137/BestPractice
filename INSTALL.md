@@ -4,10 +4,11 @@ Instructions for wiring BestPractice into a *dependent repo*, keeping it
 current, and flowing improvements back. Read [PRACTICES.md](PRACTICES.md)
 first for what each practice is and why.
 
-If you're approving this work rather than doing it yourself: read just the
-shaded **"In plain terms"** note at the start of each section below, in
-order, and skip everything underneath it — together they walk through the
-whole setup without requiring GitHub knowledge. The last section,
+You don't need to run the technical steps yourself to follow, or approve,
+this setup: read just the shaded **"In plain terms"** note at the start of
+each section below, in order, and skip everything underneath it — together
+they walk through the whole setup without requiring GitHub knowledge. The
+last section,
 [For approvers: your checklist](#for-approvers-your-checklist), gathers every
 point in the process that actually needs a decision from you into one list.
 To have this conversation live with your assistant rather than reading about
