@@ -29,6 +29,16 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      entries' section_marker still occurs in local_path (warn-only — section
      tracking is approximate by design); "local-only" entries carry notes.
 
+  4. LAYOUT (root hygiene). Upstream-internal docs (INSTALL.md,
+     PRACTICES.md, SETUP.md, ...) must not sit at the dependent repo's
+     root — they belong only inside a vendored tree such as
+     process/upstream/. A contributor browsing the root should see the
+     project's own subject matter plus the instantiated files, nothing
+     about BestPractice internals. A root file with one of these names
+     FAILS unless a manifest records it as this repo's own document (an
+     entry with that local_path). Runs once per audit, with exceptions
+     collected across all manifests.
+
 Run:  python3 process/upstream/tools/practice_audit.py                    # gate (all manifests)
       python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
       python3 process/upstream/tools/practice_audit.py --manifest process/manifest.json  # one manifest
@@ -42,6 +52,12 @@ ROOT = pathlib.Path(_top) if _top else HERE.parents[3]
 DEFAULT_BLOCKLIST = 'process/scrub_blocklist.txt'
 
 TEXT_EXT = {'.md', '.py', '.sh', '.json', '.txt', '.yml', '.yaml', '.toml', '.template'}
+
+# Docs that exist ONLY inside the vendored tree; finding one at the
+# dependent repo's root means the install scattered files it should have
+# contained (INSTALL.md §1, "root hygiene").
+UPSTREAM_ONLY_DOCS = ['INSTALL.md', 'PRACTICES.md', 'SETUP.md', 'GITHUB_ACTIONS.md',
+                      'MOBILE.md', 'METHOD.md', 'GIT.md']
 
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -80,6 +96,20 @@ def scrub(tree, blocklist_path, fails, label):
                     break
     if not hits:
         print(f"scrub OK [{label}]: {tree.relative_to(ROOT)}/ clean against {len(pats)} blocklist pattern(s).")
+
+def layout(fails, claimed):
+    stray = [n for n in UPSTREAM_ONLY_DOCS if (ROOT / n).exists() and n not in claimed]
+    if stray:
+        fails.append(
+            "LAYOUT: upstream-internal doc(s) at the repo root: " + ", ".join(stray) +
+            " — these belong only under process/upstream/. The root gets ONLY the"
+            " instantiated files (AGENTS.md + harness pointer, MAP.md, TODO.md,"
+            " GLOSSARY.md, GETTING_STARTED.md, the README entry block) — see"
+            " process/upstream/INSTALL.md §1 'root hygiene'. Delete the strays (their"
+            " content lives in process/upstream/); if one is genuinely this repo's own"
+            " document, record it as a manifest entry with that local_path.")
+    else:
+        print("layout OK: no upstream-internal docs at the repo root.")
 
 def audit_manifest(manifest_path, update, fails, warns, pending):
     label = manifest_path.stem.replace('manifest_', '').replace('manifest', 'upstream') or 'upstream'
@@ -153,11 +183,15 @@ def audit(update=False, only=None):
               "(see process/upstream/INSTALL.md §5)")
         return 1
     n = 0
+    claimed = set()
     for m in manifests:
         if not m.exists():
             print(f"practice_audit FAIL: no manifest at {m}")
             return 1
         n += audit_manifest(m, update, fails, warns, pending)
+        claimed |= {e.get('local_path')
+                    for e in json.loads(m.read_text(encoding='utf-8')).get('entries', [])}
+    layout(fails, claimed)  # check 4 — root hygiene, once per audit
 
     for p in pending:
         print(f"pending: {p}")

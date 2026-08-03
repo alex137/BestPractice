@@ -69,7 +69,21 @@ drift and proprietary leakage loud instead of silent.
 5. **Add the export-gate section** to the instructions file (the template
    includes it): the copy-back rule, the scrub rule, and the periodic
    check-in item (add one to `TODO.md`).
-6. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
+6. **Root hygiene — the layout rule.** The ONLY files an install may
+   create at the dependent repo's root are the instantiated ones:
+   `AGENTS.md` (plus a harness pointer such as `CLAUDE.md`), `MAP.md`,
+   `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, and the README
+   entry-block edit — plus `tools/bootstrap.sh` and
+   `.github/workflows/bestpractice-docs.yml`. Everything else that ships
+   with BestPractice (INSTALL.md, PRACTICES.md, SETUP.md,
+   GITHUB_ACTIONS.md, MOBILE.md, METHOD.md, GIT.md, templates/, tools/,
+   deck/) exists ONLY under `process/upstream/` — never copy any of it to
+   the root. A contributor browsing the root should see the project's own
+   subject matter plus the instantiated files, and nothing about how
+   BestPractice works internally. The audit enforces this: an
+   upstream-internal doc found at the root fails unless the manifest
+   records it as the repo's own document.
+7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
    Commit.
 
 `.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8):
@@ -93,7 +107,21 @@ drift and proprietary leakage loud instead of silent.
    *your installed, adapted copy*. Apply upstream's changes to your installed
    files **through the adaptation** recorded in the entry's `notes` — don't
    clobber local adaptations.
-3. Replace `process/upstream/` with the new tree, update
+3. **Instantiate anything the recorded install predates.** An update can
+   introduce templates and root files that did not exist when this repo
+   installed — e.g. `GETTING_STARTED.md`
+   (from [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md)),
+   the README entry block
+   ([templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template)),
+   or the Actions check
+   ([templates/github-actions/](templates/github-actions/README.md)).
+   Instantiate them exactly as §1 describes and add manifest entries.
+4. **Fix legacy layout.** Older installs sometimes scattered
+   upstream-internal docs (INSTALL.md, GITHUB_ACTIONS.md, …) at the repo
+   root; the audit's LAYOUT check now fails on them. Delete the strays —
+   their content lives under `process/upstream/` — per §1's root-hygiene
+   rule.
+5. Replace `process/upstream/` with the new tree, update
    `upstream.commit`, run the audit `--update-baseline`, commit.
 
 ## 3. Copy an improvement back (the export gate)
