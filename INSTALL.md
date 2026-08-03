@@ -181,21 +181,26 @@ drift and proprietary leakage loud instead of silent.
 5. Replace `process/upstream/` with the new tree, update
    `upstream.commit`, run the audit `--update-baseline`, commit.
 
-## 3. Copy an improvement back (the export gate)
+## 3. (Optional) Give back an improvement — the export gate
 
-> **In plain terms.** Sometimes your project discovers a *better way of
-> working* — not a fact about your business, just a sharper habit
-> (a clearer checklist, a smarter automatic check). This section is how
-> that improvement gets offered back to BestPractice so every other
-> project using it benefits too — like reporting a better recipe back to
-> a shared cookbook, with your kitchen's specific ingredients removed
-> first. This step happens automatically, on your project's own private
-> working copy, as part of the assistant's ordinary work; it doesn't leave
-> your project until the check-in step below (§4), which does need your
+> **In plain terms.** This whole section, and §4 after it, are entirely
+> **optional** — nothing about using BestPractice requires your project to
+> give anything back. They exist for when your project discovers a *better
+> way of working* — not a fact about your business, just a sharper habit
+> (a clearer checklist, a smarter automatic check) — that could help every
+> other project using BestPractice, the same way yours benefited from
+> lessons other projects learned first. Think of it as reporting a better
+> recipe back to a shared cookbook, with your kitchen's specific
+> ingredients removed first. If your project chooses to do this, the
+> drafting happens automatically, on your project's own private working
+> copy, as part of the assistant's ordinary work; it doesn't leave your
+> project until the check-in step below (§4), which does need your
 > sign-off.
 
-Run this check **before any thread ends / before any merge to the default
-branch** (it is step 0b of the merge runbook, beside the capture gate):
+For projects that choose to give back, run this check **before any thread
+ends / before any merge to the default branch** (it is step 0b of the merge
+runbook, beside the capture gate). Projects that don't intend to contribute
+upstream can skip this section entirely:
 
 > Did this thread improve a *generic* practice — a new convention, a
 > sharpened runbook rule, a better audit, a template fix?
@@ -212,17 +217,21 @@ If yes, in the **same branch**:
    manifest entry to `"diverged"` — the audit will keep reminding until the
    export happens or the baseline is deliberately updated.
 
-## 4. Periodic check-in (propose upstream)
+## 4. (Optional) Periodic check-in — propose your improvements upstream
 
-> **In plain terms.** On a schedule, your project's accumulated
-> improvements (§3) get bundled up and offered to the public BestPractice
-> project as a formal proposal — a pull request. **This is the step
-> where a human reviewer other than you looks at what's being shared**,
-> as a second check that nothing private slipped through the automatic
-> scrub. If you're the one with authority to approve changes on your own
-> project, your part is: skim what the assistant proposes to share
-> (it will summarize it in plain language), and either approve it or ask
-> for something to be reworded or left out. Nothing leaves your project
+> **In plain terms.** Like §3, this whole section is **optional** — skip
+> it if your project would rather keep its improvements to itself. For
+> projects that do want to give back, this is where §3's accumulated
+> improvements actually leave your project: on a schedule, they get
+> bundled up and offered to the public BestPractice project as a formal
+> proposal — a pull request — so that everyone else using BestPractice can
+> learn from what your team figured out. **This is the step where a human
+> reviewer other than you looks at what's being shared**, as a second
+> check that nothing private slipped through the automatic scrub. If
+> you're the one with authority to approve changes on your own project,
+> your part is: skim what the assistant proposes to share (it will
+> summarize it in plain language), and either approve it or ask for
+> something to be reworded or left out. Nothing leaves your project
 > without a PR existing first, and a PR is just a draft sitting on GitHub
 > until someone approves it.
 
@@ -235,10 +244,11 @@ local commits. So: **open check-in sessions with BOTH repos selected at
 creation.** Everything else can be prepared, scrubbed, and audited in
 ordinary single-repo sessions; only this step needs the dual-repo session.
 
-On a schedule (a recurring `TODO.md` item), in a session with access to the
-BestPractice repo. [tools/checkin.py](tools/checkin.py) drives the
-mechanical steps against a local clone of the upstream repo; the deliberate
-steps (review, PR, merge) stay manual:
+For projects that choose to give back: on a schedule (a recurring
+`TODO.md` item), in a session with access to the BestPractice repo.
+[tools/checkin.py](tools/checkin.py) drives the mechanical steps against a
+local clone of the upstream repo; the deliberate steps (review, PR, merge)
+stay manual:
 
 1. Review the vendored tree's accumulated changes and every `diverged`
    manifest entry — export what's ready, or record in the entry's notes why
@@ -391,7 +401,8 @@ on, across the whole lifecycle:
   and what private names/words must never go public. Then look at what
   the assistant built and either approve it or ask for changes. See the
   [guided install](SETUP.md) for the conversational version of this.
-- **At every check-in (§4):** review the plain-language summary of what's
+- **At every check-in (§4), only if your project gives back at all
+  (§3–§4 are both optional):** review the plain-language summary of what's
   being proposed back to the public BestPractice project, and approve,
   adjust, or hold it back. This is the one recurring moment where content
   leaves your project's boundary, so it's the one worth actually reading
