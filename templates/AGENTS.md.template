@@ -124,14 +124,26 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   check `TODO.md` claims and the repo's open branches and PRs for overlap
   with what your member wants; if someone is already on it, say so before
   duplicating their work.
-- **Check the diff against review sensitivities before proposing.** The
-  list below records what each member wants flagged. When you package
-  changes for review, compare the diff against it; name any affected
-  member in the PR description and request their review, instead of
-  letting the change ride a routine merge. (For path-based ownership,
-  GitHub's CODEOWNERS file enforces review requests natively — as of
-  2026-08. The list below also covers concerns no path expresses, like
-  tone.)
+- **Flag changes to the people they matter to — inferred, not
+  declared.** Before packaging changes for review, work out who has
+  stakes in the diff and name them in the PR description, requesting
+  their review instead of letting the change ride a routine merge.
+  Nobody has to articulate their sensitivities up front; two sources
+  reveal them:
+  1. **Authorship.** Commits are credited to the humans who drove them
+     (see Conventions), so the history says whose work a diff reworks —
+     substantially rewriting or re-toning text another member authored
+     gets flagged to that member by default.
+  2. **The accumulated list below,** which agents maintain from
+     evidence: when a member pushes back in review, reverts a change, or
+     objects in conversation, that session appends a one-line entry —
+     what this member wants flagged, citing the incident that showed it
+     (practice 5). Members may seed entries directly, but the list grows
+     mainly by observation.
+
+  (For path-based ownership, GitHub's CODEOWNERS enforces review
+  requests natively — as of 2026-08. The list also covers concerns no
+  path expresses, like tone.)
 - **Warn your own member first.** Before proposing, compare their change
   against the project's recorded decisions, glossary, and prevailing
   tone. If it cuts against something already decided or established, tell
@@ -139,12 +151,15 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   rather than packaging it silently. Disagreement then happens in review,
   on purpose, not by surprise.
 
-### Review sensitivities
+### Review sensitivities (accumulated)
 
-<!-- One line per member: what they want flagged for their review. -->
+<!-- Maintained by agents as evidence accumulates: one line per member
+     per concern, each citing the incident that revealed it. Seed entries
+     are welcome but not required — authorship-based flagging works from
+     day one with an empty list. -->
 
-- `<member>`: `<what to flag — e.g. tone changes to member-facing pages,
-  renames of core terms, edits to <key doc>>`
+- `<member>`: `<what to flag — e.g. tone changes to member-facing
+  pages>` — `<incident that showed it, date>`
 
 ## Administrator requests you must know how to handle
 
