@@ -10,7 +10,13 @@ the upstream layer. Ordered by priority.
    Claude Code, ChatGPT, anyone — regardless of whether the agent has a
    shell. Candidates to add: [practice_audit.py](tools/practice_audit.py)
    (manifest drift + scrub gate) as a required PR check; a deck-build
-   check when deck sources change.
+   check when deck sources change; a check that flags agent-authored
+   commits on PR branches (attribution convention). Field evidence
+   (2026-08, a dependent repo's first member PRs): merges made through
+   the GitHub web UI, so the merge-runbook gates — capture, export,
+   audits — never ran, and every commit landed authored as the agent.
+   Runbook gates bind only sessions that run the runbook; required CI
+   checks bind every path to the default branch.
 2. **Evaluate GitHub Issues for open items.** Mirroring or replacing
    TODO-file items with Issues would let shell-less assistants and phone
    users browse, discuss, and close work items natively. Needs a

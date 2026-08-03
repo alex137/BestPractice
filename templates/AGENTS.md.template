@@ -80,8 +80,11 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   text always links; a thread touching a document fixes the references in
   the parts it touches.
 - **`≈`, not `~`, for "approximately"** — two stray tildes render as
-  strikethrough on GitHub. `python3 process/upstream/tools/doc_lint.py`
-  checks both conventions on files changed vs the default branch; run it on
+  strikethrough on GitHub. Links stay plain markdown: GitHub strips
+  `target=` and most other attributes from raw HTML anchors in rendered
+  docs, so an "open in new tab" link can't work there (*as of 2026-08*).
+  `python3 process/upstream/tools/doc_lint.py`
+  checks these conventions on files changed vs the default branch; run it on
   what you touch before committing.
 - **Volatile rules carry their dates** (practice 16): a rule that depends
   on the outside world (an external platform, someone else's algorithm, a
@@ -96,14 +99,17 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   one-line description per file — so the reader can open the work from the
   chat.
 - **Commits are credited to the human driving the session.** Set the git
-  author to the member's name and GitHub noreply email (ask once per
-  session if you don't know who you're working for —
+  author to the member's name and GitHub noreply email (ask **before the
+  first commit** if you don't know who you're working for —
   `git commit --author="Name <ID+user@users.noreply.github.com>"`), and
   name yourself in a `Co-Authored-By:` trailer. The project's history
   must show people's contributions as theirs, not as the agent's; where a
   hosting platform forces its own committer identity, the author field
-  still records the human. *(GitHub attributes by author email — verified
-  2026-08.)*
+  still records the human. Hosted agent harnesses author commits as the
+  agent unless told otherwise, so a session that never asks mis-attributes
+  silently — a dependent repo's first member PRs all landed authored as
+  the agent this way (*observed 2026-08 on hosted Claude Code sessions*).
+  *(GitHub attributes by author email — verified 2026-08.)*
 - **Open each session by catching the member up.** The shared project
   moves between a member's conversations, and nothing pushes updates into
   their old chats. At session start — and any time they ask "what's
