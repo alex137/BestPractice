@@ -69,6 +69,11 @@ conventions the assistants follow automatically:
 - **Every conversation starts caught up.** Each new session opens with a
   plain-language summary of what changed since that member last worked.
 
+Your side of the loop is conversational too: say *"what's waiting for
+me?"* and your assistant summarizes each pending proposal, integrates
+any that collide, and merges on your word. The administrator section at
+the end of the members' Getting Started page teaches it in full.
+
 ## What your members will see
 
 Members receive one link: to the project's own Getting Started page,

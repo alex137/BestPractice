@@ -167,6 +167,20 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
      plain phrases. Guide them end-to-end in plain language — they may
      not be a programmer. Keep this section when instantiating. -->
 
+- **"What's waiting for me?"** (or "review pending changes") — the
+  administrator's review loop, entirely in conversation:
+  1. List the open PRs, plus any branches ahead of the default branch
+     with no PR yet. For each: a plain-language summary — what changed,
+     who drove it, and any hits against the review sensitivities or the
+     spirit check (see Working in parallel).
+  2. Point out proposals that collide with each other; offer to
+     integrate colliding proposals and show the combined result before
+     anything merges.
+  3. Take the verdict in chat — approve (merge, with required checks
+     passing), adjust-then-merge, or send back — and record the
+     reasoning in the PR conversation either way.
+  4. Merge only what the administrator has approved in conversation,
+     unless they have told you a category of change is routine for them.
 - **"Add project members"** — guide the administrator through the whole
   thing:
   1. Ask, in one message: the member's GitHub username (or email), what

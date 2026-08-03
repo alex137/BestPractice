@@ -159,3 +159,25 @@ opener:
   request in a notes app first, then paste it — the assistant's output
   quality tracks the clarity of what you hand it. (More habits like this
   in the project's method guide: `process/upstream/METHOD.md`.)
+
+## For the administrator: approving changes
+
+Members draft changes on their own private copies; nothing joins the
+shared project until you approve it. Your side of the loop is also just
+conversation:
+
+- **Ask "what's waiting for me?"** Your assistant lists each pending
+  proposal and summarizes it in plain language: what changed, who made
+  it, and whether it touches anything you have cared about before.
+- **The merge magic.** If two proposals collide — both reworked the same
+  passage, say — the assistant integrates them for you and shows the
+  combined result before anything becomes shared. You never untangle
+  conflicts yourself.
+- **Three answers, all in chat:** *approve* ("merge it"), *adjust*
+  ("merge it, but keep the old title"), or *send back* ("ask the author
+  to reconsider the tone — here's why"). Approving makes the change
+  shared for everyone; your reasoning is recorded either way.
+- **Routine things stay quick.** Most proposals are safe to approve in
+  seconds; the assistant tells you when one deserves a closer look —
+  because it reworks someone's writing, collides with other work, or
+  touches something you've pushed back on before.
