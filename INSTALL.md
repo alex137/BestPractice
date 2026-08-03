@@ -1,8 +1,8 @@
-# INSTALL — the agent playbook
+# How to install BestPractice for you and your team
 
-Instructions for an agent (or human) wiring BestPractice into a *dependent
-repo*, keeping it current, and flowing improvements back. Read
-[PRACTICES.md](PRACTICES.md) first for what each practice is and why.
+Instructions for wiring BestPractice into a *dependent repo*, keeping it
+current, and flowing improvements back. Read [PRACTICES.md](PRACTICES.md)
+first for what each practice is and why.
 
 If you're approving this work rather than doing it yourself: read just the
 shaded **"In plain terms"** note at the start of each section below, in
