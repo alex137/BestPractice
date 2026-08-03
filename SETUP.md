@@ -29,6 +29,9 @@ technical work yourself.
    `process/scrub_blocklist.txt` from their answer if the repo is
    private; and install the Actions check from
    `templates/github-actions/` as `.github/workflows/bestpractice-docs.yml`.
+   Respect the root-hygiene rule (INSTALL.md §1): nothing from
+   BestPractice lands at the repo root except the instantiated files —
+   all upstream docs stay under `process/upstream/`.
    Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
    Commit everything on a branch.
 4. **Walk them through what you made — don't just list files.** Show

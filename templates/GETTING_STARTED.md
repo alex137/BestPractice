@@ -27,7 +27,8 @@ This page tells you how to connect, based on which AI tool you use:
 - [Gemini users](#gemini-users)
 - [Grok users](#grok-users)
 - [Any other assistant](#any-other-assistant)
-- [Whichever tool you use](#whichever-tool-you-use)
+- [Making your first change](#making-your-first-change)
+- [Tips while you work](#tips-while-you-work)
 
 Before any of it works, an administrator must have given your GitHub
 account access to `<OWNER/REPOSITORY>` — if you don't have access yet,
@@ -102,7 +103,24 @@ opener:
 > Work on `<OWNER/REPOSITORY>`. Start with its README and follow the
 > repository's agent instructions before answering.
 
-## Whichever tool you use
+## Making your first change
+
+The whole contribution loop, in five steps:
+
+1. **Connect your AI tool**, using your section above.
+2. **Ask what needs doing.** Say *"What are the open items?"* — the
+   assistant reads the project's to-do list for you. (This step is
+   optional: changes you think of yourself are just as welcome.)
+3. **Describe the change you want.** The assistant makes it on your own
+   working copy — a private version of the project that only your
+   conversation touches, so nothing you do can break the shared project.
+4. **Look at what it made.** The assistant's reply ends with links to the
+   changed files; open them and ask for adjustments until it's right.
+5. **Say "propose this to the team."** The assistant packages your change
+   for review — the technical name is a *pull request* — and an
+   administrator, not you, decides when it joins the shared project.
+
+## Tips while you work
 
 - **Ask before hunting.** The fastest way to learn anything about this
   project is to ask your assistant — it reads the project's map and
