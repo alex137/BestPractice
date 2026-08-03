@@ -12,6 +12,16 @@ and the administrator green-lights changes, also with AI help, before
 they join the shared project. The output of every AI conversation becomes
 part of the project, so nothing is lost in chat history.
 
+**It is an alternative to Google-Docs-style collaboration.** A shared
+live document lets everyone make tiny edits at once — but the unwritten
+rule is that everyone pauses while one person makes a big change, big
+edits trample each other, and the document never remembers who decided
+what, or why. Here there is no pause: every person (and every AI thread)
+works at full speed on a private copy, changes join the shared project
+through review, every change is credited to the person who drove it with
+the reason recorded — and the system itself notices which teammates a
+change matters to, and flags them.
+
 Think of a hospital chart at shift change: clinicians rotate, but the
 chart carries every observation, every decision, and the reasoning behind
 it — if it isn't in the chart, it didn't happen — so the incoming doctor
@@ -38,6 +48,26 @@ unless you want to set up a programming environment yourself, these
 documents assume you are a Claude Code user. Members who prefer other
 assistants still have supported paths — see the members' page below and
 [MOBILE.md](MOBILE.md).
+
+## Built for many hands
+
+The collaboration problems a shared document can't solve are handled by
+conventions the assistants follow automatically:
+
+- **No duplicated work.** When a member takes on a to-do item, their
+  assistant claims it under their name — and warns anyone else's
+  assistant before it starts overlapping work.
+- **Nothing lands by surprise.** Before proposing a change, the
+  assistant works out who it matters to — from who wrote the affected
+  text, and who has pushed back on similar changes before — and requests
+  that person's review. Routine changes merge routinely; sensitive ones
+  find their reviewer. Nobody has to declare their sensitivities up
+  front; the system learns them from the project's own history.
+- **Authors keep the credit.** Changes are recorded as the member's
+  work, with the AI as co-author, so the project's history shows
+  people's contributions as theirs.
+- **Every conversation starts caught up.** Each new session opens with a
+  plain-language summary of what changed since that member last worked.
 
 ## What your members will see
 
