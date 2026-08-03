@@ -240,3 +240,33 @@ Checks, in order — any FAIL exits non-zero:
    not failed.
 3. **Integrity:** manifest paths exist; `section_marker`s found (warn);
    `local-only` entries have notes.
+
+## 7. Practice packs (domain layers)
+
+A repo can install additional practice layers beside this upstream —
+**packs** (practice 23): domain-scoped practice sets (a compliance regime, a
+lab workflow, a regulated-filing process) that are too domain-bound for this
+public upstream but too general to be one repo's local rules. Mechanics:
+
+1. **Anatomy mirrors this upstream.** A pack is a vendored tree at
+   `process/<pack>/` — its own `PRACTICES.md`, `INSTALL.md`, `tools/`,
+   `templates/harness/…` — destined for its own repo someday; until that
+   repo exists, the vendored tree *is* the upstream and `upstream.commit`
+   stays `null`.
+2. **One manifest per layer.** The pack's manifest lives at
+   `process/manifest_<pack>.json`, same schema as §5, with
+   `upstream.vendored_at` pointing at the pack tree. `practice_audit.py`
+   discovers and audits every `process/manifest*.json` in one run.
+3. **Per-pack scrub.** The manifest's `upstream.scrub_blocklist` names the
+   pack's own blocklist (the repo vocabulary that must not leak *into the
+   pack*); an explicit JSON `null` opts a private pack out of the scrub.
+   When the key is absent, the default `process/scrub_blocklist.txt`
+   applies (the public gate).
+4. **Routing.** A pack ships harness adapters that declare *when its rules
+   apply* — for agent harnesses, a skill whose description triggers on the
+   domain's work, pointing the agent at the repo's instantiation file and
+   the pack catalog. The repo's base instructions stay lean; domain rules
+   load when the domain work happens.
+5. **The loops are shared.** Install (§1), update (§2), export gate (§3),
+   and check-in (§4) all apply per pack, against the pack's own tree,
+   manifest, and (eventual) upstream repo.

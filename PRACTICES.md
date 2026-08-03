@@ -406,3 +406,146 @@ emitting script may import other computing scripts and re-emit their numbers
 in a new arrangement (a per-product sheet drawing on several models); the
 sync gate then flags every downstream document when any upstream script
 changes — the dependency graph rides the registry for free.
+
+## 20. Mistakes become rules: root-cause the miss, then encode the prevention
+
+**Rule.** When a mistake is caught — by the owner, by an audit, or by a later
+pass discovering an earlier session's error — fixing the instance is half the
+job. Before the session ends, root-cause it *five-whys style*: ask why
+iteratively, past the surface slip, until the answer is a **process
+property** — a missing rule, a missing check, a judgment recorded at the
+wrong granularity, a stale document trusted, a default that invites the
+error — stopping at the level where a cheap guard exists. Then encode the
+prevention at the strongest rung available: (a) an **audit or lint** if the
+failure is mechanically checkable (practice 6 — conventions become audits);
+(b) else a **written rule, dated, carrying its origin incident** (practices
+5 and 16 — the incident is both the justification and the test case); (c) if
+the lesson is generic, **export it** (practice 14). Discuss the choice with
+the owner when it involves a judgment call — which rung, what scope, whether
+the guard is worth its cost.
+
+**Why.** Repos that only fix instances relive their mistakes with new
+surface details; the systemic cause remains free to fire again. The
+root-cause habit is what turned one dependent repo's worst misses into its
+strongest machinery — every audit it runs exists because of one specific,
+recorded incident, and the audit that would have caught the incident is the
+test of whether the root cause was actually found. The origin incident in
+the rule text is load-bearing twice over: it tells a future reader what the
+rule is protecting against (so the rule can be re-judged when the world
+changes), and it calibrates proportionality (a guard that would not have
+caught its own origin incident is theater).
+
+**Proportionality guard.** Not every slip earns a rule: the trigger is a
+systemic cause (it would recur) or real cost (rework, a wrong external
+statement, lost work). Prefer strengthening an existing rule or audit over
+minting a new one — rule-bloat is itself a failure mode, and a silent rule
+nobody agreed to is how it starts.
+
+**Install.** A habit plus a review question. The habit: end any session in
+which a mistake was caught with an explicit root-cause note and its
+prevention, in the same change-set as the fix. The review question, for the
+owner: "does this guard's rung (audit / dated rule / export) match the
+failure's checkability?" Seed it retroactively: the next time an old mistake
+class recurs, that is the origin incident for its rule.
+
+## 21. The second-pass capture sweep: production work gets a separate capture review
+
+**Rule.** After producing any substantial work-product — a document, a design,
+an analysis, a decision — the same session does a deliberate second pass **as
+a separate step, not part of the production flow**, re-reading its own
+reasoning against a short checklist: (a) did every idea discussed reach its
+**durable artifact**, or does it live only in prose or conversation? (b) do
+**parallel artifacts** that must track this change have their transfer
+verdicts (practice 22)? (c) did technical value get its **cross-ledger
+capture** — the business, operational, or planning implication recorded where
+those live? (d) are open decisions **queued in the typed TODO** (practice 2)
+rather than only in the conversation? (e) are the **indexes, registries, and
+glossaries** synced? Run the sweep before the merge-time capture gate
+(practice 10), so what it finds lands in the same change-set as the work.
+
+**Why.** The production mindset cannot audit itself: while drafting, every
+idea feels captured because it was *thought*. In the origin repo, an
+owner-prompted "did we miss capturing anything?" sweep found two real gaps in
+the same day's work — a cross-artifact transfer that had been waved off and a
+competitor-inspired idea noted in passing but never landed — each of which
+the drafting passes had individually missed. The separation is the point: the
+sweep is a different cognitive act (reading for omissions) from drafting
+(writing for completeness), and it is cheap — minutes against the cost of a
+lost idea.
+
+**Install.** Add the checklist to the session-end or pre-merge ritual, before
+the capture gate. Adapt the checklist items to the repo's ledgers (what
+counts as a durable artifact, which registries exist). The trigger for
+adopting it retroactively: the first time an owner's "did we miss anything?"
+finds something — that incident is the origin story (practice 20).
+
+## 22. Parallel-artifact families: transfer verdicts are per-mechanism, per-change, and ledgered
+
+**Rule.** When a family of artifacts embodies **one design in several
+parallel forms** — the same architecture on different platforms, media,
+languages, or markets — a change to any member presumptively transfers to the
+others, and the transfer check obeys three constraints. **Decompose by
+mechanism, not headline:** the verdict is formed per mechanism inside the
+change, never once for a whole cluster — a cluster's headline can be
+member-specific while a mechanism inside it transfers. **Verdicts are
+per-change, not per-session:** a verdict recorded for one batch of changes
+says nothing about the next batch added later, even minutes later; re-run the
+check every time. **Every verdict is ledgered:** a dated row per change —
+originating matter, and per member either *applied as `<what>`* or *no
+transfer because `<reason>`* — with a small **audit that fails any change
+date lacking a complete row**.
+
+**Why.** The origin incident: a session recorded a headline-level verdict
+("this cluster is member-specific — no transfer") that was true as a headline
+and wrong for one mechanism inside it, which transferred to all three sibling
+artifacts. Nothing forced the verdict to be decomposed, re-run, or recorded
+per member, so the miss was invisible until a prompted second pass (practice
+21) caught it. Free-text one-time verdicts have three failure modes the
+ledger kills: wrong granularity (headline vs mechanism), staleness (new
+changes inherit old verdicts), and unauditability (nothing can check what was
+never recorded).
+
+**Install.** A ledger table (date | originating change | one verdict column
+per family member) plus a small audit keyed on dated change markers in
+whatever registry tracks the family — any marked date without a complete
+ledger row fails. The family definition itself lives at the top of the
+ledger, with the origin incident (practice 20).
+
+## 23. Layered practice packs: a domain layer between generic and repo-local
+
+**Rule.** Rules come in three scopes, and each gets its own home. **Generic**
+rules (true of any repo) live in this upstream and its instantiations.
+**Repo-local** rules (true only of one repo's subject matter) live in that
+repo's instructions files and never leave. Between them sit **domain** rules —
+true of any repo running the same *kind* of program (a compliance regime, a
+lab workflow, a regulated-filing process) but meaningless outside it. Those
+are collected into a **practice pack**: a vendored tree at `process/<pack>/`
+with the same anatomy as this upstream (a practices catalog, an install
+playbook, extracted tools, harness adapters), tracked by its own manifest at
+`process/manifest_<pack>.json` with its own optional scrub blocklist, audited
+by the same `practice_audit.py` (it discovers every `process/manifest*.json`).
+A pack may **route**: its harness adapter (e.g. an agent skill) declares when
+the domain's rules apply, so an agent loads them exactly when doing that
+domain's work instead of carrying them in every session. The decision rule
+for any new rule: *would this hold in an unrelated repo?* → upstream (public
+scrub applies). *Only in another repo running the same kind of program?* →
+the pack. *Only here?* → repo-local.
+
+**Why.** A domain program inside a dependent repo accumulated rules that
+were neither generic (they could not be published, and their vocabulary was
+all domain) nor repo-local (a second program of the same kind would need
+every one of them). With no home of their own they lived interleaved with the
+repo's local rules, which meant every session carried them whether relevant
+or not, and a future split of the program into its own repo would have meant
+re-deriving which rules travel. Vendoring them as a pack made the split a
+`git mv` instead of an archaeology project — the same pre-split shaping that
+made this upstream's own extraction clean.
+
+**Install.** Vendor the pack tree at `process/<pack>/`; write
+`process/manifest_<pack>.json` (schema of [INSTALL.md](INSTALL.md) §5, plus
+`upstream.scrub_blocklist` — a path, or `null` to opt a private pack out of
+the scrub); instantiate the pack's practices in the repo's real files and
+record the mapping; install its harness adapter so the rules load when the
+domain work happens. The export gate (practice 14) covers packs too: a thread
+that improves a domain practice folds the abstracted form into the pack tree
+in the same branch, keeping repo vocabulary out per the pack's blocklist.
