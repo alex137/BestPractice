@@ -1,8 +1,27 @@
-# INSTALL — the agent playbook
+# How to install BestPractice for you and your team
 
-Instructions for an agent (or human) wiring BestPractice into a *dependent
-repo*, keeping it current, and flowing improvements back. Read
-[PRACTICES.md](PRACTICES.md) first for what each practice is and why.
+Instructions for wiring BestPractice into a *dependent repo*, keeping it
+current, and flowing improvements back. Read [PRACTICES.md](PRACTICES.md)
+first for what each practice is and why.
+
+You don't need to run the technical steps yourself to follow, or approve,
+this setup: read just the shaded **"In plain terms"** note at the start of
+each section below, in order, and skip everything underneath it — together
+they walk through the whole setup without requiring GitHub knowledge. The
+last section,
+[For approvers: your checklist](#for-approvers-your-checklist), gathers every
+point in the process that actually needs a decision from you into one list.
+To have this conversation live with your assistant rather than reading about
+it, start at [SETUP.md](SETUP.md) instead — this page is the detailed
+reference it works from.
+
+> **In plain terms.** BestPractice is a set of working habits — how a
+> project remembers its decisions, how contributors avoid overwriting each
+> other's work, and how private information stays private even though this
+> rulebook itself is public. What follows is how that layer gets installed
+> into your project, how it picks up improvements later, and how an
+> improvement made in your project can be offered back for every other
+> project's benefit.
 
 The model in one paragraph: the dependent repo **vendors** this repo at
 `process/upstream/` as plain tracked files. **Install is adaptive** — you
@@ -13,6 +32,18 @@ improves, you fold the generic form back into `process/upstream/`. The
 drift and proprietary leakage loud instead of silent.
 
 ## 1. Install into a dependent repo
+
+> **In plain terms.** This is the one-time setup. An assistant copies
+> BestPractice's files into your project, then rewrites a handful of
+> them to describe *your* project specifically — a map of where things
+> live, a to-do list, a page that welcomes new members. Nothing from
+> this step becomes visible to anyone but you until you (or whoever has
+> authority to make it official) approve it — see step 7 below and the [guided
+> install](SETUP.md), which walks an administrator through this exact
+> process in conversation rather than as a technical checklist. The one
+> decision only you can make: **which private names and code words must
+> never leak into a public file** (step 4) — your assistant cannot guess
+> your project's secrets, so it will ask you directly.
 
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
@@ -66,6 +97,17 @@ drift and proprietary leakage loud instead of silent.
    words, identifier patterns, anything that must never appear in the
    public vendored tree. Err broad; false positives are a one-line review,
    false negatives are published.
+
+   > **In plain terms.** This is the list of words your project can
+   > never say in public — your product's real name, internal
+   > nicknames, client names, anything you'd wince at seeing on a public
+   > website. It's the only step in this whole document where the
+   > assistant genuinely needs information only you have; everything
+   > else it can do by reading your project's files. When your assistant
+   > asks for this list, be generous — listing a word that turns out to
+   > be harmless costs nothing, but a word you forget to list is the one
+   > that could actually leak.
+
 5. **Add the export-gate section** to the instructions file (the template
    includes it): the copy-back rule, the scrub rule, and the periodic
    check-in item (add one to `TODO.md`).
@@ -86,6 +128,13 @@ drift and proprietary leakage loud instead of silent.
 7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
    Commit.
 
+   > **In plain terms.** "The audit must pass" means an automatic check
+   > has confirmed nothing looks wrong — no private words leaked, no
+   > files ended up in the wrong place. Think of it as a spell-checker
+   > for the rules themselves: green means safe to show you, red means
+   > the assistant fixes it before you ever see the result. You should
+   > never be shown a failing install.
+
 `.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8):
 
 ```gitignore
@@ -100,6 +149,15 @@ drift and proprietary leakage loud instead of silent.
 ```
 
 ## 2. Take an upstream update
+
+> **In plain terms.** BestPractice itself keeps improving — other
+> projects find better ways of doing things and publish them here. This
+> section is how your project pulls those improvements in later,
+> without losing anything you've customized. Nothing here needs you
+> personally unless the assistant flags a conflict between an upstream
+> change and something your project changed on purpose — in that case it
+> will show you both versions and ask which should win, the same as
+> reviewing any proposed edit.
 
 1. Fetch the new upstream tree; diff it against the vendored copy at the
    **recorded base commit** (manifest `upstream.commit`).
@@ -124,10 +182,26 @@ drift and proprietary leakage loud instead of silent.
 5. Replace `process/upstream/` with the new tree, update
    `upstream.commit`, run the audit `--update-baseline`, commit.
 
-## 3. Copy an improvement back (the export gate)
+## 3. (Optional) Give back an improvement — the export gate
 
-Run this check **before any thread ends / before any merge to the default
-branch** (it is step 0b of the merge runbook, beside the capture gate):
+> **In plain terms.** This whole section, and §4 after it, are entirely
+> **optional** — nothing about using BestPractice requires your project to
+> give anything back. They exist for when your project discovers a *better
+> way of working* — not a fact about your business, just a sharper habit
+> (a clearer checklist, a smarter automatic check) — that could help every
+> other project using BestPractice, the same way yours benefited from
+> lessons other projects learned first. Think of it as reporting a better
+> recipe back to a shared cookbook, with your kitchen's specific
+> ingredients removed first. If your project chooses to do this, the
+> drafting happens automatically, on your project's own private working
+> copy, as part of the assistant's ordinary work; it doesn't leave your
+> project until the check-in step below (§4), which does need your
+> sign-off.
+
+For projects that choose to give back, run this check **before any thread
+ends / before any merge to the default branch** (it is step 0b of the merge
+runbook, beside the capture gate). Projects that don't intend to contribute
+upstream can skip this section entirely:
 
 > Did this thread improve a *generic* practice — a new convention, a
 > sharpened runbook rule, a better audit, a template fix?
@@ -144,7 +218,23 @@ If yes, in the **same branch**:
    manifest entry to `"diverged"` — the audit will keep reminding until the
    export happens or the baseline is deliberately updated.
 
-## 4. Periodic check-in (propose upstream)
+## 4. (Optional) Periodic check-in — propose your improvements upstream
+
+> **In plain terms.** Like §3, this whole section is **optional** — skip
+> it if your project would rather keep its improvements to itself. For
+> projects that do want to give back, this is where §3's accumulated
+> improvements actually leave your project: on a schedule, they get
+> bundled up and offered to the public BestPractice project as a formal
+> proposal — a pull request — so that everyone else using BestPractice can
+> learn from what your team figured out. **This is the step where a human
+> reviewer other than you looks at what's being shared**, as a second
+> check that nothing private slipped through the automatic scrub. If
+> you're the one with authority to approve changes on your own project,
+> your part is: skim what the assistant proposes to share (it will
+> summarize it in plain language), and either approve it or ask for
+> something to be reworded or left out. Nothing leaves your project
+> without a PR existing first, and a PR is just a draft sitting on GitHub
+> until someone approves it.
 
 **Session scope note (hosted agent platforms).** Repo access is typically
 fixed when a session is created: a session opened on the dependent repo
@@ -155,10 +245,11 @@ local commits. So: **open check-in sessions with BOTH repos selected at
 creation.** Everything else can be prepared, scrubbed, and audited in
 ordinary single-repo sessions; only this step needs the dual-repo session.
 
-On a schedule (a recurring `TODO.md` item), in a session with access to the
-BestPractice repo. [tools/checkin.py](tools/checkin.py) drives the
-mechanical steps against a local clone of the upstream repo; the deliberate
-steps (review, PR, merge) stay manual:
+For projects that choose to give back: on a schedule (a recurring
+`TODO.md` item), in a session with access to the BestPractice repo.
+[tools/checkin.py](tools/checkin.py) drives the mechanical steps against a
+local clone of the upstream repo; the deliberate steps (review, PR, merge)
+stay manual:
 
 1. Review the vendored tree's accumulated changes and every `diverged`
    manifest entry — export what's ready, or record in the entry's notes why
@@ -179,6 +270,15 @@ steps (review, PR, merge) stay manual:
    Commit the manifest change (and `--update-baseline` if entries moved).
 
 ## 5. The manifest schema (`process/manifest.json`)
+
+> **In plain terms.** The manifest is a receipt — a list of exactly what
+> was installed, where each piece landed in your project, and whether
+> it still matches what was originally installed or has since been
+> customized. You will rarely need to open this file yourself; it exists
+> so the assistant (and the automatic check in §6) never has to guess
+> "did we already install this?" or "has this drifted from the
+> original?" — the answer is always written down rather than
+> re-derived.
 
 ```json
 {
@@ -224,6 +324,16 @@ steps (review, PR, merge) stay manual:
 
 ## 6. The audit (`tools/practice_audit.py`)
 
+> **In plain terms.** This is the automatic check that runs before
+> almost every step above. It looks for two things: private words that
+> shouldn't be public (§1 step 4's list), and files that were changed
+> without anyone recording why. It's a machine doing the checking — not
+> a person reading every line — which is precisely why it can run every
+> single time without becoming a chore for anyone. If you ever hear
+> "the audit failed," it means the assistant caught a problem itself,
+> before it could reach you or the public repo; that is the system
+> working as intended, not a crisis.
+
 ```
 python3 process/upstream/tools/practice_audit.py                    # full check (gate)
 python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
@@ -242,6 +352,17 @@ Checks, in order — any FAIL exits non-zero:
    `local-only` entries have notes.
 
 ## 7. Practice packs (domain layers)
+
+> **In plain terms.** Some rules are too specific to your industry or
+> workflow to belong in the public BestPractice project, but too general
+> to belong only to your one project either — think a compliance
+> procedure that any project in your regulated field would need, not
+> just yours. A "pack" is a separate, smaller rulebook for exactly that
+> middle ground. Most projects never need one; if yours has a body of
+> rules that would make sense handed to a sister project in the same
+> field but not to an unrelated one, that's the sign a pack belongs
+> here, and it's worth raising with whoever oversees your process
+> setup.
 
 A repo can install additional practice layers beside this upstream —
 **packs** (practice 23): domain-scoped practice sets (a compliance regime, a
@@ -270,3 +391,29 @@ public upstream but too general to be one repo's local rules. Mechanics:
 5. **The loops are shared.** Install (§1), update (§2), export gate (§3),
    and check-in (§4) all apply per pack, against the pack's own tree,
    manifest, and (eventual) upstream repo.
+
+## For approvers: your checklist
+
+Everything above is written for the assistant doing the work. Stripped
+down to just the moments a non-technical approver actually needs to act
+on, across the whole lifecycle:
+
+- **At install (§1):** answer two questions — what the project is about,
+  and what private names/words must never go public. Then look at what
+  the assistant built and either approve it or ask for changes. See the
+  [guided install](SETUP.md) for the conversational version of this.
+- **At every check-in (§4), only if your project gives back at all
+  (§3–§4 are both optional):** review the plain-language summary of what's
+  being proposed back to the public BestPractice project, and approve,
+  adjust, or hold it back. This is the one recurring moment where content
+  leaves your project's boundary, so it's the one worth actually reading
+  rather than rubber-stamping.
+- **When the audit flags something (§6):** if your assistant tells you an
+  automatic check failed, that's it catching a problem before it reached
+  you — not something you need to fix by hand. Ask it to explain what
+  failed and fix it; you're confirming the fix makes sense, not debugging
+  code yourself.
+- **Everywhere else** (taking updates in §2, the day-to-day export gate in
+  §3, the manifest and audit internals in §5–§6): these run inside your
+  assistant's normal work and don't need your sign-off unless it
+  specifically flags a conflict or a judgment call for you.
