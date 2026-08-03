@@ -131,6 +131,11 @@ opener:
   *"what's new?"* at any time. If your in-progress work has fallen
   behind the shared project, the assistant will offer to bring it up to
   date.
+- **Claim what you take on.** When you start an item from the to-do
+  list, the assistant marks it with your name so teammates don't
+  duplicate the work — and it will tell you if someone else is already on
+  what you're about to start. Big or opinionated changes get flagged to
+  the teammates who care before they join the shared project.
 - **Change by describing, not editing.** Say what is wrong and what you
   want instead; the assistant makes the change everywhere it applies and
   the team reviews it before it becomes shared. Don't hand-edit files —

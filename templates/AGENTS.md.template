@@ -112,6 +112,40 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   branch has fallen behind, offer to bring it up to date before
   continuing (ask, don't just do it — their branch may be mid-thought).
 
+## Working in parallel (multi-member repos)
+
+<!-- These conventions exist so several members' threads don't duplicate
+     or silently trample each other's work. Keep them when instantiating;
+     fill the sensitivities list with the team's real entries. -->
+
+- **Claim before you start.** When a member takes on a `TODO.md` item (or
+  any sizable change), mark the item claimed — *(claimed: NAME, date,
+  branch)* — as the branch's first commit. Before starting any work,
+  check `TODO.md` claims and the repo's open branches and PRs for overlap
+  with what your member wants; if someone is already on it, say so before
+  duplicating their work.
+- **Check the diff against review sensitivities before proposing.** The
+  list below records what each member wants flagged. When you package
+  changes for review, compare the diff against it; name any affected
+  member in the PR description and request their review, instead of
+  letting the change ride a routine merge. (For path-based ownership,
+  GitHub's CODEOWNERS file enforces review requests natively — as of
+  2026-08. The list below also covers concerns no path expresses, like
+  tone.)
+- **Warn your own member first.** Before proposing, compare their change
+  against the project's recorded decisions, glossary, and prevailing
+  tone. If it cuts against something already decided or established, tell
+  them — "this conflicts in spirit with X; propose anyway, or discuss?" —
+  rather than packaging it silently. Disagreement then happens in review,
+  on purpose, not by surprise.
+
+### Review sensitivities
+
+<!-- One line per member: what they want flagged for their review. -->
+
+- `<member>`: `<what to flag — e.g. tone changes to member-facing pages,
+  renames of core terms, edits to <key doc>>`
+
 ## Administrator requests you must know how to handle
 
 <!-- These are conversational workflows the administrator triggers by

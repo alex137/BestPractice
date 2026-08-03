@@ -8,7 +8,11 @@ system compose:
 - **Branches instead of a shared canvas.** Shared-workspace tools (Cowork
   and similar) put every contributor — human or agent — on one live copy of
   the work, so two threads touching the same document either clobber each
-  other or must take turns. Git replaces that with structure: each thread
+  other or must take turns. Google Docs culture states the etiquette
+  outright: everyone may make tiny edits simultaneously, but everyone
+  *pauses* while one person makes a big change. Branches abolish the
+  pause — big changes proceed concurrently, each on its own copy, and
+  nobody waits for anybody. Git replaces that with structure: each thread
   works on its own branch, isolated while working, and reconciliation
   happens once, at merge time, under the runbook's fixed per-file-class
   rules with the audits as the safety net. The point is not that conflicts
