@@ -32,7 +32,13 @@ the upstream layer. Ordered by priority.
    practice, a small companion app (pick repo → type task → open
    assistant with the bootstrap prompt) is the next step — noting that
    this is real app development, not documentation.
-6. **Reduce GitHub dependency when ready.** The layer itself is plain git
+6. **Out-of-chat change notifications for members.** In-chat catch-up is
+   now a convention (the instructions template's session-start
+   catch-up), but a member who hasn't opened a session learns nothing.
+   Evaluate a GitHub Actions job that emails a plain-language digest of
+   merged changes (or leans on GitHub's built-in Watch notifications,
+   documented in the members' page) — as of 2026-08, unexplored.
+7. **Reduce GitHub dependency when ready.** The layer itself is plain git
    + markdown + Python; GitHub specifics are the worked examples (PRs,
    Actions, Issues, branch rulesets). When priorities allow, document
    Gitea equivalents (Gitea Actions is workflow-compatible; Issues and
