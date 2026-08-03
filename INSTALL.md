@@ -1,52 +1,26 @@
-# INSTALL — the agent playbook (and what it means if you're not a programmer)
+# INSTALL — the agent playbook
 
 Instructions for an agent (or human) wiring BestPractice into a *dependent
 repo*, keeping it current, and flowing improvements back. Read
 [PRACTICES.md](PRACTICES.md) first for what each practice is and why.
 
-## Two ways to read this document
-
-This file is written for an AI agent to execute step by step — the
-numbered lists are commands and file operations. **You don't need to
-follow those steps yourself, and you don't need to know GitHub to use
-this page.** If you're a manager or administrator who approves work
-rather than writing it, you have your own reading path:
-
-- Every section opens with a shaded **"In plain terms"** box. Read those
-  and skip the numbered steps underneath — the boxes tell you what is
-  happening, why it matters, and what (if anything) needs your decision.
-- The last section, [For approvers: your checklist](#for-approvers-your-checklist),
-  collects every moment in this whole process where a human — not the
-  agent — has to make a call, in one place.
-- Your assistant does the technical work described in the numbered
-  steps. Your job is to answer its questions, look at what it shows you,
-  and say yes, no, or "change this."
-
-A short glossary, since a few words recur throughout (see also
-[GIT.md](GIT.md) for the fuller version): a **repo** (repository) is the
-project's shared folder, kept on GitHub. A **branch** is a private
-working copy where changes are drafted before anyone else sees them. A
-**commit** is one saved, labeled change. A **pull request (PR)** is a
-proposal — "here's what I want to add to the shared copy" — that a
-person reviews and approves before it becomes real. A **merge** is that
-approval taking effect. To **vendor** a repo's files means to copy them
-in and track them as ordinary files, not a live link. A **manifest** is
-a ledger file recording what was installed and from where. A **hash** is
-a short fingerprint of a file's exact contents, used to detect when
-something changed. To **scrub** is to check text for words that must
-never become public.
+If you're approving this work rather than doing it yourself: read just the
+shaded **"In plain terms"** note at the start of each section below, in
+order, and skip everything underneath it — together they walk through the
+whole setup without requiring GitHub knowledge. The last section,
+[For approvers: your checklist](#for-approvers-your-checklist), gathers every
+point in the process that actually needs a decision from you into one list.
+To have this conversation live with your assistant rather than reading about
+it, start at [SETUP.md](SETUP.md) instead — this page is the detailed
+reference it works from.
 
 > **In plain terms.** BestPractice is a set of working habits — how a
-> project remembers decisions, how people (and AI assistants) avoid
-> stepping on each other's work, how private information stays private
-> even though this rulebook itself is public. This document is the
-> maintenance manual for that layer: how it gets installed into your
-> project, how it picks up improvements later, and how your project can
-> contribute a lesson back for everyone else's benefit. An AI assistant
-> does essentially all of the mechanical work described here. Your part
-> is reviewing what it proposes and deciding whether it's ready to
-> become real — the same role you'd play reviewing any draft, just with
-> GitHub's vocabulary (branch, commit, PR, merge) attached to it.
+> project remembers its decisions, how contributors avoid overwriting each
+> other's work, and how private information stays private even though this
+> rulebook itself is public. What follows is how that layer gets installed
+> into your project, how it picks up improvements later, and how an
+> improvement made in your project can be offered back for every other
+> project's benefit.
 
 The model in one paragraph: the dependent repo **vendors** this repo at
 `process/upstream/` as plain tracked files. **Install is adaptive** — you
@@ -63,7 +37,7 @@ drift and proprietary leakage loud instead of silent.
 > them to describe *your* project specifically — a map of where things
 > live, a to-do list, a page that welcomes new members. Nothing from
 > this step becomes visible to anyone but you until you (or whoever has
-> merge authority) approve it — see step 7 below and the [guided
+> authority to make it official) approve it — see step 7 below and the [guided
 > install](SETUP.md), which walks an administrator through this exact
 > process in conversation rather than as a technical checklist. The one
 > decision only you can make: **which private names and code words must
@@ -215,9 +189,9 @@ drift and proprietary leakage loud instead of silent.
 > that improvement gets offered back to BestPractice so every other
 > project using it benefits too — like reporting a better recipe back to
 > a shared cookbook, with your kitchen's specific ingredients removed
-> first. This step happens automatically, on your project's own branch,
-> as part of the assistant's ordinary work; it doesn't leave your
-> project until the check-in step below (§4), which does need your
+> first. This step happens automatically, on your project's own private
+> working copy, as part of the assistant's ordinary work; it doesn't leave
+> your project until the check-in step below (§4), which does need your
 > sign-off.
 
 Run this check **before any thread ends / before any merge to the default
