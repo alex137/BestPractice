@@ -135,7 +135,10 @@ opener:
   list, the assistant marks it with your name so teammates don't
   duplicate the work — and it will tell you if someone else is already on
   what you're about to start. Big or opinionated changes get flagged to
-  the teammates who care before they join the shared project.
+  the teammates who care before they join the shared project — and the
+  system learns who cares about what from the project's own history (who
+  wrote what, who pushed back on what); nobody has to declare it up
+  front.
 - **Change by describing, not editing.** Say what is wrong and what you
   want instead; the assistant makes the change everywhere it applies and
   the team reviews it before it becomes shared. Don't hand-edit files —
