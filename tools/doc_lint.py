@@ -36,6 +36,9 @@ SCOPE: by default, only files CHANGED vs the default branch (the convention is
 "fix the parts you touch"; this also avoids editing frozen documents, where a
 `~`→`≈` change would be content drift). Pass explicit files, or --all to scan
 the whole tree (reports the legacy backlog; does not fail).
+Explicit paths are resolved against the REPO ROOT and must exist — a path that
+resolves to nothing is a hard error, not a skip (origin: a fixture outside the
+repo was "checked", scanned nothing, and reported OK).
 Frozen-document artifacts (name prefixes in FROZEN_PREFIXES, per repo) are
 excluded from the default and --all selections — they are immutable records,
 so a lint hit on one is unfixable by design (origin: committing a frozen
@@ -185,6 +188,13 @@ def main():
         files, gate = drop_frozen(tracked_md()), False
     elif args:
         files, gate = args, True
+        missing = [f for f in files if not (ROOT / f).exists()]
+        if missing:
+            for f in missing:
+                print(f"doc_lint FAIL: file not found under repo root {ROOT}: {f}")
+            print("(explicit paths are resolved against the repo root — a missing "
+                  "file scanned as 'OK' is a silent no-op)")
+            return 2
     else:
         files, gate = drop_frozen(changed_md()), True
 

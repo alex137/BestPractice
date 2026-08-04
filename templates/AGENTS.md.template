@@ -66,6 +66,12 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
    - Logs / index files: **append-only — keep both sides' additions.**
    - Same content file edited on both sides: keep both sides' text;
      renumber the side not yet referenced elsewhere.
+   - **Renumbering is repo-wide:** when sections are renumbered, grep
+     every doc — instructions, map, glossary, TODO, not just the content
+     file itself — for the old numbers and update them in the same
+     commit. Partial renumbers ship stale cross-references (observed
+     2026-08: a reorganization updated an index row but left two stale
+     section references standing in the instructions file).
    - **Generated outputs: never hand-merge.** The side matching the
      committed manifest wins; unshipped builds are deleted and rebuilt.
 3. Run the audits — **all must pass before the merge commits**:
