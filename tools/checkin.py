@@ -10,13 +10,28 @@ repo, and recording a hash that didn't actually match the tree that landed.
 Per the convention-becomes-audit rule, the steps are now a tool; every
 mutation it performs is gated by a check that fails loudly.
 
-Three subcommands, in the order a check-in uses them:
+Four subcommands — update takes upstream changes IN, the other three drive
+a check-in OUT:
 
   status <upstream-clone>   Compare the vendored tree against the clone's
                             working tree: list Added/Modified/Deleted files
                             (vendored perspective), show the manifest's
                             recorded upstream.commit vs the clone's HEAD.
                             Exit 1 if the trees differ (so it can gate).
+
+  update <upstream-clone> [--force]
+                            The INSTALL.md §2 direction: pull the clone's
+                            default branch and mirror it into the vendored
+                            tree. REFUSES if the vendored tree differs from
+                            the recorded upstream.commit — that difference
+                            is unexported local work the mirror would
+                            silently clobber; export it first (§3/§4) or
+                            pass --force to overwrite. (Origin: a session
+                            hand-rolled this mirror with git archive | tar
+                            — rsync is absent in hosted containers, as of
+                            2026-08 — and a stale local default-branch ref
+                            nearly mirrored an old tree; the tool pulls
+                            fresh and guards the overwrite.)
 
   push <upstream-clone>     Run the scrub/practice audit first — it must
                             pass, THIS is the gate that keeps proprietary
@@ -38,10 +53,11 @@ Three subcommands, in the order a check-in uses them:
                             yourself.
 
 Run:  python3 process/upstream/tools/checkin.py status ../BestPractice
+      python3 process/upstream/tools/checkin.py update ../BestPractice
       python3 process/upstream/tools/checkin.py push   ../BestPractice
       python3 process/upstream/tools/checkin.py record ../BestPractice --note "PR #4"
 """
-import datetime, filecmp, json, pathlib, shutil, subprocess, sys
+import datetime, filecmp, io, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve()
 _top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=HERE.parent,
@@ -101,6 +117,57 @@ def status(clone):
     return 1 if n else 0
 
 
+def _default_branch(clone):
+    return (_git(clone, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD').rsplit('/', 1)[-1]
+            or 'main')
+
+
+def update(clone, force=False):
+    """INSTALL.md §2 step 5: mirror the clone's freshly pulled default branch
+    into the vendored tree, refusing to clobber unexported local work."""
+    branch = _default_branch(clone)
+    _git(clone, 'checkout', branch)
+    _git(clone, 'pull', 'origin', branch)
+    if not force:
+        recorded = _manifest().get('upstream', {}).get('commit')
+        if not recorded:
+            sys.exit("checkin FAIL: no upstream.commit recorded in the manifest — "
+                     "cannot tell local work from upstream drift; pass --force to mirror anyway")
+        tar = subprocess.run(['git', '-C', str(clone), 'archive', recorded],
+                             capture_output=True)
+        if tar.returncode != 0:
+            sys.exit(f"checkin FAIL: recorded commit {recorded[:12]} not found in the clone — "
+                     f"fetch it there, or pass --force")
+        with tempfile.TemporaryDirectory() as td:
+            tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(td)
+            base = pathlib.Path(td)
+            ours, theirs = _files(UPSTREAM), _files(base)
+            drift = sorted(ours ^ theirs) + sorted(
+                p for p in ours & theirs
+                if not filecmp.cmp(UPSTREAM / p, base / p, shallow=False))
+        if drift:
+            for p in drift:
+                print(f"  local change: {p}")
+            sys.exit("checkin FAIL: vendored tree differs from the recorded upstream commit — "
+                     "that is unexported work the mirror would clobber. Export it first "
+                     "(INSTALL.md §3/§4) or pass --force to overwrite.")
+    vendored_only, differing, clone_only = _diff(clone)
+    if not (vendored_only or differing or clone_only):
+        print(f"checkin update: vendored tree already identical to clone {branch} — nothing to do.")
+        return 0
+    for p in vendored_only:
+        (UPSTREAM / p).unlink()
+    for p in differing + clone_only:
+        (UPSTREAM / p).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(clone / p, UPSTREAM / p)
+    print(f"checkin update OK: mirrored {len(differing) + len(clone_only)} file(s), "
+          f"deleted {len(vendored_only)} from the vendored tree (clone {branch} @ "
+          f"{_git(clone, 'rev-parse', 'HEAD')[:12]})")
+    print("next: propagate template changes into instantiated files (INSTALL.md §2),")
+    print("      update manifest entries, then run:  checkin.py record " + str(clone))
+    return 0
+
+
 def push(clone):
     # The scrub gates every export of content toward the public repo.
     audit = HERE.parent / 'practice_audit.py'
@@ -123,8 +190,7 @@ def push(clone):
 
 
 def record(clone, note):
-    branch = (_git(clone, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD').rsplit('/', 1)[-1]
-              or 'main')
+    branch = _default_branch(clone)
     _git(clone, 'checkout', branch)
     _git(clone, 'pull', 'origin', branch)
     added, modified, deleted = _diff(clone)
@@ -149,11 +215,13 @@ def record(clone, note):
 
 def main():
     args = sys.argv[1:]
-    if len(args) < 2 or args[0] not in ('status', 'push', 'record'):
+    if len(args) < 2 or args[0] not in ('status', 'update', 'push', 'record'):
         sys.exit(__doc__)
     clone = _clone_or_die(args[1])
     if args[0] == 'status':
         return status(clone)
+    if args[0] == 'update':
+        return update(clone, force='--force' in args)
     if args[0] == 'push':
         return push(clone)
     note = args[args.index('--note') + 1] if '--note' in args else ''

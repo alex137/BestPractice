@@ -179,8 +179,13 @@ drift and proprietary leakage loud instead of silent.
    root; the audit's LAYOUT check now fails on them. Delete the strays —
    their content lives under `process/upstream/` — per §1's root-hygiene
    rule.
-5. Replace `process/upstream/` with the new tree, update
-   `upstream.commit`, run the audit `--update-baseline`, commit.
+5. Replace `process/upstream/` with the new tree —
+   `python3 process/upstream/tools/checkin.py update <upstream-clone>`
+   mirrors the clone's freshly pulled default branch into the vendored
+   tree, and refuses if the vendored tree carries unexported local work
+   (export first, or `--force` to overwrite) — then update
+   `upstream.commit` (`checkin.py record <upstream-clone>`), run the
+   audit `--update-baseline`, commit.
 
 ## 3. (Optional) Give back an improvement — the export gate
 
@@ -268,6 +273,19 @@ stay manual:
    — pulls the upstream default branch, **verifies it is byte-identical to
    the vendored tree**, and writes the landed hash into `upstream.commit`.
    Commit the manifest change (and `--update-baseline` if entries moved).
+
+**Freshness and ordering (learned in the field, 2026-08).** Work from
+fresh refs at every step: fetch before comparing anything — a stale
+`origin/<default>` (or a local `<default>` branch left pointing at an old
+commit) reports "up to date", and `git archive <default>` mirrors an old
+tree, while upstream has actually moved. If upstream's default branch
+gained commits since the vendored tree's recorded base, the check-in PR
+merges on top of them and `record` will refuse the mismatched tree — not
+an error to work around: take the update (§2, `checkin.py update`) in the
+same round, then `record`. And when the dependent repo has its own PR
+open for the same round, merge the upstream check-in PR **first**, take
+any drift, record, and only then land the dependent PR — the reverse
+order records a hash the vendored tree doesn't match.
 
 ## 5. The manifest schema (`process/manifest.json`)
 
