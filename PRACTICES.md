@@ -563,3 +563,100 @@ record the mapping; install its harness adapter so the rules load when the
 domain work happens. The export gate (practice 14) covers packs too: a thread
 that improves a domain practice folds the abstracted form into the pack tree
 in the same branch, keeping repo vocabulary out per the pack's blocklist.
+
+## 24. Quote discipline: compression rounds against the writer, and qualifiers travel
+
+**Rule.** Two obligations whenever a document quotes a figure from another
+source. **(a)** When a sourced range or multi-case figure is compressed for
+prose — rounded, summarized to one number, or reduced to its typical case —
+the compression **rounds against the writer's interest**, or quotes both
+ends. A summary that must pick one number picks the one that makes its own
+argument weakest. **(b)** A source's **qualifiers are part of the figure**:
+*best-case*, *worst-case*, a scenario label, a verify flag, or a fidelity
+grade worse than the house default all travel with the number into every
+document that quotes it. Dropping the label is misquoting, even when the
+digits are copied faithfully.
+
+**Why.** An adversarial audit of an outward-facing summary found the same
+failure four independent times in one document: every compression had
+drifted in the flattering direction (a range's ceiling shaved down, margin
+bands quoted above their source, an unfavorable finding described as
+missing data, a favorable-case figure paired with an unfavorable-case
+market). None was a deliberate misstatement — each was an ordinary
+summarization choice made under the incentive every summary carries. A
+separate pair of findings showed the qualifier failure: a schedule date its
+source twice labeled *best-case* became the central case downstream, and a
+source's own worse-than-default fidelity grade was silently overridden by
+the quoting document's blanket precision claim. The bias is systematic, so
+the countermeasure must be a standing rule, not vigilance.
+
+## 25. Outward-facing summaries: a claims-to-source table, honest aggregation, and a recorded adversarial pass
+
+**Rule.** A document that summarizes a body of work for an external audience
+carries three things. **(a) A claims-to-source table**: every quantitative
+claim mapped to the living source that backs it — this is what makes
+verification cheap enough to actually run. **(b) Honest aggregation**: any
+sum over rows drawn from different sources names its rows and states its
+dedupe rule beside the sum, after reading each row's defining prose for
+inclusion statements (rows with different names are not additive until
+proven additive); and in any companion computation, a revenue or benefit
+line names its enabling condition and the computation either carries that
+enabler's cost or excludes the line. **(c) A recorded adversarial pass
+before external use**: claim-vs-source verification plus a cross-document
+consistency sweep, run adversarially (a subtly different range counts as a
+finding), with findings, resolutions, and the open tail written to a dated
+diligence record. The record is part of the deliverable.
+
+**Why.** The same audit that produced practice 24 found twenty-two defects
+in a summary whose every number had been written in good faith from real
+sources: three differently-named rows summing one underlying market, a
+benefit line booked without its gating cost, claims citing documents that
+did not contain them, and stale values the sources had since revised. The
+claims-to-source table let two independent reviewers verify thirty claims
+in minutes — without it the pass would have been unaffordable and would not
+have happened. The diligence record then made every fix auditable and left
+an honest open-items tail the next revision inherits, converting a one-off
+cleanup into a repeatable gate.
+
+## 26. Documents are current state; the VCS is the revision history
+
+**Rule.** A document reads as a statement of what is true *now*, not a log of
+how it got there. Do not annotate in-document when text was added or changed —
+no "*(added DATE)*" / "*(rewritten DATE)*" section tags, no "Rev N" ladders in
+headers, no superseded text kept inline "for history." Version control carries
+all of that losslessly; `log`/`blame` answers "when did this change" better
+than a prose annotation ever will, and never goes stale. Narrow exemptions,
+where the date or prior state *is* the content: (a) records whose subject is a
+dated decision or event ("decided DATE: X"); (b) volatile-fact freshness
+stamps (practice for dated external claims); (c) legally or contractually
+load-bearing markers; (d) as-shipped/as-filed artifacts whose purpose is
+historical.
+
+**Why.** A working document set accreted so many added/rewritten/Rev-N
+annotations that documents read as changelogs instead of positions — and the
+annotations themselves went stale (a "Rev 3" reference outliving Rev 5, an
+"added 2026-…" tag on text three rewrites old), becoming a second drift
+surface on top of the content. The revision history was already in the VCS,
+losslessly; the in-document copy was pure liability.
+
+**Install.** State the convention in the project instructions with its
+exemption list; when touching a document, strip stale revision annotations
+from the parts you touch. A lint can flag `Rev \d`/`\*(added ` patterns
+outside the exempted file classes.
+
+## 27. A label must describe what follows
+
+**Rule.** A heading or lead-in that names a form or length must match what it
+actually introduces. Do not title something "in one line" / "one-pager" / "in
+one paragraph" / "TL;DR" unless it literally is that. If a section runs to a
+page, name it for its content, not for a brevity it doesn't have.
+
+**Why.** "The thesis in one line" sat atop three paragraphs; "the business
+model in one line each" atop multi-line bullets. The label over-promises,
+and a reader who trusts it feels misled the moment they read on — the same
+credibility leak as a numeric claim that doesn't match its source. It reads
+as spin in a document whose whole job is to be trusted.
+
+**Install.** A writing convention in the project instructions; catch it in
+document review. The fix is almost always to rename the label to its content
+("The thesis"), not to compress the content to the label.
