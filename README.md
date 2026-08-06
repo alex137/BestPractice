@@ -12,6 +12,19 @@ and the administrator green-lights changes, also with AI help, before
 they join the shared project. The output of every AI conversation becomes
 part of the project, so nothing is lost in chat history.
 
+**It captures intention, not just text.** Most writing tools keep the
+sentence you landed on and lose the reasoning that got you there.
+Working a decision through in conversation with an AI does the
+opposite: the back-and-forth that produces the wording is itself part
+of what gets saved, so the *why* behind a change stays on record, not
+just the *what*. That also moves your attention to where it belongs —
+the assistant carries the mechanics of drafting, formatting, and
+editing, so you spend your time thinking through the problem, not
+producing the document that describes it. It's a tighter loop than the
+usual way of writing with an LLM: instead of asking for a draft and
+then editing it yourself afterward, you think out loud with the
+assistant and the document is what falls out of that conversation.
+
 **It is an alternative to Google-Docs-style collaboration.** A shared
 live document lets everyone make tiny edits at once — but the unwritten
 rule is that everyone pauses while one person makes a big change, big
