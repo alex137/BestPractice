@@ -12,7 +12,9 @@
 # `bash tools/bootstrap.sh` at session start.
 set -euo pipefail
 
-# apt packages this repo's tooling needs (idempotent):
+# apt packages this repo's tooling needs (idempotent). A stale package
+# index makes the fetch 404 (seen 2026-08-06): on failure, refresh the
+# index (apt-get update) and retry once before WARNing:
 # if ! dpkg -s <package> >/dev/null 2>&1; then
 #   apt-get install -y --no-install-recommends <package> >/dev/null 2>&1 || \
 #     echo "WARN: <package> install failed - <what degrades without it>" >&2
