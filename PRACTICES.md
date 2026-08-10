@@ -607,6 +607,35 @@ consistency sweep, run adversarially (a subtly different range counts as a
 finding), with findings, resolutions, and the open tail written to a dated
 diligence record. The record is part of the deliverable.
 
+**(d) Run the pass automatically, in the same working session, before
+reporting the work done** — do not queue it, offer it as an option, or defer
+it to "before external use". Deferred verification is verification that does
+not happen: the session that wrote the analysis is the one that still holds
+the reasoning, and a later session inherits the conclusions without the
+context that would let it attack them. Only genuinely external blockers (an
+unreachable source, a number needing a field measurement) stay open, listed
+as the open tail rather than used to postpone the pass. **(e) A correction
+that moves numbers in the author's own favour carries its justification in
+writing** — that direction needs the most scrutiny, not the least. **(f) When
+a model composes two agents with different characteristic times, check the
+slower one's cycle time against the faster one's before costing the
+composition** — a cost model can be dimensionally perfect and still describe
+an operation that cannot be performed. **(g) When comparing alternatives,
+check that each side's standing/availability cost is charged, or that
+neither is** — marginal-only costing of a human alternative against a
+capital alternative that already carries its overhead is the commonest
+one-sided comparison, and it flatters whichever side the author owns.
+**(h) State which technology generation the incumbent is allowed to use.**
+Costing your automated proposal against a manual incumbent compares your
+future to their present. Give the incumbent the same generation of technology
+your own case assumes, and where you claim an asymmetry — that a rule or a
+physical constraint permits your automation but not theirs — justify it from
+the environment rather than from convenience, and say which regime each
+finding belongs to. **(i) When a term's sign or direction is the claim being made,
+compute it — do not reason about which way it goes.** Directional assertions
+about a model's own terms are the easiest thing to get backwards and the
+hardest to notice, because they sound like understanding.
+
 **Why.** The same audit that produced practice 24 found twenty-two defects
 in a summary whose every number had been written in good faith from real
 sources: three differently-named rows summing one underlying market, a
@@ -616,7 +645,28 @@ claims-to-source table let two independent reviewers verify thirty claims
 in minutes — without it the pass would have been unaffordable and would not
 have happened. The diligence record then made every fix auditable and left
 an honest open-items tail the next revision inherits, converting a one-off
-cleanup into a repeatable gate.
+cleanup into a repeatable gate. Clauses (d)–(f) came later, from the
+principal's standing direction after a second analysis shipped with its pass
+queued rather than run ("I don't care about unchecked work"): the pass that
+was then run immediately found that the model had silently assumed a
+composite operation neither participant had time to perform — a defect no
+amount of source-checking would have surfaced, because every input was
+correct and only their *composition in time* was impossible. Clause (g) came
+from the principal's next question — whether the human alternative's
+availability cost had been modelled. It had not, while the authored side's
+equivalent overhead was already charged; the omission was invisible because
+each side's own numbers were internally consistent. Clause (h) followed
+immediately: the same reviewer asked whether the manual incumbent should have
+been allowed to automate too. It should — and modelling it removed most of the
+proposal's advantage, leaving a narrower but defensible claim. The three
+questions form a family: whether the composed parts fit in *time*, whether
+both sides carry their *standing* costs, and whether both are costed at the
+same *technology generation*. A fourth round added clause (i) after the
+author's own answer to a reviewer's challenge asserted, confidently and
+backwards, which way one of the model's terms inverted — inside the very pass
+meant to be checking the work. The lesson generalises past cost models: a pass
+that only re-reads reasoning reproduces its errors, while one that re-computes
+the disputed quantity does not.
 
 ## 26. Documents are current state; the VCS is the revision history
 
@@ -660,3 +710,85 @@ as spin in a document whose whole job is to be trusted.
 **Install.** A writing convention in the project instructions; catch it in
 document review. The fix is almost always to rename the label to its content
 ("The thesis"), not to compress the content to the label.
+
+## 28. Frame the deliverable from the audience's question, not from the material in hand
+
+**Rule.** When you finish producing a body of work and then write the thing
+that explains it — a pitch, a summary, a README, a recommendation — build it
+around **the question the audience actually has**, and check explicitly that
+you have not instead built it around **the material you just produced**. The
+tell is that the deliverable's headline matches the shape of your recent work
+rather than the shape of the reader's problem. If a one-sentence statement of
+the audience's question does not appear near the top, you probably skipped
+this.
+
+**Why.** A thread had just produced a detailed body of work on one property of
+a system, and wrote the outward-facing explanation around that property. It
+was true, well-evidenced, and nearly useless to the reader, whose question was
+a different one that the same machinery answered better. The correction came
+from outside and reframed the whole document — including which limitation was
+binding, which market to lead with, and which mechanism was the strongest thing
+on offer. Nothing was wrong with the underlying work; the framing was wrong
+because it inherited the author's recent path instead of the reader's need.
+
+This is a specific failure of *sequence*, not of care: the more thoroughly you
+have just worked something out, the more available it is when you sit down to
+explain, and availability reads as importance. Effort spent on a component is
+not evidence that the component is the headline.
+
+**Install.** Before writing an outward-facing artifact, write the audience's
+question down as a plain sentence — literally, in the draft — and confirm the
+artifact answers *that*. Keep it in the finished document if it helps the
+reader; delete it if not. In review, ask of the opening: *whose question is
+this?* When a reframe does arrive, record what it changed in the document
+itself rather than silently rewriting — a reader who saw the earlier version
+deserves the diff, and the record makes the failure mode legible next time
+(this is practice 20 applied to framing rather than to defects).
+
+**Related.** Practice 25 (an adversarial pass on outward-facing work) will not
+catch this on its own: a well-framed-for-the-wrong-question document survives
+claim-to-source verification intact, because every claim in it is true. The
+framing check has to be separate, and it has to happen before the verification
+pass rather than after.
+
+## 29. A variant re-derives what it inherits: limits it must respect, choices it need not keep
+
+**Rule.** When you build a variant of an existing thing — a new configuration
+of a component, a fork of a process, a second instance of a design aimed at a
+different job — treat **every attribute you inherited from the base as
+unexamined until you have re-derived it against the new job**. Inherited
+attributes come in two kinds, and both fail silently:
+
+- **Constraints the base states** — which the variant must respect, and which
+  your new reasoning may not have noticed it was violating.
+- **Choices the base made** — which the variant is free to change, and which
+  you may be carrying only because they were already there.
+
+**Why.** One piece of work made both mistakes about the same base, in opposite
+directions, a day apart. First it computed a favourable property of a variant
+and announced a capability from it, without reading the base's own stated
+limits — which excluded that capability in plain language. Then it carried
+forward one of the base's design *choices* without asking whether the change of
+job had invalidated it; it had, and the inherited choice made the whole variant
+unworkable at its intended duty cycle. The second miss was worse than the first
+because the arithmetic built on it was internally correct: the numbers
+described, in convincing detail, an operation that could not be performed.
+
+The asymmetry is what makes this hard to catch. A constraint you violate tends
+to produce an obviously wrong answer eventually. A choice you fail to re-open
+produces a *plausible* answer that is merely answering the base's question
+instead of yours — and the more carefully you work downstream of it, the more
+solid it looks.
+
+**Install.** When starting a variant, list what changed about the job — duty
+cycle, duration, environment, load, audience, tempo — and walk the base's
+attributes against that list, marking each *re-derived*, *inherited
+deliberately*, or *not yet checked*. Nothing stays in the third state at
+delivery. Two prompts do most of the work: *"what does the base say it cannot
+do, and does my variant's reasoning quietly assume otherwise?"* and *"which of
+the base's choices exist only because of a job my variant is not doing?"*
+
+**Related.** Practice 20 (mistakes become rules) is how this one was derived —
+and note that the second instance was folded into the *same* rule as the first
+rather than minted as a new one, per that practice's proportionality guard: two
+failures with one root cause get one widened guard, not two narrow ones.
