@@ -301,7 +301,14 @@ every line, but sessions read file *content*, not commit metadata — in a
 repo-is-the-memory system, a date that isn't in the text effectively
 doesn't exist for the session reading the rule.
 
-Two corollaries. **Durable rules earn a record, not just a date:** for a
+Three corollaries. **The date is the contributor's, not the session's:**
+an agent stamping a date uses the human contributor's local calendar date
+— the date they experienced when the fact was true or the decision was
+made — not the agent session's system clock. The two disagree by a full
+day near midnight in most timezones, and an agent's clock is often UTC or
+otherwise unaware of where the contributor sits; ask when it isn't already
+clear from context rather than defaulting to the session's own date.
+**Durable rules earn a record, not just a date:** for a
 rule whose age is its authority, capture the tenure and the exception
 history inline — *in effect since `<date>`; N exceptions in that time, each
 under `<circumstances>`* — because that survival record is institutional

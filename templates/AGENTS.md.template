@@ -95,7 +95,10 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 - **Volatile rules carry their dates** (practice 16): a rule that depends
   on the outside world (an external platform, someone else's algorithm, a
   tool quirk) carries *as of / verified `<date>`* inline, and a session
-  that re-confirms it updates the date. Old + unverified in a shifting
+  that re-confirms it updates the date. The date is the contributor's
+  local calendar date, not the agent's system clock — the two can
+  disagree by a day depending on time of day and timezone; ask if it
+  isn't already clear from context. Old + unverified in a shifting
   domain = re-verify before relying on it. Rules about model behavior also
   name the model they were verified on (a model upgrade = re-verify); a
   durable rule records its tenure and exceptions (*in effect since X; N
