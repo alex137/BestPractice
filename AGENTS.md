@@ -57,7 +57,8 @@ that skips them in this repo of all places is the joke writing itself.
   never bare backticked filenames. Use `≈`, not `~`, for "approximately".
 - **Volatile rules carry their dates** (practice 16): anything asserted
   here about an external platform or tool carries *as of / verified
-  `<date>`* inline.
+  `<date>`* inline, in the contributor's local calendar date, not the
+  agent's system clock.
 - **Built decks are delivered** ([deck/README.md](deck/README.md)
   convention 3): a session that builds a deck attaches the HTML into the
   conversation as a viewable file in the same reply, and only ever sends
