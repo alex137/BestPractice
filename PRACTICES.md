@@ -1083,6 +1083,19 @@ scripts own and either wrap them or replace them with a pointer; a short regex
 sweep over the owned quantities finds these quickly and is worth re-running
 whenever a script's outputs change shape.
 
+A companion audit closes the loop the other way: **the registry that wires
+documents to scripts is itself verified** (an unregistered generated block is
+one nothing checks, and its numbers rot silently while every gate reports
+green), and a document may **opt in** — placing a marker alone on a line — to a
+stricter rule that *every* quantity in it be generated, cited to an external
+source, or explicitly marked an estimate. Measure before making that a
+repo-wide gate: in the origin repo ~91% of quantity tokens were unexplained, so
+the strict rule is per-document opt-in, and a report mode sizes the backlog
+without blocking anything. Two false-positive traps are worth inheriting: match
+declared figures with a **unit boundary** (else "30 m" matches "30 m/s"), and
+require the opt-in marker to be **alone on its line** (else a document that
+merely mentions the marker opts itself in and fails on its own examples).
+
 Where a document needs figures from several scripts, let the emitter **import**
 the other scripts rather than restating their numbers, so each figure keeps
 exactly one owner (practice 19's composition extension, and practice 30's
