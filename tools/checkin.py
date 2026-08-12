@@ -33,7 +33,13 @@ a check-in OUT:
                             nearly mirrored an old tree; the tool pulls
                             fresh and guards the overwrite.)
 
-  push <upstream-clone>     Run the scrub/practice audit first — it must
+  push <upstream-clone> [--force]
+                            REFUSES if upstream's default branch has moved
+                            past what the vendored tree was mirrored from —
+                            the tree is then behind, and this mirror DELETES
+                            files it lacks, so it would revert upstream work
+                            (run `update` first). Then run the scrub/practice
+                            audit — it must
                             pass, THIS is the gate that keeps proprietary
                             content out of the public repo — then mirror the
                             vendored tree into the clone's working tree
@@ -117,6 +123,23 @@ def status(clone):
     return 1 if n else 0
 
 
+def _stamp_synced_from(commit):
+    """Record which upstream commit the vendored tree was last mirrored from.
+
+    Distinct from upstream.commit, which record() writes only after verifying
+    the vendored tree is byte-identical to what actually landed upstream. That
+    invariant is deliberate and untouched; this field answers a different
+    question -- "is the vendored tree current with upstream?" -- which push()
+    needs and which upstream.commit cannot answer during the normal cycle,
+    because it legitimately lags from update() until the merge is recorded.
+    """
+    path = ROOT / 'process' / 'manifest.json'
+    m = json.loads(path.read_text(encoding='utf-8'))
+    m.setdefault('upstream', {})['synced_from'] = commit
+    path.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n",
+                    encoding='utf-8')
+
+
 def _default_branch(clone):
     return (_git(clone, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD').rsplit('/', 1)[-1]
             or 'main')
@@ -153,6 +176,7 @@ def update(clone, force=False):
                      "(INSTALL.md §3/§4) or pass --force to overwrite.")
     vendored_only, differing, clone_only = _diff(clone)
     if not (vendored_only or differing or clone_only):
+        _stamp_synced_from(_git(clone, 'rev-parse', 'HEAD'))
         print(f"checkin update: vendored tree already identical to clone {branch} — nothing to do.")
         return 0
     for p in vendored_only:
@@ -160,6 +184,7 @@ def update(clone, force=False):
     for p in differing + clone_only:
         (UPSTREAM / p).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(clone / p, UPSTREAM / p)
+    _stamp_synced_from(_git(clone, 'rev-parse', 'HEAD'))
     print(f"checkin update OK: mirrored {len(differing) + len(clone_only)} file(s), "
           f"deleted {len(vendored_only)} from the vendored tree (clone {branch} @ "
           f"{_git(clone, 'rev-parse', 'HEAD')[:12]})")
@@ -168,8 +193,40 @@ def update(clone, force=False):
     return 0
 
 
-def push(clone):
-    # The scrub gates every export of content toward the public repo.
+def push(clone, force=False):
+    # Guard 1: the vendored tree must be CURRENT with upstream. This mirror
+    # DELETES any file the vendored tree lacks, so pushing from a tree that is
+    # behind silently reverts whatever upstream gained. Symmetric to update()'s
+    # guard: that one refuses to clobber unexported LOCAL work, this one
+    # refuses to clobber unimported UPSTREAM work.
+    #
+    # Origin (2026-08-12): a session's vendored tree was behind by two upstream
+    # merges; a plain push would have reverted two practices, and it was caught
+    # only by a human reading `status` output. In the same session the *other*
+    # direction then bit as well -- an `update --force`, passed specifically to
+    # bypass update()'s guard, silently reverted three unexported additions
+    # including this function. Both directions of this mirror destroy work;
+    # both now warn, and --force means what it says.
+    if not force:
+        up = _manifest().get('upstream', {})
+        # synced_from is what update() mirrored; fall back to commit for a
+        # manifest written before that field existed.
+        base = up.get('synced_from') or up.get('commit')
+        branch = _default_branch(clone)
+        _git(clone, 'fetch', 'origin', branch)
+        head = _git(clone, 'rev-parse', f'origin/{branch}')
+        if base and head != base:
+            sys.exit(
+                f"checkin FAIL: upstream origin/{branch} is at {head[:12]} but "
+                f"the vendored tree was last mirrored from {base[:12]} — it is "
+                "behind, and this mirror DELETES files it does not have, so it "
+                "would revert upstream work. Run `checkin.py update` first (it "
+                "refuses if that would clobber unexported local work — export "
+                "that, or `update --force` and RE-APPLY your additions on top, "
+                "keeping a copy first), then push. `--force` overrides if you "
+                "are certain the vendored tree is the intended upstream state.")
+
+    # Guard 2: the scrub gates every export of content toward the public repo.
     audit = HERE.parent / 'practice_audit.py'
     if subprocess.run([sys.executable, str(audit)]).returncode != 0:
         sys.exit("checkin FAIL: practice_audit (scrub) failed — nothing was copied")
@@ -223,7 +280,7 @@ def main():
     if args[0] == 'update':
         return update(clone, force='--force' in args)
     if args[0] == 'push':
-        return push(clone)
+        return push(clone, force='--force' in args)
     note = args[args.index('--note') + 1] if '--note' in args else ''
     return record(clone, note)
 
