@@ -181,6 +181,36 @@ def main():
                                   "deliberate")
                             fail = True
 
+    # Registry-consistency check: PAIRS is a hand-maintained JOIN over two facts
+    # that already declare themselves -- the sentinel in the document and the
+    # emitter in the script. A hand-maintained restatement of something
+    # derivable is exactly what the checks above forbid, so it must itself be
+    # verified. The ORPHAN sentinel is the dangerous case: a generated block
+    # registered nowhere, which nothing checks and whose numbers rot silently
+    # while every gate reports green. (In the origin repo this found two orphan
+    # blocks on its first run, one containing a literal placeholder that had sat
+    # in a live document.) DOC_GLOB is the set of documents to scan for
+    # sentinels; set it to wherever this repo keeps prose.
+    registered = {(d, n) for d, n, _ in PAIRS}
+    found = set()
+    for path in sorted(ROOT.glob(DOC_GLOB)):
+        rel = str(path.relative_to(ROOT))
+        for mm in re.finditer(r"<!--gen:([\w-]+)-->", path.read_text(errors="ignore")):
+            found.add((rel, mm.group(1)))
+    for doc, name in sorted(found - registered):
+        print(f"[doc_sync] FAIL  {doc}: <!--gen:{name}--> is not in PAIRS — "
+              "an unregistered block is never checked and its numbers rot "
+              "silently; register it (or delete the sentinel)")
+        fail = True
+    for doc, name in sorted(registered - found):
+        print(f"[doc_sync] FAIL  {doc} [{name}]: registered in PAIRS but the "
+              "document has no such sentinel — stale registry entry")
+        fail = True
+    for _, _, script in PAIRS:
+        if not (ROOT / script).exists():
+            print(f"[doc_sync] FAIL  PAIRS points at a missing script: {script}")
+            fail = True
+
     if fail:
         sys.exit(1)
 
