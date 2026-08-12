@@ -256,6 +256,22 @@ check-ins.
 **Install.** [INSTALL.md](INSTALL.md) is the full playbook;
 [tools/practice_audit.py](tools/practice_audit.py) audits the manifest
 (drift between installed files and their recorded baselines) on every run.
+[tools/checkin.py](tools/checkin.py) drives the cross-repo mechanics, and
+**both directions of its mirror destroy work, so both are guarded**:
+`update` refuses to overwrite unexported local changes, and `push` refuses
+when the vendored tree is behind upstream — it deletes files it does not
+have, so pushing from a stale tree silently reverts whatever upstream
+gained. `--force` bypasses either.
+
+A caution learned the hard way, worth stating because the tooling cannot
+fix it: **`--force` on a mirror is a destructive command with no undo.**
+Both guards were added after real losses in a single session — a stale tree
+that would have reverted two upstream practices, caught only by a human
+reading `status`; and then a `--force` passed to bypass the *other* guard,
+which silently reverted three unexported additions including the guard code
+itself. If you must force a mirror, copy what you are about to overwrite
+first. The guard you are bypassing is the one that knows what you are about
+to lose.
 
 ## 15. The proprietary scrub gate
 
