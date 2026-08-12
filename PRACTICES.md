@@ -1022,3 +1022,60 @@ the repository rather than from your own transcript.
 "did the thing actually land". Practice 20 (mistakes become rules) produced it,
 from two failures with one root cause folded into one widened rule rather than
 two narrow ones, per that practice's proportionality guard.
+
+## 33. Documents track their models, and every transformation lives in code
+
+**Rule.** Extending practice 19 from *tables* to **every** figure a script
+computes:
+
+1. **A script-derived figure appears in a document only inside a generated
+   block.** Including figures embedded in running prose — those are the ones
+   the sync gate cannot see, and therefore the ones that rot.
+2. **Never restate a generated number in the prose around its block.** Point at
+   the table instead. A restatement is a second copy with no gate on it. If a
+   figure genuinely must appear in a sentence, put the sentence inside the
+   block.
+3. **Every transformation belongs in the emitter.** Unit conversions, rounding,
+   banding, audience-facing phrasing, redaction for external copies — all code.
+   A number converted by hand is a number nobody can regenerate, and a rounding
+   applied by hand is a rounding nobody can audit.
+
+When a script changes, every dependent document changes with it, in the same
+commit, by regeneration rather than by editing.
+
+**Why.** A sync gate only guards what it can see. In the incident that produced
+this, a defective script published wrong figures into several documents; the
+generated tables were corrected automatically the moment the script was fixed,
+and the **hand-written prose statements in the same documents stayed wrong** —
+found later only by a deliberate contamination sweep. The gate had worked
+perfectly on everything it was pointed at, which is precisely why the gaps were
+invisible.
+
+Hand-applied transformations hide the same way. A metric figure typed again in
+feet is two numbers that must be maintained together and will not be; a range
+"rounded for prose" is an editorial decision with no record of which direction
+it moved. Both look like writing and behave like un-versioned code.
+
+The scope limit matters: **this applies to documents not yet issued.** An
+artifact already sent to someone is a record of what they received and must not
+be silently regenerated — fix the source, mint a fresh copy, and let the
+distribution record show both.
+
+**Install.** When wiring a document: wrap every script-derived figure, give the
+emitter an audience-appropriate form (the same numbers may want a different
+table for an internal reader and an external one — that is two emitters, not
+two hand-edits), and put the provenance footer at the foot of the document so a
+reader knows which code produced what. Then **sweep the prose** for figures the
+scripts own and either wrap them or replace them with a pointer; a short regex
+sweep over the owned quantities finds these quickly and is worth re-running
+whenever a script's outputs change shape.
+
+Where a document needs figures from several scripts, let the emitter **import**
+the other scripts rather than restating their numbers, so each figure keeps
+exactly one owner (practice 19's composition extension, and practice 30's
+one-owner rule applied to documents).
+
+**Related.** Practice 19 (generated blocks) is the mechanism; this is its
+scope. Practice 30 (scripts assert their properties and their sources' figures)
+guards the layer below — that the script is right before its numbers are
+published everywhere automatically.
