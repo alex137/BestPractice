@@ -260,6 +260,15 @@ def record(clone, note):
     manifest = _manifest()
     old = manifest['upstream'].get('commit')
     manifest['upstream']['commit'] = head
+    # record() has just verified the vendored tree is byte-identical to what
+    # landed upstream -- which is STRONGER evidence of currency than the mirror
+    # stamp update() writes. So advance synced_from too, or push()'s currency
+    # guard reports a false positive on the very next export: the tree is
+    # provably current while the stamp still points at the pre-merge commit.
+    # (Found immediately after the guard shipped, by running the normal cycle
+    # through to the end -- a reminder that a new gate is not done until the
+    # whole loop has been walked with it in place.)
+    manifest['upstream']['synced_from'] = head
     manifest['upstream']['_note'] = (
         f"commit = upstream hash last synced ({note or 'check-in'}, "
         f"recorded {datetime.date.today().isoformat()}; verified tree-identical).")
