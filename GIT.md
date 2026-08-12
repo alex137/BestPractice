@@ -92,3 +92,26 @@ project's shared folder on GitHub; a "session" is one AI conversation; a
   [INSTALL.md](INSTALL.md) §4, for example),
   **select both repos when you create the session** — you generally can't
   add write access mid-session.
+
+## Knowing your work actually landed
+
+A published operation reports on *itself*, not on your intention, and the
+reports are easy to misread in the same direction twice. Three checks cost
+seconds and catch the cases where everything looked fine:
+
+- **Before committing, confirm which branch you are on.** A commit goes to the
+  branch you are standing on, not the one you have been thinking about.
+- **After publishing, compare every local branch against its remote** and
+  require the difference to be empty. Publishing by *naming* a branch acts on
+  that branch — if it has not changed, the operation succeeds, says so, and
+  your actual work stays unpublished somewhere else.
+- **Never gate on a pipeline.** `check | tail && publish` tests whether `tail`
+  worked, not whether `check` passed; the check can print a failure in plain
+  sight and the publish proceeds anyway. Run checks on their own and test the
+  result.
+
+The general form is practice 32: verify the state you wanted, not that the
+command reported success. Worth trusting an automated nag that tells you
+something is unpublished — that is exactly the check your own review cannot
+perform, because your review is built from the same assumption that caused
+the mistake.
