@@ -24,10 +24,18 @@ gains a script-generated table: wrap it in sentinels, give the script an
 the numbers live in the script; the document is a render target.
 
 The sentinels are HTML comments, which render as nothing on hosted markdown.
+
+Beyond the drift gate, this tool enforces two things a generated block alone
+cannot: a provenance footer naming the scripts that feed each document, and
+the practice-33 RESTATEMENT check -- a figure a script declares it owns
+(owned_figures()) must not be hand-typed into the prose around its block,
+because that copy has no gate on it and silently survives a fix to the script.
 """
 
 import argparse
 import difflib
+import importlib.util
+import io
 import re
 import subprocess
 import sys
@@ -48,6 +56,29 @@ ROOT = find_root(__file__)
 # Example:
 #   ("docs/summary.md", "cost_table", "models/cost_model.py"),
 PAIRS = []
+
+
+def owned_figures(script):
+    """Figures a script declares it owns, as (label, [rendered forms]).
+
+    A script opts in by defining owned_figures() returning that shape. Scripts
+    that do not are simply not checked -- instrumentation is per-script and
+    deliberate.
+    """
+    path = ROOT / script
+    spec = importlib.util.spec_from_file_location(f"_of_{Path(script).stem}", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(path.parent))
+    real, sys.stdout = sys.stdout, io.StringIO()
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        return []
+    finally:
+        sys.stdout = real
+        sys.path.pop(0)
+    fn = getattr(mod, "owned_figures", None)
+    return fn() if callable(fn) else []
 
 
 def block_re(name):
@@ -123,6 +154,33 @@ def main():
             print(f"[doc_sync] FAIL  {doc}: footer does not name "
                   f"{', '.join(sorted(missing))}")
             fail = True
+    # Restatement check (practice 33): a figure a script OWNS must not be
+    # hand-typed into the prose around its generated block. The gate can only
+    # see what it is pointed at, so a corrected script self-corrects every
+    # generated table and leaves every hand-typed restatement wrong.
+    #
+    # False positives are controlled by scope, not by cleverness:
+    #   * only documents ALREADY WIRED to the script are scanned;
+    #   * only figures the script DECLARES it owns, via owned_figures();
+    #   * matched in the exact rendered form the script produces, units and
+    #     all, with a unit boundary so "30 m" never matches "30 m/s".
+    # A legitimate restatement is marked with <!--owned-ok--> on the line.
+    for doc, scripts in docs.items():
+        text = (ROOT / doc).read_text()
+        outside = re.sub(r"<!--gen:.*?<!--/gen:[\w-]+-->", "", text, flags=re.S)
+        for script in sorted({s for d, n, s in PAIRS if d == doc}):
+            for label, forms in owned_figures(script):
+                for form in forms:
+                    rx = re.compile(re.escape(form) + r"(?![/\w])")
+                    for line in outside.splitlines():
+                        if rx.search(line) and "<!--owned-ok-->" not in line:
+                            print(f"[doc_sync] FAIL  {doc}: restates "
+                                  f"{label} ({form!r}) outside its gen block — "
+                                  "point at the table instead, or mark the "
+                                  "line <!--owned-ok--> if the restatement is "
+                                  "deliberate")
+                            fail = True
+
     if fail:
         sys.exit(1)
 
