@@ -1061,6 +1061,19 @@ artifact already sent to someone is a record of what they received and must not
 be silently regenerated — fix the source, mint a fresh copy, and let the
 distribution record show both.
 
+**Enforced, not merely stated.** Rule 2 is mechanically checkable and now is:
+a script declares the figures it owns via `owned_figures()`, returning them in
+the **exact rendered forms it produces** — value and unit, formatted as the
+emitter formats them — and the sync tool greps every document *wired to that
+script* for those strings outside its generated blocks. Three scoping choices
+keep it usable rather than noisy: only wired documents are scanned, only
+declared figures are searched, and matching requires a **unit boundary** so
+`30 m` never matches `30 m/s`. That last one is not hypothetical — it was the
+first thing the check got wrong, firing on two speeds on its first run, and it
+is the reason a naive scan for "numbers a script produced" is worthless. A
+deliberate restatement is marked `<!--owned-ok-->` on the line. Scripts that
+declare nothing are not checked; instrumentation is opt-in, per script.
+
 **Install.** When wiring a document: wrap every script-derived figure, give the
 emitter an audience-appropriate form (the same numbers may want a different
 table for an internal reader and an external one — that is two emitters, not
