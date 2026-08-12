@@ -86,6 +86,13 @@ drift and proprietary leakage loud instead of silent.
      Multiple adapters can be installed side by side.
    - `tools/doc_lint.py` → run it from `process/upstream/tools/` in place,
      or copy to the repo's tools dir if it needs local adaptation.
+   - `tools/doc_sync.py` (practice 19) and `tools/model_audit.py`
+     (practice 30) → copy to the repo's tools dir and wire their registries
+     (`PAIRS` and `INSTRUMENTED` respectively); both are gates meant to run
+     with the repo's other pre-commit checks. Install `doc_sync` when
+     documents quote computed numbers, and `model_audit` as soon as any
+     script consumes a quantity another script or an authoritative document
+     owns.
 3. **Write the manifest** at `process/manifest.json` — see §5 for the
    schema. One entry per installed practice artifact, recording where it
    landed, at what granularity, and what was adapted. Then run
