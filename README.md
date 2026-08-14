@@ -130,3 +130,9 @@ Hand installation, updates, and contributing improvements back:
 [deck/](deck/). Git in eight ideas: [GIT.md](GIT.md). Open items and
 roadmap: [TODO.md](TODO.md). Repository index for agents:
 [AGENTS.md](AGENTS.md).
+
+A separate project grew out of this one:
+**[GitAround](https://github.com/alex137/GitAround)**, a way to read a
+project and follow what is changing in it from a browser, for people who
+would rather not work through GitHub's own screens. It is a proposal
+looking for feedback, not something you can install yet.
