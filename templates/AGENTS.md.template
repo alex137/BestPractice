@@ -103,6 +103,14 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   name the model they were verified on (a model upgrade = re-verify); a
   durable rule records its tenure and exceptions (*in effect since X; N
   exceptions, each under Y*) — its survival record is its authority.
+- **Outward-facing documents use the reader's words** (practice 34): in a
+  README, product page, pitch, or onboarding guide, every term that names a
+  category is either already the reader's word, replaced with a plain
+  equivalent, or glossed inline on first use — never left to a glossary the
+  reader won't open. Jargon usually arrives from the *sources* you just
+  read, so run this as a separate pass after drafting, not while writing.
+  Rule of thumb: if a term can be replaced by a plain description of five
+  words or fewer, it is jargon.
 - **Reply convention** (practice 12): every reply that created or modified
   files ends with a "Files touched" list — branch link + post-merge link +
   one-line description per file — so the reader can open the work from the

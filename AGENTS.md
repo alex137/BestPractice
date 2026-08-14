@@ -59,6 +59,13 @@ that skips them in this repo of all places is the joke writing itself.
   here about an external platform or tool carries *as of / verified
   `<date>`* inline, in the contributor's local calendar date, not the
   agent's system clock.
+- **Outward-facing documents use the reader's words** (practice 34): this
+  repo's README, [SETUP.md](SETUP.md), and
+  [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) are read by
+  people who are not developers. Terms that name a category are the
+  reader's word, a plain equivalent, or glossed inline — never left to a
+  glossary. Jargon arrives from the sources a session just read, so run
+  the check as a separate pass after drafting.
 - **Built decks are delivered** ([deck/README.md](deck/README.md)
   convention 3): a session that builds a deck attaches the HTML into the
   conversation as a viewable file in the same reply, and only ever sends
