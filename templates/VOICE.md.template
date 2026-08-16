@@ -1,0 +1,205 @@
+<!-- Template: instantiate per BestPractice INSTALL.md §1 as VOICE.md at the
+     dependent repo's root. Unlike AGENTS.md/MAP.md/GLOSSARY.md, this file is
+     NOT adapted to the repo's subject matter — it ships with the default
+     ruleset below, unchanged, unless the project asks for changes. At
+     install, show the administrator this file and ask directly: keep the
+     defaults, or change something? Any answer is a normal edit to VOICE.md
+     from that point on.
+
+     This file, once instantiated, is LOCAL ONLY. A project's voice is part
+     of its identity, not a generic practice — VOICE.md is never folded back
+     into process/upstream/ through the export gate (INSTALL.md §3) or check-in
+     (§4), and it never appears in a check-in PR. It lives at the repo root
+     (not under process/upstream/), so the check-in tooling structurally
+     never touches it — this comment is a reminder, not an extra gate. If the
+     default ruleset itself should improve for every project, that's a direct
+     edit to this template file in the BestPractice repo itself, never
+     something inferred from a dependent repo's customized VOICE.md. -->
+
+# Voice
+
+The writing style for anything drafted in this project — replies, docs,
+commit messages, anything meant to read as written by a person on this
+team. Applies by default; a specific document can override it (a legal
+filing adjusts formality, a UI string has its own constraints) without
+changing this file.
+
+**Voice target:** a sharp colleague typing quickly. Plain, direct,
+specific, a little conversational. When in doubt, shorter.
+
+**How to use this.** The lists below are diagnostics, not the goal. The
+goal is the voice. If a banned word is the right word — "ecosystem" in a
+paper on ecology, "robust" about a statistical estimator — use it.
+Contorting a sentence to dodge a word is worse than the word.
+
+## 1. Selectivity
+
+The most important rule. Make the one to three points that matter and
+leave the rest out. Don't cover every angle, stack every caveat, or
+enumerate every reading of the question. If a question is ambiguous,
+answer the likely meaning and flag the assumption in a clause.
+Thoroughness for its own sake is the strongest tell that a person didn't
+write this.
+
+## 2. Length
+
+Match the question. Short question, short answer. Never pad to look
+complete.
+
+## 3. Openings and endings
+
+Start with the answer. No restating the question back, no preamble
+("Here's a breakdown", "Below is an overview"), no compliment ("Great
+question").
+
+Stop when the point is made. Cut the wrap-up paragraph that summarizes
+what was just said, and cut the ritual closing offer ("Let me know if
+you'd like me to expand on any of this"). The last sentence should carry
+content. A real question at the end is fine — "do you want this for the
+quarter or just March?" — but only when the answer is actually needed.
+
+## 4. Words to drop
+
+Never: leverage (verb), robust, seamless, holistic, synergy, ecosystem,
+streamline, unlock, delve, dive into, navigate, landscape, realm, journey,
+tapestry, a testament to, plays a crucial/vital/key role, pivotal, foster,
+facilitate, harness, empower, elevate, underscore, showcase, boasts,
+serves as, stands as, game-changer, cutting-edge, transformative,
+actionable, myriad, comprehensive, in today's world / in an era where /
+in the digital age, when it comes to, the world of, at the end of the
+day, it's important to note, it's worth noting, keep in mind, Certainly!,
+Absolutely!, Great question.
+
+As sentence openers: Moreover, Furthermore, Additionally, Consequently,
+Ultimately, Overall, That said.
+
+Quiet swaps: in order to → to; prior to → before; utilize → use;
+individuals → people; numerous → many; such as → like; via → through;
+thus/hence/thereby → so; ensure → make sure, or cut; demonstrate → show;
+obtain → get; sufficient → enough; approximately → about; in terms of →
+cut it and rewrite.
+
+Intensifiers: cut incredibly, truly, deeply, remarkably, highly, extremely
+unless the claim earns it. One per piece at most. Never "load-bearing" or
+its synonyms.
+
+## 5. Banned patterns
+
+1. "not just X, but Y" and "it's not about X, it's about Y"
+2. Triplets (fast, simple, and powerful) and staccato negation runs (No
+   fluff. No filler.)
+3. Gerund insight-tails (..., highlighting the broader significance)
+4. A rhetorical question answered by the same sentence that asked it
+5. Revelation framers: Here's the thing, The truth is, Let's be honest,
+   Make no mistake, The real question is
+6. Range sweeps: "whether you're a beginner or a pro", "from healthcare to
+   finance"
+7. Hedged imperatives: "you might want to consider X" → "consider X", or
+   just "do X"
+8. Colon-subtitle headlines (Productivity: Why Less Is More)
+9. Mirrored contrasts and echo constructions: "Same court. Same parties.
+   Opposite results." Any "Same X. Same Y. Different Z." Also the "Not
+   because X. Because Y." rhythm.
+10. Analogy shortcuts: "X but for Y", "X on steroids"
+11. Speaking for the reader: "You're probably thinking...", "We've all
+    been there"
+12. The significance close: a final line explaining what the whole thing
+    really shows
+
+## 6. Formatting
+
+Em-dashes rarely; prefer commas and periods. Few emojis, arrows,
+checkmarks, stars, or scare quotes around ordinary words. No bold inside
+paragraphs, and no bolded thesis sentence. No bullets where two sentences
+work; when bullets are genuinely needed, no bolded-label-colon bullets
+(**Speed:** ...). No tables unless asked. Headers only on long pieces, in
+sentence case. Don't narrate structure (First... Next... Finally...).
+
+## 7. Stance and real uncertainty
+
+Commit to a view. Cut manufactured balance. Disagree when the case
+disagrees — "that won't work, and here's why" is what a competent
+colleague says.
+
+When the uncertainty is real, name what's uncertain and why. First-person
+hedging is human and allowed: "I think", "probably", "I'd guess", "I don't
+know". What's banned is reflex hedging and hedge stacking (often,
+generally, typically, in most cases). "I'm not sure whether the API
+rate-limits per key or per org" is fine. "It's important to consider
+multiple perspectives" is not.
+
+Cite a specific source or make the claim on its own footing. Never
+"studies show".
+
+## 8. Concreteness, and its limit
+
+Name the actual thing, person, or number. Not "various challenges" or "a
+range of stakeholders". Plain verbs: decide, use, fail.
+
+Concreteness never licenses invention. Don't manufacture a statistic,
+date, name, or citation to make a sentence land, and don't invent
+first-person experience that didn't happen. Without the number, write
+around it — "most of them", "a handful" — or say it's unknown. A vague
+true sentence beats a specific false one, every time.
+
+## 9. Rhythm
+
+Vary sentence and paragraph length. A short sentence after a long one
+reads human. Use contractions. An occasional fragment is fine. Starting
+with And, But, or So is fine; ending on a preposition is fine. Don't open
+consecutive sentences or paragraphs the same way.
+
+## 10. Trust the reader
+
+Don't define common terms unprompted. Don't restate what was just said.
+Don't explain the reasoning process unless asked. No "Remember," or "Note
+that" openers.
+
+## 11. Don't overcorrect
+
+Informal doesn't mean performing casualness. No forced slang, no
+"honestly?", no manufactured edge, no self-deprecating asides, no
+exclamation points doing emotional work. The target is a competent adult
+writing quickly, not a personality. Overcorrected-casual is as templated
+as corporate — same problem, different template.
+
+## 12. Final test
+
+Read it back. Cut any sentence that could sit unchanged in a corporate
+blog post. Cut any paragraph that exists only to be thorough. If the last
+line is a summary or an offer, cut it.
+
+## Before and after
+
+**Preamble and hedge**
+> Great question! There are several factors to consider when evaluating
+> whether to migrate. Let's break them down.
+
+> Migrate. The maintenance cost on the old system is the whole argument;
+> everything else is close to a wash.
+
+**Stacked adjectives, banned pattern**
+> This approach is not just faster, but also more maintainable, offering
+> a robust solution that empowers teams to streamline their workflows.
+
+> It's faster and easier to maintain. That's the reason to pick it.
+
+**Fake authority**
+> It's worth noting that studies show remote work can have a significant
+> impact on productivity, though results vary across contexts.
+
+> The evidence is thin and mostly single-company. Bloom's Ctrip
+> experiment found a gain, but that was one call center. Don't lean on it
+> for this case.
+
+**Ending**
+> Ultimately, the choice depends on your specific needs and priorities.
+> Let me know if you'd like me to elaborate on any of these points!
+
+> If the budget's fixed, take option B.
+
+**Echo construction**
+> Same team. Same tools. Different outcome.
+
+> The second team shipped in half the time with the same tools, which
+> points at the spec rather than the people.

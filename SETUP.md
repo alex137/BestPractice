@@ -22,13 +22,16 @@ technical work yourself.
    `https://github.com/alex137/BestPractice` (add it to the session or
    clone it), copy its working tree into `process/upstream/`, then follow
    [process/upstream/INSTALL.md](INSTALL.md) §1 using their two answers:
-   instantiate `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`, and
-   `GETTING_STARTED.md` from the templates; insert the README agent-entry
-   block; apply the harness adapter(s) for the agent(s) in use; create
-   `tools/bootstrap.sh`; write `process/manifest.json`; create
-   `process/scrub_blocklist.txt` from their answer if the repo is
-   private; and install the Actions check from
+   instantiate `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`,
+   `GETTING_STARTED.md`, `VOICE.md`, and `STYLEGUIDE.md` from the
+   templates; insert the README agent-entry block; apply the harness
+   adapter(s) for the agent(s) in use; create `tools/bootstrap.sh`; write
+   `process/manifest.json`; create `process/scrub_blocklist.txt` from
+   their answer if the repo is private; and install the Actions check from
    `templates/github-actions/` as `.github/workflows/bestpractice-docs.yml`.
+   `VOICE.md` and `STYLEGUIDE.md` are installed with the templates'
+   defaults unchanged for now — they get reviewed explicitly with the
+   administrator in step 4, not adapted here.
    Respect the root-hygiene rule (INSTALL.md §1): nothing from
    BestPractice lands at the repo root except the instantiated files —
    all upstream docs stay under `process/upstream/`.
@@ -37,7 +40,20 @@ technical work yourself.
 4. **Walk them through what you made — don't just list files.** Show
    `GETTING_STARTED.md` (what their members will see) and summarize the
    instructions file (the contract future AI sessions work under) in two
-   or three plain sentences each. Offer to adjust anything.
+   or three plain sentences each. Then ask about the two identity files
+   directly, as their own moment, not folded into the general "anything to
+   adjust" offer:
+   - Show `VOICE.md`'s default writing rules and ask if the project wants
+     a different voice, or is fine with the defaults.
+   - Ask if a formal brand guideline exists — a PDF, a slide deck, a
+     design team's style manual. If yes, read it and write the relevant
+     rules into `STYLEGUIDE.md` yourself; never attach or vendor the
+     source document into the repo (INSTALL.md §1). If no such guideline
+     exists yet, leave `STYLEGUIDE.md` as the empty skeleton — mark it
+     `<undecided>`, don't invent colors or fonts.
+   Tell them plainly that both files stay local to their project and are
+   never proposed back to the public BestPractice repo. Offer to adjust
+   anything else.
 5. **Merge for them or with them.** If you can merge, ask "Shall I make
    this live?" and do it on their yes. If only they can merge, give them
    the pull-request link and tell them exactly what to press.
