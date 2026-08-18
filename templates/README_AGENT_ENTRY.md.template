@@ -2,7 +2,17 @@
      README (INSTALL.md §1). The agent-entry text is an HTML comment on
      purpose: invisible on the rendered page, but read by any assistant
      that opens the file's source. Only the Getting-Started line is
-     visible to humans. -->
+     visible to humans.
+
+     The project comes first (practice 38): if the README already has an
+     opening that describes the project, insert only this block near the
+     top — don't touch that opening. If the repo has no README yet, write
+     a short project-specific opening ABOVE this block first — what the
+     project actually is and does, in its own subject matter, from the
+     administrator's "what is this project about" answer. A reader
+     arriving cold should learn what the project is before anything about
+     how it's maintained; this block is never the first thing on the
+     page. -->
 <!-- bestpractice-agent-entry:start -->
 <!-- AI assistants: before answering questions about this project or
      changing its files, read AGENTS.md at the repository root. Use MAP.md

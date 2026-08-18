@@ -181,3 +181,23 @@ conversation:
   seconds; the assistant tells you when one deserves a closer look —
   because it reworks someone's writing, collides with other work, or
   touches something you've pushed back on before.
+
+### Automatic checks installed for this project
+
+<!-- Standing note (INSTALL.md §1 step 8 / practice 37): every
+     GitHub-specific requirement this project depends on gets a line
+     here, naming what it is and the exact click-path to configure it —
+     not just a mention in the internal install log under
+     `process/upstream/`. Add a line whenever a future install step
+     introduces a new one (a required secret, a new required check). -->
+
+- **A Markdown check runs on every pull request** (a GitHub Actions
+  workflow) and catches a couple of specific formatting mistakes before
+  they reach the shared project. It needs no maintenance. If it doesn't
+  appear on a pull request's checks, GitHub Actions may be disabled for
+  this repository — an administrator can turn it on at repository
+  **Settings → Actions**. Details: `process/upstream/GITHUB_ACTIONS.md`.
+- **Every pull request opens with a standard template** — what changed,
+  why, files touched, and a short checklist. An unchecked box on that
+  checklist is normal; it means that gate didn't apply to this particular
+  change, not that something was skipped.
