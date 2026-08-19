@@ -89,6 +89,12 @@ drift and proprietary leakage loud instead of silent.
      automatically for every PR opened against the repo.
    - `templates/bootstrap.sh` → `tools/bootstrap.sh` (add the repo's own
      setup needs).
+   - `templates/gitignore.template` → `.gitignore` at the repo root (create
+     it) or merge into an existing one (append, don't overwrite): baseline
+     ignores for ordinary tool/interpreter caches — `__pycache__/` in
+     particular, left behind by every run of the vendored Python audits in
+     `tools/`. Add this repo's own generated-deliverable globs (practice 8)
+     to the same file rather than a second one.
    - **Apply the harness adapter(s)** for whichever agent(s) will work this
      repo — see [templates/harness/README.md](templates/harness/README.md).
      E.g. Claude Code: `harness/claude-code/CLAUDE.md` → repo root (a
@@ -133,8 +139,8 @@ drift and proprietary leakage loud instead of silent.
 6. **Root hygiene — the layout rule.** The ONLY files an install may
    create at the dependent repo's root are the instantiated ones:
    `AGENTS.md` (plus a harness pointer such as `CLAUDE.md`), `MAP.md`,
-   `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, and the README
-   entry-block edit — plus `tools/bootstrap.sh`,
+   `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, `.gitignore`, and the
+   README entry-block edit — plus `tools/bootstrap.sh`,
    `.github/workflows/bestpractice-docs.yml`, and
    `.github/pull_request_template.md`. Everything else that ships
    with BestPractice (INSTALL.md, PRACTICES.md, SETUP.md,
@@ -165,7 +171,9 @@ drift and proprietary leakage loud instead of silent.
    template both need a line there; anything a future update adds does
    too.
 
-`.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8):
+`.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8),
+appended to the baseline `.gitignore` instantiated above from
+[templates/gitignore.template](templates/gitignore.template):
 
 ```gitignore
 # generated deliverables — only shipped artifacts get force-added
