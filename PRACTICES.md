@@ -1219,3 +1219,98 @@ two compose — the audience's question is often posed at the wrong granularity
 too. Practice 25's adversarial pass will confirm every claim in a
 wrongly-decomposed analysis, so the decomposition has to be challenged
 separately.
+
+## 36. Section order follows the reader's frequency, not the writer's derivation order
+
+**Rule.** In any document that walks through instructions, guidance, or rules
+in multiple sections, order the sections by how often and how urgently the
+reader will actually need them — common, everyday content first; rare edge
+cases, migration scenarios, and "if the world changes" contingencies last —
+unless the subject matter itself dictates a different order (steps that must
+be followed in sequence, a narrative that only makes sense in one direction).
+The test: would most readers have to scroll past this section to reach the
+one they actually opened the document for?
+
+**Why.** A document is drafted in the order its author thought it through,
+which is rarely the order its reader needs it in. An edge case sits next to
+the common case that motivated it, in the author's head, and that adjacency
+survives into the draft even though almost no reader will ever hit the edge
+case — they just have to read past it every time.
+
+**Install.** A writing convention, checked in review with the question
+above; part of [templates/AGENTS.md.template](templates/AGENTS.md.template)'s
+Conventions section. No mechanical audit — "which order serves most readers"
+is a judgment call, not a pattern a lint can reliably detect.
+
+## 37. GitHub-specific setup is disclosed where the reader will actually see it
+
+**Rule.** Whenever an install step adds something GitHub-specific that a
+project's own people need to know about — a required Actions workflow, a
+repository secret, a branch-protection or required-check setting, a
+permission grant — the fact, and the exact detail needed to act on it (what
+it's called, what it does, any manual click to enable it), is written into
+the document that project's own people actually read, not left only inside
+BestPractice's internal install playbook. For a dependent repo, that
+document is [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md)'s
+administrator section — [INSTALL.md](INSTALL.md) records the installation
+mechanics; GETTING_STARTED.md records the consequence for this project's
+administrator.
+
+**Why.** An install can turn on a GitHub Actions workflow and record that
+fact faithfully in this repo's own technical install log — a document a
+project's administrator has no ordinary reason to reopen. Nothing points
+them at it from the page they'll actually return to, so a check that needs
+one click to enable can sit off, silently, until someone happens to look at
+the Actions tab.
+
+**Install.** [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md)'s
+administrator section carries a standing note for "automatic checks
+installed for this project," naming each workflow and what it does. Any
+future GitHub-specific addition — a required secret, a new required check —
+gets a line there too, added by whichever install step introduces it.
+
+## 38. A project's own document leads with what the project is
+
+**Rule.** An outward document that both describes a project and explains how
+it's maintained — a README, an entry page — states what the project actually
+is and does, in the project's own subject matter, before it says anything
+about the maintenance or editing process layered on top of it. A reader
+arriving cold learns *what this is* before *how to work with it*.
+
+**Why.** A newly created project's README once opened with a sentence about
+how the project's memory lives in its repository and is edited by talking to
+an AI assistant — true of the process layer, and the very first thing a
+brand-new reader hit, before a single sentence told them what the project
+itself was. "Wait, is this an AI assistant?" is the natural, correct reaction
+to reading process-description with zero subject-matter context first.
+
+**Install.** [INSTALL.md](INSTALL.md)'s README-entry step and
+[SETUP.md](SETUP.md)'s guided install both instruct: if the repo has no
+README yet, write a short project-specific opening — from the
+administrator's "what is this project about" answer — before inserting the
+[README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template)
+block. If a README already exists, insert only the entry block into it;
+don't rewrite its opening.
+
+## 39. A default PR template captures the living-doc gates — honestly, not mechanically
+
+**Rule.** Every dependent repo installs a default pull-request template
+covering what changed, why, files touched, and the practices' own
+living-document gates (scrub, MAP, TODO, GLOSSARY) as a checklist. The body
+is written from the actual diff; a gate is checked only when it is actually
+true for this change. An unchecked box, or a "not applicable" note, is a
+normal and expected outcome — never a defect to paper over.
+
+**Why.** A template with a fixed checklist is worth nothing the moment
+filling it in becomes reflex: "N/A" typed into every box looks exactly like
+verification happened and means nothing did. The template earns its place
+only paired with an explicit instruction that unchecked boxes are fine — the
+alternative trains exactly the behavior the checklist exists to catch.
+
+**Install.**
+[templates/pull_request_template.md.template](templates/pull_request_template.md.template)
+→ `.github/pull_request_template.md` — installed the same way as `AGENTS.md`
+(§1), propagated to existing installs the same way (§2). The "write from the
+diff, unchecked is fine" instruction lives in
+[templates/AGENTS.md.template](templates/AGENTS.md.template) so every
+session opening a PR sees it, not just the template itself.

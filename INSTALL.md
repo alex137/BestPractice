@@ -74,7 +74,19 @@ drift and proprietary leakage loud instead of silent.
      the repo's root README: an agent-entry HTML comment (invisible on the
      rendered page, read by assistants opening the source) routing agents
      to `AGENTS.md`, plus one visible line pointing people to
-     `GETTING_STARTED.md`.
+     `GETTING_STARTED.md`. **The project comes first** (practice 38): if
+     the repo already has a README describing the project, insert only
+     this block near its top — don't rewrite the opening. If the repo has
+     no README yet, write a short project-specific opening first — from
+     the administrator's "what is this project about" answer (see
+     [SETUP.md](SETUP.md) step 2) — so a reader learns what the project
+     *is* before anything about how it's maintained. The entry block and
+     the Getting Started line come after that opening, never before it.
+   - `templates/pull_request_template.md.template` →
+     `.github/pull_request_template.md`: copy verbatim (no adaptation
+     needed) — same treatment as `AGENTS.md`, installed once and
+     propagated to existing installs on update (§2). GitHub picks it up
+     automatically for every PR opened against the repo.
    - `templates/bootstrap.sh` → `tools/bootstrap.sh` (add the repo's own
      setup needs).
    - **Apply the harness adapter(s)** for whichever agent(s) will work this
@@ -122,8 +134,9 @@ drift and proprietary leakage loud instead of silent.
    create at the dependent repo's root are the instantiated ones:
    `AGENTS.md` (plus a harness pointer such as `CLAUDE.md`), `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, and the README
-   entry-block edit — plus `tools/bootstrap.sh` and
-   `.github/workflows/bestpractice-docs.yml`. Everything else that ships
+   entry-block edit — plus `tools/bootstrap.sh`,
+   `.github/workflows/bestpractice-docs.yml`, and
+   `.github/pull_request_template.md`. Everything else that ships
    with BestPractice (INSTALL.md, PRACTICES.md, SETUP.md,
    GITHUB_ACTIONS.md, MOBILE.md, METHOD.md, GIT.md, templates/, tools/,
    deck/) exists ONLY under `process/upstream/` — never copy any of it to
@@ -141,6 +154,16 @@ drift and proprietary leakage loud instead of silent.
    > for the rules themselves: green means safe to show you, red means
    > the assistant fixes it before you ever see the result. You should
    > never be shown a failing install.
+
+8. **Disclose anything GitHub-specific** (practice 37): if any step above
+   added a required Actions workflow, a repository secret, a
+   branch-protection or required-check setting, or any other
+   GitHub-specific requirement, add a line for it in
+   `GETTING_STARTED.md`'s administrator section naming what it is, what it
+   does, and the exact click-path to enable or configure it — don't leave
+   it recorded only in this file. This install's own Actions check and PR
+   template both need a line there; anything a future update adds does
+   too.
 
 `.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8):
 
@@ -178,9 +201,14 @@ drift and proprietary leakage loud instead of silent.
    (from [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md)),
    the README entry block
    ([templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template)),
-   or the Actions check
-   ([templates/github-actions/](templates/github-actions/README.md)).
-   Instantiate them exactly as §1 describes and add manifest entries.
+   the Actions check
+   ([templates/github-actions/](templates/github-actions/README.md)), or the
+   PR template
+   ([templates/pull_request_template.md.template](templates/pull_request_template.md.template)).
+   Instantiate them exactly as §1 describes and add manifest entries — a
+   short catch-up prompt ("take the BestPractice update") is enough to
+   propagate a newly introduced template like this to every repo that
+   already installed BestPractice before it existed.
 4. **Fix legacy layout.** Older installs sometimes scattered
    upstream-internal docs (INSTALL.md, GITHUB_ACTIONS.md, …) at the repo
    root; the audit's LAYOUT check now fails on them. Delete the strays —

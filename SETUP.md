@@ -24,11 +24,17 @@ technical work yourself.
    [process/upstream/INSTALL.md](INSTALL.md) §1 using their two answers:
    instantiate `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`, and
    `GETTING_STARTED.md` from the templates; insert the README agent-entry
-   block; apply the harness adapter(s) for the agent(s) in use; create
-   `tools/bootstrap.sh`; write `process/manifest.json`; create
+   block — but the project comes first (INSTALL.md §1 step 2, practice 38):
+   if the repo has no README yet, write its opening from their first
+   answer (*what is this project about?*) before the entry block, so a
+   reader learns what the project is before anything about how it's
+   maintained; apply the harness adapter(s) for the agent(s) in use;
+   create `tools/bootstrap.sh`; write `process/manifest.json`; create
    `process/scrub_blocklist.txt` from their answer if the repo is
-   private; and install the Actions check from
-   `templates/github-actions/` as `.github/workflows/bestpractice-docs.yml`.
+   private; install the Actions check from `templates/github-actions/` as
+   `.github/workflows/bestpractice-docs.yml`; and install
+   `templates/pull_request_template.md.template` as
+   `.github/pull_request_template.md`.
    Respect the root-hygiene rule (INSTALL.md §1): nothing from
    BestPractice lands at the repo root except the instantiated files —
    all upstream docs stay under `process/upstream/`.
