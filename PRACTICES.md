@@ -1314,3 +1314,283 @@ alternative trains exactly the behavior the checklist exists to catch.
 diff, unchecked is fine" instruction lives in
 [templates/AGENTS.md.template](templates/AGENTS.md.template) so every
 session opening a PR sees it, not just the template itself.
+es a source's vocabulary within a single session, has no
+  sense of when a word entered its usage, and writes fluently in whatever
+  register it just read.
+
+Note that a glossary is the **wrong remedy here**, which is what separates
+this from practice 17. You can ask a colleague to consult the repo's
+glossary. You cannot ask a prospective user to consult anything — they will
+simply stop reading.
+
+**Install.** A vocabulary pass, run as a **separate step after drafting**,
+in the shape of practice 21's capture sweep: write the intended reader down
+as a plain sentence, then walk every category-naming noun against *"would
+this reader define this unprompted?"* Where the answer is no, apply one of
+the three verdicts. Do it after the framing check of practice 28, since
+reframing changes who the reader is.
+
+The natural audit extension (practice 6) is a per-repo list of known insider
+terms, checked by [tools/doc_lint.py](tools/doc_lint.py) against documents
+marked outward-facing — the same machinery as the scrub blocklist of
+practice 15, aimed at comprehension instead of confidentiality. Keep it
+**warning-level**: a glossed term is a legitimate pass, and only a human can
+judge that.
+
+**Related.** Practice 17 (acronyms and a central glossary) is the
+inward-facing counterpart — expansion for readers who will consult a list.
+Practice 27 (a label describes what follows) and practice 28 (frame from the
+audience's question) are the other two audience-facing failures, and all
+three survive each other: a document can be correctly framed, honestly
+labelled, and still unreadable because of its vocabulary. Three separate
+passes, not one.
+
+## 35. Build/buy: decompose before deciding, and keep the verdict supplier-independent
+
+**Rule.** A build-or-buy question almost always arrives at the wrong
+granularity — *"should we build this ourselves or get it from them?"* — and
+answering it as posed produces a yes/no about a supplier when what was needed
+was a map. Two moves, in order.
+
+**First, decompose the thing being procured, and give each part its own
+verdict.** The parts usually disagree, and the disagreement is the answer. The
+diagnostic is blunt: **if your answer is a single yes/no, you probably have not
+checked whether the thing has parts with different answers.** In the origin
+case a four-way split turned "wrong supplier" into "right supplier, wrong
+layer" — which is a usable answer, where a flat no would have closed a door
+worth keeping open.
+
+**Second, rest the verdict on ownership arguments rather than capability
+arguments, then check that it survives being wrong about the supplier.**
+The distinction is what makes a decision durable:
+
+- **Ownership arguments** — what recurring cost the choice imposes per unit
+  shipped, what compounding asset it starves, what it does to the thing your
+  strategy names as your advantage — hold no matter how good the supplier turns
+  out to be.
+- **Capability arguments** — *"they can't do this part"* — invert the moment the
+  supplier improves, or the moment your read of them proves wrong. And your read
+  is usually a desk read of their own marketing: in the origin case the
+  supplier's product documentation was literally unreachable from the working
+  environment, so the capability picture came entirely from press releases.
+
+Label each argument as one or the other while writing. A recommendation built
+on capability has a shelf life measured in the supplier's release cadence.
+
+**Why.** The failure this prevents is not choosing wrongly between two known
+options — it is answering a question whose premise (that the thing is one
+thing) was never checked, and then defending the answer with the most available
+evidence, which is whatever the supplier says about themselves.
+
+**Install.** Write the decomposition as a table with one verdict per part
+before writing any prose. State, next to each argument, whether it is about
+ownership or capability. Then name the **revisit triggers** that would reverse
+the decision, and make the cheapest one *a question to ask* rather than an
+assumption to hold — a decision resting on an unpriced assumption about someone
+else's pricing is one conversation away from being confirmed or overturned, and
+leaving that conversation unhad is a choice, not a limitation.
+
+**Related.** Practice 28 (frame from the audience's question) is the adjacent
+move at the artifact level; this one operates on the decision itself, and the
+two compose — the audience's question is often posed at the wrong granularity
+too. Practice 25's adversarial pass will confirm every claim in a
+wrongly-decomposed analysis, so the decomposition has to be challenged
+separately.
+
+## 40. An option you invented is not a baseline — check the source architecture first
+
+**The practice.** Before costing or optimising a trade between two configurations,
+verify that **both configurations actually exist in the source architecture**. It is
+easy to invent a decomposition, forget that you invented it, and then spend real
+effort optimising within your own fiction — producing a defensible-looking analysis
+whose baseline never existed.
+
+The tell is a trade study where one side is described in the source material and the
+other is described only in your own notes. If you cannot cite the alternative to a
+document you did not write, you are not comparing options; you are comparing the
+system to your model of it.
+
+**Why it evades the usual checks.** Every downstream number can be internally correct.
+The arithmetic reconciles, the units balance, the assertions pass — because the error
+is upstream of all of them, in the framing. An adversarial pass that verifies claims
+against sources will not catch it either, since the invented option has no source to
+contradict. Only going back to the primary architecture catches it.
+
+**Three questions that catch it cheaply:**
+
+1. **Can I cite the alternative?** Not "is it plausible" — *which document specifies
+   it*. An option with no citation is a hypothesis wearing a baseline's clothes.
+2. **Does the established practice already integrate what I am proposing to combine?**
+   Integration is common in mature designs precisely because someone already did this
+   trade. If the answer is yes, the separated form is the thing needing justification,
+   not the combined one.
+3. **Am I optimising a step that should not exist?** A cost or delay attached to
+   moving between two things you separated is a strong signal you separated something
+   that was whole.
+
+**When the check fires, correct the framing before the numbers.** Restating the
+conclusion while keeping the invented structure leaves the same error with better
+arithmetic. Re-derive from the source architecture, then re-cost — the corrected
+answer often inverts the original one rather than adjusting it.
+
+**Related:** practice 29 (a variant re-derives what it inherits) is the sibling
+failure — carrying forward a base's *choices* unexamined. This one is the inverse:
+introducing a distinction the base never made.
+
+
+## 41. Search by purpose as well as by mechanism, and index what you write
+
+**The practice.** Before concluding that no prior work exists on a question,
+search the repository twice: once in the vocabulary of the **mechanism** (how the
+thing works) and once in the vocabulary of the **purpose** (why it was done). Then
+make your own output findable under both.
+
+**Why one search is not enough.** Prior work is usually filed under the author's
+reason for doing it, not under the machinery it used. A search keyed on the
+mechanism misses a document that describes the *same mechanism* under a different
+mission, and vice versa. The two vocabularies rarely overlap in a single
+document's prose, so each search returns a clean, plausible, complete-looking
+result set with the other half absent.
+
+**Why it evades the usual checks.** Nothing in the missing document's absence is
+visible. An adversarial pass that verifies every claim against its source passes,
+because each claim really is supported; a consistency check across the documents
+you *did* find passes, because they really are consistent. The failure is not a
+wrong claim but an unexamined duplication — you re-derive a number someone
+already owns, and if your value differs, the contradiction lands silently in the
+repository for a later reader to trip over.
+
+**The tell** is an "open item" that seems too basic to be open: a quantity so
+central to the question that someone would surely have needed it already. When a
+result says *"this wants a measurement we do not have"*, ask who else would have
+needed the same measurement, and search for **their** reason for needing it.
+
+**The other half is your own output.** Everything above applies to the next
+reader looking for what you just wrote. So:
+
+1. **Name the purpose in the document**, not only the mechanism — including the
+   uses you are not writing about, so a search for those lands here.
+2. **Link the document from an index** a reader actually consults. An analysis
+   reachable only by knowing its filename is one nobody will find.
+3. **Link the prior work you found**, in both directions. The path between two
+   documents is the artifact with the shortest half-life; it is also the cheapest
+   thing to add while both are open in front of you.
+
+**Prefer a mechanical guard over a resolution to search harder.** "Search both
+vocabularies" is advice a hurried reader will skip. "A document carrying
+generated numbers must be linked from an index, checked by the linter" is a rule
+that holds while nobody is paying attention — it does not force the *right*
+search, but it guarantees the target of that search exists somewhere findable.
+Measure the backlog when you introduce the check; a non-trivial count is the
+evidence that the failure was systemic rather than one person's bad day.
+
+**Related:** practice 25 (read the primary, not the summary) is the sibling
+failure in the *depth* direction — this one is in the *breadth* direction.
+
+## 42. Verify the decomposition, not the total — and never encode an impossibility
+
+**The practice.** A model earns trust through how it is built, not through whether
+its answer looks reasonable. Two failure modes exploit the gap, and both are
+invisible to the checks people usually run.
+
+**(a) A plausible total can hide errors that cancel.** If one term is omitted and
+another is over-counted, the sum can land in exactly the range you expected, and
+every downstream figure will look sane. Re-running the model does not help: it
+reproduces its own assumptions faithfully, including the wrong ones. Nor does
+tightening the tolerance on the output — the output was never the problem.
+
+The tell is a headline number that survived several passes without anyone
+re-deriving the *parts*. Ask what each term physically pays for, and whether
+anything is charged twice or not at all: a shared budget spent by two consumers,
+work computed over the wrong path length, an actor whose own cost was never
+booked because the analysis was framed around the other actor.
+
+**Two things fix it, and only the second is reliable:**
+
+1. **Assert on the decomposition.** Write checks that each term is *present* and
+   behaves correctly — this quantity must be non-zero whenever those two differ,
+   that path must exceed this one, this cost must be zero below a threshold and
+   rise past it. Checks on the total pass happily while the parts are wrong.
+2. **Derive it a second time, independently, and keep that derivation.** Hand
+   arithmetic where a closed form exists; a separately written integration where
+   it does not. Cancelling errors are exactly the class that only a second,
+   differently-structured derivation catches. Commit it as a harness rather than
+   discarding it — the errors it catches recur, and a review that lives in
+   someone's scratch directory protects nothing.
+
+**(b) A negative result is often a parameterisation, not a property.** A model
+answers the question its constants encode. If the levers that would relieve a
+constraint are hard-wired to baseline values, the model can only ever report the
+blocked case — and prose then promotes one parameterisation into a law of
+nature. *"X is impossible"* becomes the finding when the truth was *"X is
+impossible with these particular settings."*
+
+The tell is a negative conclusion stated without a sensitivity beside it. Before
+writing that something cannot be done, vary the inputs that would relieve it and
+report the boundary instead: the conclusion is nearly always *"blocked here,
+available there,"* which is far more useful than a flat no.
+
+**Never encode an impossibility as an assertion until you have done that.** A
+check that asserts a negative locks the error in as an invariant and defends it
+against the next person who suspects otherwise — converting a soft mistake into
+a hard one, and putting the burden of proof on whoever is right.
+
+**Related:** practice 40 (an option you invented is not a baseline) is the same
+family one level up — there the *framing* is unexamined rather than the terms.
+
+## 43. An affordance you build for yourself is an affordance you hand to everyone
+
+**The practice.** When you add a mechanism so that *your* system can do something
+— find a thing, reach a thing, identify a thing — write down who else that
+mechanism now serves, before you call the design done. The question is not
+"could this be abused" in the abstract; it is the concrete one: **the capability
+I just built is available to whoever else shows up, so who shows up?**
+
+**Why it needs a rule.** The mechanism is added under a benign framing —
+*"it needs to report where it is, so we can come back for it"* — and inside that
+framing nothing looks wrong. The design review then checks whether the mechanism
+works, which it does. Nobody is prompted to ask what the mechanism does for a
+party who was not in the room, because the requirement that motivated it never
+mentioned one. So the gap is not carelessness; it is that the framing of the
+requirement is also the framing of the review.
+
+**The tell:** a mechanism whose whole job is to *make something discoverable*, or
+*reachable*, or *distinguishable*, where the thing is left alone, is valuable,
+and the discovery channel is open to anyone. Locators, published identifiers,
+default-on telemetry, convenience access paths, health endpoints, indexes built
+so *you* can find your own assets — all of them work exactly as well for someone
+else.
+
+**What to do instead — three moves, in order of how much they usually buy:**
+
+1. **Invert the default from announce to answer.** The strongest fix is usually
+   not to protect the broadcast but to *stop broadcasting*: have the thing stay
+   quiet and respond only to a request that proves who is asking. This changes
+   the exposure from *proportional to time* to *proportional to authorized
+   demand*, which is a different order of problem, and it is frequently cheaper
+   than the thing it replaces.
+2. **Split channels by who they serve, not by convenience.** One channel doing
+   two jobs leaks the audience of the first to the audience of the second.
+   Separate the local, operational path from the wide-area, custodial one, and
+   each stops advertising the other's business.
+3. **Make the exposed state a setting, not a property.** Where the exposure is
+   genuinely required *sometimes* — a safety obligation, an interoperability
+   requirement, a regulator's rule — do not resolve the conflict once at design
+   time. Make it a state chosen per deployment by whoever knows the local
+   conditions, and revocable afterwards, because the thing itself is usually in
+   no position to judge.
+
+**Two things worth checking while you are there.** First, **name the threat set
+rather than saying "secure"** — the honest claim is almost always tiered
+("undiscoverable by anyone with a commodity receiver; not by a well-equipped
+state"), and a single unqualified word is the tell that nobody enumerated. Say
+which tier you mean to each audience, and do not carry the generous phrasing into
+the room where the demanding one applies. Second, **run the cost arithmetic
+before assuming the safe option is the expensive one.** The intuition that
+discretion is a premium feature is often simply false — and if it is false in
+your system, that is a strong argument for making the discreet posture the
+default rather than the upsell.
+
+**Related:** practice 42(b) — compute the term whose direction is the point,
+rather than reasoning about which way it goes; here the term is the cost of the
+cautious option, and the reasoning was backwards.
