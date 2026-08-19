@@ -624,6 +624,15 @@ source's own worse-than-default fidelity grade was silently overridden by
 the quoting document's blanket precision claim. The bias is systematic, so
 the countermeasure must be a standing rule, not vigilance.
 
+**Corrections that arrive as a pair are adopted as a pair.** When verifying a
+figure against sources turns up two corrections to the same item that pull in
+opposite directions — a price lower than assumed *and* a service life shorter
+than assumed, say — adopting only the half that flatters the position is
+selective sourcing, the quote-discipline failure in a subtler coat. Take both
+in the same edit and let the record state that they were adopted together and
+what the net came to; a verification pass whose every accepted correction
+happens to move one way should be re-read for the halves it declined.
+
 ## 25. Outward-facing summaries: a claims-to-source table, honest aggregation, and a recorded adversarial pass
 
 **Rule.** A document that summarizes a body of work for an external audience
@@ -917,13 +926,33 @@ fitted away. That record is what keeps the mechanism honest — an anchor quietl
 widened to pass is worse than no anchor, because it now certifies the thing it
 stopped checking.
 
+**A detector for a specific sub-class: solved outputs that repeat across
+cases.** When a script solves a quantity per case — per configuration, per
+variant, per row of a comparison — an identical value appearing across cases
+with different inputs is a defect signal: a constant is hiding where a
+per-case solution belongs. The origin instance was exactly this shape: one
+variant family's supposedly-solved parameter was a single hand-copied number
+across every case, and the number turned out to be a figure borrowed from an
+*unrelated* constraint in a predecessor analysis — recognizable by value, wrong
+in role — which a user caught by asking why cases with different inputs shared
+an output. The check is mechanical and cheap: collect each solved output across
+cases; a value shared by two cases with different inputs must be explained by a
+**named shared constraint** the solver reports as its binding limit; an
+unexplained repeat fails. This also catches the softer form, where a shared
+*class default* (a duty factor, a lapse, a rating) silently reaches a case
+whose class it does not fit — the same session found one of those the same day,
+and the tell was again a column identical across rows that should have
+differed.
+
 **Related.** Practice 19 guards *document agrees with script*; this one guards
 *script agrees with reality and with the document of record* — the edge one
 level up, and the one that bites when the script is the wrong artifact.
 Practice 6 (conventions become audits) is the general form. Practice 20
 (mistakes become rules) produced it, including the correction of its own first
 root-cause analysis, which named the stale-copy diagnosis above and had to be
-retracted when a one-line check disproved it.
+retracted when a one-line check disproved it. Practice 29 (a variant re-derives
+what it inherits) is the drafting-time counterpart of the repeat detector
+above.
 
 ## 31. A tool's warning never justifies rewriting published history
 
