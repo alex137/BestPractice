@@ -304,6 +304,15 @@ stay manual:
    an entry genuinely stays local.
    `python3 process/upstream/tools/checkin.py status <upstream-clone>`
    lists exactly what has accumulated.
+   **The check-in carries ALL pending vendored additions, not just the
+   ones your own thread made.** A two-way sync that ends by replacing the
+   vendored tree with upstream's copy ("tree-identical") silently deletes
+   any accumulated addition it did not first include in the check-in PR —
+   so before replacing, diff the vendored tree against upstream and
+   either check in every local addition found or record, per addition,
+   why it stays behind. *(Origin: a same-day sync verified tree-identical
+   and erased another thread's two hours-old practice additions; the loss
+   surfaced only because that thread's session was still open to notice.)*
 2. `python3 process/upstream/tools/checkin.py push <upstream-clone>` —
    runs the **scrub audit first (must pass; nothing is copied on failure)**,
    then mirrors the vendored tree into the clone's working tree.
@@ -314,7 +323,12 @@ stay manual:
 4. When the PR merges:
    `python3 process/upstream/tools/checkin.py record <upstream-clone> --note "PR #N"`
    — pulls the upstream default branch, **verifies it is byte-identical to
-   the vendored tree**, and writes the landed hash into `upstream.commit`.
+   the vendored tree**, and — enforcing step 1's carry-all rule mechanically
+   — **verifies every pending vendored addition committed on the dependent
+   default branch since the recorded base is present in the landed tree**,
+   refusing to record a cycle that dropped content (a deliberate removal
+   needs `--accept-loss`, which prints what is let go). Then writes the
+   landed hash into `upstream.commit`.
    Commit the manifest change (and `--update-baseline` if entries moved).
 
 **Freshness and ordering (learned in the field, 2026-08).** Work from
