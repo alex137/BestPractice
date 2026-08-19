@@ -609,7 +609,22 @@ argument weakest. **(b)** A source's **qualifiers are part of the figure**:
 *best-case*, *worst-case*, a scenario label, a verify flag, or a fidelity
 grade worse than the house default all travel with the number into every
 document that quotes it. Dropping the label is misquoting, even when the
-digits are copied faithfully.
+digits are copied faithfully. **(c)** When the source in hand is itself a
+**summary of a primary artifact** — a briefing, a digest, a recording's
+recap, a colleague's paraphrase — read the primary before drawing a
+*structural* conclusion from it. A summary preserves the facts its author
+found interesting and silently drops the ones that carry the structure, so
+the omission is invisible from inside the summary: nothing in it looks
+missing.
+Clause (c) has a separate origin. A working session was handed an accurate
+summary of a technical disclosure and reached the right conclusions about
+it — then, on pulling the primary documentation, found the single fact the
+whole analysis turned on: the flaw the summary described as an oversight was
+structurally *unavoidable* in the design it appeared in, which converted the
+finding from "an instance of a known bug class" into "an antipattern with a
+general remedy" and changed what the work recommended. The summary was not
+wrong about anything it said. It simply had no reason to mention the fact
+that mattered most, and no reading of it would have revealed the gap.
 
 **Why.** An adversarial audit of an outward-facing summary found the same
 failure four independent times in one document: every compression had
@@ -783,16 +798,47 @@ not evidence that the component is the headline.
 question down as a plain sentence — literally, in the draft — and confirm the
 artifact answers *that*. Keep it in the finished document if it helps the
 reader; delete it if not. In review, ask of the opening: *whose question is
-this?* When a reframe does arrive, record what it changed in the document
-itself rather than silently rewriting — a reader who saw the earlier version
-deserves the diff, and the record makes the failure mode legible next time
-(this is practice 20 applied to framing rather than to defects).
+this?* When a reframe does arrive, record what it changed — but record it in the
+**dated review artifact, not in the deliverable**. A reader who saw the earlier
+version deserves the diff and the failure mode should stay legible (practice 20
+applied to framing rather than to defects), yet a "what this used to say" block
+inside a living document is precisely the changelog that practice 26 forbids.
+Put it where dated history belongs; leave the deliverable reading as current
+state.
 
-**Related.** Practice 25 (an adversarial pass on outward-facing work) will not
+**Related.** Practice 26 (documents are current state) constrains *where* the
+reframe record goes — the two practices collide if this one is read as
+licensing a changelog inside the artifact, and the review record is the
+resolution. Practice 25 (an adversarial pass on outward-facing work) will not
 catch this on its own: a well-framed-for-the-wrong-question document survives
 claim-to-source verification intact, because every claim in it is true. The
 framing check has to be separate, and it has to happen before the verification
 pass rather than after.
+
+**The internal case: a specification organised by answers hides its own
+requirements.** The same failure has a quieter form aimed inward. A
+specification that opens with identity, then dimensions, then a catalogue of
+capabilities is organised by *what we decided*, and a reader who wants to know
+*what the thing must do* has to reverse-engineer the requirements out of the
+answers. That is tiring, and it is why the owner of a system can find its own
+specification unreadable without being able to say why.
+
+What makes this worth a separate note is the failure it causes rather than the
+discomfort it causes. **A catalogue is indexed by subsystem or by feature, and a
+requirement that crosses every subsystem has nowhere to live** — so it either
+appears nowhere, or appears as an implementation detail inside whichever
+subsystem happened to mention it first. Those cross-cutting requirements are
+usually the load-bearing ones: the shared interface every other choice depends
+on, the worst-case condition that sizes the structure. They are also the
+expensive ones to discover late.
+
+**Install.** Give a specification a requirements section *first* — a numbered
+list of what must be true, each entry pointing at the section that specifies
+how. Write it by asking "what must be true?" rather than by summarising the
+sections below it, because summarising reproduces the same index and therefore
+the same blind spot. Two prompts flush out most of what a catalogue loses:
+*which requirement belongs to no single subsystem?* and *which case actually
+sizes this — is it the one we describe most, or the one we describe least?*
 
 ## 29. A variant re-derives what it inherits: limits it must respect, choices it need not keep
 
