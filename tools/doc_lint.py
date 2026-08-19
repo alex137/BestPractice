@@ -226,6 +226,71 @@ def check_file(path, fix=False, known=None):
         (ROOT / path).write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return strikes, unlinked, unglossed, targeted, len(changed_lines)
 
+
+# ---- findability check (check 5; practice 37) ----
+#
+# An analysis nobody can find is an analysis that gets redone -- or, worse,
+# silently contradicted by a later thread that never saw it. The generic
+# failure: prior work is filed under the vocabulary of WHY it was done, while
+# the searcher uses the vocabulary of HOW the thing works, so each search
+# returns a clean, complete-looking result set with the other half absent.
+#
+# "Search both vocabularies" is advice a hurried reader skips. What is
+# mechanically checkable is the weaker but durable property: a document
+# carrying generated numbers should be reachable from at least one index a
+# reader actually consults. That does not force the right search, but it
+# guarantees the target of that search exists somewhere findable.
+#
+# Configure INDEX_FILES for the host repo's own index documents. Scoped like
+# every other check here -- gate on what you touched, --all reports the
+# backlog, so a legacy corpus never blocks.
+INDEX_FILES = ["MAP.md", "CLAUDE.md"]
+
+# Where the (document, block, model) registry lives. A document is "carrying
+# generated numbers" if it appears in that registry.
+GENERATED_REGISTRY = "tools/doc_sync.py"
+
+
+def wired_docs():
+    """Documents registered in the generated-block registry, or [] if absent."""
+    for cand in (ROOT / GENERATED_REGISTRY,
+                 pathlib.Path(__file__).resolve().parent / "doc_sync.py"):
+        if not cand.exists():
+            continue
+        try:
+            import importlib.util, io
+            spec = importlib.util.spec_from_file_location("_dl_ds", cand)
+            mod = importlib.util.module_from_spec(spec)
+            real, sys.stdout = sys.stdout, io.StringIO()
+            try:
+                spec.loader.exec_module(mod)
+            finally:
+                sys.stdout = real
+            return sorted({d for d, _n, _m in getattr(mod, "PAIRS", [])})
+        except Exception:
+            return []
+    return []
+
+
+def check_findability(docs):
+    """Return [(doc, note)] for wired docs linked from no index."""
+    blob = ""
+    for name in INDEX_FILES:
+        pth = ROOT / name
+        if pth.exists():
+            blob += pth.read_text(errors="ignore")
+    out = []
+    for d in docs:
+        text = blob
+        readme = (ROOT / d).parent / "README.md"
+        if readme.exists():
+            text += readme.read_text(errors="ignore")
+        if pathlib.Path(d).name not in text:
+            out.append((d, "carries generated numbers but is linked from none of "
+                        + ", ".join(INDEX_FILES) + ", or its directory README"))
+    return out
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
     flags = {a for a in sys.argv[1:] if a.startswith('-')}
@@ -330,9 +395,26 @@ def main():
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
               f"no unlinked references, no unglossed acronyms, no target= anchors.")
 
+    # check 5: findability. Gate mode checks only documents in scope, so a new
+    # analysis must be indexed; --all reports the legacy backlog.
+    _wired = wired_docs()
+    _scope = set(files)
+    findability = [(d, n) for d, n in check_findability(_wired)
+                   if (not gate) or d in _scope]
+    if findability:
+        print(f"\nUNFINDABLE ANALYSES — {len(findability)} document(s) carrying "
+              f"generated numbers are not linked from "
+              f"{', '.join(INDEX_FILES)} or a directory README "
+              f"({'FAIL' if gate else 'backlog report'}; an analysis nobody can "
+              f"find gets redone or silently contradicted):")
+        for d, n in findability[:40]:
+            print(f"  {d}: {n}")
+        if len(findability) > 40:
+            print(f"  … and {len(findability) - 40} more")
+
     # gate: strikethrough always fails in scope; unsourced quantities fail only
     # in documents that explicitly opted in, so the legacy corpus never blocks.
-    if gate and (strike_lines or unsourced_lines):
+    if gate and (strike_lines or unsourced_lines or findability):
         return 1
     return 0
 
