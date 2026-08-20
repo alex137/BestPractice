@@ -246,6 +246,16 @@ that runs it automatically where the harness supports one (hard guarantee),
 an instructions-file directive where it doesn't (soft guarantee), plus a
 permission allowlist where the harness has that concept.
 
+**The bootstrap also checks upstream freshness — detection automated, the
+take deliberate.** A dependent repo learns its practice layer is stale only
+when someone remembers the periodic check-in, so the hook runs
+`checkin.py fresh`: one clone-free `ls-remote` of the public upstream against
+the manifest's recorded base, printing a single notice line only when
+upstream has moved (silent when current or offline; never a gate).
+*Applying* the update stays a deliberate step (INSTALL.md §2): installs are
+adaptive, and unattended mirrors are the mechanism class that loses content —
+the carry gate exists because even attended ones did.
+
 ## 14. The practice-export loop (how this repo propagates)
 
 **Rule.** A dependent repo vendors this repo at `process/upstream/` as plain
@@ -454,6 +464,20 @@ emitting script may import other computing scripts and re-emit their numbers
 in a new arrangement (a per-product sheet drawing on several models); the
 sync gate then flags every downstream document when any upstream script
 changes — the dependency graph rides the registry for free.
+
+A third extension for documents that absorb concurrent merges. The sync
+gate protects only the *generated* regions: a prose section can vanish in a
+three-way merge and nothing turns red — and in one dependent repo the owner
+asked whether a heavily-merged document had lost a major section (it had
+not, but only a manual full-history scan of its section headers could prove
+it). Where a document accumulates sections across concurrent branches, keep
+a **required-sections list** beside the computing script's self-assertions —
+a check that fails when a listed header is absent from the document. A
+deliberate rename or removal updates the list in the same change; an
+accidental merge-loss fails the build. The retroactive form of the same
+check — every section header any commit ever added, compared against the
+current document — answers "did we already lose something?" once, when the
+suspicion first arises; the list encodes it forward.
 
 ## 20. Mistakes become rules: root-cause the miss, then encode the prevention
 

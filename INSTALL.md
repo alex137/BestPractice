@@ -188,6 +188,10 @@ appended to the baseline `.gitignore` instantiated above from
 
 ## 2. Take an upstream update
 
+*Knowing* an update exists is automated: the session-start bootstrap runs
+`checkin.py fresh` (one `ls-remote`, notice-only). *Taking* it is the
+deliberate procedure below.
+
 > **In plain terms.** BestPractice itself keeps improving — other
 > projects find better ways of doing things and publish them here. This
 > section is how your project pulls those improvements in later,

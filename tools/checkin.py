@@ -58,7 +58,17 @@ a check-in OUT:
                             the manifest change in the dependent repo
                             yourself.
 
-Run:  python3 process/upstream/tools/checkin.py status ../BestPractice
+  fresh                     Clone-free staleness notice for session starts:
+                            one `git ls-remote` of the manifest's upstream
+                            repo, compared to the recorded upstream.commit.
+                            Prints one line only when upstream has moved;
+                            always exits 0 (a notice, never a gate) and
+                            stays silent on network failure — detection is
+                            automated, taking the update stays deliberate
+                            (INSTALL.md sec.2).
+
+Run:  python3 process/upstream/tools/checkin.py fresh
+      python3 process/upstream/tools/checkin.py status ../BestPractice
       python3 process/upstream/tools/checkin.py update ../BestPractice
       python3 process/upstream/tools/checkin.py push   ../BestPractice
       python3 process/upstream/tools/checkin.py record ../BestPractice --note "PR #4"
@@ -102,6 +112,25 @@ def _clone_or_die(arg):
     if not (clone / '.git').exists():
         sys.exit(f"checkin FAIL: {clone} is not a git clone")
     return clone
+
+
+def fresh():
+    """Session-start staleness notice: automated detection, deliberate take."""
+    try:
+        up = _manifest().get('upstream', {})
+        repo, recorded = up.get('repo'), up.get('commit')
+        if not repo or not recorded:
+            return 0
+        out = subprocess.run(['git', 'ls-remote', repo, 'HEAD'],
+                             capture_output=True, text=True, timeout=10)
+        head = out.stdout.split()[0] if out.returncode == 0 and out.stdout else ''
+        if head and head != recorded:
+            print(f"NOTICE: BestPractice upstream has moved ({head[:12]}; your base "
+                  f"{recorded[:12]}) — review at the next check-in "
+                  f"(process/upstream/INSTALL.md sec.2/sec.4).")
+    except Exception:
+        pass
+    return 0
 
 
 def status(clone):
@@ -352,6 +381,8 @@ def record(clone, note, accept_loss=False):
 
 def main():
     args = sys.argv[1:]
+    if args and args[0] == 'fresh':
+        return fresh()
     if len(args) < 2 or args[0] not in ('status', 'update', 'push', 'record'):
         sys.exit(__doc__)
     clone = _clone_or_die(args[1])
