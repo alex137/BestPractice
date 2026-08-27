@@ -1704,3 +1704,70 @@ default rather than the upsell.
 **Related:** practice 42(b) — compute the term whose direction is the point,
 rather than reasoning about which way it goes; here the term is the cost of the
 cautious option, and the reasoning was backwards.
+
+## 44. Two named check levels: a fast one for every commit, a full one before merge
+
+**Rule.** A repo of any size ends up wanting two different things when it
+says "check this": a fast, cheap sanity pass a session runs constantly
+without thinking about it, and a slower, complete audit that gates a merge.
+Give the two levels fixed, distinct names in the repo's own
+[GLOSSARY.md](templates/GLOSSARY.md.template) — a plain pair like *light
+check* and *deep check* reads well, but any repo-chosen pair is fine — so a
+person or a session can ask for one or the other unambiguously ("run the
+light check before you commit that" vs. "this needs a deep check before we
+merge") instead of re-describing what "check" means every time.
+
+**Why.** Without named levels, "run the checks" is ambiguous between two
+very different costs, and the drift goes one of two ways: sessions run the
+expensive audit so often that it gets skipped when time is short, or they
+run only the cheap pass and the expensive one quietly stops happening
+before merges. Naming the two levels separately keeps both cadences
+legible: the fast one stays cheap enough to run on every commit path with
+no friction, the full one stays a deliberate, named gate that is obviously
+missing if it's skipped.
+
+**Install.** This repo's own [tools/doc_lint.py](tools/doc_lint.py) is
+already the fast pass — it scans only the markdown a session touched — and
+[tools/practice_audit.py](tools/practice_audit.py) is already the full one
+— the public-safe scrub, baseline-hash checks, and everything else that
+needs the whole repo. Naming them is the only step this practice adds: pick
+the repo's own pair of names, add both to `GLOSSARY.md` with what each one
+actually runs, and reference the names (not just the script paths) in the
+merge runbook (practice 9) and in any CI wiring (practice 6). A repo that
+adds its own extra fast checks (secret-shaped strings, conflict markers,
+JSON/YAML syntax) folds them into the "light" name rather than inventing a
+third level — two named levels is the right number for almost every repo.
+
+## 45. A standing merge-authorization keyword
+
+**Rule.** A repo can adopt one short, fixed word or phrase that, said as
+its own final sentence in an otherwise-ordinary message, means "commit and
+merge what we just agreed on, using this repo's usual conventions, without
+asking again." Document the exact word, and the exact rule for what counts
+as "standing alone" (its own line, or set off by a preceding
+sentence-ending punctuation mark; case-insensitive), in the repo's
+`GLOSSARY.md` next to the other terms that mean something specific here.
+Treat an ambiguous case — the word appears, but as part of a longer
+sentence, or its standalone status is genuinely unclear — as *not*
+authorization: ask, rather than assume.
+
+**Why.** "Merge only when the user says so" (practice 9's authorization
+default) is the right default, but typed out in full every time it's
+invoked, it adds friction to the single most common approval a working
+session asks for. A one-word standing trigger removes that friction
+without weakening the default: it is still the human choosing, in the
+moment, to say the word: the rule only fixes what a specific short
+utterance is understood to authorize, so an agent never has to guess
+whether "sounds good" or "yes" meant "and merge it" too. The strict
+standalone-sentence test is what keeps the keyword from misfiring inside
+ordinary language that happens to contain the same word for an unrelated
+reason.
+
+**Install.** Pick a word (or short phrase) that reads naturally as a
+one-word reply and isn't likely to appear as ordinary language at the end
+of an unrelated sentence — "go" or "merge" are typical choices. Add it to
+`GLOSSARY.md` with the standalone-sentence rule spelled out, and cross-link
+it from the merge runbook (practice 9) and from the "administrator
+requests" section of `AGENTS.md`, so a session encountering the word for
+the first time in a thread already knows where the rule lives instead of
+inferring it from context.
