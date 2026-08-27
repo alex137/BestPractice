@@ -3,7 +3,16 @@
 <!-- Template: instantiate per BestPractice INSTALL.md §1 (practice 1).
      One file owns the nomenclature. Sessions use these names and do not
      invent new ones; a new thing gets its row here in the thread that
-     creates it. Link each entry to its defining document (practice 11). -->
+     creates it. Link each entry to its defining document (practice 11).
+
+     Two rows worth adding early, if this repo adopts the practices they
+     name: the repo's two named check levels (practice 44 — a fast,
+     every-commit pass and a full, pre-merge audit; "light check" /
+     "deep check" is one reasonable pair of names, not the only one) and
+     its standing merge-authorization keyword, if it has one (practice 45
+     — the exact word and the standalone-sentence rule for what counts as
+     invoking it). Neither is required; add them only if this repo
+     actually uses the pattern. -->
 
 The one list of names for <domain things: products, components, systems,
 code words>. **Use these names; don't invent new ones.** If two documents
