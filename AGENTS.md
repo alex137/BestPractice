@@ -53,7 +53,9 @@ that skips them in this repo of all places is the joke writing itself.
   files ends with a **"Files touched"** list — for each file, the branch
   link (readable now) plus the post-merge `main` link, with a one-line
   description. The reader opens the work from the chat; they never go
-  hunting for it.
+  hunting for it. A touched HTML render or picture also gets its
+  rendered-view (artifact) link when the harness offers one — a repo link
+  shows source, not the render.
 - **Doc references are links** (practice 11): relative markdown links,
   never bare backticked filenames. Use `≈`, not `~`, for "approximately".
 - **Volatile rules carry their dates** (practice 16): anything asserted

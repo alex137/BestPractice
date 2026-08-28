@@ -227,6 +227,69 @@ def check_file(path, fix=False, known=None):
     return strikes, unlinked, unglossed, targeted, len(changed_lines)
 
 
+# ---- deliverable/record split (check 6; practice 47) ----
+#
+# A reader-facing document looks like its finished output; audit apparatus,
+# decision provenance, verification bookkeeping, and history lore live in the
+# paired record doc (*_diligence.md / *_record.md / *_decision.md), linked
+# once. Origin: a flagship study in the first dependent repo accreted a
+# claims-to-source table, a verification record, an unattributed "user
+# decision", and menu-retirement lore -- the fourth recurrence of the same
+# leak -- and the written rule alone had not held; the owner asked for the
+# mechanical guard. Companion rule: an inclination to write a verify-later
+# flag means GO VERIFY NOW; only an externally-blocked item may remain open,
+# in the record's open tail.
+RECORD_NAME_RE = re.compile(
+    r"(_diligence|_record|_decision|_notes|_index|_ledger|README|TODO|MAP|"
+    r"GLOSSARY|AGENTS|CLAUDE|PRACTICES|INSTALL|SETUP|METHOD|GIT|MOBILE)",
+    re.I)
+RECORD_DIR_RE = re.compile(r"(^|/)(process|archive|sent|templates|deck)(/|$)")
+RESIDUE_PATTERNS = [
+    (re.compile(r"\[verify\b", re.I),
+     "verify-later flag -- verify now, or record the externally-blocked "
+     "item in the record doc's open tail"),
+    (re.compile(r"\[TBV\]", re.I), "verify-later flag -- same rule"),
+    (re.compile(r"claims.to.source", re.I),
+     "claims-to-source apparatus belongs in the record doc"),
+    (re.compile(r"verification record", re.I),
+     "verification bookkeeping belongs in the record doc"),
+    (re.compile(r"\buser (decision|rule|direction)\b", re.I),
+     "decision provenance belongs in the record doc, with the decider "
+     "named"),
+    (re.compile(r"retired from the (menu|table|study|set)", re.I),
+     "history lore belongs in the record doc or version control"),
+]
+
+
+RECORD_MARKER = "<!--record-doc-->"
+
+
+def is_record_doc(path):
+    if (RECORD_NAME_RE.search(pathlib.Path(path).name)
+            or RECORD_DIR_RE.search(str(path).replace("\\", "/"))):
+        return True
+    try:
+        head = (ROOT / path).read_text(errors="ignore")[:2048]
+    except OSError:
+        return False
+    return RECORD_MARKER in head
+
+
+def check_residue(path):
+    """[(lineno, message)] process-residue hits in a deliverable doc."""
+    if is_record_doc(path):
+        return []
+    out = []
+    link_re = re.compile(r"\]\([^)]*_(record|diligence)\.md\)")
+    for i, line in iter_prose_lines(path):
+        if link_re.search(line):
+            continue        # the one allowed reference: a link to the record
+        for pat, why in RESIDUE_PATTERNS:
+            if pat.search(line):
+                out.append((i, why))
+    return out
+
+
 # ---- findability check (check 5; practice 37) ----
 #
 # An analysis nobody can find is an analysis that gets redone -- or, worse,
@@ -336,10 +399,12 @@ def main():
     known = None if fix else load_known_acronyms()
     total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
-    unsourced_lines = []
+    unsourced_lines, residue_lines = [], []
     for f in files:
         if not (ROOT / f).exists():
             continue
+        for i, why in check_residue(f):
+            residue_lines.append(f"  {f}:{i}: {why}")
         s, u, g, t, nf = check_file(f, fix=fix, known=known)
         total_fixed += nf
         for i, txt in s:
@@ -412,9 +477,20 @@ def main():
         if len(findability) > 40:
             print(f"  … and {len(findability) - 40} more")
 
+    if residue_lines:
+        print(f"\nPROCESS RESIDUE IN DELIVERABLES — {len(residue_lines)} "
+              f"line(s) ({'FAIL' if gate else 'backlog report'}; a "
+              "reader-facing document looks like its output — apparatus, "
+              "decision provenance, and open verification items live in the "
+              "paired record doc):")
+        print('\n'.join(residue_lines[:40]))
+        if len(residue_lines) > 40:
+            print(f"  … and {len(residue_lines) - 40} more")
+
     # gate: strikethrough always fails in scope; unsourced quantities fail only
-    # in documents that explicitly opted in, so the legacy corpus never blocks.
-    if gate and (strike_lines or unsourced_lines or findability):
+    # in documents that explicitly opted in, so the legacy corpus never blocks;
+    # process residue (check 6) fails on any deliverable in scope.
+    if gate and (strike_lines or unsourced_lines or findability or residue_lines):
         return 1
     return 0
 

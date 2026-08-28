@@ -128,7 +128,11 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 - **Reply convention** (practice 12): every reply that created or modified
   files ends with a "Files touched" list — branch link + post-merge link +
   one-line description per file — so the reader can open the work from the
-  chat.
+  chat. When a touched file is an HTML render or a picture and the harness
+  offers hosted private previews (artifacts), the entry also carries the
+  rendered-view link — a repo link shows source, not the render; publish by
+  the same file path each time so the link stays stable, and never preview
+  per-recipient send records.
 - **Commits are credited to the human driving the session.** Set the git
   author to the member's name and GitHub noreply email (ask **before the
   first commit** if you don't know who you're working for —

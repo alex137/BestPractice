@@ -57,6 +57,10 @@ ROOT = find_root(__file__)
 #   ("docs/summary.md", "cost_table", "models/cost_model.py"),
 PAIRS = []
 
+# Where this repo keeps prose, for the orphan-sentinel scan; narrow it in
+# the host shim if the whole tree is too broad.
+DOC_GLOB = "**/*.md"
+
 
 def owned_figures(script):
     """Figures a script declares it owns, as (label, [rendered forms]).
