@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """doc_html -- the ONE sortable-table HTML renderer for repo documents
-(practice 44).
+(practice 46).
 
 Convention: any document whose tables have multiple columns a reader might
 want to sort ships an HTML render built from the .md by THIS module -- the
@@ -15,7 +15,7 @@ table in the repo at once: edit CSS/JS below, run `python3 tools/doc_html.py`
     python3 tools/doc_html.py path/to/doc.md # render one (registered or not)
     python3 tools/doc_html.py --list         # show the registry
 
-Behavior contract (the full spec is practice 44's numbered list; this
+Behavior contract (the full spec is practice 46's numbered list; this
 module is its reference implementation): multi-column sort (click; shift-
 click or Multi-sort adds keys; re-click reverses; header marks show key
 order) with numeric-aware keys (approximation marks, currency, thousands
@@ -24,10 +24,12 @@ filter dropdowns (2-60 distinct values; MULTI-select -- each opens a
 checkbox panel, any checked subset keeps its rows, none checked = All,
 the button shows the selection); sorted and filtered columns pin
 where they sit and stay visible under horizontal scroll, with sticky
-headers -- column movement is user-driven only (drag a header); one Reset
+headers -- column movement is user-driven only (drag a header); optional alternate-value views (per-cell data-view spans, a
+checkbox per extra view swapping every such cell, sort/filter on
+the active view); one Reset
 clearing sorts AND
 filters and restoring row/column order; a live "N of M rows" count; a
-frontier-only toggle where a Frontier column exists (practice 45); header
+frontier-only toggle where a Frontier column exists (practice 47); header
 cells link their definition notes with mouse-over tooltips, and each
 note's return link lands back on the header cell it defines; the build
 timestamp renders in the page header (the .html is the versioned product;
@@ -88,6 +90,9 @@ DOCS = []
 
 CSS = """
 .renderstamp { color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
+td span[data-view] { display: none; }
+td span[data-view].von { display: inline; }
+.viewtoggle { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; cursor: pointer; user-select: none; }
 .filterrow .fbtn { width: 100%; max-width: 160px; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--hairline); border-radius: 4px; cursor: pointer; padding: 1px 5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filterrow .fbtn.on { color: var(--accent, #2563eb); border-color: var(--accent, #2563eb); }
 .filterrow td { padding: 2px 4px; background: var(--head-bg); }
@@ -176,8 +181,20 @@ table.narrow { font-size: 0.9rem; }
 
 JS = """
 (function () {
+  function cellText(cell) {
+    // Alternate-value views: a cell may hold one <span data-view=...>
+    // per view; only the active (.von) span's text is the cell's
+    // value for sorting, filtering, and display.
+    if (cell.querySelector) {
+      var sp = cell.querySelector("span[data-view].von");
+      if (sp) return sp.textContent;
+      sp = cell.querySelector("span[data-view]");
+      if (sp) return sp.textContent;
+    }
+    return cell.textContent;
+  }
   function keyOf(cell) {
-    var t = cell.textContent.trim();
+    var t = cellText(cell).trim();
     if (t === "—" || t === "") return { n: -Infinity, s: "" };
     var kmatch = /\\$\\s*[\\d.,]+k/.test(t);
     var mmatch = /\\$\\s*[\\d.,]+\\s*M/.test(t);
@@ -195,6 +212,20 @@ JS = """
     if (!head || !tbl.tBodies.length) return;
     var hrow = head.rows[0];
     var original = Array.prototype.slice.call(tbl.tBodies[0].rows);
+    // Alternate-value views: a cell may carry one <span data-view=X>
+    // per view; the first view named is the default, each further
+    // view gets a checkbox that swaps every such cell's value (and
+    // re-sorts; filters clear, since their values changed).
+    var viewNames = [];
+    tbl.querySelectorAll("span[data-view]").forEach(function (sp) {
+      if (viewNames.indexOf(sp.dataset.view) < 0) viewNames.push(sp.dataset.view);
+    });
+    function setView(name) {
+      tbl.querySelectorAll("span[data-view]").forEach(function (sp) {
+        sp.classList.toggle("von", sp.dataset.view === name);
+      });
+    }
+    if (viewNames.length) setView(viewNames[0]);
     var ncols = hrow.cells.length;
     // Stamp every cell with its ORIGINAL column index; all later logic is
     // keyed on these, so physically reordering columns never confuses it.
@@ -250,7 +281,7 @@ JS = """
       var col = +th.dataset.col;
       var vals = {};
       original.forEach(function (r) {
-        if (r.cells[i]) vals[r.cells[i].textContent.trim()] = 1;
+        if (r.cells[i]) vals[cellText(r.cells[i]).trim()] = 1;
       });
       var names = Object.keys(vals).sort(function (a, b) {
         var ka = keyOf({ textContent: a }), kb = keyOf({ textContent: b });
@@ -398,7 +429,7 @@ JS = """
       for (var c = 0; c < fr.cells.length; c++) {
         var st = filterState[+fr.cells[c].dataset.col];
         if (st && Object.keys(st).length && row.cells[c] &&
-            !st[row.cells[c].textContent.trim()]) return false;
+            !st[cellText(row.cells[c]).trim()]) return false;
       }
       return true;
     }
@@ -462,6 +493,29 @@ JS = """
         refilter();
       });
       bar.insertBefore(frBtn, multiBtn);
+    }
+    if (viewNames.length > 1) {
+      var vLab = document.createElement("label");
+      vLab.className = "viewtoggle";
+      vLab.title = "Swap the alternate-value cells between " +
+        viewNames.join(" and ");
+      var vCb = document.createElement("input");
+      vCb.type = "checkbox";
+      vCb.addEventListener("change", function () {
+        setView(viewNames[vCb.checked ? 1 : 0]);
+        Object.keys(filterState).forEach(function (col) {
+          var st = filterState[col];
+          Object.keys(st).forEach(function (k) { delete st[k]; });
+        });
+        Array.prototype.forEach.call(fr.cells, function (c) {
+          if (c.firstChild && c.firstChild._sync) c.firstChild._sync();
+        });
+        closePanel();
+        apply();
+      });
+      vLab.appendChild(vCb);
+      vLab.appendChild(document.createTextNode(" " + viewNames[1]));
+      bar.insertBefore(vLab, multiBtn);
     }
     bar.appendChild(count);
     Array.prototype.forEach.call(hrow.cells, function (th) {

@@ -1775,6 +1775,13 @@ render":
 6. **One Reset** — clears sorts AND filters and restores the original row
    and column order.
 7. **Live row count** — "N of M rows" tracks filtering.
+7b. **Alternate-value views (optional)** — a cell may carry one
+   `<span data-view="NAME">` per view of the same quantity (e.g. two
+   pricing bases); the first view named is the default, and each
+   further view gets a checkbox that swaps every such cell at once,
+   re-sorting on the visible values (filters clear, since their value
+   sets changed). Sorting, filtering, and the row count always read
+   the ACTIVE view's text, never the concatenation.
 8. **Frontier toggle** — where a Frontier column exists (practice 47), the
    render opens showing frontier rows only, with a toggle to all rows.
 9. **Header definitions round-trip** — a header links to its definition
