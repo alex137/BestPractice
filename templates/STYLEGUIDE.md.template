@@ -1,0 +1,83 @@
+<!-- Template: instantiate per BestPractice INSTALL.md §1 as STYLEGUIDE.md at
+     the dependent repo's root. Unlike VOICE.md, there is no sensible default
+     content here — visual identity is specific to each project or company,
+     so this file ships as an empty skeleton. At install, ask the
+     administrator directly: does the project have a visual identity yet
+     (colors, logo, fonts), and if there's a formal brand guideline (a PDF,
+     a slide deck, a style manual from a design team), offer to read it and
+     transcribe the relevant rules into the sections below.
+
+     Never import the source document itself. A brand-guideline PDF or PPTX
+     is typically a large binary, often has its own copyright/distribution
+     terms, and can't be diffed or reviewed the way this repo's other files
+     are (see deck/README.md's reasoning against binary sources). Read it,
+     extract the rules that matter for what this repo produces, and write
+     them here in plain text. If no such document exists yet, leave sections
+     marked <undecided> rather than inventing values.
+
+     This file, once instantiated, is LOCAL ONLY, same as VOICE.md — never
+     folded back into process/upstream/ through the export gate (INSTALL.md
+     §3) or check-in (§4). A brand's visual identity is not a generic
+     practice; nothing here is meant to travel to another project. -->
+
+# Style guide
+
+Visual rules for anything this project produces — decks, documents,
+diagrams, images. Read this before generating a deck ([deck/](deck/)),
+a chart, or any other visual artifact; when a rule here conflicts with a
+tool's default, this file wins.
+
+## Identity
+
+- **Name(s) as they should appear:** <full name, short name, any name to
+  avoid>
+- **Logo:** <where the source file lives, if there is one; clear-space and
+  minimum-size rules; light/dark variants>
+- **Tagline, if any:** <exact wording, or "none — don't invent one">
+
+## Color
+
+| Role | Value | Notes |
+|---|---|---|
+| Primary | `<hex>` | |
+| Secondary | `<hex>` | |
+| Background | `<hex>` | light/dark, if both apply |
+| Text | `<hex>` | |
+| Accent / warning / error | `<hex>` | |
+
+<undecided — no palette recorded yet>
+
+## Typography
+
+- **Headings:** <typeface, weight>
+- **Body:** <typeface, weight>
+- **Fallback stack (web/HTML output):** <font-family list>
+
+## Imagery and iconography
+
+<Photography style, illustration style, icon set, or "avoid stock photos
+entirely" — whatever the project's convention actually is.>
+
+## Tone in visuals
+
+Visual tone follows [VOICE.md](VOICE.md): the same restraint applies to
+slides and charts as to prose — no decorative icons standing in for a
+point that isn't made, no gradient-and-glow treatment to make a plain
+fact look like an insight. Project-specific visual tells to avoid go
+here: <e.g., "never use the corporate stock-photo handshake image">.
+
+## Formats this project produces
+
+<List the recurring outputs and where their conventions live, e.g.:>
+- **Slide decks:** built with [deck/build_deck.py](deck/build_deck.py);
+  engine-level conventions in [deck/README.md](deck/README.md); this
+  section covers only this project's palette/type choices, not the deck
+  mechanics.
+- **<other format>:** <convention or tool>
+
+## Source
+
+<If a formal brand guideline exists, name it here for provenance — title,
+owner, date last reviewed (practice 16) — without attaching or vendoring
+the document itself: "Acme Corp Brand Guidelines v3, design team,
+verified 2026-08-16.">
