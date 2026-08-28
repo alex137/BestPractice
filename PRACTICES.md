@@ -135,9 +135,20 @@ distinguished after the fact by spelunking git history. A content-derived
 code on the artifact (same content → same code) plus a committed manifest
 makes "what exactly shipped?" a lookup instead of an investigation.
 
+A related gap, same fix, different cause: a repo with **no root `.gitignore`
+at all** leaves every session that runs the vendored Python audits (practice
+6) an untracked `__pycache__/` behind — nobody's build is at fault, there is
+just nowhere for the ignore rule to live. One dependent repo's check-in
+flagged exactly this after its own merge runbook kept surfacing the stray
+directory.
+
 **Install.** Pattern to apply in your builders; no portable tool (the code
 stamping is builder-specific). The `.gitignore`/`.gitattributes` stanzas are
-in [INSTALL.md](INSTALL.md).
+in [INSTALL.md](INSTALL.md), which also instantiates a baseline
+`.gitignore` from [templates/gitignore.template](templates/gitignore.template)
+at install time — ordinary tool/interpreter caches (`__pycache__/` and
+friends), so the generated-deliverable globs above have a file to land in
+rather than each install having to remember to create one.
 
 ## 9. A merge runbook with fixed per-file-class rules
 
@@ -234,6 +245,16 @@ per-harness via [templates/harness/](templates/harness/README.md): a hook
 that runs it automatically where the harness supports one (hard guarantee),
 an instructions-file directive where it doesn't (soft guarantee), plus a
 permission allowlist where the harness has that concept.
+
+**The bootstrap also checks upstream freshness — detection automated, the
+take deliberate.** A dependent repo learns its practice layer is stale only
+when someone remembers the periodic check-in, so the hook runs
+`checkin.py fresh`: one clone-free `ls-remote` of the public upstream against
+the manifest's recorded base, printing a single notice line only when
+upstream has moved (silent when current or offline; never a gate).
+*Applying* the update stays a deliberate step (INSTALL.md §2): installs are
+adaptive, and unattended mirrors are the mechanism class that loses content —
+the carry gate exists because even attended ones did.
 
 ## 14. The practice-export loop (how this repo propagates)
 
@@ -444,6 +465,20 @@ in a new arrangement (a per-product sheet drawing on several models); the
 sync gate then flags every downstream document when any upstream script
 changes — the dependency graph rides the registry for free.
 
+A third extension for documents that absorb concurrent merges. The sync
+gate protects only the *generated* regions: a prose section can vanish in a
+three-way merge and nothing turns red — and in one dependent repo the owner
+asked whether a heavily-merged document had lost a major section (it had
+not, but only a manual full-history scan of its section headers could prove
+it). Where a document accumulates sections across concurrent branches, keep
+a **required-sections list** beside the computing script's self-assertions —
+a check that fails when a listed header is absent from the document. A
+deliberate rename or removal updates the list in the same change; an
+accidental merge-loss fails the build. The retroactive form of the same
+check — every section header any commit ever added, compared against the
+current document — answers "did we already lose something?" once, when the
+suspicion first arises; the list encodes it forward.
+
 ## 20. Mistakes become rules: root-cause the miss, then encode the prevention
 
 **Rule.** When a mistake is caught — by the owner, by an audit, or by a later
@@ -598,7 +633,22 @@ argument weakest. **(b)** A source's **qualifiers are part of the figure**:
 *best-case*, *worst-case*, a scenario label, a verify flag, or a fidelity
 grade worse than the house default all travel with the number into every
 document that quotes it. Dropping the label is misquoting, even when the
-digits are copied faithfully.
+digits are copied faithfully. **(c)** When the source in hand is itself a
+**summary of a primary artifact** — a briefing, a digest, a recording's
+recap, a colleague's paraphrase — read the primary before drawing a
+*structural* conclusion from it. A summary preserves the facts its author
+found interesting and silently drops the ones that carry the structure, so
+the omission is invisible from inside the summary: nothing in it looks
+missing.
+Clause (c) has a separate origin. A working session was handed an accurate
+summary of a technical disclosure and reached the right conclusions about
+it — then, on pulling the primary documentation, found the single fact the
+whole analysis turned on: the flaw the summary described as an oversight was
+structurally *unavoidable* in the design it appeared in, which converted the
+finding from "an instance of a known bug class" into "an antipattern with a
+general remedy" and changed what the work recommended. The summary was not
+wrong about anything it said. It simply had no reason to mention the fact
+that mattered most, and no reading of it would have revealed the gap.
 
 **Why.** An adversarial audit of an outward-facing summary found the same
 failure four independent times in one document: every compression had
@@ -612,6 +662,15 @@ source twice labeled *best-case* became the central case downstream, and a
 source's own worse-than-default fidelity grade was silently overridden by
 the quoting document's blanket precision claim. The bias is systematic, so
 the countermeasure must be a standing rule, not vigilance.
+
+**Corrections that arrive as a pair are adopted as a pair.** When verifying a
+figure against sources turns up two corrections to the same item that pull in
+opposite directions — a price lower than assumed *and* a service life shorter
+than assumed, say — adopting only the half that flatters the position is
+selective sourcing, the quote-discipline failure in a subtler coat. Take both
+in the same edit and let the record state that they were adopted together and
+what the net came to; a verification pass whose every accepted correction
+happens to move one way should be re-read for the halves it declined.
 
 ## 25. Outward-facing summaries: a claims-to-source table, honest aggregation, and a recorded adversarial pass
 
@@ -763,16 +822,47 @@ not evidence that the component is the headline.
 question down as a plain sentence — literally, in the draft — and confirm the
 artifact answers *that*. Keep it in the finished document if it helps the
 reader; delete it if not. In review, ask of the opening: *whose question is
-this?* When a reframe does arrive, record what it changed in the document
-itself rather than silently rewriting — a reader who saw the earlier version
-deserves the diff, and the record makes the failure mode legible next time
-(this is practice 20 applied to framing rather than to defects).
+this?* When a reframe does arrive, record what it changed — but record it in the
+**dated review artifact, not in the deliverable**. A reader who saw the earlier
+version deserves the diff and the failure mode should stay legible (practice 20
+applied to framing rather than to defects), yet a "what this used to say" block
+inside a living document is precisely the changelog that practice 26 forbids.
+Put it where dated history belongs; leave the deliverable reading as current
+state.
 
-**Related.** Practice 25 (an adversarial pass on outward-facing work) will not
+**Related.** Practice 26 (documents are current state) constrains *where* the
+reframe record goes — the two practices collide if this one is read as
+licensing a changelog inside the artifact, and the review record is the
+resolution. Practice 25 (an adversarial pass on outward-facing work) will not
 catch this on its own: a well-framed-for-the-wrong-question document survives
 claim-to-source verification intact, because every claim in it is true. The
 framing check has to be separate, and it has to happen before the verification
 pass rather than after.
+
+**The internal case: a specification organised by answers hides its own
+requirements.** The same failure has a quieter form aimed inward. A
+specification that opens with identity, then dimensions, then a catalogue of
+capabilities is organised by *what we decided*, and a reader who wants to know
+*what the thing must do* has to reverse-engineer the requirements out of the
+answers. That is tiring, and it is why the owner of a system can find its own
+specification unreadable without being able to say why.
+
+What makes this worth a separate note is the failure it causes rather than the
+discomfort it causes. **A catalogue is indexed by subsystem or by feature, and a
+requirement that crosses every subsystem has nowhere to live** — so it either
+appears nowhere, or appears as an implementation detail inside whichever
+subsystem happened to mention it first. Those cross-cutting requirements are
+usually the load-bearing ones: the shared interface every other choice depends
+on, the worst-case condition that sizes the structure. They are also the
+expensive ones to discover late.
+
+**Install.** Give a specification a requirements section *first* — a numbered
+list of what must be true, each entry pointing at the section that specifies
+how. Write it by asking "what must be true?" rather than by summarising the
+sections below it, because summarising reproduces the same index and therefore
+the same blind spot. Two prompts flush out most of what a catalogue loses:
+*which requirement belongs to no single subsystem?* and *which case actually
+sizes this — is it the one we describe most, or the one we describe least?*
 
 ## 29. A variant re-derives what it inherits: limits it must respect, choices it need not keep
 
@@ -906,13 +996,33 @@ fitted away. That record is what keeps the mechanism honest — an anchor quietl
 widened to pass is worse than no anchor, because it now certifies the thing it
 stopped checking.
 
+**A detector for a specific sub-class: solved outputs that repeat across
+cases.** When a script solves a quantity per case — per configuration, per
+variant, per row of a comparison — an identical value appearing across cases
+with different inputs is a defect signal: a constant is hiding where a
+per-case solution belongs. The origin instance was exactly this shape: one
+variant family's supposedly-solved parameter was a single hand-copied number
+across every case, and the number turned out to be a figure borrowed from an
+*unrelated* constraint in a predecessor analysis — recognizable by value, wrong
+in role — which a user caught by asking why cases with different inputs shared
+an output. The check is mechanical and cheap: collect each solved output across
+cases; a value shared by two cases with different inputs must be explained by a
+**named shared constraint** the solver reports as its binding limit; an
+unexplained repeat fails. This also catches the softer form, where a shared
+*class default* (a duty factor, a lapse, a rating) silently reaches a case
+whose class it does not fit — the same session found one of those the same day,
+and the tell was again a column identical across rows that should have
+differed.
+
 **Related.** Practice 19 guards *document agrees with script*; this one guards
 *script agrees with reality and with the document of record* — the edge one
 level up, and the one that bites when the script is the wrong artifact.
 Practice 6 (conventions become audits) is the general form. Practice 20
 (mistakes become rules) produced it, including the correction of its own first
 root-cause analysis, which named the stale-copy diagnosis above and had to be
-retracted when a one-line check disproved it.
+retracted when a one-line check disproved it. Practice 29 (a variant re-derives
+what it inherits) is the drafting-time counterpart of the repeat detector
+above.
 
 ## 31. A tool's warning never justifies rewriting published history
 
@@ -1219,3 +1329,445 @@ two compose — the audience's question is often posed at the wrong granularity
 too. Practice 25's adversarial pass will confirm every claim in a
 wrongly-decomposed analysis, so the decomposition has to be challenged
 separately.
+
+## 36. Section order follows the reader's frequency, not the writer's derivation order
+
+**Rule.** In any document that walks through instructions, guidance, or rules
+in multiple sections, order the sections by how often and how urgently the
+reader will actually need them — common, everyday content first; rare edge
+cases, migration scenarios, and "if the world changes" contingencies last —
+unless the subject matter itself dictates a different order (steps that must
+be followed in sequence, a narrative that only makes sense in one direction).
+The test: would most readers have to scroll past this section to reach the
+one they actually opened the document for?
+
+**Why.** A document is drafted in the order its author thought it through,
+which is rarely the order its reader needs it in. An edge case sits next to
+the common case that motivated it, in the author's head, and that adjacency
+survives into the draft even though almost no reader will ever hit the edge
+case — they just have to read past it every time.
+
+**Install.** A writing convention, checked in review with the question
+above; part of [templates/AGENTS.md.template](templates/AGENTS.md.template)'s
+Conventions section. No mechanical audit — "which order serves most readers"
+is a judgment call, not a pattern a lint can reliably detect.
+
+## 37. GitHub-specific setup is disclosed where the reader will actually see it
+
+**Rule.** Whenever an install step adds something GitHub-specific that a
+project's own people need to know about — a required Actions workflow, a
+repository secret, a branch-protection or required-check setting, a
+permission grant — the fact, and the exact detail needed to act on it (what
+it's called, what it does, any manual click to enable it), is written into
+the document that project's own people actually read, not left only inside
+BestPractice's internal install playbook. For a dependent repo, that
+document is [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md)'s
+administrator section — [INSTALL.md](INSTALL.md) records the installation
+mechanics; GETTING_STARTED.md records the consequence for this project's
+administrator.
+
+**Why.** An install can turn on a GitHub Actions workflow and record that
+fact faithfully in this repo's own technical install log — a document a
+project's administrator has no ordinary reason to reopen. Nothing points
+them at it from the page they'll actually return to, so a check that needs
+one click to enable can sit off, silently, until someone happens to look at
+the Actions tab.
+
+**Install.** [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md)'s
+administrator section carries a standing note for "automatic checks
+installed for this project," naming each workflow and what it does. Any
+future GitHub-specific addition — a required secret, a new required check —
+gets a line there too, added by whichever install step introduces it.
+
+## 38. A project's own document leads with what the project is
+
+**Rule.** An outward document that both describes a project and explains how
+it's maintained — a README, an entry page — states what the project actually
+is and does, in the project's own subject matter, before it says anything
+about the maintenance or editing process layered on top of it. A reader
+arriving cold learns *what this is* before *how to work with it*.
+
+**Why.** A newly created project's README once opened with a sentence about
+how the project's memory lives in its repository and is edited by talking to
+an AI assistant — true of the process layer, and the very first thing a
+brand-new reader hit, before a single sentence told them what the project
+itself was. "Wait, is this an AI assistant?" is the natural, correct reaction
+to reading process-description with zero subject-matter context first.
+
+**Install.** [INSTALL.md](INSTALL.md)'s README-entry step and
+[SETUP.md](SETUP.md)'s guided install both instruct: if the repo has no
+README yet, write a short project-specific opening — from the
+administrator's "what is this project about" answer — before inserting the
+[README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template)
+block. If a README already exists, insert only the entry block into it;
+don't rewrite its opening.
+
+## 39. A default PR template captures the living-doc gates — honestly, not mechanically
+
+**Rule.** Every dependent repo installs a default pull-request template
+covering what changed, why, files touched, and the practices' own
+living-document gates (scrub, MAP, TODO, GLOSSARY) as a checklist. The body
+is written from the actual diff; a gate is checked only when it is actually
+true for this change. An unchecked box, or a "not applicable" note, is a
+normal and expected outcome — never a defect to paper over.
+
+**Why.** A template with a fixed checklist is worth nothing the moment
+filling it in becomes reflex: "N/A" typed into every box looks exactly like
+verification happened and means nothing did. The template earns its place
+only paired with an explicit instruction that unchecked boxes are fine — the
+alternative trains exactly the behavior the checklist exists to catch.
+
+**Install.**
+[templates/pull_request_template.md.template](templates/pull_request_template.md.template)
+→ `.github/pull_request_template.md` — installed the same way as `AGENTS.md`
+(§1), propagated to existing installs the same way (§2). The "write from the
+diff, unchecked is fine" instruction lives in
+[templates/AGENTS.md.template](templates/AGENTS.md.template) so every
+session opening a PR sees it, not just the template itself.
+es a source's vocabulary within a single session, has no
+  sense of when a word entered its usage, and writes fluently in whatever
+  register it just read.
+
+Note that a glossary is the **wrong remedy here**, which is what separates
+this from practice 17. You can ask a colleague to consult the repo's
+glossary. You cannot ask a prospective user to consult anything — they will
+simply stop reading.
+
+**Install.** A vocabulary pass, run as a **separate step after drafting**,
+in the shape of practice 21's capture sweep: write the intended reader down
+as a plain sentence, then walk every category-naming noun against *"would
+this reader define this unprompted?"* Where the answer is no, apply one of
+the three verdicts. Do it after the framing check of practice 28, since
+reframing changes who the reader is.
+
+The natural audit extension (practice 6) is a per-repo list of known insider
+terms, checked by [tools/doc_lint.py](tools/doc_lint.py) against documents
+marked outward-facing — the same machinery as the scrub blocklist of
+practice 15, aimed at comprehension instead of confidentiality. Keep it
+**warning-level**: a glossed term is a legitimate pass, and only a human can
+judge that.
+
+**Related.** Practice 17 (acronyms and a central glossary) is the
+inward-facing counterpart — expansion for readers who will consult a list.
+Practice 27 (a label describes what follows) and practice 28 (frame from the
+audience's question) are the other two audience-facing failures, and all
+three survive each other: a document can be correctly framed, honestly
+labelled, and still unreadable because of its vocabulary. Three separate
+passes, not one.
+
+## 35. Build/buy: decompose before deciding, and keep the verdict supplier-independent
+
+**Rule.** A build-or-buy question almost always arrives at the wrong
+granularity — *"should we build this ourselves or get it from them?"* — and
+answering it as posed produces a yes/no about a supplier when what was needed
+was a map. Two moves, in order.
+
+**First, decompose the thing being procured, and give each part its own
+verdict.** The parts usually disagree, and the disagreement is the answer. The
+diagnostic is blunt: **if your answer is a single yes/no, you probably have not
+checked whether the thing has parts with different answers.** In the origin
+case a four-way split turned "wrong supplier" into "right supplier, wrong
+layer" — which is a usable answer, where a flat no would have closed a door
+worth keeping open.
+
+**Second, rest the verdict on ownership arguments rather than capability
+arguments, then check that it survives being wrong about the supplier.**
+The distinction is what makes a decision durable:
+
+- **Ownership arguments** — what recurring cost the choice imposes per unit
+  shipped, what compounding asset it starves, what it does to the thing your
+  strategy names as your advantage — hold no matter how good the supplier turns
+  out to be.
+- **Capability arguments** — *"they can't do this part"* — invert the moment the
+  supplier improves, or the moment your read of them proves wrong. And your read
+  is usually a desk read of their own marketing: in the origin case the
+  supplier's product documentation was literally unreachable from the working
+  environment, so the capability picture came entirely from press releases.
+
+Label each argument as one or the other while writing. A recommendation built
+on capability has a shelf life measured in the supplier's release cadence.
+
+**Why.** The failure this prevents is not choosing wrongly between two known
+options — it is answering a question whose premise (that the thing is one
+thing) was never checked, and then defending the answer with the most available
+evidence, which is whatever the supplier says about themselves.
+
+**Install.** Write the decomposition as a table with one verdict per part
+before writing any prose. State, next to each argument, whether it is about
+ownership or capability. Then name the **revisit triggers** that would reverse
+the decision, and make the cheapest one *a question to ask* rather than an
+assumption to hold — a decision resting on an unpriced assumption about someone
+else's pricing is one conversation away from being confirmed or overturned, and
+leaving that conversation unhad is a choice, not a limitation.
+
+**Related.** Practice 28 (frame from the audience's question) is the adjacent
+move at the artifact level; this one operates on the decision itself, and the
+two compose — the audience's question is often posed at the wrong granularity
+too. Practice 25's adversarial pass will confirm every claim in a
+wrongly-decomposed analysis, so the decomposition has to be challenged
+separately.
+
+## 40. An option you invented is not a baseline — check the source architecture first
+
+**The practice.** Before costing or optimising a trade between two configurations,
+verify that **both configurations actually exist in the source architecture**. It is
+easy to invent a decomposition, forget that you invented it, and then spend real
+effort optimising within your own fiction — producing a defensible-looking analysis
+whose baseline never existed.
+
+The tell is a trade study where one side is described in the source material and the
+other is described only in your own notes. If you cannot cite the alternative to a
+document you did not write, you are not comparing options; you are comparing the
+system to your model of it.
+
+**Why it evades the usual checks.** Every downstream number can be internally correct.
+The arithmetic reconciles, the units balance, the assertions pass — because the error
+is upstream of all of them, in the framing. An adversarial pass that verifies claims
+against sources will not catch it either, since the invented option has no source to
+contradict. Only going back to the primary architecture catches it.
+
+**Three questions that catch it cheaply:**
+
+1. **Can I cite the alternative?** Not "is it plausible" — *which document specifies
+   it*. An option with no citation is a hypothesis wearing a baseline's clothes.
+2. **Does the established practice already integrate what I am proposing to combine?**
+   Integration is common in mature designs precisely because someone already did this
+   trade. If the answer is yes, the separated form is the thing needing justification,
+   not the combined one.
+3. **Am I optimising a step that should not exist?** A cost or delay attached to
+   moving between two things you separated is a strong signal you separated something
+   that was whole.
+
+**When the check fires, correct the framing before the numbers.** Restating the
+conclusion while keeping the invented structure leaves the same error with better
+arithmetic. Re-derive from the source architecture, then re-cost — the corrected
+answer often inverts the original one rather than adjusting it.
+
+**Related:** practice 29 (a variant re-derives what it inherits) is the sibling
+failure — carrying forward a base's *choices* unexamined. This one is the inverse:
+introducing a distinction the base never made.
+
+
+## 41. Search by purpose as well as by mechanism, and index what you write
+
+**The practice.** Before concluding that no prior work exists on a question,
+search the repository twice: once in the vocabulary of the **mechanism** (how the
+thing works) and once in the vocabulary of the **purpose** (why it was done). Then
+make your own output findable under both.
+
+**Why one search is not enough.** Prior work is usually filed under the author's
+reason for doing it, not under the machinery it used. A search keyed on the
+mechanism misses a document that describes the *same mechanism* under a different
+mission, and vice versa. The two vocabularies rarely overlap in a single
+document's prose, so each search returns a clean, plausible, complete-looking
+result set with the other half absent.
+
+**Why it evades the usual checks.** Nothing in the missing document's absence is
+visible. An adversarial pass that verifies every claim against its source passes,
+because each claim really is supported; a consistency check across the documents
+you *did* find passes, because they really are consistent. The failure is not a
+wrong claim but an unexamined duplication — you re-derive a number someone
+already owns, and if your value differs, the contradiction lands silently in the
+repository for a later reader to trip over.
+
+**The tell** is an "open item" that seems too basic to be open: a quantity so
+central to the question that someone would surely have needed it already. When a
+result says *"this wants a measurement we do not have"*, ask who else would have
+needed the same measurement, and search for **their** reason for needing it.
+
+**The other half is your own output.** Everything above applies to the next
+reader looking for what you just wrote. So:
+
+1. **Name the purpose in the document**, not only the mechanism — including the
+   uses you are not writing about, so a search for those lands here.
+2. **Link the document from an index** a reader actually consults. An analysis
+   reachable only by knowing its filename is one nobody will find.
+3. **Link the prior work you found**, in both directions. The path between two
+   documents is the artifact with the shortest half-life; it is also the cheapest
+   thing to add while both are open in front of you.
+
+**Prefer a mechanical guard over a resolution to search harder.** "Search both
+vocabularies" is advice a hurried reader will skip. "A document carrying
+generated numbers must be linked from an index, checked by the linter" is a rule
+that holds while nobody is paying attention — it does not force the *right*
+search, but it guarantees the target of that search exists somewhere findable.
+Measure the backlog when you introduce the check; a non-trivial count is the
+evidence that the failure was systemic rather than one person's bad day.
+
+**Related:** practice 25 (read the primary, not the summary) is the sibling
+failure in the *depth* direction — this one is in the *breadth* direction.
+
+## 42. Verify the decomposition, not the total — and never encode an impossibility
+
+**The practice.** A model earns trust through how it is built, not through whether
+its answer looks reasonable. Two failure modes exploit the gap, and both are
+invisible to the checks people usually run.
+
+**(a) A plausible total can hide errors that cancel.** If one term is omitted and
+another is over-counted, the sum can land in exactly the range you expected, and
+every downstream figure will look sane. Re-running the model does not help: it
+reproduces its own assumptions faithfully, including the wrong ones. Nor does
+tightening the tolerance on the output — the output was never the problem.
+
+The tell is a headline number that survived several passes without anyone
+re-deriving the *parts*. Ask what each term physically pays for, and whether
+anything is charged twice or not at all: a shared budget spent by two consumers,
+work computed over the wrong path length, an actor whose own cost was never
+booked because the analysis was framed around the other actor.
+
+**Two things fix it, and only the second is reliable:**
+
+1. **Assert on the decomposition.** Write checks that each term is *present* and
+   behaves correctly — this quantity must be non-zero whenever those two differ,
+   that path must exceed this one, this cost must be zero below a threshold and
+   rise past it. Checks on the total pass happily while the parts are wrong.
+2. **Derive it a second time, independently, and keep that derivation.** Hand
+   arithmetic where a closed form exists; a separately written integration where
+   it does not. Cancelling errors are exactly the class that only a second,
+   differently-structured derivation catches. Commit it as a harness rather than
+   discarding it — the errors it catches recur, and a review that lives in
+   someone's scratch directory protects nothing.
+
+**(b) A negative result is often a parameterisation, not a property.** A model
+answers the question its constants encode. If the levers that would relieve a
+constraint are hard-wired to baseline values, the model can only ever report the
+blocked case — and prose then promotes one parameterisation into a law of
+nature. *"X is impossible"* becomes the finding when the truth was *"X is
+impossible with these particular settings."*
+
+The tell is a negative conclusion stated without a sensitivity beside it. Before
+writing that something cannot be done, vary the inputs that would relieve it and
+report the boundary instead: the conclusion is nearly always *"blocked here,
+available there,"* which is far more useful than a flat no.
+
+**Never encode an impossibility as an assertion until you have done that.** A
+check that asserts a negative locks the error in as an invariant and defends it
+against the next person who suspects otherwise — converting a soft mistake into
+a hard one, and putting the burden of proof on whoever is right.
+
+**Related:** practice 40 (an option you invented is not a baseline) is the same
+family one level up — there the *framing* is unexamined rather than the terms.
+
+## 43. An affordance you build for yourself is an affordance you hand to everyone
+
+**The practice.** When you add a mechanism so that *your* system can do something
+— find a thing, reach a thing, identify a thing — write down who else that
+mechanism now serves, before you call the design done. The question is not
+"could this be abused" in the abstract; it is the concrete one: **the capability
+I just built is available to whoever else shows up, so who shows up?**
+
+**Why it needs a rule.** The mechanism is added under a benign framing —
+*"it needs to report where it is, so we can come back for it"* — and inside that
+framing nothing looks wrong. The design review then checks whether the mechanism
+works, which it does. Nobody is prompted to ask what the mechanism does for a
+party who was not in the room, because the requirement that motivated it never
+mentioned one. So the gap is not carelessness; it is that the framing of the
+requirement is also the framing of the review.
+
+**The tell:** a mechanism whose whole job is to *make something discoverable*, or
+*reachable*, or *distinguishable*, where the thing is left alone, is valuable,
+and the discovery channel is open to anyone. Locators, published identifiers,
+default-on telemetry, convenience access paths, health endpoints, indexes built
+so *you* can find your own assets — all of them work exactly as well for someone
+else.
+
+**What to do instead — three moves, in order of how much they usually buy:**
+
+1. **Invert the default from announce to answer.** The strongest fix is usually
+   not to protect the broadcast but to *stop broadcasting*: have the thing stay
+   quiet and respond only to a request that proves who is asking. This changes
+   the exposure from *proportional to time* to *proportional to authorized
+   demand*, which is a different order of problem, and it is frequently cheaper
+   than the thing it replaces.
+2. **Split channels by who they serve, not by convenience.** One channel doing
+   two jobs leaks the audience of the first to the audience of the second.
+   Separate the local, operational path from the wide-area, custodial one, and
+   each stops advertising the other's business.
+3. **Make the exposed state a setting, not a property.** Where the exposure is
+   genuinely required *sometimes* — a safety obligation, an interoperability
+   requirement, a regulator's rule — do not resolve the conflict once at design
+   time. Make it a state chosen per deployment by whoever knows the local
+   conditions, and revocable afterwards, because the thing itself is usually in
+   no position to judge.
+
+**Two things worth checking while you are there.** First, **name the threat set
+rather than saying "secure"** — the honest claim is almost always tiered
+("undiscoverable by anyone with a commodity receiver; not by a well-equipped
+state"), and a single unqualified word is the tell that nobody enumerated. Say
+which tier you mean to each audience, and do not carry the generous phrasing into
+the room where the demanding one applies. Second, **run the cost arithmetic
+before assuming the safe option is the expensive one.** The intuition that
+discretion is a premium feature is often simply false — and if it is false in
+your system, that is a strong argument for making the discreet posture the
+default rather than the upsell.
+
+**Related:** practice 42(b) — compute the term whose direction is the point,
+rather than reasoning about which way it goes; here the term is the cost of the
+cautious option, and the reasoning was backwards.
+
+## 44. Two named check levels: a fast one for every commit, a full one before merge
+
+**Rule.** A repo of any size ends up wanting two different things when it
+says "check this": a fast, cheap sanity pass a session runs constantly
+without thinking about it, and a slower, complete audit that gates a merge.
+Give the two levels fixed, distinct names in the repo's own
+[GLOSSARY.md](templates/GLOSSARY.md.template) — a plain pair like *light
+check* and *deep check* reads well, but any repo-chosen pair is fine — so a
+person or a session can ask for one or the other unambiguously ("run the
+light check before you commit that" vs. "this needs a deep check before we
+merge") instead of re-describing what "check" means every time.
+
+**Why.** Without named levels, "run the checks" is ambiguous between two
+very different costs, and the drift goes one of two ways: sessions run the
+expensive audit so often that it gets skipped when time is short, or they
+run only the cheap pass and the expensive one quietly stops happening
+before merges. Naming the two levels separately keeps both cadences
+legible: the fast one stays cheap enough to run on every commit path with
+no friction, the full one stays a deliberate, named gate that is obviously
+missing if it's skipped.
+
+**Install.** This repo's own [tools/doc_lint.py](tools/doc_lint.py) is
+already the fast pass — it scans only the markdown a session touched — and
+[tools/practice_audit.py](tools/practice_audit.py) is already the full one
+— the public-safe scrub, baseline-hash checks, and everything else that
+needs the whole repo. Naming them is the only step this practice adds: pick
+the repo's own pair of names, add both to `GLOSSARY.md` with what each one
+actually runs, and reference the names (not just the script paths) in the
+merge runbook (practice 9) and in any CI wiring (practice 6). A repo that
+adds its own extra fast checks (secret-shaped strings, conflict markers,
+JSON/YAML syntax) folds them into the "light" name rather than inventing a
+third level — two named levels is the right number for almost every repo.
+
+## 45. A standing merge-authorization keyword
+
+**Rule.** A repo can adopt one short, fixed word or phrase that, said as
+its own final sentence in an otherwise-ordinary message, means "commit and
+merge what we just agreed on, using this repo's usual conventions, without
+asking again." Document the exact word, and the exact rule for what counts
+as "standing alone" (its own line, or set off by a preceding
+sentence-ending punctuation mark; case-insensitive), in the repo's
+`GLOSSARY.md` next to the other terms that mean something specific here.
+Treat an ambiguous case — the word appears, but as part of a longer
+sentence, or its standalone status is genuinely unclear — as *not*
+authorization: ask, rather than assume.
+
+**Why.** "Merge only when the user says so" (practice 9's authorization
+default) is the right default, but typed out in full every time it's
+invoked, it adds friction to the single most common approval a working
+session asks for. A one-word standing trigger removes that friction
+without weakening the default: it is still the human choosing, in the
+moment, to say the word: the rule only fixes what a specific short
+utterance is understood to authorize, so an agent never has to guess
+whether "sounds good" or "yes" meant "and merge it" too. The strict
+standalone-sentence test is what keeps the keyword from misfiring inside
+ordinary language that happens to contain the same word for an unrelated
+reason.
+
+**Install.** Pick a word (or short phrase) that reads naturally as a
+one-word reply and isn't likely to appear as ordinary language at the end
+of an unrelated sentence — "go" or "merge" are typical choices. Add it to
+`GLOSSARY.md` with the standalone-sentence rule spelled out, and cross-link
+it from the merge runbook (practice 9) and from the "administrator
+requests" section of `AGENTS.md`, so a session encountering the word for
+the first time in a thread already knows where the rule lives instead of
+inferring it from context.

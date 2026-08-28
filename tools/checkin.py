@@ -58,7 +58,17 @@ a check-in OUT:
                             the manifest change in the dependent repo
                             yourself.
 
-Run:  python3 process/upstream/tools/checkin.py status ../BestPractice
+  fresh                     Clone-free staleness notice for session starts:
+                            one `git ls-remote` of the manifest's upstream
+                            repo, compared to the recorded upstream.commit.
+                            Prints one line only when upstream has moved;
+                            always exits 0 (a notice, never a gate) and
+                            stays silent on network failure — detection is
+                            automated, taking the update stays deliberate
+                            (INSTALL.md sec.2).
+
+Run:  python3 process/upstream/tools/checkin.py fresh
+      python3 process/upstream/tools/checkin.py status ../BestPractice
       python3 process/upstream/tools/checkin.py update ../BestPractice
       python3 process/upstream/tools/checkin.py push   ../BestPractice
       python3 process/upstream/tools/checkin.py record ../BestPractice --note "PR #4"
@@ -102,6 +112,25 @@ def _clone_or_die(arg):
     if not (clone / '.git').exists():
         sys.exit(f"checkin FAIL: {clone} is not a git clone")
     return clone
+
+
+def fresh():
+    """Session-start staleness notice: automated detection, deliberate take."""
+    try:
+        up = _manifest().get('upstream', {})
+        repo, recorded = up.get('repo'), up.get('commit')
+        if not repo or not recorded:
+            return 0
+        out = subprocess.run(['git', 'ls-remote', repo, 'HEAD'],
+                             capture_output=True, text=True, timeout=10)
+        head = out.stdout.split()[0] if out.returncode == 0 and out.stdout else ''
+        if head and head != recorded:
+            print(f"NOTICE: BestPractice upstream has moved ({head[:12]}; your base "
+                  f"{recorded[:12]}) — review at the next check-in "
+                  f"(process/upstream/INSTALL.md sec.2/sec.4).")
+    except Exception:
+        pass
+    return 0
 
 
 def status(clone):
@@ -246,10 +275,81 @@ def push(clone, force=False):
     return 0
 
 
-def record(clone, note):
+
+def _dep_git(*args):
+    return subprocess.run(['git', '-C', str(ROOT)] + list(args),
+                          capture_output=True, text=True).stdout
+
+
+def _carry_check(clone, accept_loss):
+    """No pending vendored addition may vanish across a check-in cycle.
+
+    The failure this kills (2026-08-19, real): the vendored tree carried
+    other threads' committed additions; a sync session hand-merged upstream's
+    copy over them, push mirrored the lossy result, and record's
+    tree-identical verification then STAMPED the loss as the new truth --
+    detection was luck (the erased thread's session happened to be open).
+    The carry-all-pending rule (INSTALL sec.4 step 1) states the obligation;
+    this check enforces it at the chokepoint every cycle must pass through.
+
+    Mechanism: every line ADDED in the dependent repo's committed default-
+    branch vendored tree relative to the recorded base must be present in
+    the landed upstream tree (same file, or anywhere in the tree to tolerate
+    moves). A deliberate removal needs --accept-loss, which prints exactly
+    what is being let go.
+    """
+    base = _manifest().get('upstream', {}).get('commit')
+    if not base:
+        return
+    _dep_git('fetch', 'origin')
+    dep_branch = (_dep_git('symbolic-ref', '--short', 'refs/remotes/origin/HEAD').strip()
+                  .rsplit('/', 1)[-1] or 'master')
+    prefix = UPSTREAM.relative_to(ROOT).as_posix()
+    names = _dep_git('ls-tree', '-r', '--name-only', f'origin/{dep_branch}', prefix).split()
+    landed_all = None
+    lost = []
+    for name in names:
+        rel = name[len(prefix) + 1:]
+        committed = _dep_git('show', f'origin/{dep_branch}:{name}')
+        base_txt = subprocess.run(['git', '-C', str(clone), 'show', f'{base}:{rel}'],
+                                  capture_output=True, text=True).stdout
+        pending = set(committed.splitlines()) - set(base_txt.splitlines())
+        pending = {l for l in pending if len(l.strip()) > 3}
+        if not pending:
+            continue
+        landed = (clone / rel).read_text(encoding='utf-8', errors='replace') \
+            if (clone / rel).exists() else ''
+        missing = {l for l in pending if l not in landed.splitlines()}
+        if missing:
+            if landed_all is None:
+                landed_all = '\n'.join((clone / f).read_text(encoding='utf-8', errors='replace')
+                                        for f in _files(clone) if (clone / f).suffix
+                                        in ('.md', '.py', '.sh', '.json', '.yml', '.template'))
+            missing = {l for l in missing if l not in landed_all}
+        if missing:
+            lost.append((rel, sorted(missing)))
+    if not lost:
+        return
+    for rel, lines in lost:
+        print(f"  LOST from {rel}:")
+        for l in lines[:8]:
+            print(f"    | {l}")
+        if len(lines) > 8:
+            print(f"    | ... and {len(lines) - 8} more line(s)")
+    if accept_loss:
+        print(f"carry check: {sum(len(l) for _, l in lost)} pending line(s) NOT in the landed "
+              f"tree -- accepted deliberately (--accept-loss).")
+        return
+    sys.exit("checkin FAIL: pending vendored additions are MISSING from the landed upstream "
+             "tree -- a check-in dropped committed content (the 2026-08-19 failure). Carry "
+             "them in another PR and re-record, or pass --accept-loss if the removal is "
+             "deliberate; nothing recorded.")
+
+def record(clone, note, accept_loss=False):
     branch = _default_branch(clone)
     _git(clone, 'checkout', branch)
     _git(clone, 'pull', 'origin', branch)
+    _carry_check(clone, accept_loss)
     added, modified, deleted = _diff(clone)
     if added or modified or deleted:
         for p in added + modified + deleted:
@@ -281,6 +381,8 @@ def record(clone, note):
 
 def main():
     args = sys.argv[1:]
+    if args and args[0] == 'fresh':
+        return fresh()
     if len(args) < 2 or args[0] not in ('status', 'update', 'push', 'record'):
         sys.exit(__doc__)
     clone = _clone_or_die(args[1])
@@ -291,7 +393,7 @@ def main():
     if args[0] == 'push':
         return push(clone, force='--force' in args)
     note = args[args.index('--note') + 1] if '--note' in args else ''
-    return record(clone, note)
+    return record(clone, note, accept_loss='--accept-loss' in sys.argv)
 
 
 if __name__ == '__main__':

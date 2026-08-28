@@ -38,9 +38,11 @@ drift and proprietary leakage loud instead of silent.
 > them to describe *your* project specifically — a map of where things
 > live, a to-do list, a page that welcomes new members. Nothing from
 > this step becomes visible to anyone but you until you (or whoever has
-> authority to make it official) approve it — see step 7 below and the [guided
-> install](SETUP.md), which walks an administrator through this exact
-> process in conversation rather than as a technical checklist. The one
+> authority to make it official) approve it: the work is committed on a
+> private branch (step 7), and it becomes official only at the
+> review-and-merge that the [guided install](SETUP.md) walks an
+> administrator through in conversation rather than as a technical
+> checklist. The one
 > decision only you can make: **which private names and code words must
 > never leak into a public file** (step 4) — your assistant cannot guess
 > your project's secrets, so it will ask you directly.
@@ -91,9 +93,27 @@ drift and proprietary leakage loud instead of silent.
      the repo's root README: an agent-entry HTML comment (invisible on the
      rendered page, read by assistants opening the source) routing agents
      to `AGENTS.md`, plus one visible line pointing people to
-     `GETTING_STARTED.md`.
+     `GETTING_STARTED.md`. **The project comes first** (practice 38): if
+     the repo already has a README describing the project, insert only
+     this block near its top — don't rewrite the opening. If the repo has
+     no README yet, write a short project-specific opening first — from
+     the administrator's "what is this project about" answer (see
+     [SETUP.md](SETUP.md) step 2) — so a reader learns what the project
+     *is* before anything about how it's maintained. The entry block and
+     the Getting Started line come after that opening, never before it.
+   - `templates/pull_request_template.md.template` →
+     `.github/pull_request_template.md`: copy verbatim (no adaptation
+     needed) — same treatment as `AGENTS.md`, installed once and
+     propagated to existing installs on update (§2). GitHub picks it up
+     automatically for every PR opened against the repo.
    - `templates/bootstrap.sh` → `tools/bootstrap.sh` (add the repo's own
      setup needs).
+   - `templates/gitignore.template` → `.gitignore` at the repo root (create
+     it) or merge into an existing one (append, don't overwrite): baseline
+     ignores for ordinary tool/interpreter caches — `__pycache__/` in
+     particular, left behind by every run of the vendored Python audits in
+     `tools/`. Add this repo's own generated-deliverable globs (practice 8)
+     to the same file rather than a second one.
    - **Apply the harness adapter(s)** for whichever agent(s) will work this
      repo — see [templates/harness/README.md](templates/harness/README.md).
      E.g. Claude Code: `harness/claude-code/CLAUDE.md` → repo root (a
@@ -139,8 +159,9 @@ drift and proprietary leakage loud instead of silent.
    create at the dependent repo's root are the instantiated ones:
    `AGENTS.md` (plus a harness pointer such as `CLAUDE.md`), `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, `VOICE.md`,
-   `STYLEGUIDE.md`, and the README entry-block edit — plus `tools/bootstrap.sh` and
-   `.github/workflows/bestpractice-docs.yml`. Everything else that ships
+   `STYLEGUIDE.md`, `.gitignore`, and the README entry-block edit — plus
+   `tools/bootstrap.sh`, `.github/workflows/bestpractice-docs.yml`, and
+   `.github/pull_request_template.md`. Everything else that ships
    with BestPractice (INSTALL.md, PRACTICES.md, SETUP.md,
    GITHUB_ACTIONS.md, MOBILE.md, METHOD.md, GIT.md, templates/, tools/,
    deck/) exists ONLY under `process/upstream/` — never copy any of it to
@@ -159,7 +180,19 @@ drift and proprietary leakage loud instead of silent.
    > the assistant fixes it before you ever see the result. You should
    > never be shown a failing install.
 
-`.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8):
+8. **Disclose anything GitHub-specific** (practice 37): if any step above
+   added a required Actions workflow, a repository secret, a
+   branch-protection or required-check setting, or any other
+   GitHub-specific requirement, add a line for it in
+   `GETTING_STARTED.md`'s administrator section naming what it is, what it
+   does, and the exact click-path to enable or configure it — don't leave
+   it recorded only in this file. This install's own Actions check and PR
+   template both need a line there; anything a future update adds does
+   too.
+
+`.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8),
+appended to the baseline `.gitignore` instantiated above from
+[templates/gitignore.template](templates/gitignore.template):
 
 ```gitignore
 # generated deliverables — only shipped artifacts get force-added
@@ -173,6 +206,10 @@ drift and proprietary leakage loud instead of silent.
 ```
 
 ## 2. Take an upstream update
+
+*Knowing* an update exists is automated: the session-start bootstrap runs
+`checkin.py fresh` (one `ls-remote`, notice-only). *Taking* it is the
+deliberate procedure below.
 
 > **In plain terms.** BestPractice itself keeps improving — other
 > projects find better ways of doing things and publish them here. This
@@ -195,9 +232,14 @@ drift and proprietary leakage loud instead of silent.
    (from [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md)),
    the README entry block
    ([templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template)),
-   or the Actions check
-   ([templates/github-actions/](templates/github-actions/README.md)).
-   Instantiate them exactly as §1 describes and add manifest entries.
+   the Actions check
+   ([templates/github-actions/](templates/github-actions/README.md)), or the
+   PR template
+   ([templates/pull_request_template.md.template](templates/pull_request_template.md.template)).
+   Instantiate them exactly as §1 describes and add manifest entries — a
+   short catch-up prompt ("take the BestPractice update") is enough to
+   propagate a newly introduced template like this to every repo that
+   already installed BestPractice before it existed.
 4. **Fix legacy layout.** Older installs sometimes scattered
    upstream-internal docs (INSTALL.md, GITHUB_ACTIONS.md, …) at the repo
    root; the audit's LAYOUT check now fails on them. Delete the strays —
@@ -293,6 +335,15 @@ stay manual:
    an entry genuinely stays local.
    `python3 process/upstream/tools/checkin.py status <upstream-clone>`
    lists exactly what has accumulated.
+   **The check-in carries ALL pending vendored additions, not just the
+   ones your own thread made.** A two-way sync that ends by replacing the
+   vendored tree with upstream's copy ("tree-identical") silently deletes
+   any accumulated addition it did not first include in the check-in PR —
+   so before replacing, diff the vendored tree against upstream and
+   either check in every local addition found or record, per addition,
+   why it stays behind. *(Origin: a same-day sync verified tree-identical
+   and erased another thread's two hours-old practice additions; the loss
+   surfaced only because that thread's session was still open to notice.)*
 2. `python3 process/upstream/tools/checkin.py push <upstream-clone>` —
    runs the **scrub audit first (must pass; nothing is copied on failure)**,
    then mirrors the vendored tree into the clone's working tree.
@@ -303,7 +354,12 @@ stay manual:
 4. When the PR merges:
    `python3 process/upstream/tools/checkin.py record <upstream-clone> --note "PR #N"`
    — pulls the upstream default branch, **verifies it is byte-identical to
-   the vendored tree**, and writes the landed hash into `upstream.commit`.
+   the vendored tree**, and — enforcing step 1's carry-all rule mechanically
+   — **verifies every pending vendored addition committed on the dependent
+   default branch since the recorded base is present in the landed tree**,
+   refusing to record a cycle that dropped content (a deliberate removal
+   needs `--accept-loss`, which prints what is let go). Then writes the
+   landed hash into `upstream.commit`.
    Commit the manifest change (and `--update-baseline` if entries moved).
 
 **Freshness and ordering (learned in the field, 2026-08).** Work from

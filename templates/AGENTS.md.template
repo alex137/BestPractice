@@ -81,6 +81,20 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 
 ## Conventions
 
+- **Sections are ordered by the reader's frequency, not the writer's**
+  (practice 36): a document walking through instructions or rules in
+  multiple sections puts common, everyday content first and rare edge
+  cases / migration scenarios / "if the world changes" contingencies last —
+  unless the subject matter itself dictates a different order. Ask: would
+  most readers have to scroll past this section to reach the one they
+  opened the document for?
+- **PR descriptions come from the diff, not the template** (practice 39):
+  when opening a PR, write "What changed" / "Why" / "Files touched" from
+  what actually happened on this branch. Check a `## Gates` box only when
+  it is actually true for this change — an unchecked box, or a "not
+  applicable" note, is normal and expected. Never check every box, or fill
+  every field with N/A, just to make the form look complete; that looks
+  like verification and isn't.
 - **Doc references are links** (practice 11): in-repo docs reference other
   repo files as relative markdown links, never bare backticked names. New
   text always links; a thread touching a document fixes the references in

@@ -1,0 +1,8 @@
+# Baseline ignores — ordinary tool/interpreter caches from working in this
+# repo (running tools/*.py per AGENTS.md). Generated-deliverable ignores for
+# deck/ live in deck/.gitignore (practice 8) since they're scoped there.
+
+__pycache__/
+*.py[cod]
+.DS_Store
+*.swp
