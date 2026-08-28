@@ -38,9 +38,11 @@ drift and proprietary leakage loud instead of silent.
 > them to describe *your* project specifically — a map of where things
 > live, a to-do list, a page that welcomes new members. Nothing from
 > this step becomes visible to anyone but you until you (or whoever has
-> authority to make it official) approve it — see step 7 below and the [guided
-> install](SETUP.md), which walks an administrator through this exact
-> process in conversation rather than as a technical checklist. The one
+> authority to make it official) approve it: the work is committed on a
+> private branch (step 7), and it becomes official only at the
+> review-and-merge that the [guided install](SETUP.md) walks an
+> administrator through in conversation rather than as a technical
+> checklist. The one
 > decision only you can make: **which private names and code words must
 > never leak into a public file** (step 4) — your assistant cannot guess
 > your project's secrets, so it will ask you directly.
