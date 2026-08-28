@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """doc_html -- the ONE sortable-table HTML renderer for repo documents
-(practice 44).
+(practice 46).
 
 Convention: any document whose tables have multiple columns a reader might
 want to sort ships an HTML render built from the .md by THIS module -- the
@@ -15,7 +15,7 @@ table in the repo at once: edit CSS/JS below, run `python3 tools/doc_html.py`
     python3 tools/doc_html.py path/to/doc.md # render one (registered or not)
     python3 tools/doc_html.py --list         # show the registry
 
-Behavior contract (the full spec is practice 44's numbered list; this
+Behavior contract (the full spec is practice 46's numbered list; this
 module is its reference implementation): multi-column sort (click; shift-
 click or Multi-sort adds keys; re-click reverses; header marks show key
 order) with numeric-aware keys (approximation marks, currency, thousands

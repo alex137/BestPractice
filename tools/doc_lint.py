@@ -227,7 +227,7 @@ def check_file(path, fix=False, known=None):
     return strikes, unlinked, unglossed, targeted, len(changed_lines)
 
 
-# ---- deliverable/record split (check 6; practice 47) ----
+# ---- deliverable/record split (check 6; practice 49) ----
 #
 # A reader-facing document looks like its finished output; audit apparatus,
 # decision provenance, verification bookkeeping, and history lore live in the
