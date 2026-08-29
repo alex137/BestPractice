@@ -119,7 +119,8 @@ drift and proprietary leakage loud instead of silent.
      E.g. Claude Code: `harness/claude-code/CLAUDE.md` → repo root (a
      one-line import of `AGENTS.md`), `harness/claude-code/settings.json` →
      `.claude/settings.json`, `harness/claude-code/hooks/session-start.sh` →
-     `.claude/hooks/session-start.sh`. Codex reads `AGENTS.md` natively.
+     `.claude/hooks/session-start.sh`, `harness/claude-code/hooks/stop-git-check.sh`
+     → `.claude/hooks/stop-git-check.sh`. Codex reads `AGENTS.md` natively.
      Multiple adapters can be installed side by side.
    - `tools/doc_lint.py` → run it from `process/upstream/tools/` in place,
      or copy to the repo's tools dir if it needs local adaptation.
