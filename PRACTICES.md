@@ -1763,17 +1763,32 @@ render":
    Multi-sort toggle) adds secondary keys; clicking a key again reverses
    it; marks on the headers show direction and key order.
 2. **Numeric-aware sort keys** — cells sort numerically through the
-   notation documents actually use: approximation marks (≈/≤/≥), currency
-   symbols, thousands separators, magnitude suffixes (k, M), trailing
-   units; empty and em-dash cells sort last.
-3. **Per-column value filters, multi-select** — every column with a
-   usefully small set of distinct values (2–60) gets a dropdown of
-   those values: a button opening a checkbox panel, any checked subset
-   keeps its rows, none checked = "All" (the default), and the button
-   shows the selection ("All", the single value, or "N of M"); filters
-   compose with each other and with sorts. Multi-select is the point —
-   comparing two named alternatives side by side is the most common
-   filtering ask a comparison table gets.
+   notation documents actually use: approximation marks (≈/≤/≥), any
+   Unicode currency symbol, thousands separators, leading zeros, bare
+   decimals, magnitude suffixes (k, M — recognized on currency amounts
+   only, since a bare "M" is usually a unit), trailing units; empty and
+   em-dash cells sort last. The same key drives the frontier axis
+   pull-down (item 8), so a column ranks exactly as it sorts.
+3. **A filter dropdown on every column** — no column is left without
+   one. The panel offers what the column supports: a multi-select
+   checkbox list of distinct values where the set is usefully small
+   (2–60; any checked subset keeps its rows, none checked = "All", the
+   default), plus on **value columns** a comparator — pick </≤/=/≥/>
+   and type a threshold in the displayed units (cells that don't parse
+   never pass) — and on text columns too varied to enumerate a
+   contains match. A column's constraints AND together, the button
+   shows the active selection, and filters compose with each other and
+   with sorts. Multi-select is the point — comparing two named
+   alternatives side by side is the most common filtering ask a
+   comparison table gets; the comparator serves the "under $X /
+   over Y t" ask value columns get. A value column is one whose cells
+   *lead* with a number (the practice-46 item-12 test): "Rotax 916"
+   contains a digit but is a name. On a text column that is a frontier
+   ordinal axis (item 8), the dropdown's value rows list in the axis's
+   current best→worst order and each carries a ⠿ grip that drags the
+   row to re-rank — the same order the frontier picker edits, editable
+   from whichever panel the reader has open; the checkbox still
+   filters, only the grip drags.
 4. **Active columns pin in place and stay visible** — sorted and filtered
    columns stick at the viewport's left edge as the table scrolls past
    them, without being moved from their positions; the header row stays on
@@ -1783,7 +1798,16 @@ render":
    the table reorganizing on every sort click; movement is the reader's
    act, not a side effect.)
 5. **Draggable column order** — drag a header to move a column; dragging
-   is the only way columns move.
+   is the only way columns move. Implement every drag (this and the
+   ordinal value lists of item 8) with **pointer events, never native
+   HTML5 drag-and-drop**: hosted artifact viewers run renders in
+   sandboxed frames where native DnD never fires (verified 2026-08-28),
+   and pointer events also work on touch. Two traps: put the
+   move/up listeners on the **document**, and do **not** pointer-capture
+   the dragged element — re-inserting it in the DOM (the reorder itself)
+   implicitly releases capture and kills the drag after its first swap.
+   Gate the header drag behind a small movement threshold so plain
+   clicks still sort.
 6. **One Reset** — clears sorts AND filters and restores the original row
    and column order.
 7. **Live row count** — "N of M rows" tracks filtering.
@@ -1794,8 +1818,25 @@ render":
    re-sorting on the visible values (filters clear, since their value
    sets changed). Sorting, filtering, and the row count always read
    the ACTIVE view's text, never the concatenation.
-8. **Frontier toggle** — where a Frontier column exists (practice 47), the
-   render opens showing frontier rows only, with a toggle to all rows.
+8. **Frontier axis pull-down** — where a Frontier column exists
+   (practice 47), the render opens showing frontier rows only, and the
+   control is an axis pull-down that works on any such table with no
+   per-document wiring: the printed ✓/— marks (the model's own
+   computation, per practice 47) are the default view; the picker
+   offers **every** other column as an axis and recomputes the marks
+   client-side on a custom pick. A numeric column takes a reader-set
+   better-direction (↓/↑); a **text column ranks as an ordinal axis
+   by its value list, which the reader drags into best→worst order**
+   (default: the column's sorted order; each value row carries a ⠿
+   grip icon marking the drag affordance) — only a text column with too
+   many distinct values to order is listed as not rankable. An "All
+   rows" entry clears the filter. A generating model may curate the
+   picker with an invisible frontier spec beside its table — fixed
+   directions for the columns it names, input tags (informational,
+   still selectable), the default axes, a partition column judged
+   separately (format in the renderer's docstring) — but the spec
+   refines the pull-down, never gates it: unnamed columns are still
+   offered.
 9. **Header definitions round-trip** — a header links to its definition
    note and shows it as a mouse-over tooltip; the note's return link lands
    back on the exact header cell it defines, not merely the table's
@@ -1806,13 +1847,27 @@ render":
 11. **Page mechanics** — source-file includes are expanded; relative repo
     links are rewritten to the hosted view; wide tables scroll inside
     their own container rather than the page.
+12. **Decimal-aligned numeric columns** — in a column whose cells lead
+    with a number (approximation marks, ×, or a currency symbol may
+    precede it), each cell is padded so the number's integer end — and
+    hence its decimal point — sits at one x-position down the column.
+    The prefix is pixel-measured (markup-safe), so bold text, links,
+    and proportional-width symbols align exactly, and trailing
+    annotations don't disturb the line-up; a bare decimal (".45") has
+    an empty integer part, so its point lands on the same line as
+    "0.45"'s. Columns whose digits appear only inside text (part
+    codes, composite cells) are left alone.
 
 **The load-bearing half is singularity.** All table behavior — CSS, JS, sort
 semantics, numeric-aware sort keys — lives in **one** shared renderer with a
 registry of the documents it renders ([tools/doc_html.py](tools/doc_html.py)
 is the reference implementation). A functionality change is made there and
 only there, and the no-argument invocation rebuilds every registered render,
-so the change manifests in every table at once. Per-document build scripts
+so the change manifests in every table at once. The test for a new
+capability follows: it must manifest on every registered render **from the
+engine alone** — a host or per-document declaration may refine it, never
+gate it, or the "change once, upgrade everywhere" property is silently lost
+for every table that lacks the declaration. Per-document build scripts
 may survive as documented entry points, but as thin wrappers importing the
 shared `render()` — never as forks of the CSS/JS. The failure this kills is
 the same one practice 33 kills for numbers: N copied renderers drift
@@ -1869,10 +1924,18 @@ rules:
    model performs and can assert, not an editorial choice. Two tables of the
    same rows are two copies that drift; one table with a computed column
    cannot.
-3. **The render toggles.** The sortable render (practice 46) opens showing
-   frontier rows only and carries a toggle to show all rows — the reader
-   gets the compressed view first and the full matrix one click later, from
-   the same table.
+3. **The render toggles — and lets the reader re-rank.** The sortable
+   render (practice 46) opens showing frontier rows only and carries a
+   control to show all rows — the reader gets the compressed view first
+   and the full matrix one click later, from the same table. That
+   control is the axis pull-down of practice 46 item 8: the reader
+   picks which output columns form the frontier and the render
+   recomputes the marks, because rule 1's real point is that the axes
+   are the reader's choice — the stated defaults answer the document's
+   framing, and the pull-down answers everyone else's. The printed
+   column stays the model's computation on the stated default axes; a
+   reader's custom pick is a view, recomputed from the displayed
+   values, never silently written back into the source.
 
 **Why this is a rule and not taste.** The full matrix invites the reader to
 do the dominance analysis in their head, badly; the frontier column does it
@@ -2057,6 +2120,76 @@ import the shim. Adopting emitters must reproduce byte-identical output
 where the policy is unchanged — the generated-block drift gate
 (practice 19) is the proof.
 
+**The formatter↔renderer seam is checked, not remembered.** The sortable
+render parses these printed strings back to numbers for sorting,
+frontier ranking, and decimal alignment — so the formatter's output
+grammar and the renderer's parse grammar are one contract with two
+implementations, and nothing about a new notation looks broken until a
+table silently mis-sorts it. The engine therefore ships `parse_key()`
+(the Python mirror of the renderer's numeric-key grammar; the two are
+extended together) and `roundtrip_check()`: every registered kind
+formats sample values and the parse must recover the printed value —
+the expectation derived from the kind's own declared affixes, so it is
+independent of the parser — plus canned grammar pins for the forms that
+drift silently (the unit-vs-money "M", the bare decimal). A host shim
+exposes this as `self_check()` wired into the repo's audit runner, so a
+notation the tables would mis-sort fails at commit time, not in the
+browser.
+
 **Related.** Practice 44 (the render layer these cells land in);
 practice 33 (transformations live in code — this is its formatting
 corner); practice 50 (how the engine crosses the repo boundary).
+
+## 52. A computation that books a transfer names both sides of the ledger
+
+When a model charges one party for what another receives — work for
+kinetic energy, spend for inventory, a debit for a credit — the
+plausibility check everyone naturally runs is *"does the charge equal
+the recipient's gain?"* That check is the trap, not the verification:
+**the recipient-side ledger balances by construction.** Charging a
+force over the recipient's displacement always yields exactly the
+recipient's gain; charging a spend against the goods received always
+matches the goods. What that one-sided check can never see is the
+term between the parties — dissipation, friction, spoilage, fees —
+which the payer also pays, over the **payer's own path**.
+
+The rule: any closed-form gate or feasibility formula that books a
+transfer must **(a) name its sources and sinks explicitly** — every
+account the quantity can come from and every account it can land in —
+and **(b) carry a property self-check asserting the whole-system
+inventory closes**, sources equal to sinks within the model's stated
+noise. Where an independent integrator or simulation exists, calibrate
+the closed form against it and assert the band; where none exists, a
+one-line back-of-envelope inventory (is the payer's total available
+even of the right order against the sink side?) belongs in the
+derivation's comment.
+
+**Why review misses it.** Two compounding effects, both observed in
+the origin incident. First, the wrong length is usually the *salient*
+one: the mechanism's narrative stars one displacement (the relative
+motion, the visible stroke), and that is the length at hand when the
+formula is written — while the work integral belongs on the payer's
+displacement. Second, direction-of-motion bias: when the erroneous
+formula lands inside a commit that is correcting a known error in the
+*opposite* direction, the overshoot wears the correction's clothes —
+big new numbers read as the fix working. Neither reviewer instinct
+(does the charge match the gain? does the change move the right way?)
+catches a factor hidden in the dissipation term.
+
+**Origin.** A feasibility gate charged a hauling agent's energy cost
+as force × the *load's* displacement rather than the agent's own
+path — exactly half, the other half leaving through a dissipative
+element between them. The halved charge equaled the load's
+kinetic-energy gain to the digit, so the one-sided check passed; the
+published capability ceiling came out ~2× optimistic (compounded by a
+missing geometric completion condition the same 1-D framing hid) and
+survived its thread's otherwise-careful review because it arrived in
+a commit raising ceilings a doctrine reread had shown were wrongly
+zero. It was caught a day later only when an independent
+trajectory integrator's whole-system energy balance refused to close —
+and a three-line inventory then showed the payer's entire available
+energy was ~3× short of the sink side at the published ceiling. The
+correct accounting had existed in the program's own prose for weeks,
+written down and executable nowhere — the same lesson as the
+model-audit practice, recurring: prose does not fail a build; a
+ledger assertion does.
