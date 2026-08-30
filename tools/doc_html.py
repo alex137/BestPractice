@@ -18,24 +18,65 @@ table in the repo at once: edit CSS/JS below, run `python3 tools/doc_html.py`
 Behavior contract (the full spec is practice 46's numbered list; this
 module is its reference implementation): multi-column sort (click; shift-
 click or Multi-sort adds keys; re-click reverses; header marks show key
-order) with numeric-aware keys (approximation marks, currency, thousands
-separators, k/M suffixes, units; em-dash empties last); per-column value-
-filter dropdowns (2-60 distinct values; MULTI-select -- each opens a
-checkbox panel, any checked subset keeps its rows, none checked = All,
-the button shows the selection); sorted and filtered columns pin
+order) with numeric-aware keys (approximation marks, any Unicode currency
+symbol with k/M magnitude suffixes on currency amounts, thousands
+separators, leading zeros, bare decimals, units; em-dash empties last);
+decimal-aligned numeric columns (cells leading with a number are padded
+so the integer end / decimal point lines up down the column, measured
+markup-safe with Range rects); a filter dropdown on EVERY column --
+value checkboxes when 2-60 distinct values (MULTI-select: any checked
+subset keeps its rows, none checked = All), plus on value columns a
+</≤/=/≥/> comparator against a typed threshold (displayed units; empty
+cells never pass), and a contains match on text columns too varied to
+enumerate; constraints AND together and the button shows the active
+selection; on a text column that is a frontier ordinal axis the
+dropdown's value rows carry ⠿ grips and drag to edit the same
+best→worst ranking the frontier picker uses; sorted and filtered columns pin
 where they sit and stay visible under horizontal scroll, with sticky
 headers -- column movement is user-driven only (drag a header); optional alternate-value views (per-cell data-view spans, a
 checkbox per extra view swapping every such cell, sort/filter on
 the active view); one Reset
 clearing sorts AND
-filters and restoring row/column order; a live "N of M rows" count; a
-frontier-only toggle where a Frontier column exists (practice 47); header
+filters and restoring row/column order; a live "N of M rows" count;
+a frontier axis pull-down on every table with a Frontier column
+(practice 47; see below); header
 cells link their definition notes with mouse-over tooltips, and each
 note's return link lands back on the header cell it defines; the build
 timestamp renders in the page header (the .html is the versioned product;
 the source carries none); includes expanded, relative repo links
 rewritten to the hosted view, wide tables scrolling in their own
 container.
+
+Frontier axis pull-down (practice 47): every table with a Frontier
+column gets it, from the engine alone -- no per-document or per-model
+wiring. The printed ✓/— marks are the default view (practice 47 already
+makes them the generating model's own full-precision computation, so
+the default frontier's semantics arrive as table data); the pull-down
+lets the reader pick which columns form the frontier instead, and the
+page recomputes the marks from the displayed values. EVERY non-frontier
+column is offered: on a numeric column the reader sets the axis's
+better-direction (↓/↑); a TEXT column is an ordinal axis ranked by its
+value list, which the reader drags into best→worst order (default: the
+column's sorted order). Only a text column with too many distinct
+values to order (>60) is listed as not rankable. A generating model MAY
+curate the picker by preceding its table with an invisible spec
+comment:
+
+    <!--frontier: default=Price:min,Cargo:max|rank=Span:min,...
+        |inputs=A,B,C|partition=P-->
+
+`default=` names the printed marks' axes as label:direction pairs
+(labels are header-cell text; min = lower is better, max = higher);
+`rank=` other columns whose directions the model fixes; `inputs=`
+columns tagged "(input)" in the picker (still selectable -- the tag is
+information, not a gate); `partition=` a column whose distinct values
+are judged as separate frontiers. Columns the spec does not name are
+still offered, with reader-set direction or ordering. The renderer
+attaches the spec to the table as a data-frontier attribute. The spec
+refines the pull-down; it never gates it -- and that is the general
+rule for this module: a new table capability must manifest on every
+registered render from the engine alone, with host or model
+declarations as optional refinement, never as a prerequisite.
 
 Host configuration: fill DOCS with (repo-relative .md, title) pairs. Link
 rewriting targets the repo's own hosted-view URL, detected from the git
@@ -100,6 +141,24 @@ td span[data-view].von { display: inline; }
 .fpanel label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; padding: 1px 2px; }
 .fpanel label.fall { border-bottom: 1px solid var(--hairline); margin-bottom: 4px; padding-bottom: 3px; }
 .fpanel input { margin-right: 6px; }
+.fpanel .fnote { color: var(--muted); border-top: 1px solid var(--hairline); margin-top: 4px; padding-top: 3px; white-space: normal; max-width: 300px; }
+.fpanel .fcmp { display: flex; gap: 4px; align-items: center; margin: 2px 0 4px; }
+.fpanel .fcmp select, .fpanel .fcmp input, .fpanel input[type="text"] { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--hairline); border-radius: 3px; padding: 1px 4px; }
+.fpanel .fcmp input { width: 90px; }
+.fpanel input[type="text"] { width: 100%; margin: 2px 0 4px; }
+.fpanel .ordlist { margin: 0 0 4px 20px; border-left: 2px solid var(--hairline); padding-left: 6px; }
+.fpanel .orditem { display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: grab; touch-action: none; user-select: none; padding: 1px 4px; border: 1px solid transparent; border-radius: 3px; white-space: nowrap; max-width: 260px; }
+.fpanel .orditem .ordtext { overflow: hidden; text-overflow: ellipsis; }
+.fpanel .grip { color: var(--muted); flex: none; font-size: 11px; letter-spacing: 1px; cursor: grab; touch-action: none; }
+.fpanel .flist label { display: flex; align-items: center; gap: 6px; }
+.fpanel .flist input { margin-right: 0; }
+.fpanel .flist .ftext { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.fpanel .flist label.dragging { border: 1px solid var(--accent); background: var(--hover); border-radius: 3px; }
+.fpanel .orditem:hover { border-color: var(--accent); background: var(--stripe); }
+.fpanel .orditem.dragging { border-color: var(--accent); background: var(--hover); cursor: grabbing; }
+thead th.dragging { background: var(--hover); }
+.fpanel .dirbtn { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--hairline); border-radius: 3px; margin-left: 4px; padding: 0 4px; cursor: pointer; }
+.fpanel .dirbtn:hover { border-color: var(--accent); }
 .rowcount { color: var(--muted); margin-left: 0.5rem; }
 :root {
   --ground: #F7F6F2; --surface: #FFFFFF; --ink: #22262B; --muted: #66707A;
@@ -196,9 +255,15 @@ JS = """
   function keyOf(cell) {
     var t = cellText(cell).trim();
     if (t === "—" || t === "") return { n: -Infinity, s: "" };
-    var kmatch = /\\$\\s*[\\d.,]+k/.test(t);
-    var mmatch = /\\$\\s*[\\d.,]+\\s*M/.test(t);
-    var m = t.replace(/[,≈≤≥]/g, "").match(/-?\\d+(?:\\.\\d+)?/);
+    // k/M magnitude suffixes are recognized on CURRENCY amounts only
+    // (any Unicode currency symbol, \\p{Sc}): a bare "58 M" is a unit
+    // (megajoules), not money. Leading zeros and bare decimals (".59")
+    // parse as their values. This grammar is mirrored by parse_key in
+    // tools/table_fmt.py (the formatter↔renderer seam contract) —
+    // extend BOTH together.
+    var kmatch = /\\p{Sc}\\s*[\\d.,]+k/u.test(t);
+    var mmatch = /\\p{Sc}\\s*[\\d.,]+\\s*M/u.test(t);
+    var m = t.replace(/[,≈≤≥]/g, "").match(/-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)/);
     if (m) {
       var v = parseFloat(m[0]);
       if (kmatch) v *= 1000;
@@ -233,10 +298,117 @@ JS = """
     original.forEach(function (r) {
       Array.prototype.forEach.call(r.cells, function (c, i) { c.dataset.col = i; });
     });
+    // Header labels captured before sort marks are appended: the frontier
+    // spec names columns by this text.
+    var colByLabel = {};
+    Array.prototype.forEach.call(hrow.cells, function (c) {
+      colByLabel[c.textContent.trim()] = +c.dataset.col;
+    });
+    function cellOf(row, col) {
+      for (var k = 0; k < row.cells.length; k++) {
+        if (+row.cells[k].dataset.col === col) return row.cells[k];
+      }
+      return null;
+    }
+    function colMeta(col) {
+      // A column's distinct displayed values (sorted numeric-aware, on
+      // the active view) and whether it reads as a VALUE column (most
+      // non-empty cells parse numerically). Shared by the filters and
+      // the frontier picker so both see the same column kind.
+      var vals = {}, filled = 0, numeric = 0;
+      original.forEach(function (r) {
+        var c = cellOf(r, col);
+        if (!c) return;
+        var t = cellText(c).trim();
+        vals[t] = 1;
+        if (t === "" || t === "—") return;
+        filled++;
+        // A value cell LEADS with a number (same test as the decimal
+        // aligner) -- "Rotax 916" contains a digit but is a name.
+        var k = keyOf(c);
+        if (alignLeadRe.test(t) && k.n !== null && isFinite(k.n)) numeric++;
+      });
+      var names = Object.keys(vals).sort(function (a, b) {
+        var ka = keyOf({ textContent: a }), kb = keyOf({ textContent: b });
+        if (ka.n !== null && kb.n !== null && ka.n !== kb.n) return ka.n - kb.n;
+        return a < b ? -1 : a > b ? 1 : 0;
+      });
+      return { names: names,
+               numeric: filled > 0 && numeric * 2 >= filled };
+    }
+    // Decimal alignment: in a column where cells LEAD with a number
+    // (approx marks, ×, or a currency symbol allowed in front), pad each
+    // cell left so the end of that number's integer digits — hence its
+    // decimal point, when it has one — sits at one x-position down the
+    // column. The prefix is measured with a Range rect, so markup
+    // (bold, links) and proportional-width symbols measure exactly and
+    // the DOM is never rewritten; trailing annotations don't disturb
+    // the alignment. Columns with digits only inside text (part codes,
+    // composite cells) don't qualify.
+    var alignLeadRe = /^[-≈≤≥~×±]*\\s*\\p{Sc}?\\s*[\\d.]/u;
+    function alignSplit(cell) {
+      // [textNode, offset] just past the leading number's integer
+      // digits (i.e., before its decimal point), or null. A bare
+      // decimal (".45") has an empty integer part: the split lands at
+      // the point itself, so "$.45" and "$0.45" align their points to
+      // the same line.
+      var walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      var nodes = [], all = "", node;
+      while ((node = walker.nextNode())) {
+        nodes.push(node);
+        all += node.nodeValue;
+      }
+      var m = all.match(/\\d[\\d,]*|(?=\\.\\d)/);
+      if (!m) return null;
+      var end = m.index + m[0].length;
+      for (var i = 0, pos = 0; i < nodes.length; i++) {
+        var len = nodes[i].nodeValue.length;
+        if (end <= pos + len) return [nodes[i], end - pos];
+        pos += len;
+      }
+      return null;
+    }
+    function alignColumns() {
+      // Rows must be visible to measure; hide states are restored after.
+      var saved = original.map(function (r) { return r.style.display; });
+      original.forEach(function (r) { r.style.display = ""; });
+      for (var ci = 0; ci < ncols; ci++) {
+        var cands = [], filled = 0;
+        original.forEach(function (r) {
+          var c = cellOf(r, ci);
+          var t = c ? c.textContent.trim() : "";
+          if (t === "" || t === "—") return;
+          filled++;
+          if (alignLeadRe.test(t)) cands.push(c);
+        });
+        if (cands.length < 2 || cands.length < filled * 0.8) continue;
+        var maxw = 0, items = [];
+        cands.forEach(function (c) {
+          var sp = alignSplit(c);
+          if (!sp) return;
+          var range = document.createRange();
+          range.setStart(c, 0);
+          range.setEnd(sp[0], sp[1]);
+          var w = range.getBoundingClientRect().width;
+          items.push([c, w]);
+          if (w > maxw) maxw = w;
+        });
+        items.forEach(function (it) {
+          var c = it[0];
+          if (c._basePad === undefined) {
+            c._basePad = parseFloat(getComputedStyle(c).paddingLeft) || 0;
+          }
+          c.style.paddingLeft = (c._basePad + maxw - it[1]) + "px";
+        });
+      }
+      original.forEach(function (r, i) { r.style.display = saved[i]; });
+      pin();
+    }
     var baseOrder = [];
     for (var bi = 0; bi < ncols; bi++) baseOrder.push(bi);
     var sorts = [];   // [{col: original index, dir}]
     var multi = false, frontierOnly = false;
+    var resetFrontier = null;  // set when the frontier axis picker exists
 
     var bar = document.createElement("div");
     bar.className = "sortbar";
@@ -250,7 +422,7 @@ JS = """
     });
     var resetBtn = document.createElement("button");
     resetBtn.textContent = "Reset";
-    resetBtn.title = "Clear sorts and filters; restore the original row and column order";
+    resetBtn.title = "Clear sorts and filters; restore the original row and column order and the default frontier view";
     var label = document.createElement("span");
     label.textContent = "Sort: click a header · shift-click or Multi-sort adds keys · sorted/filtered columns pin in place while scrolling · drag a header to move a column";
     var count = document.createElement("span");
@@ -261,52 +433,131 @@ JS = """
     var wrap = tbl.closest(".tablewrap") || tbl;
     wrap.parentNode.insertBefore(bar, wrap);
 
-    // Multi-select value filters: a button per column opens a
-    // checkbox panel; checked values keep their rows (none checked =
-    // All). filterState maps column id -> {value: 1} set.
+    // Per-column filters: EVERY column gets a button (no distinct-value
+    // gate). The panel offers what the column supports: multi-select
+    // value checkboxes (2-60 distinct values), a </≤/=/≥/> comparator
+    // with a threshold on value columns, and a contains match on text
+    // columns too varied to enumerate. Constraints AND together.
+    // filterState maps column id -> {vals:{value:1}, op:"", num:NaN, sub:""}.
     var filterState = {};
-    var openPanel = null;
+    function filterActive(st) {
+      return !!st && (Object.keys(st.vals).length > 0 ||
+                      st.op !== "" || st.sub !== "");
+    }
+    function clearFilters() {
+      Object.keys(filterState).forEach(function (col) {
+        var st = filterState[col];
+        Object.keys(st.vals).forEach(function (k) { delete st.vals[k]; });
+        st.op = ""; st.num = NaN; st.sub = "";
+      });
+    }
+    var openPanel = null, suppressClose = false;
     function closePanel() {
       if (openPanel) { openPanel.remove(); openPanel = null; }
     }
     document.addEventListener("click", function (e) {
+      if (suppressClose) { suppressClose = false; return; }
       if (openPanel && !openPanel.contains(e.target)) closePanel();
     });
     window.addEventListener("resize", closePanel);
+    // Ordinal-axis plumbing shared by the frontier picker and the
+    // filter dropdowns: a text column's reader-set best→worst value
+    // order lives on its axis object (a.order), so dragging in either
+    // panel edits the same ranking. applyFrontierRef is set once the
+    // frontier controls exist.
+    var applyFrontierRef = null;
+    function ordAxisFor(col) {
+      if (!spec) return null;
+      for (var i = 0; i < spec.rank.length; i++) {
+        if (spec.rank[i].col === col && spec.rank[i].kind === "ord") {
+          return spec.rank[i];
+        }
+      }
+      return null;
+    }
+    function wireOrdDrag(handle, row, list, a) {
+      // Drag `row` (grabbed by `handle`) among its siblings in `list`
+      // to reorder a.order. POINTER events on the document, no pointer
+      // capture (native DnD never fires in sandboxed viewers, and a
+      // captured element loses capture when the reorder re-inserts it).
+      row._val = row._val === undefined ? null : row._val;
+      handle.addEventListener("pointerdown", function (ev) {
+        if (ev.button !== 0 && ev.pointerType === "mouse") return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        row.classList.add("dragging");
+        var moved = false;
+        function over(e) {
+          var sc = list.closest(".fpanel");
+          if (sc) {
+            var sr = sc.getBoundingClientRect();
+            if (e.clientY < sr.top + 14) sc.scrollTop -= 8;
+            else if (e.clientY > sr.bottom - 14) sc.scrollTop += 8;
+          }
+          var el = document.elementFromPoint(e.clientX, e.clientY);
+          var tgt = null;
+          while (el && el !== list) {
+            if (el.parentNode === list && el._val != null) { tgt = el; break; }
+            el = el.parentNode;
+          }
+          if (!tgt || tgt === row) return;
+          var fi = a.order.indexOf(row._val), ti = a.order.indexOf(tgt._val);
+          if (fi < 0 || ti < 0 || fi === ti) return;
+          a.order.splice(fi, 1);
+          a.order.splice(ti, 0, row._val);
+          if (fi < ti) list.insertBefore(row, tgt.nextSibling);
+          else list.insertBefore(row, tgt);
+          moved = true;
+        }
+        function up() {
+          row.classList.remove("dragging");
+          document.removeEventListener("pointermove", over);
+          document.removeEventListener("pointerup", up);
+          document.removeEventListener("pointercancel", up);
+          if (moved) {
+            suppressClose = true;  // release outside the panel must not close it
+            if (axisOn && axisOn[a.label] && applyFrontierRef) applyFrontierRef();
+          }
+        }
+        document.addEventListener("pointermove", over);
+        document.addEventListener("pointerup", up);
+        document.addEventListener("pointercancel", up);
+      });
+    }
+    function makeGrip() {
+      var grip = document.createElement("span");
+      grip.className = "grip";
+      grip.textContent = "⠿";  // drag-pad affordance
+      return grip;
+    }
     var fr = head.insertRow(-1);
     fr.className = "filterrow";
-    Array.prototype.forEach.call(hrow.cells, function (th, i) {
+    Array.prototype.forEach.call(hrow.cells, function (th) {
       var cell = fr.insertCell(-1);
       cell.dataset.col = th.dataset.col;
       var col = +th.dataset.col;
-      var vals = {};
-      original.forEach(function (r) {
-        if (r.cells[i]) vals[cellText(r.cells[i]).trim()] = 1;
-      });
-      var names = Object.keys(vals).sort(function (a, b) {
-        var ka = keyOf({ textContent: a }), kb = keyOf({ textContent: b });
-        if (ka.n !== null && kb.n !== null && ka.n !== kb.n) return ka.n - kb.n;
-        return a < b ? -1 : a > b ? 1 : 0;
-      });
-      if (names.length < 2 || names.length > 60) return;
-      var st = (filterState[col] = {});
+      var st = (filterState[col] = { vals: {}, op: "", num: NaN, sub: "" });
       var btn = document.createElement("button");
       btn.type = "button";
       btn.className = "fbtn";
       btn.textContent = "All";
-      btn.title = "Filter this column: check one or more values";
+      btn.title = "Filter this column: check values, or compare against a number";
       btn._sync = function () {
-        var picked = Object.keys(st);
-        btn.textContent = picked.length === 0 ? "All"
-          : picked.length === 1
-            ? (picked[0].length > 30 ? picked[0].slice(0, 29) + "…" : picked[0])
-            : picked.length + " of " + names.length;
-        btn.classList.toggle("on", picked.length > 0);
+        var parts = [];
+        if (st.op !== "") parts.push(st.op + " " + st.num);
+        if (st.sub !== "") parts.push("~" + st.sub);
+        var picked = Object.keys(st.vals);
+        if (picked.length === 1) parts.push(picked[0]);
+        else if (picked.length > 1) parts.push(picked.length + " values");
+        var t = parts.length ? parts.join(" · ") : "All";
+        btn.textContent = t.length > 30 ? t.slice(0, 29) + "…" : t;
+        btn.classList.toggle("on", filterActive(st));
       };
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
         if (openPanel && openPanel._btn === btn) { closePanel(); return; }
         closePanel();
+        var meta = colMeta(col);
         var p = document.createElement("div");
         p.className = "fpanel";
         p._btn = btn;
@@ -314,37 +565,125 @@ JS = """
         var boxes = [];
         function update() {
           btn._sync();
-          allCb.checked = Object.keys(st).length === 0;
+          allCb.checked = !filterActive(st);
           refilter();
         }
         var allLab = document.createElement("label");
         allLab.className = "fall";
         var allCb = document.createElement("input");
         allCb.type = "checkbox";
-        allCb.checked = Object.keys(st).length === 0;
+        allCb.checked = !filterActive(st);
         allCb.addEventListener("change", function () {
-          Object.keys(st).forEach(function (k) { delete st[k]; });
+          Object.keys(st.vals).forEach(function (k) { delete st.vals[k]; });
+          st.op = ""; st.num = NaN; st.sub = "";
           boxes.forEach(function (b) { b.checked = false; });
+          if (p._cmpSel) { p._cmpSel.value = ""; p._cmpIn.value = ""; }
+          if (p._subIn) p._subIn.value = "";
           update();
         });
         allLab.appendChild(allCb);
         allLab.appendChild(document.createTextNode("All"));
         p.appendChild(allLab);
-        names.forEach(function (v) {
-          var lab = document.createElement("label");
-          lab.title = v;
-          var cb = document.createElement("input");
-          cb.type = "checkbox";
-          cb.checked = !!st[v];
-          cb.addEventListener("change", function () {
-            if (cb.checked) st[v] = 1; else delete st[v];
+        if (meta.numeric) {
+          // Comparator: keep rows whose value satisfies op threshold
+          // (thresholds in the displayed units; empty cells never pass).
+          var row = document.createElement("div");
+          row.className = "fcmp";
+          var sel = document.createElement("select");
+          ["", "<", "≤", "=", "≥", ">"].forEach(function (op) {
+            var o = document.createElement("option");
+            o.value = op; o.textContent = op === "" ? "·" : op;
+            sel.appendChild(o);
+          });
+          sel.value = st.op;
+          var inp = document.createElement("input");
+          inp.type = "number"; inp.step = "any";
+          inp.placeholder = "value";
+          if (st.op !== "") inp.value = String(st.num);
+          function syncCmp() {
+            var v = parseFloat(inp.value);
+            if (sel.value !== "" && isFinite(v)) { st.op = sel.value; st.num = v; }
+            else { st.op = ""; st.num = NaN; }
+            update();
+          }
+          sel.addEventListener("change", syncCmp);
+          inp.addEventListener("input", syncCmp);
+          row.appendChild(sel);
+          row.appendChild(inp);
+          p.appendChild(row);
+          p._cmpSel = sel; p._cmpIn = inp;
+        }
+        if (meta.names.length >= 2 && meta.names.length <= 60) {
+          // On a text column that is a frontier ordinal axis, the value
+          // rows double as the ranking: they list in the axis's current
+          // best→worst order and each carries a ⠿ grip that drags the
+          // row to re-rank (the same order the Frontier picker edits).
+          // The checkbox still filters; only the grip drags.
+          var ax = ordAxisFor(col);
+          var namesList = meta.names;
+          if (ax) {
+            var inOrd = {};
+            ax.order.forEach(function (v) { inOrd[v] = 1; });
+            namesList = ax.order.slice();
+            meta.names.forEach(function (v) { if (!inOrd[v]) namesList.push(v); });
+          }
+          var flist = document.createElement("div");
+          flist.className = "flist";
+          namesList.forEach(function (v) {
+            var lab = document.createElement("label");
+            lab.title = v;
+            var cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.checked = !!st.vals[v];
+            cb.addEventListener("change", function () {
+              if (cb.checked) st.vals[v] = 1; else delete st.vals[v];
+              update();
+            });
+            boxes.push(cb);
+            lab.appendChild(cb);
+            var tx = document.createElement("span");
+            tx.className = "ftext";
+            tx.textContent = v === "" ? "(empty)" : v;
+            lab.appendChild(tx);
+            if (ax && ax.order.indexOf(v) >= 0) {
+              lab._val = v;
+              var grip = makeGrip();
+              grip.title = "Drag to set this column's best→worst order (top = best; drives the Frontier picker)";
+              grip.addEventListener("click", function (e) {
+                e.preventDefault();  // a grip click must not toggle the checkbox
+                e.stopPropagation();
+              });
+              lab.appendChild(grip);
+              wireOrdDrag(grip, lab, flist, ax);
+            }
+            flist.appendChild(lab);
+          });
+          p.appendChild(flist);
+          if (ax) {
+            var onote = document.createElement("div");
+            onote.className = "fnote";
+            onote.textContent = "⠿ drag sets this column's best→worst " +
+              "ranking (top = best) — the order the Frontier picker uses.";
+            p.appendChild(onote);
+          }
+        } else if (!meta.numeric && meta.names.length > 60) {
+          var subIn = document.createElement("input");
+          subIn.type = "text";
+          subIn.placeholder = "contains…";
+          subIn.value = st.sub;
+          subIn.addEventListener("input", function () {
+            st.sub = subIn.value.trim();
             update();
           });
-          boxes.push(cb);
-          lab.appendChild(cb);
-          lab.appendChild(document.createTextNode(v));
-          p.appendChild(lab);
-        });
+          p.appendChild(subIn);
+          p._subIn = subIn;
+        } else if (meta.names.length > 60) {
+          var note = document.createElement("div");
+          note.className = "fnote";
+          note.textContent = meta.names.length +
+            " distinct values — use the comparison above.";
+          p.appendChild(note);
+        }
         var r = btn.getBoundingClientRect();
         p.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 330)) + "px";
         p.style.top = (r.bottom + 2) + "px";
@@ -367,9 +706,8 @@ JS = """
       sorts.forEach(function (s) { sortSet[s.col] = 1; });
       var pos = [];
       Array.prototype.forEach.call(hrow.cells, function (th, i) {
-        var st = filterState[+th.dataset.col];
-        var filtered = st && Object.keys(st).length > 0;
-        if (sortSet[+th.dataset.col] || filtered) pos.push(i);
+        if (sortSet[+th.dataset.col] ||
+            filterActive(filterState[+th.dataset.col])) pos.push(i);
       });
       return pos;
     }
@@ -428,8 +766,22 @@ JS = """
       }
       for (var c = 0; c < fr.cells.length; c++) {
         var st = filterState[+fr.cells[c].dataset.col];
-        if (st && Object.keys(st).length && row.cells[c] &&
-            !st[cellText(row.cells[c]).trim()]) return false;
+        if (!filterActive(st) || !row.cells[c]) continue;
+        var t = cellText(row.cells[c]).trim();
+        if (Object.keys(st.vals).length && !st.vals[t]) return false;
+        if (st.op !== "") {
+          var k = keyOf(row.cells[c]);
+          var v = k.n;
+          if (v === null || !isFinite(v)) return false;
+          var eps = 1e-9 * (1 + Math.abs(st.num));
+          if (st.op === "<" && !(v < st.num - eps)) return false;
+          if (st.op === "≤" && !(v <= st.num + eps)) return false;
+          if (st.op === "=" && !(Math.abs(v - st.num) <= eps)) return false;
+          if (st.op === "≥" && !(v >= st.num - eps)) return false;
+          if (st.op === ">" && !(v > st.num + eps)) return false;
+        }
+        if (st.sub !== "" &&
+            t.toLowerCase().indexOf(st.sub.toLowerCase()) < 0) return false;
       }
       return true;
     }
@@ -463,10 +815,7 @@ JS = """
     resetBtn.addEventListener("click", function () {
       sorts = [];
       closePanel();
-      Object.keys(filterState).forEach(function (col) {
-        var st = filterState[col];
-        Object.keys(st).forEach(function (k) { delete st[k]; });
-      });
+      clearFilters();
       Array.prototype.forEach.call(fr.cells, function (c) {
         if (c.firstChild && c.firstChild._sync) c.firstChild._sync();
       });
@@ -474,25 +823,312 @@ JS = """
       for (var i = 0; i < ncols; i++) baseOrder.push(i);
       var body = tbl.tBodies[0];
       original.forEach(function (r) { body.appendChild(r); });
+      if (resetFrontier) resetFrontier();
       marks(); reorder(); refilter();
     });
+    // Frontier controls (practice 47). Any table with a Frontier column
+    // gets the axis pull-down, from the engine alone: the printed ✓/—
+    // marks (the generating model's own full-precision computation) are
+    // the default view, so no table metadata is required. On a custom
+    // pick the Pareto set is recomputed here, from the DISPLAYED
+    // (rounded) values, and the marks are rewritten to match. Every
+    // non-frontier column is offered: numeric axes take a reader-set
+    // better-direction (↓/↑), text columns rank as ordinal axes by a
+    // reader-draggable value order; an optional data-frontier spec (see
+    // the module docstring) curates that -- fixed directions, input
+    // tags, default axes, a partition column judged separately -- but
+    // never gates it.
     var fscan = -1;
     Array.prototype.forEach.call(hrow.cells, function (th, i) {
       if (fscan < 0 && /^frontier/i.test(th.textContent.trim())) fscan = i;
     });
-    if (fscan >= 0) {
-      frontierOnly = true;
-      var frBtn = document.createElement("button");
-      frBtn.textContent = "Frontier only";
-      frBtn.setAttribute("aria-pressed", "true");
-      frBtn.title = "Toggle between the frontier rows and all rows";
-      frBtn.addEventListener("click", function () {
-        frontierOnly = !frontierOnly;
-        frBtn.setAttribute("aria-pressed", String(frontierOnly));
-        frBtn.textContent = frontierOnly ? "Frontier only" : "All rows";
-        refilter();
+    function parseSpec(txt) {
+      var s = { rank: [], defaults: [], inputs: [], partition: null,
+                generic: false };
+      txt.split("|").forEach(function (part) {
+        var eq = part.indexOf("=");
+        if (eq < 0) return;
+        var key = part.slice(0, eq).trim(), val = part.slice(eq + 1).trim();
+        if (key === "inputs") {
+          s.inputs = val.split(",").map(function (v) { return v.trim(); });
+        } else if (key === "partition") {
+          s.partition = val;
+        } else if (key === "default" || key === "rank") {
+          val.split(",").forEach(function (v) {
+            var c = v.lastIndexOf(":");
+            if (c < 0) return;
+            var ax = { label: v.slice(0, c).trim(),
+                       dir: v.slice(c + 1).trim() };
+            if (colByLabel[ax.label] === undefined) return;
+            ax.col = colByLabel[ax.label];
+            s.rank.push(ax);
+            if (key === "default") s.defaults.push(ax.label);
+          });
+        }
       });
-      bar.insertBefore(frBtn, multiBtn);
+      return s;
+    }
+    function augmentSpec(s, fCol) {
+      // EVERY non-frontier column is offered, spec or no spec (the spec
+      // refines -- fixed directions, default axes, input tags -- never
+      // gates). Spec-named axes keep their fixed directions; every other
+      // numeric column gets a reader-set ↓/↑ (default: lower is
+      // better); a TEXT column becomes an ordinal axis ranked by its
+      // value list, which the reader drags into best→worst order (only
+      // one too varied to enumerate stays unrankable). Spec-declared
+      // inputs are tagged in the list but stay selectable.
+      var named = {};
+      s.rank.forEach(function (a) {
+        named[a.label] = 1;
+        a.kind = "num";
+        a.fixed = true;
+      });
+      s.unrankable = [];
+      Array.prototype.forEach.call(hrow.cells, function (th) {
+        var col = +th.dataset.col;
+        if (col === fCol) return;
+        var label = th.textContent.trim();
+        if (named[label]) return;
+        var meta = colMeta(col);
+        var ax = { label: label, col: col, fixed: false,
+                   isInput: s.inputs.indexOf(label) >= 0 };
+        if (meta.numeric) {
+          ax.kind = "num";
+          ax.dir = "min";
+        } else {
+          var order = meta.names.filter(function (v) {
+            return v !== "" && v !== "—";
+          });
+          if (order.length < 1 || order.length > 60) {
+            s.unrankable.push(label);
+            return;
+          }
+          ax.kind = "ord";
+          ax.order = order;
+          ax.order0 = order.slice();
+        }
+        s.rank.push(ax);
+      });
+      return s;
+    }
+    var spec = null;
+    if (fscan >= 0) {
+      var fCol = +hrow.cells[fscan].dataset.col;
+      spec = tbl.dataset.frontier ? parseSpec(tbl.dataset.frontier)
+        : { rank: [], defaults: [], inputs: [], partition: null,
+            generic: true };
+      augmentSpec(spec, fCol);
+    }
+    if (spec && spec.rank.length) {
+      frontierOnly = true;
+      var frOrig = original.map(function (r) {
+        var c = cellOf(r, fCol);
+        return c ? c.textContent : "";
+      });
+      var axisOn = {};
+      spec.defaults.forEach(function (l) { axisOn[l] = 1; });
+      function selAxes() {
+        return spec.rank.filter(function (a) { return axisOn[a.label]; });
+      }
+      function isDefaultSel() {
+        var on = selAxes();
+        return on.length === spec.defaults.length &&
+          spec.defaults.every(function (l) { return axisOn[l]; });
+      }
+      var AXWORST = 9e15;  // missing/unparseable: worst on any axis
+      function axVal(cell, a) {
+        if (!cell) return AXWORST;
+        var t = cellText(cell).trim();
+        if (t === "" || t === "—") return AXWORST;
+        if (a.kind === "ord") {
+          // Ordinal axis: the reader-ordered value list IS the scale
+          // (position 0 = best).
+          var i = a.order.indexOf(t);
+          return i < 0 ? AXWORST : i;
+        }
+        var k = keyOf(cell);
+        if (k.n === null || !isFinite(k.n)) return AXWORST;
+        return a.dir === "max" ? -k.n : k.n;  // normalized: smaller = better
+      }
+      function computeFrontier(sel) {
+        var pcol = spec.partition !== null ? colByLabel[spec.partition] : undefined;
+        var vals = original.map(function (r) {
+          return sel.map(function (a) {
+            return axVal(cellOf(r, a.col), a);
+          });
+        });
+        var part = original.map(function (r) {
+          var c = pcol !== undefined ? cellOf(r, pcol) : null;
+          return c ? c.textContent.trim() : "";
+        });
+        original.forEach(function (r) { r._onfr = true; });
+        for (var i = 0; i < original.length; i++) {
+          for (var j = 0; j < original.length; j++) {
+            if (i === j || part[i] !== part[j]) continue;
+            var better = false, worse = false;
+            for (var a = 0; a < sel.length; a++) {
+              var eps = 1e-9 * (1 + Math.min(Math.abs(vals[i][a]), 1e12));
+              if (vals[j][a] < vals[i][a] - eps) better = true;
+              else if (vals[j][a] > vals[i][a] + eps) worse = true;
+            }
+            if (better && !worse) { original[i]._onfr = false; break; }
+          }
+        }
+      }
+      var axBtn = document.createElement("button");
+      axBtn.title = "Choose the columns the frontier is computed on " +
+        "(inputs are identified in the list but not rankable)";
+      function frSync() {
+        var n = selAxes().length;
+        axBtn.textContent = !frontierOnly ? "All rows ▾"
+          : "Frontier: " + (isDefaultSel() ? "default ▾"
+            : n + (n === 1 ? " axis ▾" : " axes ▾"));
+        axBtn.setAttribute("aria-pressed", String(frontierOnly));
+      }
+      function applyFrontier() {
+        if (isDefaultSel()) {
+          original.forEach(function (r, i) {
+            var c = cellOf(r, fCol);
+            if (c) c.textContent = frOrig[i];
+          });
+        } else {
+          computeFrontier(selAxes());
+          original.forEach(function (r) {
+            var c = cellOf(r, fCol);
+            if (c) c.textContent = r._onfr ? "✓" : "—";
+          });
+        }
+        frSync(); refilter();
+      }
+      applyFrontierRef = applyFrontier;
+      resetFrontier = function () {
+        Object.keys(axisOn).forEach(function (k) { delete axisOn[k]; });
+        spec.defaults.forEach(function (l) { axisOn[l] = 1; });
+        spec.rank.forEach(function (a) {
+          if (!a.fixed && a.kind === "num") a.dir = "min";
+          if (a.kind === "ord") a.order = a.order0.slice();
+        });
+        frontierOnly = true;
+        applyFrontier();
+      };
+      axBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (openPanel && openPanel._btn === axBtn) { closePanel(); return; }
+        closePanel();
+        var p = document.createElement("div");
+        p.className = "fpanel";
+        p._btn = axBtn;
+        p.addEventListener("click", function (ev) { ev.stopPropagation(); });
+        var allLab = document.createElement("label");
+        allLab.className = "fall";
+        var allCb = document.createElement("input");
+        allCb.type = "checkbox";
+        allCb.checked = !frontierOnly;
+        allCb.addEventListener("change", function () {
+          frontierOnly = !allCb.checked;
+          applyFrontier();
+        });
+        allLab.appendChild(allCb);
+        allLab.appendChild(document.createTextNode("All rows (no frontier filter)"));
+        p.appendChild(allLab);
+        function ordList(a) {
+          // The ordinal axis's value list, best first; drag a value to
+          // re-rank -- the order is the axis (the same order the
+          // column's filter dropdown edits). Drag mechanics: wireOrdDrag.
+          var list = document.createElement("div");
+          list.className = "ordlist";
+          a.order.forEach(function (v) {
+            var it = document.createElement("div");
+            it.className = "orditem";
+            var tx = document.createElement("span");
+            tx.className = "ordtext";
+            tx.textContent = v;
+            it.appendChild(tx);
+            it.appendChild(makeGrip());
+            it.title = "Drag to re-rank (top = best)";
+            it._val = v;
+            wireOrdDrag(it, it, list, a);
+            list.appendChild(it);
+          });
+          return list;
+        }
+        spec.rank.forEach(function (a) {
+          var lab = document.createElement("label");
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = !!axisOn[a.label];
+          var sub = null;  // ordinal value list, shown while checked
+          cb.addEventListener("change", function () {
+            if (cb.checked) { axisOn[a.label] = 1; frontierOnly = true; }
+            else delete axisOn[a.label];
+            if (sub) sub.hidden = !cb.checked;
+            allCb.checked = !frontierOnly;
+            applyFrontier();
+          });
+          lab.appendChild(cb);
+          var tag = a.isInput ? " (input)" : "";
+          if (a.kind === "ord") {
+            lab.title = "Text column — ranked by its value order below (top = best)";
+            lab.appendChild(document.createTextNode(a.label + tag + " ⇅"));
+            p.appendChild(lab);
+            sub = ordList(a);
+            sub.hidden = !cb.checked;
+            p.appendChild(sub);
+          } else if (a.fixed) {
+            lab.title = a.dir === "max" ? "Higher is better" : "Lower is better";
+            lab.appendChild(document.createTextNode(
+              a.label + tag + " " + (a.dir === "max" ? "↑" : "↓")
+              + (spec.defaults.indexOf(a.label) >= 0 ? " (default)" : "")));
+            p.appendChild(lab);
+          } else {
+            // Reader-set direction: a small ↓/↑ toggle per axis.
+            lab.appendChild(document.createTextNode(a.label + tag + " "));
+            var dirBtn = document.createElement("button");
+            dirBtn.type = "button";
+            dirBtn.className = "dirbtn";
+            dirBtn.textContent = a.dir === "max" ? "↑" : "↓";
+            dirBtn.title = "Better-direction for this axis: ↓ lower is better, ↑ higher — click to flip";
+            dirBtn.addEventListener("click", function (ev) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              a.dir = a.dir === "max" ? "min" : "max";
+              dirBtn.textContent = a.dir === "max" ? "↑" : "↓";
+              if (axisOn[a.label]) applyFrontier();
+            });
+            lab.appendChild(dirBtn);
+            p.appendChild(lab);
+          }
+        });
+        if (spec.unrankable.length || spec.partition) {
+          var note = document.createElement("div");
+          note.className = "fnote";
+          note.textContent =
+            (spec.unrankable.length
+              ? "Not rankable (too many distinct values): " +
+                spec.unrankable.join(", ") + ". "
+              : "")
+            + (spec.partition
+              ? "Each " + spec.partition + " value is judged separately."
+              : "");
+          p.appendChild(note);
+        }
+        var note2 = document.createElement("div");
+        note2.className = "fnote";
+        note2.textContent = (spec.generic
+          ? "No axes picked = the document's printed marks. "
+          : "Default marks are the model's, at full precision. ")
+          + "A pick recomputes ✓/— from the values shown; " +
+          "↓/↑ sets a number column's better-direction, and a text " +
+          "column ranks by its value order (drag, top = best).";
+        p.appendChild(note2);
+        var r = axBtn.getBoundingClientRect();
+        p.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 330)) + "px";
+        p.style.top = (r.bottom + 2) + "px";
+        document.body.appendChild(p);
+        openPanel = p;
+      });
+      bar.insertBefore(axBtn, multiBtn);
+      frSync();
     }
     if (viewNames.length > 1) {
       var vLab = document.createElement("label");
@@ -503,10 +1139,7 @@ JS = """
       vCb.type = "checkbox";
       vCb.addEventListener("change", function () {
         setView(viewNames[vCb.checked ? 1 : 0]);
-        Object.keys(filterState).forEach(function (col) {
-          var st = filterState[col];
-          Object.keys(st).forEach(function (k) { delete st[k]; });
-        });
+        clearFilters();
         Array.prototype.forEach.call(fr.cells, function (c) {
           if (c.firstChild && c.firstChild._sync) c.firstChild._sync();
         });
@@ -520,9 +1153,9 @@ JS = """
     bar.appendChild(count);
     Array.prototype.forEach.call(hrow.cells, function (th) {
       th.tabIndex = 0;
-      th.draggable = true;
       th.title = "Click to sort; shift-click (or Multi-sort) adds this as a secondary key · drag to move this column";
       function onSort(ev) {
+        if (th._justDragged) return;
         var col = +th.dataset.col;
         var found = sorts.findIndex(function (s) { return s.col === col; });
         if ((ev.shiftKey || multi) && sorts.length) {
@@ -537,24 +1170,54 @@ JS = """
       th.addEventListener("keydown", function (ev) {
         if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); onSort(ev); }
       });
-      th.addEventListener("dragstart", function (ev) {
-        ev.dataTransfer.setData("text/plain", String(th.dataset.col));
-        ev.dataTransfer.effectAllowed = "move";
-      });
-      th.addEventListener("dragover", function (ev) { ev.preventDefault(); });
-      th.addEventListener("drop", function (ev) {
-        ev.preventDefault();
-        var from = parseInt(ev.dataTransfer.getData("text/plain"), 10);
-        var to = +th.dataset.col;
-        if (isNaN(from) || from === to) return;
-        var fi = baseOrder.indexOf(from), ti = baseOrder.indexOf(to);
-        if (fi < 0 || ti < 0) return;
-        baseOrder.splice(fi, 1);
-        baseOrder.splice(ti, 0, from);
-        reorder(); refilter();
+      // Column move by POINTER drag (native HTML5 DnD is blocked in
+      // sandboxed viewers): a real drag starts only past a small
+      // movement threshold, so plain clicks still sort; the column
+      // relocates live as the pointer crosses other headers.
+      th.addEventListener("pointerdown", function (ev) {
+        if (ev.button !== 0 && ev.pointerType === "mouse") return;
+        var sx = ev.clientX, sy = ev.clientY, dragging = false;
+        // Listeners on document, no pointer capture: reorder() moves
+        // the th in the DOM, and a captured element loses its capture
+        // (and the drag) the moment it is re-inserted.
+        function move(e) {
+          if (!dragging &&
+              Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 6) {
+            dragging = true;
+            th.classList.add("dragging");
+          }
+          if (!dragging) return;
+          var el = document.elementFromPoint(e.clientX, e.clientY);
+          var tgt = el && el.closest ? el.closest("th") : null;
+          if (!tgt || tgt === th || tgt.parentNode !== hrow) return;
+          var from = +th.dataset.col, to = +tgt.dataset.col;
+          var fi = baseOrder.indexOf(from), ti = baseOrder.indexOf(to);
+          if (fi < 0 || ti < 0) return;
+          baseOrder.splice(fi, 1);
+          baseOrder.splice(ti, 0, from);
+          reorder(); refilter();
+        }
+        function up() {
+          document.removeEventListener("pointermove", move);
+          document.removeEventListener("pointerup", up);
+          document.removeEventListener("pointercancel", up);
+          th.classList.remove("dragging");
+          if (dragging) {
+            th._justDragged = true;
+            setTimeout(function () { th._justDragged = false; }, 0);
+          }
+        }
+        document.addEventListener("pointermove", move);
+        document.addEventListener("pointerup", up);
+        document.addEventListener("pointercancel", up);
       });
     });
+    alignColumns();
     refilter();
+    if (document.fonts && document.fonts.ready) {
+      // Web fonts change glyph widths; re-measure once they are in.
+      document.fonts.ready.then(alignColumns);
+    }
   });
 })();
 """
@@ -592,6 +1255,18 @@ def rewrite_links(body, src_dir):
             return m.group(0)
         return f'href="{LINK_BASE}{rel.as_posix()}"' 
     return re.sub(r'href="([^"]+)"', sub, body)
+
+
+def _wire_frontier_specs(body):
+    """Attach each <!--frontier: ...--> spec comment (see the module
+    docstring) to the table that follows it as a data-frontier attribute
+    the table script reads. Run after the tablewrap wrapping."""
+    def sub(m):
+        spec = html_mod.escape(" ".join(m.group(1).split()), quote=True)
+        return f'<div class="tablewrap"><table data-frontier="{spec}">'
+    return re.sub(
+        r'<!--frontier:\s*(.*?)\s*-->\s*<div class="tablewrap"><table>',
+        sub, body, flags=re.S)
 
 
 def _wire_note_backlinks(body):
@@ -634,6 +1309,7 @@ def render(src, out_path, title):
     # wide-table wrapper + prose-width class for the small tables
     body = body.replace("<table>", '<div class="tablewrap"><table>')
     body = body.replace("</table>", "</table></div>")
+    body = _wire_frontier_specs(body)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     body = body.replace(
         "</h1>", f'</h1>\n<div class="renderstamp">Built {stamp}</div>', 1)
