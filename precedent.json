@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "_comment": [
+    "The practice sources in force in this repository. Precedent is its own",
+    "consumer: the universal set it publishes is the set it runs on.",
+    "A shared repository may declare universal and team sources ONLY -- a",
+    "person's individual set is declared in their own user-level config, so",
+    "that naming it here cannot leak its existence to everyone on the team.",
+    "See tools/precedent_resolve.py for the resolution and precedence rules."
+  ],
+  "sources": [
+    {
+      "level": "universal",
+      "name": "precedent",
+      "path": "."
+    }
+  ]
+}

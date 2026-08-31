@@ -774,6 +774,249 @@ def check_leak_gate_fires():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_source_precedence():
+    """Three sources resolved by a consumer repo, and the precedence rules
+    asserted as stated cases (PRACTICE_ENGINE_PLAN.md, phase-3 done-when: "a
+    consumer repo resolves all three and precedence is tested").
+
+    WHY THE FIXTURE IS BUILT IN A TEMPORARY DIRECTORY AND NOT COMMITTED.
+    Levels are repositories, not directories. A committed fixture holding a
+    team- or individual-shaped tree inside Precedent is exactly the shortcut
+    the plan forbids and the leak gate refuses by path -- and a check whose
+    setup requires switching off another check is a check that ends up
+    switching it off. The fixture practices below are invented, and exist
+    only for the length of this function.
+
+    EACH CASE IS A RULE FROM THE PLAN, NOT A RESTATEMENT OF THE RESOLVER.
+    They are written from "Precedence, and the One Case Where the Individual
+    Does Not Win" and from "One Individual Set per Person": what SHOULD
+    happen, so the check disagrees with the resolver when the resolver is
+    wrong rather than agreeing with it by construction."""
+    import shutil, tempfile
+
+    def practice(d, slug, *, level_note, severity='default', overrides='null',
+                 status='active'):
+        (d / 'practices').mkdir(parents=True, exist_ok=True)
+        (d / 'practices' / f'{slug}.md').write_text(
+            f"---\nslug:        {slug}\ntitle:       {slug}\n"
+            f"tier:        on-demand\nseverity:    {severity}\n"
+            f'applies_to:  ["**"]\noccasion:    "a fixture occasion"\n'
+            f'index_clause: "a fixture clause"\nchecked_by:  null\n'
+            f"defines:     []\nstatus:      {status}\nsupersedes:  []\n"
+            f"overrides:   {overrides}\nadded:       null\n"
+            f'approved_by: "fixture"\n---\n'
+            f"## Rule\n{level_note}\n\n## Detail\n\n## Why\n\n"
+            f"## Story\n\n## Install\n", encoding='utf-8')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-resolve-'))
+    try:
+        consumer = tmp / 'a-project'
+        universal, team, individual = tmp / 'u', tmp / 't', tmp / 'i'
+        (consumer).mkdir()
+
+        practice(universal, 'shared-slug', level_note='universal wins nothing')
+        practice(universal, 'universal-only', level_note='only here')
+        practice(universal, 'house-style', level_note='what we ship',
+                 severity='blocking')
+        practice(universal, 'retired-one', level_note='gone', status='retired')
+        practice(team, 'shared-slug', level_note='team beats universal')
+        practice(team, 'team-only', level_note='only here')
+        practice(team, 'client-tone', level_note='always formal',
+                 severity='blocking')
+        practice(individual, 'shared-slug', level_note='individual beats team')
+        practice(individual, 'individual-only', level_note='only here')
+        practice(individual, 'casual-tone', level_note='keep it casual',
+                 overrides='client-tone')
+        practice(individual, 'my-own-name', level_note='replaces team-only',
+                 overrides='team-only')
+        practice(individual, 'house-style', level_note='my own house style')
+
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(universal)},
+                        {'level': 'team', 'name': 'precedent-team-fixture',
+                         'path': str(team)}]}), encoding='utf-8')
+        user_cfg = tmp / 'user.json'
+        user_cfg.write_text(json.dumps({
+            'format_version': 1,
+            'individual': {'name': 'precedent-individual',
+                           'path': str(individual)}}), encoding='utf-8')
+
+        def run(*extra):
+            r = subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                 '--repo', str(consumer), '--user-config', str(user_cfg),
+                 '--json', *extra],
+                capture_output=True, text=True)
+            return r.returncode, r.stdout, r.stderr
+
+        rc, out, _err = run()
+        if rc != 0:
+            check('source precedence (three sources resolved by a consumer repo)',
+                  False, f'precedent_resolve.py exited {rc}')
+            return
+        data = json.loads(out)
+        by_slug = {p['slug']: p for p in data['practices']}
+        cases = []
+
+        # all three sources are actually in play
+        cases.append(('all three sources resolve',
+                      {s['level'] for s in data['sources']}
+                      == {'universal', 'team', 'individual'}))
+        # precedence: individual > team > universal, on one shared slug
+        cases.append(('individual beats team beats universal on a shared slug',
+                      by_slug.get('shared-slug', {}).get('level') == 'individual'))
+        # everything unique to a level survives
+        for slug, level in (('universal-only', 'universal'),
+                            ('individual-only', 'individual')):
+            cases.append((f'{slug} survives from {level}',
+                          by_slug.get(slug, {}).get('level') == level))
+        # the one case the individual does NOT win
+        cases.append(('a blocking universal practice is not overridden by the '
+                      'individual', by_slug.get('house-style', {}).get('level')
+                      == 'universal'))
+        cases.append(('a blocking team practice is not overridden by an '
+                      '`overrides:` from the individual',
+                      by_slug.get('client-tone', {}).get('level') == 'team'))
+        cases.append(('the refusal is reported, not silent',
+                      {b['slug'] for b in data['blocked']}
+                      == {'house-style', 'client-tone'}))
+        # `overrides:` naming a differently-named lower slug: the named
+        # practice leaves the set, and the one naming it enters. Without a
+        # non-blocking case here, deleting the whole `overrides:` branch still
+        # passed -- the two blocking cases pass either way, because a refused
+        # override and an ignored one look identical from outside.
+        cases.append(('an `overrides:` removes the lower practice it names',
+                      'team-only' not in by_slug))
+        cases.append(('and the practice doing the overriding enters the set',
+                      by_slug.get('my-own-name', {}).get('level') == 'individual'))
+        cases.append(('the override is reported',
+                      any(s['slug'] == 'team-only' for s in data['overridden'])))
+        cases.append(('an overriding practice still enters the set itself',
+                      'casual-tone' in by_slug))
+        # lifecycle: a retired practice is resolvable but not in force
+        cases.append(('a retired practice is not in force',
+                      'retired-one' not in by_slug))
+
+        # a shared repo may not name someone's individual set
+        leaky = tmp / 'leaky-project'
+        leaky.mkdir()
+        (leaky / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'individual', 'name': 'precedent-individual',
+                         'path': str(individual)}]}), encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+             '--repo', str(leaky), '--user-config', str(user_cfg)],
+            capture_output=True, text=True)
+        cases.append(('a shared repo declaring an individual source is refused',
+                      r.returncode == 1 and 'individual source' in
+                      (r.stdout + r.stderr)))
+
+        # degrade gracefully: the individual set is gone (a fresh cloud session)
+        shutil.rmtree(individual)
+        rc2, out2, err2 = run()
+        data2 = json.loads(out2) if rc2 == 0 else {}
+        cases.append(('a missing individual set degrades instead of failing',
+                      rc2 == 0))
+        cases.append(('and says so rather than pretending it was applied',
+                      'individual' in err2 and 'not in force' in err2))
+        cases.append(('and the team and universal practices still resolve',
+                      {p['slug'] for p in data2.get('practices', [])}
+                      >= {'team-only', 'universal-only', 'client-tone'}))
+        cases.append(('--strict makes a missing source fatal',
+                      run('--strict')[0] == 1))
+
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  precedence did NOT behave as stated: {name}")
+        check(f'source precedence ({len(cases)} stated cases: a consumer repo '
+              f'resolves universal + team + individual, blocking wins over '
+              f'precedence, a missing set degrades)', ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+EXAMPLE_SET = ROOT / 'examples' / 'practice-set'
+
+
+def check_example_set():
+    """The shipped example set is real, parseable, and resolvable.
+
+    The plan ships an example set so an adopter can see what a personal set
+    looks like without being shown a real one. An example that has quietly
+    stopped matching the format is worse than none: it is the first thing
+    someone copies. So it is held to the same parser the catalogue uses, and
+    it is actually resolved -- if `overrides:` or the section list changes
+    underneath it, this fails rather than the example silently teaching the
+    old shape."""
+    if not EXAMPLE_SET.is_dir():
+        not_applicable('example practice set',
+                       f'{EXAMPLE_SET.relative_to(ROOT)} does not exist')
+        return
+    ok = True
+    files = sorted((EXAMPLE_SET / 'practices').glob('*.md'))
+    if not files:
+        check('example practice set', False, 'the example set holds no practices')
+        return
+    for f in files:
+        try:
+            fm, sections = sp._read_practice_file(f)
+        except sp.PracticeFileError as e:
+            ok = False
+            print(f"  {e}")
+            continue
+        if fm.get('slug') != f.stem:
+            ok = False
+            print(f"  {f.name}: frontmatter slug {fm.get('slug')!r} does not match "
+                  f"the filename")
+        missing = [s for s in SECTION_ORDER if s not in sections]
+        if missing:
+            ok = False
+            print(f"  {f.name}: missing section(s) {', '.join(missing)} -- an "
+                  f"example that has drifted from the format teaches the wrong "
+                  f"shape to whoever copies it")
+        if not (sections.get('rule') or '').strip():
+            ok = False
+            print(f"  {f.name}: empty ## Rule")
+
+    # And it must actually resolve, as somebody's individual set, against
+    # this repo's universal catalogue.
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-example-'))
+    try:
+        cfg = tmp / 'user.json'
+        cfg.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'an-example-personal-set', 'path': str(EXAMPLE_SET)}}),
+            encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+             '--user-config', str(cfg), '--json'], capture_output=True, text=True)
+        if r.returncode != 0:
+            ok = False
+            print(f"  the example set does not resolve: "
+                  f"{(r.stdout + r.stderr).strip().splitlines()[-1:]}")
+        else:
+            data = json.loads(r.stdout)
+            levels = {p['slug']: p['level'] for p in data['practices']}
+            if not any(l == 'individual' for l in levels.values()):
+                ok = False
+                print("  the example set resolved but contributed no practices")
+            # its one `overrides:` must still land on a universal practice that
+            # exists -- an override naming a slug nobody has is a no-op that
+            # looks like a working example.
+            if not data['overridden']:
+                ok = False
+                print("  the example set's `overrides:` did not override anything "
+                      "-- it names a universal slug that no longer exists")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check(f'example practice set ({len(files)} practices parse, match the '
+          f'format, and resolve as an individual source)', ok)
+
+
 def check_index_clauses(files):
     """The occasion index is the ONLY route to 34 of the 46 on-demand
     practices, and a session decides whether to open a practice on the
@@ -942,6 +1185,8 @@ def main():
     check_citation_integrity(files)
     check_leak_gate()
     check_leak_gate_fires()
+    check_source_precedence()
+    check_example_set()
     check_index_clauses(files)
     check_glob_semantics()
     check_generated_views_regenerate()
