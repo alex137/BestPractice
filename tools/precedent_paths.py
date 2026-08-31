@@ -124,7 +124,10 @@ def _globs(fm_applies_to):
 def load_on_demand_practices():
     out = []
     for f in sorted(PRACTICES_DIR.glob('*.md')):
-        fm, sections = sp._read_practice_file(f)
+        try:
+            fm, sections = sp._read_practice_file(f)
+        except sp.PracticeFileError as e:
+            sys.exit(f"precedent paths FAIL: {e}")
         if fm.get('tier') != 'on-demand':
             continue
         globs = _globs(fm.get('applies_to', '[]'))

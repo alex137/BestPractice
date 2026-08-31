@@ -24,7 +24,7 @@ doesn't resolve to a practices/*.md file -- this is a degrade-gracefully
 tool (personal pack fail-gracefully, generalized): a bad slug in an occasion
 index entry should be loud, not a silent empty read.
 """
-import pathlib, sys
+import pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
@@ -34,6 +34,11 @@ import split_practices as sp
 
 SECTION_FLAGS = {'--why': 'why', '--story': 'story', '--install': 'install'}
 
+# A slug is an identity, not a path. Without this, `precedent show
+# ../PRACTICES` cheerfully opened practices/../PRACTICES.md -- the whole
+# 200KB catalogue -- and died on a bare AssertionError with no message.
+SLUG_RE = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
+
 
 def main():
     args = sys.argv[1:]
@@ -42,9 +47,25 @@ def main():
         if flag in args:
             section = sec
             args = [a for a in args if a != flag]
-    slugs = [a for a in args if not a.startswith('--')]
+
+    # Anything still starting with "--" is a flag this tool does not know.
+    # Silently ignoring it meant `--wy` (a typo for --why) printed the Rule
+    # and exited 0 -- the caller gets a confident answer to a question it
+    # did not ask, which is exactly the silent failure this tool's whole
+    # reason for existing is to avoid.
+    unknown = [a for a in args if a.startswith('--')]
+    if unknown:
+        sys.exit(f"precedent show FAIL: unknown option(s) {', '.join(unknown)} -- "
+                 f"known options are {', '.join(sorted(SECTION_FLAGS))}.")
+
+    slugs = args
     if not slugs:
         sys.exit(__doc__)
+
+    malformed = [s for s in slugs if not SLUG_RE.match(s)]
+    if malformed:
+        sys.exit(f"precedent show FAIL: not valid slug(s): {', '.join(malformed)} -- "
+                 f"a slug is lowercase, hyphenated, and names a practice, not a path.")
 
     out = []
     missing = []
@@ -53,7 +74,10 @@ def main():
         if not path.exists():
             missing.append(slug)
             continue
-        _fm, sections = sp._read_practice_file(path)
+        try:
+            _fm, sections = sp._read_practice_file(path)
+        except sp.PracticeFileError as e:
+            sys.exit(f"precedent show FAIL: {e}")
         body = sections.get(section, '').strip()
         out.append(f"### {slug}\n{body if body else '(no ' + section + ' recorded yet)'}")
 

@@ -78,7 +78,26 @@ import json, pathlib, re, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CATALOGUE = ROOT / 'PRACTICES.md'
 PRACTICES_DIR = ROOT / 'practices'
-METADATA = json.loads((ROOT / 'tools' / 'practice_metadata.json').read_text(encoding='utf-8'))['practices']
+METADATA_PATH = ROOT / 'tools' / 'practice_metadata.json'
+
+
+def load_metadata():
+    """Loaded on demand, not at import. Only `split` uses it, but every
+    tool in this directory imports this module -- including
+    precedent_show.py, which is the RUNTIME path an agent loads a practice
+    through. A corrupt or missing build-time metadata file used to take
+    that down with a raw json.decoder traceback at import time, which is
+    neither graceful nor informative."""
+    try:
+        raw = METADATA_PATH.read_text(encoding='utf-8')
+    except OSError as e:
+        sys.exit(f"split FAIL: cannot read {METADATA_PATH}: {e}")
+    try:
+        return json.loads(raw)['practices']
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        sys.exit(f"split FAIL: {METADATA_PATH} is not valid practice metadata "
+                 f"({type(e).__name__}: {e}) -- expected a JSON object with a "
+                 f"'practices' key.")
 
 HEADER_RE = re.compile(r'^## (\d+)\. (.+)$')
 LABEL_RE = re.compile(r'^\*\*([A-Za-z][^*]{0,60}?)[.:]\*\*\s*(.*)$', re.DOTALL)
@@ -238,19 +257,44 @@ def cmd_split(force=False):
                  f"Re-splitting would overwrite phase-2 curation (tier: resident, defines:, "
                  f"any hand-edit) with phase-1 defaults -- pass --force if you really mean "
                  f"a from-scratch reconversion.")
+    metadata = load_metadata()
     text = CATALOGUE.read_text(encoding='utf-8')
     practices = parse_catalogue(text)
-    PRACTICES_DIR.mkdir(exist_ok=True)
-    seen_slugs = set()
+
+    # Validate the WHOLE catalogue before writing a single file. This used
+    # to be checked inside the write loop, so a missing metadata entry for
+    # practice 39 left practices/ holding 38 files and 14 missing -- a
+    # half-converted tree, from a command that had already refused to run
+    # over a non-empty directory precisely to avoid clobbering one.
+    seen_slugs = {}
+    problems = []
     for p in practices:
-        meta = METADATA.get(p['number'])
+        meta = metadata.get(p['number'])
         if not meta:
-            sys.exit(f"split FAIL: no tools/practice_metadata.json entry for practice {p['number']} "
-                      f"({p['title']!r}) -- add one before splitting.")
-        slug = meta['slug']
+            problems.append(f"no tools/practice_metadata.json entry for practice "
+                            f"{p['number']} ({p['title']!r})")
+            continue
+        slug = meta.get('slug')
+        if not slug:
+            problems.append(f"practice {p['number']}: metadata entry has no 'slug'")
+            continue
+        for field in ('applies_to', 'occasion', 'checked_by'):
+            if field not in meta:
+                problems.append(f"practice {p['number']} ({slug}): metadata entry is "
+                                f"missing required field {field!r}")
         if slug in seen_slugs:
-            sys.exit(f"split FAIL: duplicate slug {slug!r}")
-        seen_slugs.add(slug)
+            problems.append(f"duplicate slug {slug!r} (practices {seen_slugs[slug]} "
+                            f"and {p['number']})")
+        seen_slugs[slug] = p['number']
+    if problems:
+        sys.exit("split FAIL: nothing written. "
+                 + str(len(problems)) + " metadata problem(s):\n  - "
+                 + "\n  - ".join(problems))
+
+    PRACTICES_DIR.mkdir(exist_ok=True)
+    for p in practices:
+        meta = metadata[p['number']]
+        slug = meta['slug']
         out = [_frontmatter(p, meta)]
         out.append('## Rule\n')
         out.append(p['rule'] + '\n')
@@ -267,10 +311,26 @@ def cmd_split(force=False):
 FM_FIELD_RE = re.compile(r'^([a-z_]+):\s*(.*)$')
 
 
+class PracticeFileError(ValueError):
+    """A practices/*.md file that cannot be parsed. Named and raised rather
+    than asserted: `assert` produces a bare AssertionError that does not
+    even say WHICH file, disappears entirely under `python3 -O`, and takes
+    the whole harness down with a traceback instead of a reported failure.
+    Practice files are hand-authored from phase 3 on, so a malformed one is
+    an expected input, not an impossible state."""
+
+
 def _read_practice_file(path):
     text = path.read_text(encoding='utf-8')
-    assert text.startswith('---\n')
-    end = text.index('\n---\n', 4)
+    if not text.startswith('---\n'):
+        raise PracticeFileError(
+            f"{path}: not a practice file -- it must open with a '---' "
+            f"frontmatter fence on line 1 (see spec/PRACTICE_FORMAT.md).")
+    end = text.find('\n---\n', 4)
+    if end == -1:
+        raise PracticeFileError(
+            f"{path}: frontmatter is never closed -- no '---' line after the "
+            f"opening fence (see spec/PRACTICE_FORMAT.md).")
     fm_text, body = text[4:end], text[end + 5:]
     fm = {}
     for line in fm_text.splitlines():
@@ -295,8 +355,28 @@ def _read_practice_file(path):
 
 
 def cmd_build():
-    files = sorted(PRACTICES_DIR.glob('*.md'),
-                    key=lambda p: int(_read_practice_file(p)[0]['source_practice_number']))
+    # The catalogue view is a phase-1 migration artifact: it rebuilds
+    # PRACTICES.md from the practices that came OUT of it, ordered by their
+    # original number. A practice minted fresh (a promoted team or
+    # individual one, from phase 3 on) has no source_practice_number by
+    # design -- spec/PRACTICE_FORMAT.md says so explicitly -- so name that
+    # case instead of dying on a KeyError inside a sort key.
+    unnumbered = []
+    keyed = []
+    for f in sorted(PRACTICES_DIR.glob('*.md')):
+        fm, _sections = _read_practice_file(f)
+        num = fm.get('source_practice_number')
+        if num is None:
+            unnumbered.append(f.name)
+        else:
+            keyed.append((int(num), f))
+    if unnumbered:
+        sys.exit(f"build FAIL: {len(unnumbered)} practice file(s) have no "
+                 f"source_practice_number, so they have no place in a rebuild of "
+                 f"BestPractice's numbered catalogue: {', '.join(sorted(unnumbered))}. "
+                 f"This command is the phase-1 round-trip check, not a general "
+                 f"catalogue renderer -- see spec/PRACTICE_FORMAT.md.")
+    files = [f for _num, f in sorted(keyed)]
     blocks = ['# The practice catalog']
     blocks.append('''Each practice: the **rule**, **why** (the abstracted incident that motivated
 it — every one of these was learned the expensive way in a real repo), and

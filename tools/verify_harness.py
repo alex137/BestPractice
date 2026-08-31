@@ -40,9 +40,25 @@ def not_applicable(name, reason):
 
 def load_practice_files():
     out = {}
+    broken = []
     for f in sorted(PRACTICES_DIR.glob('*.md')):
-        fm, sections = sp._read_practice_file(f)
+        try:
+            fm, sections = sp._read_practice_file(f)
+        except sp.PracticeFileError as e:
+            broken.append(str(e))
+            continue
         out[f.stem] = (fm, sections, f)
+    if broken:
+        # A malformed practice file used to abort the whole harness with a
+        # bare AssertionError traceback that did not name the file. Report
+        # it as a failed check, like everything else here, and keep going so
+        # the rest of the run still tells you what else is wrong.
+        for msg in broken:
+            print(f"  {msg}")
+        check('every practices/*.md file parses', False,
+              f"{len(broken)} unparseable practice file(s)")
+    else:
+        check('every practices/*.md file parses', True)
     return out
 
 
