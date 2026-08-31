@@ -22,18 +22,6 @@ price — carries an inline date: *as of `<date>`* when adopted, updated to
 add a review-by cadence for rules in domains known to shift. Stable internal
 conventions don't need this; their origin story (practice 5) is enough.
 
-## Why
-Age means opposite things in different domains. A convention that
-has survived years of internal use is battle-tested; a rule about an
-external platform that has sat untouched for a year may describe a world
-that no longer exists — teams whose whole craft is tracking a
-constantly-retuned external algorithm learn this the hard way, and their
-hardest-won rules decay the fastest. The date is what lets a reader apply
-the right lens. And it must be **inline**: version control does timestamp
-every line, but sessions read file *content*, not commit metadata — in a
-repo-is-the-memory system, a date that isn't in the text effectively
-doesn't exist for the session reading the rule.
-
 Three corollaries. **The date is the contributor's, not the session's:**
 an agent stamping a date uses the human contributor's local calendar date
 — the date they experienced when the fact was true or the decision was
@@ -53,6 +41,18 @@ silently when the model is upgraded under you, so it carries not just a
 date but the model it was verified against — *verified `<date>` on
 `<model>`* — and a model change is itself a re-verify trigger, not a wait
 for symptoms.
+
+## Why
+Age means opposite things in different domains. A convention that
+has survived years of internal use is battle-tested; a rule about an
+external platform that has sat untouched for a year may describe a world
+that no longer exists — teams whose whole craft is tracking a
+constantly-retuned external algorithm learn this the hard way, and their
+hardest-won rules decay the fastest. The date is what lets a reader apply
+the right lens. And it must be **inline**: version control does timestamp
+every line, but sessions read file *content*, not commit metadata — in a
+repo-is-the-memory system, a date that isn't in the text effectively
+doesn't exist for the session reading the rule.
 
 ## Story
 

@@ -54,6 +54,9 @@ together, and apply it to every member. Three policy rules with teeth:
   compared; widen it if not), and accept the mild over-precision on the
   large values as the cost of alignment.
 
+## Why
+
+## Story
 **Origin.** A competitive-comparison table printed an incumbent's
 capacity as "2 t" beside the fleet's own "2.0 t" in the same row — the
 principal flagged it as proof the table was not being read the way a
@@ -66,6 +69,7 @@ one kind. Only then did the class close, with the set-level rule above:
 every fix until it had computed the format from a single value, and the
 requirement was never a property of single values.
 
+## Install
 **Engine.** `tools/table_fmt.py` (`Qty`): the mechanism — threshold
 precision, separators, approximation and affixes — as a tiny class. A
 host repo's shim declares its kinds once (practice 50) and its emitters
@@ -92,9 +96,3 @@ browser.
 **Related.** Practice 44 (the render layer these cells land in);
 practice 33 (transformations live in code — this is its formatting
 corner); practice 50 (how the engine crosses the repo boundary).
-
-## Why
-
-## Story
-
-## Install

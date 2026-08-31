@@ -27,6 +27,13 @@ attributes come in two kinds, and both fail silently:
   you may be carrying only because they were already there.
 
 ## Why
+The asymmetry is what makes this hard to catch. A constraint you violate tends
+to produce an obviously wrong answer eventually. A choice you fail to re-open
+produces a *plausible* answer that is merely answering the base's question
+instead of yours — and the more carefully you work downstream of it, the more
+solid it looks.
+
+## Story
 One piece of work made both mistakes about the same base, in opposite
 directions, a day apart. First it computed a favourable property of a variant
 and announced a capability from it, without reading the base's own stated
@@ -36,14 +43,6 @@ job had invalidated it; it had, and the inherited choice made the whole variant
 unworkable at its intended duty cycle. The second miss was worse than the first
 because the arithmetic built on it was internally correct: the numbers
 described, in convincing detail, an operation that could not be performed.
-
-The asymmetry is what makes this hard to catch. A constraint you violate tends
-to produce an obviously wrong answer eventually. A choice you fail to re-open
-produces a *plausible* answer that is merely answering the base's question
-instead of yours — and the more carefully you work downstream of it, the more
-solid it looks.
-
-## Story
 
 ## Install
 When starting a variant, list what changed about the job — duty

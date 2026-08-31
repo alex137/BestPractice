@@ -21,22 +21,6 @@ mechanism now serves, before you call the design done. The question is not
 "could this be abused" in the abstract; it is the concrete one: **the capability
 I just built is available to whoever else shows up, so who shows up?**
 
-## Why
-**Why it needs a rule.** The mechanism is added under a benign framing —
-*"it needs to report where it is, so we can come back for it"* — and inside that
-framing nothing looks wrong. The design review then checks whether the mechanism
-works, which it does. Nobody is prompted to ask what the mechanism does for a
-party who was not in the room, because the requirement that motivated it never
-mentioned one. So the gap is not carelessness; it is that the framing of the
-requirement is also the framing of the review.
-
-**The tell:** a mechanism whose whole job is to *make something discoverable*, or
-*reachable*, or *distinguishable*, where the thing is left alone, is valuable,
-and the discovery channel is open to anyone. Locators, published identifiers,
-default-on telemetry, convenience access paths, health endpoints, indexes built
-so *you* can find your own assets — all of them work exactly as well for someone
-else.
-
 **What to do instead — three moves, in order of how much they usually buy:**
 
 1. **Invert the default from announce to answer.** The strongest fix is usually
@@ -67,10 +51,25 @@ discretion is a premium feature is often simply false — and if it is false in
 your system, that is a strong argument for making the discreet posture the
 default rather than the upsell.
 
-**Related:** practice 42(b) — compute the term whose direction is the point,
-rather than reasoning about which way it goes; here the term is the cost of the
-cautious option, and the reasoning was backwards.
+## Why
+**Why it needs a rule.** The mechanism is added under a benign framing —
+*"it needs to report where it is, so we can come back for it"* — and inside that
+framing nothing looks wrong. The design review then checks whether the mechanism
+works, which it does. Nobody is prompted to ask what the mechanism does for a
+party who was not in the room, because the requirement that motivated it never
+mentioned one. So the gap is not carelessness; it is that the framing of the
+requirement is also the framing of the review.
+
+**The tell:** a mechanism whose whole job is to *make something discoverable*, or
+*reachable*, or *distinguishable*, where the thing is left alone, is valuable,
+and the discovery channel is open to anyone. Locators, published identifiers,
+default-on telemetry, convenience access paths, health endpoints, indexes built
+so *you* can find your own assets — all of them work exactly as well for someone
+else.
 
 ## Story
 
 ## Install
+**Related:** practice 42(b) — compute the term whose direction is the point,
+rather than reasoning about which way it goes; here the term is the cost of the
+cautious option, and the reasoning was backwards.

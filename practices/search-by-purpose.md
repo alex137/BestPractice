@@ -20,6 +20,25 @@ search the repository twice: once in the vocabulary of the **mechanism** (how th
 thing works) and once in the vocabulary of the **purpose** (why it was done). Then
 make your own output findable under both.
 
+**The other half is your own output.** Everything above applies to the next
+reader looking for what you just wrote. So:
+
+1. **Name the purpose in the document**, not only the mechanism — including the
+   uses you are not writing about, so a search for those lands here.
+2. **Link the document from an index** a reader actually consults. An analysis
+   reachable only by knowing its filename is one nobody will find.
+3. **Link the prior work you found**, in both directions. The path between two
+   documents is the artifact with the shortest half-life; it is also the cheapest
+   thing to add while both are open in front of you.
+
+**Prefer a mechanical guard over a resolution to search harder.** "Search both
+vocabularies" is advice a hurried reader will skip. "A document carrying
+generated numbers must be linked from an index, checked by the linter" is a rule
+that holds while nobody is paying attention — it does not force the *right*
+search, but it guarantees the target of that search exists somewhere findable.
+Measure the backlog when you introduce the check; a non-trivial count is the
+evidence that the failure was systemic rather than one person's bad day.
+
 ## Why
 **Why one search is not enough.** Prior work is usually filed under the author's
 reason for doing it, not under the machinery it used. A search keyed on the
@@ -41,28 +60,8 @@ central to the question that someone would surely have needed it already. When a
 result says *"this wants a measurement we do not have"*, ask who else would have
 needed the same measurement, and search for **their** reason for needing it.
 
-**The other half is your own output.** Everything above applies to the next
-reader looking for what you just wrote. So:
-
-1. **Name the purpose in the document**, not only the mechanism — including the
-   uses you are not writing about, so a search for those lands here.
-2. **Link the document from an index** a reader actually consults. An analysis
-   reachable only by knowing its filename is one nobody will find.
-3. **Link the prior work you found**, in both directions. The path between two
-   documents is the artifact with the shortest half-life; it is also the cheapest
-   thing to add while both are open in front of you.
-
-**Prefer a mechanical guard over a resolution to search harder.** "Search both
-vocabularies" is advice a hurried reader will skip. "A document carrying
-generated numbers must be linked from an index, checked by the linter" is a rule
-that holds while nobody is paying attention — it does not force the *right*
-search, but it guarantees the target of that search exists somewhere findable.
-Measure the backlog when you introduce the check; a non-trivial count is the
-evidence that the failure was systemic rather than one person's bad day.
-
-**Related:** practice 25 (read the primary, not the summary) is the sibling
-failure in the *depth* direction — this one is in the *breadth* direction.
-
 ## Story
 
 ## Install
+**Related:** practice 25 (read the primary, not the summary) is the sibling
+failure in the *depth* direction — this one is in the *breadth* direction.

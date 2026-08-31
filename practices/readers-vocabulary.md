@@ -29,14 +29,6 @@ Jargon in an outward-facing document usually arrives from the
 **sources**, not from the author — and that is what makes it systematic
 rather than careless.
 
-The origin incident: a product description aimed at people who work in
-Google Docs and Notion used *forge* throughout — the self-hosted-git
-community's word for a repository hosting platform — alongside *substrate*,
-*lens*, and *stateless*. The owner's reaction was the diagnosis: "I have no
-idea what it means or where it came from." It came from the research done
-for the document days earlier. It had never been the author's word, and it
-was certainly not the reader's.
-
 Two properties generalise from that:
 
 - **The risk scales with how much research went into the document.** The
@@ -55,6 +47,13 @@ glossary. You cannot ask a prospective user to consult anything — they will
 simply stop reading.
 
 ## Story
+The origin incident: a product description aimed at people who work in
+Google Docs and Notion used *forge* throughout — the self-hosted-git
+community's word for a repository hosting platform — alongside *substrate*,
+*lens*, and *stateless*. The owner's reaction was the diagnosis: "I have no
+idea what it means or where it came from." It came from the research done
+for the document days earlier. It had never been the author's word, and it
+was certainly not the reader's.
 
 ## Install
 A vocabulary pass, run as a **separate step after drafting**,

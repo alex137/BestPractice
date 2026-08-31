@@ -35,24 +35,11 @@ messages:
   the operation succeeds as a no-op and says so.
 
 ## Why
-Two incidents in one session, one root cause. A gate chained through a
-pipe let a failing check reach the shared trunk. Then work was committed on the
-wrong branch and "published" by naming the intended branch explicitly — which
-had not moved, so the push succeeded, reported success, and left the commit
-sitting unpublished somewhere else. The session reported the work delivered.
-
 Neither command malfunctioned. Both did exactly what they were literally asked
 to do. The defect was reading *"the command ran"* as *"my intent was
 achieved"* — and the more precisely a command is targeted, the more completely
 it ignores your context, which is a virtue right up until your context is
 wrong.
-
-The second incident is the sharper one, because the misleading part was the
-*success*. A failure would have been investigated. A green line about an
-operation you did not intend gets skimmed, and the more automated the reporting,
-the more likely it is skimmed. An agent narrating its own work is especially
-exposed here: it produces the summary from the same premises that produced the
-mistake, so the summary inherits the error and reads as confirmation.
 
 Note what actually caught it: an **independent check** — a hook comparing local
 branches against the remote — not the session's own review. Self-reported
@@ -61,6 +48,18 @@ the argument for having such a check at all, and for treating its output as
 information rather than noise.
 
 ## Story
+Two incidents in one session, one root cause. A gate chained through a
+pipe let a failing check reach the shared trunk. Then work was committed on the
+wrong branch and "published" by naming the intended branch explicitly — which
+had not moved, so the push succeeded, reported success, and left the commit
+sitting unpublished somewhere else. The session reported the work delivered.
+
+The second incident is the sharper one, because the misleading part was the
+*success*. A failure would have been investigated. A green line about an
+operation you did not intend gets skimmed, and the more automated the reporting,
+the more likely it is skimmed. An agent narrating its own work is especially
+exposed here: it produces the summary from the same premises that produced the
+mistake, so the summary inherits the error and reads as confirmation.
 
 ## Install
 For each operation that matters, write the check next to the

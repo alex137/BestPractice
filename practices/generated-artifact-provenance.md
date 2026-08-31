@@ -23,6 +23,8 @@ content hash) produced it. Outputs are gitignored and marked binary in
 (force-added), alongside their manifest.
 
 ## Why
+
+## Story
 Two builds minutes apart, with different content, once had to be
 distinguished after the fact by spelunking git history. A content-derived
 code on the artifact (same content → same code) plus a committed manifest
@@ -34,8 +36,6 @@ at all** leaves every session that runs the vendored Python audits (practice
 just nowhere for the ignore rule to live. One dependent repo's check-in
 flagged exactly this after its own merge runbook kept surfacing the stray
 directory.
-
-## Story
 
 ## Install
 Pattern to apply in your builders; no portable tool (the code

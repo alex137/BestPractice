@@ -74,7 +74,10 @@ like Why and Story. Whether it belongs in the *long-run* format, folded into
 open question for phase 2 or 3 — flagging it here rather than presenting it
 as settled.
 
-**2. `## Story` is present but empty, in all 52 files, for now.** The
+**2. `## Story` is present but empty, in all 52 files, for now.** *(Superseded
+by the phase-1.5 editorial pass — see [The Editorial Re-Split](#the-editorial-re-split-phase-15)
+below. 19 of the 52 now carry a real Story. The reasoning recorded here is kept
+because it explains why phase 1 stopped where it did.)* The
 plan's Rule/Why/Story split asks for a second split beyond the mechanical
 one: separating the *incident* (Story) from the *reasoning* (Why) within
 what BestPractice calls "Why" — and the plan itself describes that step as
@@ -94,6 +97,81 @@ specifically are deferred, not lost. Splitting the 52 Story sections out by
 hand, with review, is real follow-on work; it is not blocking for phase 1's
 own done-when condition ("Practices are files; the catalogue regenerates
 byte-identically; harness passes").
+
+## The Editorial Re-Split (Phase 1.5)
+
+Phase 1's converter routed each paragraph by the bold label that opened it.
+That is lossless but not editorial, and it left the plan's headline claim
+undelivered:
+
+> "BestPractice's median practice is 38 lines; the instruction inside it is
+> three or four. Splitting removes roughly nine tenths of the resident text
+> without deleting a word."
+
+After phase 1, `## Rule` was **44%** of the catalogue, not a tenth. Sixteen
+practices had Rules over 150 words, the longest ran to 1,340, and the six
+practices whose source opens on bare prose (47–52) had their *entire* body
+land in `## Rule`, because the label walk never saw a `**Why.**` to leave on.
+`## Story` was empty in all 52.
+
+[`tools/resplit_sections.py`](../tools/resplit_sections.py) performs the
+second, editorial half — the step the plan describes as "LLM-assisted and
+human-reviewed, once per practice". The editorial judgment lives in
+[`tools/practice_metadata.json`](../tools/practice_metadata.json)'s sibling,
+`tools/section_split.json`, as **references to source paragraphs** rather than
+as rewritten text: the tool moves text by reference, so retyping a sentence
+slightly differently is not something the mechanism can do, and a reviewer can
+read the decisions on their own, apart from their effect. Every one of the 52
+is listed explicitly, and every source paragraph must be placed — a paragraph
+cannot be dropped by omission.
+
+### What it delivered, and what it did not
+
+| | after phase 1 | after phase 1.5 |
+|---|---|---|
+| `## Rule` share of the catalogue | 44% | **40%** |
+| Practices with a non-empty `## Story` | 0 | **19** |
+| Words in `## Story` (never loaded) | 0 | **2,381** |
+| Words in `## Why` (loaded only to question a practice) | 2,437 | **3,752** |
+
+**The plan's "nine tenths" estimate does not hold for this catalogue, and
+that is a finding rather than a failure of the pass.** BestPractice's
+practices carry far more genuinely *normative* text than the estimate
+assumed — numbered policy rules, worked decision procedures, sub-rules with
+their own tests. Loading a practice's Rule costs roughly 40% of its file, not
+10%. That is still a real saving, and Story and Why now hold 6,100 words that
+never enter a working session's context; it is not the saving the plan
+advertised.
+
+**The underlying reason is worth carrying into phase 3: the four-section
+format has no home for detailed normative elaboration.** A numbered list of
+policy rules is not reasoning (`Why`), not an incident (`Story`), and not
+wiring (`Install`) — so it stays in `Rule` and keeps `Rule` long. Twenty
+practices still have Rules over 150 words for exactly this reason. Either the
+format grows a fifth section, or `Rule` is understood as "everything
+normative" and the resident budget does the trimming instead. Not decided
+here.
+
+### What the pass may and may not do
+
+Content preservation is enforced, not asserted. See
+[`tools/verify_harness.py`](../tools/verify_harness.py):
+
+- **content preserved sentence-for-sentence** — every sentence of every
+  practice, against `PRACTICES.md`, in both directions.
+- **section content keeps its source order** — text may be re-homed, not
+  scrambled.
+- **markdown list structure preserved** — the sentence checks normalize
+  whitespace, so they cannot see a flattened list; this can.
+
+Byte-identical regeneration was **retired** in this pass, because it cannot
+survive a re-split by construction: moving a paragraph from Rule to Why moves
+where the rebuild emits the `**Why.**` label, so the diff is non-empty however
+faithful the move was. Its content claim is now made more strongly by the
+sentence check, and its ordering claim by the source-order check. A check that
+fails on correct work gets suppressed, and is then absent when something is
+actually wrong. `tools/split_practices.py build --diff` still runs; its diff is
+now expected output showing the re-split, not a defect report.
 
 ## `source_practice_number`
 

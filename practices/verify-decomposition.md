@@ -19,12 +19,6 @@ source_practice_number: 42
 its answer looks reasonable. Two failure modes exploit the gap, and both are
 invisible to the checks people usually run.
 
-**(a) A plausible total can hide errors that cancel.** If one term is omitted and
-another is over-counted, the sum can land in exactly the range you expected, and
-every downstream figure will look sane. Re-running the model does not help: it
-reproduces its own assumptions faithfully, including the wrong ones. Nor does
-tightening the tolerance on the output — the output was never the problem.
-
 The tell is a headline number that survived several passes without anyone
 re-deriving the *parts*. Ask what each term physically pays for, and whether
 anything is charged twice or not at all: a shared budget spent by two consumers,
@@ -44,13 +38,6 @@ booked because the analysis was framed around the other actor.
    discarding it — the errors it catches recur, and a review that lives in
    someone's scratch directory protects nothing.
 
-**(b) A negative result is often a parameterisation, not a property.** A model
-answers the question its constants encode. If the levers that would relieve a
-constraint are hard-wired to baseline values, the model can only ever report the
-blocked case — and prose then promotes one parameterisation into a law of
-nature. *"X is impossible"* becomes the finding when the truth was *"X is
-impossible with these particular settings."*
-
 The tell is a negative conclusion stated without a sensitivity beside it. Before
 writing that something cannot be done, vary the inputs that would relieve it and
 report the boundary instead: the conclusion is nearly always *"blocked here,
@@ -61,11 +48,22 @@ check that asserts a negative locks the error in as an invariant and defends it
 against the next person who suspects otherwise — converting a soft mistake into
 a hard one, and putting the burden of proof on whoever is right.
 
-**Related:** practice 40 (an option you invented is not a baseline) is the same
-family one level up — there the *framing* is unexamined rather than the terms.
-
 ## Why
+**(a) A plausible total can hide errors that cancel.** If one term is omitted and
+another is over-counted, the sum can land in exactly the range you expected, and
+every downstream figure will look sane. Re-running the model does not help: it
+reproduces its own assumptions faithfully, including the wrong ones. Nor does
+tightening the tolerance on the output — the output was never the problem.
+
+**(b) A negative result is often a parameterisation, not a property.** A model
+answers the question its constants encode. If the levers that would relieve a
+constraint are hard-wired to baseline values, the model can only ever report the
+blocked case — and prose then promotes one parameterisation into a law of
+nature. *"X is impossible"* becomes the finding when the truth was *"X is
+impossible with these particular settings."*
 
 ## Story
 
 ## Install
+**Related:** practice 40 (an option you invented is not a baseline) is the same
+family one level up — there the *framing* is unexamined rather than the terms.

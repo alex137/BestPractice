@@ -1,0 +1,735 @@
+{
+  "tabular-shared-renderer": {
+    "rule": [
+      "R0",
+      "R3.s0-4"
+    ],
+    "why": [
+      "R3.s4-",
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "R1",
+      "R2",
+      "R4",
+      "I0",
+      "I1"
+    ]
+  },
+  "one-formatter-per-quantity": {
+    "rule": [
+      "R0",
+      "R1",
+      "R2",
+      "R3"
+    ],
+    "why": [],
+    "story": [
+      "R4"
+    ],
+    "install": [
+      "R5",
+      "R6",
+      "R7"
+    ]
+  },
+  "verify-decomposition": {
+    "rule": [
+      "R0",
+      "R2",
+      "R3",
+      "R4",
+      "R6",
+      "R7"
+    ],
+    "why": [
+      "R1",
+      "R5"
+    ],
+    "story": [],
+    "install": [
+      "R8"
+    ]
+  },
+  "outward-summary-discipline": {
+    "rule": [
+      "R0",
+      "R1.s0-1",
+      "R1.s2-"
+    ],
+    "why": [
+      "R1.s1-2",
+      "W0.s10-"
+    ],
+    "story": [
+      "W0.s0-10"
+    ],
+    "install": []
+  },
+  "permutation-frontier-column": {
+    "rule": [
+      "R0",
+      "R1"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "W1"
+    ]
+  },
+  "quote-discipline": {
+    "rule": [
+      "R0.s0-7",
+      "W1"
+    ],
+    "why": [
+      "W0.s3-"
+    ],
+    "story": [
+      "R0.s7-",
+      "W0.s0-3"
+    ],
+    "install": []
+  },
+  "acronyms-glossary": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "affordance-is-shared": {
+    "rule": [
+      "R0",
+      "W2",
+      "W3",
+      "W4"
+    ],
+    "why": [
+      "W0",
+      "W1"
+    ],
+    "story": [],
+    "install": [
+      "W5"
+    ]
+  },
+  "build-buy-decompose": {
+    "rule": [
+      "R0",
+      "R1",
+      "R2",
+      "R3",
+      "R4"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0",
+      "I1"
+    ]
+  },
+  "capture-gate": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "check-source-architecture": {
+    "rule": [
+      "R0",
+      "R1",
+      "W1",
+      "W2",
+      "W3"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "W4"
+    ]
+  },
+  "cite-the-incident": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "computed-numbers-in-scripts": {
+    "rule": [
+      "R0",
+      "R1",
+      "R2"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0",
+      "I1",
+      "I2"
+    ]
+  },
+  "convention-to-audit": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "deliverables-look-like-output": {
+    "rule": [
+      "R0",
+      "R1"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "W1"
+    ]
+  },
+  "doc-references-are-links": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "docs-are-current-state": {
+    "rule": [
+      "R0"
+    ],
+    "why": [],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "docs-track-models": {
+    "rule": [
+      "R0",
+      "R1",
+      "R2"
+    ],
+    "why": [
+      "W1",
+      "W2"
+    ],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "W3",
+      "I0",
+      "I1",
+      "I2",
+      "I3"
+    ]
+  },
+  "engine-plus-host-shims": {
+    "rule": [
+      "R0",
+      "R1"
+    ],
+    "why": [
+      "W0",
+      "W1"
+    ],
+    "story": [],
+    "install": [
+      "I0",
+      "I1"
+    ]
+  },
+  "environment-gotchas": {
+    "rule": [
+      "R0"
+    ],
+    "why": [],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "frame-from-audience-question": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W1"
+    ],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0",
+      "I1",
+      "I2",
+      "I3",
+      "I4"
+    ]
+  },
+  "generated-artifact-provenance": {
+    "rule": [
+      "R0"
+    ],
+    "why": [],
+    "story": [
+      "W0",
+      "W1"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "github-setup-disclosed": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "index-remembers-past": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "W1"
+    ]
+  },
+  "label-describes-content": {
+    "rule": [
+      "R0"
+    ],
+    "why": [],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "layered-practice-packs": {
+    "rule": [
+      "R0"
+    ],
+    "why": [],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "lead-with-what-it-is": {
+    "rule": [
+      "R0"
+    ],
+    "why": [],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "merge-authorization-keyword": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "merge-runbook": {
+    "rule": [
+      "R0"
+    ],
+    "why": [],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "mistakes-become-rules": {
+    "rule": [
+      "R0",
+      "W1"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "name-both-sides-of-ledger": {
+    "rule": [
+      "R0",
+      "R1"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [
+      "W1"
+    ],
+    "install": []
+  },
+  "no-rewrite-for-warnings": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0",
+      "W1",
+      "W2"
+    ],
+    "story": [],
+    "install": [
+      "I0",
+      "I1"
+    ]
+  },
+  "no-version-suffix": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "orientation-map": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "parallel-artifact-ledger": {
+    "rule": [
+      "R0"
+    ],
+    "why": [],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "pr-template-honest-gates": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "practice-export-loop": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0",
+      "I1"
+    ]
+  },
+  "quick-index": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "readers-vocabulary": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0",
+      "W2",
+      "W3",
+      "W4"
+    ],
+    "story": [
+      "W1"
+    ],
+    "install": [
+      "I0",
+      "I1",
+      "I2"
+    ]
+  },
+  "registry-source-of-truth": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0.s0-1"
+    ],
+    "story": [
+      "W0.s1-"
+    ],
+    "install": [
+      "I0"
+    ]
+  },
+  "reply-links-files": {
+    "rule": [
+      "R0",
+      "R1"
+    ],
+    "why": [],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "repo-is-memory": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "scripts-assert-properties": {
+    "rule": [
+      "R0",
+      "R1",
+      "R2",
+      "R3"
+    ],
+    "why": [
+      "W0.s0-1",
+      "W2.s1-",
+      "W4"
+    ],
+    "story": [
+      "W0.s1-",
+      "W1",
+      "W2.s0-1",
+      "W3",
+      "W5"
+    ],
+    "install": [
+      "I0",
+      "I1",
+      "I2",
+      "I3",
+      "I4"
+    ]
+  },
+  "scrub-gate": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "search-by-purpose": {
+    "rule": [
+      "R0",
+      "W3",
+      "W4",
+      "W5"
+    ],
+    "why": [
+      "W0",
+      "W1",
+      "W2"
+    ],
+    "story": [],
+    "install": [
+      "W6"
+    ]
+  },
+  "second-pass-capture": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "section-order-by-frequency": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "session-bootstrap": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0",
+      "I1"
+    ]
+  },
+  "two-check-levels": {
+    "rule": [
+      "R0"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  },
+  "variant-re-derives": {
+    "rule": [
+      "R0",
+      "R1"
+    ],
+    "why": [
+      "W1"
+    ],
+    "story": [
+      "W0"
+    ],
+    "install": [
+      "I0",
+      "I1"
+    ]
+  },
+  "verify-postcondition": {
+    "rule": [
+      "R0",
+      "R1",
+      "R2"
+    ],
+    "why": [
+      "W1",
+      "W3"
+    ],
+    "story": [
+      "W0",
+      "W2"
+    ],
+    "install": [
+      "I0",
+      "I1",
+      "I2",
+      "I3"
+    ]
+  },
+  "volatile-rules-carry-dates": {
+    "rule": [
+      "R0",
+      "W1"
+    ],
+    "why": [
+      "W0"
+    ],
+    "story": [],
+    "install": [
+      "I0"
+    ]
+  }
+}

@@ -23,6 +23,36 @@ record (with its generated tables kept live by the doc↔model sync of
 practice 33); the render is a committed build product, rebuilt after any
 edit.
 
+**The load-bearing half is singularity.** All table behavior — CSS, JS, sort
+semantics, numeric-aware sort keys — lives in **one** shared renderer with a
+registry of the documents it renders ([tools/doc_html.py](tools/doc_html.py)
+is the reference implementation). A functionality change is made there and
+only there, and the no-argument invocation rebuilds every registered render,
+so the change manifests in every table at once. The test for a new
+capability follows: it must manifest on every registered render **from the
+engine alone** — a host or per-document declaration may refine it, never
+gate it, or the "change once, upgrade everywhere" property is silently lost
+for every table that lacks the declaration. Per-document build scripts may
+survive as documented entry points, but as thin wrappers importing the
+shared `render()` — never as forks of the CSS/JS.
+
+## Why
+The failure this kills is the same one practice 33 kills for numbers: N
+copied renderers drift independently, and the oldest copy is the one a
+reader eventually trusts.
+
+**Why sortable matters enough to be a rule.** A wide cross-product table
+(say, 4 loads × 3 price points × 9 altitudes) is written in one canonical
+order, but every reader arrives with a different question — cheapest rows
+first, group by one factor, find the regime boundary in another. Static
+markdown forces the writer to guess one question and answer only it; a
+sortable render answers all of them without another build. The cheap test:
+if you catch yourself emitting the same table twice in different orders, the
+document wanted this practice.
+
+## Story
+
+## Install
 **The behavior contract.** This is what the reference implementation
 ([tools/doc_html.py](tools/doc_html.py)) delivers on every table, and what
 any reimplementation on another stack must match — it is the spec a reader
@@ -128,21 +158,6 @@ render":
     "0.45"'s. Columns whose digits appear only inside text (part
     codes, composite cells) are left alone.
 
-**The load-bearing half is singularity.** All table behavior — CSS, JS, sort
-semantics, numeric-aware sort keys — lives in **one** shared renderer with a
-registry of the documents it renders ([tools/doc_html.py](tools/doc_html.py)
-is the reference implementation). A functionality change is made there and
-only there, and the no-argument invocation rebuilds every registered render,
-so the change manifests in every table at once. The test for a new
-capability follows: it must manifest on every registered render **from the
-engine alone** — a host or per-document declaration may refine it, never
-gate it, or the "change once, upgrade everywhere" property is silently lost
-for every table that lacks the declaration. Per-document build scripts
-may survive as documented entry points, but as thin wrappers importing the
-shared `render()` — never as forks of the CSS/JS. The failure this kills is
-the same one practice 33 kills for numbers: N copied renderers drift
-independently, and the oldest copy is the one a reader eventually trusts.
-
 **Singularity crosses the repo boundary.** In a dependent repo, the
 vendored copy of the renderer **is** the implementation and the repo's own
 file is a thin host shim supplying only its document registry — the general
@@ -150,19 +165,6 @@ engine/shim rule is practice 50; this renderer is its strongest case, since
 a spec-only export of "multi-sort with pinning and filters" reimplemented
 from prose differs in a hundred details.
 
-## Why
-**Why sortable matters enough to be a rule.** A wide cross-product table
-(say, 4 loads × 3 price points × 9 altitudes) is written in one canonical
-order, but every reader arrives with a different question — cheapest rows
-first, group by one factor, find the regime boundary in another. Static
-markdown forces the writer to guess one question and answer only it; a
-sortable render answers all of them without another build. The cheap test:
-if you catch yourself emitting the same table twice in different orders, the
-document wanted this practice.
-
-## Story
-
-## Install
 One renderer module (markdown → styled HTML, tables enhanced by
 a small dependency-free script), one registry entry per document, renders
 committed next to their sources, a line in each source pointing readers at

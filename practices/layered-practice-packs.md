@@ -34,6 +34,8 @@ scrub applies). *Only in another repo running the same kind of program?* →
 the pack. *Only here?* → repo-local.
 
 ## Why
+
+## Story
 A domain program inside a dependent repo accumulated rules that
 were neither generic (they could not be published, and their vocabulary was
 all domain) nor repo-local (a second program of the same kind would need
@@ -43,8 +45,6 @@ or not, and a future split of the program into its own repo would have meant
 re-deriving which rules travel. Vendoring them as a pack made the split a
 `git mv` instead of an archaeology project — the same pre-split shaping that
 made this upstream's own extraction clean.
-
-## Story
 
 ## Install
 Vendor the pack tree at `process/<pack>/`; write

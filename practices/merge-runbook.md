@@ -26,12 +26,12 @@ audits (practice 6) must pass before the merge commits — the audit, not
 re-inspection, is what makes fast mechanical resolution safe.
 
 ## Why
+
+## Story
 Every thread in the originating repo touched the same registry and
 index files; conflicts were universal. Ad-hoc resolution was slow and once
 dropped a registry entry. Fixed rules plus a loud audit made merges fast
 *and* safer than careful manual resolution.
-
-## Story
 
 ## Install
 Runbook section in

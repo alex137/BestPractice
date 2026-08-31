@@ -21,13 +21,13 @@ written into a "do NOT rediscover these" section — with the story of what
 failed and why, not just the fix.
 
 ## Why
+
+## Story
 A build tool once failed on every input with a misleading error; two
 full sessions were lost to "this tool is broken" lore before someone found the
 one missing package. Once the fix *and the story* were written down, the
 failure never recurred — and the story is what lets a future session judge
 whether the note still applies.
-
-## Story
 
 ## Install
 A gotchas section in the instructions file

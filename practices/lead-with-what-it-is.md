@@ -22,14 +22,14 @@ about the maintenance or editing process layered on top of it. A reader
 arriving cold learns *what this is* before *how to work with it*.
 
 ## Why
+
+## Story
 A newly created project's README once opened with a sentence about
 how the project's memory lives in its repository and is edited by talking to
 an AI assistant — true of the process layer, and the very first thing a
 brand-new reader hit, before a single sentence told them what the project
 itself was. "Wait, is this an AI assistant?" is the natural, correct reaction
 to reading process-description with zero subject-matter context first.
-
-## Story
 
 ## Install
 [INSTALL.md](INSTALL.md)'s README-entry step and

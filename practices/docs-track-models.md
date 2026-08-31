@@ -34,14 +34,6 @@ When a script changes, every dependent document changes with it, in the same
 commit, by regeneration rather than by editing.
 
 ## Why
-A sync gate only guards what it can see. In the incident that produced
-this, a defective script published wrong figures into several documents; the
-generated tables were corrected automatically the moment the script was fixed,
-and the **hand-written prose statements in the same documents stayed wrong** —
-found later only by a deliberate contamination sweep. The gate had worked
-perfectly on everything it was pointed at, which is precisely why the gaps were
-invisible.
-
 Hand-applied transformations hide the same way. A metric figure typed again in
 feet is two numbers that must be maintained together and will not be; a range
 "rounded for prose" is an editorial decision with no record of which direction
@@ -52,6 +44,16 @@ artifact already sent to someone is a record of what they received and must not
 be silently regenerated — fix the source, mint a fresh copy, and let the
 distribution record show both.
 
+## Story
+A sync gate only guards what it can see. In the incident that produced
+this, a defective script published wrong figures into several documents; the
+generated tables were corrected automatically the moment the script was fixed,
+and the **hand-written prose statements in the same documents stayed wrong** —
+found later only by a deliberate contamination sweep. The gate had worked
+perfectly on everything it was pointed at, which is precisely why the gaps were
+invisible.
+
+## Install
 **Enforced, not merely stated.** Rule 2 is mechanically checkable and now is:
 a script declares the figures it owns via `owned_figures()`, returning them in
 the **exact rendered forms it produces** — value and unit, formatted as the
@@ -65,9 +67,6 @@ is the reason a naive scan for "numbers a script produced" is worthless. A
 deliberate restatement is marked `<!--owned-ok-->` on the line. Scripts that
 declare nothing are not checked; instrumentation is opt-in, per script.
 
-## Story
-
-## Install
 When wiring a document: wrap every script-derived figure, give the
 emitter an audience-appropriate form (the same numbers may want a different
 table for an internal reader and an external one — that is two emitters, not

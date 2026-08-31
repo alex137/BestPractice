@@ -30,6 +30,12 @@ the lesson is generic, **export it** (practice 14). Discuss the choice with
 the owner when it involves a judgment call — which rung, what scope, whether
 the guard is worth its cost.
 
+**Proportionality guard.** Not every slip earns a rule: the trigger is a
+systemic cause (it would recur) or real cost (rework, a wrong external
+statement, lost work). Prefer strengthening an existing rule or audit over
+minting a new one — rule-bloat is itself a failure mode, and a silent rule
+nobody agreed to is how it starts.
+
 ## Why
 Repos that only fix instances relive their mistakes with new
 surface details; the systemic cause remains free to fire again. The
@@ -41,12 +47,6 @@ the rule text is load-bearing twice over: it tells a future reader what the
 rule is protecting against (so the rule can be re-judged when the world
 changes), and it calibrates proportionality (a guard that would not have
 caught its own origin incident is theater).
-
-**Proportionality guard.** Not every slip earns a rule: the trigger is a
-systemic cause (it would recur) or real cost (rework, a wrong external
-statement, lost work). Prefer strengthening an existing rule or audit over
-minting a new one — rule-bloat is itself a failure mode, and a silent rule
-nobody agreed to is how it starts.
 
 ## Story
 

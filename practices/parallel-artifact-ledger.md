@@ -30,6 +30,8 @@ transfer because `<reason>`* — with a small **audit that fails any change
 date lacking a complete row**.
 
 ## Why
+
+## Story
 The origin incident: a session recorded a headline-level verdict
 ("this cluster is member-specific — no transfer") that was true as a headline
 and wrong for one mechanism inside it, which transferred to all three sibling
@@ -39,8 +41,6 @@ per member, so the miss was invisible until a prompted second pass (practice
 ledger kills: wrong granularity (headline vs mechanism), staleness (new
 changes inherit old verdicts), and unauditability (nothing can check what was
 never recorded).
-
-## Story
 
 ## Install
 A ledger table (date | originating change | one verdict column

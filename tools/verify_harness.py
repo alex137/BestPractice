@@ -95,69 +95,42 @@ def check_reachability(files):
     check('reachability (every on-demand practice has checked_by / narrow applies_to / occasion)', ok)
 
 
-# The build is byte-identical to PRACTICES.md except for two documented,
-# approved exceptions found while writing the converter -- both explained
-# in spec/PRACTICE_FORMAT.md and in split_practices.py's module docstring:
+# ---------------------------------------------------------------------------
+# RETIRED: byte-identical regeneration.
 #
-#  1. Practice 39's raw body in the source is followed by a stray duplicate
-#     of part of practice 34's body -- an upstream data-corruption artifact,
-#     not authored content of practice 39's own. Dropped at conversion.
-#     The duplicate is pasted MID-PARAGRAPH (it starts mid-word, on the line
-#     immediately after practice 39's Install paragraph ends, with no blank
-#     line between), so the dropped span starts at the marker itself. This
-#     exception was originally written to start at the preceding BLANK line
-#     instead, matching a converter that made the same mistake -- which
-#     deleted practice 39's whole Install paragraph and passed every check
-#     in this file, because each one compared the lossy output against a
-#     source parsed through the same lossy fixup. See
-#     check_corruption_drop_is_a_duplicate below, which tests the boundary
-#     against a property that does not depend on the boundary.
-#  2. A single extra blank line between practices 40 and 41 in the source
-#     (everywhere else in the file uses exactly one blank line between
-#     practices) -- a pre-existing whitespace-only formatting quirk,
-#     unrelated to the conversion.
-#  3. Practice 39's "**Install.**" is the only label in the whole file
-#     followed by a NEWLINE rather than a space, and cmd_build re-emits
-#     every stripped canonical label with a space. Whitespace-only, same
-#     class as (2); it only became reachable once (1) stopped deleting the
-#     paragraph that contains it.
+# Phase 1's converter was mechanical -- it routed each paragraph by the bold
+# label that opened it -- so the catalogue could be rebuilt from practices/
+# and diffed against PRACTICES.md byte for byte. That was the right proof for
+# a mechanical conversion, and it held: 52 practices, no unexplained
+# difference, modulo three documented source quirks.
 #
-# This check does not take that on faith: it reproduces exactly those three,
-# and only those three, transformations against the ORIGINAL text, and then
-# requires the rebuild to match the result exactly.
-def check_byte_identical_regeneration():
-    original = CATALOGUE.read_text(encoding='utf-8')
-    normalized = original.replace(
-        "\n\n## 41. Search by purpose", "\n## 41. Search by purpose")
-    normalized = normalized.replace(
-        "\n\n**Install.**\n[templates/pull_request_template.md.template]",
-        "\n\n**Install.** [templates/pull_request_template.md.template]")
-    # search from practice 39's own header, not from the start of the file --
-    # the marker's tail also occurs, legitimately, inside practice 34's own
-    # body ("...acquir-ES a source's vocabulary..."), earlier in the file.
-    p39_start = normalized.index('## 39. A default PR template')
-    idx = normalized.find(sp.FIXUP_39_MARKER, p39_start)
-    ok_marker_found = idx != -1
-    if ok_marker_found:
-        # the corrupted span runs from the duplicate fragment -- which starts
-        # mid-paragraph, at the marker itself, NOT at the preceding blank
-        # line (note 1 above) -- to just before "## 40.". Drop exactly that
-        # span, nothing else.
-        end_marker = "\n\n## 40. An option you invented"
-        end_idx = normalized.index(end_marker, idx)
-        normalized = normalized[:idx].rstrip('\n') + normalized[end_idx:]
-    rebuilt = sp.cmd_build()
-    ok = ok_marker_found and (normalized.rstrip('\n') + '\n') == rebuilt
-    if not ok:
-        import difflib
-        diff = list(difflib.unified_diff(
-            normalized.splitlines(keepends=True), rebuilt.splitlines(keepends=True),
-            fromfile='normalized-original', tofile='rebuilt', n=1))
-        print('  unexpected diff beyond the three documented exceptions:')
-        for line in diff[:40]:
-            print('  ' + line.rstrip('\n'))
-    check('byte-identical regeneration (modulo the three documented exceptions)', ok)
-
+# It cannot survive the phase-1.5 editorial re-split, and not because the
+# re-split is unfaithful. Re-homing a paragraph from Rule to Why moves where
+# cmd_build re-emits the "**Why.**" label, so the rebuilt catalogue differs
+# from the source however faithful the move was. A check that fails on
+# correct work is worse than no check: it gets suppressed, and then it is not
+# there when something is actually wrong.
+#
+# Its two claims are both still checked, by name, and one of them more
+# strongly than before:
+#
+#   CONTENT  -> check_content_preserved_by_sentence. Byte-identical compared
+#               a reassembly; this compares every sentence of every practice
+#               against PRACTICES.md directly, in both directions. It is
+#               strictly stronger: a single word reworded inside a Rule
+#               passes both word-multiset checks (the reworded word can
+#               lowercase to the same token) and fails this one.
+#   ORDERING -> check_section_source_order. Text may be re-homed between
+#               sections; within a section it must still appear in its
+#               original source order.
+#
+# Plus check_no_lost_content, check_list_structure_preserved and
+# check_corruption_drop_is_a_duplicate, none of which existed when
+# byte-identical was the whole story.
+#
+# tools/split_practices.py build still renders a catalogue view and
+# `build --diff` still runs -- but its diff is now expected output showing
+# the editorial re-split, not a defect report.
 
 # ---------------------------------------------------------------------------
 # Content preservation across an EDITORIAL re-split.
@@ -680,7 +653,6 @@ def main():
     files = load_practice_files()
     check_slug_set(files)
     check_reachability(files)
-    check_byte_identical_regeneration()
     original_text = CATALOGUE.read_text(encoding='utf-8')
     original_practices = {p['number']: p for p in sp.parse_catalogue(original_text)}
     check_no_invented_content(files, original_practices)

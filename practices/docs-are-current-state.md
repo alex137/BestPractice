@@ -28,14 +28,14 @@ load-bearing markers; (d) as-shipped/as-filed artifacts whose purpose is
 historical.
 
 ## Why
+
+## Story
 A working document set accreted so many added/rewritten/Rev-N
 annotations that documents read as changelogs instead of positions — and the
 annotations themselves went stale (a "Rev 3" reference outliving Rev 5, an
 "added 2026-…" tag on text three rewrites old), becoming a second drift
 surface on top of the content. The revision history was already in the VCS,
 losslessly; the in-document copy was pure liability.
-
-## Story
 
 ## Install
 State the convention in the project instructions with its

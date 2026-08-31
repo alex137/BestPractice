@@ -51,6 +51,7 @@ big new numbers read as the fix working. Neither reviewer instinct
 (does the charge match the gain? does the change move the right way?)
 catches a factor hidden in the dissipation term.
 
+## Story
 **Origin.** A feasibility gate charged a hauling agent's energy cost
 as force × the *load's* displacement rather than the agent's own
 path — exactly half, the other half leaving through a dissipative
@@ -68,7 +69,5 @@ correct accounting had existed in the program's own prose for weeks,
 written down and executable nowhere — the same lesson as the
 model-audit practice, recurring: prose does not fail a build; a
 ledger assertion does.
-
-## Story
 
 ## Install

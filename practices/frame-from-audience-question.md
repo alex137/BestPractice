@@ -25,6 +25,12 @@ the audience's question does not appear near the top, you probably skipped
 this.
 
 ## Why
+This is a specific failure of *sequence*, not of care: the more thoroughly you
+have just worked something out, the more available it is when you sit down to
+explain, and availability reads as importance. Effort spent on a component is
+not evidence that the component is the headline.
+
+## Story
 A thread had just produced a detailed body of work on one property of
 a system, and wrote the outward-facing explanation around that property. It
 was true, well-evidenced, and nearly useless to the reader, whose question was
@@ -33,13 +39,6 @@ from outside and reframed the whole document — including which limitation was
 binding, which market to lead with, and which mechanism was the strongest thing
 on offer. Nothing was wrong with the underlying work; the framing was wrong
 because it inherited the author's recent path instead of the reader's need.
-
-This is a specific failure of *sequence*, not of care: the more thoroughly you
-have just worked something out, the more available it is when you sit down to
-explain, and availability reads as importance. Effort spent on a component is
-not evidence that the component is the headline.
-
-## Story
 
 ## Install
 Before writing an outward-facing artifact, write the audience's

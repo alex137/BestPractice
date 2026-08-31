@@ -49,11 +49,10 @@ apparatus, unattributed decision references, or retirement lore fails the
 gate; record-class files (by name pattern) are exempt. The written rule says
 why; the check is what holds.
 
+## Story
+
+## Install
 **Related.** The current-state rule (git is the history) and practice 48
 (provenance lives in the index) bound what a deliverable may remember;
 practices 24–25 (quote discipline, adversarial pass) generate exactly the
 apparatus this practice routes into the record doc.
-
-## Story
-
-## Install

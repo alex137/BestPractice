@@ -72,6 +72,16 @@ Run:
                                                     # pass --force for a deliberate redo)
   python3 tools/split_practices.py build            > /tmp/PRACTICES.rebuilt.md
   python3 tools/split_practices.py build --diff      # compare rebuild vs PRACTICES.md
+
+NOTE on `build --diff`: it used to be expected to come back empty, and
+verify_harness.py gated on that. It no longer is. The phase-1.5 editorial
+re-split (tools/resplit_sections.py) moves text between Rule/Why/Story/
+Install, which moves where this command re-emits each "**Why.**" label, so
+a non-empty diff is now the normal output and shows the re-split rather than
+a defect. What proves the practice files still hold exactly BestPractice's
+content is verify_harness.py's sentence-for-sentence check against
+PRACTICES.md, which is stronger than this diff ever was and does not care
+how the sections are divided.
 """
 import json, pathlib, re, sys
 

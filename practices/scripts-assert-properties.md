@@ -41,9 +41,22 @@ instrumented list explicit so the audit can warn when a listed script has no
 assertions.
 
 ## Why
-The obvious diagnosis for a wrong computed number is a stale copy, and
-the obvious fix is a shared constants module. In the incident that produced this
-practice, both were wrong.
+The obvious diagnosis for a wrong computed number is a stale copy, and the
+obvious fix is a shared constants module.
+
+It was prose everywhere and executable nowhere, and **prose does not fail a
+build**.
+
+Generalise that: **the most carefully reasoned documents in a repository are
+often the ones checked by nothing.** They are written slowly, by whoever
+actually reasoned the thing through, and then they sit — while fast-moving
+derived artifacts get all the tooling. Driving everything from the scripts is
+the natural instinct and it is backwards here; it would have propagated the
+error faster. The document was the more reliable artifact and the more neglected
+one at the same time.
+
+## Story
+In the incident that produced this practice, both were wrong.
 
 A script published results that were out by a third at one input and by more
 than a factor of three at another; work sized from them would have been badly
@@ -56,9 +69,8 @@ the **transformation applied after import**: a scaling law applied to a quantity
 whose defining property is that it does not scale.
 
 That property was written down — in two sibling scripts' docstrings, in the
-owning script's printed output, and in the figures recited by the authoritative
-document. It was prose everywhere and executable nowhere, and **prose does not
-fail a build**.
+owning script's printed output, and in the figures recited by the
+authoritative document.
 
 The sharpest part is where the correct number actually lived. **The
 authoritative document was right and the script was wrong.** The document
@@ -68,14 +80,6 @@ derived document, because it guards *document agrees with script* and cannot
 know the script is wrong. Every artifact was internally consistent; the only
 disagreement in the repo was with the one document nothing compared against.
 
-Generalise that: **the most carefully reasoned documents in a repository are
-often the ones checked by nothing.** They are written slowly, by whoever
-actually reasoned the thing through, and then they sit — while fast-moving
-derived artifacts get all the tooling. Driving everything from the scripts is
-the natural instinct and it is backwards here; it would have propagated the
-error faster. The document was the more reliable artifact and the more neglected
-one at the same time.
-
 Two further returns showed up immediately on installing this. First, an anchor
 failed in a script written **by the same session that had just been burned by
 this exact class of error and was actively watching for it** — care did not
@@ -84,8 +88,6 @@ surface **unstated assumptions in the source documents**: one recited figure
 turned out to hold only under a qualitative condition the document never
 quantified, and the unconditional figure — the one anything must actually be
 sized to — was materially different. Neither of those is findable by reading.
-
-## Story
 
 ## Install
 Add `tools/model_audit.py`; list the scripts to instrument in its

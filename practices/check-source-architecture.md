@@ -26,13 +26,6 @@ other is described only in your own notes. If you cannot cite the alternative to
 document you did not write, you are not comparing options; you are comparing the
 system to your model of it.
 
-## Why
-**Why it evades the usual checks.** Every downstream number can be internally correct.
-The arithmetic reconciles, the units balance, the assertions pass — because the error
-is upstream of all of them, in the framing. An adversarial pass that verifies claims
-against sources will not catch it either, since the invented option has no source to
-contradict. Only going back to the primary architecture catches it.
-
 **Three questions that catch it cheaply:**
 
 1. **Can I cite the alternative?** Not "is it plausible" — *which document specifies
@@ -50,10 +43,16 @@ conclusion while keeping the invented structure leaves the same error with bette
 arithmetic. Re-derive from the source architecture, then re-cost — the corrected
 answer often inverts the original one rather than adjusting it.
 
-**Related:** practice 29 (a variant re-derives what it inherits) is the sibling
-failure — carrying forward a base's *choices* unexamined. This one is the inverse:
-introducing a distinction the base never made.
+## Why
+**Why it evades the usual checks.** Every downstream number can be internally correct.
+The arithmetic reconciles, the units balance, the assertions pass — because the error
+is upstream of all of them, in the framing. An adversarial pass that verifies claims
+against sources will not catch it either, since the invented option has no source to
+contradict. Only going back to the primary architecture catches it.
 
 ## Story
 
 ## Install
+**Related:** practice 29 (a variant re-derives what it inherits) is the sibling
+failure — carrying forward a base's *choices* unexamined. This one is the inverse:
+introducing a distinction the base never made.

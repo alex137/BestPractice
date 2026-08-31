@@ -22,15 +22,16 @@ own it. When registry and document disagree, the registry wins — and an audit
 (practice 6) detects the disagreement.
 
 ## Why
-Duplicated state always diverges. The worst version: a document
-header said one thing, the registry said another, and a builder trusted the
-registry while humans trusted the header. The fix was not "be careful" — it
-was declaring the registry the single source of truth and auditing drift.
-Corollary: **baseline snapshots** — record a content hash when state is
-declared (released, synced, approved), and the audit flags any later change
-to content whose status claims it is frozen.
+Duplicated state always diverges.
 
 ## Story
+The worst version: a document header said one thing, the registry said
+another, and a builder trusted the registry while humans trusted the header.
+The fix was not "be careful" — it was declaring the registry the single
+source of truth and auditing drift. Corollary: **baseline snapshots** —
+record a content hash when state is declared (released, synced, approved),
+and the audit flags any later change to content whose status claims it is
+frozen.
 
 ## Install
 `process/manifest.json` (see [INSTALL.md](INSTALL.md)) is itself
