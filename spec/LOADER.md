@@ -153,6 +153,61 @@ point (see "The Deep Check Audits Routing, Not Content"), and remains one
 after phase 2 — the periodic deep check, not this replay, is what the plan
 assigns to catch it, and that check is not built yet (phase 4 territory).
 
+## The premise, measured — and the pilot does not support it
+
+[tools/routing_eval.py](../tools/routing_eval.py) is the test the replay
+cannot do: whether a session shown only the resident block and the occasion
+index routes as well as one carrying all 52 practices. Ten real commits from
+this repo's history, three arms per case, the same model throughout — an
+**oracle** (all 52 Rules, asked only to classify, one case at a time: the
+answer key), a **control** (all 52 Rules, asked to do the work: the
+pre-migration arrangement), and a **treatment** (resident block + occasion
+index only: what phase 2 actually delivers).
+
+| | recall | **miss rate** | precision |
+|---|---|---|---|
+| Control — all 52 always loaded | 68% | **32%** | 72% |
+| Treatment — resident block + occasion index | 48% | **52%** | 52% |
+
+**Triggering did worse than residency, by 20 points on the measure that
+matters.** The plan is explicit about what that means: *"If triggering does
+not beat residency, the plan needs rethinking rather than building on, and
+that is far cheaper to discover at phase 2 than at phase 6."* This is that
+moment, and this document is not going to soften it.
+
+Three limits, stated because two cut against the treatment arm and one
+against the whole design:
+
+- **The treatment arm was denied the second hop.** In the real system a
+  session reads the index, *opens* the candidate practices, reads their
+  Rules, and then decides. To stop the arm reading `practices/` wholesale
+  and sidestepping the very index under test, it was scored on the first hop
+  alone — deciding from a one-line clause. That is harder than the real
+  system, and it makes **precision** unfair in particular: a real second hop
+  would filter most of the 14 false positives. The **miss** figure survives
+  the objection, because a practice never opened is never recovered.
+- **The oracle shares the control's context shape.** Both see all 52 Rules.
+  An answer key built that way may be biased toward what a full-context
+  reader notices, which flatters the control.
+- **Ten cases, one run per cell, one model.** Case c08 has the treatment arm
+  missing `repo-is-memory` and `quick-index` — both **resident**, both in its
+  context in full. That is variance, not a channel effect, and a reminder
+  that this is a pilot, not a verdict.
+
+**One diagnosis is actionable whatever the caveats.** The false positives
+cluster: `acronyms-glossary`, `docs-are-current-state` and
+`label-describes-content` appear together, wrongly, on two separate cases.
+All three sit under `When writing or editing a document:`. **The index groups
+by occasion, so a session that recognizes the occasion takes the whole
+group** rather than judging each entry. The control arm, holding the full
+Rules, ruled them out one at a time. An index that can argue *for* a practice
+and never *against* it will over-fire by construction.
+
+Re-run with `python3 tools/routing_eval.py --emit` then `--score`; the cases
+are in [evals/routing/cases.json](../evals/routing/cases.json) and the
+answers beside them.
+
+
 **Read plainly:** phase 2 proves the plumbing is correct and cheaper than
 residency, on this repo's own history. It does not prove — and the plan
 never claimed phase 2 alone would prove — that occasion-based prose routing

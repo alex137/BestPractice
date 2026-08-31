@@ -1,0 +1,15 @@
+{
+  "note": "Ten commits from BestPractice's own history, before the Precedent work began, chosen for a spread of change kinds: prose-only edits, tool changes, template additions, and lifecycle records. Each is a moment where a session was about to do real work and some subset of the catalogue genuinely applied.",
+  "cases": [
+    {"id": "c01", "commit": "87e7812", "task": "Clarify the README: it should capture intention and thinking rather than reading as a document-editing tool."},
+    {"id": "c02", "commit": "cbfb0ed", "task": "Fix phrasing in the install documentation that implied approving a change isn't real work."},
+    {"id": "c03", "commit": "105a01e", "task": "Correct INSTALL.md: the approval moment is the review-and-merge, not step 7."},
+    {"id": "c04", "commit": "2d0a4d2", "task": "Add a baseline .gitignore, installed at the repo root, covering tool and interpreter caches."},
+    {"id": "c05", "commit": "dfc235d", "task": "Make checkin.py's freshness check emit an automated upstream staleness notice, while taking the update stays a deliberate human act."},
+    {"id": "c06", "commit": "1a480e1", "task": "Fix a bug: record() must advance synced_from, or push() false-positives on the next cycle."},
+    {"id": "c07", "commit": "41594ce", "task": "Add VOICE.md and STYLEGUIDE.md templates and wire them into the install prompt."},
+    {"id": "c08", "commit": "8e831e5", "task": "Record that GitAround has moved out into its own repository."},
+    {"id": "c09", "commit": "30bb2db", "task": "Enforce practice 33's rule 2 by adding a restatement check to doc_sync."},
+    {"id": "c10", "commit": "072e28e", "task": "Clarify practice 16: the date on a volatile rule is the contributor's, not the agent's system clock."}
+  ]
+}

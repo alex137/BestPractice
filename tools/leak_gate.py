@@ -79,8 +79,8 @@ FORBIDDEN_CONTENT = [
     # example.com/.org are the reserved documentation domains, and a GitHub
     # noreply address is by construction not a private one -- both appear in
     # templates as placeholders and are not leaks.
-    (re.compile(r'\b[\w.+-]+@(?!example\.(?:com|org)\b)(?!users\.noreply\.github\.com\b)'
-                r'[\w-]+\.[\w.-]+\b'),
+    (re.compile(r'\b(?!noreply@)[\w.+-]+@(?!example\.(?:com|org)\b)'
+                r'(?!users\.noreply\.github\.com\b)[\w-]+\.[\w.-]+\b'),
      'an email address'),
     # Requires a real username SEGMENT after the prefix, not just the prefix:
     # without that, this rule matched its own source in this file and the gate
