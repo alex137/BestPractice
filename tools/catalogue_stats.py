@@ -137,14 +137,36 @@ def block():
     return '\n'.join(out)
 
 
+def enforcement_block():
+    """The enforced-practice registry, rendered from the registry itself, so
+    a document listing what is enforced cannot drift from what is."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_pc', ROOT / 'tools' / 'precedent_check.py')
+    pc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pc)
+    s = stats()
+    out = ['| practice | scope | what the check asserts |', '|---|---|---|']
+    for slug, c in sorted(pc.CHECKS.items()):
+        out.append(f"| `{slug}` | {c['scope']} | {c['what']} |")
+    out.append('')
+    out.append(f"{len(pc.CHECKS)} of {s['practices']} practices are enforced. "
+               f"Run `python3 tools/precedent_check.py --explain` for what each "
+               f"check does **not** catch.")
+    return '\n'.join(out)
+
+
+BLOCKS = {'catalogue': lambda: block(), 'enforcement': enforcement_block}
+
+
 def main():
     args = sys.argv[1:]
     if '--emit' in args:
         name = args[args.index('--emit') + 1]
-        if name != 'catalogue':
+        if name not in BLOCKS:
             sys.exit(f"catalogue_stats FAIL: no block named {name!r} "
-                     f"(the only one is 'catalogue').")
-        print(block())
+                     f"(known blocks: {', '.join(sorted(BLOCKS))}).")
+        print(BLOCKS[name]())
         return 0
     print(block())
     fails = self_check()

@@ -72,6 +72,7 @@ rather than left to the reader.
 Run:
   python3 tools/routing_eval.py --emit          # write one prompt per (case, arm)
   python3 tools/routing_eval.py --score         # score answers/ against the oracle
+  python3 tools/routing_eval.py --enforcement  # what covers the misses that remain
 """
 import json, pathlib, re, subprocess, sys
 
@@ -358,6 +359,84 @@ def cmd_emit_hop2():
     return 0
 
 
+def cmd_enforcement():
+    """What now catches the practices the loader still misses.
+
+    Phase 4's done-when says "the routing eval re-run shows the converted
+    practices no longer missed". Read literally that is not a thing conversion
+    can do, and the plan says so itself two sections earlier: an enforced
+    practice is "never loaded at all -- the check's failure message IS the
+    rule, delivered at the moment of violation". A practice with a working
+    check is deliberately absent from the routing question, so the arm that
+    routes will keep missing it and should.
+
+    So this reports the miss set by WHAT NOW COVERS IT, which is the question
+    the done-when was reaching for. Stated plainly, because it is easy to
+    over-read: a check being in scope means the violation would be CAUGHT if
+    the change committed one. It does not mean these particular commits
+    violated anything -- most did not -- and it is not evidence that the
+    session would have complied. It is coverage, not compliance.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_pc', ROOT / 'tools' / 'precedent_check.py')
+    pc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pc)
+
+    cases = json.loads((EVAL / 'cases.json').read_text())['cases']
+    practices = load_practices()
+    valid = set(practices)
+    rows = []
+    for case in cases:
+        truth = _read_answer(case['id'], 'oracle', valid, quiet=True)
+        if truth is None:
+            continue
+        got = _read_answer(case['id'], 'treatment2', valid, quiet=True)
+        if got is None:
+            got = _read_answer(case['id'], 'treatment1', valid, quiet=True)
+        if got is None:
+            continue
+        _block, path_slugs = path_channel(case['commit'], practices)
+        for slug in sorted(truth - got):
+            fm = practices[slug][0]
+            rows.append({
+                'case': case['id'], 'slug': slug,
+                'enforced': slug in pc.CHECKS,
+                'scope': pc.CHECKS[slug]['scope'] if slug in pc.CHECKS else '',
+                'resident': fm.get('tier') == 'resident',
+                'path': slug in path_slugs,
+            })
+
+    if not rows:
+        print('routing_eval: no misses to attribute (need oracle and treatment '
+              'answers).')
+        return 0
+    enforced = [r for r in rows if r['enforced']]
+    print(f'Miss attribution — {len(rows)} (case, practice) misses by the '
+          f'treatment arm.\n')
+    print(f"{'case':6} {'practice':32} {'enforced':10} {'scope':9} {'surfaced by path':17}")
+    for r in rows:
+        print(f"{r['case']:6} {r['slug']:32} "
+              f"{'check' if r['enforced'] else '—':10} {r['scope']:9} "
+              f"{'yes' if r['path'] else 'no':17}")
+    by_slug = {}
+    for r in rows:
+        by_slug.setdefault(r['slug'], []).append(r)
+    print(f'\n{len(enforced)} of {len(rows)} misses are on practices that now '
+          f'carry a check '
+          f'({100 * len(enforced) / len(rows):.0f}%).')
+    print('  covered by a check:     '
+          + ', '.join(f"{s} x{len(v)}" for s, v in sorted(by_slug.items())
+                      if v[0]['enforced']))
+    uncovered = [(s, v) for s, v in sorted(by_slug.items()) if not v[0]['enforced']]
+    print('  still prose-only:       '
+          + (', '.join(f"{s} x{len(v)}" for s, v in uncovered) or 'none'))
+    print('\nA check in scope means the violation would be caught if the change')
+    print('committed one. It is not evidence that these commits violated')
+    print('anything, nor that a session complied. Coverage, not compliance.')
+    return 0
+
+
 def _read_answer(case_id, arm, valid, quiet=False):
     path = ANSWERS / f"{case_id}.{arm}.json"
     if not path.exists():
@@ -494,6 +573,8 @@ def main():
         return cmd_emit()
     if '--score' in args:
         return cmd_score()
+    if '--enforcement' in args:
+        return cmd_enforcement()
     sys.exit(__doc__)
 
 

@@ -166,6 +166,21 @@ class Ctx:
                 self.scope_reason = ('the working tree is clean, so no change '
                                      'is in scope')
 
+    def added_files(self):
+        """`git status --porcelain` collapses an untracked DIRECTORY to one
+        entry ending in "/". The practice is about naming a file, so expand
+        those rather than judging the directory entry -- which is also what
+        stopped this check reporting a directory path as a file name."""
+        out = []
+        for f in self.added:
+            p = ROOT / f
+            if p.is_dir():
+                out.extend(str(q.relative_to(ROOT)) for q in sorted(p.rglob('*'))
+                           if q.is_file())
+            else:
+                out.append(f)
+        return out
+
     def read(self, rel):
         p = ROOT / rel
         try:
@@ -215,19 +230,28 @@ def _cite_the_incident(ctx):
     return out
 
 
+# The suffix must be TERMINAL. `findings-v2.md` is a version label stuck on
+# the end of a name, which is what the practice is about; the label goes stale
+# the moment the file is edited without a rename. A name that CONTINUES after
+# the token -- `answers-v3-pre-enforcement` -- is a compound identity in which
+# the token is part of what the thing is, not a version on an evolving file.
+# Origin: the first version of this check fired on
+# `evals/routing/answers-v3-pre-enforcement/`, this session's own preserved
+# eval baseline, whose name is doing exactly what the practice asks.
 VERSION_SUFFIX_RE = re.compile(
     r'(?:^|[-_.])(?:v\d+|version\d*|rev\d+|final|latest|old|new|copy|backup|bak|'
-    r'draft|\d{4}[-_]\d{2}[-_]\d{2})(?:$|[-_.])', re.I)
+    r'draft|\d{4}[-_]\d{2}[-_]\d{2})$', re.I)
 
 
 @check('no-version-suffix', 'change',
        'a file added by this change must not carry a version, date or state '
        'suffix in its name',
-       'a versioned name that was already committed, and a directory named '
-       'this way. It gates what a change ADDS.')
+       'a versioned name that was already committed, and a version token that '
+       'is not at the END of the name. It gates what a change ADDS, one file '
+       'at a time.')
 def _no_version_suffix(ctx):
     out = []
-    for f in ctx.added:
+    for f in ctx.added_files():
         stem = pathlib.PurePath(f).name
         for suffix in ('.md', '.py', '.json', '.txt', '.sh', '.yml', '.yaml',
                        '.template', '.html'):

@@ -176,7 +176,102 @@ point (see "The Deep Check Audits Routing, Not Content"), and remains one
 after phase 2 — the periodic deep check, not this replay, is what the plan
 assigns to catch it, and that check is not built yet (phase 5 territory).
 
-## Re-baselined after the Rule/Detail split — v3
+## Re-run after enforcement landed — v4
+
+**Read this before quoting any number below it.** Phase 4 changed one input
+and one input only: the **path-triggered channel**. `practice-export-loop`'s
+`applies_to` was corrected (it named where an export lands, not where the work
+that triggers it happens), and a defect in the harness was fixed —
+`changed_files` used `git diff-tree` without `--root`, so case c16, this
+repo's initial commit, handed the treatment arm "(no files)" and zero
+path-channel practices for a change touching 48 of them. That bias was present
+in v1, v2 and v3.
+
+**Every oracle and control prompt is byte-identical to v3**, verified by
+regenerating v3's prompts from `ef4e9cc` in a worktree and diffing all 60.
+Sixteen treatment hop-1 prompts changed, and therefore sixteen hop-2 prompts.
+Those 32 cells were re-run, one isolated session each; the other 48 answers are
+v3's, reused because their input did not change. v3's answers are preserved in
+`evals/routing/answers-v3-pre-enforcement/`.
+
+| | v3 | **v4** |
+|---|---|---|
+| Control — recall / miss | 84% / 16% | **84% / 16%** *(same answers)* |
+| Treatment — recall / miss | 69% / 31% | **78% / 22%** |
+| Treatment — precision | 81% | **79%** |
+| Control — practice context | ≈8,905 tok/case | ≈8,898 |
+| Treatment — practice context | ≈4,200 tok/case | **≈4,296** |
+| Recall per 1k tokens (control / treatment) | 9.5 / 16.5 | **9.5 / 18.1** |
+| Head to head (control-only / treatment-only) | 15 / 1 | **10 / 4** |
+| Total misses by the treatment arm | 29 | **21** |
+
+*(The control's context figure moved by 7 tokens against a byte-identical
+prompt set: v3's committed `cost.json` was written from a slightly earlier
+tree state than the prompts it finally used. Regenerating v3's prompts today
+gives 8,898. Noted rather than smoothed, because a published figure that no
+longer regenerates is the thing this repo's own `docs-track-models` is about.)*
+
+### What is measured, and what is one run of variance
+
+**The aggregate recall gain is not measured.** Treatment 69% → 78% is 9
+points, and this eval's stated resolution is that a difference under roughly 15
+points is not measured. One run per cell. Nobody should quote "the loader got
+better" from this.
+
+**One practice-level effect is measured, and has a mechanism.**
+
+| practice | v3 treatment | v4 treatment |
+|---|---|---|
+| `practice-export-loop` | 2 caught / 8 missed | **6 caught / 4 missed** |
+
+Its glob was corrected from `process/upstream/**` — where an export *lands* —
+to the paths where this repo's generic practices are actually written. It went
+from being surfaced by the path channel on **none** of the ten cases where it
+applied to being surfaced on all of them. The misses halved.
+
+**The rest of the movement is ±1 per practice and looks exactly like one-run
+variance**: `cite-the-incident` 1 → 0, `docs-track-models` 2 → 0,
+`environment-gotchas` 2 → 1, `parallel-artifact-ledger` 1 → 0,
+`mistakes-become-rules` 5 → 4, against `registry-source-of-truth` 1 → 2 and
+`merge-runbook` 0 → 1. Read it as churn, not as effect.
+
+**The oracle-independent number moved more than the recall did.** Head to head
+went from 15/1 to 10/4 — the treatment arm now finds four applicable practices
+the control misses, against one before. That statistic does not use the oracle
+at all, which is this eval's one soft spot, so it is worth more than its size
+suggests. It is still one run.
+
+**Precision fell slightly, as predicted.** Widening a glob surfaces a practice
+on cases where it does not apply: `practice-export-loop` is now surfaced on 16
+of 20 cases and applies in 10. 81% → 79%, and ≈96 more tokens per case. That is
+the price of the reach fix and it is a small one.
+
+### The finding that matters more than the numbers
+
+**Reach and enforcement are two problems, and the four remaining
+`practice-export-loop` misses prove it from the other side.** In v3 the loader
+missed it eight times and had never been shown it. In v4 it is surfaced by the
+path channel in **every one of the four cases where it is still missed** — the
+session reads the Rule and declines it. Fixing the trigger fixed the trigger.
+What is left is judgment, and no glob reaches it.
+
+`verify-postcondition` (0 of 3) and `engine-plus-host-shims` (0 of 3) did not
+move at all, and neither had its input changed. For `verify-postcondition` that
+is now four consecutive runs in which residency has not produced routing at any
+Rule length — which is the argument that carried it into
+[spec/ENFORCEMENT.md](ENFORCEMENT.md) rather than into another curation pass.
+
+### Where the misses that remain are covered
+
+`python3 tools/routing_eval.py --enforcement` attributes the 21 remaining
+misses to what now covers them: 14 are on practices that carry a check, 7 are
+prose-only (`mistakes-become-rules` ×4, `registry-source-of-truth` ×2,
+`merge-runbook` ×1). [spec/ENFORCEMENT.md](ENFORCEMENT.md) says why those three
+were left unenforced, and states the limit on the coverage claim: a check being
+in scope means a violation would be caught, not that these commits violated
+anything or that a session complied.
+
+## Re-baselined after the Rule/Detail split — v3 *(superseded by v4 above; kept as the pre-enforcement baseline)*
 
 **Read this before quoting any number below it.** The v2 figures in the next
 section were measured against a catalogue whose `## Rule` sections were 40% of
