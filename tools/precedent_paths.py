@@ -24,7 +24,7 @@ Run:
       -- print only "slug: file" pairs, no Rule text (used by
          behavioral_replay.py, which only needs to know what matched)
 """
-import fnmatch, pathlib, sys
+import json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
@@ -33,9 +33,88 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
 
 
+# ---------------------------------------------------------------- matching
+# `applies_to` globs are repo-root-relative and use the recursive-glob
+# convention the plan's own examples assume ("**", "**/*.md",
+# "book/CHAPTER1.md"): `**` crosses directory separators, a single `*` and
+# `?` do not.
+#
+# This used to be a bare fnmatch.fnmatch(path, glob), which is WRONG for
+# both halves of that, and wrong in the direction that loses practices
+# silently. fnmatch has no `**`: it expands every `*` to ".*", so
+# "**/*.md" becomes ".*.*/.*\.md" -- which REQUIRES a literal "/" and
+# therefore never matches a top-level file. Editing AGENTS.md, README.md,
+# TODO.md, PRACTICES.md or any other root document surfaced ZERO of the
+# eight document practices scoped to "**/*.md". Worse, the same file
+# spelled "./AGENTS.md" DID match, so the answer depended on how the path
+# was typed. Measured over this repo's own history, that silently dropped
+# 520 (practice, commit) instances across 65 of 86 commits -- and it is
+# precisely the failure the plan names as this design's real weak point:
+# "a practice with a wrong or missing trigger is worse than one buried in
+# a wall of text, because nobody notices its absence."
+_GLOB_CACHE = {}
+
+
+def _glob_regex(glob):
+    """Recursive-glob -> compiled regex. `**/` matches zero or more whole
+    path segments; `*` and `?` never cross a "/"."""
+    rx = _GLOB_CACHE.get(glob)
+    if rx is not None:
+        return rx
+    out, i, n = [], 0, len(glob)
+    while i < n:
+        c = glob[i]
+        if glob.startswith('**/', i):
+            out.append('(?:[^/]+/)*'); i += 3
+        elif glob.startswith('/**', i) and i + 3 == n:
+            out.append('/.+'); i += 3          # "dir/**" = everything INSIDE dir
+        elif glob.startswith('**', i):
+            out.append('.*'); i += 2
+        elif c == '*':
+            out.append('[^/]*'); i += 1
+        elif c == '?':
+            out.append('[^/]'); i += 1
+        elif c == '[':
+            j = i + 1
+            if j < n and glob[j] in '!^':
+                j += 1
+            if j < n and glob[j] == ']':
+                j += 1
+            while j < n and glob[j] != ']':
+                j += 1
+            if j >= n:                          # unterminated class: literal
+                out.append(re.escape(c)); i += 1
+            else:
+                body = glob[i + 1:j]
+                body = '^' + body[1:] if body[:1] in ('!',) else body
+                out.append('[' + body + ']'); i = j + 1
+        else:
+            out.append(re.escape(c)); i += 1
+    rx = re.compile('(?s:' + ''.join(out) + r')\Z')
+    _GLOB_CACHE[glob] = rx
+    return rx
+
+
+def normalize_path(path):
+    """A glob is written relative to the repo root, so a path has to be too
+    before it can be compared against one. A PreToolUse hook hands over
+    absolute paths; a person types "./AGENTS.md" as often as "AGENTS.md".
+    All three spellings of one file must give one answer."""
+    p = str(path).replace('\\', '/')
+    root = ROOT.as_posix().rstrip('/') + '/'
+    if p.startswith(root):
+        p = p[len(root):]
+    while p.startswith('./'):
+        p = p[2:]
+    return p.lstrip('/')
+
+
+def path_matches(path, glob):
+    return _glob_regex(glob).match(normalize_path(path)) is not None
+
+
 def _globs(fm_applies_to):
     # frontmatter value is a JSON-array literal, e.g. '["**/*.md"]'
-    import json
     try:
         return json.loads(fm_applies_to)
     except (json.JSONDecodeError, TypeError):
@@ -63,7 +142,7 @@ def matches_for_paths(paths, practices=None):
     hits = []
     for slug, globs, _rule in practices:
         for path in paths:
-            if any(fnmatch.fnmatch(path, g) for g in globs):
+            if any(path_matches(path, g) for g in globs):
                 hits.append((slug, path))
                 break
     return hits

@@ -14,7 +14,7 @@ implementation note, not a restatement.
 | Resident block | The generated block in [AGENTS.md](../AGENTS.md), between `<!-- BEGIN GENERATED: precedent-loader -->` / `<!-- END GENERATED -->` | Built. Regenerate with [tools/build_views.py](../tools/build_views.py); hand-editing fails [tools/verify_harness.py](../tools/verify_harness.py). |
 | Occasion index | Same generated block, grouped by `occasion` | Built, same mechanism. |
 | Standing instruction | Same generated block, one sentence | Built. |
-| Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) | Built as a command; not yet wired into a `PreToolUse` hook in [templates/harness/](../templates/harness/) — that is consumer-repo integration, phase 6 territory, not phase 2's done-when. |
+| Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) | Built as a command; not yet wired into a `PreToolUse` hook in [templates/harness/](../templates/harness/) — that is consumer-repo integration, phase 6 territory, not phase 2's done-when. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost-the-numbers) below. |
 | Gate-triggered | — | Not built. Depends on the runbook/gate-receipt machinery the plan describes under "Gate Receipts" and "Decisions" (phase 4). |
 | Enforced (`checked_by`) | Already exists from phase 1 (a dozen practices carry it) | Unchanged by phase 2; phase 5 is "convert checkable practices to scripts." |
 | "One code path" (`precedent show`) | [tools/precedent_show.py](../tools/precedent_show.py) (phase 1) | Unchanged; `precedent_paths.py` calls the same file reader (`split_practices._read_practice_file`), not a second extractor. |
@@ -75,9 +75,9 @@ retiring it — mechanically enforced by the token cap, not by discipline.
 [tools/behavioral_replay.py](../tools/behavioral_replay.py) replays this
 repo's own commit history (up to 142 commits after a bounded
 `git fetch --depth=500`, well past the phase-1 shallow clone) against
-tools/precedent_paths.py — the real path-triggered channel, not a
-re-implementation of it — and cross-checks its output against an independent
-`fnmatch` pass over the same data.
+[tools/precedent_paths.py](../tools/precedent_paths.py) — the real path-triggered channel, not a
+re-implementation of it — and cross-checks its output against a separately
+written segment-walk matcher.
 
 **It degrades instead of crashing when there isn't enough history to
 measure anything.** A fresh `git clone --depth 1` — this repo's own
@@ -91,16 +91,58 @@ a `REPLAY_STATUS: DEGRADED` marker line that tools/verify_harness.py
 reports as not-yet-applicable rather than pass or fail — an environment
 precondition, not a defect in the loader.
 
-What a full replay establishes: the mechanical channel has zero misses
-against its own matching rule, across every replayed commit, and the
-resident-plus-triggered loader costs roughly 85% fewer practices in context
-per commit than the old always-everything arrangement, measured on this
-repo's own history rather than asserted (84 non-merge, file-touching commits
-replayed as of this writing; re-run tools/behavioral_replay.py for the
-current figure, since it moves as this repo's own history grows — this is
-exactly the kind of restated-computed-number practice 19/`docs-track-models`
-warns against elsewhere, so treat the number here as illustrative, not a
+What a full replay establishes, stated carefully: the loader's own
+implementation and a separately written one **agree on every replayed
+commit**, and the resident-plus-triggered loader costs roughly 73% fewer
+practices in context per commit than the old always-everything arrangement,
+measured on this repo's own history rather than asserted (86 non-merge,
+file-touching commits replayed as of this writing; re-run
+[tools/behavioral_replay.py](../tools/behavioral_replay.py) for the current
+figure, since it moves as this repo's own history grows — this is exactly
+the kind of restated-computed-number practice 19/`docs-track-models` warns
+against elsewhere, so treat the number here as illustrative, not a
 citation).
+
+**Agreement between two implementations is not a miss rate**, and this
+document said otherwise until it was caught. What actually pins the
+channel's semantics is the stated-case table in
+[tools/verify_harness.py](../tools/verify_harness.py) (`check_glob_semantics`),
+which asserts what `applies_to` is supposed to mean rather than that two
+pieces of code do the same thing.
+
+### Where this channel was silently broken, and what it cost — the numbers
+
+Worth recording, because it is this design's named weak point happening in
+its own repo rather than in the abstract.
+
+The first phase-2 pass matched paths with a bare `fnmatch.fnmatch(path,
+glob)`. `fnmatch` has no `**`: it expands every `*` to `.*`, so `**/*.md`
+compiles to a pattern that **requires a literal `/`** and therefore never
+matches a top-level file. Editing [AGENTS.md](../AGENTS.md),
+[README.md](../README.md), [TODO.md](../TODO.md), [PRACTICES.md](../PRACTICES.md),
+[MAP.md](../MAP.md) or [GLOSSARY.md](../GLOSSARY.md) surfaced **zero** of the
+eight document practices scoped to `**/*.md`. The same file spelled
+`./AGENTS.md` *did* match, so the answer depended on how the path was typed.
+
+Nothing caught it, and that is the instructive part: the replay's
+"independent" cross-check re-derived each commit's matches with **the same
+`fnmatch` call the loader used**. It agreed with the bug on every commit and
+reported "0 misses." A cross-check against a second copy of the same rule is
+not a check.
+
+Measured over this repo's history, the broken matcher silently dropped **520
+(practice, commit) instances across 65 of 86 commits**. The corrected
+figures, against the same history:
+
+| | Before (broken) | After (fixed) |
+|---|---|---|
+| Commits with at least one path match | 39 of 86 (46%) | 81 of 86 (94%) |
+| Total (practice, commit) matches | 148 | 676 |
+| Practices in context per commit | 7.7 | 13.9 |
+| Reduction vs. always-everything | 85% | **73%** |
+
+So the headline saving is real but was **overstated by twelve points** — the
+old number was cheaper precisely because the channel was failing to fire.
 
 What it does not establish, and says so in its own output rather than
 implying otherwise: 34 of 46 on-demand practices are reachable only through

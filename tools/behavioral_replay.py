@@ -40,6 +40,47 @@ import split_practices as sp
 import precedent_paths as pp
 
 
+# --------------------------------------------------- the reference matcher
+# The cross-check below is only worth running if it is a DIFFERENT
+# implementation. The first version of this file "independently re-derived"
+# each commit's matches with `fnmatch.fnmatch(f, g)` -- the exact call
+# precedent_paths.py was making at the time. It therefore agreed with the
+# loader on every commit and reported "0 misses" while the loader was
+# silently failing to match any top-level file against "**/*.md".
+#
+# So this is deliberately a different algorithm: a recursive walk over path
+# SEGMENTS, where `**` consumes zero or more whole segments and every other
+# segment is matched with fnmatch (safe there -- a single segment contains
+# no "/"). It shares no code with precedent_paths.py's glob-to-regex
+# translation, so the two can only agree by both being right about the
+# semantics rather than by sharing a mistake.
+def _ref_match_segments(path_segs, glob_segs):
+    if not glob_segs:
+        return not path_segs
+    head = glob_segs[0]
+    if head == '**':
+        if len(glob_segs) == 1:
+            return len(path_segs) >= 1      # "dir/**" = everything INSIDE dir
+        return any(_ref_match_segments(path_segs[i:], glob_segs[1:])
+                   for i in range(len(path_segs) + 1))
+    if not path_segs:
+        return False
+    return (fnmatch.fnmatchcase(path_segs[0], head)
+            and _ref_match_segments(path_segs[1:], glob_segs[1:]))
+
+
+def ref_match(path, glob):
+    # Same root-relative normalization the channel does, re-derived here
+    # rather than imported, for the same reason as above.
+    root = ROOT.as_posix().rstrip('/') + '/'
+    p = str(path).replace('\\', '/')
+    if p.startswith(root):
+        p = p[len(root):]
+    while p.startswith('./'):
+        p = p[2:]
+    return _ref_match_segments(p.lstrip('/').split('/'), glob.split('/'))
+
+
 def load_all_practices():
     out = []
     for f in sorted((ROOT / 'practices').glob('*.md')):
@@ -124,20 +165,20 @@ def main():
             n_commits_with_hit += 1
             total_path_matches += len(applicable_slugs)
 
-        # Independently re-derive with a bare fnmatch pass, so this is a real
-        # cross-check of precedent_paths.py rather than trusting its own
-        # output as ground truth.
+        # Independently re-derive with the segment-walk matcher above -- a
+        # different algorithm, not a second call to the same one -- so this
+        # is a real cross-check rather than a tautology.
         reference = set()
         for slug, globs, _rule in on_demand_narrow:
-            if any(fnmatch.fnmatch(f, g) for f in files for g in globs):
+            if any(ref_match(f, g) for f in files for g in globs):
                 reference.add(slug)
         if reference != applicable_slugs:
             verify_ok = False
             miss_examples.append((h[:10], reference - applicable_slugs, applicable_slugs - reference))
 
         # Cost comparison for this commit: old arrangement loads all 52
-        # every time; new arrangement loads the resident 7 plus whatever the
-        # path channel actually surfaced for these specific files.
+        # every time; new arrangement loads the resident set plus whatever
+        # the path channel actually surfaced for these specific files.
         total_old_loaded += n_total
         total_new_loaded += len(resident) + len(applicable_slugs)
 
@@ -165,7 +206,7 @@ def main():
           f"changed file: {n_commits_with_hit} of {n_commits} "
           f"({100 * n_commits_with_hit / n_commits:.0f}%)")
     print(f"  Total (practice, commit) matches: {total_path_matches}")
-    print(f"  precedent_paths.py cross-checked against an independent fnmatch pass: "
+    print(f"  precedent_paths.py cross-checked against an independent segment-walk matcher: "
           f"{'MATCH on every commit (0 misses)' if verify_ok else 'MISMATCH -- see below'}")
     if not verify_ok:
         for h, missed, extra in miss_examples[:10]:
@@ -192,12 +233,17 @@ def main():
     print("\n== Miss rate, stated directly ==")
     print(f"  Old arrangement: 0% miss rate by construction (everything always loaded).")
     if verify_ok:
-        print(f"  New arrangement, mechanical channel: 0% miss rate across {n_commits} replayed "
-              f"commits ({total_path_matches} applicable-practice instances, all surfaced) --"
-              f" because applies_to matching is deterministic and precedent_paths.py implements "
-              f"it directly; this replay validates the plumbing has no bugs, not that trigger-"
-              f"based loading beats residency in a way path-matching alone can prove. The "
-              f"occasion-index channel remains genuinely untested by this script, as stated above.")
+        print(f"  New arrangement, mechanical channel: 0 disagreements across {n_commits} "
+              f"replayed commits ({total_path_matches} applicable-practice instances) between "
+              f"precedent_paths.py and a separately-written segment-walk matcher.")
+        print(f"  Read that precisely. It says the channel's two implementations agree on this "
+              f"history; it does NOT say the globs are the right globs, and it is not a "
+              f"'0% miss rate' in any sense the plan would recognise. An earlier version of "
+              f"this cross-check re-derived matches with the same fnmatch call the loader "
+              f"used, agreed with it on every commit, and reported 0 misses while the loader "
+              f"was silently matching NO top-level file against \"**/*.md\" at all. What "
+              f"pins the semantics is tools/verify_harness.py's stated-case table, not this "
+              f"agreement. And the occasion-index channel remains untested here, as above.")
     else:
         print(f"  New arrangement, mechanical channel: MISMATCH on {len(miss_examples)} of "
               f"{n_commits} replayed commits -- precedent_paths.py's output disagreed with an "

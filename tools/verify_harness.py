@@ -21,6 +21,7 @@ CATALOGUE = ROOT / 'PRACTICES.md'
 
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
+import precedent_paths as pp
 
 FAILED = []
 PASSED = []
@@ -287,6 +288,61 @@ def check_leak_gate():
                         'found nothing, which is the only form of this check phase 1 can run')
 
 
+# (path, glob, expected) -- the semantics `applies_to` is written against.
+# This table exists because the path-triggered channel shipped with a bare
+# fnmatch.fnmatch(path, glob), under which "**/*.md" silently never matched
+# a top-level file, and NOTHING in the harness noticed: the behavioral
+# replay's "independent" cross-check re-derived matches with the same
+# fnmatch call, so it agreed with the bug on every commit and reported 0
+# misses. A cross-check against a second copy of the same rule is not a
+# check. Stating the intended semantics as literal cases is.
+GLOB_CASES = [
+    # a root-level file is at depth zero -- "**/" must match zero segments
+    ('AGENTS.md',                          '**/*.md',                          True),
+    ('README.md',                          '**/*.md',                          True),
+    ('docs/guide.md',                      '**/*.md',                          True),
+    ('a/b/c/deep.md',                      '**/*.md',                          True),
+    ('notes.txt',                          '**/*.md',                          False),
+    ('docs/notes.txt',                     '**/*.md',                          False),
+    # the same file, spelled three ways, must give one answer
+    ('./AGENTS.md',                        '**/*.md',                          True),
+    (str(ROOT / 'AGENTS.md'),              '**/*.md',                          True),
+    # a single * does not cross a directory separator
+    ('docs/guide.md',                      '*.md',                             False),
+    ('guide.md',                           '*.md',                             True),
+    ('a/b.md',                             'a/*.md',                           True),
+    ('a/b/c.md',                           'a/*.md',                           False),
+    ('a/b/c.md',                           'a/**/*.md',                        True),
+    ('a/c.md',                             'a/**/*.md',                        True),
+    # "dir/**" is everything INSIDE dir, not dir itself
+    ('process/upstream/tools/x.py',        'process/upstream/**',              True),
+    ('process/upstream/x.py',              'process/upstream/**',              True),
+    ('process/upstream',                   'process/upstream/**',              False),
+    ('process/upstreamish/x.py',           'process/upstream/**',              False),
+    # a literal path is a literal path
+    ('.github/pull_request_template.md',   '.github/pull_request_template.md', True),
+    ('docs/.github/pull_request_template.md',
+                                           '.github/pull_request_template.md', False),
+    ('README.md',                          'README.md',                        True),
+    ('docs/README.md',                     'README.md',                        False),
+    # "**" alone matches anything (filtered out of the path channel, but the
+    # matcher still has to be right about it)
+    ('anything/at/all.py',                 '**',                               True),
+    ('top.py',                             '**',                               True),
+]
+
+
+def check_glob_semantics():
+    ok = True
+    for path, glob, expected in GLOB_CASES:
+        got = pp.path_matches(path, glob)
+        if got != expected:
+            ok = False
+            print(f"  {path!r} vs {glob!r}: expected {expected}, got {got}")
+    check(f'path-glob semantics ({len(GLOB_CASES)} stated cases: `**` crosses "/", '
+          f'`*` does not, paths normalize to repo-root-relative)', ok)
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process
@@ -358,6 +414,7 @@ def main():
     check_corruption_drop_is_a_duplicate(original_practices)
     check_citation_integrity(files)
     check_leak_gate()
+    check_glob_semantics()
     check_generated_views_regenerate()
     check_resident_subset(files)
     check_behavioral_replay()
