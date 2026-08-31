@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the review-arm experiment session -->
+<!-- Last updated: 2026-08-31 (Buenos Aires) by the review-arm experiment session, with a candidate-design addendum from the same session's follow-up -->
 
 # The Attention Ceiling — What Four Runs Measured, and What To Do About It
 
@@ -275,6 +275,93 @@ and nothing has ever died. 52 may simply be more than a session can hold, and
 the honest fix for a diluted catalogue is a smaller one. This has never been
 tried and it is cheap to try.
 
+## Candidate designs for a future attempt — named, not scheduled
+
+**Read the header on this section correctly: this is not authorization to run
+another routing pass.** [The supporting moves](#the-supporting-moves-now-the-primary-recommendation)
+above are the current plan — enforce more, retire what a session can't hold.
+This section exists so that *if* someone later revisits the review-arm
+question, they inherit a considered design instead of re-deriving one from
+the same 54% that already got a verdict, and so the ideas don't quietly
+bypass pre-registration by never having been written down. Any of what
+follows still needs its own `PREDICTION`-style file with numeric targets and
+failure criteria, committed before it runs — the same discipline every prior
+run in this document followed.
+
+### External precedent
+
+[OpenViking](https://github.com/volcengine/OpenViking) — a context database
+for AI agents (memory management, RAG, and agent-framework retrieval,
+unrelated to this project) — independently arrived at a shape worth knowing
+about, solving a structurally similar problem: surfacing relevant material to
+an LLM without paying full-corpus cost. Its README (verified 2026-08-31)
+describes a **three-tier abstraction**, loaded on demand: **L0** (~100-token
+one-sentence summary, for rapid relevance triage), **L1** (~2k-token
+overview, for planning), **L2** (full original content, loaded only when
+needed) — plus directory-based hierarchical drill-down (vector search finds
+the highest-scoring directory, then descends layer by layer so results carry
+their surrounding context) and an observable retrieval trajectory (every
+query records which path produced its result, for debugging). Stated
+figures: 34–91% token reduction at 80–83% accuracy against a full-load
+baseline, benchmarked against Doubao models.
+
+**What the README does not say, checked rather than assumed**, since citing
+this fairly means being honest about its gaps: it does not disclose what
+triggers L0→L1 or L1→L2 expansion (relevance threshold, agent judgment, or a
+fixed policy — undetailed), it does not describe any tagging or metadata
+layer on content items (retrieval is vector search over directory structure,
+not tags), and its benchmark methodology lives behind a blog post this
+session's network could not reach (`blog.openviking.ai` is egress-blocked
+here). So it is independent validation of *the tiering principle* — a middle
+abstraction between "one-line clause" and "full text" measurably helps
+elsewhere on a related problem — not a source of mechanism to import
+wholesale. Treat the 80–83%/34–91% figures as someone else's number on a
+different task, not as evidence bearing on this repo's 20 cases.
+
+### Three ideas, connected to the diagnosis above
+
+Raised in conversation after the 54% result, checked against what the
+[case-level diagnosis](#why-it-landed-below-the-loaders-own-working-session-recall-not-just-below-control)
+above actually found — the review arm's misses were not, mostly, judgment
+failures on content it saw; they were practices it never got more than an
+80-character occasion-index clause on.
+
+1. **A middle "gloss" tier per practice**, between the occasion index's
+   80-char clause ([spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md)) and the full Rule — structurally
+   OpenViking's L1. This is the most directly motivated of the three: c07
+   missed `layered-practice-packs`, `registry-source-of-truth` and
+   `readers-vocabulary` specifically because a clause was all it ever saw of
+   them. To stay on the right side of "do not tune the occasion index to move
+   a number," this has to be authored once per practice from the practice
+   text itself, as a format change applying uniformly, not hand-fitted to
+   what the 20 cases missed.
+2. **More budget for the judge pass specifically, not the resident tier.**
+   The resident budget (`RESIDENT_BUDGET_TOKENS = 2000` in
+   [tools/build_views.py](../tools/build_views.py)) is genuinely zero-sum — a 7th resident practice
+   means demoting one of the current six — and lengthening resident text was
+   already tried once (the Rule/Detail split, v2→v3) with an effect inside
+   this eval's own noise floor. The review arm, by contrast, is running 48%
+   below control's token cost; there is headroom to spend on a genuine
+   two-hop version (open-on-request, like treatment's hop 2) before losing
+   the loader's cost advantage. This is functionally the same fix as idea 1,
+   through a different door — either could close the gap the diagnosis
+   found, and running them separately would say which one actually did.
+3. **Persistent tagging of practices *and* the cases being judged**, as a
+   semantic upgrade to literal path-glob matching. Checked against OpenViking
+   rather than assumed to be validated by it: its README describes no
+   tagging or metadata layer at all — its retrieval is vector search over
+   directory structure, not tags — so this idea is not the thing OpenViking
+   demonstrates; it remains a genuinely untested proposal here. It should
+   also be read against this repo's own history: three routing passes (v3
+   residency, v4 glob fix, v5 catalogue-wide glob pass) each improved *reach*
+   and each left the total miss count unmoved — better reach converted
+   never-shown misses into shown-and-declined misses without shrinking the
+   total. The predicted fate of tagging alone, on that precedent, is the
+   same null result. It is worth trying only as the retrieval mechanism
+   *feeding* idea 1 or 2 — better candidate selection paired with something
+   that actually gets fuller text in front of the judge — not as a
+   standalone bet that reach was the constraint after all.
+
 ## What would change my mind
 
 Recorded so the next session can disagree with this document on evidence
@@ -300,9 +387,12 @@ rather than by preference. The first of these fired:
 number moves.** Next up is [the supporting moves](#the-supporting-moves-now-the-primary-recommendation) —
 enforcing more of the 34 prose-only practices, and actually trying the
 retirement path — not another routing pass and not a rebuilt review arm
-chasing a better score than 54%. If a two-hop review arm is ever run, it
-needs its own pre-registration, stated as a genuinely new experiment, not a
-second attempt at this one.
+chasing a better score than 54%. If a two-hop review arm, a gloss tier, or a
+tagging-based prefilter is ever tried, [Candidate designs for a future
+attempt](#candidate-designs-for-a-future-attempt--named-not-scheduled) above
+has the considered starting point and the reasoning behind each — read it
+before designing from scratch, and it still needs its own pre-registration,
+stated as a genuinely new experiment, not a second attempt at this one.
 
 The tree is at `precedent-beta-v01`. Working rules are in
 [spec/PHASE3_BRIEF.md](PHASE3_BRIEF.md) and
