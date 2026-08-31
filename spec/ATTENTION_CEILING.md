@@ -1,15 +1,19 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-4 build session -->
+<!-- Last updated: 2026-08-31 (Buenos Aires) by the review-arm experiment session -->
 
-# The Attention Ceiling — What Three Runs Measured, and What To Do About It
+# The Attention Ceiling — What Four Runs Measured, and What To Do About It
 
-Written for the session that takes this on next. It carries a finding, a
-recommendation, and one experiment that should be run before anything is
-built. Read it in full; it is short and it changes what the next phase is for.
+Written for the session that takes this on next. It carries a finding, the
+recommendation that finding argued for, the experiment that tested the
+recommendation, and the result: **the experiment falsified it.** Read it in
+full; it is short and it changes what the next phase is for.
 
 **The one-sentence version:** the routing eval's miss rate is mostly not a
 loading problem, the loader is already within noise of the best any routing
-architecture can do, and the largest measured effect in the whole eval is one
-nothing in the design currently exploits.
+architecture can do, the largest measured effect in the whole eval (framing)
+looked like an opportunity — and testing it, cheaply, before building
+anything, is exactly what showed it is not one: the review arm scored **54%**,
+below even the loader's own working-session recall of 77%. See
+[The review-arm result](#the-review-arm-result-2026-08-31) below.
 
 ## The finding
 
@@ -63,6 +67,12 @@ system and it does not:
 What the finding does kill is the belief that more routing will fix this.
 
 ## The recommendation
+
+**Tested below and falsified — kept here as the argument that was tested,
+not as current guidance.** See
+[The review-arm result](#the-review-arm-result-2026-08-31) for the verdict
+and the [supporting moves](#the-supporting-moves-whatever-the-experiment-says)
+for what to do instead.
 
 **Move the decision point from before the work to after it.**
 
@@ -163,7 +173,95 @@ accounts for it.
 - **Preserve the current answer set** beside the new one, as
   `answers-v5-pre-review-arm/`.
 
-## The supporting moves, whatever the experiment says
+## The review-arm result (2026-08-31)
+
+Run against [evals/routing/PREDICTION_REVIEW_ARM.md](../evals/routing/PREDICTION_REVIEW_ARM.md),
+written and committed before any review-arm prompt was answered. **The
+prediction was 80–86%. The result was 54%** — below the ≈77% floor the
+prediction itself named as the falsifying outcome, and outside the predicted
+range in the direction the prediction did not budget for at all.
+
+| arm | practice context | framing | recall | miss |
+|---|---|---|---|---|
+| Control | ≈8,905 tok | doing the work, prospective | 84% | 16% |
+| Treatment | ≈4,619 tok | doing the work, prospective (two hops) | 77% | 23% |
+| **Review** | **≈4,636 tok** | **judge only, retrospective (one hop)** | **54%** | **46%** |
+
+Oracle-free head to head (raw answer sets, control vs. review, oracle not
+consulted for the comparison — the confound mitigation the source prediction
+named): control named **59** practices review did not; review named **18**
+control did not. Review recall minus control recall is **−31 points** — not
+"under 10 points and unconvincing," but negative and large. There is no
+ambiguity to read here.
+
+**Verdict per the pre-registered reading table: falsified, decisively.**
+"≈77% or below" was the document's own stated threshold for "the loader's
+context is the limit, not the framing; the architecture change buys nothing
+and the answer is enforcement and a smaller catalogue." 54% clears that bar
+with room to spare. **The recommended architecture is not built.**
+
+### Why it landed below the loader's own working-session recall, not just below control
+
+This needed root-causing rather than accepting as a bare number, because it
+is a genuinely surprising result: the review arm was given the *same* loader
+context as the treatment arm's first hop (resident block, occasion index,
+path-channel output — ≈4,636 tok against treatment's ≈4,619), yet scored 23
+points below treatment's 77%, not just below control's 84%. Same nominal
+context, worse result than the arm that also only carries the loader.
+
+The mechanism is visible case by case. Take c07 (5 applicable practices):
+treatment's first hop, reading only the occasion index's one-line clauses
+for anything not resident or path-surfaced, *requested* eight candidates by
+name, including three — `layered-practice-packs`, `registry-source-of-truth`,
+`readers-vocabulary` — that are not resident and were not surfaced by the
+path channel. The harness then resolved those requests and handed back their
+full Rules, and the second hop kept most of them: 6 of 8 named, 5 of 5
+applicable found. The review arm, given the identical resident block, the
+identical path-channel output, and the identical occasion-index one-liners
+for the same case, named only `practice-export-loop` and
+`doc-references-are-links` — the two that happened to be path-surfaced in
+full. It never had a turn to ask "tell me more about
+`layered-practice-packs`," because the one-hop design this run chose has no
+such turn. It missed `layered-practice-packs`, `registry-source-of-truth`
+and `readers-vocabulary` outright — not because it judged them and declined,
+but because a one-line occasion-index clause was all it ever saw of them, and
+a clause is not enough to affirm that a practice applies.
+
+**This is a real cost of the one-hop design choice, stated in the
+pre-registration as the "cheapest version" and reasoned there to be a small
+risk. The reasoning was wrong, and the result is why:** the treatment arm's
+second hop is not a formality. Reading the full Rule of a candidate before
+judging it is doing real work — arguably more of the work than the framing
+question this experiment set out to isolate. A one-shot judge pass over a
+prefilter's raw output is not the same instrument as "the loader, used
+properly," and this run measured the former while the recommendation's own
+language ("the loader picks candidates, a separate pass judges them") more
+plausibly describes the latter.
+
+**This does not rescue the recommendation, and is not grounds to re-run the
+experiment with a two-hop version to see if the number improves.** Doing
+that now, after seeing this result, is exactly the tuning-after-the-fact
+pattern this whole eval's discipline exists to prevent — the same reasoning
+that stopped this session from narrowing globs after seeing a cost number a
+phase ago. The verdict stands on the pre-registered criteria: **54% falsifies
+the recommendation as tested.** What the case-level analysis adds is not a
+reason to discount the result — it is a sharper diagnosis of *why* a
+judge-only pass over a prefilter's raw output underperforms even the
+existing loader, which matters for anyone who revisits this question later
+with a cleanly two-hop design and a fresh pre-registration of their own. That
+is future work, named and left there, not retried here.
+
+### What was not run
+
+The second experiment (closed per-practice questions instead of one open
+question) was explicitly conditional on this one validating — it did not,
+so per [evals/routing/PREDICTION_REVIEW_ARM.md](../evals/routing/PREDICTION_REVIEW_ARM.md)'s
+own terms it is not run.
+
+## The supporting moves, now the primary recommendation
+
+**Written as the fallback whatever the experiment said. The experiment said
+54%, so this is no longer the fallback — it is what to do next.**
 
 **Enforce or mark advisory.** 34 of 52 practices are prose-only, and three
 runs now say prose-only does not produce compliance at any catalogue size
@@ -180,11 +278,12 @@ tried and it is cheap to try.
 ## What would change my mind
 
 Recorded so the next session can disagree with this document on evidence
-rather than by preference:
+rather than by preference. The first of these fired:
 
-- **The review arm lands at 77%.** Then framing is not the lever, the loader's
-  context is, and the whole recommendation above collapses to "enforce more,
-  carry less".
+- **The review arm lands at 77%.** ✅ **It landed at 54%, which is the same
+  outcome in a stronger form.** Framing is not the lever, the loader's
+  context is, and the recommendation above collapses to "enforce more, carry
+  less" — see [The review-arm result](#the-review-arm-result-2026-08-31).
 - **A human spot-check finds the oracle is wrong often.** The 16-point gap is
   measured against a model's judgment sharing the oracle's context shape. The
   plan flagged this limit at phase 2 and it has never been checked. If the
@@ -196,6 +295,14 @@ rather than by preference:
   application work might behave differently.
 
 ## For the session that picks this up
+
+**The experiment named above has been run; do not re-run it to see if the
+number moves.** Next up is [the supporting moves](#the-supporting-moves-now-the-primary-recommendation) —
+enforcing more of the 34 prose-only practices, and actually trying the
+retirement path — not another routing pass and not a rebuilt review arm
+chasing a better score than 54%. If a two-hop review arm is ever run, it
+needs its own pre-registration, stated as a genuinely new experiment, not a
+second attempt at this one.
 
 The tree is at `precedent-beta-v01`. Working rules are in
 [spec/PHASE3_BRIEF.md](PHASE3_BRIEF.md) and
