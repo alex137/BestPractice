@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 16:05:00 (Buenos Aires) by Morgan F, to version 19 -->
+<!-- Last updated: 2026-08-31 17:10:00 (Buenos Aires) by Morgan F, to version 20 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -192,11 +192,19 @@ approved_by: PR #61
 ## Rule
 Three sentences, imperative. The only text ever resident in context.
 
+## Detail
+The operational specifics — numbered policy rules, worked procedures,
+sub-rules with their own tests. Normative, but not needed to decide
+whether the practice applies. Loaded when actually doing the work.
+
 ## Why
 A paragraph. Loaded when someone opens the practice to question or change it.
 
 ## Story
 The originating incident, dated. Never loaded. Never trimmed.
+
+## Install
+What a dependent repo does about it: template paths, tool names, wiring.
 ```
 
 `source` is deliberately **not** a field — it is implied by which repo the
@@ -207,6 +215,19 @@ BestPractice's median
 practice is 38 lines; the instruction inside it is three or four. Splitting
 removes roughly nine tenths of the resident text **without deleting a word**,
 and gives the incident history a permanent home.
+
+**Amended 2026-08-31, against measurement.** The estimate above was wrong for
+this catalogue, and `## Detail` and `## Install` above are the correction.
+Phase 1.5's editorial pass ([spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md))
+split all 52 practices four ways and `## Rule` came out at **40%** of the
+corpus, not a tenth — because a large share of each practice is genuinely
+*normative* text that is neither reasoning, nor an incident, nor wiring:
+numbered policy rules, worked decision procedures, sub-rules with their own
+tests. With nowhere else to go, it stayed in `Rule` and kept `Rule` long
+(twenty practices still exceed 150 words). `## Detail` is that home. Splitting
+it out is **phase 3 work** — see the Sequence table — because the machinery
+that makes it cheap already exists and doing it after consumer repos vendor
+the format is an order of magnitude more expensive.
 
 ### How an Agent Knows Which Practices to Load
 
@@ -849,7 +870,7 @@ For any repo, before and after migration:
 | 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Open the Precedent branch. Agree this plan. | The branch exists on a current base and this document is approved or amended. |
 | 1 | **Format, converter, harness.** Write the spec and the verification harness; convert Precedent's catalogue; fix the small tooling debts (freshness escalation, drift re-stamp churn). | Practices are files; the catalogue regenerates byte-identically; harness passes. |
 | 2 | **Loader and generated views.** Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
-| 3 | **Split the sources.** Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; a README exists that someone outside the project can follow. |
+| 3 | **Split the sources.** Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. |
 | 4 | **The creation pipeline.** Candidates, detection signals, promotion criteria, approval routing, the periodic retirement report. | A candidate can be raised, promoted and landed end to end; a candidate failing any of the four criteria is refused with a reason. |
 | 5 | **Enforcement push.** Convert checkable practices to scripts; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above 2-of-46; each converted practice has a test proving its check fires. |
 | 6 | **Migrate consumer repos**, one at a time, harness-gated. | Each repo passes the harness before its migration lands. |
@@ -892,6 +913,25 @@ list. CI is the unbypassable backstop; the local
 [pre-push hook](templates/hooks/pre-push) is the complete check. Neither
 alone is the whole gate, and the gate says which layers actually ran rather
 than reporting a clean pass it did not earn.
+
+**Why `## Detail` is phase-3 work and not later.** The format now has five
+body sections — Rule, Detail, Why, Story, Install — and only the first is
+loaded to decide whether a practice applies. Doing the Rule/Detail split at
+phase 3 is close to free: the editorial machinery already exists
+([tools/resplit_sections.py](tools/resplit_sections.py) plus
+[tools/section_split.json](tools/section_split.json)), so the work is one more
+pass over a reviewable JSON file rather than 52 hand-edits, and the
+content-preservation checks that guard it are already written and adversarially
+tested. Doing it *after* phase 6 vendors the format into consumer repos means
+migrating every consumer as well. **It is also the only change that actually
+delivers this plan's own headline claim**, which measurement has shown the
+current four-section split does not.
+
+Two constraints when it happens: `## Rule` must stay loadable on its own —
+a session that reads only the Rule must know what to do, not merely that
+something applies — and `## Detail` must be reachable from the same
+`precedent show` command, not a second one, per
+[Loading a Practice Means Loading Its Rule, Not Its File](#loading-a-practice-means-loading-its-rule-not-its-file).
 
 ## What Morgan Needs to Do
 
@@ -1103,6 +1143,16 @@ team-level content may be staged here even transiently. Recorded in full under
 
 It also closes two open decisions outright (license, and when Precedent goes
 public) and supersedes the phase-0 "create a fork" action.
+
+**2026-08-31 — the practice file gains a fifth body section, `## Detail`,
+split out at phase 3.** Decided by Morgan, against phase 1.5's measurement:
+`## Rule` came out at 40% of the catalogue rather than the ~10% this plan
+predicted, because normative operational detail had no home other than
+`Rule`. This amends "The Practice File" and the phase-3 row. It is the second
+addition to the plan's original three-section body — `## Install` was the
+first, at phase 1 — and both were forced by the same thing: the real
+catalogue carries more kinds of content than the illustrative example had
+places for.
 
 **2026-08-31 — the leak gate is built at phase 2, not phase 3.** A direct
 consequence of the branch decision above: with no "private initially" grace
