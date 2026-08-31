@@ -1,0 +1,1 @@
+{"slugs": ["mistakes-become-rules"], "reasoning": "This is a caught bug (record() failed to advance synced_from) that is fixed and root-caused inline, with the lesson - a new gate isn't done until the whole loop is walked with it installed - encoded directly in a comment at the fix site."}

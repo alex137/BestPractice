@@ -13,7 +13,29 @@ prose. The plan is explicit that this is the assumption everything rests on:
      better. That is an assumption, not a finding... If triggering does not
      beat residency, the plan needs rethinking rather than building on."
 
-THE DESIGN. Ten real commits from this repo's own history, from before the
+V2, AND WHY V1'S NUMBER WAS NOT THE SYSTEM'S NUMBER. The first run scored
+the treatment arm at a 52% miss rate against the control's 32%, and two of
+its choices were responsible for a large part of that gap:
+
+  - **It tested one channel out of three.** The plan's loader is a resident
+    block PLUS an occasion index PLUS a path-triggered channel that fires
+    automatically on the files being touched. v1 gave the treatment arm only
+    the first two. Measured after the fact, `precedent_paths.py` surfaces
+    8-9 practices per case on this case set, with no session judgment
+    involved at all. Leaving it out did not make the test conservative, it
+    made it wrong.
+  - **It stopped after one hop.** The real sequence is: read the index, OPEN
+    the candidates, read their Rules, then decide. v1 scored the arm on
+    deciding from a one-line clause, because letting it read practices/
+    freely would have let it sidestep the index under test. v2 runs the two
+    hops as two separate sessions with the harness in between, so the arm
+    gets exactly the Rules it asked for and nothing else -- the real system,
+    with no way to cheat.
+
+Both corrections cut in the treatment arm's favour, so v1's gap is an upper
+bound on the real one, not an estimate of it.
+
+THE DESIGN. Twenty real commits from this repo's own history, from before the
 Precedent work began. For each, three sessions answer the same underlying
 question -- which practices apply to this change? -- under three conditions:
 
@@ -24,15 +46,22 @@ question -- which practices apply to this change? -- under three conditions:
              practices it will apply. This is the pre-migration
              arrangement. The difference from the oracle is attention under
              task load, which is precisely the plan's thesis.
-  TREATMENT  sees only the resident block and the occasion index -- what a
-             session actually gets at session start after phase 2 -- and
-             names the practices it would open before starting.
+  TREATMENT  the real loader, in two hops.
+             Hop 1 sees the resident block, the occasion index, AND the
+             path-triggered channel's output for the files this change
+             touches, and names the practices it wants to open.
+             Hop 2 sees exactly those Rules -- resolved by this harness, not
+             fetched by the agent -- and gives the final answer.
 
-The treatment arm is given NO repository access on purpose. If it could
-read practices/ it could sidestep the index, and the index is the thing
-under test. Naming a slug it would open is exactly the routing decision;
-what happens next (precedent_show returns that Rule) is already proven
-deterministic, so nothing is lost by stopping there.
+Neither treatment hop has repository access. The arm cannot read practices/
+and sidestep the very index under test; it can only ask, and be given what
+it asked for. That is the system as built, with the cheating path closed.
+
+COST IS PART OF THE ANSWER, NOT A FOOTNOTE. The goal is to miss few or no
+applicable practices WITHOUT carrying the whole catalogue in context. An arm
+that surfaces everything by loading everything has not solved the problem it
+was built for. So every arm's prompt is measured in tokens and reported
+beside its miss rate: the question is recall per token, not recall.
 
 WHAT THIS CAN AND CANNOT SETTLE. It measures routing -- whether the right
 practices are surfaced. It does not measure whether a session then follows
@@ -50,11 +79,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 EVAL = ROOT / 'evals' / 'routing'
 PROMPTS = EVAL / 'prompts'
 ANSWERS = EVAL / 'answers'
-ARMS = ('oracle', 'control', 'treatment')
+ARMS = ('oracle', 'control', 'treatment1')
 
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
 import build_views as bv
+import precedent_paths as pp
 
 DIFF_LINES = 160
 
@@ -78,6 +108,36 @@ def loader_block():
     start = text.index(bv.BEGIN_MARKER)
     end = text.index(bv.END_MARKER) + len(bv.END_MARKER)
     return text[start:end]
+
+
+def changed_files(commit):
+    out = subprocess.run(['git', '-C', str(ROOT), 'diff-tree', '--no-commit-id',
+                          '--name-only', '-r', commit],
+                         capture_output=True, text=True).stdout.split()
+    return [f for f in out if f.strip()]
+
+
+def path_channel(commit, practices):
+    """What tools/precedent_paths.py prints for the files this change touches.
+    This fires with no session judgment involved -- it is the channel a
+    PreToolUse hook runs -- so the treatment arm gets it for free, exactly as
+    a real session would."""
+    files = changed_files(commit)
+    if not files:
+        return '(no files)', []
+    hits = pp.matches_for_paths(files)
+    slugs = []
+    for slug, _path in hits:
+        if slug not in slugs:
+            slugs.append(slug)
+    if not slugs:
+        return "(no practice's applies_to matched the files this change touches)", []
+    body = '\n\n'.join(f"### {s}\n{practices[s][1].get('rule','').strip()}" for s in slugs)
+    return body, slugs
+
+
+def approx_tokens(text):
+    return int(len(text.split()) * 1.3)
 
 
 def commit_context(commit):
@@ -162,14 +222,22 @@ Before you begin: which of the practices above are you going to apply to
 this work?
 {ANSWER_FORMAT}
 """
+    path_block, path_slugs = path_channel(case['commit'], practices)
     return f"""You are a session about to do a piece of work in a repository.
 
-Your project instructions carry the block below. It holds the practices that
-are always resident, plus an index of every other practice grouped by the
-occasion on which it applies. You can load the full Rule of any practice by
-naming its slug -- assume that returns its full text.
+Your project instructions carry the block below: the practices that are
+always resident, plus an index of every other practice grouped by the
+occasion on which it applies.
 
 {loader_block()}
+
+## Automatically surfaced for the files this change touches
+
+Your harness matched the files below against every practice's `applies_to`
+and surfaced these Rules without being asked. They are already in front of
+you.
+
+{path_block}
 
 ## Your task
 
@@ -187,7 +255,51 @@ Diff:
 {diff}
 ```
 
-Before you begin: which practices would you load before doing this work?
+Before you begin: name the practices you want to load. You will be given the
+full Rule of each one you name, and then asked for a final answer -- so name
+anything you think might apply, and anything already surfaced above that you
+believe genuinely applies. Judge each index entry on its own; entries share
+an occasion heading, but sharing a heading does not mean they apply together.
+{ANSWER_FORMAT}
+"""
+
+
+def build_hop2_prompt(case, practices, requested):
+    subject, diff = commit_context(case['commit'])
+    path_block, _ = path_channel(case['commit'], practices)
+    known = [s for s in requested if s in practices]
+    opened = '\n\n'.join(f"### {s}\n{practices[s][1].get('rule','').strip()}" for s in known)
+    if not opened:
+        opened = '(you named no practices, so nothing was opened)'
+    return f"""You are the same session, one step further on.
+
+You named the practices you wanted, and here are their full Rules. This is
+everything you asked for and nothing else.
+
+{opened}
+
+## Also already in front of you, surfaced automatically by file path
+
+{path_block}
+
+## Your task
+
+{case['task']}
+
+Commit message and files touched:
+
+{subject}
+
+Diff:
+
+```
+{diff}
+```
+
+Now give your FINAL answer: which practices genuinely apply to this change?
+You may drop any you named that turn out not to fit once you have read the
+Rule -- that is the point of having read it -- and you may keep any that were
+surfaced automatically. Do not add a practice whose Rule you have not seen.
 {ANSWER_FORMAT}
 """
 
@@ -198,18 +310,48 @@ def cmd_emit():
     PROMPTS.mkdir(parents=True, exist_ok=True)
     ANSWERS.mkdir(parents=True, exist_ok=True)
     n = 0
+    cost = {a: [] for a in ARMS}
     for case in cases:
         for arm in ARMS:
-            path = PROMPTS / f"{case['id']}.{arm}.md"
-            path.write_text(build_prompt(arm, case, practices), encoding='utf-8')
+            text = build_prompt('treatment' if arm == 'treatment1' else arm, case, practices)
+            (PROMPTS / f"{case['id']}.{arm}.md").write_text(text, encoding='utf-8')
+            cost[arm].append(approx_tokens(text))
             n += 1
+    (EVAL / 'cost.json').write_text(json.dumps(
+        {a: round(sum(v) / len(v)) for a, v in cost.items()}, indent=2) + "\n")
     print(f"routing_eval: wrote {n} prompts to {PROMPTS.relative_to(ROOT)}/")
+    for a, v in cost.items():
+        print(f"  {a:11} ~{round(sum(v)/len(v)):>6} tokens of practice context per case (mean)")
     print(f"  answers go in {ANSWERS.relative_to(ROOT)}/<case>.<arm>.json as "
           f'{{"slugs": [...], "reasoning": "..."}}')
     return 0
 
 
-def _read_answer(case_id, arm, valid):
+def cmd_emit_hop2():
+    """Resolve what each hop-1 answer asked for, and build the hop-2 prompt
+    holding exactly those Rules. The harness does the resolving, not the
+    agent, so the arm cannot reach past what it named."""
+    cases = json.loads((EVAL / 'cases.json').read_text())['cases']
+    practices = load_practices()
+    written, skipped, cost = 0, [], []
+    for case in cases:
+        got = _read_answer(case['id'], 'treatment1', set(practices), quiet=True)
+        if got is None:
+            skipped.append(case['id'])
+            continue
+        text = build_hop2_prompt(case, practices, sorted(got))
+        (PROMPTS / f"{case['id']}.treatment2.md").write_text(text, encoding='utf-8')
+        cost.append(approx_tokens(text))
+        written += 1
+    print(f"routing_eval: wrote {written} hop-2 prompt(s)"
+          + (f"; no hop-1 answer yet for {skipped}" if skipped else ""))
+    if cost:
+        print(f"  treatment2  ~{round(sum(cost)/len(cost)):>6} tokens of practice context "
+              f"per case (mean)")
+    return 0
+
+
+def _read_answer(case_id, arm, valid, quiet=False):
     path = ANSWERS / f"{case_id}.{arm}.json"
     if not path.exists():
         return None
@@ -222,7 +364,7 @@ def _read_answer(case_id, arm, valid):
                  f"or the arm quietly scores on fewer cases than the other.")
     slugs = json.loads(m.group(0)).get('slugs', [])
     unknown = [s for s in slugs if s not in valid]
-    if unknown:
+    if unknown and not quiet:
         print(f"  WARN {path.name}: {len(unknown)} slug(s) are not in the catalogue "
               f"and are counted as false positives: {unknown}")
     return set(slugs)
@@ -232,6 +374,7 @@ def cmd_score():
     cases = json.loads((EVAL / 'cases.json').read_text())['cases']
     valid = set(load_practices())
     rows, totals = [], {a: [0, 0, 0] for a in ('control', 'treatment')}  # hit, miss, extra
+    h2h = {'control_only': 0, 'treatment_only': 0}
     scored = 0
     for case in cases:
         truth = _read_answer(case['id'], 'oracle', valid)
@@ -239,8 +382,14 @@ def cmd_score():
             continue
         row = {'id': case['id'], 'truth': len(truth)}
         any_arm = False
+        arm_sets = {}
         for arm in ('control', 'treatment'):
-            got = _read_answer(case['id'], arm, valid)
+            got = None
+            for candidate in (('control',) if arm == 'control' else ('treatment2', 'treatment1')):
+                got = _read_answer(case['id'], candidate, valid)
+                if got is not None:
+                    break
+            arm_sets[arm] = got
             if got is None:
                 row[arm] = None
                 continue
@@ -249,6 +398,11 @@ def cmd_score():
             row[arm] = (hit, miss, extra, sorted(truth - got))
             t = totals[arm]
             t[0] += hit; t[1] += miss; t[2] += extra
+        if arm_sets.get('control') is not None and arm_sets.get('treatment') is not None:
+            # oracle-independent: what each arm found that the other did not
+            h2h['control_only'] += len(arm_sets['control'] - arm_sets['treatment'] & truth
+                                       if False else (truth & arm_sets['control']) - arm_sets['treatment'])
+            h2h['treatment_only'] += len((truth & arm_sets['treatment']) - arm_sets['control'])
         if any_arm:
             scored += 1
         rows.append(row)
@@ -283,6 +437,30 @@ def cmd_score():
               f"recall {recall:.0f}%, MISS RATE {100 - recall:.0f}%")
         print(f"   precision {precision:.0f}% ({extra} surfaced that did not apply)")
 
+    try:
+        cost = json.loads((EVAL / 'cost.json').read_text())
+    except (OSError, json.JSONDecodeError):
+        cost = {}
+    if cost:
+        print("\nCost -- the other half of the goal. Missing nothing by loading")
+        print("everything is not a solution to the problem this plan exists to solve.")
+        c_ctl = cost.get('control')
+        c_trt = cost.get('treatment2') or cost.get('treatment1')
+        if c_ctl and c_trt:
+            for label, tok, arm in (('CONTROL  ', c_ctl, 'control'),
+                                    ('TREATMENT', c_trt, 'treatment')):
+                hit, miss, _e = totals[arm]
+                app = hit + miss
+                rec = 100 * hit / app if app else 0
+                print(f"  {label} ~{tok:>6} tokens/case, recall {rec:.0f}%"
+                      f"  ->  {10 * rec / tok * 100:.2f} recall-points per 1k tokens")
+            print(f"  the treatment arm carries {100 * (1 - c_trt / c_ctl):.0f}% less "
+                  f"practice context per case.")
+
+    print(f"\nHead to head, without using the oracle at all:")
+    print(f"  applicable practices CONTROL found and TREATMENT missed: {h2h['control_only']}")
+    print(f"  applicable practices TREATMENT found and CONTROL missed: {h2h['treatment_only']}")
+
     print("\nWhat this settles, and what it does not:")
     print("  It measures ROUTING -- whether the right practices are surfaced. It does")
     print("  not measure whether a session then follows a practice it surfaced.")
@@ -293,6 +471,8 @@ def cmd_score():
 
 def main():
     args = sys.argv[1:]
+    if '--emit-hop2' in args:
+        return cmd_emit_hop2()
     if '--emit' in args:
         return cmd_emit()
     if '--score' in args:

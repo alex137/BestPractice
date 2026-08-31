@@ -153,60 +153,84 @@ point (see "The Deep Check Audits Routing, Not Content"), and remains one
 after phase 2 — the periodic deep check, not this replay, is what the plan
 assigns to catch it, and that check is not built yet (phase 4 territory).
 
-## The premise, measured — and the pilot does not support it
+## The premise, measured — v2
 
 [tools/routing_eval.py](../tools/routing_eval.py) is the test the replay
-cannot do: whether a session shown only the resident block and the occasion
-index routes as well as one carrying all 52 practices. Ten real commits from
-this repo's history, three arms per case, the same model throughout — an
-**oracle** (all 52 Rules, asked only to classify, one case at a time: the
-answer key), a **control** (all 52 Rules, asked to do the work: the
-pre-migration arrangement), and a **treatment** (resident block + occasion
-index only: what phase 2 actually delivers).
+cannot do: whether a session shown the loader routes as well as one carrying
+all 52 practices. Twenty real commits from this repo's history, an **oracle**
+(all 52 Rules, asked only to classify, one case at a time: the answer key), a
+**control** (all 52 Rules, asked to do the work: the pre-migration
+arrangement), and a **treatment** (the real loader — resident block, occasion
+index, *and* the path-triggered channel — in two hops: name what you want,
+then decide having read exactly that).
 
-| | recall | **miss rate** | precision |
+| | recall | **miss rate** | practice context | recall per 1k tokens |
+|---|---|---|---|---|
+| Control — all 52 always loaded | 81% | **19%** | ≈11,834 tok/case | 6.8 |
+| Treatment — the loader | 62% | **38%** | ≈4,509 tok/case | **13.7** |
+
+Head to head, without the oracle: the control found **15** applicable
+practices the treatment missed; the treatment found **3** the control missed.
+
+**v1 was wrong about the size of the gap, and this document said so at the
+time.** It gave the treatment arm two of the loader's three channels and
+stopped it after one hop, scoring it at a 52% miss rate. Restoring the
+path-triggered channel and the second hop moved it to 38%. The gap to
+control narrowed only slightly (20 points to 19), because the wider case set
+lifted the control too.
+
+### What this actually says
+
+**Triggering still misses more than residency does.** On the plan's own
+terms — *"if triggering does not beat residency, the plan needs rethinking"* —
+that has now been measured twice and come back the same way both times.
+
+**And residency does not reach the goal either.** The control carries the
+entire catalogue in every session and still misses 19% of what applies.
+`verify-postcondition` was judged applicable twice and named by the control
+**zero** times — while resident, in full, in its context. So the honest
+summary is not "residency works, triggering does not." It is that **neither
+arrangement gets close to few-or-no misses**, and one of them costs 2.6× the
+context to be 19 points better.
+
+That reframes the phase-2 question. The plan's premise was that trigger-based
+loading would recover residency's compliance at a fraction of the cost. What
+the measurement supports is weaker and more useful: **the loader buys 62%
+less context for 19 points of recall — twice the recall per token — and
+neither arrangement is good enough on its own.**
+
+### Where the misses actually are
+
+Counting which practices the treatment arm missed, across all 20 cases:
+
+| missed | caught | practice | reachable via |
 |---|---|---|---|
-| Control — all 52 always loaded | 68% | **32%** | 72% |
-| Treatment — resident block + occasion index | 48% | **52%** | 52% |
+| 3 | 10 | `cite-the-incident` | occasion prose only |
+| 2 | 0 | `capture-gate` | occasion prose only |
+| 2 | 0 | `verify-postcondition` | **resident** |
+| 2 | 0 | `environment-gotchas` | **resident** |
+| 2 | 0 | `engine-plus-host-shims` | occasion prose only |
+| 2 | 5 | `convention-to-audit` | occasion prose only |
+| 2 | 9 | `mistakes-become-rules` | occasion prose only |
 
-**Triggering did worse than residency, by 20 points on the measure that
-matters.** The plan is explicit about what that means: *"If triggering does
-not beat residency, the plan needs rethinking rather than building on, and
-that is far cheaper to discover at phase 2 than at phase 6."* This is that
-moment, and this document is not going to soften it.
+Two patterns, and they call for different fixes.
 
-Three limits, stated because two cut against the treatment arm and one
-against the whole design:
+**The prose-only practices are a routing problem.** Everything missed twice
+or more, apart from the two resident ones, is reachable only through the
+occasion index — no glob, no check. These are practices about the *shape of
+the work* ("a mistake was caught", "this is a check-in", "I am about to
+merge"), which no file path can detect and which a session does not reliably
+recognise about itself. This is the plan's own named weak point, now with a
+number on it.
 
-- **The treatment arm was denied the second hop.** In the real system a
-  session reads the index, *opens* the candidate practices, reads their
-  Rules, and then decides. To stop the arm reading `practices/` wholesale
-  and sidestepping the very index under test, it was scored on the first hop
-  alone — deciding from a one-line clause. That is harder than the real
-  system, and it makes **precision** unfair in particular: a real second hop
-  would filter most of the 14 false positives. The **miss** figure survives
-  the objection, because a practice never opened is never recovered.
-- **The oracle shares the control's context shape.** Both see all 52 Rules.
-  An answer key built that way may be biased toward what a full-context
-  reader notices, which flatters the control.
-- **Ten cases, one run per cell, one model.** Case c08 has the treatment arm
-  missing `repo-is-memory` and `quick-index` — both **resident**, both in its
-  context in full. That is variance, not a channel effect, and a reminder
-  that this is a pilot, not a verdict.
-
-**One diagnosis is actionable whatever the caveats.** The false positives
-cluster: `acronyms-glossary`, `docs-are-current-state` and
-`label-describes-content` appear together, wrongly, on two separate cases.
-All three sit under `When writing or editing a document:`. **The index groups
-by occasion, so a session that recognizes the occasion takes the whole
-group** rather than judging each entry. The control arm, holding the full
-Rules, ruled them out one at a time. An index that can argue *for* a practice
-and never *against* it will over-fire by construction.
-
-Re-run with `python3 tools/routing_eval.py --emit` then `--score`; the cases
-are in [evals/routing/cases.json](../evals/routing/cases.json) and the
-answers beside them.
-
+**The resident misses are not a routing problem at all**, and this is the
+sharper finding. `verify-postcondition`, `environment-gotchas`,
+`capture-gate` and `engine-plus-host-shims` were each judged applicable
+twice; the control — holding all 52 — found them 0, 1, 1 and 1 times. **Both
+arms miss the same practices.** Putting a practice in front of a session, in
+full, at all times, does not make the session apply it. No change to the
+loading channels can fix that; it is what `checked_by` and the phase-4 deep
+check exist for.
 
 **Read plainly:** phase 2 proves the plumbing is correct and cheaper than
 residency, on this repo's own history. It does not prove — and the plan

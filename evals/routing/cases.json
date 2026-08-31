@@ -1,15 +1,105 @@
 {
-  "note": "Ten commits from BestPractice's own history, before the Precedent work began, chosen for a spread of change kinds: prose-only edits, tool changes, template additions, and lifecycle records. Each is a moment where a session was about to do real work and some subset of the catalogue genuinely applied.",
+  "note": "Twenty commits from BestPractice's own history, before the Precedent work began, chosen for a spread of change kinds: prose-only edits, tool changes, template additions, engine work, and lifecycle records. Each is a moment where a session was about to do real work and some subset of the catalogue genuinely applied. c01-c10 were the v1 pilot; c11-c20 widen it.",
   "cases": [
-    {"id": "c01", "commit": "87e7812", "task": "Clarify the README: it should capture intention and thinking rather than reading as a document-editing tool."},
-    {"id": "c02", "commit": "cbfb0ed", "task": "Fix phrasing in the install documentation that implied approving a change isn't real work."},
-    {"id": "c03", "commit": "105a01e", "task": "Correct INSTALL.md: the approval moment is the review-and-merge, not step 7."},
-    {"id": "c04", "commit": "2d0a4d2", "task": "Add a baseline .gitignore, installed at the repo root, covering tool and interpreter caches."},
-    {"id": "c05", "commit": "dfc235d", "task": "Make checkin.py's freshness check emit an automated upstream staleness notice, while taking the update stays a deliberate human act."},
-    {"id": "c06", "commit": "1a480e1", "task": "Fix a bug: record() must advance synced_from, or push() false-positives on the next cycle."},
-    {"id": "c07", "commit": "41594ce", "task": "Add VOICE.md and STYLEGUIDE.md templates and wire them into the install prompt."},
-    {"id": "c08", "commit": "8e831e5", "task": "Record that GitAround has moved out into its own repository."},
-    {"id": "c09", "commit": "30bb2db", "task": "Enforce practice 33's rule 2 by adding a restatement check to doc_sync."},
-    {"id": "c10", "commit": "072e28e", "task": "Clarify practice 16: the date on a volatile rule is the contributor's, not the agent's system clock."}
+    {
+      "id": "c01",
+      "commit": "87e7812",
+      "task": "Clarify the README: it should capture intention and thinking rather than reading as a document-editing tool."
+    },
+    {
+      "id": "c02",
+      "commit": "cbfb0ed",
+      "task": "Fix phrasing in the install documentation that implied approving a change isn't real work."
+    },
+    {
+      "id": "c03",
+      "commit": "105a01e",
+      "task": "Correct INSTALL.md: the approval moment is the review-and-merge, not step 7."
+    },
+    {
+      "id": "c04",
+      "commit": "2d0a4d2",
+      "task": "Add a baseline .gitignore, installed at the repo root, covering tool and interpreter caches."
+    },
+    {
+      "id": "c05",
+      "commit": "dfc235d",
+      "task": "Make checkin.py's freshness check emit an automated upstream staleness notice, while taking the update stays a deliberate human act."
+    },
+    {
+      "id": "c06",
+      "commit": "1a480e1",
+      "task": "Fix a bug: record() must advance synced_from, or push() false-positives on the next cycle."
+    },
+    {
+      "id": "c07",
+      "commit": "41594ce",
+      "task": "Add VOICE.md and STYLEGUIDE.md templates and wire them into the install prompt."
+    },
+    {
+      "id": "c08",
+      "commit": "8e831e5",
+      "task": "Record that GitAround has moved out into its own repository."
+    },
+    {
+      "id": "c09",
+      "commit": "30bb2db",
+      "task": "Enforce practice 33's rule 2 by adding a restatement check to doc_sync."
+    },
+    {
+      "id": "c10",
+      "commit": "072e28e",
+      "task": "Clarify practice 16: the date on a volatile rule is the contributor's, not the agent's system clock."
+    },
+    {
+      "id": "c11",
+      "commit": "9de83a2",
+      "task": "Add a Claude Code Stop hook that blocks ending a turn with unpushed work."
+    },
+    {
+      "id": "c12",
+      "commit": "e4d7a7f",
+      "task": "Recover three pre-gate content losses found by a historical scan of the repository."
+    },
+    {
+      "id": "c13",
+      "commit": "28b006b",
+      "task": "Add the carry-all-pending rule, restore the erased blocks, and add the mechanical gate for it."
+    },
+    {
+      "id": "c14",
+      "commit": "cfdd5ca",
+      "task": "Close two audits: verify the wiring registry, and add an opt-in unsourced-quantity gate."
+    },
+    {
+      "id": "c15",
+      "commit": "24a1f98",
+      "task": "Guard both directions of the checkin mirror, and record why in practice 14."
+    },
+    {
+      "id": "c16",
+      "commit": "c0268ba",
+      "task": "Check in practices 24-25 from a dependent repo, plus the bootstrap apt-retry pattern."
+    },
+    {
+      "id": "c17",
+      "commit": "28aa1bb",
+      "task": "Check-in: update tooling, harden the lint, and add a repo-wide renumber rule."
+    },
+    {
+      "id": "c18",
+      "commit": "91c082f",
+      "task": "Add practices for named check levels and for a merge-authorization keyword."
+    },
+    {
+      "id": "c19",
+      "commit": "8dba5f6",
+      "task": "Add practice 30: scripts assert their own properties and their sources' figures."
+    },
+    {
+      "id": "c20",
+      "commit": "1feeb6d",
+      "task": "Add practice 33: documents track their models, and every transformation is code."
+    }
   ]
 }
