@@ -115,19 +115,46 @@ def _clone_or_die(arg):
 
 
 def fresh():
-    """Session-start staleness notice: automated detection, deliberate take."""
+    """Session-start staleness notice: automated detection, deliberate take.
+
+    Tells two failure modes apart. A genuinely unreachable remote (offline,
+    a slow timeout — no output, no fast error) stays silent, same as
+    "nothing has moved" — that was the original behavior and is unchanged.
+    But a fast, clean `git ls-remote` failure (non-zero exit — no
+    credentials for a private repo in this environment, a 403, "repository
+    not found") is a different thing: the check did not run, not that it
+    ran and found nothing. The old code treated both the same way (silent),
+    which reads a standing credential gap — the same failure, every single
+    session, forever in some environments — as "confirmed fresh" in
+    perpetuity. (Ported from a fix already made downstream, once, in a
+    dependent repo's own wrapper around this same gap — see
+    PRACTICE_ENGINE_PLAN.md's evidence table: "checkin.py fresh is silent on
+    failure, so unreachable reads as 'current'". Fixing it here, in the
+    engine, means every consumer gets it instead of each one re-patching
+    its own copy.)
+    """
     try:
         up = _manifest().get('upstream', {})
         repo, recorded = up.get('repo'), up.get('commit')
         if not repo or not recorded:
             return 0
-        out = subprocess.run(['git', 'ls-remote', repo, 'HEAD'],
-                             capture_output=True, text=True, timeout=10)
+        try:
+            out = subprocess.run(['git', 'ls-remote', repo, 'HEAD'],
+                                 capture_output=True, text=True, timeout=10)
+        except subprocess.TimeoutExpired:
+            return 0  # genuinely unreachable -- stays silent, unchanged
         head = out.stdout.split()[0] if out.returncode == 0 and out.stdout else ''
         if head and head != recorded:
             print(f"NOTICE: BestPractice upstream has moved ({head[:12]}; your base "
                   f"{recorded[:12]}) — review at the next check-in "
                   f"(process/upstream/INSTALL.md sec.2/sec.4).")
+        elif not head and out.returncode != 0:
+            err = (out.stderr or '').strip().splitlines()
+            err = err[-1] if err else 'no output'
+            print(f"COULD NOT VERIFY: couldn't reach BestPractice upstream ({repo}) to check "
+                  f"freshness — `git ls-remote` failed ({err}). This is NOT the same as "
+                  f"'confirmed fresh': if you need to know, verify directly instead of trusting "
+                  f"this silence.")
     except Exception:
         pass
     return 0
