@@ -159,12 +159,15 @@ knowing before it runs:
   dearer.** Practices are files with a `## Story` section; "a new practice
   must carry its originating incident" is one function in the harness we
   already run. Phase 3 did not touch it, as the brief asked.
-- **Three practices' Rules could not be split** — `permutation-frontier-column`,
-  `mistakes-become-rules`, `build-buy-decompose`. `mistakes-become-rules` is
-  on phase 4's queue, and its length is the reason it is still 228 words: the
-  proportionality guard that gates whether it fires at all cannot leave the
-  Rule without changing what the practice does. If it gains a `checked_by`,
-  the check has to carry that gate, not just the encode-the-prevention half.
+- **Five practices' Rules could not be split** — `permutation-frontier-column`,
+  `verify-decomposition`, `mistakes-become-rules`, `scripts-assert-properties`,
+  `build-buy-decompose`. `mistakes-become-rules` is on phase 4's queue, and
+  its length is the reason it is still 228 words: the proportionality guard
+  that gates whether it fires at all cannot leave the Rule without changing
+  what the practice does. If it gains a `checked_by`, the check has to carry
+  that gate, not just the encode-the-prevention half. Two of the five were
+  reverted after a review pass caught splits that every check had passed —
+  see [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md).
 
 One thing phase 3 added that phase 4 should use rather than rebuild: the
 harness now has two worked examples of a check that tests a **behaviour** by

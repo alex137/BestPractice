@@ -22,21 +22,21 @@ Rules come in three scopes, and each gets its own home. **Generic** rules
 repo's instructions files and never leave. Between them sit **domain** rules
 — true of any repo running the same *kind* of program (a compliance regime,
 a lab workflow, a regulated-filing process) but meaningless outside it.
+Those are collected into a **practice pack**: a vendored tree at
+`process/<pack>/` with the same anatomy as this upstream (a practices
+catalog, an install playbook, extracted tools, harness adapters), tracked by
+its own manifest at `process/manifest_<pack>.json` with its own optional
+scrub blocklist, audited by the same `practice_audit.py` (it discovers every
+`process/manifest*.json`).
 
 The decision rule for any new rule: *would this hold in an unrelated repo?*
 → upstream (public scrub applies). *Only in another repo running the same
 kind of program?* → the pack. *Only here?* → repo-local.
 
 ## Detail
-Those are collected into a **practice pack**: a vendored tree at
-`process/<pack>/` with the same anatomy as this upstream (a practices
-catalog, an install playbook, extracted tools, harness adapters), tracked by
-its own manifest at `process/manifest_<pack>.json` with its own optional
-scrub blocklist, audited by the same `practice_audit.py` (it discovers every
-`process/manifest*.json`). A pack may **route**: its harness adapter (e.g.
-an agent skill) declares when the domain's rules apply, so an agent loads
-them exactly when doing that domain's work instead of carrying them in every
-session.
+A pack may **route**: its harness adapter (e.g. an agent skill) declares
+when the domain's rules apply, so an agent loads them exactly when doing
+that domain's work instead of carrying them in every session.
 
 ## Why
 

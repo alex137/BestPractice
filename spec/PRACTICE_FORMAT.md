@@ -207,26 +207,33 @@ Two constraints from the plan's phase-3 row governed every decision:
 
 | | after phase 1 | after phase 1.5 | after phase 3 |
 |---|---|---|---|
-| `## Rule` share of the catalogue | 44% | 40% | **27%** |
-| Practices with `## Rule` over 150 words | 16 | 20 | **7** |
+| `## Rule` share of the catalogue | 44% | 40% | **28%** |
+| Practices with `## Rule` over 150 words | 16 | 20 | **8** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
-| Words in `## Detail` | — | — | **2,487** |
+| Words in `## Detail` | — | — | **2,253** |
 
-Seventeen of the fifty-two practices carry a Detail. The resident block —
-the text every session pays for, whatever it is doing — **halved**, which is
-the closest this catalogue has come to the plan's "nine tenths" claim and
-still short of it.
+Fifteen of the fifty-two practices carry a Detail. The resident block — the
+text every session pays for, whatever it is doing — **halved**, which is the
+closest this catalogue has come to the plan's "nine tenths" claim and still
+short of it.
 
-### The three practices that could not be split, and why that is a finding
+*(These are the figures after the review pass described in
+[What a Reader Caught That No Check Did](#what-a-reader-caught-that-no-check-did)
+below, which reverted two splits. The first pass reported 27%, 7, and
+seventeen.)*
+
+### The five practices that could not be split, and why that is a finding
 
 The mechanism moves text; it cannot write text, because the no-invented-content
 rule forbids it. So a practice can only be split where the source already
-has a seam. Three do not:
+has a seam. Five do not:
 
 | slug | Rule words | why it is irreducible |
 |---|---|---|
 | `permutation-frontier-column` | 358 | The framing paragraph ends *"Three rules:"* and the three rules are one markdown list, which cannot be sliced without flattening it. Rule alone would say a table is being built and stop. |
+| `verify-decomposition` | 329 | Names two failure modes. With the fixes for the first in Detail, the Rule diagnosed it — *"the tell is a headline number that survived several passes"* — and then prescribed nothing. Reverted by the review pass below. |
 | `mistakes-become-rules` | 228 | One 171-word paragraph in which every sentence is an instruction — root-cause it, encode at the strongest rung, discuss the judgment call — plus a proportionality guard that gates *whether the rule fires at all*. Moving the guard to Detail would leave a Rule that mints a practice for every slip, which is the failure the plan opens by diagnosing. |
+| `scripts-assert-properties` | 227 | Its closing paragraph is a **scope gate** — which scripts to instrument, and that scripts owning their numbers end to end need nothing. Detail is defined as what is not needed to decide whether a practice applies, and a scope gate is exactly that. Reverted by the review pass below. |
 | `build-buy-decompose` | 224 | The second of its two moves defines the ownership/capability distinction that the closing instruction depends on; moving either half leaves the other dangling. Only the embedded origin anecdote could be re-homed. |
 
 **This is a property of the source text, not of the pass.** BestPractice's
@@ -238,6 +245,37 @@ that makes the whole conversion trustworthy. Doing it deliberately, as an
 authored edit reviewed against the source, is real work; it is not this
 pass's work, and pretending the mechanism could have done it would
 misdescribe why the number stopped where it did.
+
+### What a Reader Caught That No Check Did
+
+The seventeen splits were made in one pass, and then read back — each `## Rule`
+on its own, as `precedent show SLUG` returns it, with nothing else loaded.
+**Three were wrong.** Every check in the harness passed on all three, and the
+content-preservation net was never in question: nothing was lost, invented or
+reordered in any of them. What was wrong was the judgment the net cannot see.
+
+| practice | what the Rule said on its own | verdict |
+|---|---|---|
+| `verify-decomposition` | Named two failure modes, gave the tell for both, and the prescribed fix for only one. A session reading it would diagnose the first and be told nothing to do. | Reverted |
+| `scripts-assert-properties` | Lost its scope gate to Detail, so a session reading only the Rule would instrument every script rather than the ones that re-derive another owner's quantity. | Reverted |
+| `layered-practice-packs` | Its decision rule routes a rule to *"the pack"* — and the sentence defining what a practice pack **is** had moved to Detail. The Rule used a term it never defined. | Definition restored to Rule; only the routing aside stays in Detail |
+
+**The line that came out of it, and that the remaining splits were re-checked
+against:** `## Detail` may hold sub-rules and elaboration; it may **not** hold
+anything needed to decide *whether, or how widely, the practice applies*. That
+is the plan's own definition of Detail read strictly — *"not needed to decide
+whether the practice applies"* — and it is what separates
+`scripts-assert-properties`' scope gate (belongs in Rule) from
+`reply-links-files`' rendered-view sub-rule (belongs in Detail).
+
+**One of the three had a mechanical signature and now has a check.** A Rule
+ending on a colon has had its payload moved out and announces a list it does
+not contain; `check_rule_is_self_contained` in
+[tools/verify_harness.py](../tools/verify_harness.py) fails on it, and was
+verified by re-applying the split that would have dangled. The other two —
+a scope gate that moved, a term defined only in Detail — are judgments about
+meaning, and **there is no check for them**. They needed a reader. That is
+worth saying plainly rather than implying the harness now covers this.
 
 ### One tension worth recording rather than smoothing over
 

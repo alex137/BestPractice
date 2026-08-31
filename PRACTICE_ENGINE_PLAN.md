@@ -1056,7 +1056,7 @@ into them.
 |---|---|
 | The leak gate's **vocabulary** layer passes | **Met.** Switched on, and three ways it passed on a leak were found and fixed first (see below). |
 | A consumer repo resolves all three sources, and precedence is tested | **Met.** [tools/precedent_resolve.py](tools/precedent_resolve.py); 17 stated cases in the harness, each verified by breaking the resolver. |
-| `## Rule` is short enough to be worth loading, with the specifics in `## Detail` | **Met.** Rule is 27% of the catalogue (was 40%); the resident block halved, ≈621 → ≈312 tokens. |
+| `## Rule` is short enough to be worth loading, with the specifics in `## Detail` | **Met.** Rule is 28% of the catalogue (was 40%); the resident block halved, ≈621 → ≈312 tokens. |
 | A README someone outside the project can follow | **Met.** [ADOPTING.md](ADOPTING.md), written to the measured claim rather than the hoped-for one. |
 | The frozen example set | **Met** — and invented rather than copied; see [spec/SOURCES.md](spec/SOURCES.md) for why that is the better artifact and not merely the available one. |
 | The private sets **populated** from RPP's 46 rules | **Not started.** |
@@ -1121,21 +1121,40 @@ as the thing it checked has been green over a real defect.
 
 | | phase 1 | phase 1.5 | phase 3 |
 |---|---|---|---|
-| `## Rule` share of the catalogue | 44% | 40% | **27%** |
-| Practices with `## Rule` over 150 words | 16 | 20 | **7** |
+| `## Rule` share of the catalogue | 44% | 40% | **28%** |
+| Practices with `## Rule` over 150 words | 16 | 20 | **8** |
 | Resident block | — | ≈621 tokens | **≈312 tokens** |
 
-Seventeen practices gained a Detail. **Three cannot be split at all**, and
-that is a finding about the source text rather than a gap in the pass: the
+Fifteen practices gained a Detail. **Five cannot be split at all**, and that
+is a finding about the source text rather than a gap in the pass: the
 mechanism moves text by reference and the no-invented-content rule forbids it
 to write text, so a practice can only be split where its author happened to
-leave a seam. `permutation-frontier-column`, `mistakes-become-rules` and
+leave a seam. `permutation-frontier-column`, `verify-decomposition`,
+`mistakes-become-rules`, `scripts-assert-properties` and
 `build-buy-decompose` do not have one — in each case, what would remain in
 `## Rule` fails the plan's own constraint that a session reading only the
-Rule must know what to *do*. Splitting the remaining seven means authoring
+Rule must know what to *do*. Splitting the remaining eight means authoring
 new lead-in sentences, reviewed against the source; real work, and not
 something a move-only mechanism can do. Per-practice reasoning in
 [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md).
+
+**Two of those five were found by reading, after the pass reported success.**
+The split was made in one pass and then each `## Rule` was read back on its
+own, as a session would receive it. Three of seventeen were wrong, and every
+check in the harness passed on all three: nothing was lost, invented or
+reordered — the judgment was wrong, and the content-preservation net cannot
+see judgment. `verify-decomposition` diagnosed a failure mode and prescribed
+nothing for it; `scripts-assert-properties` lost the scope gate that says
+which scripts to instrument at all; `layered-practice-packs` routed a rule to
+*"the pack"* while the sentence defining a practice pack sat in Detail.
+
+The rule that came out of it: **`## Detail` may hold sub-rules and
+elaboration, and may not hold anything needed to decide whether, or how
+widely, the practice applies.** That is this plan's own definition of Detail
+read strictly. One of the three failures has a mechanical signature — a Rule
+ending on a colon announces a list it no longer contains — and now has a
+check. The other two are judgments about meaning and have none; they needed a
+reader, and that is stated rather than left to imply the harness covers it.
 
 **One tension recorded rather than smoothed over.** The split moved
 `verify-postcondition`'s two most concrete parts out of the resident Rule.
@@ -1415,7 +1434,7 @@ content split and the leak gate remain.
 is not startable from here.** All four of phase 3's done-when conditions are
 met in this repository: the leak gate's vocabulary layer is on, a consumer
 repo resolves all three sources with precedence tested, `## Detail` is split
-out (Rule from 40% to 27% of the catalogue; the resident block halved), and
+out (Rule from 40% to 28% of the catalogue; the resident block halved), and
 [ADOPTING.md](ADOPTING.md) exists. Populating the two private sets from RPP's
 46 rules is not done and cannot be done by a session working in Precedent —
 a session cannot hold repositories from two owners with push access at once,

@@ -1017,6 +1017,41 @@ def check_example_set():
           f'format, and resolve as an individual source)', ok)
 
 
+def check_rule_is_self_contained(files):
+    """A `## Rule` may not end on a lead-in whose payload is somewhere else.
+
+    The plan's binding constraint on the Rule/Detail split is that `## Rule`
+    stays loadable ON ITS OWN: a session reading only the Rule must know what
+    to DO, not merely that something applies. That is a judgment about
+    meaning, and most of it cannot be checked -- a review pass over the split
+    practices caught three defects that every check here passed, and only one
+    of the three had a mechanical signature.
+
+    This is that one. A Rule ending on "Three rules:" or "Two things fix it:"
+    has had its payload moved to Detail and now announces a list it does not
+    contain. It is the cheapest and least ambiguous form of the failure, so
+    it is the form that gets a check; the other two -- a Rule whose scope gate
+    moved to Detail, and a Rule using a term Detail defines -- are recorded in
+    spec/PRACTICE_FORMAT.md as needing a reader, because they do.
+    """
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        rule = (sections.get('rule') or '').strip()
+        if not rule:
+            ok = False
+            print(f"  {f.name}: empty ## Rule -- a practice with nothing to do "
+                  f"is not loadable on its own")
+            continue
+        if rule.endswith(':'):
+            ok = False
+            print(f"  {f.name}: ## Rule ends on a colon -- {rule.splitlines()[-1][:60]!r} "
+                  f"-- the list or clause it introduces is not in the Rule, so a "
+                  f"session that loads only the Rule is told something applies "
+                  f"and not what to do about it")
+    check('every ## Rule is self-contained (non-empty, and never ends on a '
+          'lead-in whose payload moved to ## Detail)', ok)
+
+
 def check_index_clauses(files):
     """The occasion index is the ONLY route to 34 of the 46 on-demand
     practices, and a session decides whether to open a practice on the
@@ -1188,6 +1223,7 @@ def main():
     check_source_precedence()
     check_example_set()
     check_index_clauses(files)
+    check_rule_is_self_contained(files)
     check_glob_semantics()
     check_generated_views_regenerate()
     check_resident_subset(files)
