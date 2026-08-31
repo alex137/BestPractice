@@ -149,16 +149,39 @@ Phase 4 is the enforcement push. Its starting queue is unchanged from what is
 written above, and three things phase 3 changed underneath it are worth
 knowing before it runs:
 
-- **`verify-postcondition`'s Rule is now shorter.** Its two most concrete
-  parts — the pipeline-exit-status trap and the explicit-target trap — moved
-  into `## Detail`, so a session that loads only the resident Rule no longer
-  sees them. It is the queue's most-missed resident practice, so if the
-  routing eval is re-run after phase 4, this changed between the runs and the
-  comparison is not clean without accounting for it.
-- **`cite-the-incident` is still the cheapest one, and got no cheaper or
-  dearer.** Practices are files with a `## Story` section; "a new practice
-  must carry its originating incident" is one function in the harness we
-  already run. Phase 3 did not touch it, as the brief asked.
+- **The eval was re-baselined, so start from the v3 queue, not the one above.**
+  The split changed every arm's input, so the routing eval was re-run on the
+  same 20 cases before phase 4 — otherwise phase 4's own result would have
+  been confounded with it. Numbers and method in
+  [spec/LOADER.md](LOADER.md)'s v3 section. The queue that matters now:
+
+  | missed | caught | practice | reachable via |
+  |---|---|---|---|
+  | 8 | 2 | `practice-export-loop` | glob + **`checked_by`** |
+  | 5 | 7 | `mistakes-become-rules` | occasion prose only |
+  | 3 | 0 | `verify-postcondition` | **resident** |
+  | 3 | 0 | `engine-plus-host-shims` | occasion prose only |
+  | 2 | 0 | `environment-gotchas` | **resident** |
+  | 2 | 0 | `docs-track-models` | glob + **`checked_by`** |
+
+- **One entry breaks phase 4's framing.** `practice-export-loop` is the
+  largest single miss and already carries a narrow `applies_to` *and* a
+  `checked_by` — its glob fires only on `process/upstream/**` and these cases
+  touch other paths. "Every most-missed practice carries `checked_by: null`",
+  the observation that moved enforcement ahead of the creation pipeline, is no
+  longer true of the most-missed practice. **Reach and enforcement are two
+  problems.** Converting a practice to a check does not route it.
+- **`verify-postcondition`'s Rule is now shorter, and the risk landed.** Its
+  two concrete traps moved into `## Detail`. In v2 both arms missed it; in v3
+  the control catches it 3 of 3 and the loader 0 of 3. Three cases cannot
+  resolve why, and it is not on its own an argument to revert — v2 measured
+  the long resident Rule and the loader missed it there too, 0 of 2. No run
+  yet shows residency working for this practice at any Rule length, which is
+  the argument for giving it a check.
+- **`cite-the-incident` and `convention-to-audit` have left the queue** —
+  1 miss of 15 applicable and 0 of 7 respectively, against 3 and 2 in v2. If
+  you were going to start with `cite-the-incident` because it is cheapest,
+  that is still a fine reason; it is no longer because it is most-missed.
 - **Five practices' Rules could not be split** — `permutation-frontier-column`,
   `verify-decomposition`, `mistakes-become-rules`, `scripts-assert-properties`,
   `build-buy-decompose`. `mistakes-become-rules` is on phase 4's queue, and

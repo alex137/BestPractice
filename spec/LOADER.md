@@ -153,7 +153,131 @@ point (see "The Deep Check Audits Routing, Not Content"), and remains one
 after phase 2 — the periodic deep check, not this replay, is what the plan
 assigns to catch it, and that check is not built yet (phase 5 territory).
 
-## The premise, measured — v2
+## Re-baselined after the Rule/Detail split — v3
+
+**Read this before quoting any number below it.** The v2 figures in the next
+section were measured against a catalogue whose `## Rule` sections were 40% of
+the corpus. Phase 3's Rule/Detail split changed that to 28%, which changed
+**every arm's input**: the control loads all 52 Rules and the treatment's
+resident block halved. The v2 table describes a catalogue that no longer
+exists, and is kept below as the historical record, not as current state.
+
+Same harness, same 20 cases, same method. Answers in
+[evals/routing/answers/](../evals/routing/answers); v2's are preserved in
+`evals/routing/answers-v2-pre-detail-split/`.
+
+| | v2 (Rule at 40%) | **v3 (Rule at 28%)** |
+|---|---|---|
+| Control — recall / miss | 81% / 19% | **84% / 16%** |
+| Treatment — recall / miss | 62% / 38% | **69% / 31%** |
+| Control — practice context | ≈11,834 tok/case | **≈8,905** |
+| Treatment — practice context | ≈4,509 tok/case | **≈4,200** |
+| Control — recall per 1k tokens | 6.8 | **9.5** |
+| Treatment — recall per 1k tokens | 13.7 | **16.5** |
+| Treatment precision | 66% | **81%** |
+| Head to head (control-only / treatment-only) | 15 / 3 | **15 / 1** |
+
+### What moved, and what only appears to have moved
+
+**The cost drop is real and is not a measurement.** It is computed from the
+prompts, not from anything a model produced: the control now carries **25%
+less** practice context per case because the Rules it loads are shorter. That
+number would come out the same on any re-run.
+
+**The recall changes are inside the noise.** Control 81% → 84% and treatment
+62% → 69% are 3 and 7 points, on 20 cases, one run per cell. This eval's own
+stated resolution is that a difference under roughly 15 points is *not
+measured*. So the honest reading is: **shortening the Rules did not cost
+either arm any recall, and may have gained a little.** It did not measurably
+improve routing, and nobody should claim it did.
+
+**The gap narrowed from 19 points to 15 — to exactly the resolution limit.**
+The direction is unchanged and has now held across three runs: triggering
+misses more than residency. The magnitude is no longer something this case
+set can resolve.
+
+**What actually improved is the loader's precision**, 66% → 81%, now *better*
+than the control's 71%. Phase 2's diagnosis was that the index over-fires
+because grouping by occasion invites a session to take a whole group; with
+shorter Rules the second hop appears to discriminate better. Also inside the
+noise, but it is the one movement with a mechanism behind it.
+
+### The resident-practice finding inverted, and it is the flagged risk landing
+
+Phase 2's sharpest result was that **both arms miss the same practices** —
+`verify-postcondition` was applicable twice and found by neither arm. That is
+no longer what the data says:
+
+| practice | v2 control | v2 treatment | **v3 control** | **v3 treatment** |
+|---|---|---|---|---|
+| `verify-postcondition` (resident) | 0 of 2 | 0 of 2 | **3 of 3** | **0 of 3** |
+| `environment-gotchas` (resident) | 1 of 2 | 0 of 2 | **2 of 2** | **0 of 2** |
+
+Both are resident. Both now have short Rules. The control — which sees the
+same shortened Rule — finds them every time; the loader finds them never.
+
+**This is the risk phase 3 flagged when it made the split**, and it has landed
+on the practice it was flagged for. `verify-postcondition`'s two concrete
+traps moved to `## Detail`, and the arm that reads only the resident Rule
+stopped surfacing it while the arm reading the whole catalogue started. Three
+cases cannot resolve why — a shorter resident block may simply be less
+salient beside a larger surfaced set, or it may be variance on n=3. What can
+be said is that the earlier "both arms miss it equally" no longer holds, and
+that the difference is now on the loader's side.
+
+**It does not, on its own, argue for reverting the split.** The reverse
+prediction — that a fuller resident Rule would have caught these — is exactly
+what v2 measured and refuted: with the long Rule resident, the treatment arm
+found `verify-postcondition` **zero times out of two**. Nothing in either run
+shows residency working for this practice at any Rule length. What both runs
+agree on is that it needs a check, which is what phase 4 is for.
+
+### The queue phase 4 should actually work from
+
+The plan's phase-4 queue was derived from v2's miss table. Re-derived from
+v3, on the same cases:
+
+| missed | caught | practice | reachable via |
+|---|---|---|---|
+| 8 | 2 | `practice-export-loop` | glob `process/upstream/**` **+ `checked_by`** |
+| 5 | 7 | `mistakes-become-rules` | occasion prose only |
+| 3 | 0 | `verify-postcondition` | **resident** |
+| 3 | 0 | `engine-plus-host-shims` | occasion prose only |
+| 2 | 0 | `environment-gotchas` | **resident** |
+| 2 | 0 | `docs-track-models` | glob `**/*.md` **+ `checked_by`** |
+
+Three changes from the v2 queue worth carrying into phase 4:
+
+- **`practice-export-loop` is now the largest single miss** and was not on the
+  old queue at all. It already has both a narrow glob and a `checked_by`, and
+  the loader still missed 8 of 10 — its glob only fires on files under
+  `process/upstream/`, and these cases touch other paths. **A practice can
+  carry a check and still not be routed**, which is a distinction the phase-4
+  framing ("every most-missed practice carries `checked_by: null`") no longer
+  captures.
+- **`cite-the-incident` and `convention-to-audit` have left the queue.**
+  `cite-the-incident` went from 3 missed to 1 (of 15 applicable);
+  `convention-to-audit` from 2 missed to 0 of 7. Both were on the plan's
+  phase-4 starting list.
+- **`capture-gate` did not come up at all** — the oracle judged it applicable
+  in zero of the 20 cases this time, against two in v2. It stays a candidate
+  on the strength of the earlier run, not this one.
+
+### Why this run happened at all, given the plan says not to
+
+[What Phase 2 Measured](../PRACTICE_ENGINE_PLAN.md#what-phase-2-measured) says
+plainly: *"Do not re-run the eval before enforcement lands."* That instruction
+was written when the loader's inputs were fixed, and its reason was that a
+third run would only refine a direction already measured twice.
+
+Phase 3 then changed both arms' inputs. Re-running **after** phase 4 against
+the v2 table would have confounded enforcement with the Rule/Detail split, and
+the pre-phase-4 baseline is recoverable only before phase 4 lands. So this run
+is a **re-baselining, not a re-measurement of the direction** — and it did not
+touch the occasion index, which is the tuning the same passage forbids. The
+direction it reports is the same one, for the third time.
+
+## The premise, measured — v2 *(superseded by v3 above; kept as the record of what was measured against the pre-split catalogue)*
 
 [tools/routing_eval.py](../tools/routing_eval.py) is the test the replay
 cannot do: whether a session shown the loader routes as well as one carrying

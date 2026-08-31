@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session, to version 22 -->
+<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session, to version 23 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -935,6 +935,17 @@ something applies — and `## Detail` must be reachable from the same
 
 ## What Phase 2 Measured
 
+> **Superseded in part, 2026-08-31.** Phase 3's Rule/Detail split changed
+> every arm's input — the control loads all 52 Rules, and they are now 28% of
+> the catalogue rather than 40% — so the eval was re-run to re-anchor the
+> baseline before phase 4. **The numbers in this section describe a catalogue
+> that no longer exists.** The direction they establish is unchanged and has
+> now held three times; the figures, the miss table and the phase-4 queue
+> below are superseded by
+> [What the Re-Baseline Changed](#what-the-re-baseline-changed) and by
+> [spec/LOADER.md](spec/LOADER.md)'s v3 section. This section is kept because
+> the reasoning in it is what the re-run was checked against.
+
 **Phase 2 is closed. Its done-when was "the premise is measured, not
 assumed", and the premise is now measured — twice, with the method corrected
 between runs. The result went against the plan.** This section is the record
@@ -1167,6 +1178,79 @@ either way, since residency produced no measured compliance for this practice
 to protect. It carries `checked_by: null` and is on phase 4's starting queue.
 Whoever re-runs the routing eval after phase 4 should know this moved
 underneath it.
+
+## What the Re-Baseline Changed
+
+Phase 3's Rule/Detail split changed what every arm of the routing eval reads,
+so the eval was re-run on the same 20 cases with the same method before phase
+4 begins. Full result and method note in
+[spec/LOADER.md](spec/LOADER.md)'s v3 section; answers in
+[evals/routing/answers/](evals/routing/answers), with the pre-split set kept
+beside them.
+
+| | v2 (Rule at 40%) | **v3 (Rule at 28%)** |
+|---|---|---|
+| Control — recall / miss | 81% / 19% | **84% / 16%** |
+| Treatment — recall / miss | 62% / 38% | **69% / 31%** |
+| Control — practice context | ≈11,834 tok/case | **≈8,905** |
+| Treatment — practice context | ≈4,509 tok/case | **≈4,200** |
+| Recall per 1k tokens (control / treatment) | 6.8 / 13.7 | **9.5 / 16.5** |
+| Treatment precision | 66% | **81%** |
+
+**Separate what is measured from what is computed.** The cost drop is
+computed from the prompts and would come out identically on any re-run: the
+control carries **25% less** practice context because the Rules are shorter.
+The recall changes — 3 points for the control, 7 for the treatment — are
+inside this eval's stated resolution of roughly 15 points on 20 cases. So:
+**shortening the Rules cost neither arm any recall and may have gained a
+little. It did not measurably improve routing.**
+
+**The direction holds for the third time.** Triggering still misses more than
+residency. The gap is now 15 points rather than 19 — which is exactly the
+resolution limit, so the magnitude is no longer something this case set can
+speak to.
+
+### Two findings that change what phase 4 should do
+
+**1. Phase 2's "both arms miss the same practices" no longer holds for the
+resident ones, and the phase-3 split is implicated.**
+
+| practice | v2 control | v2 treatment | v3 control | v3 treatment |
+|---|---|---|---|---|
+| `verify-postcondition` | 0 of 2 | 0 of 2 | **3 of 3** | **0 of 3** |
+| `environment-gotchas` | 1 of 2 | 0 of 2 | **2 of 2** | **0 of 2** |
+
+This is the risk recorded when the split was made, landing on the practice it
+was recorded for. It is three cases and cannot resolve why. **It does not on
+its own argue for reverting**, because the reverse prediction is what v2
+already refuted: with the long Rule resident, the treatment arm found
+`verify-postcondition` zero times out of two as well. No run yet shows
+residency working for this practice at any Rule length, which is the argument
+for giving it a check.
+
+**2. The phase-4 queue is different, and one entry breaks the framing.**
+Re-derived on the same cases: `practice-export-loop` (8 missed / 2 caught) is
+now the largest single miss and was not on the old queue at all —
+**and it already carries both a narrow `applies_to` and a `checked_by`.** Its
+glob fires only on `process/upstream/**` and these cases touch other paths.
+So "every most-missed practice carries `checked_by: null`" — the observation
+that moved enforcement ahead of the creation pipeline — is no longer true of
+the most-missed practice. **Carrying a check does not make a practice
+routed**, and phase 4 needs to treat reach and enforcement as two problems
+rather than one. `cite-the-incident` (3 missed → 1 of 15) and
+`convention-to-audit` (2 → 0 of 7) have left the queue; `capture-gate` was
+judged applicable in none of the 20 cases this time and stays a candidate on
+v2's evidence rather than this run's.
+
+**Why this run happened when the plan says not to re-run.** The instruction
+under [What NOT to do with this result](#what-not-to-do-with-this-result) was
+written when the loader's inputs were fixed, and its reason was that a third
+run would only refine a direction already measured twice. Phase 3 then changed
+those inputs. Re-running *after* phase 4 would have confounded enforcement
+with the split, and the pre-phase-4 baseline is recoverable only before phase
+4 lands. This is a re-baselining, not a re-measurement of the direction, and
+it did not touch the occasion index — which is the tuning that passage
+actually forbids.
 
 ## What Morgan Needs to Do
 
@@ -1442,6 +1526,18 @@ and this plan already forbids staging private content on this branch even
 transiently. Full record, including the three ways the leak gate passed on a
 leak and the three practices whose Rules could not be split, in
 [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).
+
+**2026-08-31 — the routing eval re-baselined after the Rule/Detail split.**
+Phase 3 changed every arm's input, so the eval was re-run on the same 20 cases
+before phase 4, to keep phase 4's own result attributable. Cost fell 25% for
+the control and recall moved within noise for both arms; the direction —
+triggering misses more than residency — held for a third time, with the gap
+now at the resolution limit. Two findings change phase 4's starting point: the
+two resident practices are now missed by the loader and caught by the control
+(where v2 had both arms missing them), and the largest single miss,
+`practice-export-loop`, already carries a `checked_by` — so reach and
+enforcement are two problems, not one. Recorded in
+[What the Re-Baseline Changed](#what-the-re-baseline-changed).
 
 ### Settled Since Draft v1
 
