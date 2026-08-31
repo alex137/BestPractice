@@ -328,7 +328,7 @@ QUICK_INDEX_HEADER_RE = re.compile(
 
 
 @check('quick-index', 'tree',
-       'the session instructions carry a "looking for X -> go to Y" table '
+       'the session instructions carry a "looking for X → go to Y" table '
        'with at least five rows',
        'whether the rows are the right rows, or still resolve. It checks the '
        'table is there and populated.')
@@ -411,7 +411,8 @@ def _environment_gotchas(ctx):
         sentences = len([s for s in re.split(r'(?<=[.!?])\s', e) if s.strip()])
         if words < STORY_MIN_WORDS or sentences < STORY_MIN_SENTENCES:
             out.append(Finding(name, f'gotcha entry is a bare fix '
-                                     f'({words} words, {sentences} sentence(s)) '
+                                     f'({words} words, {sentences} '
+                                     f'{"sentence" if sentences == 1 else "sentences"}) '
                                      f'with no account of what failed: '
                                      f'{first[:70]!r}'))
     return out
@@ -428,7 +429,11 @@ SETUP_CMD_RE = re.compile(r'\b(pip3?|apt-get|apt|npm|brew|uv)\s+install\b')
 def _session_bootstrap(ctx):
     name, text = _instructions_file()
     prose = re.sub(r'```.*?```', '', text, flags=re.S)
-    hits = [l.strip() for l in prose.splitlines() if SETUP_CMD_RE.search(l)]
+    # Quote the COMMAND and its line, not sixty characters of the line -- the
+    # first version cut a markdown link in half and the message read as
+    # gibberish to the session receiving it.
+    hits = [(i, m.group(0)) for i, l in enumerate(prose.splitlines(), 1)
+            for m in [SETUP_CMD_RE.search(l)] if m]
     if not hits:
         raise NotApplicable('the session instructions name no setup command, '
                             'so there is nothing a hook would have to run')
@@ -441,12 +446,13 @@ def _session_bootstrap(ctx):
         declared = 'SessionStart' in settings.read_text(errors='ignore')
     own_hook = [h for h in hooks if 'templates/' not in str(h.relative_to(ROOT))]
     if not own_hook or not declared:
-        return [Finding(name, 'names a setup command '
-                              f'({hits[0][:60]!r}) but this repo has '
-                              + ('no session-start hook' if not own_hook else
-                                 'no SessionStart entry in .claude/settings.json')
-                              + ' — setup that lives in memory is setup that '
-                                'gets skipped')]
+        line, cmd = hits[0]
+        return [Finding(f'{name}:{line}',
+                        f'names a setup command (`{cmd}`) but this repo has '
+                        + ('no session-start hook' if not own_hook else
+                           'no SessionStart entry in .claude/settings.json')
+                        + ' — setup that lives in memory is setup that '
+                          'gets skipped')]
     return []
 
 
@@ -555,8 +561,8 @@ def _md_in_scope(ctx):
 
 
 @check('doc-references-are-links', 'change',
-       'a changed document must not render an accidental <del> span — use '
-       'the approximately sign, never a tilde',
+       'a changed document must not render an accidental strikethrough span '
+       '— use the approximately sign, never a tilde',
        'the other half of this practice. Whether a file reference is a link '
        'is a WARNING in doc_lint, not a gate, and this check inherits that.')
 def _doc_references_are_links(ctx):

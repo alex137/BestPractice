@@ -19,8 +19,9 @@ phase was for.
 Phase 4's starting premise, inherited from the phase-2 measurement, was that
 the most-missed practices carried `checked_by: null` and needed converting.
 Eight practices already carried one. The first thing phase 4 did was run each
-of those four named scripts and watch what happened. **Not one of the eight
-was enforcement.**
+of those four named scripts and watch what happened. **Seven of the eight were
+not enforcement at all, and the eighth enforced half of its rule. None of the
+eight had ever been watched fire.**
 
 | practice | claimed | what running it showed |
 |---|---|---|
@@ -33,9 +34,11 @@ was enforcement.**
 
 The harness could not have caught any of this. Its only check on a
 `checked_by` was `check_checked_by_targets_exist` — that the named **file** is
-present. So "8 of 52 enforced" was never eight. It was eight claims, of which
-two were false, four named gates that had been red long enough that nobody
-ran them, and one named a scan of nothing.
+present. So "8 of 52 enforced" was never eight. It was eight claims: two false,
+four naming gates that had been red long enough that nobody ran them, one
+naming a scan of nothing, and one — `doc-references-are-links` — that really
+does gate, on the tilde half of its rule, with the links half a warning. Call
+the honest starting figure **one of 52, partially, and untested**.
 
 **That is the same failure class as everything else this project keeps
 finding**, one level up: a check written against the same assumption as the
@@ -58,7 +61,7 @@ being checked by it.
 | `cite-the-incident` | change | a practice file whose Rule is new or changed must carry a non-empty ## Story |
 | `computed-numbers-in-scripts` | tree | every generated block in a document matches what its script emits, is registered, and its document names the scripts that feed it |
 | `deliverables-look-like-output` | change | a reader-facing document in scope carries no process residue — no verify-later flag, claims-to-source apparatus or decision provenance |
-| `doc-references-are-links` | change | a changed document must not render an accidental <del> span — use the approximately sign, never a tilde |
+| `doc-references-are-links` | change | a changed document must not render an accidental strikethrough span — use the approximately sign, never a tilde |
 | `docs-track-models` | tree | a figure a script declares it owns is not hand-typed into the prose around its generated block |
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
@@ -67,7 +70,7 @@ being checked by it.
 | `no-version-suffix` | change | a file added by this change must not carry a version, date or state suffix in its name |
 | `orientation-map` | tree | MAP.md exists at the repository root, is not empty, and the session instructions point at it |
 | `practice-export-loop` | tree | every manifest entry marked synced still matches its baseline — a local improvement to a vendored file has been exported, not absorbed |
-| `quick-index` | tree | the session instructions carry a "looking for X -> go to Y" table with at least five rows |
+| `quick-index` | tree | the session instructions carry a "looking for X → go to Y" table with at least five rows |
 | `scripts-assert-properties` | tree | every instrumented script asserts its own properties, and every figure it recites from a source document still matches that document |
 | `scrub-gate` | tree | every text file in a vendored tree destined for another repo is clean against that tree's blocklist, at all times |
 | `search-by-purpose` | change | a document carrying generated numbers is reachable from an index a reader actually consults |
@@ -89,13 +92,16 @@ precedent_check: 13 passed, 0 violated, 3 skipped (a skip is not a pass).
 ```
 
 This is not fastidiousness. Three of the four inherited scripts were failing
-in one of the two ways a check can fail without failing: two exited non-zero
-because a precondition was absent (no `process/` directory in a repo that
-vendors nothing), and one exited **zero** because its input list was empty.
-The first kind gets ignored; the second kind gets believed. Both were fixed at
-the source rather than worked around, so the underlying tools now report NOT
-APPLICABLE with the reason, and `precedent_check` passes that through as a
-skip.
+in one of the two ways a check can fail without failing. Two exited non-zero
+for a reason that had nothing to do with the practices claiming them —
+[tools/practice_audit.py](../tools/practice_audit.py) because a precondition
+was absent (no `process/` directory in a repo that vendors nothing),
+[tools/doc_sync.py](../tools/doc_sync.py) because it read a documentation
+example as a live block. The third exited **zero** on an empty input list. The
+first kind gets ignored until nobody runs it; the second kind gets believed.
+All three were fixed at the source rather than worked around, so the
+underlying tools now report NOT APPLICABLE with the reason, and
+`precedent_check` passes that through as a skip.
 
 Three checks skip in this repository as a permanent and correct condition:
 `scrub-gate`, `practice-export-loop` and `engine-plus-host-shims` all describe
@@ -130,10 +136,14 @@ Two directions per practice, and then a mutation of the whole registry.
 scratch repository, plants the violation the practice exists to prevent, and
 requires a non-zero exit — and then requires the *same tree unplanted* to come
 back clean. The second half is not ceremony. The first version of the
-`quick-index` check counted table rows starting from the end of its regex
-match, which is the middle of the header line, and reported **zero rows** on a
-table with twenty-six. It fired on the planted case perfectly. Only the clean
-direction caught it.
+`quick-index` check counted table rows from the end of its regex match, which
+is the middle of the header line, and so reported **zero rows** on a table
+with thirty-two. It would have fired on the planted violation perfectly. What
+caught it was running the check against this repository and reading what it
+said — which is exactly the property the clean direction now asserts on every
+harness run. The same thing happened again later, on `no-version-suffix`,
+which reported this session's own preserved eval baseline as a versioned
+file name.
 
 **The whole registry, neutered.** Every check was then replaced with one that
 returns no findings, and the harness re-run. It named all eighteen. A check
@@ -167,8 +177,9 @@ redundant? For most of these, no:
 **So the plan's phase-4 instruction to "drop their prose from the resident
 tier" was not followed for these two, and the reason is worth recording rather
 than quietly skipping:** that instruction assumes a check is coextensive with
-its rule. Where it is — `quick-index`'s rule is satisfied entirely by the table
-being present — dropping the prose is free. Where it is not, dropping the prose
+its rule. Where it nearly is — `quick-index` asks for a table in the
+instructions file, and the check asserts one is there with rows in it, though
+not that they are the right rows — dropping the prose costs little. Where it is not, dropping the prose
 trades a preventive channel for a detective one that cannot detect the case in
 question. Four of the six resident practices now carry a check and all six stay
 resident.

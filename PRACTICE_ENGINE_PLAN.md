@@ -1265,14 +1265,18 @@ The re-baseline had already broken half of that (`practice-export-loop` is the
 largest miss and carries one). Phase 4 broke the other half, before converting
 anything, by running the four scripts the eight existing claims name:
 
-**Not one of the eight was enforcement.** Two named a check that does not
-exist or only warns; four named gates that were red on this repository for
-reasons unrelated to either practice; one named a scan whose input list was
-empty and which therefore printed OK. The harness's only check on a
-`checked_by` was that the named *file* is present.
+**Seven of the eight were not enforcement at all.** Two named a check that
+does not exist or only warns; four named gates that were red on this
+repository for reasons unrelated to either practice; one named a scan whose
+input list was empty and which therefore printed OK. The eighth,
+`doc-references-are-links`, really does gate — on one half of its rule, with
+the other half a warning. And none of the eight, that one included, had ever
+been watched fire: the harness's only check on a `checked_by` was that the
+named *file* is present.
 
-So the phase's real starting number was not 8 of 52. It was 0 of 52, and the
-first work was re-establishing the eight rather than adding to them.
+So the phase's real starting number was not 8 of 52. It was one of 52,
+partially, and untested — and the first work was re-establishing the eight
+rather than adding to them.
 
 ### The three done-when conditions
 
