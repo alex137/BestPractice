@@ -154,6 +154,13 @@ def matches_for_paths(paths, practices=None):
 def main():
     args = sys.argv[1:]
     matches_only = '--matches-only' in args
+    # An unrecognized "--flag" used to be silently dropped and the run
+    # continued, so a typo produced a confident answer to a different
+    # question. Same failure class precedent_show.py had.
+    unknown = [a for a in args if a.startswith('--') and a != '--matches-only']
+    if unknown:
+        sys.exit(f"precedent paths FAIL: unknown option(s) {', '.join(unknown)} -- "
+                 f"the only option is --matches-only.")
     paths = [a for a in args if not a.startswith('--')]
     if not paths:
         sys.exit(__doc__)

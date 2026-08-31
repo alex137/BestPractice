@@ -128,7 +128,16 @@ def main():
     args = sys.argv[1:]
     max_commits = 142
     if '--max-commits' in args:
-        max_commits = int(args[args.index('--max-commits') + 1])
+        i = args.index('--max-commits') + 1
+        if i >= len(args):
+            sys.exit("behavioral_replay FAIL: --max-commits needs a number after it.")
+        try:
+            max_commits = int(args[i])
+        except ValueError:
+            sys.exit(f"behavioral_replay FAIL: --max-commits wants an integer, got "
+                     f"{args[i]!r}.")
+        if max_commits < 1:
+            sys.exit("behavioral_replay FAIL: --max-commits must be at least 1.")
 
     practices = load_all_practices()
     n_total = len(practices)

@@ -69,6 +69,21 @@ def _json_list(raw):
         return []
 
 
+def _json_str(raw):
+    """`occasion:` is a JSON string LITERAL in frontmatter, quotes and all,
+    so it has to be decoded, not de-quoted. This was `raw.strip('"')`, which
+    leaves the backslashes in an escaped occasion: the one practice whose
+    occasion contains quotes rendered in the resident block every session
+    reads as `When naming what \\"run the checks\\" means in a repo:`."""
+    raw = (raw or '').strip()
+    if raw.startswith('"'):
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            pass
+    return raw.strip('"')
+
+
 # A handful of practices carry a non-canonical rule-opening label kept as
 # literal content by split_practices.py (e.g. "**The practice.**" -- see its
 # _label_to_section: only the exact canonical words rule/why/install get
@@ -114,7 +129,7 @@ def build_loader_block(practices):
     on_demand = [(fm, sections) for fm, sections, _f in practices if fm.get('tier') == 'on-demand']
     by_occasion = collections.defaultdict(list)
     for fm, sections in on_demand:
-        occasion = fm.get('occasion', '').strip('"')
+        occasion = _json_str(fm.get('occasion', ''))
         if not occasion:
             continue
         by_occasion[occasion].append((fm['slug'], _occasion_clause(sections.get('rule', ''))))
@@ -189,7 +204,7 @@ def render_map_md(practices):
         "|---|---|---|",
     ]
     for fm, _sections, _f in sorted(practices, key=lambda t: t[0]['slug']):
-        occasion = fm.get('occasion', '""').strip('"')
+        occasion = _json_str(fm.get('occasion', '""'))
         applies_to = _json_list(fm.get('applies_to', '[]'))
         scope = occasion if occasion else ', '.join(applies_to)
         lines.append(f"| [{fm['slug']}](practices/{fm['slug']}.md) | {fm.get('tier')} | {scope} |")

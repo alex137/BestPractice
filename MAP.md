@@ -57,7 +57,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [section-order-by-frequency](practices/section-order-by-frequency.md) | on-demand | ordering sections in a document |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | publishing a document with a multi-column sortable table |
-| [two-check-levels](practices/two-check-levels.md) | on-demand | naming what \"run the checks\" means in a repo |
+| [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
 | [verify-decomposition](practices/verify-decomposition.md) | on-demand | trusting a model's total without checking its parts |
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
