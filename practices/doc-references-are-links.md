@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing or editing a document"
 checked_by:  "tools/doc_lint.py"
-defines:     []
+defines:     ["document reference"]
 status:      active
 supersedes:  []
 overrides:   null

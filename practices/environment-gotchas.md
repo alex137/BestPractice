@@ -1,7 +1,7 @@
 ---
 slug:        environment-gotchas
 title:       Recorded lore: environment gotchas with their stories
-tier:        on-demand
+tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "hitting an environment or tooling quirk"

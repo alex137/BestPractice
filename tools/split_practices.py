@@ -55,6 +55,9 @@ removal as the one approved exception to an otherwise-exact diff.
 
 Run:
   python3 tools/split_practices.py split           # PRACTICES.md -> practices/*.md
+                                                    # (refuses if practices/ is non-empty;
+                                                    # see cmd_split's docstring comment --
+                                                    # pass --force for a deliberate redo)
   python3 tools/split_practices.py build            > /tmp/PRACTICES.rebuilt.md
   python3 tools/split_practices.py build --diff      # compare rebuild vs PRACTICES.md
 """
@@ -193,7 +196,20 @@ def _frontmatter(practice, meta):
     return '\n'.join(lines)
 
 
-def cmd_split():
+def cmd_split(force=False):
+    # split is a one-time phase-1 converter (PRACTICES.md -> practices/*.md).
+    # Re-running it after phase 2 would silently overwrite every phase-2
+    # curation decision this-file's frontmatter can't reproduce from
+    # PRACTICES.md at all -- tier: resident, defines:, any future severity
+    # or checked_by hand-edit -- with the phase-1 defaults baked into
+    # _frontmatter() below. Refuse by default; --force is for a deliberate
+    # from-scratch reconversion, not routine use.
+    existing = sorted(PRACTICES_DIR.glob('*.md')) if PRACTICES_DIR.exists() else []
+    if existing and not force:
+        sys.exit(f"split FAIL: {PRACTICES_DIR} already has {len(existing)} practice file(s). "
+                 f"Re-splitting would overwrite phase-2 curation (tier: resident, defines:, "
+                 f"any hand-edit) with phase-1 defaults -- pass --force if you really mean "
+                 f"a from-scratch reconversion.")
     text = CATALOGUE.read_text(encoding='utf-8')
     practices = parse_catalogue(text)
     PRACTICES_DIR.mkdir(exist_ok=True)
@@ -286,7 +302,7 @@ def main():
     if not args or args[0] not in ('split', 'build'):
         sys.exit(__doc__)
     if args[0] == 'split':
-        return cmd_split()
+        return cmd_split(force='--force' in args)
     rebuilt = cmd_build()
     if '--diff' in args:
         original = CATALOGUE.read_text(encoding='utf-8')

@@ -120,11 +120,10 @@ minted fresh, with no BestPractice-numbered ancestor, simply won't have one.
   default for day one regardless (Risks: "keep universal practice text as
   close to upstream's wording as possible" says nothing about needing full
   history on disk).
-- **`tier` is `on-demand` for all 52; `severity` is `default` for all 52.**
-  Choosing which practices are resident is explicitly phase 2 work (Sequence
-  row 2: "Resident block within budget") — curating it now, before the
-  budget mechanism that phase 2 builds exists to enforce it, would be
-  guessing at a number nothing checks. `severity`'s only real job
+- **`tier` was `on-demand` for all 52 at phase 1; phase 2 curated 7 to
+  `resident`** once the budget mechanism existed to enforce the choice —
+  see [spec/LOADER.md](LOADER.md) for which seven and why. `severity` is
+  still `default` for all 52 at phase 2. `severity`'s only real job
   (Severity, Not Ranking) is resolving conflicts between sources at
   different precedence, which does not arise until team and individual
   sources exist (phase 3) — so `default` for everything is not a

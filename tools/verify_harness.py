@@ -21,6 +21,7 @@ CATALOGUE = ROOT / 'PRACTICES.md'
 
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
+import build_views as bv
 
 FAILED = []
 PASSED = []
@@ -204,6 +205,55 @@ def check_leak_gate():
                         'found nothing, which is the only form of this check phase 1 can run')
 
 
+def check_generated_views_regenerate():
+    # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
+    # bv.main(['--check']) diffs a fresh regeneration of AGENTS.md's loader
+    # block, MAP.md and GLOSSARY.md against the committed files -- this is
+    # not a re-implementation of that diff, it's the same code path.
+    import io, contextlib
+    buf = io.StringIO()
+    old_argv = sys.argv
+    sys.argv = ['build_views.py', '--check']
+    try:
+        with contextlib.redirect_stdout(buf):
+            rc = bv.main()
+    finally:
+        sys.argv = old_argv
+    ok = rc == 0
+    check('generated views regenerate byte-identically (AGENTS.md loader block, MAP.md, GLOSSARY.md)',
+          ok, buf.getvalue().strip())
+
+
+def check_resident_subset(files):
+    # Phase 1's always-loaded set was every practice, unconditionally (no
+    # tier existed yet). The post-migration resident set must be a STRICT
+    # subset of that -- i.e. fewer than all of them, and within the token
+    # budget build_views.py enforces at build time (a build over budget
+    # already exits nonzero there; this check additionally confirms the
+    # curation actually happened rather than defaulting everything resident).
+    resident = [stem for stem, (fm, _s, _f) in files.items() if fm.get('tier') == 'resident']
+    ok = 0 < len(resident) < len(files)
+    check('resident subset (curated resident tier is a strict, non-empty subset of all practices)',
+          ok, f"{len(resident)} of {len(files)} practices are resident")
+
+
+def check_behavioral_replay():
+    # Runs tools/behavioral_replay.py for real (not a canned number) and
+    # requires it to exit 0 -- its own exit code is "precedent_paths.py's
+    # output matched an independent re-derivation on every replayed commit",
+    # i.e. the mechanical loading channel has no bugs against real history.
+    # The script's own stdout states plainly what it does and does not prove
+    # about the plan's premise (see its docstring); this check only gates on
+    # the part of that which is a pass/fail fact, not the qualitative report.
+    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'behavioral_replay.py')],
+                             capture_output=True, text=True)
+    ok = result.returncode == 0
+    detail = result.stdout.strip().splitlines()[-1] if not ok else ''
+    check('behavioral replay (path-triggered channel matches an independent re-derivation '
+          'across this repo\'s own commit history; see `python3 tools/behavioral_replay.py` '
+          'for the full measured report, including what it does NOT prove)', ok, detail)
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -217,9 +267,9 @@ def main():
     check_no_invented_content(files, original_practices)
     check_citation_integrity(files)
     check_leak_gate()
-
-    not_applicable('resident subset', 'no loader or resident-tier curation exists yet (phase 2)')
-    not_applicable('behavioral replay', 'no loader exists yet to replay against (phase 2)')
+    check_generated_views_regenerate()
+    check_resident_subset(files)
+    check_behavioral_replay()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0

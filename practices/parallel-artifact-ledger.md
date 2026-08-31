@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a change must propagate across several parallel artifacts"
 checked_by:  null
-defines:     []
+defines:     ["parallel-artifact family"]
 status:      active
 supersedes:  []
 overrides:   null

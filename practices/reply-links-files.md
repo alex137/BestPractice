@@ -1,7 +1,7 @@
 ---
 slug:        reply-links-files
 title:       Every reply links the files it touched
-tier:        on-demand
+tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "ending a reply that created or modified files"

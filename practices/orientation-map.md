@@ -1,7 +1,7 @@
 ---
 slug:        orientation-map
 title:       An orientation map, read first
-tier:        on-demand
+tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "orienting in a repo for the first time this session"

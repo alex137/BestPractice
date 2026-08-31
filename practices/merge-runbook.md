@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "merging a branch that touches shared files"
 checked_by:  null
-defines:     []
+defines:     ["merge runbook"]
 status:      active
 supersedes:  []
 overrides:   null

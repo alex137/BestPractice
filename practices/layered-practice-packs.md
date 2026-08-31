@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "deciding where a new rule belongs"
 checked_by:  null
-defines:     []
+defines:     ["practice pack"]
 status:      active
 supersedes:  []
 overrides:   null

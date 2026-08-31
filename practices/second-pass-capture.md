@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "finishing a substantial work-product, before the merge-time capture gate"
 checked_by:  null
-defines:     []
+defines:     ["capture sweep"]
 status:      active
 supersedes:  []
 overrides:   null

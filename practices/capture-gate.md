@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "merging a branch"
 checked_by:  null
-defines:     []
+defines:     ["capture gate"]
 status:      active
 supersedes:  []
 overrides:   null

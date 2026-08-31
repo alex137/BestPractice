@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "building or committing a generated artifact"
 checked_by:  null
-defines:     []
+defines:     ["generated artifact"]
 status:      active
 supersedes:  []
 overrides:   null

@@ -1,7 +1,7 @@
 ---
 slug:        quick-index
 title:       A quick index before searching
-tier:        on-demand
+tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "looking for where something lives, before searching"

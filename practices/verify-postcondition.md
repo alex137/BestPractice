@@ -1,7 +1,7 @@
 ---
 slug:        verify-postcondition
 title:       Verify the postcondition, not the command
-tier:        on-demand
+tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "after any state-changing operation"

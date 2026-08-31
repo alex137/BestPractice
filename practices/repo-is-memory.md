@@ -1,7 +1,7 @@
 ---
 slug:        repo-is-memory
 title:       The repo is the memory; sessions are ephemeral
-tier:        on-demand
+tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "starting any session cold"
