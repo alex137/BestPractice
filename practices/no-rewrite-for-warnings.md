@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a tool warns about already-published git history"
+gates:       ["push"]
 index_clause: "fix the setting forward; never rewrite published history"
 checked_by:  "tools/precedent_check.py"
 defines:     []

@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing an outward-facing document"
+gates:       []
 index_clause: "use the reader's words; gloss inline or replace"
 checked_by:  null
 defines:     []

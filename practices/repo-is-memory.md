@@ -5,6 +5,7 @@ tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "starting any session cold"
+gates:       ["reply"]
 checked_by:  null
 defines:     []
 status:      active

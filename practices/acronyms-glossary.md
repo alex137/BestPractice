@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing or editing a document"
+gates:       []
 index_clause: "expand acronyms on first use; keep one central glossary"
 checked_by:  null
 defines:     []

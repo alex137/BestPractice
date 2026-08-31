@@ -23,6 +23,7 @@ tier:        on-demand          # resident | on-demand
 severity:    default            # blocking | default | advisory
 applies_to:  ["**"]             # path globs
 occasion:    "prose trigger"
+gates:       []                  # named moments -- see below
 index_clause: "the one line the occasion index shows"   # see below
 checked_by:  tools/x.py or null
 defines:     []
@@ -294,6 +295,59 @@ keeping 117 more words resident had no measured benefit to protect. The
 answer the plan points at is phase 4 — `verify-postcondition` carries
 `checked_by: null` and is on phase 4's starting queue. Recorded here so that
 whoever runs the routing eval after phase 4 knows this changed underneath it.
+
+## `gates` (Phase 4)
+
+Not in the plan's frontmatter example, and load-bearing for the channel the
+plan *does* name. **Gate-triggered** is the fourth loading channel —
+*"Runbook steps cite slugs; reaching the step loads them. A merge loads
+exactly the merge practices, at the moment of merging."* — and nothing carried
+the association between a practice and a moment until this field.
+
+```
+gates:       ["merge"]
+```
+
+**Why a moment cannot be a glob, which is the whole argument for the field.**
+Phase 4's routing pass gave a narrower `applies_to` to every on-demand
+practice with a genuine path locus and recorded the reason for every one that
+kept `**` ([tools/routing_scope.json](../tools/routing_scope.json)). Twenty-four
+kept it, and the most common reason was the same: **the practice fires at a
+moment, not in a place.** `merge-runbook` fires when merging.
+`mistakes-become-rules` fires when a review turns up a defect. No glob reaches
+either, however well written, and the plan forbids widening the occasion index
+to compensate.
+
+Four rules govern the field, all enforced by
+[tools/verify_harness.py](../tools/verify_harness.py)'s `check_gate_channel`:
+
+- **The vocabulary is closed.** Gate names are declared once, in
+  `tools/routing_scope.json`, with the moment each one is. A practice naming
+  an unknown gate fails the harness — a typo in a gate name would otherwise
+  register a practice to a moment nobody reaches.
+- **No gate may be empty.** A gate with no practices prints nothing and exits
+  0, which is indistinguishable from a gate that legitimately had nothing to
+  say. [tools/precedent_gate.py](../tools/precedent_gate.py) refuses one by
+  name, and the harness refuses one in the vocabulary.
+- **Every gate resolves.** The harness runs the command for each gate as a
+  subprocess and requires every registered slug in the output.
+- **At least one gate is wired to something automatic.** The `push` gate is
+  invoked by [templates/hooks/pre-push](../templates/hooks/pre-push), so it
+  fires whether or not anyone remembers it. The harness fails if that wiring
+  is removed.
+
+**What this channel does not settle**, stated here rather than left to be
+discovered: reach is deterministic *given that the gate is invoked*. Three of
+the four gates are invoked by a runbook step or the standing instruction,
+which is a session remembering to — the same weakness the occasion index has.
+Only `push` is wired. Whether a practice reaches a session through `merge`,
+`review` or `reply` is therefore a wiring question, and phase 6's consumer-repo
+integration is where the remaining three get hooks.
+
+**The routing eval cannot see any of this.** It replays twenty commits against
+the resident block, the occasion index and the path channel; a gate fires at a
+moment a commit does not record. No recall figure is attributable to this
+channel, and none is claimed.
 
 ## `index_clause`
 

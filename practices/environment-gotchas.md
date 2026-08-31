@@ -5,6 +5,7 @@ tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "hitting an environment or tooling quirk"
+gates:       []
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

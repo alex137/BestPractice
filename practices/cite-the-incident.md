@@ -3,8 +3,9 @@ slug:        cite-the-incident
 title:       Conventions cite the incident that created them
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
+applies_to:  ["practices/**", "PRACTICES.md"]
 occasion:    "writing a new convention or rule"
+gates:       ["review"]
 index_clause: "record the failure a rule prevents, inline with the rule"
 checked_by:  "tools/precedent_check.py"
 defines:     []

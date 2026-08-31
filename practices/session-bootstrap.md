@@ -3,8 +3,9 @@ slug:        session-bootstrap
 title:       Session bootstrap is code, not memory
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
+applies_to:  [".claude/**", "**/hooks/**", "**/bootstrap*", "templates/harness/**"]
 occasion:    "setting up a new repo's session start"
+gates:       []
 index_clause: "setup lives in a session-start hook, not in memory"
 checked_by:  "tools/precedent_check.py"
 defines:     []

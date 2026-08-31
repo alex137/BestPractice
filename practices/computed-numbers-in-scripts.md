@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing a document that cites a computed number"
+gates:       []
 index_clause: "computed content lives in a sync-gated generated block"
 checked_by:  "tools/precedent_check.py"
 defines:     []

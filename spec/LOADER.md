@@ -176,7 +176,125 @@ point (see "The Deep Check Audits Routing, Not Content"), and remains one
 after phase 2 — the periodic deep check, not this replay, is what the plan
 assigns to catch it, and that check is not built yet (phase 5 territory).
 
-## Re-run after enforcement landed — v4
+## Re-run after the routing pass — v5, and it is a negative result
+
+**The headline: more routing bought no recall.** A principled pass over all 46
+on-demand practices, plus a fourth loading channel, moved the treatment arm's
+miss count from 21 to 22 and cost 8% more context per case. That is not a
+disappointing result to be explained away; it is the clearest thing this eval
+has measured, and it settles where the remaining effort should go.
+
+### What changed
+
+- **A glob pass**, recorded with a reason per practice in
+  [tools/routing_scope.json](../tools/routing_scope.json). Eight practices
+  gained a narrower `applies_to`; 24 stay at `**` with the reason stated. Only
+  three of the eight were in the v4 miss table — the rest were scoped on the
+  merits, so the pass is not a fit to twenty commits.
+- **The gate-triggered channel** ([tools/precedent_gate.py](../tools/precedent_gate.py)),
+  and one line in the standing instruction naming it. **This eval cannot see
+  gates at all** — they fire at moments a commit does not record — so no part
+  of the result below is attributable to them, in either direction.
+
+Oracle and control prompts are byte-identical to v4 and v3 for the third run
+running, verified by regenerating them in a worktree and diffing all 60; those
+40 answers are reused. All 20 treatment hop-1 prompts changed and 19 hop-2;
+those 39 cells were re-run one isolated session each. v4's answers are in
+`evals/routing/answers-v4-pre-routing-pass/`.
+
+| | v4 | **v5** |
+|---|---|---|
+| Control — recall / miss | 84% / 16% | **84% / 16%** *(same answers)* |
+| Treatment — recall / miss | 78% / 22% | **77% / 23%** |
+| Treatment — precision | 79% | **77%** |
+| Treatment — practice context | ≈4,296 tok/case | **≈4,642** |
+| Recall per 1k tokens (control / treatment) | 9.5 / 18.1 | **9.5 / 16.6** |
+| Head to head (control-only / treatment-only) | 10 / 4 | **13 / 6** |
+| Total misses by the treatment arm | 21 | **22** |
+
+### The prediction, and how it held
+
+The run was made against a prediction written and committed before the globs
+were applied ([evals/routing/PREDICTION.md](../evals/routing/PREDICTION.md)),
+because this is the third change to the loader's inputs in one phase and
+re-running a measurement until it moves is how a number stops meaning
+anything.
+
+| # | Predicted | Outcome |
+|---|---|---|
+| 1 | the named practices become surfaced | **Partly.** `session-bootstrap` and `engine-plus-host-shims` are surfaced; `scripts-assert-properties` was withdrawn before the run because a glob would have contradicted its own scope gate. |
+| 2 | the aggregate moves 0–8 points and will not be claimed | **Held.** It moved −1. |
+| 3 | precision falls, cost rises | **Held**, and inside the stated limits: 79% → 77%, +8% context (the failure line was 70% and +25%). |
+| 4 | the in-context misses do not move | **Held.** `verify-postcondition` is 0 of 3 for the third run. |
+| 5 | the gate channel is invisible here | **Held** by construction. |
+
+Prediction 2 was the one worth writing down, and it is the one that came true.
+
+### What did move, and it is the finding
+
+Total misses did not change. **What the session had in front of it when it
+missed did.**
+
+| the miss was on a practice that was… | v4 | **v5** |
+|---|---|---|
+| resident, or surfaced by the path channel, or opened and declined | 8 | **11** |
+| reachable only as a one-line index clause | 13 | **11** |
+
+**The glob pass converted reach failures into judgment failures.** That is
+exactly what a correct glob is supposed to do, and it is why the eight stay
+even though recall did not move: a practice whose scope statement is right is
+right, and twenty commits from one repository cannot settle otherwise. What
+the pass demonstrates is that **reach was never the binding constraint.**
+Practices the session had never been shown and practices it had been shown
+were missed at about the same rate; moving practices from the first group to
+the second changed which ones were missed, not how many.
+
+`session-bootstrap` went 1 → 0 and `engine-plus-host-shims` 3 → 2. Against
+that, `repo-is-memory`, `quick-index`, `volatile-rules-carry-dates`,
+`convention-to-audit` and `docs-track-models` each picked up a miss they did
+not have in v4 — ±1 per practice in both directions, which is what one run per
+cell looks like. Nobody should read a story into any single row.
+
+### What this settles for the design
+
+Three runs have now asked whether better routing produces better compliance,
+and the answer has been the same each time in a different form:
+
+- **v3** — residency does not produce compliance. `verify-postcondition` was
+  resident and found zero times out of three.
+- **v4** — a corrected glob surfaced `practice-export-loop` on every case it
+  applied to, and every remaining miss was a case where the session had been
+  shown it and declined.
+- **v5** — a pass over the whole catalogue reduced the practices a session was
+  never shown, and the total did not move.
+
+**The routing layer is close to done, and it is not where the remaining loss
+is.** Eleven of the 22 misses are on practices already in front of the
+session; fifteen of the 22 are on practices that now carry a check. What is
+left after that is seven misses on five prose-only practices, and
+[spec/ENFORCEMENT.md](ENFORCEMENT.md) says why each of them resisted a check.
+
+### What no channel reaches, stated so nobody counts on it
+
+`python3 tools/routing_eval.py --enforcement` attributes every remaining miss.
+The residue after routing and enforcement is small and specific:
+
+- **`mistakes-become-rules`** (×3) — the largest, reachable now through the
+  `review` gate but not through any path, and deliberately unchecked: a check
+  must carry the proportionality guard that decides whether the practice fires
+  at all, and a check that mints a rule for every defect fix is the failure
+  the plan opens by diagnosing.
+- **`registry-source-of-truth`** (×1) — no path, no moment, no check. A
+  registry is recognised by what it is *for*, and this repo's are `.json`,
+  `.py` and `.md` alike. It is the one practice in the catalogue that every
+  channel misses by construction, and it is recorded that way in
+  [tools/routing_scope.json](../tools/routing_scope.json) rather than left
+  looking like an oversight.
+- **`convention-to-audit`, `volatile-rules-carry-dates`, `repo-is-memory`**
+  (×1 each) — single misses in one run, on practices that were found in every
+  other case. Not a pattern.
+
+## Re-run after enforcement landed — v4 *(superseded by v5 above; kept as the pre-routing-pass baseline)*
 
 **Read this before quoting any number below it.** Phase 4 changed one input
 and one input only: the **path-triggered channel**. `practice-export-loop`'s

@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a computation books a transfer between two parties"
+gates:       []
 index_clause: "name both sides; check what is charged against what is received"
 checked_by:  null
 defines:     []

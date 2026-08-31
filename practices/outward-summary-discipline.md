@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "writing an outward-facing summary of claims"
+gates:       []
 index_clause: "claims-to-source table, honest sums, a recorded adversarial pass"
 checked_by:  null
 defines:     []

@@ -3,8 +3,9 @@ slug:        github-setup-disclosed
 title:       GitHub-specific setup is disclosed where the reader will actually see it
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
+applies_to:  [".github/**", "templates/github-actions/**"]
 occasion:    "an install step adds something GitHub-specific"
+gates:       []
 index_clause: "disclose GitHub-specific setup where the project's people read"
 checked_by:  null
 defines:     []

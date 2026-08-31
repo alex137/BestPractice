@@ -3,8 +3,9 @@ slug:        engine-plus-host-shims
 title:       Exported tools are one engine plus host shims
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
+applies_to:  ["process/upstream/**", "templates/harness/**"]
 occasion:    "exporting a tool across a repo boundary"
+gates:       []
 index_clause: "one vendored engine, thin host shims, never a fork"
 checked_by:  "tools/precedent_check.py"
 defines:     []

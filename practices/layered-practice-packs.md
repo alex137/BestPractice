@@ -3,8 +3,9 @@ slug:        layered-practice-packs
 title:       Layered practice packs: a domain layer between generic and repo-local
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
+applies_to:  ["practices/**", "PRACTICES.md", "precedent.json"]
 occasion:    "deciding where a new rule belongs"
+gates:       []
 index_clause: "generic, domain, repo-local \u2014 each rule to its own layer"
 checked_by:  null
 defines:     ["practice pack"]

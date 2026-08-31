@@ -3,8 +3,9 @@ slug:        parallel-artifact-ledger
 title:       Parallel-artifact families: transfer verdicts are per-mechanism, per-change, and ledgered
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
+applies_to:  ["templates/harness/**"]
 occasion:    "a change must propagate across several parallel artifacts"
+gates:       []
 index_clause: "ledger the transfer verdict per member, per change"
 checked_by:  null
 defines:     ["parallel-artifact family"]

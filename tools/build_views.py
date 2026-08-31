@@ -189,7 +189,10 @@ def build_loader_block(practices):
                  "`python3 tools/precedent_show.py SLUG` for each listed slug to load its "
                  "Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints "
                  "any on-demand practice whose `applies_to` matches it, without needing the "
-                 "index at all.")
+                 "index at all. At a named moment — merging, reviewing, pushing, ending a "
+                 "turn — run `python3 tools/precedent_gate.py merge|review|push|reply`: "
+                 "some practices fire at a moment rather than in a file, and no path glob "
+                 "reaches those.")
     lines.append('')
     lines.append(END_MARKER)
     return '\n'.join(lines), token_count, len(resident)

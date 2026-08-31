@@ -1,0 +1,430 @@
+{
+  "_note": [
+    "Every on-demand practice's applies_to, with the reason, as reviewable data.",
+    "EVERY on-demand practice is listed, including the ones deliberately left at",
+    "'**' -- a decision to leave a practice unrouted has to be visible, not an",
+    "omission. This is the same discipline tools/section_split.json uses for the",
+    "editorial split.",
+    "'**' means the path channel never fires for this practice: it is reachable",
+    "GATES are the fourth loading channel: a named MOMENT, not a place. A practice whose occasion is a moment cannot be reached by a glob, however well written -- that is why 24 entries here stay at '**'. tools/precedent_gate.py loads a gate's practices at the moment it is reached.",
+    "through the occasion index, a gate, or a check, and the 'why' says which.",
+    "tools/verify_harness.py fails if practices/*.md and this file disagree.",
+    "THE RULE THIS PASS SETTLED ON, after two rounds of narrowing: a glob is justified only where the path identifies the practice's DISTINGUISHING condition, not merely a necessary one. 'A rule is being written' is necessary for volatile-rules-carry-dates and not distinguishing; 'a new rule is being written' IS distinguishing for cite-the-incident. Applying that uniformly is what stopped this pass from becoming a search for globs that make a number move."
+  ],
+  "practices": {
+    "acronyms-glossary": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "affordance-is-shared": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. 'A mechanism that makes something reachable' is a property of what you built, not of where you built it.",
+      "decided": "phase 4 routing pass"
+    },
+    "build-buy-decompose": {
+      "globs": [
+        "**"
+      ],
+      "why": "A decision, made before any file exists.",
+      "decided": "phase 4 routing pass"
+    },
+    "capture-gate": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, not a place — routed by the `merge` gate instead.",
+      "decided": "phase 4 routing pass",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Its occasion IS the merge."
+    },
+    "check-source-architecture": {
+      "globs": [
+        "**"
+      ],
+      "why": "A reasoning step about options, with no artifact.",
+      "decided": "phase 4 routing pass"
+    },
+    "cite-the-incident": {
+      "globs": [
+        "practices/**",
+        "PRACTICES.md"
+      ],
+      "why": "A new convention or rule is written into the catalogue. That is a place, not just a moment, and its check already scopes there.",
+      "decided": "phase 4 routing pass",
+      "gates": [
+        "review"
+      ],
+      "gates_why": "A review that produces a rule produces it here; it also has a glob for where the rule is written."
+    },
+    "computed-numbers-in-scripts": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "convention-to-audit": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment — routed by the `review` gate instead.",
+      "decided": "phase 4 routing pass",
+      "gates": [
+        "review"
+      ],
+      "gates_why": "Fires when a convention is violated, which is something a review notices."
+    },
+    "deliverables-look-like-output": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "A reader-facing deliverable is a document. Its check already runs over changed markdown; the glob makes the Rule reachable at the same scope.",
+      "decided": "phase 4 routing pass"
+    },
+    "doc-references-are-links": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "docs-are-current-state": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "docs-track-models": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "engine-plus-host-shims": {
+      "globs": [
+        "process/upstream/**",
+        "templates/harness/**"
+      ],
+      "why": "The occasion is EXPORTING a tool across a repo boundary, which happens in the vendored tree and the host shims -- not in tools/, where the engine is merely authored. A first draft of this pass used tools/** and surfaced the practice on 10 of 20 eval cases against 3 it applies to; re-reading the occasion is what narrowed it, not the cost figure, though the cost figure is what prompted the re-read.",
+      "decided": "phase 4 routing pass"
+    },
+    "frame-from-audience-question": {
+      "globs": [
+        "**"
+      ],
+      "why": "No path tells you who the audience is.",
+      "decided": "phase 4 routing pass"
+    },
+    "generated-artifact-provenance": {
+      "globs": [
+        "deck/**",
+        "MAP.md",
+        "GLOSSARY.md"
+      ],
+      "why": "Where this repo actually builds and commits generated artifacts. Narrow on purpose: a glob over everything a build might touch would fire constantly and say nothing.",
+      "decided": "phase 4 routing pass"
+    },
+    "github-setup-disclosed": {
+      "globs": [
+        ".github/**",
+        "templates/github-actions/**"
+      ],
+      "why": "The distinguishing condition is that the install step is GitHub-SPECIFIC, and the workflow files are exactly that. INSTALL.md and SETUP.md were in a first draft of this glob; they are where the fact must be DISCLOSED, not what makes the practice fire, and including them surfaced it on half the eval cases.",
+      "decided": "phase 4 routing pass"
+    },
+    "index-remembers-past": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires on the relationship between two documents, which a path cannot see.",
+      "decided": "phase 4 routing pass"
+    },
+    "label-describes-content": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "layered-practice-packs": {
+      "globs": [
+        "practices/**",
+        "PRACTICES.md",
+        "precedent.json"
+      ],
+      "why": "Deciding where a new rule belongs happens where rules and the source declaration live.",
+      "decided": "phase 4 routing pass"
+    },
+    "lead-with-what-it-is": {
+      "globs": [
+        "README.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "merge-authorization-keyword": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment — routed by the `merge` gate instead.",
+      "decided": "phase 4 routing pass",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Fires when the standing merge instruction is used."
+    },
+    "merge-runbook": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment — routed by the `merge` gate instead.",
+      "decided": "phase 4 routing pass",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Fires when merging a branch that touches shared files."
+    },
+    "mistakes-become-rules": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment — routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
+      "decided": "phase 4 routing pass",
+      "gates": [
+        "review"
+      ],
+      "gates_why": "Its occasion is 'a review finds a defect'. No path reaches a moment."
+    },
+    "name-both-sides-of-ledger": {
+      "globs": [
+        "**"
+      ],
+      "why": "Domain-specific to work this repo does not do; no locus here.",
+      "decided": "phase 4 routing pass"
+    },
+    "no-rewrite-for-warnings": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment — routed by the `push` gate, and enforced by a turn-end check.",
+      "decided": "phase 4 routing pass",
+      "gates": [
+        "push"
+      ],
+      "gates_why": "The moment a tool complains about published history is the moment before a push."
+    },
+    "no-version-suffix": {
+      "globs": [
+        "**"
+      ],
+      "why": "Applies to any added file, which is what `**` means. Its check covers it at exactly that scope.",
+      "decided": "phase 4 routing pass"
+    },
+    "one-formatter-per-quantity": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires on how a quantity is printed, not on which file prints it.",
+      "decided": "phase 4 routing pass"
+    },
+    "outward-summary-discipline": {
+      "globs": [
+        "**"
+      ],
+      "why": "No path identifies an outward-facing summary.",
+      "decided": "phase 4 routing pass"
+    },
+    "parallel-artifact-ledger": {
+      "globs": [
+        "templates/harness/**"
+      ],
+      "why": "templates/harness/{claude-code,codex,gemini-cli} is a literal parallel family: a change to one raises the transfer question for the others.",
+      "decided": "phase 4 routing pass"
+    },
+    "permutation-frontier-column": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires on the shape of a table being built, not its location.",
+      "decided": "phase 4 routing pass"
+    },
+    "pr-template-honest-gates": {
+      "globs": [
+        ".github/pull_request_template.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "practice-export-loop": {
+      "globs": [
+        "PRACTICES.md",
+        "practices/**",
+        "templates/**",
+        "tools/**",
+        "process/upstream/**"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "The export gate fires before a thread ends; a merge is where that is checked."
+    },
+    "quote-discipline": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires on whose figure you are quoting, which a path cannot see.",
+      "decided": "phase 4 routing pass"
+    },
+    "readers-vocabulary": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "registry-source-of-truth": {
+      "globs": [
+        "**"
+      ],
+      "why": "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
+      "decided": "phase 4 routing pass"
+    },
+    "scripts-assert-properties": {
+      "globs": [
+        "**"
+      ],
+      "why": "No path locus, and a glob would contradict the practice's own scope gate: 'Scripts that own their own numbers end to end need nothing. Keep the instrumented list explicit.' That explicit list IS the routing mechanism, and it exists -- model_audit's INSTRUMENTED. A glob over tools/** would surface the Rule on every script and is exactly the over-instrumentation the gate forbids.",
+      "decided": "phase 4 routing pass"
+    },
+    "scrub-gate": {
+      "globs": [
+        "process/upstream/**"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1",
+      "gates": [
+        "merge",
+        "push"
+      ],
+      "gates_why": "The public tree must be clean at merge and at push, which are the two moments it can be checked."
+    },
+    "search-by-purpose": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires at the start of work, before any file is touched. Its check enforces the findable-output half only.",
+      "decided": "phase 4 routing pass"
+    },
+    "second-pass-capture": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment — routed by the `merge` gate instead.",
+      "decided": "phase 4 routing pass",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Its occasion says 'before the merge-time capture gate' in so many words."
+    },
+    "section-order-by-frequency": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
+      "decided": "phase 1"
+    },
+    "session-bootstrap": {
+      "globs": [
+        ".claude/**",
+        "**/hooks/**",
+        "**/bootstrap*",
+        "templates/harness/**"
+      ],
+      "why": "Session setup lives in hooks and bootstrap scripts. The tightest locus in this pass.",
+      "decided": "phase 4 routing pass"
+    },
+    "tabular-shared-renderer": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires on publishing a table, which no path in this repo identifies.",
+      "decided": "phase 4 routing pass"
+    },
+    "two-check-levels": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires once, when a repo names its check levels. Nothing recurring to trigger on.",
+      "decided": "phase 4 routing pass"
+    },
+    "variant-re-derives": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires on the relationship between a thing and its variant.",
+      "decided": "phase 4 routing pass"
+    },
+    "verify-decomposition": {
+      "globs": [
+        "**"
+      ],
+      "why": "Fires on a computed total being reported, wherever that happens.",
+      "decided": "phase 4 routing pass"
+    },
+    "volatile-rules-carry-dates": {
+      "globs": [
+        "**"
+      ],
+      "why": "The path identifies 'a rule is being written', which is necessary but not distinguishing -- the practice fires only when the rule depends on the OUTSIDE WORLD, and no path can see that. A glob on the rule locus surfaced it on 13 of 20 eval cases against 4 it applies to.",
+      "decided": "phase 4 routing pass"
+    },
+    "verify-postcondition": {
+      "globs": null,
+      "gates": [
+        "push",
+        "reply"
+      ],
+      "gates_why": "The postconditions it names are git state, checked before a push and at the end of a turn.",
+      "why": "Resident; its applies_to is not this file's business.",
+      "decided": "phase 4 routing pass"
+    },
+    "reply-links-files": {
+      "globs": null,
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Its occasion is the reply itself.",
+      "why": "Resident; its applies_to is not this file's business.",
+      "decided": "phase 4 routing pass"
+    },
+    "repo-is-memory": {
+      "globs": null,
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "A turn ending is when knowledge either got committed or was lost.",
+      "why": "Resident; its applies_to is not this file's business.",
+      "decided": "phase 4 routing pass"
+    }
+  },
+  "gates": {
+    "_note": [
+      "The gate vocabulary is closed: tools/verify_harness.py refuses an unknown gate name, and refuses a gate with no practices. Each gate names a moment with a real invocation point in this repo."
+    ],
+    "merge": "merging a branch",
+    "review": "reviewing work, or a review finding a defect",
+    "push": "before pushing — the pre-push hook",
+    "reply": "ending a turn and writing the reply — the stop hook"
+  }
+}

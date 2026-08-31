@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing or editing a document"
+gates:       []
 index_clause: "\"one line\" must be one line; else name it for its content"
 checked_by:  null
 defines:     []

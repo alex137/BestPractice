@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "the user gives a standing merge instruction"
+gates:       ["merge"]
 index_clause: "one fixed word means \"merge as agreed\"; document it exactly"
 checked_by:  null
 defines:     []

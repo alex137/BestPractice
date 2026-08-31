@@ -3,8 +3,9 @@ slug:        generated-artifact-provenance
 title:       Provenance for generated artifacts
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
+applies_to:  ["deck/**", "MAP.md", "GLOSSARY.md"]
 occasion:    "building or committing a generated artifact"
+gates:       []
 index_clause: "stamp a build code and a manifest; never hand-edit output"
 checked_by:  "tools/precedent_check.py"
 defines:     ["generated artifact"]

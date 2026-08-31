@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "starting work the repository may already cover"
+gates:       []
 index_clause: "search by purpose and by mechanism before concluding nothing exists"
 checked_by:  "tools/precedent_check.py"
 defines:     []

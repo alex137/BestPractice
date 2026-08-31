@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a review finds a defect"
+gates:       ["review"]
 index_clause: "root-cause the miss, then encode the prevention"
 checked_by:  null
 defines:     []

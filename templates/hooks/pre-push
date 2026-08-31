@@ -22,7 +22,19 @@
 # `git push --no-verify` skips this. That is git's design, not a hole to plug
 # here: the CI workflow is what catches a bypass, and it runs on the server.
 set -e
-GATE="$(git rev-parse --show-toplevel)/tools/leak_gate.py"
+ROOT="$(git rev-parse --show-toplevel)"
+GATE="$ROOT/tools/leak_gate.py"
+
+# The PUSH gate (`no-rewrite-for-warnings`, `verify-postcondition`,
+# `scrub-gate`). This is the gate-triggered channel's one WIRED invocation
+# point: those practices fire at a moment rather than in a file, so no path
+# glob reaches them, and reaching them by remembering to is what this repo has
+# measured not to work. Printing the Rules costs nothing when they are already
+# being followed and is the whole channel when they are not. It never blocks
+# the push — the leak gate below is what blocks.
+if [ -f "$ROOT/tools/precedent_gate.py" ]; then
+    python3 "$ROOT/tools/precedent_gate.py" push >&2 || true
+fi
 
 while read -r _local_ref local_sha _remote_ref remote_sha; do
     case "$local_sha" in

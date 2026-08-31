@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "merging a branch"
+gates:       ["merge"]
 index_clause: "capture the follow-on work in the thread that created the need"
 checked_by:  null
 defines:     ["capture gate"]

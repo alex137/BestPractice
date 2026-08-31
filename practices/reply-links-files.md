@@ -5,6 +5,7 @@ tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "ending a reply that created or modified files"
+gates:       ["reply"]
 checked_by:  null
 defines:     []
 status:      active

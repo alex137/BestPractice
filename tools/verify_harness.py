@@ -1498,6 +1498,114 @@ def check_precedent_check_fires():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_routing_scope(files):
+    """Every on-demand practice's applies_to agrees with tools/routing_scope.json,
+    and every entry carries a reason.
+
+    The point is not that a second file holds the same globs -- that would be a
+    restatement with nothing gating it, which is the failure `docs-track-models`
+    describes. The point is that the REASON is recorded per practice, including
+    for the 24 that deliberately stay at `**`. A practice left unrouted by
+    omission and one left unrouted on purpose look identical in the practice
+    file; they do not here.
+    """
+    scope_path = ROOT / 'tools' / 'routing_scope.json'
+    if not scope_path.exists():
+        not_applicable('routing scope is recorded with a reason per practice',
+                       'tools/routing_scope.json does not exist')
+        return
+    scope = json.loads(scope_path.read_text(encoding='utf-8'))['practices']
+    problems = []
+    for slug, (fm, _s, _f) in sorted(files.items()):
+        row = scope.get(slug)
+        if fm.get('tier') != 'on-demand':
+            continue
+        if row is None:
+            problems.append(f"{slug}: no entry in routing_scope.json -- a practice "
+                            f"whose routing nobody decided")
+            continue
+        want, got = row.get('globs'), json.loads(fm.get('applies_to', '[]'))
+        if want != got:
+            problems.append(f"{slug}: applies_to is {got} but routing_scope.json "
+                            f"says {want}")
+        if not (row.get('why') or '').strip():
+            problems.append(f"{slug}: no reason recorded for its scope")
+    check('routing scope agrees with the practice files, with a reason for every '
+          'one (including every practice deliberately left at `**`)',
+          not problems, '; '.join(problems[:6]))
+
+
+def check_gate_channel():
+    """The gate channel, as stated cases against the real registry.
+
+    A gate that loads nothing is the failure this channel is most prone to: a
+    runbook step citing a gate nobody registered prints nothing and exits 0,
+    which is indistinguishable from a gate that legitimately had nothing to
+    say. Every case below was verified by breaking it -- an unknown gate name
+    in a practice file, an emptied gate, a gate dropped from the vocabulary.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_pg', ROOT / 'tools' / 'precedent_gate.py')
+    pg = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pg)
+
+    vocab = pg.gate_vocabulary()
+    by_gate = pg.practices_by_gate()
+    cases = []
+
+    cases.append(('the gate vocabulary is non-empty', bool(vocab)))
+
+    declared = set()
+    bad_names = []
+    for f in sorted(PRACTICES_DIR.glob('*.md')):
+        fm, _sections = sp._read_practice_file(f)
+        try:
+            gates = json.loads(fm.get('gates', '[]') or '[]')
+        except json.JSONDecodeError:
+            bad_names.append(f"{fm['slug']}: gates is not a JSON array")
+            continue
+        for g in gates:
+            declared.add(g)
+            if g not in vocab:
+                bad_names.append(f"{fm['slug']} names unknown gate {g!r}")
+    cases.append(('every gate a practice names is in the closed vocabulary',
+                  not bad_names, '; '.join(bad_names[:4])))
+
+    empty = [g for g in vocab if not by_gate.get(g)]
+    cases.append(('no gate in the vocabulary is empty -- an empty gate is a step '
+                  'that loads nothing and looks like it worked',
+                  not empty, f"empty: {empty}" if empty else ''))
+
+    unused = sorted(set(vocab) - declared)
+    cases.append(('no gate is declared but unreachable', not unused,
+                  f"declared with no practice: {unused}" if unused else ''))
+
+    # the command itself, run as a subprocess -- the channel as a caller uses it
+    for g in sorted(vocab):
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), g],
+                           capture_output=True, text=True, cwd=str(ROOT))
+        ok = r.returncode == 0 and all(s in r.stdout for s in by_gate[g])
+        cases.append((f'`precedent_gate.py {g}` returns every practice registered to it', ok,
+                      (r.stdout + r.stderr).strip()[:120] if not ok else ''))
+
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'no-such-gate'],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    cases.append(('an unknown gate fails loudly rather than printing nothing',
+                  r.returncode != 0 and 'no gate named' in (r.stdout + r.stderr)))
+
+    # the push gate must actually be wired, or it is a channel nobody reaches
+    hook = ROOT / 'templates' / 'hooks' / 'pre-push'
+    cases.append(('the push gate is wired into templates/hooks/pre-push',
+                  hook.exists() and 'precedent_gate' in hook.read_text(errors='ignore')))
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'gate-triggered channel ({len(cases)} stated cases: closed vocabulary, '
+          f'no empty gate, every gate resolves, unknown gates fail loudly)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -1529,6 +1637,8 @@ def main():
     check_resident_subset(files)
     check_behavioral_replay()
     check_precedent_check_fires()
+    check_routing_scope(files)
+    check_gate_channel()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0

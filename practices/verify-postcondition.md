@@ -5,6 +5,7 @@ tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "after any state-changing operation"
+gates:       ["push", "reply"]
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

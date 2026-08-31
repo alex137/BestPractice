@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a document replaces or is replaced by an earlier one"
+gates:       []
 index_clause: "put the lineage in the index, not in either document"
 checked_by:  null
 defines:     []

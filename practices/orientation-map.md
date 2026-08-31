@@ -5,6 +5,7 @@ tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "orienting in a repo for the first time this session"
+gates:       []
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-4 build session, to version 24 -->
+<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-4 build session, to version 25 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -1323,6 +1323,59 @@ operation. Dropping either would trade a preventive channel for a detective
 one that cannot detect the case in question. All six resident practices stay
 resident; the reasoning is in [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md).
 
+### The routing pass, and the negative result that closes the reach question
+
+Phase 4's first pass fixed one glob and reported that reach and enforcement
+are two problems. Asked to finish the job, it did three things and the third
+is the one that matters.
+
+**1. A glob pass over all 46 on-demand practices**, recorded with a reason per
+practice in [tools/routing_scope.json](tools/routing_scope.json) — including
+for all 24 that deliberately keep `**`, because a practice left unrouted by
+omission and one left unrouted on purpose look identical in the practice file.
+Eight gained a narrower `applies_to`. The rule the pass settled on, after two
+rounds of narrowing: **a glob is justified only where the path identifies the
+practice's distinguishing condition, not merely a necessary one.**
+
+**2. The gate-triggered channel**, which is the fourth channel this plan names
+and which nothing had built. [tools/precedent_gate.py](tools/precedent_gate.py)
+loads the practices registered to a named moment — `merge`, `review`, `push`,
+`reply` — via a `gates:` field on each practice. It exists because the most
+common reason a practice keeps `**` is that **it fires at a moment, not in a
+place**, and no glob reaches a moment. The `push` gate is wired into
+[templates/hooks/pre-push](templates/hooks/pre-push) so it fires without
+anyone remembering; the other three are cited by runbook steps and the
+standing instruction, which is weaker, and phase 6 is where they get hooks.
+
+**3. The eval re-run, against a prediction committed before the change** — and
+it is a negative result. Misses went 21 → 22, cost rose 8%, precision fell two
+points. **More routing bought no recall.**
+
+What did move is the shape of the miss set: practices the session had never
+been shown fell from 13 to 11, and practices it had been shown rose from 8 to
+11. **The glob pass converted reach failures into judgment failures without
+changing the total** — which is the same thing the `practice-export-loop` fix
+showed in v4, now demonstrated across the catalogue rather than on one
+practice.
+
+**So the reach question is closed, and the answer is that reach was not the
+binding constraint.** Three runs asked it three ways: residency does not
+produce compliance (v3); a corrected glob surfaces a practice and the session
+declines it anyway (v4); reducing the unshown set does not reduce the miss set
+(v5). The routing layer is close to done. Eleven of the 22 remaining misses
+are on practices already in front of the session, and fifteen are on practices
+that now carry a check.
+
+**The globs were kept anyway, and the reason is worth stating** because it is
+not "the number might improve later": a scope statement derived from a
+practice's own text is either right or wrong independently of whether twenty
+commits from one repository reward it, and the measured structural change —
+fewer practices never shown — is the thing a correct glob is for. What is not
+claimed is any recall benefit.
+
+*(Full numbers, the prediction and how it held, and the residue no channel
+reaches: [spec/LOADER.md](spec/LOADER.md)'s v5 section.)*
+
 ### What phase 5 should carry forward
 
 **A promotion step that accepts a `checked_by` string has re-created the
@@ -1533,6 +1586,17 @@ it can be generated; the explanation cannot.
 The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; this section is the short record of what moved.
+
+**2026-08-31 — v25, the reach question closed with a negative result.** A
+glob pass over all 46 on-demand practices and the gate-triggered channel — the
+fourth channel this plan names and the last to be built — moved the routing
+eval's miss count from 21 to 22 at 8% more context. More routing bought no
+recall. What it did buy is measurable and different: the practices a session
+was never shown fell from 13 to 11 while the practices it was shown and missed
+rose from 8 to 11, so the pass converted reach failures into judgment
+failures. Three runs have now asked whether better routing produces better
+compliance and answered no in three different ways. See
+[The routing pass, and the negative result that closes the reach question](#the-routing-pass-and-the-negative-result-that-closes-the-reach-question).
 
 **2026-08-31 — v24, phase 4 closed, and one of its own done-when conditions
 re-read rather than met.** *"The routing eval re-run shows the converted

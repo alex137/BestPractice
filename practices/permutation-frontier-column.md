@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "building a permutation or configuration-sweep table"
+gates:       []
 index_clause: "one full table with a computed Frontier column"
 checked_by:  null
 defines:     []

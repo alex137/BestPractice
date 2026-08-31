@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "deciding whether to build or buy a component"
+gates:       []
 index_clause: "decompose first; one verdict per part, on ownership grounds"
 checked_by:  null
 defines:     []

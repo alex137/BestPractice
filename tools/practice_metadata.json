@@ -38,7 +38,8 @@
       "occasion": "writing a new convention or rule",
       "checked_by": "tools/precedent_check.py",
       "applies_to": [
-        "**"
+        "practices/**",
+        "PRACTICES.md"
       ]
     },
     "6": {
@@ -62,7 +63,9 @@
       "occasion": "building or committing a generated artifact",
       "checked_by": "tools/precedent_check.py",
       "applies_to": [
-        "**"
+        "deck/**",
+        "MAP.md",
+        "GLOSSARY.md"
       ]
     },
     "9": {
@@ -102,7 +105,10 @@
       "occasion": "setting up a new repo's session start",
       "checked_by": "tools/precedent_check.py",
       "applies_to": [
-        "**"
+        ".claude/**",
+        "**/hooks/**",
+        "**/bootstrap*",
+        "templates/harness/**"
       ]
     },
     "14": {
@@ -178,7 +184,7 @@
       "occasion": "a change must propagate across several parallel artifacts",
       "checked_by": null,
       "applies_to": [
-        "**"
+        "templates/harness/**"
       ]
     },
     "23": {
@@ -186,7 +192,9 @@
       "occasion": "deciding where a new rule belongs",
       "checked_by": null,
       "applies_to": [
-        "**"
+        "practices/**",
+        "PRACTICES.md",
+        "precedent.json"
       ]
     },
     "24": {
@@ -298,7 +306,8 @@
       "occasion": "an install step adds something GitHub-specific",
       "checked_by": null,
       "applies_to": [
-        "**"
+        ".github/**",
+        "templates/github-actions/**"
       ]
     },
     "38": {
@@ -394,7 +403,7 @@
       "occasion": "writing a reader-facing deliverable with supporting apparatus",
       "checked_by": "tools/precedent_check.py",
       "applies_to": [
-        "**"
+        "**/*.md"
       ]
     },
     "50": {
@@ -402,7 +411,8 @@
       "occasion": "exporting a tool across a repo boundary",
       "checked_by": "tools/precedent_check.py",
       "applies_to": [
-        "**"
+        "process/upstream/**",
+        "templates/harness/**"
       ]
     },
     "51": {

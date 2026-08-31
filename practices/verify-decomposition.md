@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "reporting a computed total or a negative feasibility result"
+gates:       []
 index_clause: "check the parts, not the total; never assert an impossibility"
 checked_by:  null
 defines:     []

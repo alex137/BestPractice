@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing or editing a document"
+gates:       []
 index_clause: "reference repo files as relative links; use \u2248, never ~"
 checked_by:  "tools/precedent_check.py"
 defines:     ["document reference"]

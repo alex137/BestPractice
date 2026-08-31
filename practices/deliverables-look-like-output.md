@@ -3,8 +3,9 @@ slug:        deliverables-look-like-output
 title:       Deliverables look like their output; the record doc holds everything else
 tier:        on-demand
 severity:    default
-applies_to:  ["**"]
+applies_to:  ["**/*.md"]
 occasion:    "writing a reader-facing deliverable with supporting apparatus"
+gates:       []
 index_clause: "the deliverable holds only what its audience needs"
 checked_by:  "tools/precedent_check.py"
 defines:     []
