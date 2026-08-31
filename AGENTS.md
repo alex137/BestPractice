@@ -5,6 +5,25 @@
      (process/upstream/AGENTS.md) this file is inert — the dependent repo
      has its own instantiated AGENTS.md at ITS root. -->
 
+**This repo is becoming Precedent, a restructuring of BestPractice — read
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) first, in full, before
+touching anything else here.** It is the approved plan of record; its "For
+the Session Implementing This" section says how to work from it (phase by
+phase, in order — do not read the whole plan trying to hold it all in
+context at once; work from the phase you are on).
+[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) documents the phase-1
+practice-file format this repo's `practices/*.md` files are written in,
+including where the actual conversion had to make a call the plan's own
+illustrative example left open.
+
+The rest of this file (below) is BestPractice's own pre-fork orientation —
+still accurate for `PRACTICES.md`, `INSTALL.md`, and the rest of the
+inherited tree, which the plan has not restructured yet. It will be rewritten
+in place as later phases land (the plan's own generated-views work, phase 2)
+rather than kept as a second, drifting copy.
+
+---
+
 **Orientation: read [README.md](README.md) first.** This repo is
 BestPractice itself — the upstream practice layer that dependent repos
 vendor. Practices you follow here are the ones this repo teaches; a session
@@ -14,6 +33,9 @@ that skips them in this repo of all places is the joke writing itself.
 
 | Looking for… | Go to |
 |---|---|
+| The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
+| The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
+| The converted practice files (phase 1) | [practices/](practices/) |
 | What each practice is and why | [PRACTICES.md](PRACTICES.md) |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) |
 | Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
