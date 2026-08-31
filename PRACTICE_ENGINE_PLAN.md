@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 11:13:17 (Buenos Aires) by Morgan F, to version 17 -->
+<!-- Last updated: 2026-08-31 14:20:00 (Buenos Aires) by Morgan F, to version 18 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -28,9 +28,12 @@ Three goals drive everything below.
    enforces from there. This is the product's core claim; see
    [How a Practice Comes Into Existence](#how-a-practice-comes-into-existence).
 
-Precedent starts as a fork of BestPractice. Alex owns BestPractice and is
-roughly 80% convinced, so **merge-back is likely but not assured** — the plan
-is built so the fork can also stand alone.
+Precedent is built **on a branch of BestPractice itself**, not as a fork
+(amended 2026-08-31; see [Amendments Since Approval](#amendments-since-approval)).
+Alex owns BestPractice and is roughly 80% convinced, so **merge-back is likely
+but not assured** — the plan is still built so the work can stand alone if it
+has to, which on a branch means being extractable into a fork later rather
+than being one already.
 
 ## For the Session Implementing This
 
@@ -40,16 +43,16 @@ one expensive. Finish a phase's done-when condition before starting the next.
 
 **Copy this document into Precedent as the first act of phase 0.** It currently
 lives in RepoPersonalPreferences, which a session working in Precedent will not
-have. Precedent is where it belongs once the fork exists.
+have. Precedent is where it belongs.
 
 **Do not try to hold the whole plan in context while building.** Read the
 architecture sections once, then work from the phase you are on. A plan about
 loading only what the task needs should be used that way.
 
 **The first action is taking the pending BestPractice update.** Upstream is at
-`88ecf7f`; RPP vendors `c76f06f`. Fork from a current base, not a stale one —
-the top risk in this plan is fork divergence, and starting behind makes it
-worse on day one.
+`88ecf7f`; RPP vendors `c76f06f`. Branch from a current base, not a stale one —
+divergence from upstream is the top risk in this plan, and starting behind
+makes it worse on day one.
 
 **RepoPersonalPreferences is the first migration target, not only a source.**
 It stays live and in use throughout; it is the repo whose practices are being
@@ -133,7 +136,7 @@ Each names where the plan addresses it.
 | [checkin.py](process/upstream/tools/checkin.py) `fresh` is silent on failure, so unreachable reads as "current" | Phase 1 |
 | Practices cited by position (169 by-number references), making insertion a cross-repo sweep | Slugs, phase 1 |
 | An unresolved drift notice re-stamps its own date every session, so every session inherits a diff it did not create | Phase 1 tooling pass |
-| The export path is one-way in practice — RPP has essentially never checked anything in | Phase 7, and the fork's re-sync discipline |
+| The export path is one-way in practice — RPP has essentially never checked anything in | Phase 7, and the branch's re-sync discipline |
 
 ### Why Trimming Is Not the Answer
 
@@ -153,7 +156,7 @@ hold hundreds of practices without the resident set moving.
 | **Practice** | The unit. One file. Replaces both BestPractice's "practice" and RPP's "rule" as the name of the thing. |
 | **Rule** | The imperative section *inside* a practice — one to three sentences. Not a synonym for practice. |
 | **Source** | Where a practice comes from and who may see it: Precedent, a Team set, or an Individual set. |
-| **Precedent** | The public repo: the engine, the checks, and the universal practice catalogue. The fork of BestPractice. |
+| **Precedent** | The public repo: the engine, the checks, and the universal practice catalogue. BestPractice itself, restructured — the work lands on a branch and merges back. |
 | **Consumer repo** | Any project that uses practices. |
 | **Resolved set** | What a given repo and person actually get after merging their sources. |
 | **Resident** | Loaded into every session. The opposite is on-demand. |
@@ -843,14 +846,14 @@ For any repo, before and after migration:
 
 | # | Phase | Done when |
 |---|---|---|
-| 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Fork as Precedent. Agree this plan. | The fork exists on a current base and this document is approved or amended. |
+| 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Open the Precedent branch. Agree this plan. | The branch exists on a current base and this document is approved or amended. |
 | 1 | **Format, converter, harness.** Write the spec and the verification harness; convert Precedent's catalogue; fix the small tooling debts (freshness escalation, drift re-stamp churn). | Practices are files; the catalogue regenerates byte-identically; harness passes. |
 | 2 | **Loader and generated views.** Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. | Resident block within budget; hand-editing a generated view fails a check; **and the premise is measured, not assumed** — see below. |
-| 3 | **Split the sources.** Precedent public; Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. | Leak gate passes; a consumer repo resolves all three and precedence is tested; a README exists that someone outside the project can follow. |
+| 3 | **Split the sources.** Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. | Leak gate passes **before the branch is pushed, not before it is merged**; a consumer repo resolves all three and precedence is tested; a README exists that someone outside the project can follow. |
 | 4 | **The creation pipeline.** Candidates, detection signals, promotion criteria, approval routing, the periodic retirement report. | A candidate can be raised, promoted and landed end to end; a candidate failing any of the four criteria is refused with a reason. |
 | 5 | **Enforcement push.** Convert checkable practices to scripts; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above 2-of-46; each converted practice has a test proving its check fires. |
 | 6 | **Migrate consumer repos**, one at a time, harness-gated. | Each repo passes the harness before its migration lands. |
-| 7 | **Merge back to BestPractice.** | A PR is open against upstream, or a deliberate decision that the fork is permanent. |
+| 7 | **Merge back to BestPractice.** | A PR is open against `main`, or a deliberate decision to extract the work into a standalone fork instead. |
 
 ## What Morgan Needs to Do
 
@@ -860,17 +863,19 @@ Only these need a human; everything else a session can do.
 
 - **Review and amend this document.** It is a draft; the shape is the thing to
   react to.
-- **Decide the license** for Precedent. It is a fork of a public repo, so
-  upstream's license must be honored and attribution stated. Private on day
-  one, so this is not blocking — but it blocks going public.
+- **Decide the license** for Precedent. **Resolved by the branch decision:**
+  the work lives in BestPractice, so BestPractice's own license governs it and
+  there is no fork to license separately or attribute across. This only
+  reopens if the work is ever extracted into a standalone repo.
 
 **Phase 0 — repository setup** (each is a GitHub click-path or a one-liner a
 session can prepare but not execute)
 
-- **Create `Precedent`** as a fork of BestPractice. Private initially.
-- **Create `themorgan/precedent-individual`** — private, Morgan only.
+- ~~**Create `Precedent`** as a fork of BestPractice.~~ **Superseded** — the
+  work is a branch of BestPractice (`precedent-beta-v01`), not a fork.
+- **Create `themorgan/precedent-individual`** — private, Morgan only. **Done.**
 - **Create `themorgan/precedent-team-maintainers`** — private; Morgan and Alex
-  as collaborators and as the set's **approvers**.
+  as collaborators and as the set's **approvers**. **Done.**
 - **Confirm the default branch is `main`** on each new repo.
 
 **Naming convention for practice sets**
@@ -904,7 +909,9 @@ team; worth knowing before there are five.
 
 - **Invite people**: Alex to his team's set, Fabian to his, and so on. Each
   team is a separate repo with separate collaborators.
-- **Decide whether Precedent goes public**, and when.
+- ~~**Decide whether Precedent goes public**, and when.~~ **Moot** — Precedent
+  is a branch of BestPractice, which is public, so every push is publication.
+  See the leak-gate consequence under [Risks](#risks).
 
 **Phase 7**
 
@@ -918,10 +925,13 @@ team; worth knowing before there are five.
 
 ## Risks
 
-**Fork divergence is the top risk, ahead of the restructure itself.** Upstream
-moved during the conversation that produced this document. A long-lived fork
-of an actively-changing repo, carrying a structural rewrite, is the standard
-way a fork becomes permanent by accident. Mitigations, from day one:
+**Divergence from upstream is the top risk, ahead of the restructure itself.**
+Upstream moved during the conversation that produced this document. A
+long-lived branch of an actively-changing repo, carrying a structural rewrite,
+is the standard way a branch becomes unmergeable by accident. Building on a
+branch rather than a fork is itself the strongest mitigation — the work is
+merge-clean by construction and shares one history with `main` — but it does
+not remove the risk, it only makes it visible earlier. The rest still apply:
 
 - Keep universal practice **text** as close to upstream's wording as possible.
   Confine the change to the format and loading layer, so merge-back is a
@@ -944,9 +954,26 @@ arrangement. **If triggering does not beat residency, the plan needs rethinking
 rather than building on**, and that is far cheaper to discover at phase 2 than
 at phase 6.
 
-**Personal content leaking into a public repo.** The consequence is permanent
-and public — hence the hard-failing leak gate, and individual practices living
-in a different repo rather than a different directory.
+**Personal content leaking into a public repo — and the branch decision made
+this sharply worse.** The consequence is permanent and public — hence the
+hard-failing leak gate, and individual practices living in a different repo
+rather than a different directory.
+
+The original plan bought a margin here that no longer exists: *"Create
+`Precedent` as a fork of BestPractice. **Private initially.**"* A private
+day-one repo meant the leak gate had a grace period — a leak could be caught
+and force-pushed away before anyone outside could see it. **Precedent is now a
+branch of a public repo, so there is no grace period: every push is
+publication, to a repo whose owner is not us.** Two consequences, both
+binding from now on rather than from phase 3:
+
+- **The leak gate must run before every push, not before every merge.** A
+  merge-time gate is a gate on the wrong event now.
+- **Nothing from an individual or team set may be staged on this branch at
+  any point, even transiently.** Phase 3's source split has to build the
+  private sets in their own private repos and wire Precedent to *resolve*
+  them, never to hold them. The plan already says levels are repositories
+  rather than directories; this removes the last excuse for a shortcut.
 
 **The loader silently not firing.** Covered above; the reachability and
 behavioral-replay checks exist for exactly this.
@@ -999,10 +1026,11 @@ it can be generated; the explanation cannot.
 
 ## Open Decisions
 
-- **License and attribution** for Precedent. **Deferred by decision
-  (2026-08-31)** — the first version is not public, so this blocks publication
-  and nothing else. Tracked in RPP's TODO.
-- **When Precedent goes public.** Private on day one by decision.
+- ~~**License and attribution** for Precedent.~~ **Closed (2026-08-31)** —
+  the work is a branch of BestPractice, so BestPractice's own license governs
+  it. Reopens only if the work is ever extracted into a standalone repo.
+- ~~**When Precedent goes public.**~~ **Closed (2026-08-31)** — it is public
+  now. BestPractice is a public repo and Precedent is a branch of it.
 - **How a non-developer approves.** The approval flow above assumes a
   team member comfortable with a GitHub review. Many users of this will
   be working on documents and ideas rather than software, and for them
@@ -1011,6 +1039,37 @@ it can be generated; the explanation cannot.
   given in a session, with the repo write happening behind it. Worth
   deciding before the first non-technical team is onboarded, not
   before phase 0.
+
+## Amendments Since Approval
+
+The header instruction for this document is that changes after approval are
+amendments, stated with what changed and why. The body above is kept as
+current state; this section is the short record of what moved.
+
+**2026-08-31 — Precedent is a branch of BestPractice, not a fork.** Decided by
+Morgan. The plan was written assuming a fork, private on day one, merged back
+at phase 7 if Alex agreed. It is instead `precedent-beta-v01`, a branch of
+`alex137/BestPractice`, merging to that repo's own `main`.
+
+What this buys: the top risk in this plan — divergence — is largely
+neutralised, because a branch shares one history with `main` and is merge-clean
+by construction rather than by discipline. There is no re-sync treadmill and no
+content reconciliation at phase 7.
+
+What it costs, and this is the part worth reading twice: **the "private
+initially" safety margin is gone.** BestPractice is public, so every push to
+this branch is publication, into a repo owned by someone else. The leak gate
+moves from a merge-time gate to a push-time one, and no individual- or
+team-level content may be staged here even transiently. Recorded in full under
+[Risks](#risks).
+
+It also closes two open decisions outright (license, and when Precedent goes
+public) and supersedes the phase-0 "create a fork" action.
+
+**2026-08-31 — the two private practice-set repos exist.**
+`themorgan/precedent-individual` and `themorgan/precedent-team-maintainers`
+are created, so phase 3's repository prerequisites are met and only the
+content split and the leak gate remain.
 
 ### Settled Since Draft v1
 
