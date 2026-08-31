@@ -32,7 +32,7 @@ Run:
   python3 tools/build_views.py --check      # regenerate to memory, diff against
                                              # the committed files, exit 1 on any diff
 """
-import collections, pathlib, re, sys
+import collections, json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
@@ -63,11 +63,39 @@ def load_practices():
 
 
 def _json_list(raw):
-    import json
     try:
         return json.loads(raw)
-    except (TypeError, __import__('json').JSONDecodeError):
+    except (TypeError, json.JSONDecodeError):
         return []
+
+
+# A handful of practices carry a non-canonical rule-opening label kept as
+# literal content by split_practices.py (e.g. "**The practice.**" -- see its
+# _label_to_section: only the exact canonical words rule/why/install get
+# stripped at split time, so a real authored label like this one stays in
+# the Rule text on purpose, since the plan's no-invented-content rule means
+# split_practices.py cannot silently drop or reword it). Fine when the full
+# Rule is loaded via precedent_show, but it adds no information in a
+# one-line index entry -- stripped here for DISPLAY ONLY, in this generated
+# summary line; the underlying practice file and everything precedent_show
+# and precedent_paths return is untouched.
+_GENERIC_RULE_LABEL_RE = re.compile(r'^\*\*(?:The practice)\.?\*\*\s*')
+_SENTENCE_END_RE = re.compile(r'(?<=[.!?])\s+(?=[A-Z0-9(\[])')
+
+
+def _occasion_clause(rule_text, max_len=90):
+    """First sentence of a practice's Rule, collapsed to one line, for the
+    occasion index. Joins the whole first paragraph (not just its first
+    *wrapped* line -- markdown files wrap prose at ~80 columns, so a rule
+    text's first physical line is very often mid-sentence) before looking
+    for a sentence boundary."""
+    first_para = rule_text.strip().split('\n\n', 1)[0]
+    first_para = ' '.join(first_para.split())  # collapse internal line wraps
+    first_para = _GENERIC_RULE_LABEL_RE.sub('', first_para)
+    clause = _SENTENCE_END_RE.split(first_para, maxsplit=1)[0]
+    if len(clause) > max_len:
+        clause = clause[:max_len - 3].rstrip() + '...'
+    return clause
 
 
 def build_loader_block(practices):
@@ -89,12 +117,7 @@ def build_loader_block(practices):
         occasion = fm.get('occasion', '').strip('"')
         if not occasion:
             continue
-        rule = sections.get('rule', '').strip()
-        clause = rule.split('\n')[0]
-        clause = re.split(r'(?<=[.!?])\s', clause)[0]
-        if len(clause) > 90:
-            clause = clause[:87].rstrip() + '...'
-        by_occasion[occasion].append((fm['slug'], clause))
+        by_occasion[occasion].append((fm['slug'], _occasion_clause(sections.get('rule', ''))))
 
     index_lines = []
     for occasion in sorted(by_occasion):
@@ -176,7 +199,7 @@ def render_map_md(practices):
         '',
         "| Path | What it is |",
         "|---|---|",
-        "| [tools/split_practices.py](tools/split_practices.py) | `PRACTICES.md` ↔ `practices/*.md` converter |",
+        "| [tools/split_practices.py](tools/split_practices.py) | [PRACTICES.md](PRACTICES.md) ↔ [practices/](practices/) converter |",
         "| [tools/precedent_show.py](tools/precedent_show.py) | Load a practice's Rule/Why/Story/Install — the one code path that reads a practice file |",
         "| [tools/precedent_paths.py](tools/precedent_paths.py) | Path-triggered channel — matches a touched file against every practice's `applies_to` |",
         "| [tools/build_views.py](tools/build_views.py) | This file, [GLOSSARY.md](GLOSSARY.md), and AGENTS.md's loader block — generated views |",

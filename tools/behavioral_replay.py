@@ -31,7 +31,7 @@ silently treating "not measurable" as "passing."
 Run:
   python3 tools/behavioral_replay.py [--max-commits N]
 """
-import collections, json, pathlib, subprocess, sys
+import fnmatch, pathlib, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -66,6 +66,23 @@ def changed_files(commit_hash):
     return [f for f in out if f]
 
 
+def is_shallow_clone():
+    out = subprocess.run(
+        ['git', '-C', str(ROOT), 'rev-parse', '--is-shallow-repository'],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    return out == 'true'
+
+
+# Below this many replayable (non-merge, file-touching) commits, a miss-rate
+# or cost-reduction percentage is noise, not a measurement -- report the
+# gap plainly and degrade rather than either crashing (a fresh `git clone
+# --depth 1`, this repo's own documented default per AGENTS.md's environment
+# notes, has exactly ONE commit and zero parents to diff against) or
+# printing a confident-looking number computed from too little data.
+MIN_COMMITS_FOR_MEANINGFUL_REPLAY = 20
+
+
 def main():
     args = sys.argv[1:]
     max_commits = 142
@@ -82,7 +99,8 @@ def main():
 
     commits = git_commits(max_commits)
     if not commits:
-        sys.exit("behavioral_replay FAIL: no commits found to replay against.")
+        print("REPLAY_STATUS: DEGRADED (no commits at all -- unexpected, but not a loader defect)")
+        return 0
 
     n_commits = 0
     n_commits_with_hit = 0
@@ -109,7 +127,6 @@ def main():
         # Independently re-derive with a bare fnmatch pass, so this is a real
         # cross-check of precedent_paths.py rather than trusting its own
         # output as ground truth.
-        import fnmatch
         reference = set()
         for slug, globs, _rule in on_demand_narrow:
             if any(fnmatch.fnmatch(f, g) for f in files for g in globs):
@@ -123,6 +140,21 @@ def main():
         # path channel actually surfaced for these specific files.
         total_old_loaded += n_total
         total_new_loaded += len(resident) + len(applicable_slugs)
+
+    if n_commits < MIN_COMMITS_FOR_MEANINGFUL_REPLAY:
+        shallow = is_shallow_clone()
+        print(f"Replayed only {n_commits} file-touching non-merge commit(s) "
+              f"(of {len(commits)} available in this clone) -- below "
+              f"{MIN_COMMITS_FOR_MEANINGFUL_REPLAY}, not enough for a meaningful miss-rate "
+              f"or cost figure, so none is printed rather than reporting a number computed "
+              f"from too little data.")
+        if shallow:
+            print(f"  This is a shallow clone (git rev-parse --is-shallow-repository: true). "
+                  f"Deepen it first: `git fetch --depth=500 origin <branch>` (bounded, per this "
+                  f"repo's own environment notes), then re-run.")
+        print("REPLAY_STATUS: DEGRADED (insufficient commit history for a meaningful replay -- "
+              "not a loader defect; deepen the clone and re-run)")
+        return 0
 
     print(f"Replayed {n_commits} non-merge commits (of {len(commits)} requested) from this "
           f"repo's own history.\n")
@@ -159,13 +191,20 @@ def main():
 
     print("\n== Miss rate, stated directly ==")
     print(f"  Old arrangement: 0% miss rate by construction (everything always loaded).")
-    print(f"  New arrangement, mechanical channel: 0% miss rate across {n_commits} replayed "
-          f"commits ({total_path_matches} applicable-practice instances, all surfaced) --"
-          f" because applies_to matching is deterministic and precedent_paths.py implements "
-          f"it directly; this replay validates the plumbing has no bugs, not that trigger-"
-          f"based loading beats residency in a way path-matching alone can prove. The "
-          f"occasion-index channel remains genuinely untested by this script, as stated above.")
+    if verify_ok:
+        print(f"  New arrangement, mechanical channel: 0% miss rate across {n_commits} replayed "
+              f"commits ({total_path_matches} applicable-practice instances, all surfaced) --"
+              f" because applies_to matching is deterministic and precedent_paths.py implements "
+              f"it directly; this replay validates the plumbing has no bugs, not that trigger-"
+              f"based loading beats residency in a way path-matching alone can prove. The "
+              f"occasion-index channel remains genuinely untested by this script, as stated above.")
+    else:
+        print(f"  New arrangement, mechanical channel: MISMATCH on {len(miss_examples)} of "
+              f"{n_commits} replayed commits -- precedent_paths.py's output disagreed with an "
+              f"independent fnmatch re-derivation over the same files (see examples above). "
+              f"This is a real bug in the loader's path-matching, not a measurement caveat.")
 
+    print(f"\nREPLAY_STATUS: {'OK' if verify_ok else 'MISMATCH'}")
     return 0 if verify_ok else 1
 
 

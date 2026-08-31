@@ -1,7 +1,7 @@
 ---
 slug:        mistakes-become-rules
 title:       Mistakes become rules: root-cause the miss, then encode the prevention
-tier:        resident
+tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a review finds a defect"

@@ -21,7 +21,6 @@ CATALOGUE = ROOT / 'PRACTICES.md'
 
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
-import build_views as bv
 
 FAILED = []
 PASSED = []
@@ -207,21 +206,18 @@ def check_leak_gate():
 
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
-    # bv.main(['--check']) diffs a fresh regeneration of AGENTS.md's loader
-    # block, MAP.md and GLOSSARY.md against the committed files -- this is
-    # not a re-implementation of that diff, it's the same code path.
-    import io, contextlib
-    buf = io.StringIO()
-    old_argv = sys.argv
-    sys.argv = ['build_views.py', '--check']
-    try:
-        with contextlib.redirect_stdout(buf):
-            rc = bv.main()
-    finally:
-        sys.argv = old_argv
-    ok = rc == 0
+    # Runs build_views.py --check as a real subprocess, not an in-process
+    # import-and-call: bv.build_loader_block() can sys.exit() (over the
+    # resident token budget, or missing BEGIN/END markers), which is a clean
+    # process exit but would be an uncaught SystemExit escaping straight
+    # through this function if called in-process, taking the whole harness
+    # down with a raw traceback instead of a reported FAIL line.
+    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'), '--check'],
+                             capture_output=True, text=True)
+    ok = result.returncode == 0
+    detail = (result.stdout + result.stderr).strip() if not ok else ''
     check('generated views regenerate byte-identically (AGENTS.md loader block, MAP.md, GLOSSARY.md)',
-          ok, buf.getvalue().strip())
+          ok, detail)
 
 
 def check_resident_subset(files):
@@ -238,20 +234,30 @@ def check_resident_subset(files):
 
 
 def check_behavioral_replay():
-    # Runs tools/behavioral_replay.py for real (not a canned number) and
-    # requires it to exit 0 -- its own exit code is "precedent_paths.py's
-    # output matched an independent re-derivation on every replayed commit",
-    # i.e. the mechanical loading channel has no bugs against real history.
-    # The script's own stdout states plainly what it does and does not prove
-    # about the plan's premise (see its docstring); this check only gates on
-    # the part of that which is a pass/fail fact, not the qualitative report.
+    # Runs tools/behavioral_replay.py for real (not a canned number). It
+    # prints a "REPLAY_STATUS: OK|MISMATCH|DEGRADED" marker line: OK means
+    # precedent_paths.py's output matched an independent re-derivation on
+    # every replayed commit (the mechanical channel has no bugs against real
+    # history); MISMATCH is a real defect; DEGRADED means this clone doesn't
+    # have enough commit history for a meaningful replay (a fresh shallow
+    # clone, most commonly) -- an environment precondition, not a loader
+    # defect, so it is reported as not-yet-applicable rather than pass or
+    # fail. The script's own stdout states plainly what a PASS here does and
+    # does not prove about the plan's premise (see its docstring); this
+    # check only gates on the part of that which is a pass/fail fact.
     result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'behavioral_replay.py')],
                              capture_output=True, text=True)
-    ok = result.returncode == 0
-    detail = result.stdout.strip().splitlines()[-1] if not ok else ''
-    check('behavioral replay (path-triggered channel matches an independent re-derivation '
-          'across this repo\'s own commit history; see `python3 tools/behavioral_replay.py` '
-          'for the full measured report, including what it does NOT prove)', ok, detail)
+    status_line = next((l for l in result.stdout.splitlines() if l.startswith('REPLAY_STATUS:')), '')
+    detail = (result.stdout + result.stderr).strip()
+    name = ('behavioral replay (path-triggered channel matches an independent re-derivation '
+            'across this repo\'s own commit history; see `python3 tools/behavioral_replay.py` '
+            'for the full measured report, including what it does NOT prove)')
+    if 'DEGRADED' in status_line:
+        not_applicable(name, status_line.split('REPLAY_STATUS: ', 1)[-1])
+    elif result.returncode == 0 and 'OK' in status_line:
+        check(name, True)
+    else:
+        check(name, False, detail.splitlines()[-1] if detail else 'no REPLAY_STATUS line printed')
 
 
 def main():

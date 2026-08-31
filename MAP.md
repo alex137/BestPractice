@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 52 practice files (7 resident, 45 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 52 practice files (6 resident, 46 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -33,7 +33,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
 | [merge-authorization-keyword](practices/merge-authorization-keyword.md) | on-demand | the user gives a standing merge instruction |
 | [merge-runbook](practices/merge-runbook.md) | on-demand | merging a branch that touches shared files |
-| [mistakes-become-rules](practices/mistakes-become-rules.md) | resident | a review finds a defect |
+| [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a review finds a defect |
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming a new file |
@@ -67,7 +67,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 | Path | What it is |
 |---|---|
-| [tools/split_practices.py](tools/split_practices.py) | `PRACTICES.md` ↔ `practices/*.md` converter |
+| [tools/split_practices.py](tools/split_practices.py) | [PRACTICES.md](PRACTICES.md) ↔ [practices/](practices/) converter |
 | [tools/precedent_show.py](tools/precedent_show.py) | Load a practice's Rule/Why/Story/Install — the one code path that reads a practice file |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | Path-triggered channel — matches a touched file against every practice's `applies_to` |
 | [tools/build_views.py](tools/build_views.py) | This file, [GLOSSARY.md](GLOSSARY.md), and AGENTS.md's loader block — generated views |
