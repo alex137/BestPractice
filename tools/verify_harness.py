@@ -85,18 +85,36 @@ def check_reachability(files):
 #  1. Practice 39's raw body in the source is followed by a stray duplicate
 #     of part of practice 34's body -- an upstream data-corruption artifact,
 #     not authored content of practice 39's own. Dropped at conversion.
+#     The duplicate is pasted MID-PARAGRAPH (it starts mid-word, on the line
+#     immediately after practice 39's Install paragraph ends, with no blank
+#     line between), so the dropped span starts at the marker itself. This
+#     exception was originally written to start at the preceding BLANK line
+#     instead, matching a converter that made the same mistake -- which
+#     deleted practice 39's whole Install paragraph and passed every check
+#     in this file, because each one compared the lossy output against a
+#     source parsed through the same lossy fixup. See
+#     check_corruption_drop_is_a_duplicate below, which tests the boundary
+#     against a property that does not depend on the boundary.
 #  2. A single extra blank line between practices 40 and 41 in the source
 #     (everywhere else in the file uses exactly one blank line between
 #     practices) -- a pre-existing whitespace-only formatting quirk,
 #     unrelated to the conversion.
+#  3. Practice 39's "**Install.**" is the only label in the whole file
+#     followed by a NEWLINE rather than a space, and cmd_build re-emits
+#     every stripped canonical label with a space. Whitespace-only, same
+#     class as (2); it only became reachable once (1) stopped deleting the
+#     paragraph that contains it.
 #
-# This check does not take that on faith: it reproduces exactly those two,
-# and only those two, transformations against the ORIGINAL text, and then
+# This check does not take that on faith: it reproduces exactly those three,
+# and only those three, transformations against the ORIGINAL text, and then
 # requires the rebuild to match the result exactly.
 def check_byte_identical_regeneration():
     original = CATALOGUE.read_text(encoding='utf-8')
     normalized = original.replace(
         "\n\n## 41. Search by purpose", "\n## 41. Search by purpose")
+    normalized = normalized.replace(
+        "\n\n**Install.**\n[templates/pull_request_template.md.template]",
+        "\n\n**Install.** [templates/pull_request_template.md.template]")
     # search from practice 39's own header, not from the start of the file --
     # the marker's tail also occurs, legitimately, inside practice 34's own
     # body ("...acquir-ES a source's vocabulary..."), earlier in the file.
@@ -104,12 +122,13 @@ def check_byte_identical_regeneration():
     idx = normalized.find(sp.FIXUP_39_MARKER, p39_start)
     ok_marker_found = idx != -1
     if ok_marker_found:
-        tail_start = normalized.rfind('\n\n', 0, idx)
-        # the corrupted span runs from the duplicate fragment to just before
-        # "## 40." -- drop exactly that span, nothing else.
+        # the corrupted span runs from the duplicate fragment -- which starts
+        # mid-paragraph, at the marker itself, NOT at the preceding blank
+        # line (note 1 above) -- to just before "## 40.". Drop exactly that
+        # span, nothing else.
         end_marker = "\n\n## 40. An option you invented"
         end_idx = normalized.index(end_marker, idx)
-        normalized = normalized[:tail_start] + normalized[end_idx:]
+        normalized = normalized[:idx].rstrip('\n') + normalized[end_idx:]
     rebuilt = sp.cmd_build()
     ok = ok_marker_found and (normalized.rstrip('\n') + '\n') == rebuilt
     if not ok:
@@ -117,10 +136,10 @@ def check_byte_identical_regeneration():
         diff = list(difflib.unified_diff(
             normalized.splitlines(keepends=True), rebuilt.splitlines(keepends=True),
             fromfile='normalized-original', tofile='rebuilt', n=1))
-        print('  unexpected diff beyond the two documented exceptions:')
+        print('  unexpected diff beyond the three documented exceptions:')
         for line in diff[:40]:
             print('  ' + line.rstrip('\n'))
-    check('byte-identical regeneration (modulo the two documented exceptions)', ok)
+    check('byte-identical regeneration (modulo the three documented exceptions)', ok)
 
 
 SENTENCE_SPLIT = re.compile(r'(?<=[.!?])\s+(?=[A-Z0-9(\[])')
@@ -159,6 +178,70 @@ def check_no_invented_content(files, original_practices_by_number):
 
 
 CITATION_RE = re.compile(r'\bpractice\s+(\d+)\b', re.IGNORECASE)
+
+
+def check_no_lost_content(files, original_practices_by_number):
+    """The mirror of check_no_invented_content, and the reason it has to
+    exist: that check is a SUBSET test (output <= source), so a conversion
+    that silently DELETES authored text passes it trivially. Both
+    directions together make it a multiset EQUALITY, which -- combined with
+    byte-identical regeneration, which pins order -- is a far stronger
+    statement than either alone."""
+    ok = True
+    for stem, (fm, sections, f) in files.items():
+        num = fm.get('source_practice_number')
+        orig = original_practices_by_number.get(num)
+        if orig is None:
+            continue  # already reported by check_no_invented_content
+        orig_body = orig['rule'] + ' ' + orig['why'] + ' ' + orig['install']
+        out_body = (sections.get('rule', '') + ' ' + sections.get('why', '') + ' '
+                    + sections.get('story', '') + ' ' + sections.get('install', ''))
+        lost = _tokens(orig_body) - _tokens(out_body)
+        if lost:
+            ok = False
+            print(f"  {f.name}: source words missing from the split file for practice "
+                  f"{num}: {dict(list(lost.items())[:10])}")
+    check('no lost content (source word-multiset <= output word-multiset, per practice)', ok)
+
+
+def check_corruption_drop_is_a_duplicate(original_practices_by_number):
+    """The one place the converter is licensed to delete source text is the
+    practice-39 corruption (split_practices.FIXUP_39_MARKER). Every other
+    check here takes that span's BOUNDARIES on faith: no-invented-content
+    and no-lost-content both compare against a source already parsed through
+    the same fixup, and byte-identical regeneration's approved exception was
+    hand-written to match it -- so a wrong boundary makes all three agree
+    with the bug instead of catching it. That is not hypothetical: the
+    boundary WAS wrong, and deleted practice 39's entire Install paragraph
+    with the harness fully green.
+
+    So this check tests the boundary against a property that does not depend
+    on where the boundary was drawn: whatever the converter drops must be a
+    VERBATIM DUPLICATE of text appearing elsewhere in PRACTICES.md. That is
+    the whole claim being made about it. Authored content -- practice 39's
+    own Install paragraph, say -- is a duplicate of nothing, so an
+    over-broad drop fails here immediately. It reads the span
+    split_practices.py actually dropped rather than re-deriving one, since a
+    check that recomputes the boundary cannot catch a converter that got the
+    boundary wrong."""
+    original = CATALOGUE.read_text(encoding='utf-8')
+    drops = {num: p['dropped_corruption'] for num, p in original_practices_by_number.items()
+             if p.get('dropped_corruption')}
+    if not drops:
+        check('corruption drop is a verbatim duplicate, not authored content', False,
+              'split_practices.py dropped nothing at all -- the practice-39 corruption '
+              'fixup is no longer firing. If PRACTICES.md was fixed upstream, retire the '
+              'fixup and this check together; otherwise this is a regression')
+        return
+    ok = True
+    for num, dropped in sorted(drops.items()):
+        # A true duplicate occurs at least twice in the file.
+        if original.count(dropped) < 2:
+            ok = False
+            print(f"  practice {num}: the {len(dropped)}-char span split_practices.py drops "
+                  f"(starting {dropped[:70]!r}) does NOT occur verbatim anywhere else in "
+                  f"PRACTICES.md -- it is not a duplicate, so dropping it is content loss")
+    check('corruption drop is a verbatim duplicate, not authored content', ok)
 
 
 def check_citation_integrity(files):
@@ -271,6 +354,8 @@ def main():
     original_text = CATALOGUE.read_text(encoding='utf-8')
     original_practices = {p['number']: p for p in sp.parse_catalogue(original_text)}
     check_no_invented_content(files, original_practices)
+    check_no_lost_content(files, original_practices)
+    check_corruption_drop_is_a_duplicate(original_practices)
     check_citation_integrity(files)
     check_leak_gate()
     check_generated_views_regenerate()

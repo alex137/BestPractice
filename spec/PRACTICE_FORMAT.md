@@ -120,9 +120,9 @@ minted fresh, with no BestPractice-numbered ancestor, simply won't have one.
   default for day one regardless (Risks: "keep universal practice text as
   close to upstream's wording as possible" says nothing about needing full
   history on disk).
-- **`tier` was `on-demand` for all 52 at phase 1; phase 2 curated 7 to
+- **`tier` was `on-demand` for all 52 at phase 1; phase 2 curated 6 to
   `resident`** once the budget mechanism existed to enforce the choice —
-  see [spec/LOADER.md](LOADER.md) for which seven and why. `severity` is
+  see [spec/LOADER.md](LOADER.md) for which six and why. `severity` is
   still `default` for all 52 at phase 2. `severity`'s only real job
   (Severity, Not Ranking) is resolving conflicts between sources at
   different precedence, which does not arise until team and individual
@@ -150,11 +150,31 @@ practice 34, pasted a second time immediately after practice 39's own
 `Install.` paragraph, with no heading of its own). This reads as a bad
 merge or copy-paste in BestPractice's own history, not authored content.
 `tools/split_practices.py` drops it explicitly and by name
-(`FIXUP_39_MARKER`), and `tools/verify_harness.py`'s byte-identical-
-regeneration check treats exactly that removal — and a single stray blank
-line between practices 40 and 41, also pre-existing and whitespace-only —
-as the two sole approved exceptions to an otherwise-exact diff against the
-original. Worth reporting upstream at the next real check-in (phase 7 territory,
+(`FIXUP_39_MARKER`), and [`tools/verify_harness.py`](../tools/verify_harness.py)'s byte-identical-
+regeneration check treats exactly that removal — plus two whitespace-only
+quirks, a stray blank line between practices 40 and 41 and the file's one
+`**Install.**` label followed by a newline instead of a space — as the
+three sole approved exceptions to an otherwise-exact diff against the
+original.
+
+**Where the first pass got this wrong, since it is the instructive part.**
+The stray fragment is pasted *mid-paragraph*: it begins mid-word on the
+line immediately after practice 39's own `**Install.**` paragraph ends,
+with no blank line between them. The converter's first version dropped
+from the preceding *blank* line instead, which deleted practice 39's whole
+Install paragraph — its template path, its wiring, the propagation
+instructions — along with the corruption. **Every check in the harness
+passed.** The no-invented-content check is a subset test, so a deletion
+satisfies it trivially; and the byte-identical exception had been
+hand-written to the same wrong boundary, so it agreed with the converter
+instead of catching it. Two checks were added in response: a `no lost
+content` mirror (making the word-multiset comparison an equality rather
+than a subset), and `corruption drop is a verbatim duplicate`, which
+asserts that whatever the converter drops occurs verbatim elsewhere in the
+file. The second is the one that actually catches it, because it tests a
+property of the dropped *text* rather than re-deriving the boundary — a
+check that recomputes the boundary cannot catch a converter that got the
+boundary wrong. Worth reporting upstream at the next real check-in (phase 7 territory,
 or sooner if Alex wants to hear about it before then); not fixed upstream
 by this session, which only has read access to `alex137/bestpractice`.
 
@@ -163,9 +183,9 @@ by this session, which only has read access to `alex137/bestpractice`.
 - `tools/split_practices.py split` — `PRACTICES.md` → `practices/*.md`.
 - `tools/split_practices.py build [--diff]` — the reverse, for the
   byte-identical-regeneration check.
-- `tools/verify_harness.py` — runs every check from the plan's verification
-  harness that is meaningful before phase 2 (loader) and phase 3 (multiple
-  sources) exist; the rest report as not-yet-applicable, not as passed.
+- [`tools/verify_harness.py`](../tools/verify_harness.py) — runs every check from the plan's verification
+  harness that is meaningful given what exists; the rest report as
+  not-yet-applicable, not as passed.
 - `tools/precedent_show.py SLUG... [--why|--story|--install]` — the one
   code path an agent (or a human) uses to load a practice; never read
   `practices/*.md` directly.

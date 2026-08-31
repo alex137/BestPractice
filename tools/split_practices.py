@@ -53,6 +53,18 @@ spec/PRACTICE_FORMAT.md). That duplicate is dropped, precisely and only
 there, and the byte-identical-regeneration check treats exactly that
 removal as the one approved exception to an otherwise-exact diff.
 
+The duplicate is pasted MID-PARAGRAPH — it begins mid-word on the line
+immediately after practice 39's own "**Install.**" paragraph ends, with no
+blank line between — so the drop must begin at the marker itself. An
+earlier version walked back to the preceding blank line, which deleted
+practice 39's whole Install paragraph along with the corruption, silently
+and with the harness fully green: every check compared the lossy output
+against a source parsed through the same lossy fixup. The span actually
+dropped is now recorded on each parsed practice as `dropped_corruption`,
+and verify_harness.py's check_corruption_drop_is_a_duplicate asserts that
+whatever is dropped occurs verbatim elsewhere in the file — a property of
+the text rather than of the boundary, so it fails on an over-broad drop.
+
 Run:
   python3 tools/split_practices.py split           # PRACTICES.md -> practices/*.md
                                                     # (refuses if practices/ is non-empty;
@@ -114,14 +126,29 @@ def parse_catalogue(text):
             continue
         number, title = m.group(1), m.group(2)
         body = lines[1] if len(lines) > 1 else ''
+        dropped_corruption = ''
 
         if number == '39' and FIXUP_39_MARKER in body:
-            body = body[:body.index(FIXUP_39_MARKER)]
-            # Walk back to the start of the corrupted paragraph fragment
-            # (a line-wrapped continuation with no blank line before it).
-            body = body.rstrip('\n')
-            last_blank = body.rfind('\n\n')
-            body = body[:last_blank] if last_blank != -1 else body
+            # The corrupted fragment is pasted mid-paragraph, with no blank
+            # line before it: practice 39's own "**Install.**" paragraph
+            # ends "...not just the template itself." and the very next
+            # LINE is the stray duplicate, starting mid-word ("...acquir"
+            # + "es a source's vocabulary..."). So the drop begins exactly
+            # at the marker. An earlier version of this walked back to the
+            # previous BLANK line instead, which silently swallowed the
+            # whole of practice 39's Install paragraph along with the
+            # corruption -- real authored content, lost with no check
+            # firing (the no-invented-content check is a subset test, so
+            # a deletion passes it, and the byte-identical check's own
+            # "approved exception" span had been written to match the same
+            # over-broad boundary).
+            kept = body[:body.index(FIXUP_39_MARKER)].rstrip('\n')
+            # Record exactly what was dropped, so verify_harness.py can test
+            # THIS span rather than re-deriving a boundary of its own -- a
+            # check that recomputes the boundary cannot catch a converter
+            # that got the boundary wrong.
+            dropped_corruption = body[len(kept):].strip()
+            body = kept
 
         paragraphs = re.split(r'\n\n+', body.strip('\n'))
         sections = {'rule': [], 'why': [], 'install': []}
@@ -167,6 +194,7 @@ def parse_catalogue(text):
             'why': '\n\n'.join(sections['why']).strip(),
             'install': '\n\n'.join(sections['install']).strip(),
             'rule_unlabeled': rule_unlabeled,
+            'dropped_corruption': dropped_corruption,
         })
     return practices
 
