@@ -159,6 +159,158 @@ def check_byte_identical_regeneration():
     check('byte-identical regeneration (modulo the three documented exceptions)', ok)
 
 
+# ---------------------------------------------------------------------------
+# Content preservation across an EDITORIAL re-split.
+#
+# Phase 1's converter was mechanical, so "byte-identical regeneration" could
+# prove it lost nothing: rebuild PRACTICES.md from practices/ and diff. That
+# check cannot survive the phase-1.5 editorial pass, by construction -- the
+# whole point of that pass is that text MOVES between sections, so the
+# rebuilt catalogue's **Why.** label lands somewhere else and the diff is
+# non-empty no matter how faithful the move was.
+#
+# It is replaced by something stronger on the dimension that actually
+# matters, and weaker only on one that does not. The plan's own rule for the
+# converter is a SENTENCE rule -- "no sentence may appear in the output that
+# does not appear in the input" (Migration, The Converter) -- so that is what
+# is checked, in both directions, against PRACTICES.md itself. PRACTICES.md
+# is the immutable upstream source and stays in the repo, so this is a
+# permanent, non-circular guarantee that survives any future re-split:
+# whatever the sections end up being, their combined content is exactly
+# BestPractice's content, sentence for sentence.
+#
+# What is lost is the ORDERING claim byte-identical regeneration also made,
+# and check_section_source_order restores it: within each section, sentences
+# must still appear in their original relative source order. Any pure
+# re-homing preserves that; scrambling does not.
+_PARA_SPLIT = re.compile(r'\n\s*\n')
+_SENT_SPLIT = re.compile(r'(?<=[.!?])[ \t]+(?=[A-Z0-9*\[(“"`—-])')
+
+
+def _sentences(text):
+    """Sentence-ish chunks, whitespace-normalized. Deliberately the SAME
+    tokenizer on both sides of every comparison, so an imperfect split (a
+    trailing "e.g." swallowing the next sentence, say) is symmetric and
+    harmless: it just makes the compared chunk bigger. The only way it
+    misfires is if an edit splits text *inside* a chunk the tokenizer
+    merged -- which fails the check rather than passing it, i.e. it fails
+    closed, which is the direction to be wrong in."""
+    out = []
+    for para in _PARA_SPLIT.split(text or ''):
+        para = ' '.join(para.split())
+        if not para:
+            continue
+        out.extend(s for s in (x.strip() for x in _SENT_SPLIT.split(para)) if s)
+    return out
+
+
+def _source_sentences(orig):
+    return _sentences(orig['rule']) + _sentences(orig['why']) + _sentences(orig['install'])
+
+
+SECTION_ORDER = ('rule', 'why', 'story', 'install')
+
+
+def _output_sentences_by_section(sections):
+    return [(name, _sentences(sections.get(name, ''))) for name in SECTION_ORDER]
+
+
+def check_content_preserved_by_sentence(files, original_practices_by_number):
+    """Every sentence of every practice, exactly as BestPractice wrote it,
+    exactly as many times, distributed across Rule/Why/Story/Install however
+    the editorial split decided. Nothing invented, nothing lost, nothing
+    duplicated -- at sentence granularity rather than word granularity."""
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        orig = original_practices_by_number.get(fm.get('source_practice_number'))
+        if orig is None:
+            continue  # reported by check_no_invented_content
+        src = collections.Counter(_source_sentences(orig))
+        out = collections.Counter(
+            s for _n, ss in _output_sentences_by_section(sections) for s in ss)
+        lost, gained = src - out, out - src
+        if lost or gained:
+            ok = False
+            print(f"  {f.name}:")
+            for s in list(lost)[:3]:
+                print(f"      LOST     {s[:100]!r}")
+            for s in list(gained)[:3]:
+                print(f"      INVENTED {s[:100]!r}")
+    check('content preserved sentence-for-sentence (Rule+Why+Story+Install == the '
+          'source practice, both directions)', ok)
+
+
+def check_section_source_order(files, original_practices_by_number):
+    """Text may be re-homed between sections; it may not be scrambled.
+    Within each section, sentences must appear in the same relative order
+    they had in PRACTICES.md. This is what byte-identical regeneration used
+    to guarantee, kept alive after that check could no longer run."""
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        orig = original_practices_by_number.get(fm.get('source_practice_number'))
+        if orig is None:
+            continue
+        src = _source_sentences(orig)
+        # position lists, so a sentence repeated in the source is matched
+        # greedily in order rather than ambiguously
+        positions = collections.defaultdict(collections.deque)
+        for i, s in enumerate(src):
+            positions[s].append(i)
+        for name, out in _output_sentences_by_section(sections):
+            last, last_text = -1, None
+            for s in out:
+                if not positions[s]:
+                    continue  # already reported by the sentence check
+                i = positions[s].popleft()
+                if i < last:
+                    ok = False
+                    print(f"  {f.name} [{name}]: out of source order -- "
+                          f"{s[:70]!r} precedes {last_text[:70]!r} here but follows "
+                          f"it in PRACTICES.md")
+                last, last_text = i, s
+    check('section content keeps its source order (text may be re-homed, not scrambled)', ok)
+
+
+_LIST_ITEM_RE = re.compile(r'^(\s*)([-*+]|\d+\.)\s+(.*)$')
+
+
+def _list_items(text):
+    """Every markdown list item, as (indent, marker, first 60 chars). The
+    sentence checks normalize whitespace away, so they cannot see a nested
+    list flattened to one level or a continuation line that lost its indent
+    while being moved. This can: markdown structure is content, and a
+    two-level list rendered as one is a changed meaning even though every
+    word survived."""
+    out = []
+    for line in (text or '').split('\n'):
+        m = _LIST_ITEM_RE.match(line)
+        if m:
+            out.append((len(m.group(1)), m.group(2), ' '.join(m.group(3).split())[:60]))
+    return out
+
+
+def check_list_structure_preserved(files, original_practices_by_number):
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        orig = original_practices_by_number.get(fm.get('source_practice_number'))
+        if orig is None:
+            continue
+        src = collections.Counter(
+            _list_items(orig['rule']) + _list_items(orig['why']) + _list_items(orig['install']))
+        out = collections.Counter(
+            i for name in SECTION_ORDER for i in _list_items(sections.get(name, '')))
+        if src != out:
+            ok = False
+            for item in list((src - out))[:3]:
+                print(f"  {f.name}: list item lost or re-indented -- indent={item[0]} "
+                      f"marker={item[1]!r} {item[2]!r}")
+            for item in list((out - src))[:3]:
+                print(f"  {f.name}: list item appeared or re-indented -- indent={item[0]} "
+                      f"marker={item[1]!r} {item[2]!r}")
+    check('markdown list structure preserved (indent and nesting, which the '
+          'sentence checks normalize away)', ok)
+
+
 SENTENCE_SPLIT = re.compile(r'(?<=[.!?])\s+(?=[A-Z0-9(\[])')
 WORD_RE = re.compile(r"[A-Za-z0-9']{3,}")
 
@@ -533,6 +685,9 @@ def main():
     original_practices = {p['number']: p for p in sp.parse_catalogue(original_text)}
     check_no_invented_content(files, original_practices)
     check_no_lost_content(files, original_practices)
+    check_content_preserved_by_sentence(files, original_practices)
+    check_section_source_order(files, original_practices)
+    check_list_structure_preserved(files, original_practices)
     check_corruption_drop_is_a_duplicate(original_practices)
     check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
