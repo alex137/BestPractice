@@ -197,6 +197,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
+| The leak gate (push-time; structural now, vocabulary at phase 3) | [tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check |
 | The phase-1.5 editorial re-split, as reviewable data | [tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py) |
 | The converted practice files (phase 1) | [practices/](practices/) |
 | What each practice is and why | [PRACTICES.md](PRACTICES.md) |

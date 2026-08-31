@@ -1,0 +1,32 @@
+name: Leak gate
+
+# Precedent is a branch of a public repository: a push is a publication.
+# The local pre-push hook (templates/hooks/pre-push) is the complete gate —
+# it can load a private-term blocklist from outside the repo. This workflow
+# is the STRUCTURAL backstop that a `git push --no-verify` cannot bypass,
+# because it runs on the server. It deliberately runs on every branch, not
+# just main: on this project the branch IS the published artifact.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  leak-gate:
+    name: Leak gate (structural)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run the leak gate over the tracked tree
+        run: python3 tools/leak_gate.py

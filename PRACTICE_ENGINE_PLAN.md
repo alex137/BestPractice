@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 14:20:00 (Buenos Aires) by Morgan F, to version 18 -->
+<!-- Last updated: 2026-08-31 16:05:00 (Buenos Aires) by Morgan F, to version 19 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -848,12 +848,50 @@ For any repo, before and after migration:
 |---|---|---|
 | 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Open the Precedent branch. Agree this plan. | The branch exists on a current base and this document is approved or amended. |
 | 1 | **Format, converter, harness.** Write the spec and the verification harness; convert Precedent's catalogue; fix the small tooling debts (freshness escalation, drift re-stamp churn). | Practices are files; the catalogue regenerates byte-identically; harness passes. |
-| 2 | **Loader and generated views.** Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. | Resident block within budget; hand-editing a generated view fails a check; **and the premise is measured, not assumed** — see below. |
-| 3 | **Split the sources.** Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. | Leak gate passes **before the branch is pushed, not before it is merged**; a consumer repo resolves all three and precedence is tested; a README exists that someone outside the project can follow. |
+| 2 | **Loader and generated views.** Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
+| 3 | **Split the sources.** Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; a README exists that someone outside the project can follow. |
 | 4 | **The creation pipeline.** Candidates, detection signals, promotion criteria, approval routing, the periodic retirement report. | A candidate can be raised, promoted and landed end to end; a candidate failing any of the four criteria is refused with a reason. |
 | 5 | **Enforcement push.** Convert checkable practices to scripts; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above 2-of-46; each converted practice has a test proving its check fires. |
 | 6 | **Migrate consumer repos**, one at a time, harness-gated. | Each repo passes the harness before its migration lands. |
 | 7 | **Merge back to BestPractice.** | A PR is open against `main`, or a deliberate decision to extract the work into a standalone fork instead. |
+
+**Why the leak gate moved from phase 3 to phase 2.** The plan put it at
+phase 3 because Precedent was to be a fork, *private initially* — a leak
+could be caught and force-pushed away before anyone outside could see it.
+[Precedent is now a branch of BestPractice](#amendments-since-approval),
+which is public, so **every push is publication, into a repo we do not
+own.** There is no grace period and nothing to force-push away. A gate that
+first runs when the private sets exist is a gate that arrives after the
+exposure it exists to prevent, so it is built now and gates every push from
+here on. What phase 3 adds is the *vocabulary* half, described below.
+
+**The gate has two layers, and only one of them can live in this
+repository.**
+
+- **Structural**, in [tools/leak_gate.py](tools/leak_gate.py), on from
+  phase 2. Precedent holds universal practices and nothing else, so
+  anything *shaped* like private-source content fails: an individual- or
+  team-level path, a practice claiming a non-universal source, a personal
+  email address, an absolute path inside someone's home directory, a
+  `candidates/` or `outbox/` directory. These patterns describe shapes
+  rather than anyone's words, so they are safe to publish. This layer runs
+  in CI ([.github/workflows/leak-gate.yml](.github/workflows/leak-gate.yml)),
+  on every branch, where `git push --no-verify` cannot bypass it.
+- **Vocabulary**, from phase 3. Catching private *words* — client names,
+  code words, internal identifiers — needs a blocklist, and **that list
+  cannot live in the repository it protects**: a list of secret terms,
+  committed to a public repo, publishes the very terms it guards. So it
+  lives in the individual set and `PRECEDENT_LEAK_BLOCKLIST` points at it.
+  This is exactly the arrangement practice 15 (`scrub-gate`) already uses —
+  blocklist in the private repo, scanning the public vendored tree — and it
+  generalizes unchanged.
+
+The consequence, stated plainly rather than left to be discovered: **CI can
+only ever run the structural layer**, because CI has no access to a private
+list. CI is the unbypassable backstop; the local
+[pre-push hook](templates/hooks/pre-push) is the complete check. Neither
+alone is the whole gate, and the gate says which layers actually ran rather
+than reporting a clean pass it did not earn.
 
 ## What Morgan Needs to Do
 
@@ -1065,6 +1103,21 @@ team-level content may be staged here even transiently. Recorded in full under
 
 It also closes two open decisions outright (license, and when Precedent goes
 public) and supersedes the phase-0 "create a fork" action.
+
+**2026-08-31 — the leak gate is built at phase 2, not phase 3.** A direct
+consequence of the branch decision above: with no "private initially" grace
+period, a gate that first runs at phase 3 arrives after the exposure it
+exists to prevent. Built as [tools/leak_gate.py](tools/leak_gate.py), gating
+every push (a [pre-push hook](templates/hooks/pre-push)) and every branch in
+CI. Its structural layer is on now; its vocabulary layer switches on at
+phase 3, when there is a private set to keep the blocklist in. Full
+reasoning under the [Sequence](#sequence) table.
+
+Running it for the first time found a live instance of the exact
+anti-pattern it exists to prevent: the phase-1 leak-gate stand-in hardcoded a
+list of private terms — including a personal email address — **inside this
+public repo**. Fixed forward, not by rewriting published history (practice
+31).
 
 **2026-08-31 — the two private practice-set repos exist.**
 `themorgan/precedent-individual` and `themorgan/precedent-team-maintainers`

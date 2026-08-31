@@ -587,33 +587,72 @@ def check_citation_integrity(files):
 
 
 def check_leak_gate():
-    # practice_audit.py's own scrub is written for a DEPENDENT repo (it
-    # diffs a vendored tree against process/manifest*.json's recorded
-    # baselines) -- Precedent is upstream and does not vendor itself, so it
-    # has no manifest for that tool to run against, and running it here
-    # fails on a missing precondition rather than testing anything real.
-    # The plan's actual leak gate ("no individual- or team-level term
-    # appears anywhere in Precedent") has nothing to check yet either: no
-    # team or individual content exists in this repo before phase 3. A
-    # cheap, real check that IS meaningful now: practices/ contains no
-    # residual reference to the personal-pack or team-pack vocabulary this
-    # session has seen while building it (a blunt scan, not the real gate).
-    banned = ['process/personal/', 'precedent-team-maintainers', 'precedent-individual',
-              'morgan@westegg.com', 'Morgan F']
-    hits = []
-    for f in sorted(PRACTICES_DIR.glob('*.md')):
-        text = f.read_text(encoding='utf-8')
-        for term in banned:
-            if term in text:
-                hits.append((f.name, term))
-    if hits:
-        check('leak gate (blunt scan for known team/individual vocabulary in practices/)',
-              False, str(hits))
+    """The real gate is tools/leak_gate.py, run as a subprocess. It replaces a
+    stand-in that hardcoded a list of private terms -- including a personal
+    email address -- INSIDE this public repo, which is the anti-pattern the
+    gate exists to prevent: a blocklist of secret words, committed to a public
+    repo, publishes the words it guards. Found by pointing the new gate at the
+    tree and reading what it said. Fixed forward, not by rewriting published
+    history (practice 31, no-rewrite-for-warnings).
+
+    The vocabulary layer is reported as not-yet-applicable when no private
+    blocklist is configured -- which is the honest state before phase 3 -- and
+    the structural layer is a real pass or fail either way."""
+    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py')],
+                            capture_output=True, text=True)
+    out = (result.stdout + result.stderr).strip()
+    if result.returncode != 0:
+        check('leak gate (tools/leak_gate.py)', False,
+              out.splitlines()[0] if out else 'leak_gate.py failed with no output')
+        for line in out.splitlines():
+            if line.startswith('LEAK:'):
+                print(f"  {line}")
+    elif 'leak gate PARTIAL' in out:
+        check('leak gate, structural layer (no private-source paths, emails, home '
+              'directories, or non-universal practice sources)', True)
+        not_applicable('leak gate, vocabulary layer',
+                       f'no private-term blocklist is configured ({"PRECEDENT_LEAK_BLOCKLIST"} '
+                       f'is unset), and none can live in this public repo -- see '
+                       f'tools/leak_gate.py --explain. Expected until phase 3 creates the '
+                       f'private sets; reported rather than passed over, because a clean '
+                       f'structural scan is not evidence that no private word is present')
     else:
-        not_applicable('leak gate (full form)',
-                        'no team or individual practice sets exist yet (phase 3) for '
-                        'anything to leak from; a blunt vocabulary scan over practices/ '
-                        'found nothing, which is the only form of this check phase 1 can run')
+        check('leak gate (structural and vocabulary layers)', True)
+
+
+def check_index_clauses(files):
+    """The occasion index is the ONLY route to 34 of the 46 on-demand
+    practices, and a session decides whether to open a practice on the
+    strength of one line. So that line is authored, and required.
+
+    It used to be derived -- the Rule's first sentence, cut at 90 characters
+    -- and 86% of the entries came out truncated mid-thought, one of them
+    ending on a dangling colon. A routing table whose rows do not finish
+    their sentence is a routing table nobody can route from, and nothing
+    was checking it."""
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        if fm.get('tier') != 'on-demand':
+            continue
+        clause = bv._json_str(fm.get('index_clause', ''))
+        if not clause:
+            ok = False
+            print(f"  {f.name}: no index_clause -- an on-demand practice is reached "
+                  f"through the occasion index, so it needs the line that gets it opened")
+            continue
+        if len(clause) > bv.INDEX_CLAUSE_MAX:
+            ok = False
+            print(f"  {f.name}: index_clause is {len(clause)} chars, over "
+                  f"{bv.INDEX_CLAUSE_MAX} -- it renders on one line of a table")
+        if clause.rstrip().endswith(('...', '…', ':')):
+            ok = False
+            print(f"  {f.name}: index_clause does not finish its thought: {clause!r}")
+        if clause[:1].isupper() and not clause.startswith(('A ', 'I ')):
+            ok = False
+            print(f"  {f.name}: index_clause reads as a sentence, not a table cell: "
+                  f"{clause!r}")
+    check(f'occasion-index clauses are written, complete and under '
+          f'{bv.INDEX_CLAUSE_MAX} chars', ok)
 
 
 # (path, glob, expected) -- the semantics `applies_to` is written against.
@@ -658,41 +697,6 @@ GLOB_CASES = [
     ('anything/at/all.py',                 '**',                               True),
     ('top.py',                             '**',                               True),
 ]
-
-
-def check_index_clauses(files):
-    """The occasion index is the ONLY route to 34 of the 46 on-demand
-    practices, and a session decides whether to open a practice on the
-    strength of one line. So that line is authored, and required.
-
-    It used to be derived -- the Rule's first sentence, cut at 90 characters
-    -- and 86% of the entries came out truncated mid-thought, one of them
-    ending on a dangling colon. A routing table whose rows do not finish
-    their sentence is a routing table nobody can route from, and nothing
-    was checking it."""
-    ok = True
-    for stem, (fm, sections, f) in sorted(files.items()):
-        if fm.get('tier') != 'on-demand':
-            continue
-        clause = bv._json_str(fm.get('index_clause', ''))
-        if not clause:
-            ok = False
-            print(f"  {f.name}: no index_clause -- an on-demand practice is reached "
-                  f"through the occasion index, so it needs the line that gets it opened")
-            continue
-        if len(clause) > bv.INDEX_CLAUSE_MAX:
-            ok = False
-            print(f"  {f.name}: index_clause is {len(clause)} chars, over "
-                  f"{bv.INDEX_CLAUSE_MAX} -- it renders on one line of a table")
-        if clause.rstrip().endswith(('...', '…', ':')):
-            ok = False
-            print(f"  {f.name}: index_clause does not finish its thought: {clause!r}")
-        if clause[:1].isupper() and not clause.startswith(('A ', 'I ')):
-            ok = False
-            print(f"  {f.name}: index_clause reads as a sentence, not a table cell: "
-                  f"{clause!r}")
-    check(f'occasion-index clauses are written, complete and under '
-          f'{bv.INDEX_CLAUSE_MAX} chars', ok)
 
 
 def check_glob_semantics():

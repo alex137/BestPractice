@@ -1,0 +1,40 @@
+#!/bin/sh
+# Precedent leak gate — pre-push.
+#
+# Install:  cp templates/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+#      or:  git config core.hooksPath templates/hooks
+#
+# Precedent is a branch of a PUBLIC repository, so a push is a publication and
+# cannot be taken back. This runs the leak gate over exactly what the push
+# would send, and refuses the push on any hit.
+#
+# This hook is the layer that knows the WORDS: set PRECEDENT_LEAK_BLOCKLIST to
+# a blocklist kept OUTSIDE this repo (in your individual set) and the
+# vocabulary layer runs too. CI cannot do that — it has no access to a private
+# list — so CI is the unbypassable structural backstop and this is the
+# complete check. Neither alone is the whole gate.
+#
+# `git push --no-verify` skips this. That is git's design, not a hole to plug
+# here: the CI workflow is what catches a bypass, and it runs on the server.
+set -e
+remote_ref_range=""
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+    case "$local_sha" in
+        0000000000000000000000000000000000000000) continue ;;   # branch deletion
+    esac
+    case "$remote_sha" in
+        0000000000000000000000000000000000000000)
+            remote_ref_range="$local_sha" ;;                      # new branch: scan the tree
+        *)
+            remote_ref_range="$remote_sha..$local_sha" ;;
+    esac
+done
+
+if [ -z "$remote_ref_range" ]; then
+    exit 0
+fi
+
+case "$remote_ref_range" in
+    *..*) python3 "$(git rev-parse --show-toplevel)/tools/leak_gate.py" --range "$remote_ref_range" ;;
+    *)    python3 "$(git rev-parse --show-toplevel)/tools/leak_gate.py" ;;
+esac
