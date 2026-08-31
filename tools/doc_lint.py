@@ -243,7 +243,7 @@ RECORD_NAME_RE = re.compile(
     r"(_diligence|_record|_decision|_notes|_index|_ledger|README|TODO|MAP|"
     r"GLOSSARY|AGENTS|CLAUDE|PRACTICES|INSTALL|SETUP|METHOD|GIT|MOBILE)",
     re.I)
-RECORD_DIR_RE = re.compile(r"(^|/)(process|archive|sent|templates|deck)(/|$)")
+RECORD_DIR_RE = re.compile(r"(^|/)(process|archive|sent|templates|deck|practices|spec)(/|$)")
 RESIDUE_PATTERNS = [
     (re.compile(r"\[verify\b", re.I),
      "verify-later flag -- verify now, or record the externally-blocked "
