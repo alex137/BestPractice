@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-4 build session, to version 25 -->
+<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-4 build session, to version 26 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -1586,6 +1586,17 @@ it can be generated; the explanation cannot.
 The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; this section is the short record of what moved.
+
+**2026-08-31 — v26, the miss rate is mostly not a loading problem, and the
+next phase should say so.** Separating the eval's arms shows the control —
+carrying all 52 Rules — misses 16% of applicable practices, and the loader
+adds only 7 points on top. The oracle and the control see identical
+information and differ only in task load and prospective-vs-retrospective
+framing, so **16 of the 23 points have nothing to do with loading and nothing
+in the design addresses them.** The recommendation, the experiment that should
+settle it before anything is built, and what would falsify it are in
+[spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md). This does not amend
+any phase yet — it is the analysis a phase should be written from.
 
 **2026-08-31 — v25, the reach question closed with a negative result.** A
 glob pass over all 46 on-demand practices and the gate-triggered channel — the
