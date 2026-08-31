@@ -2193,3 +2193,41 @@ correct accounting had existed in the program's own prose for weeks,
 written down and executable nowhere — the same lesson as the
 model-audit practice, recurring: prose does not fail a build; a
 ledger assertion does.
+
+## 53. A TODO is a handoff, not a parking lot
+
+**Rule.** Before writing an open item, ask: *could this session finish it
+now?* If yes, do the work — the inclination to queue an agent-doable item is
+the signal to do it, not to file it. An item may be queued only for a stated
+reason, written into the item itself:
+
+- **blocked-on** — a named external input: a decision (with its owner named),
+  a resource, an event, an artifact that does not exist yet; or
+- **out-of-scope** — genuinely too large or too tangential for the current
+  session, in which case the item must carry the context a cold session
+  needs: why it matters, the intended approach, and the pointers.
+
+"Would enlarge this turn" is not a reason; it is the moment the context is
+cheapest. A sweep that finds an open item with neither reason either does it
+in the sweeping session or closes it as not worth doing.
+
+**Why.** A queued item sheds context every day it waits. The session that
+noticed the need holds the reasoning, the file locations, and the half-formed
+approach — and almost none of that survives into a one-line queue entry, so
+deferral converts cheap work into expensive work, and often into work never
+done. The catalog already outlaws deferral for two special cases — capture
+happens in the thread that created the need (practice 10), and the
+inclination to write a verify-later marker means go verify now (practice
+49) — because both learned that the queue is where context goes to die. This
+generalizes the same insight to ordinary work: the typed TODO exists to hand
+work *across a genuine boundary* (to a human decision, to hardware, to a
+session with the right scope), not to spare the current session effort.
+Origin: a session queued two follow-up items from its own build — both
+labeled agent-doable, one of them a half-hour mechanical change — and the
+owner asked why work needing no input from them was parked at all. Both
+items, done later, cost more to re-orient into than they would have cost to
+finish on the spot.
+
+**Install.** The TODO template's header (practice 1) carries the compressed
+rule, so every new item is written against it; the periodic sweep enforces
+the stated-reason requirement on the backlog.
