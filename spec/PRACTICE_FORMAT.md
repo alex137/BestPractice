@@ -23,6 +23,7 @@ tier:        on-demand          # resident | on-demand
 severity:    default            # blocking | default | advisory
 applies_to:  ["**"]             # path globs
 occasion:    "prose trigger"
+index_clause: "the one line the occasion index shows"   # see below
 checked_by:  tools/x.py or null
 defines:     []
 status:      active
@@ -172,6 +173,44 @@ sentence check, and its ordering claim by the source-order check. A check that
 fails on correct work gets suppressed, and is then absent when something is
 actually wrong. `tools/split_practices.py build --diff` still runs; its diff is
 now expected output showing the re-split, not a defect report.
+
+## `index_clause`
+
+Not in the plan's frontmatter example, and load-bearing anyway: the occasion
+index is the **only** route to 34 of the 46 on-demand practices, and a
+session decides whether to open a practice on the strength of one line.
+
+Phase 2 derived that line — the Rule's first sentence, cut at 90 characters.
+**86% of the 46 entries came out truncated mid-thought**, and one ended on a
+dangling colon:
+
+```
+name-both-sides-of-ledger — When a model charges one party for what another receives — work for kinetic energy, spe...
+docs-track-models — Extending practice 19 from *tables* to **every** figure a script computes:
+```
+
+The plan's own worked example is not a derived first sentence; it is a
+written clause — *"references are links; ≈ not ~"*. So the clause is
+authored, one per on-demand practice, and
+[`tools/verify_harness.py`](../tools/verify_harness.py) requires it: present,
+under 80 characters, finishing its thought, and reading as a table cell
+rather than a sentence. Derivation stays as a fallback so a newly added
+practice renders something before its clause is written.
+
+This is metadata for a generated view, not practice text — the
+no-invented-content rule governs Rule/Why/Story/Install, which this never
+touches.
+
+**Two `occasion` strings were rewritten in the same pass**, for a defect
+[spec/LOADER.md](LOADER.md) already names in another practice: an occasion
+that describes the *error state* rather than a work moment a session can
+recognize is unroutable, because recognizing it means already having avoided
+the mistake.
+
+| slug | was | now |
+|---|---|---|
+| `verify-decomposition` | trusting a model's total without checking its parts | reporting a computed total or a negative feasibility result |
+| `search-by-purpose` | concluding that no prior work exists on a question | starting work the repository may already cover |
 
 ## `source_practice_number`
 

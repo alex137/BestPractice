@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "comparing an option against a baseline"
+index_clause: "check both options exist in the source before costing them"
 checked_by:  null
 defines:     []
 status:      active

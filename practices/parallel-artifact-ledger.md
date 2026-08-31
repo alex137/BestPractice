@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a change must propagate across several parallel artifacts"
+index_clause: "ledger the transfer verdict per member, per change"
 checked_by:  null
 defines:     ["parallel-artifact family"]
 status:      active

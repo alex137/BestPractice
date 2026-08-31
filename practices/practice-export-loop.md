@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["process/upstream/**"]
 occasion:    "merging a branch that improved a generic practice"
+index_clause: "vendor upstream as tracked files; check improvements back in"
 checked_by:  "tools/practice_audit.py"
 defines:     []
 status:      active

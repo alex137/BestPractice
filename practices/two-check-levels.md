@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "naming what \"run the checks\" means in a repo"
+index_clause: "name a fast check and a full check; say which gates what"
 checked_by:  null
 defines:     []
 status:      active

@@ -4,7 +4,8 @@ title:       Search by purpose as well as by mechanism, and index what you write
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "concluding that no prior work exists on a question"
+occasion:    "starting work the repository may already cover"
+index_clause: "search by purpose and by mechanism before concluding nothing exists"
 checked_by:  null
 defines:     []
 status:      active

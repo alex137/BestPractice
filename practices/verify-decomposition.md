@@ -4,7 +4,8 @@ title:       Verify the decomposition, not the total — and never encode an imp
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "trusting a model's total without checking its parts"
+occasion:    "reporting a computed total or a negative feasibility result"
+index_clause: "check the parts, not the total; never assert an impossibility"
 checked_by:  null
 defines:     []
 status:      active

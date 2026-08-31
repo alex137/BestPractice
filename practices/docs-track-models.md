@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "a document presents a script-derived figure"
+index_clause: "every script-derived figure sits inside a generated block"
 checked_by:  "tools/doc_sync.py"
 defines:     []
 status:      active

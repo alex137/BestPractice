@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "building a variant of an existing thing"
+index_clause: "re-derive what a variant inherits; limits bind, choices do not"
 checked_by:  null
 defines:     []
 status:      active

@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "deciding where a new rule belongs"
+index_clause: "generic, domain, repo-local \u2014 each rule to its own layer"
 checked_by:  null
 defines:     ["practice pack"]
 status:      active

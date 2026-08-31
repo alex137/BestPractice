@@ -22,6 +22,13 @@ CATALOGUE = ROOT / 'PRACTICES.md'
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
 import precedent_paths as pp
+# build_views is imported for its pure helpers only (_json_str,
+# INDEX_CLAUSE_MAX). check_generated_views_regenerate still shells out to it
+# as a SUBPROCESS on purpose: build_loader_block() calls sys.exit() when the
+# resident block is over budget, and an in-process call would turn that into
+# an uncaught SystemExit taking the whole harness down instead of a FAIL
+# line. Keep it that way -- import helpers, run the build out-of-process.
+import build_views as bv
 
 FAILED = []
 PASSED = []
@@ -579,6 +586,41 @@ GLOB_CASES = [
 ]
 
 
+def check_index_clauses(files):
+    """The occasion index is the ONLY route to 34 of the 46 on-demand
+    practices, and a session decides whether to open a practice on the
+    strength of one line. So that line is authored, and required.
+
+    It used to be derived -- the Rule's first sentence, cut at 90 characters
+    -- and 86% of the entries came out truncated mid-thought, one of them
+    ending on a dangling colon. A routing table whose rows do not finish
+    their sentence is a routing table nobody can route from, and nothing
+    was checking it."""
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        if fm.get('tier') != 'on-demand':
+            continue
+        clause = bv._json_str(fm.get('index_clause', ''))
+        if not clause:
+            ok = False
+            print(f"  {f.name}: no index_clause -- an on-demand practice is reached "
+                  f"through the occasion index, so it needs the line that gets it opened")
+            continue
+        if len(clause) > bv.INDEX_CLAUSE_MAX:
+            ok = False
+            print(f"  {f.name}: index_clause is {len(clause)} chars, over "
+                  f"{bv.INDEX_CLAUSE_MAX} -- it renders on one line of a table")
+        if clause.rstrip().endswith(('...', '…', ':')):
+            ok = False
+            print(f"  {f.name}: index_clause does not finish its thought: {clause!r}")
+        if clause[:1].isupper() and not clause.startswith(('A ', 'I ')):
+            ok = False
+            print(f"  {f.name}: index_clause reads as a sentence, not a table cell: "
+                  f"{clause!r}")
+    check(f'occasion-index clauses are written, complete and under '
+          f'{bv.INDEX_CLAUSE_MAX} chars', ok)
+
+
 def check_glob_semantics():
     ok = True
     for path, glob, expected in GLOB_CASES:
@@ -664,6 +706,7 @@ def main():
     check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
     check_leak_gate()
+    check_index_clauses(files)
     check_glob_semantics()
     check_generated_views_regenerate()
     check_resident_subset(files)

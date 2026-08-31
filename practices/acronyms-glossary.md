@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing or editing a document"
+index_clause: "expand acronyms on first use; keep one central glossary"
 checked_by:  "tools/doc_lint.py"
 defines:     []
 status:      active

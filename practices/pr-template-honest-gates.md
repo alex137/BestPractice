@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  [".github/pull_request_template.md"]
 occasion:    "writing or filling out a pull-request description"
+index_clause: "write the body from the diff; an unchecked box is fine"
 checked_by:  null
 defines:     []
 status:      active

@@ -98,6 +98,33 @@ _GENERIC_RULE_LABEL_RE = re.compile(r'^\*\*(?:The practice)\.?\*\*\s*')
 _SENTENCE_END_RE = re.compile(r'(?<=[.!?])\s+(?=[A-Z0-9(\[])')
 
 
+INDEX_CLAUSE_MAX = 80
+
+
+def _index_clause(fm, sections):
+    """The one-line routing entry a session actually decides on.
+
+    This used to be derived: the first sentence of the Rule, truncated at 90
+    characters. 86% of the 46 entries came out cut off mid-thought, and one
+    ended on a dangling colon -- a routing table whose rows do not finish
+    their sentence. The plan's own worked example is not a derived first
+    sentence at all, it is a written clause:
+
+        document-references-are-links — references are links; ≈ not ~
+        trim-prose                    — trim after any substantial edit
+
+    So the clause is authored, in `index_clause:`, and verify_harness.py
+    requires one on every on-demand practice. This is metadata for a
+    generated view, not practice text: the no-invented-content rule governs
+    Rule/Why/Story/Install, which this never touches. Derivation stays as a
+    fallback so a newly added practice renders before its clause is written,
+    rather than silently rendering nothing."""
+    written = _json_str(fm.get('index_clause', ''))
+    if written:
+        return written
+    return _occasion_clause(sections.get('rule', ''))
+
+
 def _occasion_clause(rule_text, max_len=90):
     """First sentence of a practice's Rule, collapsed to one line, for the
     occasion index. Joins the whole first paragraph (not just its first
@@ -132,7 +159,7 @@ def build_loader_block(practices):
         occasion = _json_str(fm.get('occasion', ''))
         if not occasion:
             continue
-        by_occasion[occasion].append((fm['slug'], _occasion_clause(sections.get('rule', ''))))
+        by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
 
     index_lines = []
     for occasion in sorted(by_occasion):

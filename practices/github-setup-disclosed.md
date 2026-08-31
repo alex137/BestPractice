@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "an install step adds something GitHub-specific"
+index_clause: "disclose GitHub-specific setup where the project's people read"
 checked_by:  null
 defines:     []
 status:      active

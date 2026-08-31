@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["README.md"]
 occasion:    "writing a README or other project-facing entry document"
+index_clause: "say what the project is before how it is maintained"
 checked_by:  null
 defines:     []
 status:      active

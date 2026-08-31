@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "writing a reader-facing deliverable with supporting apparatus"
+index_clause: "the deliverable holds only what its audience needs"
 checked_by:  null
 defines:     []
 status:      active

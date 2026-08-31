@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "writing a script whose numbers a document will cite"
+index_clause: "scripts assert their own properties and their cited anchors"
 checked_by:  "tools/model_audit.py"
 defines:     []
 status:      active

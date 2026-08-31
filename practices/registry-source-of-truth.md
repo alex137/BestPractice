@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "tracking state that multiple documents need to agree on"
+index_clause: "state lives in one machine-readable registry; documents derive"
 checked_by:  null
 defines:     []
 status:      active

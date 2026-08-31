@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing or editing a document"
+index_clause: "reference repo files as relative links; use \u2248, never ~"
 checked_by:  "tools/doc_lint.py"
 defines:     ["document reference"]
 status:      active

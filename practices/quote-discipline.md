@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "quoting or compressing someone else's figures"
+index_clause: "compression rounds against you; qualifiers travel with the figure"
 checked_by:  null
 defines:     []
 status:      active

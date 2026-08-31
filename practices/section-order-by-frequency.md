@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "ordering sections in a document"
+index_clause: "order sections by how often the reader needs them"
 checked_by:  null
 defines:     []
 status:      active

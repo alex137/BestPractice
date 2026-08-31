@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "starting an outward-facing deliverable"
+index_clause: "build it around the audience's question, not your material"
 checked_by:  null
 defines:     []
 status:      active

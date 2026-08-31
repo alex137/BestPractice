@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "setting up a new repo's session start"
+index_clause: "setup lives in a session-start hook, not in memory"
 checked_by:  null
 defines:     []
 status:      active

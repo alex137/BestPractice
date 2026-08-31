@@ -81,94 +81,94 @@ messages:
 
 ```
 When a change must propagate across several parallel artifacts:
-  parallel-artifact-ledger — When a family of artifacts embodies **one design in several parallel forms** — the same...
+  parallel-artifact-ledger — ledger the transfer verdict per member, per change
 When a computation books a transfer between two parties:
-  name-both-sides-of-ledger — When a model charges one party for what another receives — work for kinetic energy, spe...
+  name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a convention is violated for the first time:
-  convention-to-audit — Prose rules are advisory; a non-zero exit is not.
+  convention-to-audit — promote a costly broken convention to a script that exits non-zero
 When a document presents a script-derived figure:
-  docs-track-models — Extending practice 19 from *tables* to **every** figure a script computes:
+  docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
-  index-remembers-past — Current-state documents (the no-revision-history rule) still need *provenance* — a read...
+  index-remembers-past — put the lineage in the index, not in either document
 When a review finds a defect:
-  mistakes-become-rules — When a mistake is caught — by the owner, by an audit, or by a later pass discovering an...
+  mistakes-become-rules — root-cause the miss, then encode the prevention
 When a tool warns about already-published git history:
-  no-rewrite-for-warnings — When a hook, linter, badge, or CI check complains about commits that are **already publ...
+  no-rewrite-for-warnings — fix the setting forward; never rewrite published history
 When an install step adds something GitHub-specific:
-  github-setup-disclosed — Whenever an install step adds something GitHub-specific that a project's own people nee...
+  github-setup-disclosed — disclose GitHub-specific setup where the project's people read
 When building a mechanism that makes something discoverable or reachable:
-  affordance-is-shared — When you add a mechanism so that *your* system can do something — find a thing, reach a...
+  affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
-  permutation-frontier-column — A configuration study whose table is the cross-product of its input axes (engine × layo...
+  permutation-frontier-column — one full table with a computed Frontier column
 When building a variant of an existing thing:
-  variant-re-derives — When you build a variant of an existing thing — a new configuration of a component, a f...
+  variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
 When building or committing a generated artifact:
-  generated-artifact-provenance — Generated deliverables are never hand-edited and never casually committed.
+  generated-artifact-provenance — stamp a build code and a manifest; never hand-edit output
 When committing anything that touches the vendored/public tree:
-  scrub-gate — When the dependent repo is private and this repo is public, everything under `process/u...
+  scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
-  check-source-architecture — Before costing or optimising a trade between two configurations, verify that **both con...
-When concluding that no prior work exists on a question:
-  search-by-purpose — Before concluding that no prior work exists on a question, search the repository twice:...
+  check-source-architecture — check both options exist in the source before costing them
 When deciding where a new rule belongs:
-  layered-practice-packs — Rules come in three scopes, and each gets its own home. **Generic** rules (true of any...
+  layered-practice-packs — generic, domain, repo-local — each rule to its own layer
 When deciding whether to build or buy a component:
-  build-buy-decompose — A build-or-buy question almost always arrives at the wrong granularity — *"should we bu...
+  build-buy-decompose — decompose first; one verdict per part, on ownership grounds
 When exporting a tool across a repo boundary:
-  engine-plus-host-shims — A practice that ships tooling (a renderer, a lint, a sync gate) crosses the repo bounda...
+  engine-plus-host-shims — one vendored engine, thin host shims, never a fork
 When finishing a substantial work-product, before the merge-time capture gate:
-  second-pass-capture — After producing any substantial work-product — a document, a design, an analysis, a dec...
+  second-pass-capture — a separate capture pass after the work, not inside it
 When merging a branch:
-  capture-gate — The thread that develops a capability, a number, a decision, or a limit is the thread t...
+  capture-gate — capture the follow-on work in the thread that created the need
 When merging a branch that improved a generic practice:
-  practice-export-loop — A dependent repo vendors this repo at `process/upstream/` as plain tracked files (no su...
+  practice-export-loop — vendor upstream as tracked files; check improvements back in
 When merging a branch that touches shared files:
-  merge-runbook — When many branches touch the same shared files, merge conflicts are expected — so resol...
+  merge-runbook — write conflict resolution per file class, once, then follow it
 When naming a new file:
-  no-version-suffix — A new file is named for what it *is*, with no `_v1` / `_rev2` label — the repository al...
+  no-version-suffix — name a file for what it is; the repository is the version
 When naming what "run the checks" means in a repo:
-  two-check-levels — A repo of any size ends up wanting two different things when it says "check this": a fa...
+  two-check-levels — name a fast check and a full check; say which gates what
 When ordering sections in a document:
-  section-order-by-frequency — In any document that walks through instructions, guidance, or rules in multiple section...
+  section-order-by-frequency — order sections by how often the reader needs them
 When printing a numeric quantity that will be compared across rows:
-  one-formatter-per-quantity — A reader comparing two table cells must never have to normalize precision in their head...
+  one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a document with a multi-column sortable table:
-  tabular-shared-renderer — When a document's tables have multiple columns a reader might want to sort — a trade st...
+  tabular-shared-renderer — ship a sortable render from the one shared renderer
 When quoting or compressing someone else's figures:
-  quote-discipline — Two obligations whenever a document quotes a figure from another source. **(a)** When a...
+  quote-discipline — compression rounds against you; qualifiers travel with the figure
+When reporting a computed total or a negative feasibility result:
+  verify-decomposition — check the parts, not the total; never assert an impossibility
 When setting up a new repo's session start:
-  session-bootstrap — Environment setup that sessions need (packages, dependencies, submodule init) lives in...
+  session-bootstrap — setup lives in a session-start hook, not in memory
 When starting an outward-facing deliverable:
-  frame-from-audience-question — When you finish producing a body of work and then write the thing that explains it — a...
+  frame-from-audience-question — build it around the audience's question, not your material
+When starting work the repository may already cover:
+  search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When the user gives a standing merge instruction:
-  merge-authorization-keyword — A repo can adopt one short, fixed word or phrase that, said as its own final sentence i...
+  merge-authorization-keyword — one fixed word means "merge as agreed"; document it exactly
 When tracking state that multiple documents need to agree on:
-  registry-source-of-truth — Any status that scripts or sessions make decisions on (what's released, what's pending,...
-When trusting a model's total without checking its parts:
-  verify-decomposition — A model earns trust through how it is built, not through whether its answer looks reaso...
+  registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When writing a README or other project-facing entry document:
-  lead-with-what-it-is — An outward document that both describes a project and explains how it's maintained — a...
+  lead-with-what-it-is — say what the project is before how it is maintained
 When writing a document that cites a computed number:
-  computed-numbers-in-scripts — When a document presents content that a script computes — a summary table, a cost rollu...
+  computed-numbers-in-scripts — computed content lives in a sync-gated generated block
 When writing a new convention or rule:
-  cite-the-incident — When you write a rule, record what failure it prevents, inline.
+  cite-the-incident — record the failure a rule prevents, inline with the rule
 When writing a reader-facing deliverable with supporting apparatus:
-  deliverables-look-like-output — A reader-facing document is the finished product: it contains what its audience needs a...
+  deliverables-look-like-output — the deliverable holds only what its audience needs
 When writing a rule that depends on the outside world:
-  volatile-rules-carry-dates — A rule whose truth depends on the outside world — the behavior of an external platform,...
+  volatile-rules-carry-dates — a rule about the outside world carries its date, inline
 When writing a script whose numbers a document will cite:
-  scripts-assert-properties — A script that computes numbers other work depends on carries two kinds of executable as...
+  scripts-assert-properties — scripts assert their own properties and their cited anchors
 When writing an outward-facing document:
-  readers-vocabulary — A document written for an audience outside the work — a README, a product page, a pitch...
+  readers-vocabulary — use the reader's words; gloss inline or replace
 When writing an outward-facing summary of claims:
-  outward-summary-discipline — A document that summarizes a body of work for an external audience carries three things...
+  outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
 When writing or editing a document:
-  acronyms-glossary — A domain-dense repo accumulates far more acronyms and coined terms than any reader — hu...
-  doc-references-are-links — (a) In-repo documents reference other repo files as relative markdown links, never bare...
-  docs-are-current-state — A document reads as a statement of what is true *now*, not a log of how it got there.
-  label-describes-content — A heading or lead-in that names a form or length must match what it actually introduces.
+  acronyms-glossary — expand acronyms on first use; keep one central glossary
+  doc-references-are-links — reference repo files as relative links; use ≈, never ~
+  docs-are-current-state — state what is true now; version control holds the history
+  label-describes-content — "one line" must be one line; else name it for its content
 When writing or filling out a pull-request description:
-  pr-template-honest-gates — Every dependent repo installs a default pull-request template covering what changed, wh...
+  pr-template-honest-gates — write the body from the diff; an unchecked box is fine
 ```
 
 ### Standing instruction
