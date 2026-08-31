@@ -84,6 +84,80 @@ def check_slug_set(files):
     check('slug-set equality (filename == frontmatter slug, all unique)', ok)
 
 
+def check_source_coverage(files, original_practices_by_number):
+    """The plan's actual slug-set requirement: "the same practices are in
+    effect, by slug." check_slug_set only proves each FILE is internally
+    consistent -- filename == frontmatter slug, no duplicates. It says
+    nothing about whether every practice in PRACTICES.md still has one.
+
+    Deleting a whole practice file was caught only by accident: by citation
+    integrity, because some other practice happened to cite it by number,
+    and by the generated-views check, because MAP.md changed. Drop a
+    practice nothing cites, in a commit that regenerates the views, and
+    every check stayed green. This asks the question directly."""
+    ok = True
+    by_number = {}
+    for stem, (fm, sections, f) in sorted(files.items()):
+        num = fm.get('source_practice_number')
+        if num is None:
+            # legitimate for a practice minted fresh (phase 3 on), but then
+            # it is not part of the migrated set this check is about
+            continue
+        by_number.setdefault(num, []).append(stem)
+
+    for num in sorted(original_practices_by_number, key=int):
+        if num not in by_number:
+            ok = False
+            print(f"  practice {num} ({original_practices_by_number[num]['title']!r}) is in "
+                  f"PRACTICES.md but has NO file in practices/ -- a practice was dropped")
+    for num, stems in sorted(by_number.items(), key=lambda kv: int(kv[0])):
+        if num not in original_practices_by_number:
+            ok = False
+            print(f"  practices/{stems[0]}.md claims source_practice_number {num}, which "
+                  f"is not in PRACTICES.md")
+        elif len(stems) > 1:
+            ok = False
+            print(f"  practice {num} is claimed by {len(stems)} files: {stems}")
+    check(f'source coverage (every one of the {len(original_practices_by_number)} practices in '
+          f'PRACTICES.md has exactly one file, and vice versa)', ok)
+
+
+def check_titles_match_source(files, original_practices_by_number):
+    """A practice's title is what MAP.md shows and what a person reads to
+    decide whether to open it -- and it was entirely unchecked. Every title
+    in the catalogue could have been rewritten with the harness green."""
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        orig = original_practices_by_number.get(fm.get('source_practice_number'))
+        if orig is None:
+            continue
+        if fm.get('title', '').strip() != orig['title'].strip():
+            ok = False
+            print(f"  {f.name}: title differs from PRACTICES.md\n"
+                  f"      file:   {fm.get('title','')!r}\n"
+                  f"      source: {orig['title']!r}")
+    check('titles match the source catalogue exactly', ok)
+
+
+def check_checked_by_targets_exist(files):
+    """The plan: "a `checked_by` naming a script with no test for it fails
+    the audit." Testing that the check has a test is phase 5; testing that
+    the script EXISTS is free, and a checked_by pointing at a deleted or
+    renamed script is a practice that silently claims enforcement it does
+    not have."""
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        raw = fm.get('checked_by', 'null').strip()
+        if raw in ('null', ''):
+            continue
+        target = raw.strip('"')
+        if not (ROOT / target).exists():
+            ok = False
+            print(f"  {f.name}: checked_by names {target!r}, which does not exist -- "
+                  f"the practice claims enforcement it does not have")
+    check('every checked_by names a script that exists', ok)
+
+
 def check_reachability(files):
     ok = True
     for stem, (fm, sections, f) in files.items():
@@ -694,9 +768,12 @@ def main():
                  "tools/split_practices.py split first")
     files = load_practice_files()
     check_slug_set(files)
-    check_reachability(files)
     original_text = CATALOGUE.read_text(encoding='utf-8')
     original_practices = {p['number']: p for p in sp.parse_catalogue(original_text)}
+    check_source_coverage(files, original_practices)
+    check_titles_match_source(files, original_practices)
+    check_checked_by_targets_exist(files)
+    check_reachability(files)
     check_no_invented_content(files, original_practices)
     check_no_lost_content(files, original_practices)
     check_content_preserved_by_sentence(files, original_practices)
