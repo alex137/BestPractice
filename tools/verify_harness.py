@@ -261,6 +261,112 @@ def check_corruption_drop_is_a_duplicate(original_practices_by_number):
     check('corruption drop is a verbatim duplicate, not authored content', ok)
 
 
+# How many consecutive identical non-blank lines, shared between two
+# different practices, count as duplication rather than coincidence. Three
+# is comfortably clear of any real overlap in this catalogue: across all 52
+# practices the ONLY pair that trips it is the one real corruption, and the
+# runner-up shares nothing at all. Practices legitimately quote each other's
+# names and cite each other by number; they do not share paragraphs.
+DUPLICATE_RUN_LINES = 3
+
+
+def _body_lines(text):
+    """Normalized non-blank lines of a practice body, for duplicate
+    detection. Whitespace-collapsed so a re-wrap is not mistaken for a
+    rewrite, and vice versa."""
+    return [' '.join(l.split()) for l in text.split('\n') if l.strip()]
+
+
+def _shared_runs(named_line_lists, min_run):
+    """-> list of (name_a, name_b, run_length, first_line). Indexes every
+    window of `min_run` consecutive lines by content, so a window appearing
+    under two different names is a duplicated span. Hash-based rather than
+    pairwise-DP: 52 practices is 1,326 pairs, and this stays linear."""
+    windows = collections.defaultdict(list)
+    for name, lines in named_line_lists:
+        for i in range(len(lines) - min_run + 1):
+            windows[tuple(lines[i:i + min_run])].append((name, i))
+    seen_pairs = {}
+    for window, places in windows.items():
+        names = {n for n, _i in places}
+        if len(names) < 2:
+            continue
+        for a_i in range(len(places)):
+            for b_i in range(a_i + 1, len(places)):
+                (na, ia), (nb, ib) = places[a_i], places[b_i]
+                if na == nb:
+                    continue
+                key = tuple(sorted((na, nb)))
+                # keep the longest run reported per pair
+                prev = seen_pairs.get(key)
+                if prev is None or prev[0] < min_run:
+                    seen_pairs[key] = (min_run, window[0])
+    return [(a, b, n, first) for (a, b), (n, first) in sorted(seen_pairs.items())]
+
+
+def check_no_cross_practice_duplication(files, original_practices_by_number):
+    """Catches the class of defect that produced this conversion's worst bug
+    at source, rather than only cleaning up after it.
+
+    BestPractice's PRACTICES.md carried, for two weeks, a 1,645-character
+    verbatim duplicate of practice 34's tail pasted onto the end of practice
+    39 -- introduced by a hand-renumbering of a collided practice range
+    (upstream 5d28da6), starting mid-word at a line-wrap boundary, with no
+    heading of its own. Nothing detected it; it was found only because a
+    mechanical converter choked on it.
+
+    A practice is a self-contained unit. Two practices sharing three or more
+    consecutive identical lines is a paste artifact, a bad merge, or a
+    practice that should have been retired in favour of the one it
+    duplicates -- all three are defects, none is a thing to do on purpose.
+    Runs over practices/, so it keeps working after PRACTICES.md retires,
+    and over PRACTICES.md itself while it is still the upstream source."""
+    ok = True
+
+    named = [(stem, _body_lines(
+        sections.get('rule', '') + '\n' + sections.get('why', '') + '\n'
+        + sections.get('story', '') + '\n' + sections.get('install', '')))
+        for stem, (fm, sections, f) in sorted(files.items())]
+    for a, b, n, first in _shared_runs(named, DUPLICATE_RUN_LINES):
+        ok = False
+        print(f"  practices/{a}.md and practices/{b}.md share {n}+ consecutive identical "
+              f"lines, starting {first[:70]!r}")
+
+    # And the same question asked of the upstream source file, so a re-sync
+    # that imports a FRESH corruption is caught on arrival.
+    #
+    # The one duplication already known and handled -- practice 39's tail,
+    # dropped by split_practices.FIXUP_39_MARKER and reported upstream on
+    # 2026-08-31 -- is acknowledged rather than re-failed. The exception is
+    # tied to the span the converter actually drops, not to a hardcoded
+    # practice number, so it unwinds by itself: when Alex fixes PRACTICES.md
+    # upstream, the fixup stops firing, check_corruption_drop_is_a_duplicate
+    # fails and tells us to retire the fixup, and this exception evaporates
+    # with it. Nothing has to remember to clean it up.
+    known = '\n'.join(p.get('dropped_corruption', '')
+                      for p in original_practices_by_number.values())
+    known_lines = set(_body_lines(known))
+    src = CATALOGUE.read_text(encoding='utf-8')
+    src_named = []
+    for chunk in re.split(r'\n(?=## \d+\. )', src):
+        m = re.match(r'## (\d+)\. ', chunk)
+        if m:
+            src_named.append((f"practice {m.group(1)}",
+                              _body_lines(chunk.split('\n', 1)[1])))
+    for a, b, n, first in _shared_runs(src_named, DUPLICATE_RUN_LINES):
+        if first in known_lines:
+            print(f"  (known) PRACTICES.md: {a} and {b} share text that "
+                  f"split_practices.py already drops as upstream corruption -- "
+                  f"reported upstream 2026-08-31, not fixed here (read-only access).")
+            continue
+        ok = False
+        print(f"  PRACTICES.md: {a} and {b} share {n}+ consecutive identical lines, "
+              f"starting {first[:70]!r} -- a NEW upstream corruption. Report it "
+              f"rather than only working around it.")
+    check(f'no cross-practice duplication (no two practices share '
+          f'{DUPLICATE_RUN_LINES}+ consecutive identical lines)', ok)
+
+
 def check_citation_integrity(files):
     valid_numbers = {fm['source_practice_number'] for fm, _, _ in files.values()}
     ok = True
@@ -428,6 +534,7 @@ def main():
     check_no_invented_content(files, original_practices)
     check_no_lost_content(files, original_practices)
     check_corruption_drop_is_a_duplicate(original_practices)
+    check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
     check_leak_gate()
     check_glob_semantics()
