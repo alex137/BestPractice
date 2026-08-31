@@ -197,6 +197,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
+| The phase-1.5 editorial re-split, as reviewable data | [tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py) |
 | The converted practice files (phase 1) | [practices/](practices/) |
 | What each practice is and why | [PRACTICES.md](PRACTICES.md) |
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
