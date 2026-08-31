@@ -412,7 +412,17 @@ def cmd_score():
               "least one arm per case).")
         return 0
 
-    print(f"Routing eval — {scored} case(s) scored against the oracle answer key.\n")
+    # A reported result has to be tied to the exact answer set it came from.
+    # During the v2 run a redundantly-launched agent rewrote one cell AFTER a
+    # score had already been printed -- harmlessly, as it happened, but the
+    # printed number and the files on disk were briefly two different things.
+    # One answer per cell, and a digest so any quoted figure can be traced
+    # back to the set that produced it.
+    import hashlib
+    files = sorted(ANSWERS.glob('*.json'))
+    digest = hashlib.sha256(b''.join(f.read_bytes() for f in files)).hexdigest()[:12]
+    print(f"Routing eval — {scored} case(s) scored against the oracle answer key.")
+    print(f"answer set: {len(files)} files, digest {digest}\n")
     print(f"{'case':6} {'applies':>7}   {'CONTROL (all 52 loaded)':<28} {'TREATMENT (index only)':<28}")
     print(f"{'':6} {'':>7}   {'hit/miss/extra':<28} {'hit/miss/extra':<28}")
     for r in rows:
