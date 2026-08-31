@@ -19,8 +19,31 @@ implementation note, not a restatement.
 | Enforced (`checked_by`) | Already exists from phase 1 (8 of 52 practices carry one, naming 4 distinct scripts) | Unchanged by phase 2; phase 4 is "convert checkable practices to scripts." |
 | "One code path" (`precedent show`) | [tools/precedent_show.py](../tools/precedent_show.py) (phase 1) | Unchanged; `precedent_paths.py` calls the same file reader (`split_practices._read_practice_file`), not a second extractor. |
 | Generated views | [tools/build_views.py](../tools/build_views.py) → AGENTS.md's loader block, [MAP.md](../MAP.md), [GLOSSARY.md](../GLOSSARY.md) | Built. All three fail tools/verify_harness.py if hand-edited or stale. |
-| Resident budget, hard-capped | `RESIDENT_BUDGET_TOKENS = 2000` in tools/build_views.py; the build exits nonzero over budget | Built. Current resident block: ~621 tokens, 6 of 52 practices. |
+| Resident budget, hard-capped | `RESIDENT_BUDGET_TOKENS = 2000` in tools/build_views.py; the build exits nonzero over budget | Built. Current size is in [The catalogue as it stands](#the-catalogue-as-it-stands) below, generated. |
 | Premise measured, not assumed | [tools/behavioral_replay.py](../tools/behavioral_replay.py) | Built. See "What the replay measures" below — it is honest about what it can and cannot prove. |
+
+## The catalogue as it stands
+
+Generated — do not hand-edit, and do not restate these figures in the prose
+around the block. This row used to be a sentence in the status table above,
+and it said the resident block was "~621 tokens" for the whole of phase 3,
+which had halved it. Every gate in the repository was green: no gate can see
+a number in a sentence. That is `docs-track-models`, happening here.
+
+<!--gen:catalogue-->
+| | |
+|---|---|
+| Practices in the catalogue | 52 |
+| Resident, loaded every session | 6 of 52 practices |
+| Resident block size | ≈312 tokens of a 2000-token hard cap |
+| `## Rule` share of the catalogue | 28% of the catalogue |
+| Rules still over 150 words | 8 |
+| Carrying a `## Detail` | 15 |
+| Carrying a `## Story` | 19 |
+| Enforced by a check | 18 of 52 practices carry a `checked_by` |
+<!--/gen:catalogue-->
+
+Numbers by: catalogue_stats.py
 
 ## The resident set, and why these six
 

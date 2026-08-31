@@ -200,6 +200,57 @@ that skips them in this repo of all places is the joke writing itself.
 | Portable audits | [tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py) |
 | Skeletons dependent repos instantiate | [templates/](templates/) (+ per-agent adapters in [templates/harness/](templates/harness/)) |
 
+## Build-environment gotchas — do NOT rediscover these
+
+Each entry carries what failed, not only the fix — the fix alone is a fact
+you cannot judge, and the next session re-derives it the moment it looks
+wrong. [tools/precedent_check.py](tools/precedent_check.py) gates this
+section: an entry with no failure attached fails `--only environment-gotchas`.
+
+- **`pip install cmarkgfm`, or [tools/doc_lint.py](tools/doc_lint.py)'s
+  strikethrough check silently stops running.** Without it the check does not
+  fail — it prints a one-line notice and scans for everything else, so a
+  document that renders an unintended `<del>` on GitHub passes the gate.
+  [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh) installs
+  it, but only when `CLAUDE_CODE_REMOTE=true`; a local shell has to do it.
+
+- **This repo is normally cloned `--depth 1`, and several tools degrade
+  rather than fail on that.** [tools/behavioral_replay.py](tools/behavioral_replay.py)
+  divided by the replayable-commit count and took the whole harness down with
+  a `ZeroDivisionError` on a one-commit clone — the exact environment a fresh
+  session starts in. It now reports `REPLAY_STATUS: DEGRADED` instead. On the
+  same clone `origin/main` does not exist, so doc_lint's changed-vs-default-branch
+  scope quietly becomes changed-vs-`HEAD`: it checks your uncommitted files
+  and nothing else. Fix both with a bounded
+  `git fetch --depth=500 origin <branch>`; some git policy hooks block
+  `--unshallow`, and a bounded fetch works either way.
+
+- **`git clone --depth 1 /some/path` is ignored; git only honours `--depth`
+  over a transport.** A phase-2 smoke test believed it was exercising a
+  shallow clone for an hour and was not — the bug it was written to catch was
+  still there. Use `file:///some/path` to force a genuinely shallow local
+  clone.
+
+- **The leak gate's vocabulary layer fails open unless you also set the git
+  config.** `export PRECEDENT_LEAK_BLOCKLIST=<a path OUTSIDE this repo>` is
+  half of it; without `git config precedent.requireVocabulary true` a shell
+  that starts without the variable prints `PARTIAL`, exits 0, and the push
+  goes through with only the structural rules applied. Every push here is
+  publication into a public repository, so the half-configured state is the
+  dangerous one. See `python3 tools/leak_gate.py --explain`.
+
+- **Four inherited audits are NOT APPLICABLE in this repo, and three of them
+  used to say `FAIL` instead.** [tools/practice_audit.py](tools/practice_audit.py)
+  wants a `process/manifest*.json`, [tools/doc_sync.py](tools/doc_sync.py)'s
+  `PAIRS` is empty and [tools/model_audit.py](tools/model_audit.py)'s
+  `INSTRUMENTED` is empty — all correct, because this repo is the upstream
+  they audit a *dependent* repo against. Two of them exited non-zero for that
+  reason and one printed `OK` on having inspected nothing, so the first were
+  permanently red and the last was a confident all-clear from a scan that
+  never ran. They now say NOT APPLICABLE with the reason, and
+  [tools/precedent_check.py](tools/precedent_check.py) reports that as
+  skipped rather than passed.
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**

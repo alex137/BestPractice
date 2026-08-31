@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "starting work the repository may already cover"
 index_clause: "search by purpose and by mechanism before concluding nothing exists"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

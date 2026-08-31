@@ -55,11 +55,43 @@ ROOT = find_root(__file__)
 # (document path, block name, script path) -- all repo-root-relative.
 # Example:
 #   ("docs/summary.md", "cost_table", "models/cost_model.py"),
-PAIRS = []
+PAIRS = [
+    ("spec/LOADER.md", "catalogue", "tools/catalogue_stats.py"),
+]
 
 # Where this repo keeps prose, for the orphan-sentinel scan; narrow it in
 # the host shim if the whole tree is too broad.
 DOC_GLOB = "**/*.md"
+
+
+def strip_fenced_code(text):
+    """Blank out fenced code blocks, keeping line numbering.
+
+    A sentinel INSIDE a fence is documentation showing what a sentinel looks
+    like, not a live generated block. The caller pairs this with a column-0
+    anchor, which covers the other way a document shows the format: an
+    indented code block. Origin: this repo documents the format as
+    ``<!--gen:NAME-->`` in PRACTICES.md (indented) and in the practice file
+    for computed-numbers-in-scripts (fenced), and the orphan scan reported
+    both as unregistered blocks -- so the gate was red for a reason that had
+    nothing to do with any number, on a repo with PAIRS = []. A permanently
+    red gate is a gate nobody runs. A LIVE block's sentinel is always at
+    column 0, because doc_sync writes it there.
+    """
+    out, fence = [], None
+    for line in text.splitlines():
+        m = re.match(r"\s*(`{3,}|~{3,})", line)
+        if fence is None and m:
+            fence = m.group(1)[0] * 3
+            out.append("")
+            continue
+        if fence is not None:
+            out.append("")
+            if m and m.group(1)[0] * 3 == fence:
+                fence = None
+            continue
+        out.append(line)
+    return "\n".join(out)
 
 
 def owned_figures(script):
@@ -199,7 +231,9 @@ def main():
     found = set()
     for path in sorted(ROOT.glob(DOC_GLOB)):
         rel = str(path.relative_to(ROOT))
-        for mm in re.finditer(r"<!--gen:([\w-]+)-->", path.read_text(errors="ignore")):
+        for mm in re.finditer(r"^<!--gen:([\w-]+)-->",
+                              strip_fenced_code(path.read_text(errors="ignore")),
+                              re.M):
             found.add((rel, mm.group(1)))
     for doc, name in sorted(found - registered):
         print(f"[doc_sync] FAIL  {doc}: <!--gen:{name}--> is not in PAIRS — "

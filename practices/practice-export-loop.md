@@ -3,10 +3,10 @@ slug:        practice-export-loop
 title:       The practice-export loop (how this repo propagates)
 tier:        on-demand
 severity:    default
-applies_to:  ["process/upstream/**"]
+applies_to:  ["PRACTICES.md", "practices/**", "templates/**", "tools/**", "process/upstream/**"]
 occasion:    "merging a branch that improved a generic practice"
 index_clause: "vendor upstream as tracked files; check improvements back in"
-checked_by:  "tools/practice_audit.py"
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

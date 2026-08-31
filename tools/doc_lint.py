@@ -227,7 +227,7 @@ def check_file(path, fix=False, known=None):
     return strikes, unlinked, unglossed, targeted, len(changed_lines)
 
 
-# ---- deliverable/record split (check 6; practice 49) ----
+# ---- deliverable/record split (check 6; practice `deliverables-look-like-output`) ----
 #
 # A reader-facing document looks like its finished output; audit apparatus,
 # decision provenance, verification bookkeeping, and history lore live in the
@@ -290,7 +290,7 @@ def check_residue(path):
     return out
 
 
-# ---- findability check (check 5; practice 37) ----
+# ---- findability check (check 5; practice `search-by-purpose`) ----
 #
 # An analysis nobody can find is an analysis that gets redone -- or, worse,
 # silently contradicted by a later thread that never saw it. The generic
@@ -307,7 +307,10 @@ def check_residue(path):
 # Configure INDEX_FILES for the host repo's own index documents. Scoped like
 # every other check here -- gate on what you touched, --all reports the
 # backlog, so a legacy corpus never blocks.
-INDEX_FILES = ["MAP.md", "CLAUDE.md"]
+# This repo's index documents. AGENTS.md carries the quick index a
+# session actually consults; MAP.md is generated from the practices and
+# indexes those, so a spec document is reachable only through AGENTS.md.
+INDEX_FILES = ["MAP.md", "CLAUDE.md", "AGENTS.md"]
 
 # Where the (document, block, model) registry lives. A document is "carrying
 # generated numbers" if it appears in that registry.

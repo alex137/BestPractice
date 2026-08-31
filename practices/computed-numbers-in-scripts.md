@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing a document that cites a computed number"
 index_clause: "computed content lives in a sync-gated generated block"
-checked_by:  "tools/doc_sync.py"
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "setting up a new repo's session start"
 index_clause: "setup lives in a session-start hook, not in memory"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

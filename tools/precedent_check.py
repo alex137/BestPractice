@@ -1,0 +1,772 @@
+#!/usr/bin/env python3
+"""precedent_check.py — the ENFORCED loading channel, made real (phase 4).
+
+PRACTICE_ENGINE_PLAN.md, "How an Agent Knows Which Practices to Load", names
+four channels. Three were built in phase 2 and 3; this is the fourth:
+
+    **Enforced.** Practices with `checked_by` are never loaded at all. The
+    check's failure message *is* the rule, delivered at the moment of
+    violation.
+
+Before this existed, `checked_by:` was a *claim*: a string naming a script
+that existed. The harness verified the file was there and nothing else, so
+eight practices reported enforcement that nobody had ever seen fire. Tested
+one by one at the start of phase 4, the eight came apart:
+`readers-vocabulary` named a linter with no vocabulary check in it at all;
+`acronyms-glossary` named a check that only ever warns; the two practices
+naming `doc_sync.py` and the two naming `practice_audit.py` named gates that
+were RED on this repository, for reasons that had nothing to do with either
+practice. A claim nobody tested is worth less than no claim, because it
+reads as coverage.
+
+So this module is deliberately not "a script that checks practices". It is a
+registry with one entry per enforced practice, and every entry owes two
+things:
+
+  * **a failure message that IS the rule.** On a violation the practice's
+    own `## Rule` is printed, read through the same code path every other
+    channel uses (`split_practices._read_practice_file`, via
+    `precedent_show`'s reader) — never a paraphrase that can drift from it.
+  * **a test that proves it fires.** tools/verify_harness.py plants a real
+    violation for every registered slug in a throwaway repository and
+    asserts the exit status, then asserts the unplanted baseline is clean.
+    A slug registered here without a case there fails the harness.
+
+A CHECK THAT CANNOT RUN REPORTS THAT IT DID NOT RUN. Every graceful-failure
+path here ends in SKIPPED with a reason, never in a pass. This repository
+has been bitten four times by the opposite -- a scan with an empty input set
+printing OK -- and the whole point of an enforced practice is that its check
+is the only thing standing where the prose used to be.
+
+Scopes, because a practice is not always a property of a file:
+
+  tree      a property of the repository as it stands (an index exists, the
+            generated views are current). Always runs.
+  change    a property of what a change adds or edits (a new practice
+            carries its incident). Runs against the files in scope.
+  turn-end  a property of the state you wanted AFTER an operation (nothing
+            unpushed, no published history rewritten). Excluded from the
+            default run -- mid-work it is not a violation -- and run by
+            --turn-end, which is where a Stop hook calls it.
+
+Run:
+  python3 tools/precedent_check.py                  # tree + change scopes
+  python3 tools/precedent_check.py --turn-end       # the end-of-turn scope
+  python3 tools/precedent_check.py --only SLUG      # one practice
+  python3 tools/precedent_check.py --paths A B      # explicit change scope
+  python3 tools/precedent_check.py --all            # change scope = whole tree
+  python3 tools/precedent_check.py --list           # what is registered
+  python3 tools/precedent_check.py --explain        # what each check does NOT check
+  python3 tools/precedent_check.py --strict         # a SKIP is a failure
+"""
+import io, json, pathlib, re, subprocess, sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+TOOLS = ROOT / 'tools'
+sys.path.insert(0, str(TOOLS))
+import split_practices as sp
+
+# --------------------------------------------------------------------------
+# The one code path: a failure message is the practice's own Rule.
+# --------------------------------------------------------------------------
+
+def rule_of(slug):
+    path = ROOT / 'practices' / f'{slug}.md'
+    if not path.exists():
+        return f'(no practice file for {slug})'
+    try:
+        _fm, sections = sp._read_practice_file(path)
+    except sp.PracticeFileError as e:
+        return f'({slug}: {e})'
+    return sections.get('rule', '').strip() or f'(no Rule recorded for {slug})'
+
+
+class NotApplicable(Exception):
+    """Raised by a check that could not run. Reported as SKIPPED, never PASS."""
+
+
+class Finding:
+    def __init__(self, where, detail):
+        self.where, self.detail = where, detail
+
+    def __str__(self):
+        return f'{self.where}: {self.detail}' if self.where else self.detail
+
+
+CHECKS = {}
+
+
+def check(slug, scope, what, blind_to):
+    """Register a check. `blind_to` is what it does NOT catch, printed by
+    --explain -- a check's limits belong beside it, not in a document that
+    drifts from it."""
+    def deco(fn):
+        CHECKS[slug] = dict(slug=slug, scope=scope, fn=fn, what=what,
+                            blind_to=blind_to)
+        return fn
+    return deco
+
+
+# --------------------------------------------------------------------------
+# Scope
+# --------------------------------------------------------------------------
+
+def _git(*args, cwd=None):
+    return subprocess.run(['git', *args], cwd=str(cwd or ROOT),
+                          capture_output=True, text=True)
+
+
+def _instructions_file():
+    """The file a session's harness actually loads. AGENTS.md is the
+    convention here; CLAUDE.md @-includes it."""
+    for name in ('AGENTS.md', 'CLAUDE.md'):
+        p = ROOT / name
+        if p.exists():
+            return name, p.read_text(encoding='utf-8', errors='ignore')
+    raise NotApplicable('this repo has no AGENTS.md or CLAUDE.md, so it has '
+                        'no session instructions to check')
+
+
+class Ctx:
+    """What a check is asked about: the repository, and the change in scope."""
+
+    def __init__(self, paths=None, rng=None, whole_tree=False):
+        self.root = ROOT
+        self.range = rng
+        self.scope_reason = None
+        if paths:
+            self.changed = list(paths)
+            self.added = [p for p in paths if not (ROOT / p).exists()
+                          or not _git('cat-file', '-e', f'HEAD:{p}').returncode == 0]
+            self.base = 'HEAD'
+        elif whole_tree:
+            self.changed = _git('ls-files').stdout.split()
+            self.added = []
+            self.base = 'HEAD'
+        elif rng:
+            left = rng.split('..')[0]
+            self.base = left
+            st = _git('diff', '--name-status', rng).stdout.splitlines()
+            self.changed = [l.split('\t')[-1] for l in st if l.strip()]
+            self.added = [l.split('\t')[-1] for l in st if l.startswith('A')]
+        else:
+            self.base = 'HEAD'
+            st = _git('status', '--porcelain').stdout.splitlines()
+            self.changed, self.added = [], []
+            for line in st:
+                if len(line) < 4:
+                    continue
+                code, name = line[:2], line[3:].strip()
+                if ' -> ' in name:
+                    name = name.split(' -> ')[-1]
+                self.changed.append(name)
+                if 'A' in code or '?' in code:
+                    self.added.append(name)
+            if not self.changed:
+                self.scope_reason = ('the working tree is clean, so no change '
+                                     'is in scope')
+
+    def read(self, rel):
+        p = ROOT / rel
+        try:
+            return p.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            return ''
+
+    def read_base(self, rel):
+        """The file as it was before this change, or None if it is new."""
+        r = _git('show', f'{self.base}:{rel}')
+        return r.stdout if r.returncode == 0 else None
+
+    def changed_matching(self, pattern):
+        rx = re.compile(pattern)
+        return [f for f in self.changed if rx.search(f) and (ROOT / f).exists()]
+
+
+# --------------------------------------------------------------------------
+# Native checks
+# --------------------------------------------------------------------------
+
+@check('cite-the-incident', 'change',
+       'a practice file whose Rule is new or changed must carry a non-empty '
+       '## Story',
+       'a Story that is present but says nothing. It tests that the incident '
+       'was recorded, not that it was the right incident.')
+def _cite_the_incident(ctx):
+    out = []
+    for f in ctx.changed_matching(r'^practices/.*\.md$'):
+        try:
+            _fm, sections = sp._read_practice_file(ROOT / f)
+        except sp.PracticeFileError:
+            continue
+        old = ctx.read_base(f)
+        if old is not None:
+            try:
+                _ofm, old_sections = sp._parse_practice_text(old)
+            except Exception:
+                old_sections = None
+            if old_sections is not None and \
+                    old_sections.get('rule', '').strip() == sections.get('rule', '').strip():
+                continue        # frontmatter-only edit: not a new rule
+        if not sections.get('story', '').strip():
+            out.append(Finding(f, 'a new or rewritten Rule with an empty '
+                                  '## Story — the failure it prevents is not '
+                                  'recorded anywhere'))
+    return out
+
+
+VERSION_SUFFIX_RE = re.compile(
+    r'(?:^|[-_.])(?:v\d+|version\d*|rev\d+|final|latest|old|new|copy|backup|bak|'
+    r'draft|\d{4}[-_]\d{2}[-_]\d{2})(?:$|[-_.])', re.I)
+
+
+@check('no-version-suffix', 'change',
+       'a file added by this change must not carry a version, date or state '
+       'suffix in its name',
+       'a versioned name that was already committed, and a directory named '
+       'this way. It gates what a change ADDS.')
+def _no_version_suffix(ctx):
+    out = []
+    for f in ctx.added:
+        stem = pathlib.PurePath(f).name
+        for suffix in ('.md', '.py', '.json', '.txt', '.sh', '.yml', '.yaml',
+                       '.template', '.html'):
+            if stem.endswith(suffix):
+                stem = stem[:-len(suffix)]
+                break
+        if VERSION_SUFFIX_RE.search(stem):
+            out.append(Finding(f, 'the file name carries its version or state '
+                                  '— name it for what it is'))
+    return out
+
+
+GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
+
+
+@check('generated-artifact-provenance', 'tree',
+       'every generated view names the script that builds it and says it is '
+       'generated, and regenerating it changes nothing',
+       'a generated file this repo has not declared. It checks the views '
+       'tools/build_views.py owns.')
+def _generated_artifact_provenance(ctx):
+    out = []
+    builder = ROOT / 'tools' / 'build_views.py'
+    if not builder.exists():
+        raise NotApplicable('tools/build_views.py is absent, so nothing here '
+                            'declares which artifacts are generated')
+    for name in GENERATED_VIEWS:
+        p = ROOT / name
+        if not p.exists():
+            out.append(Finding(name, 'declared generated but missing'))
+            continue
+        head = p.read_text(encoding='utf-8', errors='ignore')[:1200]
+        if 'build_views.py' not in head:
+            out.append(Finding(name, 'carries no stamp naming the script that '
+                                     'builds it, so a reader cannot tell it '
+                                     'is generated'))
+        if not re.search(r'do not (hand-)?edit|never hand-edit|generated',
+                         head, re.I):
+            out.append(Finding(name, 'does not say it is generated'))
+    r = subprocess.run([sys.executable, str(builder), '--check'],
+                       cwd=str(ROOT), capture_output=True, text=True)
+    if r.returncode != 0:
+        out.append(Finding('', 'a generated view is stale or hand-edited: '
+                               + (r.stdout + r.stderr).strip().splitlines()[-1]
+                               if (r.stdout + r.stderr).strip() else
+                               'build_views.py --check failed'))
+    return out
+
+
+@check('orientation-map', 'tree',
+       'MAP.md exists at the repository root, is not empty, and the session '
+       'instructions point at it',
+       'whether the map is any good. It checks that a session that reads the '
+       'instructions is sent to a map that exists.')
+def _orientation_map(ctx):
+    out = []
+    p = ROOT / 'MAP.md'
+    if not p.exists():
+        return [Finding('MAP.md', 'no top-level map: a session has nowhere to '
+                                  'orient from')]
+    body = p.read_text(encoding='utf-8', errors='ignore')
+    if len(body.split()) < 50:
+        out.append(Finding('MAP.md', 'is effectively empty'))
+    name, text = _instructions_file()
+    if 'MAP.md' not in text:
+        out.append(Finding(name, 'never mentions MAP.md, so the map is not '
+                                 'reached from what a session actually reads'))
+    return out
+
+
+QUICK_INDEX_HEADER_RE = re.compile(
+    r'^\|[^|\n]*\b(looking for|want to find|where things are|need)\b[^|\n]*\|',
+    re.I | re.M)
+
+
+@check('quick-index', 'tree',
+       'the session instructions carry a "looking for X -> go to Y" table '
+       'with at least five rows',
+       'whether the rows are the right rows, or still resolve. It checks the '
+       'table is there and populated.')
+def _quick_index(ctx):
+    name, text = _instructions_file()
+    m = QUICK_INDEX_HEADER_RE.search(text)
+    if not m:
+        return [Finding(name, 'carries no "looking for X -> go to Y" table, so '
+                              'every session searches the repo from scratch')]
+    # Count from the line AFTER the header line, not from the end of the
+    # regex match -- the match ends mid-line, and counting from there saw the
+    # header's own remaining cells as "not a table row" and stopped at zero.
+    lines = text.splitlines()
+    header_line = text[:m.start()].count('\n')
+    rows = 0
+    for line in lines[header_line + 1:]:
+        if line.startswith('|'):
+            if not re.match(r'^\|[\s:|-]+\|?\s*$', line):
+                rows += 1
+        elif line.strip():
+            break
+    if rows < 5:
+        return [Finding(name, f'the quick index has {rows} row(s) — too few to '
+                              f'be worth checking before searching')]
+    return []
+
+
+GOTCHA_HEADING_RE = re.compile(
+    r'^#{2,4}\s*.*(do NOT rediscover|environment gotchas).*$', re.I | re.M)
+# What separates "the fix" from "the fix with its story" is checked
+# STRUCTURALLY, not by vocabulary. The first version of this check looked for
+# failure words (failed, broke, silently, cost, ...) and fired on a genuine
+# story that happened to be told in other words -- "a smoke test believed it
+# was exercising a shallow clone for an hour and was not". A check that fires
+# on correct work is a check that gets switched off, and then it is absent
+# when an entry really is a bare command. So: an entry that is one short
+# sentence is a bare fix; an entry that runs to two sentences and some
+# substance took the trouble to say what happened.
+STORY_MIN_WORDS = 25
+STORY_MIN_SENTENCES = 2
+
+
+@check('environment-gotchas', 'tree',
+       'the session instructions carry a "do NOT rediscover these" section, '
+       'and every entry in it carries what failed, not only the fix',
+       'whether the story is a good story, whether it is true, or whether the '
+       'section is complete. It tells a one-line command from an entry that '
+       'took the trouble to say what happened, and no more — padding defeats '
+       'it, and it says so rather than implying otherwise.')
+def _environment_gotchas(ctx):
+    name, text = _instructions_file()
+    m = GOTCHA_HEADING_RE.search(text)
+    if not m:
+        return [Finding(name, 'has no "do NOT rediscover these" section, so '
+                              'every expensive environment discovery is paid '
+                              'for again by the next session')]
+    rest = text[m.end():]
+    end = re.search(r'^#{1,4}\s', rest, re.M)
+    section = rest[:end.start()] if end else rest
+    entries, cur = [], []
+    for line in section.splitlines():
+        if re.match(r'^\s*[-*]\s+', line):
+            if cur:
+                entries.append('\n'.join(cur))
+            cur = [line]
+        elif cur and line.strip():
+            cur.append(line)
+        elif cur:
+            entries.append('\n'.join(cur))
+            cur = []
+    if cur:
+        entries.append('\n'.join(cur))
+    entries = [e for e in entries if not e.strip().startswith('<!--')]
+    if not entries:
+        return [Finding(name, 'the gotchas section has no entries')]
+    out = []
+    for e in entries:
+        first = re.sub(r'^\s*[-*]\s+', '', e.strip()).splitlines()[0]
+        words = len(e.split())
+        sentences = len([s for s in re.split(r'(?<=[.!?])\s', e) if s.strip()])
+        if words < STORY_MIN_WORDS or sentences < STORY_MIN_SENTENCES:
+            out.append(Finding(name, f'gotcha entry is a bare fix '
+                                     f'({words} words, {sentences} sentence(s)) '
+                                     f'with no account of what failed: '
+                                     f'{first[:70]!r}'))
+    return out
+
+
+SETUP_CMD_RE = re.compile(r'\b(pip3?|apt-get|apt|npm|brew|uv)\s+install\b')
+
+
+@check('session-bootstrap', 'tree',
+       'if the session instructions name a setup command, a session-start '
+       'hook must run it',
+       'whether the hook actually installs the right thing. It catches setup '
+       'that lives only in prose a session has to remember to obey.')
+def _session_bootstrap(ctx):
+    name, text = _instructions_file()
+    prose = re.sub(r'```.*?```', '', text, flags=re.S)
+    hits = [l.strip() for l in prose.splitlines() if SETUP_CMD_RE.search(l)]
+    if not hits:
+        raise NotApplicable('the session instructions name no setup command, '
+                            'so there is nothing a hook would have to run')
+    hooks = list(ROOT.glob('.claude/hooks/session-start*')) + \
+        list(ROOT.glob('.*/hooks/session-start*')) + \
+        list(ROOT.glob('templates/harness/*/hooks/session-start*'))
+    settings = ROOT / '.claude' / 'settings.json'
+    declared = False
+    if settings.exists():
+        declared = 'SessionStart' in settings.read_text(errors='ignore')
+    own_hook = [h for h in hooks if 'templates/' not in str(h.relative_to(ROOT))]
+    if not own_hook or not declared:
+        return [Finding(name, 'names a setup command '
+                              f'({hits[0][:60]!r}) but this repo has '
+                              + ('no session-start hook' if not own_hook else
+                                 'no SessionStart entry in .claude/settings.json')
+                              + ' — setup that lives in memory is setup that '
+                                'gets skipped')]
+    return []
+
+
+@check('engine-plus-host-shims', 'tree',
+       'no file outside the vendored tree duplicates a run of lines from '
+       'inside it — that is a fork, not a shim',
+       'a fork that was reworded as it was copied. It catches the verbatim '
+       'copy, which is the one that silently drifts.')
+def _engine_plus_host_shims(ctx):
+    vendored = ROOT / 'process' / 'upstream'
+    if not vendored.is_dir():
+        raise NotApplicable('this repo vendors no upstream tree at '
+                            'process/upstream/, so there is no engine/shim '
+                            'boundary to hold. This is the expected state in '
+                            'the upstream repo itself')
+    RUN = 8
+
+    def runs(path):
+        lines = [l.strip() for l in
+                 path.read_text(encoding='utf-8', errors='ignore').splitlines()]
+        lines = [l for l in lines if len(l) > 12 and not l.startswith('#')]
+        return {tuple(lines[i:i + RUN]) for i in range(len(lines) - RUN + 1)}
+
+    upstream = {}
+    for p in sorted(vendored.rglob('*')):
+        if p.is_file() and p.suffix in ('.py', '.sh'):
+            for r in runs(p):
+                upstream.setdefault(r, str(p.relative_to(ROOT)))
+    out = []
+    for rel in _git('ls-files').stdout.split():
+        if rel.startswith('process/'):
+            continue
+        p = ROOT / rel
+        if not p.is_file() or p.suffix not in ('.py', '.sh'):
+            continue
+        for r in runs(p):
+            if r in upstream:
+                out.append(Finding(rel, f'duplicates {RUN}+ consecutive lines '
+                                        f'of {upstream[r]} — one vendored '
+                                        f'engine, thin host shims, never a fork'))
+                break
+    return out
+
+
+@check('verify-postcondition', 'turn-end',
+       'the state you wanted after the operations this turn: nothing '
+       'committed but unpushed, and no tracked file left modified',
+       'every other postcondition. It asserts the two this practice names '
+       'as its own examples, for this repository; naming the postcondition '
+       'for anything else is still yours.')
+def _verify_postcondition(ctx):
+    up = _git('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')
+    if up.returncode != 0:
+        raise NotApplicable('this branch tracks no upstream, so "no unpushed '
+                            'commits" is not a postcondition that can be '
+                            'evaluated here')
+    out = []
+    ahead = _git('rev-list', '--count', '@{upstream}..HEAD').stdout.strip()
+    if ahead and ahead != '0':
+        out.append(Finding('', f'{ahead} commit(s) are on this branch and not '
+                               f'on {up.stdout.strip()} — the command that '
+                               f'reported success is not the state you wanted'))
+    dirty = [l for l in _git('status', '--porcelain').stdout.splitlines()
+             if l and not l.startswith('??')]
+    if dirty:
+        out.append(Finding('', f'{len(dirty)} tracked file(s) still modified '
+                               f'in the working tree'))
+    return out
+
+
+@check('no-rewrite-for-warnings', 'turn-end',
+       'the commit this branch was last published at is still an ancestor of '
+       'its tip — published history has not been rewritten',
+       'a rewrite that has already been force-pushed. It catches the rewrite '
+       'before the push, which is the moment it is still free to undo.')
+def _no_rewrite_for_warnings(ctx):
+    up = _git('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')
+    if up.returncode != 0:
+        raise NotApplicable('this branch tracks no upstream, so there is no '
+                            'published history to compare against')
+    remote = up.stdout.strip()
+    anc = _git('merge-base', '--is-ancestor', remote, 'HEAD')
+    if anc.returncode != 0:
+        return [Finding('', f'{remote} is no longer an ancestor of HEAD: '
+                            f'history that was already published has been '
+                            f'rewritten. Fix it forward; do not force-push')]
+    return []
+
+
+# --------------------------------------------------------------------------
+# Delegating checks -- an existing gate owns the enforcement; this names which
+# practice each of its findings belongs to, which is what the bare
+# `checked_by: "tools/doc_lint.py"` never did.
+# --------------------------------------------------------------------------
+
+def _doc_lint():
+    try:
+        import doc_lint
+    except Exception as e:
+        raise NotApplicable(f'tools/doc_lint.py did not import: {e}')
+    return doc_lint
+
+
+def _md_in_scope(ctx):
+    return [f for f in ctx.changed if f.endswith('.md') and (ROOT / f).exists()]
+
+
+@check('doc-references-are-links', 'change',
+       'a changed document must not render an accidental <del> span — use '
+       'the approximately sign, never a tilde',
+       'the other half of this practice. Whether a file reference is a link '
+       'is a WARNING in doc_lint, not a gate, and this check inherits that.')
+def _doc_references_are_links(ctx):
+    dl = _doc_lint()
+    if not dl.HAVE_GFM:
+        raise NotApplicable('cmark-gfm is not installed, so strikethrough '
+                            'cannot be detected exactly and this check will '
+                            'not guess (pip install cmarkgfm)')
+    files = _md_in_scope(ctx)
+    if not files:
+        raise NotApplicable('no changed markdown file is in scope')
+    out = []
+    for f in files:
+        strikes, _u, _g, _t, _n = dl.check_file(f, fix=False, known=None)
+        for i, txt in strikes:
+            out.append(Finding(f'{f}:{i}', f'renders <del> on GitHub: {txt}'))
+    return out
+
+
+@check('deliverables-look-like-output', 'change',
+       'a reader-facing document in scope carries no process residue — no '
+       'verify-later flag, claims-to-source apparatus or decision provenance',
+       'apparatus written in words its pattern list does not know. It catches '
+       'the recurring forms, not the idea.')
+def _deliverables_look_like_output(ctx):
+    dl = _doc_lint()
+    files = _md_in_scope(ctx)
+    if not files:
+        raise NotApplicable('no changed markdown file is in scope')
+    out = []
+    for f in files:
+        for i, why in dl.check_residue(f):
+            out.append(Finding(f'{f}:{i}', why))
+    return out
+
+
+@check('search-by-purpose', 'change',
+       'a document carrying generated numbers is reachable from an index a '
+       'reader actually consults',
+       'whether anyone searched both vocabularies before starting. It '
+       'enforces the durable half: the thing they would find exists and is '
+       'indexed.')
+def _search_by_purpose(ctx):
+    dl = _doc_lint()
+    wired = dl.wired_docs()
+    if not wired:
+        raise NotApplicable('no document is registered as carrying generated '
+                            'numbers (tools/doc_sync.py PAIRS is empty), so '
+                            'there is nothing whose findability can be checked')
+    scope = set(ctx.changed)
+    return [Finding(d, n) for d, n in dl.check_findability(wired) if d in scope]
+
+
+def _run(script, *args):
+    r = subprocess.run([sys.executable, str(ROOT / script), *args],
+                       cwd=str(ROOT), capture_output=True, text=True)
+    return r.returncode, (r.stdout + r.stderr)
+
+
+def _doc_sync_findings():
+    code, out = _run('tools/doc_sync.py')
+    if 'NOT APPLICABLE' in out:
+        raise NotApplicable(out.strip().splitlines()[-1])
+    restated, other = [], []
+    for line in out.splitlines():
+        if 'FAIL' not in line and 'DRIFT' not in line:
+            continue
+        (restated if 'restates' in line else other).append(line.strip())
+    return code, restated, other
+
+
+@check('computed-numbers-in-scripts', 'tree',
+       'every generated block in a document matches what its script emits, '
+       'is registered, and its document names the scripts that feed it',
+       'a computed number that was never wrapped in a block at all. It gates '
+       'the blocks that exist; it cannot see a figure nobody declared.')
+def _computed_numbers_in_scripts(ctx):
+    try:
+        import doc_sync
+    except Exception as e:
+        raise NotApplicable(f'tools/doc_sync.py did not import: {e}')
+    if not doc_sync.PAIRS:
+        raise NotApplicable('tools/doc_sync.py registers no (document, block, '
+                            'script) pair, so no generated block is under a '
+                            'gate here. This is a gap, not a pass')
+    _code, _restated, other = _doc_sync_findings()
+    return [Finding('', line) for line in other]
+
+
+@check('docs-track-models', 'tree',
+       'a figure a script declares it owns is not hand-typed into the prose '
+       'around its generated block',
+       'a restatement of a figure the script has not declared it owns. Its '
+       'reach is exactly owned_figures().')
+def _docs_track_models(ctx):
+    try:
+        import doc_sync
+    except Exception as e:
+        raise NotApplicable(f'tools/doc_sync.py did not import: {e}')
+    owned = [f for _d, _n, s in doc_sync.PAIRS for f in doc_sync.owned_figures(s)]
+    if not owned:
+        raise NotApplicable('no script declares an owned figure '
+                            '(owned_figures()), so no restatement can be '
+                            'detected. This is a gap, not a pass')
+    _code, restated, _other = _doc_sync_findings()
+    return [Finding('', line) for line in restated]
+
+
+@check('scrub-gate', 'tree',
+       'every text file in a vendored tree destined for another repo is clean '
+       'against that tree\'s blocklist, at all times',
+       'a private word nobody put on the blocklist. It is a word list, and a '
+       'word list only sees the words somebody thought of.')
+def _scrub_gate(ctx):
+    code, out = _run('tools/practice_audit.py')
+    if 'NOT APPLICABLE' in out:
+        raise NotApplicable(out.strip().splitlines()[-1])
+    if 'scrub' in out and 'skipped' in out:
+        raise NotApplicable('practice_audit skipped the scrub: no blocklist')
+    return [Finding('', l.strip()) for l in out.splitlines() if 'SCRUB:' in l]
+
+
+@check('practice-export-loop', 'tree',
+       'every manifest entry marked synced still matches its baseline — a '
+       'local improvement to a vendored file has been exported, not absorbed',
+       'an improvement to a practice that never touched a vendored file. The '
+       'manifest can only see what it tracks.')
+def _practice_export_loop(ctx):
+    code, out = _run('tools/practice_audit.py')
+    if 'NOT APPLICABLE' in out:
+        raise NotApplicable(out.strip().splitlines()[-1])
+    return [Finding('', l.strip()) for l in out.splitlines()
+            if l.startswith('FAIL:') and 'SCRUB:' not in l]
+
+
+@check('scripts-assert-properties', 'tree',
+       'every instrumented script asserts its own properties, and every '
+       'figure it recites from a source document still matches that document',
+       'a script nobody added to INSTRUMENTED. Instrumentation is deliberate '
+       'and per-script, so the check is exactly as wide as that list.')
+def _scripts_assert_properties(ctx):
+    code, out = _run('tools/model_audit.py')
+    if 'NOT APPLICABLE' in out:
+        raise NotApplicable(out.strip().splitlines()[-1])
+    return [Finding('', l.strip()) for l in out.splitlines()
+            if l.startswith('FAIL:')]
+
+
+# --------------------------------------------------------------------------
+# Runner
+# --------------------------------------------------------------------------
+
+def run(slugs, ctx, scopes):
+    results = []
+    for slug in slugs:
+        c = CHECKS[slug]
+        if c['scope'] not in scopes:
+            continue
+        try:
+            findings = c['fn'](ctx) or []
+            results.append((slug, 'VIOLATION' if findings else 'PASS',
+                            findings, None))
+        except NotApplicable as e:
+            results.append((slug, 'SKIPPED', [], str(e)))
+    return results
+
+
+def main():
+    args = sys.argv[1:]
+    flags = {a for a in args if a.startswith('--')}
+    if '--list' in flags:
+        for slug, c in sorted(CHECKS.items()):
+            print(f"  {slug:32} [{c['scope']:8}] {c['what']}")
+        print(f"\n{len(CHECKS)} practice(s) enforced.")
+        return 0
+    if '--explain' in flags:
+        print(__doc__)
+        print('What each check does NOT catch — its limits belong beside it:\n')
+        for slug, c in sorted(CHECKS.items()):
+            print(f"  {slug}  [{c['scope']}]")
+            print(f"    checks:   {c['what']}")
+            print(f"    blind to: {c['blind_to']}\n")
+        return 0
+
+    only = None
+    if '--only' in args:
+        only = args[args.index('--only') + 1]
+        if only not in CHECKS:
+            sys.exit(f'precedent_check FAIL: no check registered for {only!r} '
+                     f'— run --list.')
+    rng = args[args.index('--range') + 1] if '--range' in args else None
+    paths = None
+    if '--paths' in args:
+        paths = [a for a in args[args.index('--paths') + 1:]
+                 if not a.startswith('--')]
+        missing = [p for p in paths if not (ROOT / p).exists()]
+        if missing:
+            sys.exit('precedent_check FAIL: path(s) not found under the repo '
+                     f'root: {", ".join(missing)} — a path that resolves to '
+                     'nothing is a silent no-op, not a pass.')
+
+    scopes = {'turn-end'} if '--turn-end' in flags else {'tree', 'change'}
+    if '--turn-end' in flags and '--all' in flags:
+        scopes = {'tree', 'change', 'turn-end'}
+    ctx = Ctx(paths=paths, rng=rng, whole_tree='--all' in flags)
+    slugs = [only] if only else sorted(CHECKS)
+    results = run(slugs, ctx, scopes)
+
+    violated = [r for r in results if r[1] == 'VIOLATION']
+    skipped = [r for r in results if r[1] == 'SKIPPED']
+    passed = [r for r in results if r[1] == 'PASS']
+
+    for slug, _st, findings, _why in violated:
+        print(f'\nVIOLATION  {slug}')
+        for f in findings:
+            print(f'    {f}')
+        print('  the rule:')
+        for line in rule_of(slug).splitlines():
+            print(f'    {line}')
+
+    for slug, _st, _f, why in skipped:
+        print(f'SKIPPED    {slug} — {why}')
+    if ctx.scope_reason and any(CHECKS[s]['scope'] == 'change' for s in slugs):
+        print(f'note: {ctx.scope_reason}')
+
+    print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
+          f'{len(skipped)} skipped (a skip is not a pass).')
+    if violated:
+        return 1
+    if skipped and '--strict' in flags:
+        print('--strict: a check that could not run is a failure here.')
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "building or committing a generated artifact"
 index_clause: "stamp a build code and a manifest; never hand-edit output"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     ["generated artifact"]
 status:      active
 supersedes:  []

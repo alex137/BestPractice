@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "a document presents a script-derived figure"
 index_clause: "every script-derived figure sits inside a generated block"
-checked_by:  "tools/doc_sync.py"
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

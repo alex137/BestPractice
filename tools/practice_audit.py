@@ -179,8 +179,20 @@ def audit(update=False, only=None):
     else:
         manifests = sorted((ROOT / 'process').glob('manifest*.json'))
     if not any(m.exists() for m in manifests):
-        print("practice_audit FAIL: no manifest at process/manifest*.json "
-              "(see process/upstream/INSTALL.md §5)")
+        # Distinguish "this repo does not vendor anything" from "this repo
+        # vendors something and lost its manifest". Both used to FAIL, so the
+        # audit was permanently red in the upstream repo itself -- which is
+        # not a dependent repo and has nothing to export from. A permanently
+        # red gate stops being read, and then it is absent when a real
+        # dependent repo drops its manifest.
+        if not (ROOT / 'process').is_dir():
+            print("practice_audit NOT APPLICABLE: this repo vendors no practice "
+                  "layer (no process/ directory), so there is no export loop to "
+                  "audit. This is the expected state in the upstream repo itself.")
+            return 0
+        print("practice_audit FAIL: process/ exists but there is no manifest at "
+              "process/manifest*.json — a vendored tree with no manifest is "
+              "unaudited (see process/upstream/INSTALL.md §5)")
         return 1
     n = 0
     claimed = set()

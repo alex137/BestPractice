@@ -336,7 +336,17 @@ class PracticeFileError(ValueError):
 
 
 def _read_practice_file(path):
-    text = path.read_text(encoding='utf-8')
+    return _parse_practice_text(path.read_text(encoding='utf-8'), path)
+
+
+def _parse_practice_text(text, path='<text>'):
+    """The parser, split out from the reader so a caller holding a practice
+    file's EARLIER content (from `git show`) can parse it the same way. Added
+    at phase 4: tools/precedent_check.py's cite-the-incident check has to
+    compare a practice's Rule against its previous Rule to tell a new rule
+    from a frontmatter edit, and there was no way to parse text that is not
+    on disk. One parser, per the plan's "one code path"; the alternative was
+    a second extractor to drift from this one."""
     if not text.startswith('---\n'):
         raise PracticeFileError(
             f"{path}: not a practice file -- it must open with a '---' "

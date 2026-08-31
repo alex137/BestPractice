@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "exporting a tool across a repo boundary"
 index_clause: "one vendored engine, thin host shims, never a fork"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

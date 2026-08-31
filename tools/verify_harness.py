@@ -1198,6 +1198,306 @@ def check_behavioral_replay():
         check(name, False, detail.splitlines()[-1] if detail else 'no REPLAY_STATUS line printed')
 
 
+def check_precedent_check_fires():
+    """The enforced channel's own behaviour, as stated cases against throwaway
+    repositories -- one planted violation per enforced practice.
+
+    WHY THIS EXISTS. Until phase 4 the only thing verifying a `checked_by:`
+    was check_checked_by_targets_exist() above, which asserts the named FILE
+    is present. Tested one by one, the eight inherited claims came apart:
+    `readers-vocabulary` named a linter with no vocabulary check in it,
+    `acronyms-glossary` named a check that only ever warns, and four named
+    gates that were RED on this repository for reasons unrelated to either
+    practice. A claim nobody has watched fire reads as coverage and is not.
+
+    So this asserts what each check is supposed to DO, from outside it: copy
+    the tree into a scratch repository, PLANT the violation the practice
+    exists to prevent, run tools/precedent_check.py --only SLUG as a
+    subprocess, and require a non-zero exit. Each case also requires the
+    UNPLANTED baseline to come back clean, because a check that fires on
+    everything is as useless as one that fires on nothing -- that direction is
+    what caught the first version of the quick-index check, which counted rows
+    from the middle of the header line and reported zero on a table with
+    twenty-six.
+    """
+    import shutil, tempfile
+
+    def git(cwd, *args, check_rc=True):
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True)
+        if check_rc and r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-enforce-'))
+    cases = []
+    try:
+        pristine = tmp / 'pristine'
+        shutil.copytree(ROOT, pristine,
+                        ignore=shutil.ignore_patterns('.git', '__pycache__',
+                                                      '*.pyc', 'prompts'))
+        git(pristine, 'init', '-q')
+        git(pristine, 'config', 'user.email', 'harness@example.com')
+        git(pristine, 'config', 'user.name', 'harness')
+        git(pristine, 'add', '-A')
+        git(pristine, 'commit', '-qm', 'baseline')
+
+        def fresh(name):
+            repo = tmp / name
+            shutil.copytree(pristine, repo, symlinks=True)
+            return repo
+
+        def run(repo, slug, *extra):
+            env = dict(os.environ)
+            env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'precedent_check.py'),
+                 '--only', slug, *extra],
+                capture_output=True, text=True, cwd=str(repo), env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        def rewrite(repo, rel, fn):
+            p = repo / rel
+            p.write_text(fn(p.read_text(encoding='utf-8')), encoding='utf-8')
+
+        # --- the baseline must be clean, or every case below is meaningless
+        base = fresh('baseline')
+        rc, out = subprocess.run(
+            [sys.executable, str(base / 'tools' / 'precedent_check.py')],
+            capture_output=True, text=True, cwd=str(base)).returncode, ''
+        cases.append(('an unplanted copy of this tree passes every check', rc == 0))
+
+        # --- one planted violation per enforced practice --------------------
+        planted = {}
+
+        def case(slug, plant, extra=(), setup=None):
+            repo = fresh(slug)
+            if setup:
+                setup(repo)
+            if plant:
+                plant(repo)
+            rc, out = run(repo, slug, *extra)
+            planted[slug] = (rc, out)
+            cases.append((f'{slug}: a planted violation fails the check',
+                          rc == 1 and 'VIOLATION' in out))
+            clean = fresh(slug + '-clean')
+            if setup:
+                setup(clean)
+            rc2, out2 = run(clean, slug, *extra)
+            cases.append((f'{slug}: the same tree unplanted does not',
+                          rc2 == 0 and 'VIOLATION' not in out2))
+
+        # cite-the-incident -- a new practice with no ## Story
+        def _plant_cite(repo):
+            (repo / 'practices' / 'zzz-new-rule.md').write_text(
+                '---\nslug:        zzz-new-rule\ntitle:       A new rule\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\noccasion:    "testing"\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                'overrides:   null\nadded:       null\n'
+                'approved_by: "harness"\nsource_practice_number: 999\n---\n\n'
+                '## Rule\nDo the thing.\n\n## Detail\n\n## Why\nBecause.\n\n'
+                '## Story\n\n## Install\nNone.\n', encoding='utf-8')
+        case('cite-the-incident', _plant_cite)
+
+        # no-version-suffix
+        case('no-version-suffix',
+             lambda repo: (repo / 'findings-v2.md').write_text('x\n', encoding='utf-8'))
+
+        # generated-artifact-provenance -- a hand-edited generated view
+        case('generated-artifact-provenance',
+             lambda repo: rewrite(repo, 'MAP.md', lambda t: t + '\nhand-added\n'))
+
+        # orientation-map
+        case('orientation-map', lambda repo: (repo / 'MAP.md').unlink())
+
+        # quick-index -- the table removed from the instructions
+        def _plant_qi(repo):
+            rewrite(repo, 'AGENTS.md', lambda t: re.sub(
+                r'\n\| Looking for.*?\n\n', '\n\n', t, flags=re.S))
+        case('quick-index', _plant_qi)
+
+        # environment-gotchas -- an entry that is a bare fix
+        def _plant_eg(repo):
+            rewrite(repo, 'AGENTS.md', lambda t: t.replace(
+                '- **`pip install cmarkgfm`',
+                '- `pip install cmarkgfm`.\n\n- **`pip install cmarkgfm`', 1))
+        case('environment-gotchas', _plant_eg)
+
+        # session-bootstrap -- setup named in prose, no hook to run it
+        case('session-bootstrap',
+             lambda repo: shutil.rmtree(repo / '.claude' / 'hooks'))
+
+        # engine-plus-host-shims -- a host-tree fork of a vendored module
+        def _setup_vendored(repo):
+            up = repo / 'process' / 'upstream' / 'tools'
+            up.mkdir(parents=True)
+            body = '\n'.join(f'    value_{i} = compute_something({i}, base)'
+                             for i in range(12))
+            (up / 'engine.py').write_text(
+                'def engine(base):\n' + body + '\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'vendor')
+        def _plant_fork(repo):
+            shutil.copy(repo / 'process' / 'upstream' / 'tools' / 'engine.py',
+                        repo / 'tools' / 'engine_fork.py')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'fork')
+        case('engine-plus-host-shims', _plant_fork, setup=_setup_vendored)
+
+        # doc-references-are-links -- a line that renders <del> on GitHub
+        case('doc-references-are-links',
+             lambda repo: rewrite(repo, 'TODO.md',
+                                  lambda t: t + '\nabout ~5 items~ remain.\n'))
+
+        # deliverables-look-like-output -- process residue in a deliverable
+        case('deliverables-look-like-output',
+             lambda repo: (repo / 'report.md').write_text(
+                 '# Report\n\nThe number is 4. [verify later]\n', encoding='utf-8'))
+
+        # search-by-purpose -- a document carrying generated numbers, indexed
+        # from nothing a reader consults
+        def _plant_sbp(repo):
+            rewrite(repo, 'AGENTS.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
+            rewrite(repo, 'MAP.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
+            rewrite(repo, 'CLAUDE.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
+            rewrite(repo, 'spec/LOADER.md', lambda t: t + '\n')
+        case('search-by-purpose', _plant_sbp)
+
+        # computed-numbers-in-scripts -- a generated block edited by hand
+        case('computed-numbers-in-scripts',
+             lambda repo: rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
+                 '| Practices in the catalogue | 52 |',
+                 '| Practices in the catalogue | 61 |')))
+
+        # docs-track-models -- an owned figure restated in the prose
+        case('docs-track-models',
+             lambda repo: rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
+                 '## The resident set, and why these six',
+                 'The resident block is 6 of 52 practices.\n\n'
+                 '## The resident set, and why these six')))
+
+        # scrub-gate -- a blocked term in a tree destined for another repo
+        def _root_doc_entries(repo):
+            names = ['INSTALL.md', 'PRACTICES.md', 'SETUP.md',
+                     'GITHUB_ACTIONS.md', 'MOBILE.md', 'METHOD.md', 'GIT.md']
+            return [{'practice': n, 'local_path': n, 'status': 'local-only',
+                     'granularity': 'file',
+                     'notes': 'this fixture is the upstream repo itself'}
+                    for n in names if (repo / n).exists()]
+
+        def _setup_pack(repo):
+            (repo / 'process' / 'upstream').mkdir(parents=True)
+            (repo / 'process' / 'upstream' / 'note.md').write_text(
+                'generic guidance\n', encoding='utf-8')
+            (repo / 'process' / 'scrub_blocklist.txt').write_text(
+                'zorbulon\n', encoding='utf-8')
+            # The root-hygiene check (practice_audit's check 4) is right to
+            # object that this fixture's root holds INSTALL.md, PRACTICES.md
+            # and friends: it makes the upstream repo LOOK like a dependent
+            # one. Claim them, which is the escape hatch that check names.
+            (repo / 'process' / 'manifest.json').write_text(json.dumps({
+                'upstream': {'vendored_at': 'process/upstream'},
+                'entries': _root_doc_entries(repo),
+            }, indent=2), encoding='utf-8')
+        def _plant_scrub(repo):
+            (repo / 'process' / 'upstream' / 'note.md').write_text(
+                'guidance for zorbulon\n', encoding='utf-8')
+        case('scrub-gate', _plant_scrub, setup=_setup_pack)
+
+        # practice-export-loop -- a vendored file improved locally and never
+        # exported: the entry still says "synced" and its baseline no longer
+        # matches
+        def _setup_manifest(repo):
+            _setup_pack(repo)
+            local = repo / 'tools' / 'shim.py'
+            local.write_text('print("shim")\n', encoding='utf-8')
+            import hashlib
+            digest = hashlib.sha256(local.read_bytes()).hexdigest()
+            (repo / 'process' / 'manifest.json').write_text(json.dumps({
+                'upstream': {'vendored_at': 'process/upstream'},
+                'entries': _root_doc_entries(repo) +
+                [{'practice': 'shim', 'local_path': 'tools/shim.py',
+                  'upstream_path': 'note.md', 'status': 'synced',
+                  'granularity': 'file', 'local_sha256': digest}],
+            }, indent=2), encoding='utf-8')
+        case('practice-export-loop',
+             lambda repo: (repo / 'tools' / 'shim.py').write_text(
+                 'print("shim, improved")\n', encoding='utf-8'),
+             setup=_setup_manifest)
+
+        # scripts-assert-properties -- an instrumented script whose own
+        # invariant no longer holds
+        case('scripts-assert-properties',
+             lambda repo: rewrite(repo, 'tools/build_views.py', lambda t: t.replace(
+                 'RESIDENT_BUDGET_TOKENS = 2000', 'RESIDENT_BUDGET_TOKENS = 10')))
+
+        # --- turn-end scope: these need a remote to have a postcondition ----
+        def _publish(repo):
+            bare = tmp / (repo.name + '.git')
+            git(repo, 'init', '--bare', '-q', str(bare), check_rc=False)
+            subprocess.run(['git', 'init', '--bare', '-q', str(bare)],
+                           capture_output=True, text=True)
+            git(repo, 'remote', 'add', 'origin', str(bare))
+            git(repo, 'push', '-q', '-u', 'origin', 'HEAD:refs/heads/main')
+            git(repo, 'branch', '--set-upstream-to=origin/main', check_rc=False)
+
+        def _plant_unpushed(repo):
+            (repo / 'later.md').write_text('later\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'unpushed')
+        case('verify-postcondition', _plant_unpushed, extra=('--turn-end',),
+             setup=_publish)
+
+        def _plant_rewrite(repo):
+            git(repo, 'reset', '--hard', '-q', 'HEAD~1')
+            (repo / 'rewritten.md').write_text('rewritten\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'rewritten history')
+        def _publish_two(repo):
+            (repo / 'published.md').write_text('published\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'second')
+            _publish(repo)
+        case('no-rewrite-for-warnings', _plant_rewrite, extra=('--turn-end',),
+             setup=_publish_two)
+
+        # --- and the registry must not contain an untested claim ------------
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            '_pc', ROOT / 'tools' / 'precedent_check.py')
+        pc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pc)
+        untested = sorted(set(pc.CHECKS) - set(planted))
+        cases.append(('every registered check has a planted case here',
+                      not untested, f'untested: {untested}' if untested else ''))
+        claimed = sorted(
+            fm['slug'] for fm, _s, _f in load_practice_files().values()
+            if (fm.get('checked_by') or 'null').strip('"') != 'null')
+        unregistered = sorted(set(claimed) - set(pc.CHECKS))
+        cases.append(('every practice claiming a checked_by is registered',
+                      not unregistered,
+                      f'claimed but not registered: {unregistered}'
+                      if unregistered else ''))
+
+        bad = [(n, d) for n, ok, *rest in
+               [(c[0], c[1], (c[2] if len(c) > 2 else '')) for c in cases]
+               if not ok for d in [rest[0] if rest else '']]
+        detail = ''
+        if bad:
+            detail = '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad)
+            for slug, (rc, out) in planted.items():
+                if any(slug in n for n, _ in bad):
+                    detail += f"\n    --- {slug} planted run (rc={rc}):\n" + \
+                        '\n'.join('    ' + l for l in out.splitlines()[:12])
+        check(f"enforced channel fires ({len(cases)} stated cases: one planted "
+              f"violation per enforced practice, plus the unplanted baseline)",
+              not bad, detail)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -1228,6 +1528,7 @@ def main():
     check_generated_views_regenerate()
     check_resident_subset(files)
     check_behavioral_replay()
+    check_precedent_check_fires()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0

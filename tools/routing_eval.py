@@ -111,8 +111,15 @@ def loader_block():
 
 
 def changed_files(commit):
-    out = subprocess.run(['git', '-C', str(ROOT), 'diff-tree', '--no-commit-id',
-                          '--name-only', '-r', commit],
+    # --root, because without it a ROOT commit (no parent) diffs against
+    # nothing and returns an empty list. Case c16 is this repo's initial
+    # commit: for the whole of v1, v2 and v3 the treatment arm was handed
+    # "(no files)" and zero path-channel practices for a change touching 48
+    # of them, while the control saw the same diff either way. The arm under
+    # test was starved on that case and the control was not, which is a bias
+    # in the measurement, not a property of the loader.
+    out = subprocess.run(['git', '-C', str(ROOT), 'diff-tree', '--root',
+                          '--no-commit-id', '--name-only', '-r', commit],
                          capture_output=True, text=True).stdout.split()
     return [f for f in out if f.strip()]
 

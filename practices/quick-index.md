@@ -5,7 +5,7 @@ tier:        resident
 severity:    default
 applies_to:  ["**"]
 occasion:    "looking for where something lives, before searching"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

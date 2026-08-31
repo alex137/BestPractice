@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "writing a new convention or rule"
 index_clause: "record the failure a rule prevents, inline with the rule"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

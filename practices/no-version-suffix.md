@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "naming a new file"
 index_clause: "name a file for what it is; the repository is the version"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

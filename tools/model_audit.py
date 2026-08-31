@@ -81,6 +81,8 @@ ROOT = find_root(__file__)
 # source document. Add a script here when it starts depending on a derived
 # quantity it does not itself own.
 INSTRUMENTED = [
+    # Re-derives the catalogue figures that spec/ and the plan recite.
+    "tools/catalogue_stats.py",
     # "scripts/some_model.py",
     # Add a script here when it starts consuming or re-deriving a quantity
     # another script or an authoritative document owns.
@@ -169,6 +171,14 @@ def main():
         print("An anchor failure means a script and a source document disagree. "
               "Resolve it — do not refit the anchor to silence it.")
         return 1
+    if not INSTRUMENTED:
+        # "OK: 0 instrumented script(s)" is the confident all-clear from a
+        # check that never ran -- the failure mode this repo has now been
+        # bitten by four times. Nothing was inspected, so nothing passed.
+        print("model_audit NOT APPLICABLE: INSTRUMENTED is empty, so no script "
+              "was inspected. This is not a pass — instrument the scripts that "
+              "re-derive a quantity another script or document owns.")
+        return 0
     print(f"model_audit OK: {checked} instrumented script(s), "
           f"{anchors_ok} figure(s) recited in source documents verified, "
           f"{len(warnings)} warning(s).")

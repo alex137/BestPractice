@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing an outward-facing document"
 index_clause: "use the reader's words; gloss inline or replace"
-checked_by:  "tools/doc_lint.py"
+checked_by:  null
 defines:     []
 status:      active
 supersedes:  []
