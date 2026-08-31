@@ -80,7 +80,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 EVAL = ROOT / 'evals' / 'routing'
 PROMPTS = EVAL / 'prompts'
 ANSWERS = EVAL / 'answers'
-ARMS = ('oracle', 'control', 'treatment1')
+ARMS = ('oracle', 'control', 'treatment1', 'review')
+# One hop, deliberately -- spec/ATTENTION_CEILING.md permits either "the same
+# two hops as the treatment if you want the comparison clean, or one hop if
+# you want the cheapest version" and asks only that the choice be stated. The
+# cheapest version is what the recommendation actually proposes (a prefilter
+# feeding a judge pass, not a second round of the session's own judgment
+# about what to open), so this arm reads the loader's hop-1 context in one
+# shot rather than replaying a request/open cycle whose second half was never
+# in question -- the loader has already decided what it surfaces.
 
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
@@ -228,6 +236,47 @@ Diff:
 
 Before you begin: which of the practices above are you going to apply to
 this work?
+{ANSWER_FORMAT}
+"""
+    if arm == 'review':
+        path_block, _path_slugs = path_channel(case['commit'], practices)
+        return f"""You are reviewing a change that is already finished. You are not doing
+the work and you have no task of your own -- you are judging a diff someone
+else already wrote.
+
+Your project instructions carry the block below: the practices that are
+always resident, plus an index of every other practice grouped by the
+occasion on which it applies.
+
+{loader_block()}
+
+## Automatically surfaced for the files this change touches
+
+Your harness matched the files below against every practice's `applies_to`
+and surfaced these Rules without being asked. They are already in front of
+you.
+
+{path_block}
+
+## The change, already complete
+
+Commit message and files touched:
+
+{subject}
+
+Diff:
+
+```
+{diff}
+```
+
+Your ONLY job is to decide, carefully and without time pressure, which of the
+practices shown above -- resident, indexed, or surfaced -- genuinely applied
+to this change: which ones a reviewer would say the author should have had
+in mind. Judge only what is in front of you in this prompt. Do not name a
+practice whose Rule you have not seen here -- this prompt holds exactly what
+the loader surfaces for this change and nothing else, and that is the thing
+under test.
 {ANSWER_FORMAT}
 """
     path_block, path_slugs = path_channel(case['commit'], practices)
@@ -459,8 +508,14 @@ def _read_answer(case_id, arm, valid, quiet=False):
 def cmd_score():
     cases = json.loads((EVAL / 'cases.json').read_text())['cases']
     valid = set(load_practices())
-    rows, totals = [], {a: [0, 0, 0] for a in ('control', 'treatment')}  # hit, miss, extra
+    rows, totals = [], {a: [0, 0, 0] for a in ('control', 'treatment', 'review')}  # hit, miss, extra
     h2h = {'control_only': 0, 'treatment_only': 0}
+    # The review arm shares the oracle's judge-only framing, and the oracle
+    # DEFINES truth here, so a truth-filtered comparison between review and
+    # control is partly agreement by construction. This second head-to-head
+    # is the mitigation spec/ATTENTION_CEILING.md names: raw answer sets,
+    # never touching the oracle, so it cannot inherit that bias.
+    rc_h2h = {'review_only': 0, 'control_only': 0}
     scored = 0
     for case in cases:
         truth = _read_answer(case['id'], 'oracle', valid)
@@ -469,9 +524,11 @@ def cmd_score():
         row = {'id': case['id'], 'truth': len(truth)}
         any_arm = False
         arm_sets = {}
-        for arm in ('control', 'treatment'):
+        for arm in ('control', 'treatment', 'review'):
             got = None
-            for candidate in (('control',) if arm == 'control' else ('treatment2', 'treatment1')):
+            candidates = {'control': ('control',), 'treatment': ('treatment2', 'treatment1'),
+                          'review': ('review',)}[arm]
+            for candidate in candidates:
                 got = _read_answer(case['id'], candidate, valid)
                 if got is not None:
                     break
@@ -489,6 +546,10 @@ def cmd_score():
             h2h['control_only'] += len(arm_sets['control'] - arm_sets['treatment'] & truth
                                        if False else (truth & arm_sets['control']) - arm_sets['treatment'])
             h2h['treatment_only'] += len((truth & arm_sets['treatment']) - arm_sets['control'])
+        if arm_sets.get('control') is not None and arm_sets.get('review') is not None:
+            # Deliberately NOT filtered by truth -- raw set difference only.
+            rc_h2h['review_only'] += len(arm_sets['review'] - arm_sets['control'])
+            rc_h2h['control_only'] += len(arm_sets['control'] - arm_sets['review'])
         if any_arm:
             scored += 1
         rows.append(row)
@@ -509,25 +570,26 @@ def cmd_score():
     digest = hashlib.sha256(b''.join(f.read_bytes() for f in files)).hexdigest()[:12]
     print(f"Routing eval — {scored} case(s) scored against the oracle answer key.")
     print(f"answer set: {len(files)} files, digest {digest}\n")
-    print(f"{'case':6} {'applies':>7}   {'CONTROL (all 52 loaded)':<28} {'TREATMENT (index only)':<28}")
-    print(f"{'':6} {'':>7}   {'hit/miss/extra':<28} {'hit/miss/extra':<28}")
+    print(f"{'case':6} {'applies':>7}   {'CONTROL (all 52 loaded)':<28} {'TREATMENT (index only)':<28} {'REVIEW (loader, judge-only)':<28}")
+    print(f"{'':6} {'':>7}   {'hit/miss/extra':<28} {'hit/miss/extra':<28} {'hit/miss/extra':<28}")
     for r in rows:
-        if r.get('control') is None and r.get('treatment') is None:
+        if r.get('control') is None and r.get('treatment') is None and r.get('review') is None:
             continue
         def fmt(v):
             return '—' if v is None else f"{v[0]}/{v[1]}/{v[2]}"
-        print(f"{r['id']:6} {r['truth']:>7}   {fmt(r.get('control')):<28} {fmt(r.get('treatment')):<28}")
+        print(f"{r['id']:6} {r['truth']:>7}   {fmt(r.get('control')):<28} {fmt(r.get('treatment')):<28} {fmt(r.get('review')):<28}")
 
     print()
-    for arm in ('control', 'treatment'):
+    for arm in ('control', 'treatment', 'review'):
         hit, miss, extra = totals[arm]
         applicable = hit + miss
         if not applicable:
             continue
         recall = 100 * hit / applicable
         precision = 100 * hit / (hit + extra) if (hit + extra) else 0.0
-        label = 'CONTROL  (all 52 always loaded)' if arm == 'control' else \
-                'TREATMENT (resident block + occasion index)'
+        label = {'control': 'CONTROL  (all 52 always loaded)',
+                 'treatment': 'TREATMENT (resident block + occasion index)',
+                 'review': 'REVIEW   (the loader, judge-only framing)'}[arm]
         print(f"{label}")
         print(f"   surfaced {hit} of {applicable} applicable practices — "
               f"recall {recall:.0f}%, MISS RATE {100 - recall:.0f}%")
@@ -542,9 +604,14 @@ def cmd_score():
         print("everything is not a solution to the problem this plan exists to solve.")
         c_ctl = cost.get('control')
         c_trt = cost.get('treatment2') or cost.get('treatment1')
+        c_rev = cost.get('review')
+        cost_rows = [('CONTROL  ', c_ctl, 'control'), ('TREATMENT', c_trt, 'treatment')]
+        if c_rev:
+            cost_rows.append(('REVIEW   ', c_rev, 'review'))
         if c_ctl and c_trt:
-            for label, tok, arm in (('CONTROL  ', c_ctl, 'control'),
-                                    ('TREATMENT', c_trt, 'treatment')):
+            for label, tok, arm in cost_rows:
+                if not tok:
+                    continue
                 hit, miss, _e = totals[arm]
                 app = hit + miss
                 rec = 100 * hit / app if app else 0
@@ -552,10 +619,31 @@ def cmd_score():
                       f"  ->  {10 * rec / tok * 100:.2f} recall-points per 1k tokens")
             print(f"  the treatment arm carries {100 * (1 - c_trt / c_ctl):.0f}% less "
                   f"practice context per case.")
+            if c_rev:
+                print(f"  the review arm carries {100 * (1 - c_rev / c_ctl):.0f}% less "
+                      f"practice context per case than control ({c_rev} vs {c_ctl} tok).")
 
     print(f"\nHead to head, without using the oracle at all:")
     print(f"  applicable practices CONTROL found and TREATMENT missed: {h2h['control_only']}")
     print(f"  applicable practices TREATMENT found and CONTROL missed: {h2h['treatment_only']}")
+
+    if rc_h2h['review_only'] or rc_h2h['control_only']:
+        print(f"\nReview vs control, oracle-free (raw answer sets, no truth filter --")
+        print(f"the confound mitigation spec/ATTENTION_CEILING.md names, since the review")
+        print(f"arm shares the oracle's framing and the oracle defines truth here):")
+        print(f"  practices CONTROL named that REVIEW did not: {rc_h2h['control_only']}")
+        print(f"  practices REVIEW named that CONTROL did not: {rc_h2h['review_only']}")
+        rev_hit, rev_miss, _e = totals['review']
+        ctl_hit, ctl_miss, _e2 = totals['control']
+        if rev_hit + rev_miss and ctl_hit + ctl_miss:
+            rev_recall = 100 * rev_hit / (rev_hit + rev_miss)
+            ctl_recall = 100 * ctl_hit / (ctl_hit + ctl_miss)
+            gap = rev_recall - ctl_recall
+            print(f"\n  review recall {rev_recall:.0f}% vs control {ctl_recall:.0f}% "
+                  f"(gap {gap:+.0f} points).")
+            print(f"  Per spec/ATTENTION_CEILING.md: read a gap under about 10 points as")
+            print(f"  unconvincing, not as a win, precisely because of the framing confound")
+            print(f"  above.")
 
     print("\nWhat this settles, and what it does not:")
     print("  It measures ROUTING -- whether the right practices are surfaced. It does")
