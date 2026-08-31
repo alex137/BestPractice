@@ -25,6 +25,8 @@ be followed in sequence, a narrative that only makes sense in one direction).
 The test: would most readers have to scroll past this section to reach the
 one they actually opened the document for?
 
+## Detail
+
 ## Why
 A document is drafted in the order its author thought it through,
 which is rarely the order its reader needs it in. An edge case sits next to

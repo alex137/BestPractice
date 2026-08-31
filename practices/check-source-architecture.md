@@ -27,6 +27,12 @@ other is described only in your own notes. If you cannot cite the alternative to
 document you did not write, you are not comparing options; you are comparing the
 system to your model of it.
 
+**When the check fires, correct the framing before the numbers.** Restating the
+conclusion while keeping the invented structure leaves the same error with better
+arithmetic. Re-derive from the source architecture, then re-cost — the corrected
+answer often inverts the original one rather than adjusting it.
+
+## Detail
 **Three questions that catch it cheaply:**
 
 1. **Can I cite the alternative?** Not "is it plausible" — *which document specifies
@@ -38,11 +44,6 @@ system to your model of it.
 3. **Am I optimising a step that should not exist?** A cost or delay attached to
    moving between two things you separated is a strong signal you separated something
    that was whole.
-
-**When the check fires, correct the framing before the numbers.** Restating the
-conclusion while keeping the invented structure leaves the same error with better
-arithmetic. Re-derive from the source architecture, then re-cost — the corrected
-answer often inverts the original one rather than adjusting it.
 
 ## Why
 **Why it evades the usual checks.** Every downstream number can be internally correct.

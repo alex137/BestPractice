@@ -35,6 +35,7 @@ diligence record. The record is part of the deliverable.
 reporting the work done** — do not queue it, offer it as an option, or defer
 it to "before external use".
 
+## Detail
 Only genuinely external blockers (an unreachable source, a number needing a
 field measurement) stay open, listed as the open tail rather than used to
 postpone the pass. **(e) A correction that moves numbers in the author's own

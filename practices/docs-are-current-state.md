@@ -28,6 +28,8 @@ stamps (practice for dated external claims); (c) legally or contractually
 load-bearing markers; (d) as-shipped/as-filed artifacts whose purpose is
 historical.
 
+## Detail
+
 ## Why
 
 ## Story

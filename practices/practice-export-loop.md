@@ -26,6 +26,8 @@ gate**: before a thread ends, if it improved a generic practice, fold the
 abstracted form into `process/upstream/` in the same branch.
 **Periodically**, propose accumulated vendored changes back here as a PR.
 
+## Detail
+
 ## Why
 Live coupling (submodules read at session start) breaks sessions
 exactly when orientation matters most, and makes capture (practice 10) a

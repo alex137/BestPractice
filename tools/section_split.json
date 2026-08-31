@@ -2,7 +2,10 @@
   "tabular-shared-renderer": {
     "rule": [
       "R0",
-      "R3.s0-4"
+      "R3.s0-2"
+    ],
+    "detail": [
+      "R3.s2-4"
     ],
     "why": [
       "R3.s4-",
@@ -20,7 +23,9 @@
   "one-formatter-per-quantity": {
     "rule": [
       "R0",
-      "R1",
+      "R1"
+    ],
+    "detail": [
       "R2",
       "R3"
     ],
@@ -38,10 +43,12 @@
     "rule": [
       "R0",
       "R2",
-      "R3",
-      "R4",
       "R6",
       "R7"
+    ],
+    "detail": [
+      "R3",
+      "R4"
     ],
     "why": [
       "R1",
@@ -55,7 +62,9 @@
   "outward-summary-discipline": {
     "rule": [
       "R0",
-      "R1.s0-1",
+      "R1.s0-1"
+    ],
+    "detail": [
       "R1.s2-"
     ],
     "why": [
@@ -72,6 +81,7 @@
       "R0",
       "R1"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -82,7 +92,10 @@
   },
   "quote-discipline": {
     "rule": [
-      "R0.s0-7",
+      "R0.s0-5"
+    ],
+    "detail": [
+      "R0.s5-7",
       "W1"
     ],
     "why": [
@@ -98,6 +111,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -108,7 +122,9 @@
   },
   "affordance-is-shared": {
     "rule": [
-      "R0",
+      "R0"
+    ],
+    "detail": [
       "W2",
       "W3",
       "W4"
@@ -125,10 +141,13 @@
   "build-buy-decompose": {
     "rule": [
       "R0",
-      "R1",
+      "R1.s0-1",
       "R2",
       "R3",
       "R4"
+    ],
+    "detail": [
+      "R1.s1-"
     ],
     "why": [
       "W0"
@@ -143,6 +162,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -155,9 +175,11 @@
     "rule": [
       "R0",
       "R1",
-      "W1",
-      "W2",
       "W3"
+    ],
+    "detail": [
+      "W1",
+      "W2"
     ],
     "why": [
       "W0"
@@ -171,6 +193,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -185,6 +208,7 @@
       "R1",
       "R2"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -199,6 +223,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -209,7 +234,10 @@
   },
   "deliverables-look-like-output": {
     "rule": [
-      "R0",
+      "R0.s0-2"
+    ],
+    "detail": [
+      "R0.s2-",
       "R1"
     ],
     "why": [
@@ -224,6 +252,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -236,6 +265,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [],
     "story": [
       "W0"
@@ -250,6 +280,7 @@
       "R1",
       "R2"
     ],
+    "detail": [],
     "why": [
       "W1",
       "W2"
@@ -267,7 +298,9 @@
   },
   "engine-plus-host-shims": {
     "rule": [
-      "R0",
+      "R0"
+    ],
+    "detail": [
       "R1"
     ],
     "why": [
@@ -284,6 +317,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [],
     "story": [
       "W0"
@@ -296,6 +330,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W1"
     ],
@@ -314,6 +349,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [],
     "story": [
       "W0",
@@ -327,6 +363,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -339,6 +376,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -351,6 +389,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [],
     "story": [
       "W0"
@@ -361,7 +400,11 @@
   },
   "layered-practice-packs": {
     "rule": [
-      "R0"
+      "R0.s0-4",
+      "R0.s6-"
+    ],
+    "detail": [
+      "R0.s4-6"
     ],
     "why": [],
     "story": [
@@ -375,6 +418,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [],
     "story": [
       "W0"
@@ -387,6 +431,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -399,6 +444,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [],
     "story": [
       "W0"
@@ -412,6 +458,7 @@
       "R0",
       "W1"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -422,8 +469,10 @@
   },
   "name-both-sides-of-ledger": {
     "rule": [
-      "R0",
       "R1"
+    ],
+    "detail": [
+      "R0"
     ],
     "why": [
       "W0"
@@ -437,6 +486,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0",
       "W1",
@@ -452,6 +502,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -464,6 +515,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -476,6 +528,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [],
     "story": [
       "W0"
@@ -488,6 +541,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -500,6 +554,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -513,6 +568,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -525,6 +581,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0",
       "W2",
@@ -544,6 +601,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0.s0-1"
     ],
@@ -556,7 +614,9 @@
   },
   "reply-links-files": {
     "rule": [
-      "R0",
+      "R0"
+    ],
+    "detail": [
       "R1"
     ],
     "why": [],
@@ -569,6 +629,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -581,7 +642,9 @@
     "rule": [
       "R0",
       "R1",
-      "R2",
+      "R2"
+    ],
+    "detail": [
       "R3"
     ],
     "why": [
@@ -608,6 +671,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -618,7 +682,9 @@
   },
   "search-by-purpose": {
     "rule": [
-      "R0",
+      "R0"
+    ],
+    "detail": [
       "W3",
       "W4",
       "W5"
@@ -637,6 +703,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -649,6 +716,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -661,6 +729,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -674,6 +743,7 @@
     "rule": [
       "R0"
     ],
+    "detail": [],
     "why": [
       "W0"
     ],
@@ -687,6 +757,7 @@
       "R0",
       "R1"
     ],
+    "detail": [],
     "why": [
       "W1"
     ],
@@ -700,7 +771,9 @@
   },
   "verify-postcondition": {
     "rule": [
-      "R0",
+      "R0"
+    ],
+    "detail": [
       "R1",
       "R2"
     ],
@@ -721,7 +794,9 @@
   },
   "volatile-rules-carry-dates": {
     "rule": [
-      "R0",
+      "R0"
+    ],
+    "detail": [
       "W1"
     ],
     "why": [

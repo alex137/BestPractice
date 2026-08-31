@@ -23,6 +23,7 @@ price — carries an inline date: *as of `<date>`* when adopted, updated to
 add a review-by cadence for rules in domains known to shift. Stable internal
 conventions don't need this; their origin story (practice 5) is enough.
 
+## Detail
 Three corollaries. **The date is the contributor's, not the session's:**
 an agent stamping a date uses the human contributor's local calendar date
 — the date they experienced when the fact was true or the decision was

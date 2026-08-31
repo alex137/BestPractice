@@ -23,8 +23,10 @@ claims-to-source table, the verification log, decision provenance ("who
 chose this and when"), retired-alternative lore, open verify-later items,
 notes about the document itself — is real and worth keeping, and lives in a
 **paired record document** (`*_record.md`, or the diligence record where one
-exists), linked once from the deliverable's footer and from the index. Three
-rules:
+exists), linked once from the deliverable's footer and from the index.
+
+## Detail
+Three rules:
 
 1. **If it is not intended to travel with the text, it goes in another
    document.** The test is the reader: would the audience the document is

@@ -51,6 +51,8 @@ rules:
    reader's custom pick is a view, recomputed from the displayed
    values, never silently written back into the source.
 
+## Detail
+
 ## Why
 **Why this is a rule and not taste.** The full matrix invites the reader to
 do the dominance analysis in their head, badly; the frontier column does it

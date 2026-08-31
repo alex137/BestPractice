@@ -19,6 +19,8 @@ The project instructions file carries a "check here BEFORE searching
 the repo" table: *looking for X → go to Y*, one row per thing sessions
 actually hunt for.
 
+## Detail
+
 ## Why
 The map orients top-down; the quick index answers the specific
 lookups that recur ("where are the canonical names?", "which script builds the

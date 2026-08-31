@@ -22,6 +22,8 @@ is and does, in the project's own subject matter, before it says anything
 about the maintenance or editing process layered on top of it. A reader
 arriving cold learns *what this is* before *how to work with it*.
 
+## Detail
+
 ## Why
 
 ## Story

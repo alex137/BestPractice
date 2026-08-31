@@ -27,6 +27,8 @@ Treat an ambiguous case — the word appears, but as part of a longer
 sentence, or its standalone status is genuinely unclear — as *not*
 authorization: ask, rather than assume.
 
+## Detail
+
 ## Why
 "Merge only when the user says so" (practice 9's authorization
 default) is the right default, but typed out in full every time it's

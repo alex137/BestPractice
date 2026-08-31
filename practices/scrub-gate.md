@@ -29,6 +29,8 @@ public repo is **public from its first commit** — content is authored fresh
 as public-safe, never migrated from private history, because visibility
 flips expose everything a private repo ever casually committed.
 
+## Detail
+
 ## Why
 The abstraction step (practice 14) is a judgment call performed
 repeatedly by agents under time pressure — exactly the conditions under

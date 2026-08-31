@@ -34,6 +34,8 @@ computes:
 When a script changes, every dependent document changes with it, in the same
 commit, by regeneration rather than by editing.
 
+## Detail
+
 ## Why
 Hand-applied transformations hide the same way. A metric figure typed again in
 feet is two numbers that must be maintained together and will not be; a range

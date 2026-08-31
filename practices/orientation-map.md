@@ -19,6 +19,8 @@ A top-level `MAP.md` indexes the repo: what the key deliverables
 are, where everything lives, and — crucially — which supporting documents back
 each part of each deliverable. Every session reads it before doing anything.
 
+## Detail
+
 ## Why
 Without a map, every session greps. With one, orientation is one
 file read, and "which documents back this section of the deliverable?" has a

@@ -26,6 +26,8 @@ isn't in the glossary, it adds it there in the same pass. Identifiers that
 already have their own registry (a code table, a component index) are pointed
 to, not duplicated.
 
+## Detail
+
 ## Why
 In a repo-is-the-memory system the reader arriving at a document is
 usually *not* the person who wrote it and often has none of the surrounding

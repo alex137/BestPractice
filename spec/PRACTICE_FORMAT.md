@@ -1,6 +1,6 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-0/1 build session, to version 1 -->
+<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session, to version 2 -->
 
-# The Practice File Format (Phase 1)
+# The Practice File Format
 
 This is the format [`tools/split_practices.py`](../tools/split_practices.py) converts BestPractice's
 [`PRACTICES.md`](../PRACTICES.md) into, and the format any future practice (universal, team, or
@@ -37,6 +37,9 @@ source_practice_number: N        # see "Beyond the plan's example" below
 ## Rule
 ...
 
+## Detail
+...                               # added at phase 3 -- see below
+
 ## Why
 ...
 
@@ -59,7 +62,8 @@ BestPractice's real 52 practices turned up two gaps a real implementation
 has to resolve one way or another. Both are phase-1 judgment calls, made
 and recorded here rather than silently decided; both are reversible.
 
-**1. A fourth section, `## Install`.** BestPractice's own catalogue is
+**1. A fourth section, `## Install`.** *(A fifth, `## Detail`, followed at
+phase 3 — see [The Rule/Detail Split](#the-ruledetail-split-phase-3).)* BestPractice's own catalogue is
 Rule + Why + Install, in every one of its 52 practices — "Install" is how a
 dependent repo actually installs the practice: template paths, tool names,
 wiring instructions. The plan's example has nowhere for that text to go.
@@ -153,6 +157,9 @@ format grows a fifth section, or `Rule` is understood as "everything
 normative" and the resident budget does the trimming instead. Not decided
 here.
 
+*(Decided since: the format grew the fifth section. See
+[The Rule/Detail Split](#the-ruledetail-split-phase-3) below.)*
+
 ### What the pass may and may not do
 
 Content preservation is enforced, not asserted. See
@@ -173,6 +180,82 @@ sentence check, and its ordering claim by the source-order check. A check that
 fails on correct work gets suppressed, and is then absent when something is
 actually wrong. `tools/split_practices.py build --diff` still runs; its diff is
 now expected output showing the re-split, not a defect report.
+
+## The Rule/Detail Split (Phase 3)
+
+`## Detail` is the fifth body section, added by
+[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) v20 and applied here.
+It holds **normative operational specifics** — numbered policy rules, worked
+procedures, sub-rules with their own tests: text that is binding but is not
+needed to decide *whether* the practice applies. Same machinery as the
+phase-1.5 pass ([tools/resplit_sections.py](../tools/resplit_sections.py)
+over [tools/section_split.json](../tools/section_split.json)), so the
+decisions are reviewable as data and the text moves by reference rather than
+being retyped.
+
+Two constraints from the plan's phase-3 row governed every decision:
+
+- **`## Rule` must stay loadable on its own.** A session that reads only the
+  Rule must know what to *do*, not merely that something applies. This is the
+  binding constraint, and it is what stopped three practices from being split
+  at all.
+- **`## Detail` comes from the same command.** `precedent show SLUG --detail`,
+  never a second tool — a second extractor is one more thing to drift from
+  [tools/precedent_show.py](../tools/precedent_show.py).
+
+### What it delivered
+
+| | after phase 1 | after phase 1.5 | after phase 3 |
+|---|---|---|---|
+| `## Rule` share of the catalogue | 44% | 40% | **27%** |
+| Practices with `## Rule` over 150 words | 16 | 20 | **7** |
+| Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
+| Words in `## Detail` | — | — | **2,487** |
+
+Seventeen of the fifty-two practices carry a Detail. The resident block —
+the text every session pays for, whatever it is doing — **halved**, which is
+the closest this catalogue has come to the plan's "nine tenths" claim and
+still short of it.
+
+### The three practices that could not be split, and why that is a finding
+
+The mechanism moves text; it cannot write text, because the no-invented-content
+rule forbids it. So a practice can only be split where the source already
+has a seam. Three do not:
+
+| slug | Rule words | why it is irreducible |
+|---|---|---|
+| `permutation-frontier-column` | 358 | The framing paragraph ends *"Three rules:"* and the three rules are one markdown list, which cannot be sliced without flattening it. Rule alone would say a table is being built and stop. |
+| `mistakes-become-rules` | 228 | One 171-word paragraph in which every sentence is an instruction — root-cause it, encode at the strongest rung, discuss the judgment call — plus a proportionality guard that gates *whether the rule fires at all*. Moving the guard to Detail would leave a Rule that mints a practice for every slip, which is the failure the plan opens by diagnosing. |
+| `build-buy-decompose` | 224 | The second of its two moves defines the ownership/capability distinction that the closing instruction depends on; moving either half leaves the other dangling. Only the embedded origin anecdote could be re-homed. |
+
+**This is a property of the source text, not of the pass.** BestPractice's
+practices were written as continuous prose, and a seam only exists where the
+author happened to leave one. Splitting the remaining seven would mean
+writing a new lead-in sentence — which is exactly the invention the converter
+is forbidden to do, and which would break the sentence-for-sentence check
+that makes the whole conversion trustworthy. Doing it deliberately, as an
+authored edit reviewed against the source, is real work; it is not this
+pass's work, and pretending the mechanism could have done it would
+misdescribe why the number stopped where it did.
+
+### One tension worth recording rather than smoothing over
+
+`verify-postcondition` is the catalogue's most-missed resident practice
+([What Phase 2 Measured](../PRACTICE_ENGINE_PLAN.md#what-phase-2-measured):
+judged applicable twice, named by the full-catalogue control **zero** times),
+and this pass moved its two most concrete parts — the pipeline-exit-status
+trap and the explicit-target trap — out of the resident Rule and into Detail.
+The split is correct by the plan's rule (they are elaboration; the Rule stands
+alone without them) and it is the single largest contributor to halving the
+resident block. It may also make that practice's misses worse.
+
+Phase 2's own measurement is the reason not to guess either way: **residency
+did not produce compliance for this practice at any catalogue size**, so
+keeping 117 more words resident had no measured benefit to protect. The
+answer the plan points at is phase 4 — `verify-postcondition` carries
+`checked_by: null` and is on phase 4's starting queue. Recorded here so that
+whoever runs the routing eval after phase 4 knows this changed underneath it.
 
 ## `index_clause`
 

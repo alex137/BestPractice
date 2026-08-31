@@ -24,6 +24,8 @@ do not rebase, amend, or force-push to satisfy the warning. Rewriting published
 history is reserved for an explicit human instruction, never inferred from a
 tool's output.
 
+## Detail
+
 ## Why
 These warnings are written as if every commit they see is yours and
 still local, and the remedy they suggest — `rebase --exec ... --amend` — is

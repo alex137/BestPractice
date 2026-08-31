@@ -29,13 +29,15 @@ semantics, numeric-aware sort keys — lives in **one** shared renderer with a
 registry of the documents it renders ([tools/doc_html.py](tools/doc_html.py)
 is the reference implementation). A functionality change is made there and
 only there, and the no-argument invocation rebuilds every registered render,
-so the change manifests in every table at once. The test for a new
-capability follows: it must manifest on every registered render **from the
-engine alone** — a host or per-document declaration may refine it, never
-gate it, or the "change once, upgrade everywhere" property is silently lost
-for every table that lacks the declaration. Per-document build scripts may
-survive as documented entry points, but as thin wrappers importing the
-shared `render()` — never as forks of the CSS/JS.
+so the change manifests in every table at once.
+
+## Detail
+The test for a new capability follows: it must manifest on every registered
+render **from the engine alone** — a host or per-document declaration may
+refine it, never gate it, or the "change once, upgrade everywhere" property
+is silently lost for every table that lacks the declaration. Per-document
+build scripts may survive as documented entry points, but as thin wrappers
+importing the shared `render()` — never as forks of the CSS/JS.
 
 ## Why
 The failure this kills is the same one practice 33 kills for numbers: N

@@ -25,6 +25,8 @@ rather than the shape of the reader's problem. If a one-sentence statement of
 the audience's question does not appear near the top, you probably skipped
 this.
 
+## Detail
+
 ## Why
 This is a specific failure of *sequence*, not of care: the more thoroughly you
 have just worked something out, the more available it is when you sit down to

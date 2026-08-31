@@ -20,6 +20,8 @@ installed, a tool that silently doesn't work, a path that does work) is
 written into a "do NOT rediscover these" section — with the story of what
 failed and why, not just the fix.
 
+## Detail
+
 ## Why
 
 ## Story

@@ -25,13 +25,15 @@ weakest. **(b)** A source's **qualifiers are part of the figure**:
 *best-case*, *worst-case*, a scenario label, a verify flag, or a fidelity
 grade worse than the house default all travel with the number into every
 document that quotes it. Dropping the label is misquoting, even when the
-digits are copied faithfully. **(c)** When the source in hand is itself a
-**summary of a primary artifact** — a briefing, a digest, a recording's
-recap, a colleague's paraphrase — read the primary before drawing a
-*structural* conclusion from it. A summary preserves the facts its author
-found interesting and silently drops the ones that carry the structure, so
-the omission is invisible from inside the summary: nothing in it looks
-missing.
+digits are copied faithfully.
+
+## Detail
+**(c)** When the source in hand is itself a **summary of a primary
+artifact** — a briefing, a digest, a recording's recap, a colleague's
+paraphrase — read the primary before drawing a *structural* conclusion from
+it. A summary preserves the facts its author found interesting and silently
+drops the ones that carry the structure, so the omission is invisible from
+inside the summary: nothing in it looks missing.
 
 **Corrections that arrive as a pair are adopted as a pair.** When verifying a
 figure against sources turns up two corrections to the same item that pull in

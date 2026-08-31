@@ -22,12 +22,7 @@ answering it as posed produces a yes/no about a supplier when what was needed
 was a map. Two moves, in order.
 
 **First, decompose the thing being procured, and give each part its own
-verdict.** The parts usually disagree, and the disagreement is the answer. The
-diagnostic is blunt: **if your answer is a single yes/no, you probably have not
-checked whether the thing has parts with different answers.** In the origin
-case a four-way split turned "wrong supplier" into "right supplier, wrong
-layer" — which is a usable answer, where a flat no would have closed a door
-worth keeping open.
+verdict.** The parts usually disagree, and the disagreement is the answer.
 
 **Second, rest the verdict on ownership arguments rather than capability
 arguments, then check that it survives being wrong about the supplier.**
@@ -45,6 +40,13 @@ The distinction is what makes a decision durable:
 
 Label each argument as one or the other while writing. A recommendation built
 on capability has a shelf life measured in the supplier's release cadence.
+
+## Detail
+The diagnostic is blunt: **if your answer is a single yes/no, you probably
+have not checked whether the thing has parts with different answers.** In
+the origin case a four-way split turned "wrong supplier" into "right
+supplier, wrong layer" — which is a usable answer, where a flat no would
+have closed a door worth keeping open.
 
 ## Why
 The failure this prevents is not choosing wrongly between two known

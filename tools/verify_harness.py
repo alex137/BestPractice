@@ -262,7 +262,20 @@ def _source_sentences(orig):
     return _sentences(orig['rule']) + _sentences(orig['why']) + _sentences(orig['install'])
 
 
-SECTION_ORDER = ('rule', 'why', 'story', 'install')
+SECTION_ORDER = ('rule', 'detail', 'why', 'story', 'install')
+
+
+def _whole_body(sections, join=' '):
+    """Every body section, in file order.
+
+    Three checks used to spell this list out by hand, and they disagreed with
+    each other: two omitted `story`, so invented content there went unchecked,
+    and all three omitted `detail` the moment it was added -- caught by the
+    no-lost-content check firing on 17 practices, which is the one place a
+    dropped section shows up as words going missing rather than as silence.
+    Derive it from SECTION_ORDER instead; a sixth section is then in every
+    content check by construction."""
+    return join.join(sections.get(name, '') for name in SECTION_ORDER)
 
 
 def _output_sentences_by_section(sections):
@@ -290,7 +303,8 @@ def check_content_preserved_by_sentence(files, original_practices_by_number):
                 print(f"      LOST     {s[:100]!r}")
             for s in list(gained)[:3]:
                 print(f"      INVENTED {s[:100]!r}")
-    check('content preserved sentence-for-sentence (Rule+Why+Story+Install == the '
+    check('content preserved sentence-for-sentence '
+          '(' + '+'.join(s.capitalize() for s in SECTION_ORDER) + ' == the '
           'source practice, both directions)', ok)
 
 
@@ -383,8 +397,7 @@ def check_no_invented_content(files, original_practices_by_number):
             print(f"  {f.name}: no source_practice_number {num!r} found in PRACTICES.md")
             continue
         orig_body = orig['rule'] + ' ' + orig['why'] + ' ' + orig['install']
-        out_body = (sections.get('rule', '') + ' ' + sections.get('why', '') + ' '
-                    + sections.get('install', ''))
+        out_body = _whole_body(sections)
         out_tokens = _tokens(out_body)
         orig_tokens = _tokens(orig_body)
         # token-multiset subset: every word the split file uses, it uses no
@@ -417,8 +430,7 @@ def check_no_lost_content(files, original_practices_by_number):
         if orig is None:
             continue  # already reported by check_no_invented_content
         orig_body = orig['rule'] + ' ' + orig['why'] + ' ' + orig['install']
-        out_body = (sections.get('rule', '') + ' ' + sections.get('why', '') + ' '
-                    + sections.get('story', '') + ' ' + sections.get('install', ''))
+        out_body = _whole_body(sections)
         lost = _tokens(orig_body) - _tokens(out_body)
         if lost:
             ok = False
@@ -529,10 +541,8 @@ def check_no_cross_practice_duplication(files, original_practices_by_number):
     and over PRACTICES.md itself while it is still the upstream source."""
     ok = True
 
-    named = [(stem, _body_lines(
-        sections.get('rule', '') + '\n' + sections.get('why', '') + '\n'
-        + sections.get('story', '') + '\n' + sections.get('install', '')))
-        for stem, (fm, sections, f) in sorted(files.items())]
+    named = [(stem, _body_lines(_whole_body(sections, join='\n')))
+             for stem, (fm, sections, f) in sorted(files.items())]
     for a, b, n, first in _shared_runs(named, DUPLICATE_RUN_LINES):
         ok = False
         print(f"  practices/{a}.md and practices/{b}.md share {n}+ consecutive identical "

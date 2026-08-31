@@ -22,6 +22,7 @@ mechanism now serves, before you call the design done. The question is not
 "could this be abused" in the abstract; it is the concrete one: **the capability
 I just built is available to whoever else shows up, so who shows up?**
 
+## Detail
 **What to do instead — three moves, in order of how much they usually buy:**
 
 1. **Invert the default from announce to answer.** The strongest fix is usually

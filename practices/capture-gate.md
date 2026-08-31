@@ -22,6 +22,8 @@ document update, a registry entry, an exported practice, a decision record).
 Capture it **in that thread, before merging** — as step 0 of the merge
 runbook. Never park it in a "for later review" staging document.
 
+## Detail
+
 ## Why
 Deferred capture repeatedly lost both the rationale (the merging
 thread didn't know why the matter existed) and the timestamp (priority went

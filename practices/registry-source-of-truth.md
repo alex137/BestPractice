@@ -22,6 +22,8 @@ machine-readable registry. Human-readable documents restate it; they never
 own it. When registry and document disagree, the registry wins — and an audit
 (practice 6) detects the disagreement.
 
+## Detail
+
 ## Why
 Duplicated state always diverges.
 

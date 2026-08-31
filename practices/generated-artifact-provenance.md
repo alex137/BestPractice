@@ -23,6 +23,8 @@ content hash) produced it. Outputs are gitignored and marked binary in
 `.gitattributes`; only artifacts that actually shipped get committed
 (force-added), alongside their manifest.
 
+## Detail
+
 ## Why
 
 ## Story

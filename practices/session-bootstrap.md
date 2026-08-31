@@ -26,6 +26,8 @@ its own git hygiene before stopping — a stop hook that blocks on
 uncommitted, untracked, or unpushed work makes that guarantee automatic
 instead.
 
+## Detail
+
 ## Why
 The gotchas of practice 4, applied: writing the fix down is good;
 having it apply itself is better. The hook is where "install the one package

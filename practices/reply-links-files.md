@@ -20,6 +20,7 @@ A session's reply that created or modified files ends with a
 its post-merge location, with a one-line description. The reader must be able
 to open the work from the chat, not merely learn it exists.
 
+## Detail
 **Rendered files get a rendered-view link, not just a repo link.** A
 repository link to an HTML file or an image shows source or a raw blob — the
 one form of the file the reader did *not* want. When the session's surface

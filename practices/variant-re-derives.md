@@ -27,6 +27,8 @@ attributes come in two kinds, and both fail silently:
 - **Choices the base made** — which the variant is free to change, and which
   you may be carrying only because they were already there.
 
+## Detail
+
 ## Why
 The asymmetry is what makes this hard to catch. A constraint you violate tends
 to produce an obviously wrong answer eventually. A choice you fail to re-open

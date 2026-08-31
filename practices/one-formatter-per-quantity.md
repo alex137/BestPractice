@@ -30,6 +30,7 @@ The formatter object carries the kind's **whole** policy: decimal places,
 any threshold above which values print as thousands-separated integers,
 approximation marking, unit affixes.
 
+## Detail
 **The underlying rule — representation is a property of the comparison
 set, not of the individual value.** Every recurrence of this defect class
 has the same shape: the format was computed from one value at a time (a

@@ -27,6 +27,7 @@ practice text carries the behavior contract (the numbered spec of what the
 tool delivers), which is also what lets a host on a different stack
 reimplement deliberately rather than accidentally.
 
+## Detail
 **The rule of thumb for what goes where:** if a change would be wanted by
 every repo using the tool, it is engine — edit the vendored file, and it
 ships upstream at the next check-in; if only this repo would want it, it is

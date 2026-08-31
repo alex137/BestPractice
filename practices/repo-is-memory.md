@@ -19,6 +19,8 @@ Everything a future session needs — orientation, open items,
 decisions, lessons — lives in committed files. A session's chat thread is
 disposable; if knowledge exists only in a thread, it is already lost.
 
+## Detail
+
 ## Why
 Agent sessions (and humans returning after a month) start cold.
 Repos that kept context in threads paid a re-derivation tax every session —

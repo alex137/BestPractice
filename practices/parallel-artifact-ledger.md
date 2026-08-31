@@ -30,6 +30,8 @@ originating matter, and per member either *applied as `<what>`* or *no
 transfer because `<reason>`* — with a small **audit that fails any change
 date lacking a complete row**.
 
+## Detail
+
 ## Why
 
 ## Story

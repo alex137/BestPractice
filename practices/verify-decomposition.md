@@ -26,6 +26,17 @@ anything is charged twice or not at all: a shared budget spent by two consumers,
 work computed over the wrong path length, an actor whose own cost was never
 booked because the analysis was framed around the other actor.
 
+The tell is a negative conclusion stated without a sensitivity beside it. Before
+writing that something cannot be done, vary the inputs that would relieve it and
+report the boundary instead: the conclusion is nearly always *"blocked here,
+available there,"* which is far more useful than a flat no.
+
+**Never encode an impossibility as an assertion until you have done that.** A
+check that asserts a negative locks the error in as an invariant and defends it
+against the next person who suspects otherwise — converting a soft mistake into
+a hard one, and putting the burden of proof on whoever is right.
+
+## Detail
 **Two things fix it, and only the second is reliable:**
 
 1. **Assert on the decomposition.** Write checks that each term is *present* and
@@ -38,16 +49,6 @@ booked because the analysis was framed around the other actor.
    differently-structured derivation catches. Commit it as a harness rather than
    discarding it — the errors it catches recur, and a review that lives in
    someone's scratch directory protects nothing.
-
-The tell is a negative conclusion stated without a sensitivity beside it. Before
-writing that something cannot be done, vary the inputs that would relieve it and
-report the boundary instead: the conclusion is nearly always *"blocked here,
-available there,"* which is far more useful than a flat no.
-
-**Never encode an impossibility as an assertion until you have done that.** A
-check that asserts a negative locks the error in as an invariant and defends it
-against the next person who suspects otherwise — converting a soft mistake into
-a hard one, and putting the burden of proof on whoever is right.
 
 ## Why
 **(a) A plausible total can hide errors that cancel.** If one term is omitted and

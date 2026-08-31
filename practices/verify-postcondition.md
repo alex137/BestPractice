@@ -21,6 +21,7 @@ the command — *"no unpushed commits on any branch"*, *"the gate passed"*,
 *"the file contains X"* — and then test that, independently of whatever the
 command printed.
 
+## Detail
 Two traps deserve naming because they produce confident, wrong success
 messages:
 

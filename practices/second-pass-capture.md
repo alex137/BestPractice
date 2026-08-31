@@ -29,6 +29,8 @@ rather than only in the conversation? (e) are the **indexes, registries, and
 glossaries** synced? Run the sweep before the merge-time capture gate
 (practice 10), so what it finds lands in the same change-set as the work.
 
+## Detail
+
 ## Why
 The production mindset cannot audit itself: while drafting, every
 idea feels captured because it was *thought*. In the origin repo, an

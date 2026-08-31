@@ -23,6 +23,8 @@ is written from the actual diff; a gate is checked only when it is actually
 true for this change. An unchecked box, or a "not applicable" note, is a
 normal and expected outcome — never a defect to paper over.
 
+## Detail
+
 ## Why
 A template with a fixed checklist is worth nothing the moment
 filling it in becomes reflex: "N/A" typed into every box looks exactly like

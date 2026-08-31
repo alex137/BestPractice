@@ -17,17 +17,6 @@ source_practice_number: 52
 source_rule_unlabeled: true
 ---
 ## Rule
-When a model charges one party for what another receives — work for
-kinetic energy, spend for inventory, a debit for a credit — the
-plausibility check everyone naturally runs is *"does the charge equal
-the recipient's gain?"* That check is the trap, not the verification:
-**the recipient-side ledger balances by construction.** Charging a
-force over the recipient's displacement always yields exactly the
-recipient's gain; charging a spend against the goods received always
-matches the goods. What that one-sided check can never see is the
-term between the parties — dissipation, friction, spoilage, fees —
-which the payer also pays, over the **payer's own path**.
-
 The rule: any closed-form gate or feasibility formula that books a
 transfer must **(a) name its sources and sinks explicitly** — every
 account the quantity can come from and every account it can land in —
@@ -38,6 +27,18 @@ the closed form against it and assert the band; where none exists, a
 one-line back-of-envelope inventory (is the payer's total available
 even of the right order against the sink side?) belongs in the
 derivation's comment.
+
+## Detail
+When a model charges one party for what another receives — work for
+kinetic energy, spend for inventory, a debit for a credit — the
+plausibility check everyone naturally runs is *"does the charge equal
+the recipient's gain?"* That check is the trap, not the verification:
+**the recipient-side ledger balances by construction.** Charging a
+force over the recipient's displacement always yields exactly the
+recipient's gain; charging a spend against the goods received always
+matches the goods. What that one-sided check can never see is the
+term between the parties — dissipation, friction, spoilage, fees —
+which the payer also pays, over the **payer's own path**.
 
 ## Why
 **Why review misses it.** Two compounding effects, both observed in

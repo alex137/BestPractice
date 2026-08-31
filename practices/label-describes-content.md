@@ -21,6 +21,8 @@ actually introduces. Do not title something "in one line" / "one-pager" / "in
 one paragraph" / "TL;DR" unless it literally is that. If a section runs to a
 page, name it for its content, not for a brevity it doesn't have.
 
+## Detail
+
 ## Why
 
 ## Story

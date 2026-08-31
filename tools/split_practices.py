@@ -308,6 +308,11 @@ def cmd_split(force=False):
         out = [_frontmatter(p, meta)]
         out.append('## Rule\n')
         out.append(p['rule'] + '\n')
+        # Empty at split time, exactly as ## Story is: the mechanical converter
+        # routes by the source's own bold labels, and BestPractice's catalogue
+        # has no "Detail." label to route on. Filling it is the editorial pass
+        # (tools/resplit_sections.py), which moves text by reference.
+        out.append('\n## Detail\n')
         out.append('\n## Why\n')
         out.append((p['why'] + '\n') if p['why'] else '')
         out.append('\n## Story\n')
@@ -351,7 +356,7 @@ def _read_practice_file(path):
     cur = None
     buf = []
     for line in body.split('\n'):
-        m = re.match(r'^## (Rule|Why|Story|Install)$', line)
+        m = re.match(r'^## (Rule|Detail|Why|Story|Install)$', line)
         if m:
             if cur:
                 sections[cur] = '\n'.join(buf).strip('\n')
@@ -405,6 +410,12 @@ live in `templates/`; tools in `tools/`.''')
         rule = sections.get('rule', '')
         rule_block = rule if fm.get('source_rule_unlabeled') == 'true' else _labeled('Rule', rule)
         parts = [f'## {num}. {title}', rule_block]
+        # Detail is normative text that used to sit inside Rule, so it rebuilds
+        # immediately after it, under Rule's own label. Emitting it anywhere
+        # else would reorder the practice against its source.
+        detail = sections.get('detail', '')
+        if detail:
+            parts.append(detail)
         why = sections.get('why', '')
         if why:
             parts.append(_labeled('Why', why))

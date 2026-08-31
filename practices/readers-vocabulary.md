@@ -25,6 +25,8 @@ gloss it inline on first use — a short parenthetical, in the sentence, not a
 pointer to a glossary. The test that catches most cases: *if the term can be
 replaced by a plain description of five words or fewer, it is jargon.*
 
+## Detail
+
 ## Why
 Jargon in an outward-facing document usually arrives from the
 **sources**, not from the author — and that is what makes it systematic

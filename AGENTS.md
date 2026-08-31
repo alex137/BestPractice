@@ -23,7 +23,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~621 of 2000 token budget, 6 of 52 practices)
+### Resident block (~312 of 2000 token budget, 6 of 52 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -43,17 +43,6 @@ actually hunt for.
 its post-merge location, with a one-line description. The reader must be able
 to open the work from the chat, not merely learn it exists.
 
-**Rendered files get a rendered-view link, not just a repo link.** A
-repository link to an HTML file or an image shows source or a raw blob — the
-one form of the file the reader did *not* want. When the session's surface
-offers hosted private previews (an artifact/paste service the harness
-provides), a touched HTML render or picture's entry also carries that
-rendered-view link, published from the same file path each time so the link
-stays stable across revisions — one preview per file, re-published on
-meaningful change, never a new one per reply. Files that are per-recipient
-send records are excluded: a hosted preview is a distribution channel, and
-those files' distribution is governed by their own send policy.
-
 **repo-is-memory.** Everything a future session needs — orientation, open items,
 decisions, lessons — lives in committed files. A session's chat thread is
 disposable; if knowledge exists only in a thread, it is already lost.
@@ -63,19 +52,6 @@ not that the command reported success. Name the postcondition before you run
 the command — *"no unpushed commits on any branch"*, *"the gate passed"*,
 *"the file contains X"* — and then test that, independently of whatever the
 command printed.
-
-Two traps deserve naming because they produce confident, wrong success
-messages:
-
-- **A pipeline's exit status is its last command's.** `check | tail && publish`
-  does not gate on `check`. The gate can print FAIL in plain sight and the
-  publish still proceeds. Run gates bare and test `$?`; if you pipe for
-  readability, capture the status first or use the shell's pipe-status
-  facility.
-- **A command with an explicit target acts on the target you named, not the
-  context you are in.** Publishing by naming a branch publishes *that* branch,
-  whether or not it is the one you have been working on. If it has not moved,
-  the operation succeeds as a no-op and says so.
 
 ### Occasion index
 

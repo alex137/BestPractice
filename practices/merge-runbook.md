@@ -26,6 +26,8 @@ the committed manifest wins; unshipped builds are deleted and rebuilt). The
 audits (practice 6) must pass before the merge commits — the audit, not
 re-inspection, is what makes fast mechanical resolution safe.
 
+## Detail
+
 ## Why
 
 ## Story

@@ -37,6 +37,8 @@ statement, lost work). Prefer strengthening an existing rule or audit over
 minting a new one — rule-bloat is itself a failure mode, and a silent rule
 nobody agreed to is how it starts.
 
+## Detail
+
 ## Why
 Repos that only fix instances relive their mistakes with new
 surface details; the systemic cause remains free to fire again. The

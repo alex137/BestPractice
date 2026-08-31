@@ -29,6 +29,8 @@ evolution itself carries lessons worth keeping, they go in a dedicated
 evolution-notes document the index points to. Commit messages carry the
 rest.
 
+## Detail
+
 ## Why
 **Why the index and not the document.** A document is read for its content;
 an index is read for orientation — lineage is orientation. Provenance notes

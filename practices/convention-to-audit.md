@@ -21,6 +21,8 @@ convention is violated with real cost, promote it to a script that detects the
 violation and fails the build/merge — and keep the origin story in the
 script's docstring.
 
+## Detail
+
 ## Why
 Every audit in the originating repo exists because its rule was
 broken once despite being written down: a status flag not flipped caused a

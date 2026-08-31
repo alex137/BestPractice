@@ -26,6 +26,8 @@ person or a session can ask for one or the other unambiguously ("run the
 light check before you commit that" vs. "this needs a deep check before we
 merge") instead of re-describing what "check" means every time.
 
+## Detail
+
 ## Why
 Without named levels, "run the checks" is ambiguous between two
 very different costs, and the drift goes one of two ways: sessions run the

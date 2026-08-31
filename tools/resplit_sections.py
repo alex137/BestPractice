@@ -18,8 +18,26 @@ text that belongs in Why.
 
 This tool performs the second, editorial half of the split the plan
 describes as "LLM-assisted and human-reviewed, once per practice" -- moving
-text between Rule / Why / Story / Install without touching a character of
-it.
+text between Rule / Detail / Why / Story / Install without touching a
+character of it.
+
+`## Detail` was added at phase 3 (plan v20), for the reason phase 1.5
+measured: `## Rule` came out at 40% of the corpus rather than the predicted
+tenth, because a large share of each practice is genuinely NORMATIVE text
+that is neither reasoning, nor an incident, nor wiring -- numbered policy
+rules, worked decision procedures, sub-rules with their own tests -- and had
+nowhere else to go. Two constraints govern what may move there, both from the
+plan's phase-3 row: `## Rule` must stay loadable ON ITS OWN, so a session
+reading only the Rule knows what to DO rather than merely that something
+applies; and `## Detail` comes from the same `precedent show` command, never
+a second one.
+
+The consequence, worth stating because it limits what this pass could
+achieve: this mechanism moves text, it cannot write it. Where a practice's
+actionable instruction lives inside a paragraph that cannot be sliced -- a
+markdown list, or a lead-in whose colon dangles without what follows -- there
+is no split that leaves a loadable Rule behind, and the honest outcome is to
+leave that practice's Rule whole. Three did: see spec/PRACTICE_FORMAT.md.
 
 WHY THIS IS A TOOL AND A DATA FILE RATHER THAN 52 HAND-EDITS. Re-homing
 52 practices by editing each file is 52 opportunities to retype a sentence
@@ -48,7 +66,7 @@ the imperative and continues into rationale:
     R0.s0-1   sentences 0 and 1 of Rule paragraph 0
     R0.s2-    sentence 2 to the end
 
-Every reference must be used exactly once across the four target sections:
+Every reference must be used exactly once across the five target sections:
 this script refuses to run otherwise, so a paragraph cannot be silently
 dropped or accidentally duplicated by a typo in the spec. That is a
 structural guard, not the real one -- tools/verify_harness.py's
@@ -68,7 +86,7 @@ SPEC_PATH = ROOT / 'tools' / 'section_split.json'
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
 
-SECTIONS = ('rule', 'why', 'story', 'install')
+SECTIONS = ('rule', 'detail', 'why', 'story', 'install')
 SOURCE_SECTIONS = ('rule', 'why', 'install')
 PREFIX = {'R': 'rule', 'W': 'why', 'I': 'install'}
 REF_RE = re.compile(r'^([RWI])(\d+)(?:\.s(\d+)-(\d*))?$')

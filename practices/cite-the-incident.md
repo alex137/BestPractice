@@ -18,6 +18,8 @@ source_practice_number: 5
 ## Rule
 When you write a rule, record what failure it prevents, inline.
 
+## Detail
+
 ## Why
 "Do X" invites relitigation and misapplication; "do X — we once lost
 Y because Z" sticks, and lets a reader judge whether the rule applies to their

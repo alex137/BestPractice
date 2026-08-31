@@ -21,6 +21,7 @@ search the repository twice: once in the vocabulary of the **mechanism** (how th
 thing works) and once in the vocabulary of the **purpose** (why it was done). Then
 make your own output findable under both.
 
+## Detail
 **The other half is your own output.** Everything above applies to the next
 reader looking for what you just wrote. So:
 

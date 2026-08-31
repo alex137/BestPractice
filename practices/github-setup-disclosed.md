@@ -28,6 +28,8 @@ administrator section — [INSTALL.md](INSTALL.md) records the installation
 mechanics; GETTING_STARTED.md records the consequence for this project's
 administrator.
 
+## Detail
+
 ## Why
 An install can turn on a GitHub Actions workflow and record that
 fact faithfully in this repo's own technical install log — a document a

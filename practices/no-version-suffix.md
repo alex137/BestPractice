@@ -27,6 +27,8 @@ alone — bulk-renaming breaks the very references (links, records) the names ar
 load-bearing for; drop the suffix only from a file already being moved for
 another reason, fixing its references in the same pass.
 
+## Detail
+
 ## Why
 "`_v1`" is the classic redundant-with-VCS habit: it answers a question
 the version-control history already answers, and unlike the history it does not

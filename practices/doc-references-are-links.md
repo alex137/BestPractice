@@ -27,6 +27,8 @@ GitHub's sanitizer strips `target=` (and most other attributes) from
 anchors in rendered markdown, so an "open in new tab" link silently does
 nothing there (*as of 2026-08*).
 
+## Detail
+
 ## Why
 All born from real bugs: readers hunting for referenced files, an
 outward-facing document that rendered with unintended strikethrough, and a

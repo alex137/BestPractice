@@ -35,6 +35,7 @@ input transformed by a wrong law. And **never refit an anchor to silence it**:
 a failing anchor means a script and a document of record disagree, which is
 always a human's decision, and the resolution runs in both directions.
 
+## Detail
 Scope it. Instrument the scripts that **consume or re-derive a quantity another
 script or an authoritative document owns** — that is where this failure class
 lives. Scripts that own their own numbers end to end need nothing. Keep the

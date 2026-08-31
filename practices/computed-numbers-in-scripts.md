@@ -32,6 +32,8 @@ the repo's other pre-commit gates; `--write` regenerates the blocks in place.
 Never hand-edit inside a generated block: the numbers live in the script, the
 document is a render target.
 
+## Detail
+
 ## Why
 Derived numbers quoted in prose silently lag the source that computes
 them. Nothing breaks; a human just has to *notice* the staleness — and in one
