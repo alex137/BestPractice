@@ -1,6 +1,19 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-2 review session -->
+<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-3 build session -->
 
 # Phase 3 Brief — Split the Sources
+
+**Status: phase 3 is done on Precedent's side.** This is kept as the record
+of what phase 3 was handed, not as a live work list. What phase 3 actually
+built, what it deliberately did not, and what remains open are in
+[spec/SOURCES.md](SOURCES.md) and in the plan's
+[What Phase 3 Built, and What It Could Not](../PRACTICE_ENGINE_PLAN.md#what-phase-3-built-and-what-it-could-not).
+The short version: items 2–6 below are done; **item 1 — populating the two
+private sets from RepoPersonalPreferences' 46 rules — is not, and cannot be
+done by a session working in Precedent.** A session cannot hold repositories
+from two owners with push access at once, and the plan forbids staging
+private content on this branch even transiently. That work belongs to a
+session opened against those repositories. See
+[What phase 4 inherits](#what-phase-4-inherits) at the end.
 
 Written for the session that does phase 3, by the session that closed phase
 2. Read [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) first — this
@@ -129,3 +142,35 @@ practice must carry its originating incident"* is a single function in the
 harness we already run. It is the most-missed practice in the catalogue and
 the cheapest to enforce. **Leave it for phase 4** — but do not let the
 phase-3 work make it harder.
+
+## What phase 4 inherits
+
+Phase 4 is the enforcement push. Its starting queue is unchanged from what is
+written above, and three things phase 3 changed underneath it are worth
+knowing before it runs:
+
+- **`verify-postcondition`'s Rule is now shorter.** Its two most concrete
+  parts — the pipeline-exit-status trap and the explicit-target trap — moved
+  into `## Detail`, so a session that loads only the resident Rule no longer
+  sees them. It is the queue's most-missed resident practice, so if the
+  routing eval is re-run after phase 4, this changed between the runs and the
+  comparison is not clean without accounting for it.
+- **`cite-the-incident` is still the cheapest one, and got no cheaper or
+  dearer.** Practices are files with a `## Story` section; "a new practice
+  must carry its originating incident" is one function in the harness we
+  already run. Phase 3 did not touch it, as the brief asked.
+- **Three practices' Rules could not be split** — `permutation-frontier-column`,
+  `mistakes-become-rules`, `build-buy-decompose`. `mistakes-become-rules` is
+  on phase 4's queue, and its length is the reason it is still 228 words: the
+  proportionality guard that gates whether it fires at all cannot leave the
+  Rule without changing what the practice does. If it gains a `checked_by`,
+  the check has to carry that gate, not just the encode-the-prevention half.
+
+One thing phase 3 added that phase 4 should use rather than rebuild: the
+harness now has two worked examples of a check that tests a **behaviour** by
+planting cases in a throwaway repository and asserting the exit status
+(`check_leak_gate_fires`, `check_source_precedence`), rather than running the
+thing and reporting what it says. Every practice converted to a
+`checked_by` needs a test proving its check fires — the plan is explicit that
+a `checked_by` without one is not finished — and that is the shape it should
+take.

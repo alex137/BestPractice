@@ -68,10 +68,12 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | Path | What it is |
 |---|---|
 | [tools/split_practices.py](tools/split_practices.py) | [PRACTICES.md](PRACTICES.md) ↔ [practices/](practices/) converter |
-| [tools/precedent_show.py](tools/precedent_show.py) | Load a practice's Rule/Why/Story/Install — the one code path that reads a practice file |
+| [tools/precedent_show.py](tools/precedent_show.py) | Load a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | Path-triggered channel — matches a touched file against every practice's `applies_to` |
+| [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
+| [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
 | [tools/build_views.py](tools/build_views.py) | This file, [GLOSSARY.md](GLOSSARY.md), and AGENTS.md's loader block — generated views |
-| [tools/resplit_sections.py](tools/resplit_sections.py) | The phase-1.5 editorial Rule/Why/Story split, applied from [tools/section_split.json](tools/section_split.json) |
+| [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from [tools/section_split.json](tools/section_split.json) |
 | [tools/behavioral_replay.py](tools/behavioral_replay.py) | Measures the loader against this repo's own commit history |
 | [tools/verify_harness.py](tools/verify_harness.py) | The verification harness — run before trusting any change here |
 

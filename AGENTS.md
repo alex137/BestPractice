@@ -173,9 +173,14 @@ that skips them in this repo of all places is the joke writing itself.
 | The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
-| The phase-3 brief (start here for the next phase) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
-| The leak gate (push-time; structural now, vocabulary at phase 3) | [tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check |
-| The phase-1.5 editorial re-split, as reviewable data | [tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py) |
+| The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
+| The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |
+| Precedent explained for someone adopting it (not a developer) | [ADOPTING.md](ADOPTING.md) |
+| Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
+| An example personal practice set | [examples/practice-set/](examples/practice-set/) |
+| The private-term blocklist template (copy into your own private set) | [templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template) |
+| The leak gate (push-time; both layers live) | [tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check |
+| The editorial section split, as reviewable data | [tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py) |
 | The converted practice files (phase 1) | [practices/](practices/) |
 | What each practice is and why | [PRACTICES.md](PRACTICES.md) |
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |

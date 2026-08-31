@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 18:30:00 (Buenos Aires) by Morgan F, to version 21 -->
+<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session, to version 22 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -870,7 +870,7 @@ For any repo, before and after migration:
 | 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Open the Precedent branch. Agree this plan. | The branch exists on a current base and this document is approved or amended. |
 | 1 | **Format, converter, harness.** Write the spec and the verification harness; convert Precedent's catalogue; fix the small tooling debts (freshness escalation, drift re-stamp churn). | Practices are files; the catalogue regenerates byte-identically; harness passes. |
 | 2 ✅ | **Loader and generated views.** *(Closed 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
-| 3 | **Split the sources.** Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. |
+| 3 ◐ | **Split the sources.** *(Precedent's half closed 2026-08-31 — see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).)* Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. **All four hold. The one part still open is populating the two private sets from RPP's 46 rules, which cannot be done from a session working in Precedent — see the phase-3 section.** |
 | 4 | **Enforcement push.** *(Swapped ahead of the creation pipeline, 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Convert checkable practices to scripts, starting with the ones phase 2 measured as most-missed; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above the current 8-of-52; each converted practice has a test proving its check fires; the routing eval re-run shows the converted practices no longer missed. |
 | 5 | **The creation pipeline.** Candidates, detection signals, promotion criteria, approval routing, the periodic retirement report. | A candidate can be raised, promoted and landed end to end; a candidate failing any of the four criteria is refused with a reason. |
 | 6 | **Migrate consumer repos**, one at a time, harness-gated. | Each repo passes the harness before its migration lands. |
@@ -1041,6 +1041,113 @@ control. The oracle-free head-to-head (15 versus 3) points the same way, so
 the direction is not an artifact of the key, but the exact gap could be.
 A human spot-check of a dozen oracle answers would settle it and has not been
 done.
+
+## What Phase 3 Built, and What It Could Not
+
+**Phase 3 is closed on Precedent's side and open on the private sets' side,
+and the split is not a matter of how much time there was.** Everything the
+private sets plug into exists, is tested, and is documented. Nothing has been
+written into the private sets, and no session working in Precedent can write
+into them.
+
+### The done-when conditions, one by one
+
+| Condition | State |
+|---|---|
+| The leak gate's **vocabulary** layer passes | **Met.** Switched on, and three ways it passed on a leak were found and fixed first (see below). |
+| A consumer repo resolves all three sources, and precedence is tested | **Met.** [tools/precedent_resolve.py](tools/precedent_resolve.py); 17 stated cases in the harness, each verified by breaking the resolver. |
+| `## Rule` is short enough to be worth loading, with the specifics in `## Detail` | **Met.** Rule is 27% of the catalogue (was 40%); the resident block halved, ≈621 → ≈312 tokens. |
+| A README someone outside the project can follow | **Met.** [ADOPTING.md](ADOPTING.md), written to the measured claim rather than the hoped-for one. |
+| The frozen example set | **Met** — and invented rather than copied; see [spec/SOURCES.md](spec/SOURCES.md) for why that is the better artifact and not merely the available one. |
+| The private sets **populated** from RPP's 46 rules | **Not started.** |
+
+### Why the private sets could not be populated from here
+
+Two independent reasons, both structural rather than circumstantial:
+
+- **A session cannot hold repositories from two owners with push access at
+  once.** The two private sets belong to a different account than
+  BestPractice. The session that populates them is a session opened against
+  *them*.
+- **This plan forbids it regardless.** [Risks](#risks): *"Nothing from an
+  individual or team set may be staged on this branch at any point, even
+  transiently."* Every push here publishes into a public repository owned by
+  someone else. Doing the migration "from here" means holding private content
+  in this working tree, which is the exposure the whole arrangement exists to
+  prevent.
+
+So phase 3 built the receiving half. Whoever does the migration now has a
+resolver, a tested precedence contract, a worked example, and a blocklist
+template to work against rather than a blank page. **What that leaves
+unproven is stated rather than glossed:** the precedence contract is tested
+against fixture practices, not against RPP's real 46, and a real migration
+will raise allocation questions — which rules are genuinely generic, which
+are one person's — that no fixture can raise.
+
+### The three ways the leak gate passed on a leak
+
+Recorded here because the gate is the one control standing between a private
+word and a publication that cannot be taken back, and because all three were
+found by **testing the gate rather than reading it**. Each printed a
+confident `leak gate OK` on a push that would have published a blocked term:
+
+- **`--range` used the net `git diff A..B`.** A file added in one commit and
+  removed in a later one, in the same push, does not appear in that diff at
+  all — and its blob is published regardless, readable forever at the commit
+  that added it.
+- **The gate then read the working tree.** Having listed the file names out
+  of git, it read each name off disk. A term staged and cleaned up
+  afterwards, or committed and then reverted, scanned as clean.
+- **Commit messages were never scanned.** They are published verbatim, and a
+  message is exactly where a session narrates what it was working on.
+
+The gate now walks a range commit by commit, reads blobs out of git, and
+scans messages. Two further ways it could look switched on while doing
+nothing are closed as well: it **failed open** when
+`PRECEDENT_LEAK_BLOCKLIST` was lost (a new shell, a cron job, a cloud
+session) — `git config precedent.requireVocabulary true` now makes that
+fatal — and a blocklist of nothing but comments reported as configured and
+passed with zero patterns.
+
+**Why nothing caught these**, which is the transferable part: the harness's
+existing leak-gate check ran the gate on the tree and reported what it said.
+That is a check on the *tree*, not on the *gate*, and it passes just as
+happily once the gate has stopped looking. The replacement states twelve
+cases against a throwaway repository and asserts the exit status. This is the
+third time in this project that a check written against the same assumption
+as the thing it checked has been green over a real defect.
+
+### The `## Detail` split, and the three practices that refused it
+
+| | phase 1 | phase 1.5 | phase 3 |
+|---|---|---|---|
+| `## Rule` share of the catalogue | 44% | 40% | **27%** |
+| Practices with `## Rule` over 150 words | 16 | 20 | **7** |
+| Resident block | — | ≈621 tokens | **≈312 tokens** |
+
+Seventeen practices gained a Detail. **Three cannot be split at all**, and
+that is a finding about the source text rather than a gap in the pass: the
+mechanism moves text by reference and the no-invented-content rule forbids it
+to write text, so a practice can only be split where its author happened to
+leave a seam. `permutation-frontier-column`, `mistakes-become-rules` and
+`build-buy-decompose` do not have one — in each case, what would remain in
+`## Rule` fails the plan's own constraint that a session reading only the
+Rule must know what to *do*. Splitting the remaining seven means authoring
+new lead-in sentences, reviewed against the source; real work, and not
+something a move-only mechanism can do. Per-practice reasoning in
+[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md).
+
+**One tension recorded rather than smoothed over.** The split moved
+`verify-postcondition`'s two most concrete parts out of the resident Rule.
+That practice is the catalogue's most-missed resident one — judged applicable
+twice and named by the full-catalogue control zero times — so the change may
+make its misses worse. It is correct by this plan's rule, and it is the
+single largest contributor to halving the resident block; and
+[What Phase 2 Measured](#what-phase-2-measured) is the reason not to guess
+either way, since residency produced no measured compliance for this practice
+to protect. It carries `checked_by: null` and is on phase 4's starting queue.
+Whoever re-runs the routing eval after phase 4 should know this moved
+underneath it.
 
 ## What Morgan Needs to Do
 
@@ -1303,6 +1410,19 @@ public repo**. Fixed forward, not by rewriting published history (practice
 `themorgan/precedent-individual` and `themorgan/precedent-team-maintainers`
 are created, so phase 3's repository prerequisites are met and only the
 content split and the leak gate remain.
+
+**2026-08-31 — phase 3 closed on Precedent's side; the private-set migration
+is not startable from here.** All four of phase 3's done-when conditions are
+met in this repository: the leak gate's vocabulary layer is on, a consumer
+repo resolves all three sources with precedence tested, `## Detail` is split
+out (Rule from 40% to 27% of the catalogue; the resident block halved), and
+[ADOPTING.md](ADOPTING.md) exists. Populating the two private sets from RPP's
+46 rules is not done and cannot be done by a session working in Precedent —
+a session cannot hold repositories from two owners with push access at once,
+and this plan already forbids staging private content on this branch even
+transiently. Full record, including the three ways the leak gate passed on a
+leak and the three practices whose Rules could not be split, in
+[What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).
 
 ### Settled Since Draft v1
 

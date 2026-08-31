@@ -1,5 +1,14 @@
 # BestPractice
 
+> **This branch is being restructured into Precedent.** If you have arrived
+> here wanting to *use* the practice engine on your own project, read
+> [ADOPTING.md](ADOPTING.md) — it is written for that, and assumes no
+> programming. The design and its evidence are in
+> [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md). Everything below is
+> BestPractice's own documentation, still accurate for the parts the rewrite
+> has not reached; it is rewritten in place as later phases land rather than
+> kept as a second, drifting copy.
+
 **Keep the project's memory in GitHub, and let people work with that
 memory through AI conversations.**
 
