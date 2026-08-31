@@ -11,6 +11,13 @@ agent-doable from the desk; **verify** = source-check before external use;
 Prune when done; large completed items get a one-line "done → doc" entry, then
 drop off next cycle.
 
+**A TODO is a handoff, not a parking lot** (practice 53): an item enters this
+list only with a stated reason it isn't being done now — *blocked-on* a named
+input (decision-owner named), or *out-of-scope* for the session writing it
+(then the item carries the context a cold session needs: why, approach,
+pointers). Work the current session could finish gets done, not queued; a
+sweep that finds an unreasoned open item does it or closes it.
+
 **Claiming (multi-member repos):** before starting an item, mark it
 claimed — append *(claimed: NAME, YYYY-MM-DD, branch)* to its line — and
 clear the claim when the work merges or is abandoned. Agents check claims
