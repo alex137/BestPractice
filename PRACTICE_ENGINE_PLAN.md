@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 17:10:00 (Buenos Aires) by Morgan F, to version 20 -->
+<!-- Last updated: 2026-08-31 18:30:00 (Buenos Aires) by Morgan F, to version 21 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -869,10 +869,10 @@ For any repo, before and after migration:
 |---|---|---|
 | 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Open the Precedent branch. Agree this plan. | The branch exists on a current base and this document is approved or amended. |
 | 1 | **Format, converter, harness.** Write the spec and the verification harness; convert Precedent's catalogue; fix the small tooling debts (freshness escalation, drift re-stamp churn). | Practices are files; the catalogue regenerates byte-identically; harness passes. |
-| 2 | **Loader and generated views.** Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
+| 2 ✅ | **Loader and generated views.** *(Closed 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
 | 3 | **Split the sources.** Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. |
-| 4 | **The creation pipeline.** Candidates, detection signals, promotion criteria, approval routing, the periodic retirement report. | A candidate can be raised, promoted and landed end to end; a candidate failing any of the four criteria is refused with a reason. |
-| 5 | **Enforcement push.** Convert checkable practices to scripts; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above 2-of-46; each converted practice has a test proving its check fires. |
+| 4 | **Enforcement push.** *(Swapped ahead of the creation pipeline, 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Convert checkable practices to scripts, starting with the ones phase 2 measured as most-missed; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above the current 8-of-52; each converted practice has a test proving its check fires; the routing eval re-run shows the converted practices no longer missed. |
+| 5 | **The creation pipeline.** Candidates, detection signals, promotion criteria, approval routing, the periodic retirement report. | A candidate can be raised, promoted and landed end to end; a candidate failing any of the four criteria is refused with a reason. |
 | 6 | **Migrate consumer repos**, one at a time, harness-gated. | Each repo passes the harness before its migration lands. |
 | 7 | **Merge back to BestPractice.** | A PR is open against `main`, or a deliberate decision to extract the work into a standalone fork instead. |
 
@@ -932,6 +932,115 @@ a session that reads only the Rule must know what to do, not merely that
 something applies — and `## Detail` must be reachable from the same
 `precedent show` command, not a second one, per
 [Loading a Practice Means Loading Its Rule, Not Its File](#loading-a-practice-means-loading-its-rule-not-its-file).
+
+## What Phase 2 Measured
+
+**Phase 2 is closed. Its done-when was "the premise is measured, not
+assumed", and the premise is now measured — twice, with the method corrected
+between runs. The result went against the plan.** This section is the record
+for every session that comes after, because the plan above rests weight on
+loading that the measurement will not carry.
+
+### The numbers
+
+[tools/routing_eval.py](tools/routing_eval.py), 20 real commits from this
+repo's own history. An **oracle** (all 52 Rules, asked only to classify, one
+case at a time — the answer key), a **control** (all 52 Rules, asked to do
+the work — the pre-migration arrangement), and a **treatment** (the real
+loader: resident block, occasion index, path-triggered channel, in two hops).
+
+| | recall | **miss rate** | practice context | recall per 1k tokens |
+|---|---|---|---|---|
+| Control — all 52 always loaded | 81% | **19%** | ≈11,834 tok/case | 6.8 |
+| Treatment — the loader | 62% | **38%** | ≈4,509 tok/case | **13.7** |
+
+Head to head, without the oracle: the control found **15** applicable
+practices the treatment missed; the treatment found **3** the control missed.
+
+### The three findings, in order of how much they should change what you do
+
+**1. Triggering misses more than residency.** Measured twice, same direction
+both times. On the plan's own terms — *"if triggering does not beat
+residency, the plan needs rethinking rather than building on"* — this is the
+rethink trigger, and it has fired.
+
+**2. Residency does not reach the goal either, and nobody had ever checked
+it.** The control carries the whole catalogue in every session and still
+misses 19%. `verify-postcondition` was judged applicable twice and named by
+the control **zero** times — while resident, in full, in its context.
+`capture-gate`, `environment-gotchas` and `engine-plus-host-shims`:
+applicable twice each, found by the control once each. **Both arms miss the
+same practices.** The plan's opening evidence (four defects from sessions
+carrying the relevant rule) was right, and it generalises further than the
+plan assumed: putting a practice in front of a session does not make the
+session apply it, at any catalogue size, through any channel.
+
+**3. So the loader is a cost optimisation, not a compliance mechanism.**
+That is the honest claim it can carry: **62% less context for 19 points of
+recall — twice the recall per token.** Worth keeping, worth finishing, not
+worth expecting compliance from. Every claim in this plan that the loader
+will recover compliance should be read against this paragraph.
+
+### Where the misses are, and what each kind needs
+
+| missed | caught | practice | reachable via |
+|---|---|---|---|
+| 3 | 10 | `cite-the-incident` | occasion prose only |
+| 2 | 0 | `capture-gate` | occasion prose only |
+| 2 | 0 | `verify-postcondition` | **resident** |
+| 2 | 0 | `environment-gotchas` | **resident** |
+| 2 | 0 | `engine-plus-host-shims` | occasion prose only |
+| 2 | 5 | `convention-to-audit` | occasion prose only |
+| 2 | 9 | `mistakes-become-rules` | occasion prose only |
+
+**Every one of these has `checked_by: null`.** That is the single most
+actionable fact phase 2 produced, and it is why the Sequence table now puts
+the enforcement push at phase 4, ahead of the creation pipeline: a pipeline
+that mints more *prose* practices, before enforcement improves, makes the
+measured problem worse. It is also the failure this plan opens by
+diagnosing — 21 rules to 46 in three days, 2 of 46 enforced.
+
+Two kinds of miss, needing different fixes:
+
+- **Prose-only routing failures.** Everything above except the two resident
+  entries is reachable only through the occasion index — no glob, no check.
+  All of them are about the *shape of the work* ("a mistake was caught",
+  "this is a check-in", "I am about to merge"), which no file path detects
+  and which a session does not reliably recognise about itself. 33 of the 46
+  on-demand practices are in this position. This is the plan's own named weak
+  point, now with a number on it, and it is fixable — with checks, with
+  narrower globs, and with the gate-triggered channel that is still unbuilt.
+- **Resident misses, which are not a routing problem at all.** No change to
+  any loading channel fixes a practice already in front of the session and
+  still not applied. This is what `checked_by` and the periodic deep check
+  exist for.
+
+### What NOT to do with this result
+
+**Do not tune the occasion index to chase the recall number.** The resident
+misses are the proof that the ceiling is not in the routing layer. Effort
+spent there buys less than it appears to.
+
+**Do not re-run the eval before enforcement lands.** Two rounds agree on
+direction; a third refines a number that is already actionable. The run worth
+doing is the one *after* phase 4, to see whether converting the most-missed
+practices to checks moves the miss rate. The harness is committed and
+re-runnable (`--emit`, `--emit-hop2`, `--score`), and prints an answer-set
+digest so a quoted figure can be traced to the set that produced it.
+
+**Do not read v1's numbers.** The first run scored the treatment at a 52%
+miss rate because it gave the arm two of the loader's three channels and
+stopped it after one hop. Both were corrected in v2; v1's answers are kept in
+`evals/routing/answers-v1/` only so the correction is auditable.
+
+### One honest limit on all of the above
+
+The oracle is a model judgment, not a human answer key, and it shares the
+control's context shape — both see all 52 Rules — which may flatter the
+control. The oracle-free head-to-head (15 versus 3) points the same way, so
+the direction is not an artifact of the key, but the exact gap could be.
+A human spot-check of a dozen oracle answers would settle it and has not been
+done.
 
 ## What Morgan Needs to Do
 
@@ -1020,7 +1129,11 @@ not remove the risk, it only makes it visible earlier. The rest still apply:
   without the other.
 - Re-sync with upstream on a schedule, not at the end.
 
-**The premise itself is untested, and phase 2 must test it.** This plan has
+**The premise itself was untested; phase 2 tested it, and it did not hold.**
+*(Amended 2026-08-31. The original text is kept below because it states the
+bar correctly — it is the bar the result failed. See
+[What Phase 2 Measured](#what-phase-2-measured) for the numbers and what
+follows from them.)* This plan has
 hard evidence that residency does *not* produce compliance — four defects from
 sessions carrying the relevant rule in context. It has **no evidence yet that
 trigger-based loading does better.** That is an assumption, not a finding, and
@@ -1031,6 +1144,13 @@ loader surfaces it, then compare the miss rate against the old always-loaded
 arrangement. **If triggering does not beat residency, the plan needs rethinking
 rather than building on**, and that is far cheaper to discover at phase 2 than
 at phase 6.
+
+**Outcome: triggering did not beat residency** — 38% miss against the
+control's 19%, at 62% less context. The rethink this paragraph calls for is
+recorded in [What Phase 2 Measured](#what-phase-2-measured); its short form
+is that the loader is a cost optimisation rather than a compliance
+mechanism, and that the enforcement push moved ahead of the creation
+pipeline as a result.
 
 **Personal content leaking into a public repo — and the branch decision made
 this sharply worse.** The consequence is permanent and public — hence the
@@ -1153,6 +1273,16 @@ addition to the plan's original three-section body — `## Install` was the
 first, at phase 1 — and both were forced by the same thing: the real
 catalogue carries more kinds of content than the illustrative example had
 places for.
+
+**2026-08-31 — phase 2 closed; the premise measured and the result against
+it; enforcement swapped ahead of the creation pipeline.** The phase-2
+done-when ("the premise is measured, not assumed") is met: the loader routes
+worse than carrying the whole catalogue (38% miss against 19%) while costing
+62% less context. Both arrangements miss the same practices, and every one of
+the seven most-missed carries `checked_by: null` — so the old phase 5
+(enforcement) is now phase 4, and the creation pipeline is phase 5. Full
+record, including what NOT to do with the result, in
+[What Phase 2 Measured](#what-phase-2-measured).
 
 **2026-08-31 — the leak gate is built at phase 2, not phase 3.** A direct
 consequence of the branch decision above: with no "private initially" grace

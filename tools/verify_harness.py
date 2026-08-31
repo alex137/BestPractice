@@ -141,7 +141,7 @@ def check_titles_match_source(files, original_practices_by_number):
 
 def check_checked_by_targets_exist(files):
     """The plan: "a `checked_by` naming a script with no test for it fails
-    the audit." Testing that the check has a test is phase 5; testing that
+    the audit." Testing that the check has a test is phase 4; testing that
     the script EXISTS is free, and a checked_by pointing at a deleted or
     renamed script is a practice that silently claims enforcement it does
     not have."""

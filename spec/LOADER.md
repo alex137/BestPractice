@@ -15,8 +15,8 @@ implementation note, not a restatement.
 | Occasion index | Same generated block, grouped by `occasion` | Built, same mechanism. |
 | Standing instruction | Same generated block, one sentence | Built. |
 | Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) | Built as a command; not yet wired into a `PreToolUse` hook in [templates/harness/](../templates/harness/) — that is consumer-repo integration, phase 6 territory, not phase 2's done-when. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost-the-numbers) below. |
-| Gate-triggered | — | Not built. Depends on the runbook/gate-receipt machinery the plan describes under "Gate Receipts" and "Decisions" (phase 4). |
-| Enforced (`checked_by`) | Already exists from phase 1 (a dozen practices carry it) | Unchanged by phase 2; phase 5 is "convert checkable practices to scripts." |
+| Gate-triggered | — | Not built. Depends on the runbook/gate-receipt machinery the plan describes under "Gate Receipts" and "Decisions" (phase 5). |
+| Enforced (`checked_by`) | Already exists from phase 1 (8 of 52 practices carry one, naming 4 distinct scripts) | Unchanged by phase 2; phase 4 is "convert checkable practices to scripts." |
 | "One code path" (`precedent show`) | [tools/precedent_show.py](../tools/precedent_show.py) (phase 1) | Unchanged; `precedent_paths.py` calls the same file reader (`split_practices._read_practice_file`), not a second extractor. |
 | Generated views | [tools/build_views.py](../tools/build_views.py) → AGENTS.md's loader block, [MAP.md](../MAP.md), [GLOSSARY.md](../GLOSSARY.md) | Built. All three fail tools/verify_harness.py if hand-edited or stale. |
 | Resident budget, hard-capped | `RESIDENT_BUDGET_TOKENS = 2000` in tools/build_views.py; the build exits nonzero over budget | Built. Current resident block: ~621 tokens, 6 of 52 practices. |
@@ -151,7 +151,7 @@ reads and acts on an occasion-index line for a given piece of work is not a
 fact recoverable from a git diff. That gap is the plan's own named weak
 point (see "The Deep Check Audits Routing, Not Content"), and remains one
 after phase 2 — the periodic deep check, not this replay, is what the plan
-assigns to catch it, and that check is not built yet (phase 4 territory).
+assigns to catch it, and that check is not built yet (phase 5 territory).
 
 ## The premise, measured — v2
 
@@ -229,7 +229,7 @@ sharper finding. `verify-postcondition`, `environment-gotchas`,
 twice; the control — holding all 52 — found them 0, 1, 1 and 1 times. **Both
 arms miss the same practices.** Putting a practice in front of a session, in
 full, at all times, does not make the session apply it. No change to the
-loading channels can fix that; it is what `checked_by` and the phase-4 deep
+loading channels can fix that; it is what `checked_by` and the phase-5 deep
 check exist for.
 
 **Read plainly:** phase 2 proves the plumbing is correct and cheaper than
