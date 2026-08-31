@@ -13,7 +13,7 @@ visible instead of reading as a pass.
 Run:  python3 tools/verify_harness.py
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
-import collections, json, pathlib, re, subprocess, sys
+import collections, json, os, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
@@ -613,11 +613,155 @@ def check_leak_gate():
         not_applicable('leak gate, vocabulary layer',
                        f'no private-term blocklist is configured ({"PRECEDENT_LEAK_BLOCKLIST"} '
                        f'is unset), and none can live in this public repo -- see '
-                       f'tools/leak_gate.py --explain. Expected until phase 3 creates the '
-                       f'private sets; reported rather than passed over, because a clean '
-                       f'structural scan is not evidence that no private word is present')
+                       f'tools/leak_gate.py --explain and '
+                       f'templates/leak-blocklist.txt.template. This is the permanent '
+                       f'state in CI, which has no access to a private list; on a '
+                       f'person\'s own machine it means the layer is not switched on '
+                       f'yet. Reported rather than passed over, because a clean '
+                       f'structural scan is not evidence that no private word is '
+                       f'present. `leak gate fires` below tests the layer either way')
     else:
         check('leak gate (structural and vocabulary layers)', True)
+
+
+def check_leak_gate_fires():
+    """The gate's own behaviour, as stated cases against a throwaway repo.
+
+    WHY THIS EXISTS, AND WHY IT IS NOT A SECOND COPY OF THE GATE'S LOGIC.
+    check_leak_gate() above runs the gate on this tree and reports what it
+    says. That is a check on the TREE, not on the GATE -- it passes just as
+    happily when the gate has stopped looking. Three real misses were found
+    exactly there, each of which printed a confident "leak gate OK" on a push
+    that would have published a private term:
+
+      * a file added in one commit and removed in a later one in the same
+        push, invisible to the net `git diff A..B` the gate used;
+      * a leak in a STAGED blob, cleaned up in the working tree afterwards,
+        because the gate read the file off disk rather than out of git;
+      * a leak in a COMMIT MESSAGE, which was never scanned at all.
+
+    So this check asserts what the gate is supposed to DO, from outside it:
+    plant each case in a scratch repository, run the gate as a subprocess,
+    and require the exit status. Every case here fails against the gate as it
+    stood before those fixes. The blocked words are invented for this check --
+    the whole point of the vocabulary layer is that a real list cannot live
+    in this repo.
+    """
+    import shutil, tempfile
+
+    def git(cwd, *args, check_rc=True):
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True)
+        if check_rc and r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-leakgate-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
+        blocklist = tmp / 'blocklist.txt'          # OUTSIDE the repo, as required
+        blocklist.write_text('zorbulon\n\\bproject[- ]nightjar\\b\n', encoding='utf-8')
+
+        git(repo, 'init', '-q')
+        git(repo, 'config', 'user.email', 'harness@example.com')
+        git(repo, 'config', 'user.name', 'harness')
+        (repo / 'ok.md').write_text('nothing sensitive here\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'base')
+        base = git(repo, 'rev-parse', 'HEAD')
+
+        def gate(*args, blocklist_set=True):
+            env = dict(os.environ)
+            env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            if blocklist_set:
+                env['PRECEDENT_LEAK_BLOCKLIST'] = str(blocklist)
+            return subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'leak_gate.py'), *args],
+                capture_output=True, text=True, cwd=str(repo), env=env).returncode
+
+        cases = []
+
+        # 1. a clean tree and a clean range must PASS -- a check that only ever
+        #    fails is as useless as one that only ever passes.
+        cases.append(('a clean tree passes', gate() == 0))
+        cases.append(('a clean range passes', gate('--range', f'{base}..HEAD') == 0))
+
+        # 2. a leak on disk
+        (repo / 'leak.md').write_text('about Project Nightjar\n', encoding='utf-8')
+        cases.append(('a blocked term in an untracked file fails', gate() == 1))
+        (repo / 'leak.md').unlink()
+
+        # 3. a leak added and then removed inside one push
+        (repo / 'gone.md').write_text('about Project Nightjar\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'add')
+        git(repo, 'rm', '-q', 'gone.md'); git(repo, 'commit', '-qm', 'remove')
+        cases.append(('a term added then removed inside one push fails',
+                      gate('--range', f'{base}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base)
+
+        # 4. a leak in the staged blob, cleaned in the working tree
+        (repo / 'staged.md').write_text('about Project Nightjar\n', encoding='utf-8')
+        git(repo, 'add', 'staged.md')
+        (repo / 'staged.md').write_text('clean\n', encoding='utf-8')
+        cases.append(('a term in a staged blob fails even when the file on disk is '
+                      'clean', gate('--staged') == 1))
+        git(repo, 'reset', '-q'); (repo / 'staged.md').unlink()
+
+        # 5. a leak in a commit message
+        git(repo, 'commit', '-q', '--allow-empty', '-m', 'work for Project Nightjar')
+        cases.append(('a term in a commit message fails',
+                      gate('--range', f'{base}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base)
+
+        # 6. structural rules still fire, and on a blob rather than a file
+        # Assembled rather than written literally: spelled out, this fixture
+        # would trip the gate's own home-directory rule on THIS file, and a
+        # check that cannot be scanned by the gate it tests is a check that
+        # gets deleted rather than fixed.
+        home_path = '/' + 'Users/someone/notes'
+        (repo / 'notes.md').write_text(f'see {home_path}\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'home path')
+        (repo / 'notes.md').write_text('clean\n', encoding='utf-8')
+        cases.append(('a structural rule fires on the committed blob, not the working '
+                      'tree', gate('--range', f'{base}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base)
+
+        # 7. the vocabulary layer must not fail OPEN once you have said you
+        #    have a list.
+        cases.append(('an unrun vocabulary layer fails when required',
+                      gate('--require-vocabulary', blocklist_set=False) == 1))
+        cases.append(('an unrun vocabulary layer only warns when not required',
+                      gate(blocklist_set=False) == 0))
+
+        # 8. a bad revision must not read as "nothing to check", and an
+        #    unknown flag must not silently scan something else.
+        cases.append(('an unresolvable revision fails rather than scanning nothing',
+                      gate('--range', 'nosuchref..HEAD') == 1))
+        cases.append(('an unknown flag fails', gate('--stage') == 1))
+
+        # 9. a blocklist with nothing in it reports as CONFIGURED and passes
+        #    with zero patterns -- a clean bill of health from a check holding
+        #    nothing. Same family as case 7: the vocabulary layer must not be
+        #    able to look switched on while doing no work.
+        empty = tmp / 'empty.txt'
+        empty.write_text('# only comments\n\n', encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_LEAK_BLOCKLIST=str(empty))
+        rc = subprocess.run([sys.executable, str(repo / 'tools' / 'leak_gate.py')],
+                            capture_output=True, text=True, cwd=str(repo),
+                            env=env).returncode
+        cases.append(('a blocklist with no patterns fails rather than passing '
+                      'vacuously', rc == 1))
+
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  leak gate did NOT behave as stated: {name}")
+        check(f'leak gate fires ({len(cases)} stated cases: blobs not the working '
+              f'tree, every commit in a push, commit messages, fail-closed)', ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def check_index_clauses(files):
@@ -787,6 +931,7 @@ def main():
     check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
     check_leak_gate()
+    check_leak_gate_fires()
     check_index_clauses(files)
     check_glob_semantics()
     check_generated_views_regenerate()
