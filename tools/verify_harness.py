@@ -390,6 +390,8 @@ def _tokens(text):
 def check_no_invented_content(files, original_practices_by_number):
     ok = True
     for stem, (fm, sections, f) in files.items():
+        if 'source_practice_number' not in fm:
+            continue  # a practice minted fresh, no BestPractice ancestor to compare against
         num = fm.get('source_practice_number')
         orig = original_practices_by_number.get(num)
         if orig is None:
@@ -584,7 +586,8 @@ def check_no_cross_practice_duplication(files, original_practices_by_number):
 
 
 def check_citation_integrity(files):
-    valid_numbers = {fm['source_practice_number'] for fm, _, _ in files.values()}
+    valid_numbers = {fm['source_practice_number'] for fm, _, _ in files.values()
+                     if 'source_practice_number' in fm}
     ok = True
     for stem, (fm, sections, f) in files.items():
         text = f.read_text(encoding='utf-8')
@@ -1401,17 +1404,21 @@ def check_precedent_check_fires():
         case('search-by-purpose', _plant_sbp)
 
         # computed-numbers-in-scripts -- a generated block edited by hand
-        case('computed-numbers-in-scripts',
-             lambda repo: rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
-                 '| Practices in the catalogue | 52 |',
-                 '| Practices in the catalogue | 61 |')))
+        def _plant_cnis(repo):
+            n = len(list((repo / 'practices').glob('*.md')))
+            rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
+                f'| Practices in the catalogue | {n} |',
+                f'| Practices in the catalogue | {n + 9} |'))
+        case('computed-numbers-in-scripts', _plant_cnis)
 
         # docs-track-models -- an owned figure restated in the prose
-        case('docs-track-models',
-             lambda repo: rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
-                 '## The resident set, and why these six',
-                 'The resident block is 6 of 52 practices.\n\n'
-                 '## The resident set, and why these six')))
+        def _plant_dtm(repo):
+            n = len(list((repo / 'practices').glob('*.md')))
+            rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
+                '## The resident set, and why these six',
+                f'The resident block is 6 of {n} practices.\n\n'
+                '## The resident set, and why these six'))
+        case('docs-track-models', _plant_dtm)
 
         # scrub-gate -- a blocked term in a tree destined for another repo
         def _root_doc_entries(repo):

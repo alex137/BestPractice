@@ -376,7 +376,10 @@ catalogue with 500 checks costs a session nothing extra to comply with.**
 2026-09-01, after a second, more thorough pass through every remaining
 practice rather than stopping at the first verdict — see
 [spec/ENFORCEMENT.md](ENFORCEMENT.md) for the current, generated count):
-**24 of 52 carry a real `checked_by`.** `label-describes-content`,
+**24 of 53 carry a real `checked_by`** (the catalogue itself grew to 53 this
+session: `checkable-gets-checked`, the practice this second pass argued for
+directly — see [below](#a-standing-rule-for-the-catalogues-own-growth)).
+`label-describes-content`,
 `acronyms-glossary`, `github-setup-disclosed` and `docs-are-current-state`
 were the first four converted since this document's 54% result, each
 gating only what a change adds rather than the pre-existing corpus, to
@@ -448,6 +451,31 @@ gate, or be explicitly labelled advisory, so the catalogue stops claiming a
 bindingness it has not earned. [spec/ENFORCEMENT.md](ENFORCEMENT.md) has the
 machinery and the honest account of which practices resisted a check and
 why.
+
+### A standing rule for the catalogue's own growth
+
+The gap between the first enforcement pass (3 converted, ~30 called
+resistant) and the second (2 more converted, one more confirmed resistant
+with evidence rather than assumption) was real practices, not noise —
+which means "did we actually try" is itself worth encoding as a rule
+rather than trusted to whoever happens to be doing the next pass.
+[`checkable-gets-checked`](../practices/checkable-gets-checked.md) is that
+rule: before a new practice is left `checked_by: null`, actually attempt
+the check, and don't wire one in without testing it against the whole
+tree first — the second half matters as much as the first, since
+`label-describes-content` and `index-remembers-past` both had a version
+that fired on legitimate work before being narrowed. It fires at the
+`review` gate (the same moment `cite-the-incident` and
+`mistakes-become-rules` fire, and for the same reason: whether a check was
+genuinely attempted, like whether a mistake is systemic, is a judgment a
+review makes — no path glob reaches a moment). This is the catalogue's
+53rd practice, minted fresh rather than migrated from BestPractice's
+original 52, and the first to exercise that path in this repo's own
+harness — which found and fixed two real gaps in the harness itself
+(`check_no_invented_content` and `check_citation_integrity` both assumed
+every practice file traces to a BestPractice-numbered ancestor, contrary
+to what [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md) already said the
+format should support) rather than working around them.
 
 **Retirement is not the fix here and is deliberately not pursued as one.**
 An earlier version of this section named it as a parallel option. It isn't:

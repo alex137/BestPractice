@@ -51,6 +51,18 @@
       "why": "A reasoning step about options, with no artifact.",
       "decided": "phase 4 routing pass"
     },
+    "checkable-gets-checked": {
+      "globs": [
+        "practices/**",
+        "PRACTICES.md"
+      ],
+      "why": "Fires when a new practice is written, same locus as cite-the-incident, whose glob this copies directly.",
+      "decided": "second enforcement-sweep session",
+      "gates": [
+        "review"
+      ],
+      "gates_why": "Whether a check was genuinely attempted is a judgment a review makes, the same as mistakes-become-rules' proportionality guard."
+    },
     "cite-the-incident": {
       "globs": [
         "practices/**",

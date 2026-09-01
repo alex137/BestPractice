@@ -23,7 +23,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 52 practices)
+### Resident block (~312 of 2000 token budget, 6 of 53 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -127,6 +127,7 @@ When writing a README or other project-facing entry document:
 When writing a document that cites a computed number:
   computed-numbers-in-scripts — computed content lives in a sync-gated generated block
 When writing a new convention or rule:
+  checkable-gets-checked — attempt a mechanical check before leaving a new practice advisory-only
   cite-the-incident — record the failure a rule prevents, inline with the rule
 When writing a reader-facing deliverable with supporting apparatus:
   deliverables-look-like-output — the deliverable holds only what its audience needs
