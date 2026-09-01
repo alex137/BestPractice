@@ -23,7 +23,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 53 practices)
+### Resident block (~312 of 2000 token budget, 6 of 54 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -146,6 +146,8 @@ When writing or editing a document:
   label-describes-content — "one line" must be one line; else name it for its content
 When writing or filling out a pull-request description:
   pr-template-honest-gates — write the body from the diff; an unchecked box is fine
+When writing or triaging an open item:
+  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
 ```
 
 ### Standing instruction
@@ -172,6 +174,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
+| Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
 | The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |

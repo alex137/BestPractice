@@ -209,7 +209,7 @@ Two constraints from the plan's phase-3 row governed every decision:
 | | after phase 1 | after phase 1.5 | after phase 3 |
 |---|---|---|---|
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
-| Practices with `## Rule` over 150 words | 16 | 20 | **8** |
+| Practices with `## Rule` over 150 words | 16 | 20 | **7** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
 | Words in `## Detail` | — | — | **2,253** |
 
@@ -217,6 +217,14 @@ Fifteen of the fifty-two practices carry a Detail. The resident block — the
 text every session pays for, whatever it is doing — **halved**, which is the
 closest this catalogue has come to the plan's "nine tenths" claim and still
 short of it.
+
+*(Both figures in this table are scoped to BestPractice's original 52
+practices — `tools/catalogue_stats.py`'s `phase3_snapshot_stats()` — so they
+stay a stable record of what phase 3 delivered rather than drifting every
+time a later practice is added or an inherited one is deliberately rewritten
+(`CHANGES_TO_TELL_ALEX.md`). The "over 150 words" figure moved from 8 to 7
+on 2026-09-01, when `layered-practice-packs`' Rule was shortened as part of
+that rewrite.)*
 
 *(These are the figures after the review pass described in
 [What a Reader Caught That No Check Did](#what-a-reader-caught-that-no-check-did)

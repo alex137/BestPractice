@@ -373,6 +373,17 @@
       "why": "Fires on publishing a table, which no path in this repo identifies.",
       "decided": "phase 4 routing pass"
     },
+    "todo-is-a-handoff": {
+      "globs": [
+        "TODO.md"
+      ],
+      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated.",
+      "decided": "post-phase-4, converting Alex's practice 53",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "The periodic sweep that enforces the stated-reason requirement on the backlog naturally happens at merge time, the same as capture-gate."
+    },
     "two-check-levels": {
       "globs": [
         "**"

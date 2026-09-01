@@ -34,6 +34,39 @@ FAILED = []
 PASSED = []
 NA = []
 
+# --------------------------------------------------------------------------
+# Post-conversion provenance exceptions -- both narrow and self-checking.
+# --------------------------------------------------------------------------
+
+# Practices that exist on Alex's live `main` but not in this repo's frozen
+# PRACTICES.md (the fork-point snapshot -- spec/PRACTICE_FORMAT.md).
+# Converted independently against `main`, not against PRACTICES.md, so the
+# fidelity checks below have no ancestor to compare against here and must
+# not read that absence as invention. Frontmatter values come back as
+# strings (see split_practices.py's own int(num) casts before comparison),
+# so these are strings too.
+POST_SNAPSHOT_PRACTICE_NUMBERS = {'53'}
+
+# Practices deliberately rewritten after phase-1 conversion -- a real edit,
+# not a conversion bug -- keyed by slug.
+AMENDED_POST_CONVERSION = {'layered-practice-packs'}
+
+CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'
+
+
+def _amended_and_logged(slug):
+    """True only if `slug` is BOTH in AMENDED_POST_CONVERSION AND actually
+    named in CHANGES_TO_TELL_ALEX.md. The registry alone is not enough --
+    tying the exemption to a checked property rather than a trusted list is
+    the same discipline check_corruption_drop_is_a_duplicate already uses,
+    so an amendment that forgets to log itself fails here instead of
+    silently exempting itself from the fidelity checks below."""
+    if slug not in AMENDED_POST_CONVERSION:
+        return False
+    if not CHANGES_DOC.exists():
+        return False
+    return slug in CHANGES_DOC.read_text(encoding='utf-8')
+
 
 def check(name, ok, detail=''):
     (PASSED if ok else FAILED).append((name, detail))
@@ -112,6 +145,8 @@ def check_source_coverage(files, original_practices_by_number):
                   f"PRACTICES.md but has NO file in practices/ -- a practice was dropped")
     for num, stems in sorted(by_number.items(), key=lambda kv: int(kv[0])):
         if num not in original_practices_by_number:
+            if num in POST_SNAPSHOT_PRACTICE_NUMBERS:
+                continue  # added to `main` after PRACTICES.md's snapshot -- see CHANGES_TO_TELL_ALEX.md
             ok = False
             print(f"  practices/{stems[0]}.md claims source_practice_number {num}, which "
                   f"is not in PRACTICES.md")
@@ -289,6 +324,8 @@ def check_content_preserved_by_sentence(files, original_practices_by_number):
     duplicated -- at sentence granularity rather than word granularity."""
     ok = True
     for stem, (fm, sections, f) in sorted(files.items()):
+        if _amended_and_logged(fm.get('slug', stem)):
+            continue  # deliberately rewritten post-conversion; see CHANGES_TO_TELL_ALEX.md
         orig = original_practices_by_number.get(fm.get('source_practice_number'))
         if orig is None:
             continue  # reported by check_no_invented_content
@@ -315,6 +352,8 @@ def check_section_source_order(files, original_practices_by_number):
     to guarantee, kept alive after that check could no longer run."""
     ok = True
     for stem, (fm, sections, f) in sorted(files.items()):
+        if _amended_and_logged(fm.get('slug', stem)):
+            continue  # deliberately rewritten post-conversion; see CHANGES_TO_TELL_ALEX.md
         orig = original_practices_by_number.get(fm.get('source_practice_number'))
         if orig is None:
             continue
@@ -360,6 +399,8 @@ def _list_items(text):
 def check_list_structure_preserved(files, original_practices_by_number):
     ok = True
     for stem, (fm, sections, f) in sorted(files.items()):
+        if _amended_and_logged(fm.get('slug', stem)):
+            continue  # deliberately rewritten post-conversion; see CHANGES_TO_TELL_ALEX.md
         orig = original_practices_by_number.get(fm.get('source_practice_number'))
         if orig is None:
             continue
@@ -392,7 +433,11 @@ def check_no_invented_content(files, original_practices_by_number):
     for stem, (fm, sections, f) in files.items():
         if 'source_practice_number' not in fm:
             continue  # a practice minted fresh, no BestPractice ancestor to compare against
+        if _amended_and_logged(fm.get('slug', stem)):
+            continue  # deliberately rewritten post-conversion; see CHANGES_TO_TELL_ALEX.md
         num = fm.get('source_practice_number')
+        if num in POST_SNAPSHOT_PRACTICE_NUMBERS:
+            continue  # added to `main` after PRACTICES.md's snapshot -- no ancestor here by construction
         orig = original_practices_by_number.get(num)
         if orig is None:
             ok = False
@@ -427,6 +472,8 @@ def check_no_lost_content(files, original_practices_by_number):
     statement than either alone."""
     ok = True
     for stem, (fm, sections, f) in files.items():
+        if _amended_and_logged(fm.get('slug', stem)):
+            continue  # deliberately rewritten post-conversion; see CHANGES_TO_TELL_ALEX.md
         num = fm.get('source_practice_number')
         orig = original_practices_by_number.get(num)
         if orig is None:

@@ -32,6 +32,26 @@ def _load():
     return out
 
 
+def phase3_snapshot_stats():
+    """The catalogue as phase 3 left it: BestPractice's original 52
+    practices only (source_practice_number 1-52), excluding anything added
+    since -- a practice minted fresh in Precedent, or a later BestPractice
+    practice converted afterwards (see CHANGES_TO_TELL_ALEX.md). The two
+    phase-3 ANCHORS below are a dated point-in-time record ("the catalogue
+    as this session inherited it"), not a live invariant, and computing them
+    over the growing practices/ directory would fail every anchor the first
+    time anything was added after phase 3 -- which is exactly what happened
+    the first time a practice was."""
+    practices = [(fm, s, f) for fm, s, f in _load()
+                 if (fm.get('source_practice_number') or '').isdigit()
+                 and 1 <= int(fm['source_practice_number']) <= 52]
+    return {
+        'long_rules': sum(1 for _fm, s, _f in practices
+                          if len(s.get('rule', '').split()) > 150),
+        'with_detail': sum(1 for _fm, s, _f in practices if s.get('detail', '').strip()),
+    }
+
+
 def stats():
     practices = _load()
     resident = [p for p in practices if p[0].get('tier') == 'resident']
@@ -98,10 +118,13 @@ ANCHORS = [
      2000, 2000, lambda: (stats()['budget'], stats()['budget'])),
     # spec/PRACTICE_FORMAT.md's phase-3 column records the catalogue as this
     # session inherited it: 15 practices with a Detail, 8 Rules over 150 words.
+    # Scoped to the original 52 (phase3_snapshot_stats), not the live
+    # directory -- a dated snapshot, not an invariant that should fail every
+    # time a later practice is added. See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     15, 15, lambda: (stats()['with_detail'], stats()['with_detail'])),
+     15, 15, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
-     8, 8, lambda: (stats()['long_rules'], stats()['long_rules'])),
+     7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
 ]
 
 

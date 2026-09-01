@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session, to version 27 -->
+<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session, to version 28 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -334,16 +334,37 @@ Three mitigations. Two are mechanical and one-off: the reachability check
 narrower-than-`**` `applies_to`, or an `occasion`) and behavioral replay in
 the verification harness. The third runs forever, and is described next.
 
-#### The Deep Check Audits Routing, Not Content
+#### The Routing Audit Checks Coverage, Not Content
 
-Loading less does risk a practice going unapplied, so the periodic deep check
-becomes the standing safety net. **But it must not do this by reading every
-practice with the whole diff in context** — that is the load-everything
+> **Named "routing audit" here, not "deep check"** — amended 2026-09-01. This
+> subsection originally called the mechanism below "the deep check", before
+> this repo's own `two-check-levels` practice landed and fixed "deep check"
+> to mean something else and already-built: the full pre-push/merge gate
+> suite (`verify_harness.py`, `doc_lint.py`, `leak_gate.py`,
+> `precedent_check.py`, `doc_sync.py` — see `AGENTS.md`'s "Two check levels").
+> Two different things sharing one name is exactly the kind of drift this
+> plan exists to prevent elsewhere, so the not-yet-built concept is renamed
+> rather than the shipped one. **Three named things now:** *light check*
+> (every commit), *deep check* (every push/merge, built), and the *routing
+> audit* below (periodic, still to build in phase 5). A fourth, unrelated to
+> all three — the inherited RPP audit list that is heavier than any of them
+> and must never run as a routine gate — keeps its own name, **very deep
+> check**, on-demand only, invoked explicitly and never wired into a commit
+> or push gate. Not yet inventoried here (RPP is a separate private repo);
+> enumerate and wire it as an on-demand tool when phase 5 or later actually
+> needs it. This naming fix doesn't touch `two-check-levels` (BestPractice
+> practice 44) itself — its Rule already leaves the pair's exact names to
+> the repo, and this repo's choice (light/deep) is unchanged — so it isn't
+> logged in [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md).
+
+Loading less does risk a practice going unapplied, so the periodic routing
+audit becomes the standing safety net. **But it must not do this by reading
+every practice with the whole diff in context** — that is the load-everything
 failure moved to a different moment, and a review holding two hundred
 practices suffers exactly the dilution this design exists to remove. It would
 simply fail less often, because it runs less often.
 
-So the deep check asks a narrower and far cheaper question. **Not "did we
+So the routing audit asks a narrower and far cheaper question. **Not "did we
 follow every practice?" but "did every practice that should have fired,
 fire?"** Three parts:
 
@@ -360,11 +381,11 @@ fire?"** Three parts:
   drowning in it.
 - **Attention spent where checks cannot reach.** A practice with a working
   `checked_by` needs no human-style review: the check either fired or it did
-  not. The deep read therefore skips those entirely and spends itself on the
-  practices that can only be judged, which is both the smaller set and the
-  one that actually needs judgment.
+  not. The rotating read therefore skips those entirely and spends itself on
+  the practices that can only be judged, which is both the smaller set and
+  the one that actually needs judgment.
 
-**What the deep check produces is fixes to the routing, not just to the
+**What the routing audit produces is fixes to the routing, not just to the
 work.** A practice found applicable-but-unrouted twice is a candidate for a
 narrower glob, a better occasion, or — best — a check that makes the question
 moot. That feeds the retirement-and-promotion report rather than accumulating
@@ -372,10 +393,10 @@ as a list of misses.
 
 **And its honest limit, stated so nobody leans on it too hard:** this is a
 detective control, not a preventive one. It finds misses after the fact. The
-preventive controls are triggers and checks, and the deep check's real value
-is improving *those* — because a system that relies on a big periodic review
-pass to catch what it should have enforced is the mechanism that already
-demonstrably failed here.
+preventive controls are triggers and checks, and the routing audit's real
+value is improving *those* — because a system that relies on a big periodic
+review pass to catch what it should have enforced is the mechanism that
+already demonstrably failed here.
 
 **On the resident budget squeezing out something important:** that is what
 `severity` and the hard cap are for together. If a practice must always be
@@ -1023,8 +1044,8 @@ Two kinds of miss, needing different fixes:
   narrower globs, and with the gate-triggered channel that is still unbuilt.
 - **Resident misses, which are not a routing problem at all.** No change to
   any loading channel fixes a practice already in front of the session and
-  still not applied. This is what `checked_by` and the periodic deep check
-  exist for.
+  still not applied. This is what `checked_by` and the periodic routing
+  audit exist for.
 
 ### What NOT to do with this result
 
@@ -1395,6 +1416,34 @@ require a registered check with a firing case, not a field. The harness now
 enforces that in both directions — a claim without a case fails, and a case
 without a claim fails — so the pipeline can lean on it rather than restate it.
 
+**A tracked audit of the pre-fork catalogue against this plan's own
+architecture, table form, one row per practice.** Verdict (active as-is /
+rewritten / superseded / merged into a deferred item) plus whether it was a
+change Alex needs to hear about. `practice-export-loop` (14),
+`mistakes-become-rules` (20) and `layered-practice-packs` (23) are done —
+see [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) — the rest of the
+catalogue has not had this pass yet, and should before phase 6 migrates a
+consumer repo onto practices this plan never checked for collision.
+
+**Team-scoped individual practices — a real case, not a speculative one.**
+"One individual set per person, however many teams they belong to" already
+holds; what it does not yet cover is a preference that should *differ* by
+which team's repo you're working in (an author's name used one way for one
+group, another way for a second). The nearest existing idea is the deferred
+`in_repos:` filter, generalized to team rather than repo — see the updated
+[Deferred](#deferred-speculative--do-not-build-yet) entry. Design the field
+and the resolver's conflict rule (two individual practices with overlapping
+team scope on one slug fails loudly, same pattern as `overrides`) when phase
+5 reaches the private-set schema; don't build it before then.
+
+**Alex's practice 53** (`todo-is-a-handoff`, merged to `main` after this
+branch's fork point) has been converted through the same phase-1 pipeline as
+the original 52 — see `practices/todo-is-a-handoff.md`. Its `checked_by` is
+`null`, considered and declined for now (see the practice's own Install);
+revisit when phase 5's enforcement work reaches the TODO backlog. Re-check
+`main` for further drift before phase 5 starts in earnest — it had moved 3
+commits past the fork point by the time this was caught.
+
 
 ## What Morgan Needs to Do
 
@@ -1598,6 +1647,47 @@ The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; this section is the short record of what moved.
 
+**2026-09-01 — v28, pre-phase-5 review: a naming collision fixed, three
+inherited practices reconciled with the new architecture, and a tracked
+Alex-facing changelog opened.** Discussed with Morgan before phase 5 starts.
+Six changes:
+
+1. **"Deep check" was claimed by two different things** — this plan's
+   periodic routing audit (design only, unbuilt) and `two-check-levels`'
+   already-shipped full gate suite. The unbuilt one is renamed *routing
+   audit*; see [The Routing Audit Checks Coverage, Not
+   Content](#the-routing-audit-checks-coverage-not-content). A fourth,
+   heavier thing — RPP's inherited audit list — gets its own name, **very
+   deep check**, on-demand only, never a routine gate.
+2. **`practice-export-loop` (14)** — cross-referenced against Stage 5's
+   round-trip in its Install section; unchanged otherwise, still the live
+   mechanism for a pre-migration consumer repo.
+3. **`mistakes-become-rules` (20)** — cross-referenced against the
+   creation-pipeline stages (phase 5, not yet built) in its Install section;
+   Rule and habit unchanged and still what actually runs today.
+4. **`layered-practice-packs` (23)** — its vendored-pack *mechanism*
+   marked superseded for any repo on Precedent's loader (the occasion
+   index and path-triggered channel already do the routing); its
+   generic/domain/repo-local *decision rule* kept, since nothing replaced
+   it. The still-open cross-team domain-bundle gap is merged into the
+   multi-team-practice item below.
+5. **[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) opened** — every
+   change to a pre-fork BestPractice practice's meaning or mechanism gets a
+   dated entry there, kept current as this branch diverges from `main`, so
+   the eventual phase-7 merge-back conversation starts from a list instead
+   of a diff.
+6. **Alex's practice 53** (`todo-is-a-handoff`, merged to `main` after this
+   branch's fork point) converted through the phase-1 pipeline into
+   `practices/todo-is-a-handoff.md`. `main` had moved 3 commits past the
+   fork point by the time this was caught — see [What phase 5 should carry
+   forward](#what-phase-5-should-carry-forward) for the standing
+   re-sync-before-phase-5 note.
+
+The [Deferred](#deferred-speculative--do-not-build-yet) section's multi-team
+and individual-practice-scoping entries are also updated in the same pass —
+a real case for team-scoped individual practices now exists (Morgan,
+2026-09-01) where before there was none.
+
 **2026-09-01 — v27, phase 3 closes: the private sets are populated.** The
 one condition phase 3 could not meet from a session working in Precedent —
 writing RPP's 46 rules into `themorgan/precedent-individual` and
@@ -1738,13 +1828,26 @@ enforcement are two problems, not one. Recorded in
 
 ## Deferred (Speculative — Do Not Build Yet)
 
-- **A practice belonging to more than one team.** Revisit when a real case
-  appears.
-- **Narrowing an individual practice to particular repos.** An individual set
-  applies wherever its owner works, and `applies_to` narrows by path within a
-  repo but not across repos. A person wanting a practice in their work
-  projects but not their personal ones would need an `in_repos:` filter. No
-  real case yet; do not build it speculatively.
+- **A practice belonging to more than one team, and a domain bundle shared
+  across teams.** Two framings of the same gap, merged 2026-09-01: the
+  original case was a single practice claimed by two team repos; the second,
+  found auditing `layered-practice-packs` against this plan, is a
+  compliance- or lab-workflow domain whose rules several different teams
+  would all want, independent of any one team's roster — the case the old
+  practice-pack mechanism solved and the loader does not yet replace for the
+  cross-team form. Revisit both together when a real case appears.
+- **Narrowing an individual practice to particular repos, or to a team.**
+  An individual set applies wherever its owner works, and `applies_to`
+  narrows by path within a repo but not across repos or by which team's
+  practices a repo also carries. Two real-shaped variants now: a person
+  wanting a practice in their work projects but not their personal ones
+  (`in_repos:`), and a preference that should differ by which team's repo
+  they're in — e.g. a different name used with different groups — which
+  needs the team, not the repo, as the scoping key (`for_team:`). The
+  second has a concrete origin (Morgan, 2026-09-01) where the first still
+  does not; design both together, since they're the same field shape with a
+  different key, when phase 5 reaches the private-set schema. Still not
+  built speculatively ahead of that.
 - **Per-repo credentials.** Different teams may pay for their own tokens, so
   sync and automation will eventually need per-repo Claude and GitHub
   credentials, failing gracefully and reporting the gap. Real, but not day one.
