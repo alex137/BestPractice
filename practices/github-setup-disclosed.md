@@ -7,7 +7,7 @@ applies_to:  [".github/**", "templates/github-actions/**"]
 occasion:    "an install step adds something GitHub-specific"
 gates:       []
 index_clause: "disclose GitHub-specific setup where the project's people read"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

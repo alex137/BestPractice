@@ -582,6 +582,60 @@ def _doc_references_are_links(ctx):
     return out
 
 
+def _unglossed(text, known):
+    """[(line, TOKEN)] via doc_lint's own acronym scan, so this check and the
+    warning it replaces never drift apart -- one detector, two callers."""
+    dl = _doc_lint()
+    out, seen, incode = [], set(), False
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith('```'):
+            incode = not incode
+            continue
+        if incode:
+            continue
+        clean = dl._decontent(line)
+        for m in dl.ACRONYM_RE.finditer(clean):
+            tok = m.group(1)
+            if tok not in known and tok not in seen and f'({tok})' not in clean:
+                seen.add(tok)
+                out.append((i, tok))
+    return out
+
+
+@check('acronyms-glossary', 'change',
+       'a changed document does not introduce a NEW unglossed acronym -- one '
+       'not already in GLOSSARY.md and not expanded on first use',
+       'the entire existing corpus. doc_lint reports every unglossed '
+       'acronym in a file as a warning; most predate this practice and '
+       'gating on all of them would fail forever and get switched off. This '
+       'gates only what a change ADDS: an acronym unglossed in the base '
+       'version and still unglossed here is pre-existing debt, not this '
+       "change's doing -- same reasoning as doc_lint's own opt-in numbers "
+       'gate, applied here without needing an opt-in marker because the '
+       "diff itself is the scope.")
+def _acronyms_glossary(ctx):
+    dl = _doc_lint()
+    known = dl.load_known_acronyms()
+    if known is None:
+        raise NotApplicable('no GLOSSARY.md in this repo, so the acronym '
+                            'check has nothing to check unglossed terms '
+                            'against')
+    files = [f for f in _md_in_scope(ctx) if f not in dl.ACRONYM_SKIP_FILES]
+    if not files:
+        raise NotApplicable('no changed markdown file is in scope')
+    out = []
+    for f in files:
+        cur = _unglossed(ctx.read(f), known)
+        base_text = ctx.read_base(f)
+        base_toks = {tok for _i, tok in _unglossed(base_text, known)} if base_text else set()
+        for i, tok in cur:
+            if tok not in base_toks:
+                out.append(Finding(f'{f}:{i}',
+                                    f'{tok} used without expansion on first '
+                                    f'use or a GLOSSARY.md entry'))
+    return out
+
+
 @check('deliverables-look-like-output', 'change',
        'a reader-facing document in scope carries no process residue — no '
        'verify-later flag, claims-to-source apparatus or decision provenance',
@@ -659,6 +713,35 @@ def _label_describes_content(ctx):
                 out.append(Finding(f'{f}:{i + 1}',
                                     'labelled "one paragraph" but the '
                                     'content spans more than one paragraph'))
+    return out
+
+
+@check('github-setup-disclosed', 'change',
+       'a newly added GitHub Actions workflow file is named somewhere in '
+       'GITHUB_ACTIONS.md, where this project\'s people read about '
+       'GitHub-specific setup',
+       'a workflow file that is EDITED rather than added (this only fires '
+       'on new files, per no-version-suffix\'s ctx.added_files pattern), '
+       'and disclosure written anywhere other than GITHUB_ACTIONS.md -- a '
+       'README section would satisfy the practice\'s intent but not this '
+       'check.')
+def _github_setup_disclosed(ctx):
+    added = [f for f in ctx.added_files()
+             if re.match(r'^\.github/workflows/.+\.ya?ml$', f)]
+    if not added:
+        raise NotApplicable('no GitHub Actions workflow file was added by '
+                            'this change')
+    doc_path = ROOT / 'GITHUB_ACTIONS.md'
+    if not doc_path.exists():
+        return [Finding(f, 'adds a workflow file, but this repo has no '
+                            'GITHUB_ACTIONS.md to disclose it in') for f in added]
+    doc = doc_path.read_text(encoding='utf-8', errors='ignore')
+    out = []
+    for f in added:
+        name = pathlib.PurePath(f).name
+        if name not in doc:
+            out.append(Finding(f, f'{name} is not mentioned in '
+                                  f'GITHUB_ACTIONS.md'))
     return out
 
 

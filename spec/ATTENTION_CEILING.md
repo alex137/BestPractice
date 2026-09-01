@@ -263,16 +263,18 @@ own terms it is not run.
 **Written as the fallback whatever the experiment said. The experiment said
 54%, so this is no longer the fallback — it is what to do next.**
 
-**Enforce or mark advisory.** 33 of 52 practices are prose-only (as of
+**Enforce or mark advisory.** 31 of 52 practices are prose-only (as of
 2026-09-01; see [spec/ENFORCEMENT.md](ENFORCEMENT.md) for the current,
-generated count — `label-describes-content` is the first one converted since
-this document's 54% result, a mechanical check for a claimed length label
-matching the content under it), and three runs now say prose-only does not
-produce compliance at any catalogue size through any channel. Every practice
-should either carry a check or be explicitly labelled advisory, so the
-catalogue stops claiming a bindingness it has not earned.
-[spec/ENFORCEMENT.md](ENFORCEMENT.md) has the machinery and the honest
-account of which practices resisted a check and why.
+generated count — `label-describes-content`, `acronyms-glossary` and
+`github-setup-disclosed` are the three converted since this document's 54%
+result, each gating only what a change adds rather than the pre-existing
+corpus, to avoid the failure doc_lint's own numbers-gate opt-in already
+learned: gating legacy debt fails forever and gets switched off), and three
+runs now say prose-only does not produce compliance at any catalogue size
+through any channel. Every practice should either carry a check or be
+explicitly labelled advisory, so the catalogue stops claiming a bindingness
+it has not earned. [spec/ENFORCEMENT.md](ENFORCEMENT.md) has the machinery
+and the honest account of which practices resisted a check and why.
 
 **Exercise the retirement path.** The plan says practices must be able to die
 and nothing has ever died. 52 may simply be more than a session can hold, and

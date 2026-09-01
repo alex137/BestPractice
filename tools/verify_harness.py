@@ -1357,6 +1357,16 @@ def check_precedent_check_fires():
                  '# Doc\n\n## Summary (one line)\n\nThis section actually\n'
                  'runs to two separate lines of text.\n', encoding='utf-8'))
 
+        # acronyms-glossary -- a changed doc introduces a new unglossed acronym
+        case('acronyms-glossary',
+             lambda repo: rewrite(repo, 'TODO.md',
+                                  lambda t: t + '\nSee the new ZQX report.\n'))
+
+        # github-setup-disclosed -- a new workflow file, undisclosed
+        case('github-setup-disclosed',
+             lambda repo: (repo / '.github' / 'workflows' / 'zzz-planted.yml')
+                 .write_text('name: planted\non: push\njobs: {}\n', encoding='utf-8'))
+
         # deliverables-look-like-output -- process residue in a deliverable
         case('deliverables-look-like-output',
              lambda repo: (repo / 'report.md').write_text(
