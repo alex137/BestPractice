@@ -63,6 +63,7 @@ being checked by it.
 | `computed-numbers-in-scripts` | tree | every generated block in a document matches what its script emits, is registered, and its document names the scripts that feed it |
 | `deliverables-look-like-output` | change | a reader-facing document in scope carries no process residue — no verify-later flag, claims-to-source apparatus or decision provenance |
 | `doc-references-are-links` | change | a changed document must not render an accidental strikethrough span — use the approximately sign, never a tilde |
+| `docs-are-current-state` | change | a changed document does not carry an in-document revision annotation -- an "(added <date>)" / "(rewritten <date>)" tag, or a "Rev N" heading ladder -- since version control already carries that losslessly |
 | `docs-track-models` | tree | a figure a script declares it owns is not hand-typed into the prose around its generated block |
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
@@ -80,7 +81,7 @@ being checked by it.
 | `session-bootstrap` | tree | if the session instructions name a setup command, a session-start hook must run it |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed, and no tracked file left modified |
 
-21 of 52 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+22 of 52 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

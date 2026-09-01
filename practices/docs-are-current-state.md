@@ -7,7 +7,7 @@ applies_to:  ["**/*.md"]
 occasion:    "writing or editing a document"
 gates:       []
 index_clause: "state what is true now; version control holds the history"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

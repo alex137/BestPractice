@@ -40,7 +40,7 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | Rules still over 150 words | 8 |
 | Carrying a `## Detail` | 15 |
 | Carrying a `## Story` | 19 |
-| Enforced by a check | 21 of 52 practices carry a `checked_by` |
+| Enforced by a check | 22 of 52 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py

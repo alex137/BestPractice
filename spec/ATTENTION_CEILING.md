@@ -364,25 +364,73 @@ what accompanies it.
 ## The supporting moves, now the primary recommendation
 
 **Written as the fallback whatever the experiment said. The experiment said
-54%, so this is no longer the fallback — it is what to do next.**
+54%, so this is no longer the fallback — it is the recommendation, not a
+retirement path: retirement manages catalogue size, and this repo's own
+plan is to scale to hundreds or thousands of practices, so shrinking the
+catalogue to make one 20-case eval read better works against the stated
+goal. Enforcement is the move that scales, because it does not compete for
+attention at all — a checked practice is never loaded, so a 500-practice
+catalogue with 500 checks costs a session nothing extra to comply with.**
 
-**Enforce or mark advisory.** 31 of 52 practices are prose-only (as of
-2026-09-01; see [spec/ENFORCEMENT.md](ENFORCEMENT.md) for the current,
-generated count — `label-describes-content`, `acronyms-glossary` and
-`github-setup-disclosed` are the three converted since this document's 54%
-result, each gating only what a change adds rather than the pre-existing
-corpus, to avoid the failure doc_lint's own numbers-gate opt-in already
-learned: gating legacy debt fails forever and gets switched off), and three
-runs now say prose-only does not produce compliance at any catalogue size
-through any channel. Every practice should either carry a check or be
+**Enforce, gate, or mark advisory — every practice, not a token few.** As of
+2026-09-01 (see [spec/ENFORCEMENT.md](ENFORCEMENT.md) for the current,
+generated count): **22 of 52 carry a real `checked_by`** (`label-describes-content`,
+`acronyms-glossary`, `github-setup-disclosed` and `docs-are-current-state`
+are the four converted since this document's 54% result, each gating only
+what a change adds rather than the pre-existing corpus, to avoid the
+failure doc_lint's own numbers-gate opt-in already learned: gating legacy
+debt fails forever and gets switched off). **8 more are reached by the
+gate-triggered channel** ([tools/precedent_gate.py](../tools/precedent_gate.py):
+`capture-gate`, `convention-to-audit`, `merge-authorization-keyword`,
+`merge-runbook`, `mistakes-become-rules`, `reply-links-files`,
+`repo-is-memory`, `second-pass-capture`) — deterministic reach at the
+moment they apply (merge, push, reply, review), stronger than the occasion
+index though not compliance-checked, because what they govern is a
+workflow property (did the session do X in this thread), not a diff
+property a script can inspect after the fact. **The remaining 22 are
+genuinely neither**, and the honest reason splits into three groups worth
+naming rather than lumping as one undifferentiated "prose-only" count:
+domain-specific quantitative-document practices this repo doesn't itself
+exercise (`name-both-sides-of-ledger`, `parallel-artifact-ledger`,
+`permutation-frontier-column`, `one-formatter-per-quantity`,
+`tabular-shared-renderer`, `quote-discipline`, `outward-summary-discipline`,
+`verify-decomposition`); reasoning-quality practices with no mechanical
+signature distinguishable from correct work (`affordance-is-shared`,
+`build-buy-decompose`, `check-source-architecture`,
+`frame-from-audience-question`, `lead-with-what-it-is`,
+`layered-practice-packs`, `section-order-by-frequency`,
+`variant-re-derives`, `index-remembers-past` — this last one specifically
+tried and reverted: its natural signature, "superseded by" language inline,
+is legitimately used by [the phase-2 loader spec](LOADER.md)'s own
+historical-record sections, so the check would have fired on correct
+work); and two that
+need an actual repo-level naming decision before a check has anything to
+verify (`two-check-levels`, `merge-authorization-keyword` moved to the
+gated list above once its trigger-word decision is made — until then
+neither has one). `readers-vocabulary` sits with the second group for a
+reason worth stating precisely: doc_lint's acronym scan, now gating via
+`acronyms-glossary`, covers the all-capital-letters half of this practice; the wider
+half — plain-English jargon judged against a specific reader's vocabulary —
+has no signature short of a maintained blocklist of "this repo's jargon,"
+which would be an editorial call fabricated unilaterally rather than a
+check, exactly the failure class phase 4's postmortem already warned
+against. Every practice should either carry a check, a gate, or be
 explicitly labelled advisory, so the catalogue stops claiming a bindingness
 it has not earned. [spec/ENFORCEMENT.md](ENFORCEMENT.md) has the machinery
 and the honest account of which practices resisted a check and why.
 
-**Exercise the retirement path.** The plan says practices must be able to die
-and nothing has ever died. 52 may simply be more than a session can hold, and
-the honest fix for a diluted catalogue is a smaller one. This has never been
-tried and it is cheap to try.
+**Retirement is not the fix here and is deliberately not pursued as one.**
+An earlier version of this section named it as a parallel option. It isn't:
+this repo's own stated goal is scaling to hundreds or thousands of
+practices, and shrinking the catalogue to raise a 20-case eval's score
+works against that goal rather than toward it — it would be optimizing the
+measurement, not the system it measures. Enforcement and gating are the
+moves that scale with catalogue size instead of fighting it, because a
+checked or gated practice is never competing for attention in the first
+place. Retirement still has a legitimate use — a practice that turns out to
+be wrong, redundant with another, or actively harmful should still be
+retirable — but "the catalogue is diluted" is not that case, and is not a
+reason to reach for it.
 
 ## Candidate designs for a future attempt — named, not scheduled
 
@@ -522,13 +570,17 @@ content — see its entry in [Candidate designs](#candidate-designs-for-a-future
 either run and falsified, or predicted null on falsified siblings' direct
 evidence.** Next up is
 [the supporting moves](#the-supporting-moves-now-the-primary-recommendation) —
-enforcing more of the remaining prose-only practices (31 of 52 as of
-2026-09-01), and actually trying the retirement path. If review-as-primary-
-control is ever revisited, it needs a framing genuinely different from
-"judge a finished diff, retrospectively" — not a fourth variant of context
-or choice within that framing — and it needs its own pre-registration
-stating why this document's three results don't already predict its
-outcome, not a claim that this run's gloss or hop-count was tuned wrong.
+pushing enforcement and gating as far as they honestly go (22 of 52
+enforced, 8 more gated, 22 genuinely resistant as of 2026-09-01, broken
+down by why in that section) — not retirement, which this document no
+longer recommends: it manages catalogue size against a goal (scaling to
+hundreds or thousands of practices) that retirement works against, not
+toward. If review-as-primary-control is ever revisited, it needs a framing
+genuinely different from "judge a finished diff, retrospectively" — not a
+fourth variant of context or choice within that framing — and it needs its
+own pre-registration stating why this document's three results don't
+already predict its outcome, not a claim that this run's gloss or hop-count
+was tuned wrong.
 
 The tree is at `precedent-beta-v01`. Working rules are in
 [spec/PHASE3_BRIEF.md](PHASE3_BRIEF.md) and

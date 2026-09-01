@@ -745,6 +745,35 @@ def _github_setup_disclosed(ctx):
     return out
 
 
+REVISION_ANNOTATION_RE = re.compile(
+    r'\((?:added|rewritten|updated|removed|revised)\s+\d{4}-\d{2}-\d{2}\)'
+    r'|^#{1,6}.*\bRev(?:ision)?\.?\s*\d+\b', re.I | re.M)
+
+
+@check('docs-are-current-state', 'change',
+       'a changed document does not carry an in-document revision '
+       'annotation -- an "(added <date>)" / "(rewritten <date>)" tag, or a '
+       '"Rev N" heading ladder -- since version control already carries '
+       'that losslessly',
+       'the practice\'s real target: superseded text kept inline "for '
+       'history" with no date tag at all, and the four narrow textual '
+       'exemptions (dated decision records, volatile-fact freshness '
+       'stamps, legally load-bearing markers, as-shipped artifacts), which '
+       'this check does not try to distinguish -- it only catches the '
+       'literal annotation forms named in the Rule.')
+def _docs_are_current_state(ctx):
+    out = []
+    for f in _md_in_scope(ctx):
+        text = ctx.read(f)
+        for i, line in enumerate(text.splitlines(), 1):
+            if REVISION_ANNOTATION_RE.search(line):
+                out.append(Finding(f'{f}:{i}',
+                                    'carries an in-document revision '
+                                    'annotation -- state what is true now; '
+                                    'version control holds the history'))
+    return out
+
+
 @check('search-by-purpose', 'change',
        'a document carrying generated numbers is reachable from an index a '
        'reader actually consults',

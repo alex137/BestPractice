@@ -1367,6 +1367,12 @@ def check_precedent_check_fires():
              lambda repo: (repo / '.github' / 'workflows' / 'zzz-planted.yml')
                  .write_text('name: planted\non: push\njobs: {}\n', encoding='utf-8'))
 
+        # docs-are-current-state -- an in-document revision annotation
+        case('docs-are-current-state',
+             lambda repo: (repo / 'planted-revision.md').write_text(
+                 '# Doc\n\nThe timeout is 30s (updated 2026-01-15).\n',
+                 encoding='utf-8'))
+
         # deliverables-look-like-output -- process residue in a deliverable
         case('deliverables-look-like-output',
              lambda repo: (repo / 'report.md').write_text(
