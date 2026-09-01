@@ -33,9 +33,9 @@ flips expose everything a private repo ever casually committed.
 ## Detail
 
 ## Why
-The abstraction step (practice 14) is a judgment call performed
+The abstraction step ([practice-export-loop](practice-export-loop.md)) is a judgment call performed
 repeatedly by agents under time pressure — exactly the conditions under
-which practice 6 says a convention needs a loud audit. Public git history
+which [convention-to-audit](convention-to-audit.md) says a convention needs a loud audit. Public git history
 cannot be un-published.
 
 ## Story

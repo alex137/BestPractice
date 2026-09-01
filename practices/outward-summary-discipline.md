@@ -72,7 +72,7 @@ reproduces its errors, while one that re-computes the disputed quantity does
 not.
 
 ## Story
-The same audit that produced practice 24 found twenty-two defects in a
+The same audit that produced [quote-discipline](quote-discipline.md) found twenty-two defects in a
 summary whose every number had been written in good faith from real sources:
 three differently-named rows summing one underlying market, a benefit line
 booked without its gating cost, claims citing documents that did not contain

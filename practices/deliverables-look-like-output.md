@@ -56,7 +56,7 @@ why; the check is what holds.
 ## Story
 
 ## Install
-**Related.** The current-state rule (git is the history) and practice 48
+**Related.** The current-state rule (git is the history) and [index-remembers-past](index-remembers-past.md)
 (provenance lives in the index) bound what a deliverable may remember;
-practices 24–25 (quote discipline, adversarial pass) generate exactly the
+[quote-discipline](quote-discipline.md) and [outward-summary-discipline](outward-summary-discipline.md) (quote discipline, adversarial pass) generate exactly the
 apparatus this practice routes into the record doc.

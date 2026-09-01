@@ -22,7 +22,7 @@ an external platform, an algorithm someone else changes, a tool quirk, a
 price — carries an inline date: *as of `<date>`* when adopted, updated to
 *verified `<date>`* whenever a session reaffirms it still holds. Optionally
 add a review-by cadence for rules in domains known to shift. Stable internal
-conventions don't need this; their origin story (practice 5) is enough.
+conventions don't need this; their origin story ([cite-the-incident](cite-the-incident.md)) is enough.
 
 ## Detail
 Three corollaries. **The date is the contributor's, not the session's:**
@@ -60,8 +60,8 @@ doesn't exist for the session reading the rule.
 ## Story
 
 ## Install
-A writing habit with a natural audit extension (practice 6):
+A writing habit with a natural audit extension ([convention-to-audit](convention-to-audit.md)):
 tag rules with a review-by date or a volatility marker and a small script
 can flag overdue ones — the drift check's shape, applied to time instead of
-content. The environment-gotchas section (practice 4) is the most
+content. The environment-gotchas section ([environment-gotchas](environment-gotchas.md)) is the most
 decay-prone rule set most repos have; date its entries first.

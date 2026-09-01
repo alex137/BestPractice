@@ -57,7 +57,7 @@ delivery. Two prompts do most of the work: *"what does the base say it cannot
 do, and does my variant's reasoning quietly assume otherwise?"* and *"which of
 the base's choices exist only because of a job my variant is not doing?"*
 
-**Related.** Practice 20 (mistakes become rules) is how this one was derived —
+**Related.** [mistakes-become-rules](mistakes-become-rules.md) (mistakes become rules) is how this one was derived —
 and note that the second instance was folded into the *same* rule as the first
 rather than minted as a new one, per that practice's proportionality guard: two
 failures with one root cause get one widened guard, not two narrow ones.

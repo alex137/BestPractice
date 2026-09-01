@@ -24,7 +24,7 @@ logs are **append-only, keep both**; the same content file edited on both
 sides keeps both sides' additions (renumbering the side not yet referenced
 elsewhere); **generated outputs are never hand-merged** (the side matching
 the committed manifest wins; unshipped builds are deleted and rebuilt). The
-audits (practice 6) must pass before the merge commits — the audit, not
+audits ([convention-to-audit](convention-to-audit.md)) must pass before the merge commits — the audit, not
 re-inspection, is what makes fast mechanical resolution safe.
 
 ## Detail

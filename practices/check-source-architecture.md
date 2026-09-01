@@ -56,6 +56,6 @@ contradict. Only going back to the primary architecture catches it.
 ## Story
 
 ## Install
-**Related:** practice 29 (a variant re-derives what it inherits) is the sibling
+**Related:** [variant-re-derives](variant-re-derives.md) (a variant re-derives what it inherits) is the sibling
 failure — carrying forward a base's *choices* unexamined. This one is the inverse:
 introducing a distinction the base never made.
