@@ -125,6 +125,15 @@ ANCHORS = [
      15, 15, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
+    # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as
+    # the anchor above -- found stale (still "8", the pre-correction value)
+    # by a 2026-09-01 deep-check audit, on the very day spec/PRACTICE_FORMAT.md
+    # was corrected to 7 with an explicit note about the correction. Nothing
+    # caught the plan's own copy because this whole anchor mechanism was never
+    # wired into verify_harness.py -- see check_catalogue_anchors there.
+    ('PRACTICE_ENGINE_PLAN.md, "The ## Detail split, and the three practices '
+     'that refused it" — Rules over 150 words',
+     7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
 ]
 
 

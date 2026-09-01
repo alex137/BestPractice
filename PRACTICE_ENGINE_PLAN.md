@@ -1165,7 +1165,7 @@ as the thing it checked has been green over a real defect.
 | | phase 1 | phase 1.5 | phase 3 |
 |---|---|---|---|
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
-| Practices with `## Rule` over 150 words | 16 | 20 | **8** |
+| Practices with `## Rule` over 150 words | 16 | 20 | **7** |
 | Resident block | — | ≈621 tokens | **≈312 tokens** |
 
 Fifteen practices gained a Detail. **Five cannot be split at all**, and that
@@ -1409,6 +1409,23 @@ claimed is any recall benefit.
 reaches: [spec/LOADER.md](spec/LOADER.md)'s v5 section.)*
 
 ### What phase 5 should carry forward
+
+**The cross-source resident budget cap is built (2026-09-01); running it
+against the real private sets is not.**
+[spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)'s open gap —
+nothing capped the resident block across all three sources, only within
+this repo's own `practices/` directory — was found still unaddressed by a
+2026-09-01 deep-check audit, with no combined-figure report on file
+anywhere. `tools/precedent_resolve.py` now computes it and exits 1 when the
+resolved set's combined resident block exceeds the same 2,000-token cap
+`tools/build_views.py` enforces locally (`check_cross_source_resident_budget`
+in `tools/verify_harness.py` tests both directions). What remains needs a
+session opened directly against the real `precedent-individual` and
+`precedent-team-maintainers` repos, for the same structural reasons phase 3
+itself could not populate them from here — see
+[spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)'s "cross-source
+resident cap" section for the exact command. Phase 5's creation pipeline
+should assume this check exists and is live, not plan around building it.
 
 **A promotion step that accepts a `checked_by` string has re-created the
 problem phase 4 spent its first hours undoing.** The creation pipeline should

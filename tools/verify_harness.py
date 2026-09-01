@@ -30,6 +30,7 @@ import precedent_paths as pp
 # an uncaught SystemExit taking the whole harness down instead of a FAIL
 # line. Keep it that way -- import helpers, run the build out-of-process.
 import build_views as bv
+import catalogue_stats as cs
 
 FAILED = []
 PASSED = []
@@ -1235,6 +1236,24 @@ def check_practice_sections_present():
           '## Why, ## Story, ## Install -- ## Detail is optional)', ok)
 
 
+def check_catalogue_anchors():
+    """tools/catalogue_stats.py's own ANCHORS list -- prose sentences
+    elsewhere that restate a figure the script computes -- is checked by
+    catalogue_stats.py's own `main()`, but nothing ever called it as part
+    of this repo's actual gate suite. Found by a 2026-09-01 deep-check
+    audit as the reason PRACTICE_ENGINE_PLAN.md could carry a stale "8"
+    for months after spec/PRACTICE_FORMAT.md was corrected to 7, with an
+    explicit note about the correction, the same day: the mechanism built
+    specifically to catch this drift existed and worked, but was never
+    wired to anything that runs automatically. This wires it in."""
+    passes, fails = cs.check_anchors()
+    for f in fails:
+        print(f"  {f}")
+    check(f'catalogue anchors ({len(passes) + len(fails)} stated figures: a '
+          f'prose sentence citing a script-derived number must still agree '
+          f'with what the script computes)', not fails)
+
+
 def check_all_workflows_disclosed():
     """Every EXISTING GitHub Actions workflow file is named in
     GITHUB_ACTIONS.md -- not just newly-added ones.
@@ -2023,6 +2042,7 @@ def main():
     check_source_precedence()
     check_cross_source_resident_budget()
     check_practice_sections_present()
+    check_catalogue_anchors()
     check_all_workflows_disclosed()
     check_example_set()
     check_index_clauses(files)
