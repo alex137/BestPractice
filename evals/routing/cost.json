@@ -1,8 +1,6 @@
 {
-  "oracle": 8967,
-  "control": 8964,
-  "treatment1": 4764,
-  "review": 4781,
-  "review-gloss": 8177,
-  "review-hop1": 4788
+  "oracle": 9127,
+  "control": 9124,
+  "treatment1": 4891,
+  "review": 4909
 }

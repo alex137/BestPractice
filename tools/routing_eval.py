@@ -80,7 +80,18 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 EVAL = ROOT / 'evals' / 'routing'
 PROMPTS = EVAL / 'prompts'
 ANSWERS = EVAL / 'answers'
-ARMS = ('oracle', 'control', 'treatment1', 'review', 'review-gloss', 'review-hop1')
+ARMS = ('oracle', 'control', 'treatment1', 'review')
+# 'review-gloss' and 'review-hop1' (paired with 'review-hop2', built by
+# cmd_emit_review_hop2) are NOT in the default set. Both were run to
+# completion and both falsified their prediction -- see
+# spec/ATTENTION_CEILING.md's "the gloss-tier result" and "the two-hop
+# review result". The prompt-building code and the recorded answers stay
+# (the negative result needs its own evidence to stay trustworthy), but a
+# bare `--emit` should not silently regenerate prompts for two arms this
+# document already says not to re-run. build_prompt('review-gloss', ...)
+# and build_prompt('review-hop1', ...) still work if a genuinely new
+# experiment needs to reuse this machinery -- called explicitly, not by
+# widening this tuple back out.
 # One hop, deliberately -- spec/ATTENTION_CEILING.md permits either "the same
 # two hops as the treatment if you want the comparison clean, or one hop if
 # you want the cheapest version" and asks only that the choice be stated. The
