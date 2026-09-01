@@ -251,7 +251,7 @@ three things:
      bold-key-phrases             — bold the key phrases; do not overdo it
      trim-prose                   — trim after any substantial edit
    When merging a branch:
-     deep-check      — run the three audits, then the coherence review
+     routing-audit   — run the three audits, then the coherence review
      todo-gate       — reconcile TODO.md before pushing
    When adding a practice:
      new-practice-placement — narrowest level first; renumber nothing
@@ -633,6 +633,28 @@ system enforces. A human approves in the middle.**
 That middle step is a feature, not friction. An agent that mints its own
 binding rules unsupervised is exactly how RPP reached 46 rules in three days,
 and a catalogue nobody vetted is a catalogue nobody trusts.
+
+**A connection worth reasoning about before building Stage 1, flagged by a
+2026-09-01 deep-check audit and not yet resolved either way.**
+[spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s sharpest result is
+that a session asked to *retrospectively judge a finished thing against a
+set of practices* — not to plan work, to judge it after the fact — caps out
+around 50–54% recall no matter how much context or choice it is given
+(measured three separate ways: a one-line clause, a clause plus a summary,
+and a real second hop to the full text). Stage 1's "session judgment at a
+gate" and Stage 3's promotion criteria (recurrence, non-duplication) both
+ask a session to do exactly that shape of task — judge a completed or
+proposed thing against the existing catalogue, after the work is done. It
+is not established that this transfers: judging one candidate incident is
+not the same task as judging a whole diff against 52 practices, and the
+review arm's actual failure mode (per
+[the case-level diagnosis](spec/ATTENTION_CEILING.md#why-it-landed-below-the-loaders-own-working-session-recall-not-just-below-control))
+was never getting more than a one-line clause on most candidates, which a
+detection gate showing the actual incident does not have to repeat. But
+nobody has reasoned about it in writing, and the plan's own discipline —
+measure before building, per phase 2's whole premise — argues for doing
+that reasoning explicitly before Stage 1 is built, not discovering the
+answer the way phase 2's own premise was discovered: by shipping it first.
 
 ### Stage 1 — Detection
 
