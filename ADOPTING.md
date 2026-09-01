@@ -171,7 +171,7 @@ That middle step is the design, not an unfinished corner of it.
 **Writing a practice down does not make it happen.** This was measured
 carefully rather than assumed, and the result went against what the project
 expected: an assistant carrying the entire library in front of it still
-missed about one in five of the practices that applied to the work at hand.
+missed about one in six of the practices that applied to the work at hand.
 Giving it a smaller, better-targeted selection did not fix that — it missed
 more, while costing far less to run. Both arrangements missed *the same
 practices*.

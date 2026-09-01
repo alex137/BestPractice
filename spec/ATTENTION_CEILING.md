@@ -376,7 +376,7 @@ catalogue with 500 checks costs a session nothing extra to comply with.**
 2026-09-01, after a second, more thorough pass through every remaining
 practice rather than stopping at the first verdict — see
 [spec/ENFORCEMENT.md](ENFORCEMENT.md) for the current, generated count):
-**24 of 53 carry a real `checked_by`** (the catalogue itself grew to 53 this
+**24 of 54 carry a real `checked_by`** (the catalogue itself grew to 53 this
 session: `checkable-gets-checked`, the practice this second pass argued for
 directly — see [below](#a-standing-rule-for-the-catalogues-own-growth)).
 `label-describes-content`,

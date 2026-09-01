@@ -26,7 +26,7 @@ note.
 | The leak gate's vocabulary layer | [tools/leak_gate.py](../tools/leak_gate.py), blocklist from `PRECEDENT_LEAK_BLOCKLIST`, template at [templates/leak-blocklist.txt.template](../templates/leak-blocklist.txt.template) | Built and switched on. |
 | The private sets **populated** from RepoPersonalPreferences' 46 rules | — | **Not done. See below.** |
 
-Seventeen stated cases in [tools/verify_harness.py](../tools/verify_harness.py)
+Twenty-one stated cases in [tools/verify_harness.py](../tools/verify_harness.py)
 (`check_source_precedence`) build a throwaway consumer repo with all three
 sources and assert each rule above. Every one was verified by breaking the
 resolver and watching the matching case fail — inverted precedence, ignored
@@ -127,7 +127,7 @@ reading it**, and fixed in the same commit that switched the layer on:
 | A term in a **commit message** | Never scanned. Messages are published verbatim, and a message is where a session narrates what it was working on. |
 
 The gate now walks a range commit by commit, reads blobs out of git, and
-scans messages. `check_leak_gate_fires` in the harness states twelve cases
+scans messages. `check_leak_gate_fires` in the harness states fifteen cases
 against a throwaway repository and asserts the exit status, because the
 pre-existing check ran the gate on *this tree* and reported what it said —
 which passes just as happily when the gate has stopped looking. That is why

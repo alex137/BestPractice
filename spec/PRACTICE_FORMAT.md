@@ -319,7 +319,7 @@ gates:       ["merge"]
 **Why a moment cannot be a glob, which is the whole argument for the field.**
 Phase 4's routing pass gave a narrower `applies_to` to every on-demand
 practice with a genuine path locus and recorded the reason for every one that
-kept `**` ([tools/routing_scope.json](../tools/routing_scope.json)). Twenty-four
+kept `**` ([tools/routing_scope.json](../tools/routing_scope.json)). Twenty-six
 kept it, and the most common reason was the same: **the practice fires at a
 moment, not in a place.** `merge-runbook` fires when merging.
 `mistakes-become-rules` fires when a review turns up a defect. No glob reaches

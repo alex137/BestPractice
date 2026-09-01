@@ -406,7 +406,7 @@ order records a hash the vendored tree doesn't match.
     },
     {
       "practice": "merge-runbook",
-      "upstream_path": "templates/CLAUDE.md.template",
+      "upstream_path": "templates/AGENTS.md.template",
       "local_path": "CLAUDE.md",
       "granularity": "section",
       "section_marker": "## Merge runbook",

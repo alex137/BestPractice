@@ -51,7 +51,7 @@ being checked by it.
 |---|---|---|
 | Practices with `checked_by` are enforced | [tools/precedent_check.py](../tools/precedent_check.py) — one registry entry per enforced practice | Built. `--list`, `--only SLUG`, `--paths`, `--range`, `--turn-end`, `--all`, `--strict`. |
 | The check's failure message **is** the rule | `rule_of()` reads the practice's own `## Rule` through `split_practices._read_practice_file` | Built. The same reader [tools/precedent_show.py](../tools/precedent_show.py) uses, per "one code path" — a paraphrase in the check would be a second copy of the rule with nothing holding the two together. |
-| Each converted practice has a test proving its check fires | `check_precedent_check_fires` in [tools/verify_harness.py](../tools/verify_harness.py) | Built. 39 stated cases against throwaway repositories. |
+| Each converted practice has a test proving its check fires | `check_precedent_check_fires` in [tools/verify_harness.py](../tools/verify_harness.py) | Built. 53 stated cases against throwaway repositories. |
 | A check that cannot run says so | `NotApplicable`, reported as SKIPPED | Built. See below — this is the part that had been getting silently wrong. |
 | Coverage materially above 8 of 52 | The registry | Built, and the eight it started from were re-established rather than assumed. |
 
@@ -81,7 +81,7 @@ being checked by it.
 | `search-by-purpose` | change | a document carrying generated numbers is reachable from an index a reader actually consults |
 | `session-bootstrap` | tree | if the session instructions name a setup command, a session-start hook must run it |
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
-| `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed, and no tracked file left modified |
+| `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
 24 of 54 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
@@ -94,8 +94,14 @@ Every graceful-failure path here ends in `SKIPPED` with a reason, and the
 summary line says so in those words:
 
 ```
-precedent_check: 13 passed, 0 violated, 3 skipped (a skip is not a pass).
+precedent_check: N passed, 0 violated, M skipped (a skip is not a pass).
 ```
+
+(0 violated is what matters here — the passed/skipped counts grow as
+checks are added or as more of a clean tree happens to be in scope for a
+`change`-only check, so a literal N/M pinned into this example goes stale
+by design; this document had one and a 2026-09-01 deep-check audit found
+it already wrong.)
 
 This is not fastidiousness. Three of the four inherited scripts were failing
 in one of the two ways a check can fail without failing. Two exited non-zero

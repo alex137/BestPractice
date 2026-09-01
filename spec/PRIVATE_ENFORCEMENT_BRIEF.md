@@ -18,7 +18,7 @@ describes, not here.
 ## The gap, stated plainly
 
 Phase 3 populated the two private sets with one practice each. Phase 4 built
-real, tested enforcement for the universal catalogue: 24 of 53 practices now
+real, tested enforcement for the universal catalogue: 24 of 54 practices now
 carry a `checked_by` backed by a test that plants the exact violation the
 practice exists to prevent and proves it fires (see
 [spec/ENFORCEMENT.md](ENFORCEMENT.md)). **Neither private set has any of
