@@ -112,7 +112,20 @@ FORBIDDEN_CONTENT = [
     (re.compile(r'(?:/Users/|/home/(?!user[/\s]|user$)|[A-Za-z]:\\\\Users\\\\)'
                 r'[A-Za-z0-9._-]+[/\\]'),
      "an absolute path inside someone's home directory"),
-    (re.compile(r'^\s*(source|level)\s*:\s*["\']?(individual|team)', re.M | re.I),
+    # Anchored to the END of the line (an optional quote/comment aside) so
+    # this only matches a line that IS a `key: value` pair -- the shape a
+    # leaked practice's frontmatter would actually have. Before this end
+    # anchor existed, the pattern only checked the START of the line, so
+    # ordinary capitalized prose beginning a line with "Source:" or "Level:"
+    # -- a completely normal sentence or heading style, nothing to do with a
+    # practice's frontmatter -- hard-failed the always-on structural gate
+    # that runs in CI on every branch. Confirmed: "Source: Individual
+    # contributions to this open-source library are always welcome" passed
+    # clean before the case-insensitivity fix (case-sensitive "Source"
+    # didn't match "source"), then started failing once that fix landed,
+    # because nothing scoped the match to an actual frontmatter-shaped line.
+    (re.compile(r'^\s*(source|level)\s*:\s*["\']?(individual|team)["\']?'
+               r'\s*(#.*)?$', re.M | re.I),
      'a practice claiming a non-universal source'),
 ]
 

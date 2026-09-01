@@ -173,7 +173,24 @@ def resolve(sources):
         by_source.append((s, loaded))
 
     resolved, shadowed, blocked, retired = {}, [], [], []
+    # Tracks, per precedence level, which `overrides:` target has already
+    # been claimed by a practice at that same level. Two practices at the
+    # SAME level naming the same target are a collision the plan requires
+    # to fail loudly (PRACTICE_ENGINE_PLAN.md, "Precedence, and the One Case
+    # Where the Individual Does Not Win": "the resolver fails loudly if two
+    # same-level practices claim one slug"). Without this, the second
+    # same-level practice to process finds its target already deleted from
+    # `resolved` by the first -- `resolved.get(ov)` comes back None, the
+    # `if prior_ov is not None:` guard below is skipped entirely, and the
+    # second practice's override intent vanishes with no error, no shadow
+    # entry, and no trace in `--explain` for either practice. Keyed by level
+    # rather than by source, since the collision is about two practices the
+    # resolver cannot order relative to each other -- there is no precedence
+    # between them to fall back on -- regardless of which source(s) at that
+    # level they came from.
+    override_claims_by_level = {}
     for _s, loaded in by_source:                      # lowest precedence first
+        claims = override_claims_by_level.setdefault(_s['level'], {})
         for slug, practice in sorted(loaded.items()):
             if bv._json_str(practice['fm'].get('status', 'active')) != IN_FORCE_STATUS:
                 retired.append(practice)
@@ -200,6 +217,17 @@ def resolve(sources):
                 continue
 
             if has_override:
+                prior_claim = claims.get(ov)
+                if prior_claim is not None:
+                    raise ResolveError(
+                        f"{practice['source']} ({practice['slug']!r}) and "
+                        f"{prior_claim['source']} ({prior_claim['slug']!r}) are "
+                        f"both {_s['level']}-level practices that name "
+                        f"`overrides: {ov}`. Two same-level practices cannot "
+                        f"both claim one slug -- pick one, or point one of "
+                        f"them at a different target.")
+                claims[ov] = practice
+
                 prior_ov = resolved.get(ov)
                 if prior_ov is not None:
                     if _is_blocking(prior_ov):

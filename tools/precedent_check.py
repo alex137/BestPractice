@@ -508,22 +508,48 @@ def _engine_plus_host_shims(ctx):
 
 @check('verify-postcondition', 'turn-end',
        'the state you wanted after the operations this turn: nothing '
-       'committed but unpushed, and no tracked file left modified',
+       'committed but unpushed on any local branch, and no tracked file '
+       'left modified',
        'every other postcondition. It asserts the two this practice names '
        'as its own examples, for this repository; naming the postcondition '
        'for anything else is still yours.')
 def _verify_postcondition(ctx):
-    up = _git('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')
-    if up.returncode != 0:
-        raise NotApplicable('this branch tracks no upstream, so "no unpushed '
-                            'commits" is not a postcondition that can be '
-                            'evaluated here')
+    # The practice's own quoted example, verbatim, is "no unpushed commits on
+    # ANY branch" -- and its Install section is explicit: "enumerate every
+    # local branch against its remote and require the difference to be
+    # empty... the postcondition is 'nothing unpublished anywhere'." This
+    # used to check only the CURRENTLY CHECKED OUT branch against its own
+    # configured upstream (`@{upstream}..HEAD`), which is a strictly weaker,
+    # single-branch postcondition -- and misses exactly the practice's own
+    # origin incident: work committed on a branch that was then left
+    # un-checked-out and unpublished while a session moved on. Reproduced
+    # directly: commit to a second local branch, leave the checked-out
+    # branch clean and fully pushed, and the old check reported "0 violated"
+    # with the stray commit sitting right there in `git branch -v`.
+    #
+    # Rather than per-branch `@{upstream}` tracking (absent for plenty of
+    # real branches -- e.g. one whose remote counterpart exists under the
+    # same name but was never explicitly set as its upstream), this asks the
+    # more direct question the Rule actually names: is this commit
+    # reachable from ANY remote-tracking ref at all? `--not --remotes`
+    # answers that without depending on tracking configuration, and doubles
+    # as the fallback for a branch that was never pushed under any name.
+    branches = _git('for-each-ref', 'refs/heads', '--format=%(refname:short)')
+    if branches.returncode != 0 or not branches.stdout.strip():
+        raise NotApplicable('this repository has no local branches to check')
+    if not _git('for-each-ref', 'refs/remotes').stdout.strip():
+        raise NotApplicable('no remote-tracking refs exist, so "no unpushed '
+                            'commits on any branch" is not a postcondition '
+                            'that can be evaluated here')
     out = []
-    ahead = _git('rev-list', '--count', '@{upstream}..HEAD').stdout.strip()
-    if ahead and ahead != '0':
-        out.append(Finding('', f'{ahead} commit(s) are on this branch and not '
-                               f'on {up.stdout.strip()} — the command that '
-                               f'reported success is not the state you wanted'))
+    for branch in branches.stdout.split():
+        ahead = _git('rev-list', '--count', branch, '--not',
+                     '--remotes').stdout.strip()
+        if ahead and ahead != '0':
+            out.append(Finding('', f'{ahead} commit(s) on {branch!r} are not '
+                                   f'reachable from any remote — the command '
+                                   f'that reported success is not the state '
+                                   f'you wanted'))
     dirty = [l for l in _git('status', '--porcelain').stdout.splitlines()
              if l and not l.startswith('??')]
     if dirty:
@@ -959,8 +985,20 @@ def _scripts_assert_properties(ctx):
     code, out = _run('tools/model_audit.py')
     if 'NOT APPLICABLE' in out:
         raise NotApplicable(out.strip().splitlines()[-1])
+    # model_audit.py itself treats "no self_check() or ANCHORS" as a WARN,
+    # not a FAIL -- its own exit code is unaffected by warnings, by design,
+    # since it is meant to run standalone without erroring on an
+    # intentionally-uninstrumented script list. But that WARN line is
+    # reporting exactly what this practice's Rule forbids: "every
+    # instrumented script asserts its own properties." Filtering for only
+    # `FAIL:` here silently passed a script explicitly listed in
+    # INSTRUMENTED with zero assertions -- the practice's own Install
+    # section calls this out by name ("keep the instrumented list explicit
+    # so the audit can warn when a listed script has no assertions") and the
+    # enforced gate must actually treat that warning as the violation it is,
+    # not discard it.
     return [Finding('', l.strip()) for l in out.splitlines()
-            if l.startswith('FAIL:')]
+            if l.startswith('FAIL:') or l.startswith('WARN:')]
 
 
 # --------------------------------------------------------------------------

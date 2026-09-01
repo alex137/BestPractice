@@ -116,8 +116,19 @@ def normalize_path(path):
         # with nothing reporting it. resolve() does not require the path to
         # exist, so this is safe for a path a git diff names for a file
         # that was since deleted.
-        resolved = pathlib.Path(p).resolve().as_posix()
-        if resolved.startswith(root):
+        try:
+            resolved = pathlib.Path(p).resolve().as_posix()
+        except (OSError, RuntimeError):
+            # A symlink LOOP (a -> b -> a) makes resolve() raise rather than
+            # return -- uncaught, this took down every caller (the
+            # PreToolUse hook, behavioral_replay.py) with a traceback for a
+            # path that merely happens to contain a loop somewhere, rather
+            # than degrading the way "resolve() does not require the path to
+            # exist" already promises just above. Fall through on the
+            # unresolved spelling, same as any other path this function
+            # cannot map back under ROOT.
+            resolved = None
+        if resolved is not None and resolved.startswith(root):
             p = resolved[len(root):]
     while p.startswith('./'):
         p = p[2:]

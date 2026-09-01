@@ -23,6 +23,7 @@ CATALOGUE = ROOT / 'PRACTICES.md'
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
 import precedent_paths as pp
+import doc_lint as dl
 # build_views is imported for its pure helpers only (_json_str,
 # INDEX_CLAUSE_MAX). check_generated_views_regenerate still shells out to it
 # as a SUBPROCESS on purpose: build_loader_block() calls sys.exit() when the
@@ -891,6 +892,29 @@ def check_leak_gate_fires():
         git(repo, 'reset', '-q', '--hard', base)
         shutil.rmtree(repo / 'Team-Nightjar', ignore_errors=True)
 
+        # 6c. the FORBIDDEN_CONTENT "non-universal source" rule must catch a
+        # real frontmatter-shaped line and NOT an ordinary sentence that
+        # merely starts with "Source:" or "Level:". Regression case: the
+        # rule originally had no end anchor, so it matched the START of any
+        # line beginning with those words regardless of what followed --
+        # ordinary capitalized prose, not just a practice's frontmatter,
+        # hard-failed the always-on structural gate.
+        (repo / 'frontmatter-leak.md').write_text(
+            'source: individual\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'frontmatter leak')
+        cases.append(('a real frontmatter-shaped `source: individual` line '
+                       'still fails', gate('--range', f'{base}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base)
+
+        (repo / 'clean-prose.md').write_text(
+            'Source: Individual contributions to this open-source library '
+            'are always welcome, and we credit every contributor by name.\n\n'
+            'Level: Team leads should review before merge.\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'ordinary prose')
+        cases.append(('ordinary prose beginning a line with "Source:" or '
+                       '"Level:" stays clean', gate('--range', f'{base}..HEAD') == 0))
+        git(repo, 'reset', '-q', '--hard', base)
+
         # 7. the vocabulary layer must not fail OPEN once you have said you
         #    have a list.
         cases.append(('an unrun vocabulary layer fails when required',
@@ -1084,6 +1108,40 @@ def check_source_precedence():
                       not any(s['slug'] == 'legacy-note-format'
                               for s in data['overridden'])))
 
+        # two same-level practices claiming the same `overrides:` target must
+        # fail loudly, not silently drop the second collision. Regression for
+        # a real bug: the first same-level practice to process deletes its
+        # target from `resolved`, so a second same-level practice naming the
+        # same target found `resolved.get(ov)` already None and its override
+        # intent vanished with no error and no trace in either practice's
+        # `--explain` output. PRACTICE_ENGINE_PLAN.md is explicit this must
+        # fail loudly: "the resolver fails loudly if two same-level practices
+        # claim one slug."
+        collision = tmp / 'collision-project'
+        collision.mkdir()
+        coll_universal, coll_team = tmp / 'cu', tmp / 'ct'
+        practice(coll_universal, 'shared-target',
+                 level_note='the contested universal practice')
+        practice(coll_team, 'claim-one', level_note='first team practice',
+                 overrides='shared-target')
+        practice(coll_team, 'claim-two', level_note='second team practice',
+                 overrides='shared-target')
+        (collision / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(coll_universal)},
+                        {'level': 'team', 'name': 'precedent-team-fixture',
+                         'path': str(coll_team)}]}), encoding='utf-8')
+        r_coll = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+             '--repo', str(collision)],
+            capture_output=True, text=True)
+        cases.append(("two same-level practices naming one `overrides:` "
+                       "target fail loudly instead of silently dropping the "
+                       "second",
+                       r_coll.returncode == 1 and 'cannot both claim' in
+                       (r_coll.stdout + r_coll.stderr)))
+
         # a shared repo may not name someone's individual set
         leaky = tmp / 'leaky-project'
         leaky.mkdir()
@@ -1236,9 +1294,238 @@ def check_practice_sections_present():
           '## Why, ## Story, ## Install -- ## Detail is optional)', ok)
 
 
-AMENDMENT_ENTRY_RE = re.compile(r'^\*\*(\d{4}-\d{2}-\d{2}) — ', re.M)
+def check_doc_lint_fires():
+    """doc_lint.py gates every push (AGENTS.md's "Two check levels") and had
+    NEVER been given a direct unit test of its own internals -- this repo's
+    own checkable-gets-checked convention, applied to the tool that
+    enforces it on everyone else. Plants two regressions a 2026-09-01
+    deep-check audit found and fixed, plus the clean-input and still-caught
+    counterparts check_leak_gate_fires()'s family always pairs a fix with
+    (a check that fires on everything is as useless as one that fires on
+    nothing).
+
+    1. Cross-line strikethrough: renders_del() used to test one PHYSICAL
+       LINE at a time, but GFM strikethrough can open on one line and close
+       on a later one within the same paragraph. GitHub renders the whole
+       span as one <del>; the old per-line test never saw it, since neither
+       half alone contains a matching pair of tildes.
+    2. check_residue()'s "this is just a link to the record doc" allow-list
+       only recognized `_record.md`/`_diligence.md`, not the four other
+       record-doc suffixes is_record_doc() (and RECORD_NAME_RE) already
+       treat as record docs -- so a line that was legitimately just a link
+       to thing_decision.md (etc.) was falsely flagged as residue."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-doclint-'))
+    cases = []
+    real_root = dl.ROOT
+    try:
+        dl.ROOT = tmp
+
+        (tmp / 'cross.md').write_text(
+            "This is ~begin unwanted strike\nstrike end~ still here\n",
+            encoding='utf-8')
+        strikes, *_ = dl.check_file('cross.md', fix=False, known=None)
+        cases.append(('a strikethrough span across two lines is caught',
+                      bool(strikes)))
+
+        (tmp / 'same.md').write_text("a rate of ~50~ items exactly\n",
+                                     encoding='utf-8')
+        strikes2, *_ = dl.check_file('same.md', fix=False, known=None)
+        cases.append(('a same-line strikethrough is still caught (the '
+                       'original, non-regressed case)', bool(strikes2)))
+
+        (tmp / 'clean.md').write_text(
+            "Nothing strange here.\n\nAnother clean paragraph.\n",
+            encoding='utf-8')
+        strikes3, *_ = dl.check_file('clean.md', fix=False, known=None)
+        cases.append(('clean prose with no tildes is not flagged',
+                      not strikes3))
+
+        (tmp / 'linked.md').write_text(
+            "See the [user decision](thing_decision.md) for why.\n",
+            encoding='utf-8')
+        residue = dl.check_residue('linked.md')
+        cases.append(('a link to a *_decision.md record is not flagged as '
+                       'residue', not residue))
+
+        (tmp / 'flagged.md').write_text("[verify: headcount] later.\n",
+                                        encoding='utf-8')
+        residue2 = dl.check_residue('flagged.md')
+        cases.append(('a genuine verify-later flag is still caught',
+                      bool(residue2)))
+    finally:
+        dl.ROOT = real_root
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    ok = all(passed for _, passed in cases)
+    for name, passed in cases:
+        if not passed:
+            print(f"  doc_lint did NOT behave as stated: {name}")
+    check(f'doc_lint fires ({len(cases)} stated cases: cross-line and '
+          f'same-line strikethrough, clean prose stays clean, a '
+          f'*_decision.md link is not residue, a real verify-later flag is '
+          f'still caught)', ok)
+
+
+def check_practice_heading_parsing():
+    """A DIRECT unit test of split_practices._parse_practice_text against
+    synthetic malformed headings, since check_practice_sections_present only
+    scans the real, currently-committed practices/*.md tree -- it can only
+    catch a malformed heading that happens to exist right now, never prove
+    the parser handles one correctly in general.
+
+    Two stated cases, from the fix's own history: trailing whitespace on a
+    heading (the original bug: "## Detail " silently merged the whole
+    section into the one before it) must still parse correctly, and a
+    heading with the wrong CASE ("## detail" for the one optional section)
+    must fail LOUDLY rather than reproduce the identical silent merge one
+    character over -- which check_practice_sections_present cannot catch for
+    exactly this section, since MANDATORY_SECTIONS deliberately excludes
+    'detail' as legitimately optional."""
+    def body(detail_heading):
+        return (
+            "---\nslug: fixture\ntitle: fixture\ntier: on-demand\n"
+            "severity: default\napplies_to: [\"**\"]\nchecked_by: null\n"
+            "defines: []\nstatus: active\nsupersedes: []\noverrides: null\n"
+            "added: null\napproved_by: fixture\n---\n"
+            "## Rule\nThe rule text.\n\n"
+            f"{detail_heading}\nDetail text that must not leak into Rule.\n\n"
+            "## Why\nWhy text.\n\n## Story\nStory text.\n\n"
+            "## Install\nInstall text.\n")
+
+    cases = []
+
+    # A tab, not just a trailing space, must still be tolerated.
+    fm, sections = sp._parse_practice_text(body("## Detail\t"))
+    cases.append(('a tab after the heading name still parses correctly',
+                  sections.get('rule', '').strip() == 'The rule text.'
+                  and sections.get('detail', '').strip()
+                  == 'Detail text that must not leak into Rule.'))
+
+    # The bug this check exists to close: a case typo on the one OPTIONAL
+    # section must not silently merge into ## Rule -- it must be refused.
+    try:
+        sp._parse_practice_text(body("## detail"))
+        cases.append(('a case typo on `## detail` is refused, not silently '
+                       'merged into `## Rule`', False))
+    except sp.PracticeFileError as e:
+        cases.append(('a case typo on `## detail` is refused, not silently '
+                       'merged into `## Rule`', 'detail' in str(e).lower()))
+
+    # A real sub-heading at a DIFFERENT level (### inside a section body)
+    # must not be mistaken for a malformed section marker.
+    fm, sections = sp._parse_practice_text(body(
+        "## Detail\n\n### A sub-heading some Detail sections use"))
+    cases.append(('a `###` sub-heading inside a section body is left alone',
+                  'sub-heading' in sections.get('detail', '')))
+
+    ok = all(passed for _, passed in cases)
+    for name, passed in cases:
+        if not passed:
+            print(f"  practice heading parsing did NOT behave as stated: {name}")
+    check(f'practice section heading parsing ({len(cases)} stated cases: '
+          f'whitespace tolerated, a case typo refused loudly, a deeper '
+          f'sub-heading left alone)', ok)
+
+
+# Widened from the original `^\*\*(\d{4}-\d{2}-\d{2}) — ` (bold date, then
+# exactly an em dash with a space each side, nothing else) after a
+# 2026-09-01 audit constructed plausible near-future variants -- a colon
+# instead of the em-dash, an en-dash, a double-hyphen, an unbolded date, a
+# leading list marker or checkbox -- and found every one silently invisible
+# to `entries()` below: a non-matching entry is not merely miscounted, it
+# is DROPPED from the text entirely if it sits above the first recognized
+# match, which is exactly where a new entry lands under this section's own
+# newest-first convention. This still cannot recognize a violation with NO
+# date-like structure at all (unfixable by any regex); it substantially
+# narrows the gap for the plausible near-term reformattings a human or an
+# agent might actually type.
+AMENDMENT_ENTRY_RE = re.compile(
+    r'^\s*(?:[-*]\s+)?(?:\[[ xX]\]\s+)?\*{0,2}(\d{4}-\d{2}-\d{2})\*{0,2}'
+    r'\s*(?:[:—–]|--)\s*', re.M)
+# A bare substring test ('decisions/' anywhere in the entry) exempted any
+# entry that merely MENTIONED the word, including "not yet migrated to
+# decisions/, still keeping every word inline" -- prose about NOT having a
+# record, exempted as if it were one. Requires an actual file reference.
+DECISIONS_LINK_RE = re.compile(r'decisions/[\w.-]+\.md')
 DECISION_LENGTH_WORDS = 120
 PLAN_MD = ROOT / 'PRACTICE_ENGINE_PLAN.md'
+
+
+def _decision_records_violations(root):
+    """The check's actual logic, taking a repo root so
+    check_decision_records_not_inline_fires() can exercise it against
+    scratch git repositories instead of only ever running once, for real,
+    against this repo's own tree. Returns (status, ok, detail): status is
+    'na' (detail is the not-applicable reason) or 'checked' (detail is the
+    list of violation message strings; ok is False if that list is
+    non-empty).
+
+    WHY THE COMPARISON BASE IS THE MERGE-BASE WITH @{upstream}, NOT HEAD.
+    The original version gated on `git status --porcelain` being non-empty
+    and compared disk content against HEAD -- so it only ever looked at
+    UNCOMMITTED changes. The moment a violating amendment is committed --
+    the normal state for reviewing any already-pushed branch or PR, which
+    AGENTS.md itself describes as the modal review path here -- the
+    porcelain check comes back empty, the function returned early with
+    "was not changed", and the violation was never inspected at all.
+    Confirmed live: an identical inline entry passed as UNCOMMITTED and
+    silently reported not-applicable the instant it was committed, no
+    diagnostic. Comparing against the upstream merge-base instead of HEAD
+    also correctly covers every commit this branch has added since it
+    diverged, not just the most recent one -- HEAD~1 would have missed an
+    earlier commit in a multi-commit push. Falls back to HEAD when there is
+    no configured upstream (a fresh checkout with no remote, a detached
+    HEAD) -- narrower, but still covers the case the original check did."""
+    plan_md = root / 'PRACTICE_ENGINE_PLAN.md'
+    if not plan_md.exists():
+        return 'na', True, 'PRACTICE_ENGINE_PLAN.md does not exist here'
+
+    up = subprocess.run(['git', 'rev-parse', '--abbrev-ref',
+                         '--symbolic-full-name', '@{upstream}'],
+                        cwd=str(root), capture_output=True, text=True)
+    base_ref = 'HEAD'
+    if up.returncode == 0:
+        mb = subprocess.run(['git', 'merge-base', 'HEAD', up.stdout.strip()],
+                            cwd=str(root), capture_output=True, text=True)
+        if mb.returncode == 0 and mb.stdout.strip():
+            base_ref = mb.stdout.strip()
+
+    new_text = plan_md.read_text(encoding='utf-8', errors='ignore')
+    old_result = subprocess.run(
+        ['git', 'show', f'{base_ref}:PRACTICE_ENGINE_PLAN.md'],
+        cwd=str(root), capture_output=True, text=True)
+    old_text = old_result.stdout if old_result.returncode == 0 else ''
+
+    if new_text == old_text:
+        return 'na', True, ('PRACTICE_ENGINE_PLAN.md has not changed '
+                            f'relative to {base_ref[:9]}')
+
+    def entries(text):
+        starts = [m.start() for m in AMENDMENT_ENTRY_RE.finditer(text)]
+        if not starts:
+            return []
+        starts.append(len(text))
+        return [text[a:b].strip() for a, b in zip(starts, starts[1:])]
+
+    old_entries = set(entries(old_text))
+    ok = True
+    messages = []
+    for entry in entries(new_text):
+        if entry in old_entries:
+            continue          # unchanged -- not this diff's to judge
+        if DECISIONS_LINK_RE.search(entry):
+            continue           # already points at a real record
+        words = len(entry.split())
+        if words > DECISION_LENGTH_WORDS:
+            ok = False
+            first_line = entry.splitlines()[0][:80]
+            messages.append(
+                f"PRACTICE_ENGINE_PLAN.md: a new amendment entry runs "
+                f"{words} words with no decisions/*.md link ({first_line!r}"
+                f"...) -- split the reasoning into a decisions/<date>-"
+                f"<slug>.md record and leave a short pointer here instead")
+    return 'checked', ok, messages
 
 
 def check_decision_records_not_inline():
@@ -1254,53 +1541,138 @@ def check_decision_records_not_inline():
     already specified but nothing had ever built: `decisions/<date>-
     <slug>.md`, never loaded automatically. This check is what makes it
     stick -- a NEW amendment entry over DECISION_LENGTH_WORDS with no
-    decisions/ link fails, so growing the plan the old way costs a build
-    failure, not just a note nobody reads. It is deliberately NOT
+    decisions/*.md link fails, so growing the plan the old way costs a
+    build failure, not just a note nobody reads. It is deliberately NOT
     registered as a `checked_by` in tools/precedent_check.py: it is not a
     property of any cataloged practice, and registering it there would
     inflate ENFORCEMENT.md's "N of 54 practices carry a checked_by" count
     with a phantom row that no practices/*.md file backs -- found the hard
     way, by doing exactly that and watching computed-numbers-in-scripts
     correctly reject the resulting drift in spec/ENFORCEMENT.md's generated
-    block. Only judges NEW entries in the current diff -- the plan's own
-    existing amendment history, which is what motivated this check, is not
-    retroactively flagged; see decisions/README.md."""
-    st = subprocess.run(['git', 'status', '--porcelain', '--',
-                         str(PLAN_MD)], cwd=str(ROOT),
-                        capture_output=True, text=True).stdout
-    if not st.strip():
-        not_applicable('decision records not inline', 'PRACTICE_ENGINE_PLAN.md '
-                       'was not changed')
+    block. Only judges entries NEW relative to the upstream merge-base --
+    the plan's own existing amendment history, which is what motivated this
+    check, is not retroactively flagged; see decisions/README.md. See
+    _decision_records_violations()'s docstring for why the comparison base
+    is the upstream merge-base rather than HEAD or the working tree."""
+    status, ok, detail = _decision_records_violations(ROOT)
+    if status == 'na':
+        not_applicable('decision records not inline', detail)
         return
-    new_text = PLAN_MD.read_text(encoding='utf-8', errors='ignore')
-    old_result = subprocess.run(['git', 'show', f'HEAD:PRACTICE_ENGINE_PLAN.md'],
-                                cwd=str(ROOT), capture_output=True, text=True)
-    old_text = old_result.stdout if old_result.returncode == 0 else ''
-
-    def entries(text):
-        starts = [m.start() for m in AMENDMENT_ENTRY_RE.finditer(text)]
-        if not starts:
-            return []
-        starts.append(len(text))
-        return [text[a:b].strip() for a, b in zip(starts, starts[1:])]
-
-    old_entries = set(entries(old_text))
-    ok = True
-    for entry in entries(new_text):
-        if entry in old_entries:
-            continue          # unchanged -- not this diff's to judge
-        if 'decisions/' in entry:
-            continue           # already points at a record
-        words = len(entry.split())
-        if words > DECISION_LENGTH_WORDS:
-            ok = False
-            first_line = entry.splitlines()[0][:80]
-            print(f"  PRACTICE_ENGINE_PLAN.md: a new amendment entry runs "
-                  f"{words} words with no decisions/ link ({first_line!r}...) "
-                  f"-- split the reasoning into a decisions/<date>-<slug>.md "
-                  f"record and leave a short pointer here instead")
+    for msg in detail:
+        print(f"  {msg}")
     check('new plan amendments stay short or point at a decisions/ record '
           '(PRACTICE_ENGINE_PLAN.md must not regrow the way it just did)', ok)
+
+
+def check_decision_records_not_inline_fires():
+    """Direct test of _decision_records_violations() against scratch git
+    repositories -- a real gap this repo's own audit found: nothing had
+    ever planted a violation and watched this check catch it, the exact
+    discipline check_leak_gate_fires()/check_precedent_check_fires() apply
+    to everything else. Not registered under tools/precedent_check.py (see
+    check_decision_records_not_inline's own docstring for why), so this is
+    its equivalent -- named _fires to match that family's convention."""
+    import shutil, tempfile
+
+    def git(cwd, *args, check_rc=True):
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True)
+        if check_rc and r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-decisionrec-'))
+    cases = []
+    try:
+        def scratch(name, text):
+            repo = tmp / name
+            repo.mkdir()
+            git(repo, 'init', '-q')
+            git(repo, 'config', 'user.email', 'harness@example.com')
+            git(repo, 'config', 'user.name', 'harness')
+            (repo / 'PRACTICE_ENGINE_PLAN.md').write_text(text, encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'base')
+            bare = tmp / (name + '.git')
+            subprocess.run(['git', 'init', '--bare', '-q', str(bare)],
+                           capture_output=True, text=True)
+            git(repo, 'remote', 'add', 'origin', str(bare))
+            git(repo, 'push', '-q', '-u', 'origin', 'HEAD:refs/heads/main')
+            git(repo, 'branch', '--set-upstream-to=origin/main', check_rc=False)
+            return repo
+
+        base_text = ("# Plan\n\n## Amendments Since Approval\n\n"
+                    "**2026-09-01 — v1, first.** Short.\n")
+        long_entry = ' '.join(['word'] * 150)
+
+        r1 = scratch('clean', base_text)
+        status, ok, _detail = _decision_records_violations(r1)
+        cases.append(('a clean, unchanged plan is not applicable', status == 'na'))
+
+        # The invocation-scope bug: the old version only ever looked at
+        # UNCOMMITTED changes (`git status --porcelain`). Here the violation
+        # is fully committed, which used to report "not changed" and never
+        # inspect the content at all.
+        r2 = scratch('committed-violation', base_text)
+        (r2 / 'PRACTICE_ENGINE_PLAN.md').write_text(
+            base_text + f"\n**2026-09-02 — v2, a long one.** {long_entry}\n",
+            encoding='utf-8')
+        git(r2, 'add', '-A'); git(r2, 'commit', '-qm', 'inline amendment')
+        status, ok, _detail = _decision_records_violations(r2)
+        cases.append(('a committed (not just staged/uncommitted) inline '
+                       'violation is caught', status == 'checked' and not ok))
+
+        # A format variant (colon instead of the exact em-dash-with-spaces)
+        # must still be recognized as an entry boundary. Placed ABOVE the
+        # existing entry, matching this section's own newest-first
+        # convention -- the shape in which the old regex made a
+        # non-matching entry invisible entirely, not merely miscounted.
+        r3 = scratch('colon-variant', base_text)
+        (r3 / 'PRACTICE_ENGINE_PLAN.md').write_text(
+            f"# Plan\n\n## Amendments Since Approval\n\n"
+            f"**2026-09-02:** {long_entry}\n\n"
+            f"**2026-09-01 — v1, first.** Short.\n", encoding='utf-8')
+        git(r3, 'add', '-A'); git(r3, 'commit', '-qm', 'colon variant')
+        status, ok, _detail = _decision_records_violations(r3)
+        cases.append(('a colon-separated date variant is recognized as an '
+                       'entry, not silently dropped',
+                      status == 'checked' and not ok))
+
+        # A bare mention of the word "decisions/" in prose, with no actual
+        # file reference, must not exempt an otherwise-violating entry.
+        r4 = scratch('bare-mention', base_text)
+        (r4 / 'PRACTICE_ENGINE_PLAN.md').write_text(
+            base_text + f"\n**2026-09-02 — v2, not migrated.** {long_entry} "
+            f"not yet migrated to decisions/, still keeping every word "
+            f"inline.\n", encoding='utf-8')
+        git(r4, 'add', '-A'); git(r4, 'commit', '-qm', 'bare mention')
+        status, ok, _detail = _decision_records_violations(r4)
+        cases.append(('a bare mention of "decisions/" with no real link '
+                       'does not exempt a long inline entry',
+                      status == 'checked' and not ok))
+
+        # A REAL decisions/*.md reference does exempt it -- the check must
+        # not simply fail on every long entry regardless of content.
+        r5 = scratch('real-link', base_text)
+        (r5 / 'PRACTICE_ENGINE_PLAN.md').write_text(
+            base_text + f"\n**2026-09-02 — v2, migrated.** {long_entry} see "
+            f"decisions/2026-09-02-migrated.md for the reasoning.\n",
+            encoding='utf-8')
+        git(r5, 'add', '-A'); git(r5, 'commit', '-qm', 'real link')
+        status, ok, _detail = _decision_records_violations(r5)
+        cases.append(('a real decisions/*.md link exempts an otherwise-long '
+                       'entry', status == 'checked' and ok))
+
+        ok_all = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  decision records check did NOT behave as stated: {name}")
+        check(f'decision records not inline fires ({len(cases)} stated '
+              f'cases: committed -- not just uncommitted -- violations are '
+              f'caught, a format-variant date entry is still recognized, a '
+              f'bare "decisions/" mention does not exempt an entry)', ok_all)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def check_catalogue_anchors():
@@ -1572,8 +1944,48 @@ def check_symlinked_root_path_matching():
         link.symlink_to(ROOT)
         exact = pp.path_matches(str(link / 'README.md'), 'README.md')
         broad = pp.path_matches(str(link / 'README.md'), '**/*.md')
-        check('symlinked repo root: exact-filename and broad globs match '
-              'the same as the real path', exact and broad)
+        cases = [('exact-filename and broad globs match the same as the '
+                  'real path', exact and broad)]
+
+        # A relative symlink -- not just an absolute one -- must resolve the
+        # same way. pathlib.Path.resolve() genuinely handles a relative
+        # symlink target, but nothing had ever exercised that path here.
+        rel_dir = link.parent / 'rel-repo-link'
+        rel_target = os.path.relpath(ROOT, link.parent)
+        rel_dir.symlink_to(rel_target)
+        cases.append(('a RELATIVE symlinked repo root matches the same as '
+                      'the real path',
+                      pp.path_matches(str(rel_dir / 'README.md'), 'README.md')
+                      and pp.path_matches(str(rel_dir / 'README.md'), '**/*.md')))
+        rel_dir.unlink()
+
+        # A symlink LOOP must degrade, not crash. normalize_path() used to
+        # call pathlib.Path.resolve() unguarded, which raises RuntimeError
+        # on a loop (a -> b -> a) -- an uncaught exception that would take
+        # down every caller (the PreToolUse hook, behavioral_replay.py) for
+        # a path that merely happens to contain a loop somewhere in it,
+        # rather than falling through the way an unresolvable path already
+        # does elsewhere in this function.
+        loop_a, loop_b = link.parent / 'loop-a', link.parent / 'loop-b'
+        loop_b.symlink_to(loop_a)
+        loop_a.symlink_to(loop_b)
+        try:
+            pp.path_matches(str(loop_a / 'README.md'), '**/*.md')
+            loop_ok = True
+        except Exception as e:
+            loop_ok = False
+            print(f"  a symlink loop raised instead of degrading: {e!r}")
+        cases.append(('a symlink loop degrades instead of crashing', loop_ok))
+        loop_a.unlink(missing_ok=True)
+        loop_b.unlink(missing_ok=True)
+
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  symlinked-root path matching did NOT behave as "
+                      f"stated: {name}")
+        check(f'symlinked repo root ({len(cases)} stated cases: absolute, '
+              f'relative, and a symlink loop)', ok)
     finally:
         link.unlink(missing_ok=True)
         link.parent.rmdir()
@@ -1909,6 +2321,29 @@ def check_precedent_check_fires():
              lambda repo: rewrite(repo, 'tools/build_views.py', lambda t: t.replace(
                  'RESIDENT_BUDGET_TOKENS = 2000', 'RESIDENT_BUDGET_TOKENS = 10')))
 
+        # Regression: an INSTRUMENTED script with neither self_check() nor
+        # check_anchors() is reported by model_audit.py as a WARN, not a
+        # FAIL -- warnings never affect model_audit.py's own exit code, by
+        # design, since it runs standalone. Filtering the enforced check for
+        # `FAIL:` lines only let exactly this violation -- the one the
+        # practice's own Install section names ("keep the instrumented list
+        # explicit so the audit can warn when a listed script has no
+        # assertions") -- pass silently.
+        def _plant_unasserted_instrumented_script(repo):
+            (repo / 'tools' / 'unasserted_fixture.py').write_text(
+                '"""A fixture script with no self_check() or '
+                'check_anchors()."""\n', encoding='utf-8')
+            rewrite(repo, 'tools/model_audit.py', lambda t: t.replace(
+                'INSTRUMENTED = [\n',
+                'INSTRUMENTED = [\n    "tools/unasserted_fixture.py",\n'))
+        unasserted_repo = fresh('scripts-assert-properties-unasserted')
+        _plant_unasserted_instrumented_script(unasserted_repo)
+        rc_ua, out_ua = run(unasserted_repo, 'scripts-assert-properties')
+        cases.append(('scripts-assert-properties: an INSTRUMENTED script '
+                       'with no self_check() or ANCHORS fails the check, '
+                       'not just silently warns',
+                       rc_ua == 1 and 'VIOLATION' in out_ua))
+
         # --- turn-end scope: these need a remote to have a postcondition ----
         def _publish(repo):
             bare = tmp / (repo.name + '.git')
@@ -1925,6 +2360,25 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'unpushed')
         case('verify-postcondition', _plant_unpushed, extra=('--turn-end',),
              setup=_publish)
+
+        # Regression: the check used to compare only the CURRENTLY CHECKED
+        # OUT branch against its own @{upstream}, missing the practice's own
+        # origin incident -- work committed on a branch that is then left
+        # un-checked-out and unpublished. Here the checked-out branch stays
+        # clean and fully pushed; the violation is entirely on a second,
+        # not-checked-out local branch.
+        stray_repo = fresh('verify-postcondition-stray-branch')
+        _publish(stray_repo)
+        git(stray_repo, 'checkout', '-qb', 'stray')
+        (stray_repo / 'stray.md').write_text('stray\n', encoding='utf-8')
+        git(stray_repo, 'add', '-A')
+        git(stray_repo, 'commit', '-qm', 'stray unpushed')
+        git(stray_repo, 'checkout', '-q', '-')
+        rc_stray, out_stray = run(stray_repo, 'verify-postcondition', '--turn-end')
+        cases.append(('verify-postcondition: an unpushed commit on a '
+                       'different, not-checked-out local branch still fails '
+                       'the check',
+                       rc_stray == 1 and 'VIOLATION' in out_stray))
 
         def _plant_rewrite(repo):
             git(repo, 'reset', '--hard', '-q', 'HEAD~1')
@@ -2108,8 +2562,11 @@ def main():
     check_leak_gate_fires()
     check_source_precedence()
     check_cross_source_resident_budget()
+    check_doc_lint_fires()
     check_practice_sections_present()
+    check_practice_heading_parsing()
     check_decision_records_not_inline()
+    check_decision_records_not_inline_fires()
     check_catalogue_anchors()
     check_all_workflows_disclosed()
     check_example_set()

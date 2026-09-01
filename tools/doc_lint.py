@@ -191,6 +191,37 @@ def iter_prose_lines(path):
         if not incode:
             yield i, line
 
+def iter_prose_paragraphs(path):
+    """Yield (start_lineno, paragraph_text) for each blank-line-delimited
+    span of prose lines outside fenced code blocks. GFM strikethrough (a
+    tilde span) can open on one line and close on a LATER line within the
+    same paragraph -- GitHub renders the whole span as one <del>, but
+    testing renders_del() one line at a time never sees it, since neither
+    half alone contains a matching pair of tildes. This is what lets
+    check_file() additionally test a whole paragraph at once, which is what
+    actually matches how the renderer sees the document."""
+    incode = False
+    para_lines, para_start = [], None
+    for i, line in enumerate((ROOT / path).read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
+        if line.lstrip().startswith('```'):
+            incode = not incode
+            if para_lines:
+                yield para_start, '\n'.join(para_lines)
+                para_lines, para_start = [], None
+            continue
+        if incode:
+            continue
+        if line.strip() == '':
+            if para_lines:
+                yield para_start, '\n'.join(para_lines)
+                para_lines, para_start = [], None
+            continue
+        if para_start is None:
+            para_start = i
+        para_lines.append(line)
+    if para_lines:
+        yield para_start, '\n'.join(para_lines)
+
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
@@ -224,6 +255,21 @@ def check_file(path, fix=False, known=None):
         for i, new in changed_lines.items():
             lines[i-1] = new
         (ROOT / path).write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+    # A strikethrough span that only renders across a paragraph -- the loop
+    # above tests one line at a time and never catches this, since neither
+    # half of the span alone contains a matching tilde pair. Only meaningful
+    # in report mode: --fix already handles the same-line case above, and a
+    # cross-line span is not safe to auto-fix without knowing which physical
+    # line owns the opening tilde and which owns the closing one.
+    if HAVE_GFM and not fix:
+        already = {ln for ln, _ in strikes}
+        for start, para in iter_prose_paragraphs(path):
+            if '~~' in para or start in already:
+                continue
+            if renders_del(para):
+                strikes.append((start, para.splitlines()[0].strip()[:100]
+                                + ' [strikethrough spans multiple lines]'))
     return strikes, unlinked, unglossed, targeted, len(changed_lines)
 
 
@@ -280,7 +326,14 @@ def check_residue(path):
     if is_record_doc(path):
         return []
     out = []
-    link_re = re.compile(r"\]\([^)]*_(record|diligence)\.md\)")
+    # Was r"\]\([^)]*_(record|diligence)\.md\)" -- only two of the six
+    # record-doc name suffixes is_record_doc() (and RECORD_NAME_RE) already
+    # recognize. A line that is legitimately just a link to
+    # thing_decision.md, thing_notes.md, thing_index.md or thing_ledger.md
+    # was falsely flagged as residue and failed the gate, since none of
+    # those four matched this narrower, separately-maintained pattern.
+    link_re = re.compile(r"\]\([^)]*_(record|diligence|decision|notes|index"
+                         r"|ledger)\.md\)", re.I)
     for i, line in iter_prose_lines(path):
         if link_re.search(line):
             continue        # the one allowed reference: a link to the record

@@ -110,6 +110,29 @@ def find_root(start):
 ROOT = find_root(Path(__file__).resolve().parent)
 
 
+def _default_branch():
+    """Same logic as doc_lint.py's default_branch(), duplicated rather than
+    imported because this module is meant to be dropped into a host repo on
+    its own. `origin/HEAD` is the authoritative source; 'main'/'master' are
+    a fallback for a clone where it was never set. Without this, every
+    relative link this module rewrites hardcoded '/blob/master/' -- silently
+    a dead link on any repo (this one included) whose default branch is
+    'main', which is the actual default on GitHub since 2020."""
+    r = subprocess.run(["git", "-C", str(ROOT), "symbolic-ref",
+                       "refs/remotes/origin/HEAD"],
+                       capture_output=True, text=True)
+    head = r.stdout.strip()
+    if head:
+        return head.rsplit("/", 1)[-1]
+    for cand in ("main", "master"):
+        r = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--verify",
+                           "--quiet", f"origin/{cand}"],
+                           capture_output=True, text=True)
+        if r.stdout.strip():
+            return cand
+    return "main"
+
+
 def _link_base():
     """Hosted-view base URL for rewriting relative repo links, from the git
     remote (GitHub-shaped hosts); override LINK_BASE for others."""
@@ -120,7 +143,7 @@ def _link_base():
         url = url.replace(":", "/", 1).replace("git@", "https://", 1)
     if url.endswith(".git"):
         url = url[:-4]
-    return f"{url}/blob/master/" if url else ""
+    return f"{url}/blob/{_default_branch()}/" if url else ""
 
 
 LINK_BASE = _link_base()

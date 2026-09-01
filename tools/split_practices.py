@@ -365,21 +365,43 @@ def _parse_practice_text(text, path='<text>'):
     sections = {}
     cur = None
     buf = []
-    for line in body.split('\n'):
-        # \s*$ tolerates trailing whitespace on the heading line. Without it
-        # a single accidental trailing space ("## Detail ") silently merged
-        # that entire section -- heading text included -- into whatever
-        # section came before it, with no error: precedent_show.py --detail
-        # would then report "(no detail recorded yet)" while the Rule
-        # silently carried the corrupted trailing content.
+    for lineno, line in enumerate(body.split('\n'), 1):
+        # \s*$ tolerates trailing whitespace (including a tab) on the heading
+        # line. Without it a single accidental trailing space ("## Detail ")
+        # silently merged that entire section -- heading text included --
+        # into whatever section came before it, with no error:
+        # precedent_show.py --detail would then report "(no detail recorded
+        # yet)" while the Rule silently carried the corrupted trailing
+        # content.
         m = re.match(r'^## (Rule|Detail|Why|Story|Install)\s*$', line)
         if m:
             if cur:
                 sections[cur] = '\n'.join(buf).strip('\n')
             cur = m.group(1).lower()
             buf = []
-        else:
-            buf.append(line)
+            continue
+        # A level-2 heading that ISN'T one of the five exact names is almost
+        # always the same failure the whitespace fix above closed, one
+        # character over: a case typo ("## detail") reproduces the identical
+        # silent merge -- heading text and body both swallowed into the
+        # PRECEDING section with no error -- because the regex above simply
+        # never matches it, and there is nothing else in this file's shape
+        # that would ever legitimately put a bare `## ` line in a practice
+        # body (no practices/*.md file does, as of this check). So any such
+        # line fails loudly here instead of corrupting content that goes on
+        # to be loaded into a session's context.
+        near = re.match(r'^## \s*(\S.*?)\s*$', line)
+        if near and near.group(1).strip().lower() in (
+                'rule', 'detail', 'why', 'story', 'install'):
+            raise PracticeFileError(
+                f"{path}:{lineno}: {line!r} looks like a section heading but "
+                f"is not spelled exactly right (expected one of '## Rule', "
+                f"'## Detail', '## Why', '## Story', '## Install' -- exact "
+                f"case, one space after '##'). Left uncorrected this heading "
+                f"is not recognized as a heading at all and its whole "
+                f"section, including this line, is silently merged into "
+                f"the section above it.")
+        buf.append(line)
     if cur:
         sections[cur] = '\n'.join(buf).strip('\n')
     return fm, sections
