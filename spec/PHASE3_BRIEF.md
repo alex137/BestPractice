@@ -111,8 +111,10 @@ still hold: no internal vocabulary, and assume the reader is not a developer.
   Aires: `TZ="America/Argentina/Buenos_Aires" git commit ...`. Never amend a
   pushed commit.
 - **Run all three gates after every change**, not just at the end:
-  `python3 tools/verify_harness.py` (expect 20 passed / 0 failed / 1 N/A),
-  `python3 tools/doc_lint.py`, `python3 tools/leak_gate.py`.
+  `python3 tools/verify_harness.py` (0 failed is what matters — the passed
+  count grows as checks are added, so treat any hardcoded figure quoted
+  elsewhere as illustrative, not current), `python3 tools/doc_lint.py`,
+  `python3 tools/leak_gate.py`.
 - **Never read a `practices/*.md` file directly.** Use
   `python3 tools/precedent_show.py SLUG [--why|--story|--install]`, and
   `python3 tools/precedent_paths.py FILE` for what applies to a file.

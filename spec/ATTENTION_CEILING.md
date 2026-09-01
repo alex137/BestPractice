@@ -418,6 +418,22 @@ be a bigger decision than the practice's enforcement gap justifies making
 without being asked. It stays gate-reached only, by the repo maintainer's
 explicit choice, not by a check that resisted trying.
 
+**Correction, 2026-09-01 (a later session, deep-check audit).** The "8"
+above was wrong even at the moment it was written: `checkable-gets-checked`
+— named two paragraphs up as this very pass's own newly-minted practice —
+carries `gates: [review]` and belongs in this list too, making the
+contemporaneous count 9, not 8. `todo-is-a-handoff`, converted from
+`main` later the same day (see CHANGES_TO_TELL_ALEX.md), is also
+gate-only (`gates: [merge]`) and brings the CURRENT total to **10**:
+`capture-gate`, `checkable-gets-checked`, `convention-to-audit`,
+`merge-authorization-keyword`, `merge-runbook`, `mistakes-become-rules`,
+`reply-links-files`, `repo-is-memory`, `second-pass-capture`,
+`todo-is-a-handoff`. Run `python3 tools/precedent_gate.py --list` for the
+live list rather than trusting a count written here — this correction
+itself will go stale the next time a gate-only practice is added, which
+is the reason `orientation-map` and the catalogue's own generated figures
+exist as scripts rather than as prose asserted once and left.
+
 **The remaining 20 are genuinely neither**, and the honest reason splits
 into two groups worth naming rather than lumping as one undifferentiated
 "prose-only" count: domain-specific quantitative-document practices this
@@ -627,9 +643,9 @@ content — see its entry in [Candidate designs](#candidate-designs-for-a-future
 **There is no candidate design left in this document that has not been
 either run and falsified, or predicted null on falsified siblings' direct
 evidence.** [The supporting moves](#the-supporting-moves-now-the-primary-recommendation)
-have already been pushed as far as they honestly go for now: **24 of 52
-enforced, 8 more gated, 20 genuinely resistant as of 2026-09-01**, each of
-the 20 broken down by *why* in that section — not a stopping point chosen
+have already been pushed as far as they honestly go for now: **24 enforced,
+10 more gate-only (see the 2026-09-01 correction above), 20 genuinely
+resistant**, each of the 20 broken down by *why* in that section — not a stopping point chosen
 for convenience, but a second full pass through every remaining practice
 that converted two more (`two-check-levels`, `index-remembers-past`) and
 demonstrated, rather than assumed, why the rest resist (`volatile-rules-carry-dates`
@@ -647,10 +663,13 @@ The tree is at `precedent-beta-v01`. Working rules are in
 [spec/PHASE3_BRIEF.md](PHASE3_BRIEF.md) and
 [AGENTS.md](../AGENTS.md)'s gotchas section; the short version:
 
-- Three gates after every change: `python3 tools/verify_harness.py` (expect 28
-  passed / 0 failed / 0 N/A), `python3 tools/doc_lint.py`,
-  `python3 tools/leak_gate.py`. Also `python3 tools/precedent_check.py`
-  (13 passed / 0 violated / 3 skipped) and `python3 tools/doc_sync.py`.
+- Three gates after every change: `python3 tools/verify_harness.py`
+  (0 failed is what matters — the passed/N-A counts grow as checks are
+  added, so a hardcoded figure here goes stale by design; this document
+  had one and a 2026-09-01 deep-check audit found it already wrong),
+  `python3 tools/doc_lint.py`, `python3 tools/leak_gate.py`. Also
+  `python3 tools/precedent_check.py` (0 violated is what matters, same
+  reason) and `python3 tools/doc_sync.py`.
 - The vocabulary layer needs `PRECEDENT_LEAK_BLOCKLIST` pointing at a
   blocklist **outside** the repo plus
   `git config precedent.requireVocabulary true`, or it fails open.
