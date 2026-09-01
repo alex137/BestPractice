@@ -80,13 +80,7 @@ declarations as optional refinement, never as a prerequisite.
 
 Host configuration: fill DOCS with (repo-relative .md, title) pairs. Link
 rewriting targets the repo's own hosted-view URL, detected from the git
-remote; override LINK_BASE if detection does not fit your host. When a
-registered document's render is itself hosted somewhere (an artifact URL,
-a pages deployment), record it in RENDER_URLS (repo-relative .md path ->
-render URL): a cross-reference from one render to a document that has a
-render then lands on the RENDERED page — sortable tables and all —
-instead of the hosted source view. Unregistered targets keep the
-source-view fallback, which is also the .md's role as source of record.
+remote; override LINK_BASE if detection does not fit your host.
 
 Per-document build scripts may keep documented entry points, but as thin
 wrappers importing render() from here -- never as forks of the CSS/JS.
@@ -134,11 +128,6 @@ LINK_BASE = _link_base()
 # Registry: (repo-relative source .md, page title). Output = same stem, .html.
 # Host repos fill this in.
 DOCS = []
-
-# Hosted-render registry: repo-relative .md path -> URL of that document's
-# hosted render. Cross-links between renders resolve here first (see the
-# module docstring); host repos fill this in beside DOCS.
-RENDER_URLS = {}
 
 CSS = """
 .renderstamp { color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
@@ -1252,24 +1241,19 @@ def expand_includes(md_text, src_dir):
 
 
 def rewrite_links(body, src_dir):
-    """Relative .md/.py links -> the target's hosted RENDER when it has one
-    (RENDER_URLS), else GitHub master URLs (path-resolved)."""
+    """Relative .md/.py links -> GitHub master URLs (path-resolved)."""
     def sub(m):
         href = m.group(1)
         if href.startswith(("http://", "https://", "#", "mailto:")):
             return m.group(0)
-        path, frag = (href.split("#", 1) + [""])[:2]
-        frag = f"#{frag}" if frag else ""
-        target = (src_dir / path).resolve()
+        target = (src_dir / href).resolve()
         try:
-            rel = target.relative_to(ROOT).as_posix()
+            rel = target.relative_to(ROOT)
         except ValueError:
             return m.group(0)
-        if rel in RENDER_URLS:
-            return f'href="{RENDER_URLS[rel]}{frag}"'
         if not LINK_BASE:
             return m.group(0)
-        return f'href="{LINK_BASE}{rel}{frag}"'
+        return f'href="{LINK_BASE}{rel.as_posix()}"' 
     return re.sub(r'href="([^"]+)"', sub, body)
 
 
