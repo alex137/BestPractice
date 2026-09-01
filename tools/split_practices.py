@@ -45,6 +45,12 @@ Two structural decisions this makes, stated so they can be revisited:
     original PRACTICES.md is Rule+Why+Install and nothing else per practice.
     See spec/PRACTICE_FORMAT.md for the full note on this.
 
+cmd_build() also rebases cross-practice links: a practice file links a
+sibling bare ('](some-slug.md)'), correct from inside practices/, and
+cmd_build() prefixes it to 'practices/some-slug.md' so the same text still
+resolves once embedded in this root-level file. Path rewrite only, not
+content -- see spec/PRACTICE_FORMAT.md, "Citing Other Practices".
+
 One documented exception to the "move and drop only" rule: practice 39's
 raw body in the source file is followed, in the source, by a stray duplicate
 of part of practice 34's body (a corruption in the upstream file, not
@@ -250,6 +256,18 @@ def _read_practice_file(path):
     return fm, sections
 
 
+CROSS_PRACTICE_LINK_RE = re.compile(r'\]\(([a-z0-9]+(?:-[a-z0-9]+)*\.md)\)')
+
+
+def _rebase_practice_links(text):
+    """practices/*.md bodies link sibling practices bare ('](some-slug.md)'),
+    correct from inside practices/. Embedded here in a root-level document,
+    that same relative link needs the practices/ prefix to still resolve.
+    Mechanical path-rewrite only -- no content change -- so it does not
+    conflict with the converter's no-invented-content rule."""
+    return CROSS_PRACTICE_LINK_RE.sub(r'](practices/\1)', text)
+
+
 def cmd_build():
     files = sorted(PRACTICES_DIR.glob('*.md'),
                     key=lambda p: int(_read_practice_file(p)[0]['source_practice_number']))
@@ -268,13 +286,13 @@ live in `templates/`; tools in `tools/`.''')
         fm, sections = _read_practice_file(f)
         num = fm['source_practice_number']
         title = fm['title']
-        rule = sections.get('rule', '')
+        rule = _rebase_practice_links(sections.get('rule', ''))
         rule_block = rule if fm.get('source_rule_unlabeled') == 'true' else _labeled('Rule', rule)
         parts = [f'## {num}. {title}', rule_block]
-        why = sections.get('why', '')
+        why = _rebase_practice_links(sections.get('why', ''))
         if why:
             parts.append(_labeled('Why', why))
-        install = sections.get('install', '')
+        install = _rebase_practice_links(sections.get('install', ''))
         if install:
             parts.append(_labeled('Install', install))
         blocks.append('\n\n'.join(parts))

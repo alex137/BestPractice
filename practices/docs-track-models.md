@@ -15,7 +15,7 @@ approved_by: "BestPractice (pre-fork)"
 source_practice_number: 33
 ---
 ## Rule
-Extending practice 19 from *tables* to **every** figure a script
+Extending [computed-numbers-in-scripts](computed-numbers-in-scripts.md) from *tables* to **every** figure a script
 computes:
 
 1. **A script-derived figure appears in a document only inside a generated
@@ -92,10 +92,10 @@ merely mentions the marker opts itself in and fails on its own examples).
 
 Where a document needs figures from several scripts, let the emitter **import**
 the other scripts rather than restating their numbers, so each figure keeps
-exactly one owner (practice 19's composition extension, and practice 30's
+exactly one owner ([computed-numbers-in-scripts](computed-numbers-in-scripts.md)'s composition extension, and [scripts-assert-properties](scripts-assert-properties.md)'s
 one-owner rule applied to documents).
 
-**Related.** Practice 19 (generated blocks) is the mechanism; this is its
-scope. Practice 30 (scripts assert their properties and their sources' figures)
+**Related.** [computed-numbers-in-scripts](computed-numbers-in-scripts.md) (generated blocks) is the mechanism; this is its
+scope. [scripts-assert-properties](scripts-assert-properties.md) (scripts assert their properties and their sources' figures)
 guards the layer below — that the script is right before its numbers are
 published everywhere automatically.

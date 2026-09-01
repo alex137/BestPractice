@@ -78,49 +78,33 @@ def check_reachability(files):
     check('reachability (every on-demand practice has checked_by / narrow applies_to / occasion)', ok)
 
 
-# The build is byte-identical to PRACTICES.md except for two documented,
-# approved exceptions found while writing the converter -- both explained
-# in spec/PRACTICE_FORMAT.md and in split_practices.py's module docstring:
-#
-#  1. Practice 39's raw body in the source is followed by a stray duplicate
-#     of part of practice 34's body -- an upstream data-corruption artifact,
-#     not authored content of practice 39's own. Dropped at conversion.
-#  2. A single extra blank line between practices 40 and 41 in the source
-#     (everywhere else in the file uses exactly one blank line between
-#     practices) -- a pre-existing whitespace-only formatting quirk,
-#     unrelated to the conversion.
-#
-# This check does not take that on faith: it reproduces exactly those two,
-# and only those two, transformations against the ORIGINAL text, and then
-# requires the rebuild to match the result exactly.
+# Phase 1's original form of this check reproduced two documented,
+# approved exceptions (the practice-39 upstream corruption; a stray blank
+# line between practices 40 and 41) against the FROZEN pre-conversion
+# PRACTICES.md text, and required the rebuild to match that exactly -- a
+# one-time proof that the mechanical split lost and invented nothing. That
+# proof already landed (see git history; spec/PRACTICE_FORMAT.md's "A
+# Genuine Upstream Finding") and cannot be re-asserted forever: practices/*.md
+# is now the source of truth and is expected to keep changing (e.g. the
+# citation-to-slug-link sweep this check now runs alongside), so PRACTICES.md
+# necessarily drifts from that frozen snapshot. What the check verifies from
+# here on is the real, ongoing meaning of "generated view": PRACTICES.md
+# on disk is exactly what cmd_build() produces from the current practices/*.md
+# -- i.e. nobody hand-edited the catalogue out of sync with its source.
 def check_byte_identical_regeneration():
-    original = CATALOGUE.read_text(encoding='utf-8')
-    normalized = original.replace(
-        "\n\n## 41. Search by purpose", "\n## 41. Search by purpose")
-    # search from practice 39's own header, not from the start of the file --
-    # the marker's tail also occurs, legitimately, inside practice 34's own
-    # body ("...acquir-ES a source's vocabulary..."), earlier in the file.
-    p39_start = normalized.index('## 39. A default PR template')
-    idx = normalized.find(sp.FIXUP_39_MARKER, p39_start)
-    ok_marker_found = idx != -1
-    if ok_marker_found:
-        tail_start = normalized.rfind('\n\n', 0, idx)
-        # the corrupted span runs from the duplicate fragment to just before
-        # "## 40." -- drop exactly that span, nothing else.
-        end_marker = "\n\n## 40. An option you invented"
-        end_idx = normalized.index(end_marker, idx)
-        normalized = normalized[:tail_start] + normalized[end_idx:]
+    on_disk = CATALOGUE.read_text(encoding='utf-8')
     rebuilt = sp.cmd_build()
-    ok = ok_marker_found and (normalized.rstrip('\n') + '\n') == rebuilt
+    ok = on_disk == rebuilt
     if not ok:
         import difflib
         diff = list(difflib.unified_diff(
-            normalized.splitlines(keepends=True), rebuilt.splitlines(keepends=True),
-            fromfile='normalized-original', tofile='rebuilt', n=1))
-        print('  unexpected diff beyond the two documented exceptions:')
+            on_disk.splitlines(keepends=True), rebuilt.splitlines(keepends=True),
+            fromfile='PRACTICES.md (on disk)', tofile='rebuilt', n=1))
+        print('  PRACTICES.md is out of sync with practices/*.md -- run '
+              '`python3 tools/split_practices.py build > PRACTICES.md`:')
         for line in diff[:40]:
             print('  ' + line.rstrip('\n'))
-    check('byte-identical regeneration (modulo the two documented exceptions)', ok)
+    check('byte-identical regeneration (PRACTICES.md == build(practices/*.md))', ok)
 
 
 SENTENCE_SPLIT = re.compile(r'(?<=[.!?])\s+(?=[A-Z0-9(\[])')
@@ -131,6 +115,18 @@ def _tokens(text):
     return collections.Counter(w.lower() for w in WORD_RE.findall(text))
 
 
+# NOTE ON WHAT THIS STILL PROVES: this check's real, one-time job -- proving
+# the phase-1 mechanical split invented nothing relative to BestPractice's
+# original numbered catalogue -- already happened (see git history at the
+# phase-1 landing commit) and cannot be meaningfully re-run: `main()` reads
+# `original_practices_by_number` from the CURRENT PRACTICES.md, which is now
+# a generated view kept in sync with practices/*.md by regeneration (see
+# check_byte_identical_regeneration above), so in the normal workflow this
+# comparison is tautological -- practices/*.md and PRACTICES.md say the same
+# thing by construction, not because nothing was invented since. It still
+# catches the one real case that survives: PRACTICES.md hand-edited to
+# *contain* extra words a practices/*.md file doesn't have, independent of
+# byte-identical-regeneration failing for the same edit.
 def check_no_invented_content(files, original_practices_by_number):
     ok = True
     for stem, (fm, sections, f) in files.items():
@@ -172,6 +168,40 @@ def check_citation_integrity(files):
                 print(f"  {f.name}: cites 'practice {m.group(1)}', which does not "
                       f"exist as any source_practice_number")
     check('citation integrity (every "practice N" reference resolves)', ok)
+
+
+CROSS_PRACTICE_LINK_RE = re.compile(r'\]\(([a-z0-9]+(?:-[a-z0-9]+)*)\.md\)')
+
+
+def check_no_bare_numeric_citations(files):
+    # The slug-link sweep (see spec/PRACTICE_FORMAT.md, "Citing Other
+    # Practices") replaced every "practice N" cross-reference in practices/
+    # body text with a markdown link to the slug. This is the regression
+    # guard: the numeric form should never come back in body prose. (The
+    # `source_practice_number` frontmatter field itself is exempt by
+    # construction -- CITATION_RE requires "practice" immediately followed
+    # by whitespace, which never matches the `source_practice_number:` key.)
+    ok = True
+    for stem, (fm, sections, f) in files.items():
+        body = '\n\n'.join(sections.get(k, '') for k in ('rule', 'why', 'story', 'install'))
+        for m in CITATION_RE.finditer(body):
+            ok = False
+            print(f"  {f.name}: body text cites 'practice {m.group(1)}' by number; "
+                  f"convert to a [{{slug}}]({{slug}}.md) link instead")
+    check('no bare numeric citations in body text (slugs are the official reference form)', ok)
+
+
+def check_slug_link_integrity(files):
+    ok = True
+    valid_slugs = set(files.keys())
+    for stem, (fm, sections, f) in files.items():
+        body = '\n\n'.join(sections.get(k, '') for k in ('rule', 'why', 'story', 'install'))
+        for m in CROSS_PRACTICE_LINK_RE.finditer(body):
+            if m.group(1) not in valid_slugs:
+                ok = False
+                print(f"  {f.name}: links to '{m.group(1)}.md', which is not a "
+                      f"known practice slug")
+    check('slug-link citation integrity (every [slug](slug.md) cross-reference resolves)', ok)
 
 
 def check_leak_gate():
@@ -216,6 +246,8 @@ def main():
     original_practices = {p['number']: p for p in sp.parse_catalogue(original_text)}
     check_no_invented_content(files, original_practices)
     check_citation_integrity(files)
+    check_no_bare_numeric_citations(files)
+    check_slug_link_integrity(files)
     check_leak_gate()
 
     not_applicable('resident subset', 'no loader or resident-tier curation exists yet (phase 2)')

@@ -52,6 +52,6 @@ Vendor the pack tree at `process/<pack>/`; write
 `upstream.scrub_blocklist` — a path, or `null` to opt a private pack out of
 the scrub); instantiate the pack's practices in the repo's real files and
 record the mapping; install its harness adapter so the rules load when the
-domain work happens. The export gate (practice 14) covers packs too: a thread
+domain work happens. The export gate ([practice-export-loop](practice-export-loop.md)) covers packs too: a thread
 that improves a domain practice folds the abstracted form into the pack tree
 in the same branch, keeping repo vocabulary out per the pack's blocklist.

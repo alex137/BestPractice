@@ -26,7 +26,7 @@ uncommitted, untracked, or unpushed work makes that guarantee automatic
 instead.
 
 ## Why
-The gotchas of practice 4, applied: writing the fix down is good;
+The gotchas of [environment-gotchas](environment-gotchas.md), applied: writing the fix down is good;
 having it apply itself is better. The hook is where "install the one package
 whose absence cost two sessions" lives as code — and where "don't end a
 session with unpushed work sitting in the tree" lives as code too, rather

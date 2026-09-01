@@ -50,7 +50,7 @@ conclusion while keeping the invented structure leaves the same error with bette
 arithmetic. Re-derive from the source architecture, then re-cost — the corrected
 answer often inverts the original one rather than adjusting it.
 
-**Related:** practice 29 (a variant re-derives what it inherits) is the sibling
+**Related:** [variant-re-derives](variant-re-derives.md) (a variant re-derives what it inherits) is the sibling
 failure — carrying forward a base's *choices* unexamined. This one is the inverse:
 introducing a distinction the base never made.
 

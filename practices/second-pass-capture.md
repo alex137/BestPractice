@@ -21,12 +21,13 @@ a separate step, not part of the production flow**, re-reading its own
 reasoning against a short checklist: (a) did every idea discussed reach its
 **durable artifact**, or does it live only in prose or conversation? (b) do
 **parallel artifacts** that must track this change have their transfer
-verdicts (practice 22)? (c) did technical value get its **cross-ledger
+verdicts ([parallel-artifact-ledger](parallel-artifact-ledger.md))? (c) did technical value get its **cross-ledger
 capture** — the business, operational, or planning implication recorded where
-those live? (d) are open decisions **queued in the typed TODO** (practice 2)
+those live? (d) are open decisions **queued in the typed TODO**
+([repo-is-memory](repo-is-memory.md))
 rather than only in the conversation? (e) are the **indexes, registries, and
 glossaries** synced? Run the sweep before the merge-time capture gate
-(practice 10), so what it finds lands in the same change-set as the work.
+([capture-gate](capture-gate.md)), so what it finds lands in the same change-set as the work.
 
 ## Why
 The production mindset cannot audit itself: while drafting, every
@@ -46,4 +47,4 @@ Add the checklist to the session-end or pre-merge ritual, before
 the capture gate. Adapt the checklist items to the repo's ledgers (what
 counts as a durable artifact, which registries exist). The trigger for
 adopting it retroactively: the first time an owner's "did we miss anything?"
-finds something — that incident is the origin story (practice 20).
+finds something — that incident is the origin story ([mistakes-become-rules](mistakes-become-rules.md)).

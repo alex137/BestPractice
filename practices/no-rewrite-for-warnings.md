@@ -57,6 +57,6 @@ next person sees a resolved question rather than an unexplained backlog and
 re-litigates it. If the tool has no scoping option and the noise is persistent,
 that is a request to file against the tool, not a reason to act on it.
 
-**Related.** Practice 20 (mistakes become rules) — this is the abstracted form
+**Related.** [mistakes-become-rules](mistakes-become-rules.md) (mistakes become rules) — this is the abstracted form
 of a rule a dependent repo added after a session was one command away from
 rewriting a shared trunk to clear a signature badge on commits it did not own.

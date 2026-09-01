@@ -17,7 +17,7 @@ re-finding files, re-learning environment quirks, re-making settled decisions.
 
 **Install.** The three living documents below (MAP, TODO, GLOSSARY) plus a
 project instructions file (`AGENTS.md`, plus a per-harness pointer file —
-see practice 13). Everything else in this
+see [session-bootstrap](practices/session-bootstrap.md)). Everything else in this
 catalog is a refinement of this rule.
 
 ## 2. An orientation map, read first
@@ -62,8 +62,8 @@ failure never recurred — and the story is what lets a future session judge
 whether the note still applies.
 
 **Install.** A gotchas section in the instructions file
-([templates/AGENTS.md.template](templates/AGENTS.md.template)), plus practice
-13 (encode the fixes as a bootstrap hook so they apply themselves).
+([templates/AGENTS.md.template](templates/AGENTS.md.template)), plus
+[session-bootstrap](practices/session-bootstrap.md) (encode the fixes as a bootstrap hook so they apply themselves).
 
 ## 5. Conventions cite the incident that created them
 
@@ -98,7 +98,7 @@ the form that binds every path to the default branch.
 **Install.** [tools/doc_lint.py](tools/doc_lint.py) and
 [tools/practice_audit.py](tools/practice_audit.py) are audits of this kind
 (and worked examples for writing your own). Run them before commit; wire them
-into the merge runbook (practice 9).
+into the merge runbook ([merge-runbook](practices/merge-runbook.md)).
 
 ## 7. State lives in one machine-readable registry; documents derive
 
@@ -106,7 +106,7 @@ into the merge runbook (practice 9).
 released, what's pending, what version is installed) lives in exactly one
 machine-readable registry. Human-readable documents restate it; they never
 own it. When registry and document disagree, the registry wins — and an audit
-(practice 6) detects the disagreement.
+([convention-to-audit](practices/convention-to-audit.md)) detects the disagreement.
 
 **Why.** Duplicated state always diverges. The worst version: a document
 header said one thing, the registry said another, and a builder trusted the
@@ -136,8 +136,8 @@ code on the artifact (same content → same code) plus a committed manifest
 makes "what exactly shipped?" a lookup instead of an investigation.
 
 A related gap, same fix, different cause: a repo with **no root `.gitignore`
-at all** leaves every session that runs the vendored Python audits (practice
-6) an untracked `__pycache__/` behind — nobody's build is at fault, there is
+at all** leaves every session that runs the vendored Python audits
+([convention-to-audit](practices/convention-to-audit.md)) an untracked `__pycache__/` behind — nobody's build is at fault, there is
 just nowhere for the ignore rule to live. One dependent repo's check-in
 flagged exactly this after its own merge runbook kept surfacing the stray
 directory.
@@ -159,7 +159,7 @@ logs are **append-only, keep both**; the same content file edited on both
 sides keeps both sides' additions (renumbering the side not yet referenced
 elsewhere); **generated outputs are never hand-merged** (the side matching
 the committed manifest wins; unshipped builds are deleted and rebuilt). The
-audits (practice 6) must pass before the merge commits — the audit, not
+audits ([convention-to-audit](practices/convention-to-audit.md)) must pass before the merge commits — the audit, not
 re-inspection, is what makes fast mechanical resolution safe.
 
 **Why.** Every thread in the originating repo touched the same registry and
@@ -189,7 +189,7 @@ for known parking-lot markers, run at thread end.
 
 **Install.** Step 0 of the runbook in
 [templates/AGENTS.md.template](templates/AGENTS.md.template). The
-practice-export gate (practice 14) is this same rule applied to process
+practice-export gate ([practice-export-loop](practices/practice-export-loop.md)) is this same rule applied to process
 improvements.
 
 ## 11. Document references are links; approximation is ≈
@@ -251,7 +251,7 @@ its own git hygiene before stopping — a stop hook that blocks on
 uncommitted, untracked, or unpushed work makes that guarantee automatic
 instead.
 
-**Why.** The gotchas of practice 4, applied: writing the fix down is good;
+**Why.** The gotchas of [environment-gotchas](practices/environment-gotchas.md), applied: writing the fix down is good;
 having it apply itself is better. The hook is where "install the one package
 whose absence cost two sessions" lives as code — and where "don't end a
 session with unpushed work sitting in the tree" lives as code too, rather
@@ -292,7 +292,7 @@ abstracted form into `process/upstream/` in the same branch.
 **Periodically**, propose accumulated vendored changes back here as a PR.
 
 **Why.** Live coupling (submodules read at session start) breaks sessions
-exactly when orientation matters most, and makes capture (practice 10) a
+exactly when orientation matters most, and makes capture ([capture-gate](practices/capture-gate.md)) a
 cross-repo operation that gets skipped. Vendored-and-tracked makes the
 export a local commit; the cross-repo step happens only at deliberate
 check-ins.
@@ -332,9 +332,9 @@ public repo is **public from its first commit** — content is authored fresh
 as public-safe, never migrated from private history, because visibility
 flips expose everything a private repo ever casually committed.
 
-**Why.** The abstraction step (practice 14) is a judgment call performed
+**Why.** The abstraction step ([practice-export-loop](practices/practice-export-loop.md)) is a judgment call performed
 repeatedly by agents under time pressure — exactly the conditions under
-which practice 6 says a convention needs a loud audit. Public git history
+which [convention-to-audit](practices/convention-to-audit.md) says a convention needs a loud audit. Public git history
 cannot be un-published.
 
 **Install.** Blocklist format and gate wiring in [INSTALL.md](INSTALL.md).
@@ -348,7 +348,7 @@ an external platform, an algorithm someone else changes, a tool quirk, a
 price — carries an inline date: *as of `<date>`* when adopted, updated to
 *verified `<date>`* whenever a session reaffirms it still holds. Optionally
 add a review-by cadence for rules in domains known to shift. Stable internal
-conventions don't need this; their origin story (practice 5) is enough.
+conventions don't need this; their origin story ([cite-the-incident](practices/cite-the-incident.md)) is enough.
 
 **Why.** Age means opposite things in different domains. A convention that
 has survived years of internal use is battle-tested; a rule about an
@@ -381,10 +381,10 @@ date but the model it was verified against — *verified `<date>` on
 `<model>`* — and a model change is itself a re-verify trigger, not a wait
 for symptoms.
 
-**Install.** A writing habit with a natural audit extension (practice 6):
+**Install.** A writing habit with a natural audit extension ([convention-to-audit](practices/convention-to-audit.md)):
 tag rules with a review-by date or a volatility marker and a small script
 can flag overdue ones — the drift check's shape, applied to time instead of
-content. The environment-gotchas section (practice 4) is the most
+content. The environment-gotchas section ([environment-gotchas](practices/environment-gotchas.md)) is the most
 decay-prone rule set most repos have; date its entries first.
 
 ## 17. Acronyms are expanded, and a central glossary holds them
@@ -405,13 +405,13 @@ context — the exact case an acronym silently assumes. One undefined initialism
 can make a paragraph unreadable, and the cost compounds: a suite with dozens
 of coined two- and three-letter terms becomes navigable only to its authors,
 which defeats the point of writing it down. The central list is the same
-single-source-of-truth instinct as practice 7 — derive the expansion in one
+single-source-of-truth instinct as [registry-source-of-truth](practices/registry-source-of-truth.md) — derive the expansion in one
 place, reference it everywhere — and the bottom-of-document note is the local,
 low-friction form for the reader who won't leave the page.
 
 **Install.** A writing convention plus one living file (a `GLOSSARY.md` grouped
 by theme, alphabetical within a group), and the natural audit extension
-(practice 6) is built: [tools/doc_lint.py](tools/doc_lint.py) check 3 scans each
+([convention-to-audit](practices/convention-to-audit.md)) is built: [tools/doc_lint.py](tools/doc_lint.py) check 3 scans each
 changed document for ALL-CAPS tokens absent from `GLOSSARY.md` — skipping ones
 defined inline on the line (`long form (TOKEN)`) and a stoplist of common
 words/units — and warns, the same "convention → loud check" shape as its
@@ -466,7 +466,7 @@ them. Nothing breaks; a human just has to *notice* the staleness — and in one
 dependent repo a headline comparison table lagged the scripts behind it until
 the repo owner had to ask "did you update the table?". The reminder itself was
 the bug: consistency between a computing script and the documents quoting it is
-exactly the kind of convention that must become an audit (practice 6), because
+exactly the kind of convention that must become an audit ([convention-to-audit](practices/convention-to-audit.md)), because
 it is mechanical to check and embarrassing to miss. The sentinel form matters:
 HTML comments render as nothing on hosted markdown, so the plumbing is
 invisible to readers, and the block boundaries make regeneration deterministic
@@ -512,10 +512,10 @@ property** — a missing rule, a missing check, a judgment recorded at the
 wrong granularity, a stale document trusted, a default that invites the
 error — stopping at the level where a cheap guard exists. Then encode the
 prevention at the strongest rung available: (a) an **audit or lint** if the
-failure is mechanically checkable (practice 6 — conventions become audits);
-(b) else a **written rule, dated, carrying its origin incident** (practices
-5 and 16 — the incident is both the justification and the test case); (c) if
-the lesson is generic, **export it** (practice 14). Discuss the choice with
+failure is mechanically checkable ([convention-to-audit](practices/convention-to-audit.md) — conventions become audits);
+(b) else a **written rule, dated, carrying its origin incident** ([cite-the-incident](practices/cite-the-incident.md)
+and [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) — the incident is both the justification and the test case); (c) if
+the lesson is generic, **export it** ([practice-export-loop](practices/practice-export-loop.md)). Discuss the choice with
 the owner when it involves a judgment call — which rung, what scope, whether
 the guard is worth its cost.
 
@@ -551,12 +551,13 @@ a separate step, not part of the production flow**, re-reading its own
 reasoning against a short checklist: (a) did every idea discussed reach its
 **durable artifact**, or does it live only in prose or conversation? (b) do
 **parallel artifacts** that must track this change have their transfer
-verdicts (practice 22)? (c) did technical value get its **cross-ledger
+verdicts ([parallel-artifact-ledger](practices/parallel-artifact-ledger.md))? (c) did technical value get its **cross-ledger
 capture** — the business, operational, or planning implication recorded where
-those live? (d) are open decisions **queued in the typed TODO** (practice 2)
+those live? (d) are open decisions **queued in the typed TODO**
+([repo-is-memory](practices/repo-is-memory.md))
 rather than only in the conversation? (e) are the **indexes, registries, and
 glossaries** synced? Run the sweep before the merge-time capture gate
-(practice 10), so what it finds lands in the same change-set as the work.
+([capture-gate](practices/capture-gate.md)), so what it finds lands in the same change-set as the work.
 
 **Why.** The production mindset cannot audit itself: while drafting, every
 idea feels captured because it was *thought*. In the origin repo, an
@@ -572,7 +573,7 @@ lost idea.
 the capture gate. Adapt the checklist items to the repo's ledgers (what
 counts as a durable artifact, which registries exist). The trigger for
 adopting it retroactively: the first time an owner's "did we miss anything?"
-finds something — that incident is the origin story (practice 20).
+finds something — that incident is the origin story ([mistakes-become-rules](practices/mistakes-become-rules.md)).
 
 ## 22. Parallel-artifact families: transfer verdicts are per-mechanism, per-change, and ledgered
 
@@ -594,8 +595,8 @@ date lacking a complete row**.
 ("this cluster is member-specific — no transfer") that was true as a headline
 and wrong for one mechanism inside it, which transferred to all three sibling
 artifacts. Nothing forced the verdict to be decomposed, re-run, or recorded
-per member, so the miss was invisible until a prompted second pass (practice
-21) caught it. Free-text one-time verdicts have three failure modes the
+per member, so the miss was invisible until a prompted second pass
+([second-pass-capture](practices/second-pass-capture.md)) caught it. Free-text one-time verdicts have three failure modes the
 ledger kills: wrong granularity (headline vs mechanism), staleness (new
 changes inherit old verdicts), and unauditability (nothing can check what was
 never recorded).
@@ -604,7 +605,7 @@ never recorded).
 per family member) plus a small audit keyed on dated change markers in
 whatever registry tracks the family — any marked date without a complete
 ledger row fails. The family definition itself lives at the top of the
-ledger, with the origin incident (practice 20).
+ledger, with the origin incident ([mistakes-become-rules](practices/mistakes-become-rules.md)).
 
 ## 23. Layered practice packs: a domain layer between generic and repo-local
 
@@ -641,7 +642,7 @@ made this upstream's own extraction clean.
 `upstream.scrub_blocklist` — a path, or `null` to opt a private pack out of
 the scrub); instantiate the pack's practices in the repo's real files and
 record the mapping; install its harness adapter so the rules load when the
-domain work happens. The export gate (practice 14) covers packs too: a thread
+domain work happens. The export gate ([practice-export-loop](practices/practice-export-loop.md)) covers packs too: a thread
 that improves a domain practice folds the abstracted form into the pack tree
 in the same branch, keeping repo vocabulary out per the pack's blocklist.
 
@@ -741,7 +742,7 @@ compute it — do not reason about which way it goes.** Directional assertions
 about a model's own terms are the easiest thing to get backwards and the
 hardest to notice, because they sound like understanding.
 
-**Why.** The same audit that produced practice 24 found twenty-two defects
+**Why.** The same audit that produced [quote-discipline](practices/quote-discipline.md) found twenty-two defects
 in a summary whose every number had been written in good faith from real
 sources: three differently-named rows summing one underlying market, a
 benefit line booked without its gating cost, claims citing documents that
@@ -847,16 +848,16 @@ artifact answers *that*. Keep it in the finished document if it helps the
 reader; delete it if not. In review, ask of the opening: *whose question is
 this?* When a reframe does arrive, record what it changed — but record it in the
 **dated review artifact, not in the deliverable**. A reader who saw the earlier
-version deserves the diff and the failure mode should stay legible (practice 20
+version deserves the diff and the failure mode should stay legible ([mistakes-become-rules](practices/mistakes-become-rules.md)
 applied to framing rather than to defects), yet a "what this used to say" block
-inside a living document is precisely the changelog that practice 26 forbids.
+inside a living document is precisely the changelog that [docs-are-current-state](practices/docs-are-current-state.md) forbids.
 Put it where dated history belongs; leave the deliverable reading as current
 state.
 
-**Related.** Practice 26 (documents are current state) constrains *where* the
+**Related.** [docs-are-current-state](practices/docs-are-current-state.md) (documents are current state) constrains *where* the
 reframe record goes — the two practices collide if this one is read as
 licensing a changelog inside the artifact, and the review record is the
-resolution. Practice 25 (an adversarial pass on outward-facing work) will not
+resolution. [outward-summary-discipline](practices/outward-summary-discipline.md) (an adversarial pass on outward-facing work) will not
 catch this on its own: a well-framed-for-the-wrong-question document survives
 claim-to-source verification intact, because every claim in it is true. The
 framing check has to be separate, and it has to happen before the verification
@@ -924,7 +925,7 @@ delivery. Two prompts do most of the work: *"what does the base say it cannot
 do, and does my variant's reasoning quietly assume otherwise?"* and *"which of
 the base's choices exist only because of a job my variant is not doing?"*
 
-**Related.** Practice 20 (mistakes become rules) is how this one was derived —
+**Related.** [mistakes-become-rules](practices/mistakes-become-rules.md) (mistakes become rules) is how this one was derived —
 and note that the second instance was folded into the *same* rule as the first
 rather than minted as a new one, per that practice's proportionality guard: two
 failures with one root cause get one widened guard, not two narrow ones.
@@ -978,7 +979,7 @@ fail a build**.
 The sharpest part is where the correct number actually lived. **The
 authoritative document was right and the script was wrong.** The document
 recited the correct figure for exactly the case the script got wrong — and the
-sync gate of practice 19 faithfully published the script's number into the
+sync gate of [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) faithfully published the script's number into the
 derived document, because it guards *document agrees with script* and cannot
 know the script is wrong. Every artifact was internally consistent; the only
 disagreement in the repo was with the one document nothing compared against.
@@ -1037,13 +1038,13 @@ whose class it does not fit — the same session found one of those the same day
 and the tell was again a column identical across rows that should have
 differed.
 
-**Related.** Practice 19 guards *document agrees with script*; this one guards
+**Related.** [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) guards *document agrees with script*; this one guards
 *script agrees with reality and with the document of record* — the edge one
 level up, and the one that bites when the script is the wrong artifact.
-Practice 6 (conventions become audits) is the general form. Practice 20
+[convention-to-audit](practices/convention-to-audit.md) (conventions become audits) is the general form. [mistakes-become-rules](practices/mistakes-become-rules.md)
 (mistakes become rules) produced it, including the correction of its own first
 root-cause analysis, which named the stale-copy diagnosis above and had to be
-retracted when a one-line check disproved it. Practice 29 (a variant re-derives
+retracted when a one-line check disproved it. [variant-re-derives](practices/variant-re-derives.md) (a variant re-derives
 what it inherits) is the drafting-time counterpart of the repeat detector
 above.
 
@@ -1087,7 +1088,7 @@ next person sees a resolved question rather than an unexplained backlog and
 re-litigates it. If the tool has no scoping option and the noise is persistent,
 that is a request to file against the tool, not a reason to act on it.
 
-**Related.** Practice 20 (mistakes become rules) — this is the abstracted form
+**Related.** [mistakes-become-rules](practices/mistakes-become-rules.md) (mistakes become rules) — this is the abstracted form
 of a rule a dependent repo added after a session was one command away from
 rewriting a shared trunk to clear a signature badge on commits it did not own.
 
@@ -1151,14 +1152,14 @@ action:
 Cheap and worth it: end a work session by re-deriving the finished state from
 the repository rather than from your own transcript.
 
-**Related.** Practice 6 (conventions become audits) — this is the audit for
-"did the thing actually land". Practice 20 (mistakes become rules) produced it,
+**Related.** [convention-to-audit](practices/convention-to-audit.md) (conventions become audits) — this is the audit for
+"did the thing actually land". [mistakes-become-rules](practices/mistakes-become-rules.md) (mistakes become rules) produced it,
 from two failures with one root cause folded into one widened rule rather than
 two narrow ones, per that practice's proportionality guard.
 
 ## 33. Documents track their models, and every transformation lives in code
 
-**Rule.** Extending practice 19 from *tables* to **every** figure a script
+**Rule.** Extending [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) from *tables* to **every** figure a script
 computes:
 
 1. **A script-derived figure appears in a document only inside a generated
@@ -1231,11 +1232,11 @@ merely mentions the marker opts itself in and fails on its own examples).
 
 Where a document needs figures from several scripts, let the emitter **import**
 the other scripts rather than restating their numbers, so each figure keeps
-exactly one owner (practice 19's composition extension, and practice 30's
+exactly one owner ([computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md)'s composition extension, and [scripts-assert-properties](practices/scripts-assert-properties.md)'s
 one-owner rule applied to documents).
 
-**Related.** Practice 19 (generated blocks) is the mechanism; this is its
-scope. Practice 30 (scripts assert their properties and their sources' figures)
+**Related.** [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) (generated blocks) is the mechanism; this is its
+scope. [scripts-assert-properties](practices/scripts-assert-properties.md) (scripts assert their properties and their sources' figures)
 guards the layer below — that the script is right before its numbers are
 published everywhere automatically.
 
@@ -1275,27 +1276,27 @@ Two properties generalise from that:
   register it just read.
 
 Note that a glossary is the **wrong remedy here**, which is what separates
-this from practice 17. You can ask a colleague to consult the repo's
+this from [acronyms-glossary](practices/acronyms-glossary.md). You can ask a colleague to consult the repo's
 glossary. You cannot ask a prospective user to consult anything — they will
 simply stop reading.
 
 **Install.** A vocabulary pass, run as a **separate step after drafting**,
-in the shape of practice 21's capture sweep: write the intended reader down
+in the shape of [second-pass-capture](practices/second-pass-capture.md)'s capture sweep: write the intended reader down
 as a plain sentence, then walk every category-naming noun against *"would
 this reader define this unprompted?"* Where the answer is no, apply one of
-the three verdicts. Do it after the framing check of practice 28, since
+the three verdicts. Do it after the framing check of [frame-from-audience-question](practices/frame-from-audience-question.md), since
 reframing changes who the reader is.
 
-The natural audit extension (practice 6) is a per-repo list of known insider
+The natural audit extension ([convention-to-audit](practices/convention-to-audit.md)) is a per-repo list of known insider
 terms, checked by [tools/doc_lint.py](tools/doc_lint.py) against documents
 marked outward-facing — the same machinery as the scrub blocklist of
-practice 15, aimed at comprehension instead of confidentiality. Keep it
+[scrub-gate](practices/scrub-gate.md), aimed at comprehension instead of confidentiality. Keep it
 **warning-level**: a glossed term is a legitimate pass, and only a human can
 judge that.
 
-**Related.** Practice 17 (acronyms and a central glossary) is the
+**Related.** [acronyms-glossary](practices/acronyms-glossary.md) (acronyms and a central glossary) is the
 inward-facing counterpart — expansion for readers who will consult a list.
-Practice 27 (a label describes what follows) and practice 28 (frame from the
+[label-describes-content](practices/label-describes-content.md) (a label describes what follows) and [frame-from-audience-question](practices/frame-from-audience-question.md) (frame from the
 audience's question) are the other two audience-facing failures, and all
 three survive each other: a document can be correctly framed, honestly
 labelled, and still unreadable because of its vocabulary. Three separate
@@ -1346,10 +1347,10 @@ assumption to hold — a decision resting on an unpriced assumption about someon
 else's pricing is one conversation away from being confirmed or overturned, and
 leaving that conversation unhad is a choice, not a limitation.
 
-**Related.** Practice 28 (frame from the audience's question) is the adjacent
+**Related.** [frame-from-audience-question](practices/frame-from-audience-question.md) (frame from the audience's question) is the adjacent
 move at the artifact level; this one operates on the decision itself, and the
 two compose — the audience's question is often posed at the wrong granularity
-too. Practice 25's adversarial pass will confirm every claim in a
+too. [outward-summary-discipline](practices/outward-summary-discipline.md)'s adversarial pass will confirm every claim in a
 wrongly-decomposed analysis, so the decomposition has to be challenged
 separately.
 
@@ -1440,44 +1441,6 @@ verification happened and means nothing did. The template earns its place
 only paired with an explicit instruction that unchecked boxes are fine — the
 alternative trains exactly the behavior the checklist exists to catch.
 
-**Install.**
-[templates/pull_request_template.md.template](templates/pull_request_template.md.template)
-→ `.github/pull_request_template.md` — installed the same way as `AGENTS.md`
-(§1), propagated to existing installs the same way (§2). The "write from the
-diff, unchecked is fine" instruction lives in
-[templates/AGENTS.md.template](templates/AGENTS.md.template) so every
-session opening a PR sees it, not just the template itself.
-es a source's vocabulary within a single session, has no
-  sense of when a word entered its usage, and writes fluently in whatever
-  register it just read.
-
-Note that a glossary is the **wrong remedy here**, which is what separates
-this from practice 17. You can ask a colleague to consult the repo's
-glossary. You cannot ask a prospective user to consult anything — they will
-simply stop reading.
-
-**Install.** A vocabulary pass, run as a **separate step after drafting**,
-in the shape of practice 21's capture sweep: write the intended reader down
-as a plain sentence, then walk every category-naming noun against *"would
-this reader define this unprompted?"* Where the answer is no, apply one of
-the three verdicts. Do it after the framing check of practice 28, since
-reframing changes who the reader is.
-
-The natural audit extension (practice 6) is a per-repo list of known insider
-terms, checked by [tools/doc_lint.py](tools/doc_lint.py) against documents
-marked outward-facing — the same machinery as the scrub blocklist of
-practice 15, aimed at comprehension instead of confidentiality. Keep it
-**warning-level**: a glossed term is a legitimate pass, and only a human can
-judge that.
-
-**Related.** Practice 17 (acronyms and a central glossary) is the
-inward-facing counterpart — expansion for readers who will consult a list.
-Practice 27 (a label describes what follows) and practice 28 (frame from the
-audience's question) are the other two audience-facing failures, and all
-three survive each other: a document can be correctly framed, honestly
-labelled, and still unreadable because of its vocabulary. Three separate
-passes, not one.
-
 ## 40. An option you invented is not a baseline — check the source architecture first
 
 **The practice.** Before costing or optimising a trade between two configurations,
@@ -1514,10 +1477,9 @@ conclusion while keeping the invented structure leaves the same error with bette
 arithmetic. Re-derive from the source architecture, then re-cost — the corrected
 answer often inverts the original one rather than adjusting it.
 
-**Related:** practice 29 (a variant re-derives what it inherits) is the sibling
+**Related:** [variant-re-derives](practices/variant-re-derives.md) (a variant re-derives what it inherits) is the sibling
 failure — carrying forward a base's *choices* unexamined. This one is the inverse:
 introducing a distinction the base never made.
-
 
 ## 41. Search by purpose as well as by mechanism, and index what you write
 
@@ -1565,7 +1527,7 @@ search, but it guarantees the target of that search exists somewhere findable.
 Measure the backlog when you introduce the check; a non-trivial count is the
 evidence that the failure was systemic rather than one person's bad day.
 
-**Related:** practice 25 (read the primary, not the summary) is the sibling
+**Related:** [outward-summary-discipline](practices/outward-summary-discipline.md) (read the primary, not the summary) is the sibling
 failure in the *depth* direction — this one is in the *breadth* direction.
 
 ## 42. Verify the decomposition, not the total — and never encode an impossibility
@@ -1616,7 +1578,7 @@ check that asserts a negative locks the error in as an invariant and defends it
 against the next person who suspects otherwise — converting a soft mistake into
 a hard one, and putting the burden of proof on whoever is right.
 
-**Related:** practice 40 (an option you invented is not a baseline) is the same
+**Related:** [check-source-architecture](practices/check-source-architecture.md) (an option you invented is not a baseline) is the same
 family one level up — there the *framing* is unexamined rather than the terms.
 
 ## 43. An affordance you build for yourself is an affordance you hand to everyone
@@ -1672,7 +1634,7 @@ discretion is a premium feature is often simply false — and if it is false in
 your system, that is a strong argument for making the discreet posture the
 default rather than the upsell.
 
-**Related:** practice 42(b) — compute the term whose direction is the point,
+**Related:** [verify-decomposition](practices/verify-decomposition.md)(a) — compute the term whose direction is the point,
 rather than reasoning about which way it goes; here the term is the cost of the
 cautious option, and the reasoning was backwards.
 
@@ -1704,7 +1666,7 @@ already the fast pass — it scans only the markdown a session touched — and
 needs the whole repo. Naming them is the only step this practice adds: pick
 the repo's own pair of names, add both to `GLOSSARY.md` with what each one
 actually runs, and reference the names (not just the script paths) in the
-merge runbook (practice 9) and in any CI wiring (practice 6). A repo that
+merge runbook ([merge-runbook](practices/merge-runbook.md)) and in any CI wiring ([convention-to-audit](practices/convention-to-audit.md)). A repo that
 adds its own extra fast checks (secret-shaped strings, conflict markers,
 JSON/YAML syntax) folds them into the "light" name rather than inventing a
 third level — two named levels is the right number for almost every repo.
@@ -1722,7 +1684,7 @@ Treat an ambiguous case — the word appears, but as part of a longer
 sentence, or its standalone status is genuinely unclear — as *not*
 authorization: ask, rather than assume.
 
-**Why.** "Merge only when the user says so" (practice 9's authorization
+**Why.** "Merge only when the user says so" ([merge-runbook](practices/merge-runbook.md)'s authorization
 default) is the right default, but typed out in full every time it's
 invoked, it adds friction to the single most common approval a working
 session asks for. A one-word standing trigger removes that friction
@@ -1738,7 +1700,7 @@ reason.
 one-word reply and isn't likely to appear as ordinary language at the end
 of an unrelated sentence — "go" or "merge" are typical choices. Add it to
 `GLOSSARY.md` with the standalone-sentence rule spelled out, and cross-link
-it from the merge runbook (practice 9) and from the "administrator
+it from the merge runbook ([merge-runbook](practices/merge-runbook.md)) and from the "administrator
 requests" section of `AGENTS.md`, so a session encountering the word for
 the first time in a thread already knows where the rule lives instead of
 inferring it from context.
@@ -1750,14 +1712,14 @@ to sort — a trade study, a parameter sweep, a comparison matrix — the
 markdown alone is not the finished product. Ship an HTML render delivering
 the behavior contract below. The source document remains the source of
 record (with its generated tables kept live by the doc↔model sync of
-practice 33); the render is a committed build product, rebuilt after any
+[docs-track-models](practices/docs-track-models.md)); the render is a committed build product, rebuilt after any
 edit.
 
 **The behavior contract.** This is what the reference implementation
 ([tools/doc_html.py](tools/doc_html.py)) delivers on every table, and what
 any reimplementation on another stack must match — it is the spec a reader
-of this practice is entitled to assume when a repo says "practice 46
-render":
+of this practice is entitled to assume when a repo says
+"[tabular-shared-renderer](practices/tabular-shared-renderer.md) render":
 
 1. **Multi-column sort** — click a header to sort; shift-click (or a
    Multi-sort toggle) adds secondary keys; clicking a key again reverses
@@ -1819,10 +1781,10 @@ render":
    sets changed). Sorting, filtering, and the row count always read
    the ACTIVE view's text, never the concatenation.
 8. **Frontier axis pull-down** — where a Frontier column exists
-   (practice 47), the render opens showing frontier rows only, and the
+   ([permutation-frontier-column](practices/permutation-frontier-column.md)), the render opens showing frontier rows only, and the
    control is an axis pull-down that works on any such table with no
    per-document wiring: the printed ✓/— marks (the model's own
-   computation, per practice 47) are the default view; the picker
+   computation, per [permutation-frontier-column](practices/permutation-frontier-column.md)) are the default view; the picker
    offers **every** other column as an axis and recomputes the marks
    client-side on a custom pick. A numeric column takes a reader-set
    better-direction (↓/↑); a **text column ranks as an ordinal axis
@@ -1870,13 +1832,13 @@ gate it, or the "change once, upgrade everywhere" property is silently lost
 for every table that lacks the declaration. Per-document build scripts
 may survive as documented entry points, but as thin wrappers importing the
 shared `render()` — never as forks of the CSS/JS. The failure this kills is
-the same one practice 33 kills for numbers: N copied renderers drift
+the same one [docs-track-models](practices/docs-track-models.md) kills for numbers: N copied renderers drift
 independently, and the oldest copy is the one a reader eventually trusts.
 
 **Singularity crosses the repo boundary.** In a dependent repo, the
 vendored copy of the renderer **is** the implementation and the repo's own
 file is a thin host shim supplying only its document registry — the general
-engine/shim rule is practice 50; this renderer is its strongest case, since
+engine/shim rule is [engine-plus-host-shims](practices/engine-plus-host-shims.md); this renderer is its strongest case, since
 a spec-only export of "multi-sort with pinning and filters" reimplemented
 from prose differs in a hundred details.
 
@@ -1896,8 +1858,8 @@ the render. Numeric sort keys must survive the units and approximations your
 documents actually use (currency suffixes, ≈/≤/≥, thousands separators) —
 extend the key parser when a new format appears, in the shared module, once.
 
-**Related.** Practice 33 (documents track their models; transformations live
-in code) supplies the live tables this renders; practice 12 (conventions
+**Related.** [docs-track-models](practices/docs-track-models.md) (documents track their models; transformations live
+in code) supplies the live tables this renders; [convention-to-audit](practices/convention-to-audit.md) (conventions
 harden into audits) suggests the natural follow-on check — a registered
 document whose render is stale fails the gate.
 
@@ -1925,10 +1887,10 @@ rules:
    same rows are two copies that drift; one table with a computed column
    cannot.
 3. **The render toggles — and lets the reader re-rank.** The sortable
-   render (practice 46) opens showing frontier rows only and carries a
+   render ([tabular-shared-renderer](practices/tabular-shared-renderer.md)) opens showing frontier rows only and carries a
    control to show all rows — the reader gets the compressed view first
    and the full matrix one click later, from the same table. That
-   control is the axis pull-down of practice 46 item 8: the reader
+   control is the axis pull-down of [tabular-shared-renderer](practices/tabular-shared-renderer.md) item 8: the reader
    picks which output columns form the frontier and the render
    recomputes the marks, because rule 1's real point is that the axes
    are the reader's choice — the stated defaults answer the document's
@@ -1941,11 +1903,11 @@ rules:
 do the dominance analysis in their head, badly; the frontier column does it
 once, correctly, in code. And a frontier computed by the model is
 regenerated by the model — an editorially curated "interesting rows" table
-silently rots as the numbers move (the drift practice 33 exists to kill, in
+silently rots as the numbers move (the drift [docs-track-models](practices/docs-track-models.md) exists to kill, in
 row-selection form).
 
-**Related.** Practice 44 (sortable render) carries the toggle and the
-per-column value filters; practice 33 keeps the table regenerating from the
+**Related.** [tabular-shared-renderer](practices/tabular-shared-renderer.md) (sortable render) carries the toggle and the
+per-column value filters; [docs-track-models](practices/docs-track-models.md) keeps the table regenerating from the
 model.
 
 ## 48. A document does not remember its past; the index does
@@ -1969,7 +1931,7 @@ accurate and decay (the successor gets its own successor; the note never
 updates), whereas index rows are touched every time the map is maintained.
 
 **Related.** The current-state rule (git is the history) this completes;
-practice 41 (index what you write) supplies the index rows this rides on.
+[search-by-purpose](practices/search-by-purpose.md) (index what you write) supplies the index rows this rides on.
 
 ## 49. Deliverables look like their output; the record doc holds everything else
 
@@ -2005,9 +1967,9 @@ apparatus, unattributed decision references, or retirement lore fails the
 gate; record-class files (by name pattern) are exempt. The written rule says
 why; the check is what holds.
 
-**Related.** The current-state rule (git is the history) and practice 48
+**Related.** The current-state rule (git is the history) and [index-remembers-past](practices/index-remembers-past.md)
 (provenance lives in the index) bound what a deliverable may remember;
-practices 24–25 (quote discipline, adversarial pass) generate exactly the
+[quote-discipline](practices/quote-discipline.md) and [outward-summary-discipline](practices/outward-summary-discipline.md) (quote discipline, adversarial pass) generate exactly the
 apparatus this practice routes into the record doc.
 
 ## 50. Exported tools are one engine plus host shims
@@ -2056,8 +2018,8 @@ to the engine's entry point); the manifest entry notes shim status so the
 vendoring audit tracks the engine, not the shim. Every host-side runbook
 keeps invoking the shim path — the restructure changes no workflows.
 
-**Related.** Practice 44 (shared renderer) and practice 19 (generated-block
-sync) are the worked examples; practice 33's "transformations live in code"
+**Related.** [tabular-shared-renderer](practices/tabular-shared-renderer.md) (shared renderer) and [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) (generated-block
+sync) are the worked examples; [docs-track-models](practices/docs-track-models.md)'s "transformations live in code"
 is the same instinct one level up; the check-in flow of the vendoring
 playbook is how engine changes propagate.
 
@@ -2115,10 +2077,10 @@ requirement was never a property of single values.
 
 **Engine.** `tools/table_fmt.py` (`Qty`): the mechanism — threshold
 precision, separators, approximation and affixes — as a tiny class. A
-host repo's shim declares its kinds once (practice 50) and its emitters
+host repo's shim declares its kinds once ([engine-plus-host-shims](practices/engine-plus-host-shims.md)) and its emitters
 import the shim. Adopting emitters must reproduce byte-identical output
 where the policy is unchanged — the generated-block drift gate
-(practice 19) is the proof.
+([computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md)) is the proof.
 
 **The formatter↔renderer seam is checked, not remembered.** The sortable
 render parses these printed strings back to numbers for sorting,
@@ -2136,9 +2098,9 @@ exposes this as `self_check()` wired into the repo's audit runner, so a
 notation the tables would mis-sort fails at commit time, not in the
 browser.
 
-**Related.** Practice 44 (the render layer these cells land in);
-practice 33 (transformations live in code — this is its formatting
-corner); practice 50 (how the engine crosses the repo boundary).
+**Related.** [tabular-shared-renderer](practices/tabular-shared-renderer.md) (the render layer these cells land in);
+[docs-track-models](practices/docs-track-models.md) (transformations live in code — this is its formatting
+corner); [engine-plus-host-shims](practices/engine-plus-host-shims.md) (how the engine crosses the repo boundary).
 
 ## 52. A computation that books a transfer names both sides of the ledger
 

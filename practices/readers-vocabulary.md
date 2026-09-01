@@ -50,7 +50,7 @@ Two properties generalise from that:
   register it just read.
 
 Note that a glossary is the **wrong remedy here**, which is what separates
-this from practice 17. You can ask a colleague to consult the repo's
+this from [acronyms-glossary](acronyms-glossary.md). You can ask a colleague to consult the repo's
 glossary. You cannot ask a prospective user to consult anything — they will
 simply stop reading.
 
@@ -58,22 +58,22 @@ simply stop reading.
 
 ## Install
 A vocabulary pass, run as a **separate step after drafting**,
-in the shape of practice 21's capture sweep: write the intended reader down
+in the shape of [second-pass-capture](second-pass-capture.md)'s capture sweep: write the intended reader down
 as a plain sentence, then walk every category-naming noun against *"would
 this reader define this unprompted?"* Where the answer is no, apply one of
-the three verdicts. Do it after the framing check of practice 28, since
+the three verdicts. Do it after the framing check of [frame-from-audience-question](frame-from-audience-question.md), since
 reframing changes who the reader is.
 
-The natural audit extension (practice 6) is a per-repo list of known insider
+The natural audit extension ([convention-to-audit](convention-to-audit.md)) is a per-repo list of known insider
 terms, checked by [tools/doc_lint.py](tools/doc_lint.py) against documents
 marked outward-facing — the same machinery as the scrub blocklist of
-practice 15, aimed at comprehension instead of confidentiality. Keep it
+[scrub-gate](scrub-gate.md), aimed at comprehension instead of confidentiality. Keep it
 **warning-level**: a glossed term is a legitimate pass, and only a human can
 judge that.
 
-**Related.** Practice 17 (acronyms and a central glossary) is the
+**Related.** [acronyms-glossary](acronyms-glossary.md) (acronyms and a central glossary) is the
 inward-facing counterpart — expansion for readers who will consult a list.
-Practice 27 (a label describes what follows) and practice 28 (frame from the
+[label-describes-content](label-describes-content.md) (a label describes what follows) and [frame-from-audience-question](frame-from-audience-question.md) (frame from the
 audience's question) are the other two audience-facing failures, and all
 three survive each other: a document can be correctly framed, honestly
 labelled, and still unreadable because of its vocabulary. Three separate

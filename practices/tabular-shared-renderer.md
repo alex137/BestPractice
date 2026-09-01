@@ -20,14 +20,14 @@ to sort — a trade study, a parameter sweep, a comparison matrix — the
 markdown alone is not the finished product. Ship an HTML render delivering
 the behavior contract below. The source document remains the source of
 record (with its generated tables kept live by the doc↔model sync of
-practice 33); the render is a committed build product, rebuilt after any
+[docs-track-models](docs-track-models.md)); the render is a committed build product, rebuilt after any
 edit.
 
 **The behavior contract.** This is what the reference implementation
 ([tools/doc_html.py](tools/doc_html.py)) delivers on every table, and what
 any reimplementation on another stack must match — it is the spec a reader
-of this practice is entitled to assume when a repo says "practice 46
-render":
+of this practice is entitled to assume when a repo says
+"[tabular-shared-renderer](tabular-shared-renderer.md) render":
 
 1. **Multi-column sort** — click a header to sort; shift-click (or a
    Multi-sort toggle) adds secondary keys; clicking a key again reverses
@@ -89,10 +89,10 @@ render":
    sets changed). Sorting, filtering, and the row count always read
    the ACTIVE view's text, never the concatenation.
 8. **Frontier axis pull-down** — where a Frontier column exists
-   (practice 47), the render opens showing frontier rows only, and the
+   ([permutation-frontier-column](permutation-frontier-column.md)), the render opens showing frontier rows only, and the
    control is an axis pull-down that works on any such table with no
    per-document wiring: the printed ✓/— marks (the model's own
-   computation, per practice 47) are the default view; the picker
+   computation, per [permutation-frontier-column](permutation-frontier-column.md)) are the default view; the picker
    offers **every** other column as an axis and recomputes the marks
    client-side on a custom pick. A numeric column takes a reader-set
    better-direction (↓/↑); a **text column ranks as an ordinal axis
@@ -140,13 +140,13 @@ gate it, or the "change once, upgrade everywhere" property is silently lost
 for every table that lacks the declaration. Per-document build scripts
 may survive as documented entry points, but as thin wrappers importing the
 shared `render()` — never as forks of the CSS/JS. The failure this kills is
-the same one practice 33 kills for numbers: N copied renderers drift
+the same one [docs-track-models](docs-track-models.md) kills for numbers: N copied renderers drift
 independently, and the oldest copy is the one a reader eventually trusts.
 
 **Singularity crosses the repo boundary.** In a dependent repo, the
 vendored copy of the renderer **is** the implementation and the repo's own
 file is a thin host shim supplying only its document registry — the general
-engine/shim rule is practice 50; this renderer is its strongest case, since
+engine/shim rule is [engine-plus-host-shims](engine-plus-host-shims.md); this renderer is its strongest case, since
 a spec-only export of "multi-sort with pinning and filters" reimplemented
 from prose differs in a hundred details.
 
@@ -170,7 +170,7 @@ the render. Numeric sort keys must survive the units and approximations your
 documents actually use (currency suffixes, ≈/≤/≥, thousands separators) —
 extend the key parser when a new format appears, in the shared module, once.
 
-**Related.** Practice 33 (documents track their models; transformations live
-in code) supplies the live tables this renders; practice 12 (conventions
+**Related.** [docs-track-models](docs-track-models.md) (documents track their models; transformations live
+in code) supplies the live tables this renders; [convention-to-audit](convention-to-audit.md) (conventions
 harden into audits) suggests the natural follow-on check — a registered
 document whose render is stale fails the gate.

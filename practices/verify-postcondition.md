@@ -77,7 +77,7 @@ action:
 Cheap and worth it: end a work session by re-deriving the finished state from
 the repository rather than from your own transcript.
 
-**Related.** Practice 6 (conventions become audits) — this is the audit for
-"did the thing actually land". Practice 20 (mistakes become rules) produced it,
+**Related.** [convention-to-audit](convention-to-audit.md) (conventions become audits) — this is the audit for
+"did the thing actually land". [mistakes-become-rules](mistakes-become-rules.md) (mistakes become rules) produced it,
 from two failures with one root cause folded into one widened rule rather than
 two narrow ones, per that practice's proportionality guard.

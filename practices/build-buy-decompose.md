@@ -62,9 +62,9 @@ assumption to hold — a decision resting on an unpriced assumption about someon
 else's pricing is one conversation away from being confirmed or overturned, and
 leaving that conversation unhad is a choice, not a limitation.
 
-**Related.** Practice 28 (frame from the audience's question) is the adjacent
+**Related.** [frame-from-audience-question](frame-from-audience-question.md) (frame from the audience's question) is the adjacent
 move at the artifact level; this one operates on the decision itself, and the
 two compose — the audience's question is often posed at the wrong granularity
-too. Practice 25's adversarial pass will confirm every claim in a
+too. [outward-summary-discipline](outward-summary-discipline.md)'s adversarial pass will confirm every claim in a
 wrongly-decomposed analysis, so the decomposition has to be challenged
 separately.

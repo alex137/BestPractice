@@ -64,7 +64,7 @@ to the engine's entry point); the manifest entry notes shim status so the
 vendoring audit tracks the engine, not the shim. Every host-side runbook
 keeps invoking the shim path — the restructure changes no workflows.
 
-**Related.** Practice 44 (shared renderer) and practice 19 (generated-block
-sync) are the worked examples; practice 33's "transformations live in code"
+**Related.** [tabular-shared-renderer](tabular-shared-renderer.md) (shared renderer) and [computed-numbers-in-scripts](computed-numbers-in-scripts.md) (generated-block
+sync) are the worked examples; [docs-track-models](docs-track-models.md)'s "transformations live in code"
 is the same instinct one level up; the check-in flow of the vendoring
 playbook is how engine changes propagate.

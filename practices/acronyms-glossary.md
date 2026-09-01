@@ -32,7 +32,7 @@ context — the exact case an acronym silently assumes. One undefined initialism
 can make a paragraph unreadable, and the cost compounds: a suite with dozens
 of coined two- and three-letter terms becomes navigable only to its authors,
 which defeats the point of writing it down. The central list is the same
-single-source-of-truth instinct as practice 7 — derive the expansion in one
+single-source-of-truth instinct as [registry-source-of-truth](registry-source-of-truth.md) — derive the expansion in one
 place, reference it everywhere — and the bottom-of-document note is the local,
 low-friction form for the reader who won't leave the page.
 
@@ -41,7 +41,7 @@ low-friction form for the reader who won't leave the page.
 ## Install
 A writing convention plus one living file (a `GLOSSARY.md` grouped
 by theme, alphabetical within a group), and the natural audit extension
-(practice 6) is built: [tools/doc_lint.py](tools/doc_lint.py) check 3 scans each
+([convention-to-audit](convention-to-audit.md)) is built: [tools/doc_lint.py](tools/doc_lint.py) check 3 scans each
 changed document for ALL-CAPS tokens absent from `GLOSSARY.md` — skipping ones
 defined inline on the line (`long form (TOKEN)`) and a stoplist of common
 words/units — and warns, the same "convention → loud check" shape as its

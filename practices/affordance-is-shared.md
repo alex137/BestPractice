@@ -67,7 +67,7 @@ discretion is a premium feature is often simply false — and if it is false in
 your system, that is a strong argument for making the discreet posture the
 default rather than the upsell.
 
-**Related:** practice 42(b) — compute the term whose direction is the point,
+**Related:** [verify-decomposition](verify-decomposition.md)(a) — compute the term whose direction is the point,
 rather than reasoning about which way it goes; here the term is the cost of the
 cautious option, and the reasoning was backwards.
 

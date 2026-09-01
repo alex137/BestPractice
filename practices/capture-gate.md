@@ -35,5 +35,5 @@ for known parking-lot markers, run at thread end.
 ## Install
 Step 0 of the runbook in
 [templates/AGENTS.md.template](templates/AGENTS.md.template). The
-practice-export gate (practice 14) is this same rule applied to process
+practice-export gate ([practice-export-loop](practice-export-loop.md)) is this same rule applied to process
 improvements.

@@ -68,10 +68,10 @@ requirement was never a property of single values.
 
 **Engine.** `tools/table_fmt.py` (`Qty`): the mechanism — threshold
 precision, separators, approximation and affixes — as a tiny class. A
-host repo's shim declares its kinds once (practice 50) and its emitters
+host repo's shim declares its kinds once ([engine-plus-host-shims](engine-plus-host-shims.md)) and its emitters
 import the shim. Adopting emitters must reproduce byte-identical output
 where the policy is unchanged — the generated-block drift gate
-(practice 19) is the proof.
+([computed-numbers-in-scripts](computed-numbers-in-scripts.md)) is the proof.
 
 **The formatter↔renderer seam is checked, not remembered.** The sortable
 render parses these printed strings back to numbers for sorting,
@@ -89,9 +89,9 @@ exposes this as `self_check()` wired into the repo's audit runner, so a
 notation the tables would mis-sort fails at commit time, not in the
 browser.
 
-**Related.** Practice 44 (the render layer these cells land in);
-practice 33 (transformations live in code — this is its formatting
-corner); practice 50 (how the engine crosses the repo boundary).
+**Related.** [tabular-shared-renderer](tabular-shared-renderer.md) (the render layer these cells land in);
+[docs-track-models](docs-track-models.md) (transformations live in code — this is its formatting
+corner); [engine-plus-host-shims](engine-plus-host-shims.md) (how the engine crosses the repo boundary).
 
 ## Why
 

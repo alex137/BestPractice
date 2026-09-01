@@ -60,7 +60,7 @@ search, but it guarantees the target of that search exists somewhere findable.
 Measure the backlog when you introduce the check; a non-trivial count is the
 evidence that the failure was systemic rather than one person's bad day.
 
-**Related:** practice 25 (read the primary, not the summary) is the sibling
+**Related:** [outward-summary-discipline](outward-summary-discipline.md) (read the primary, not the summary) is the sibling
 failure in the *depth* direction — this one is in the *breadth* direction.
 
 ## Story

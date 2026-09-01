@@ -61,7 +61,7 @@ check that asserts a negative locks the error in as an invariant and defends it
 against the next person who suspects otherwise — converting a soft mistake into
 a hard one, and putting the burden of proof on whoever is right.
 
-**Related:** practice 40 (an option you invented is not a baseline) is the same
+**Related:** [check-source-architecture](check-source-architecture.md) (an option you invented is not a baseline) is the same
 family one level up — there the *framing* is unexamined rather than the terms.
 
 ## Why

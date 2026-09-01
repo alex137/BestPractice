@@ -60,7 +60,7 @@ about a model's own terms are the easiest thing to get backwards and the
 hardest to notice, because they sound like understanding.
 
 ## Why
-The same audit that produced practice 24 found twenty-two defects
+The same audit that produced [quote-discipline](quote-discipline.md) found twenty-two defects
 in a summary whose every number had been written in good faith from real
 sources: three differently-named rows summing one underlying market, a
 benefit line booked without its gating cost, claims citing documents that

@@ -23,10 +23,10 @@ property** — a missing rule, a missing check, a judgment recorded at the
 wrong granularity, a stale document trusted, a default that invites the
 error — stopping at the level where a cheap guard exists. Then encode the
 prevention at the strongest rung available: (a) an **audit or lint** if the
-failure is mechanically checkable (practice 6 — conventions become audits);
-(b) else a **written rule, dated, carrying its origin incident** (practices
-5 and 16 — the incident is both the justification and the test case); (c) if
-the lesson is generic, **export it** (practice 14). Discuss the choice with
+failure is mechanically checkable ([convention-to-audit](convention-to-audit.md) — conventions become audits);
+(b) else a **written rule, dated, carrying its origin incident** ([cite-the-incident](cite-the-incident.md)
+and [volatile-rules-carry-dates](volatile-rules-carry-dates.md) — the incident is both the justification and the test case); (c) if
+the lesson is generic, **export it** ([practice-export-loop](practice-export-loop.md)). Discuss the choice with
 the owner when it involves a judgment call — which rung, what scope, whether
 the guard is worth its cost.
 

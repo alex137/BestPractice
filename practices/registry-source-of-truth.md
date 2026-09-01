@@ -19,7 +19,7 @@ Any status that scripts or sessions make decisions on (what's
 released, what's pending, what version is installed) lives in exactly one
 machine-readable registry. Human-readable documents restate it; they never
 own it. When registry and document disagree, the registry wins — and an audit
-(practice 6) detects the disagreement.
+([convention-to-audit](convention-to-audit.md)) detects the disagreement.
 
 ## Why
 Duplicated state always diverges. The worst version: a document

@@ -37,7 +37,7 @@ them. Nothing breaks; a human just has to *notice* the staleness — and in one
 dependent repo a headline comparison table lagged the scripts behind it until
 the repo owner had to ask "did you update the table?". The reminder itself was
 the bug: consistency between a computing script and the documents quoting it is
-exactly the kind of convention that must become an audit (practice 6), because
+exactly the kind of convention that must become an audit ([convention-to-audit](convention-to-audit.md)), because
 it is mechanical to check and embarrassing to miss. The sentinel form matters:
 HTML comments render as nothing on hosted markdown, so the plumbing is
 invisible to readers, and the block boundaries make regeneration deterministic

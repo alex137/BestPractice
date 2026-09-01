@@ -36,7 +36,7 @@ accurate and decay (the successor gets its own successor; the note never
 updates), whereas index rows are touched every time the map is maintained.
 
 **Related.** The current-state rule (git is the history) this completes;
-practice 41 (index what you write) supplies the index rows this rides on.
+[search-by-purpose](search-by-purpose.md) (index what you write) supplies the index rows this rides on.
 
 ## Story
 

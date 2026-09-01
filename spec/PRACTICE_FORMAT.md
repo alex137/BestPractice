@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-0/1 build session, to version 1 -->
+<!-- Last updated: 2026-09-01 (Buenos Aires) by a pre-phase-5 slug-citation session, to version 2 -->
 
 # The Practice File Format (Phase 1)
 
@@ -107,6 +107,121 @@ check, and eventually a real migration tool, resolve `practice 20` to
 `mistakes-become-rules`. It is a phase-1/migration-bridging field, not part
 of the practice's own identity — a promoted team or individual practice
 minted fresh, with no BestPractice-numbered ancestor, simply won't have one.
+
+`source_practice_number` stays exactly as phase 1 defined it: **mandatory
+for the 52 practices converted from BestPractice's numbered catalogue,
+optional for everything minted after the fork** (a team or individual
+practice with no BestPractice-numbered ancestor has nothing to record here).
+This was already true the moment the field was designed as a
+migration-bridging join key rather than part of a practice's identity; it is
+recorded here as the explicit, settled answer rather than left implicit,
+since the question of whether to make it mandatory going forward is a
+natural one to ask once slugs are the citation form everywhere else.
+
+A deliberately rejected variant, since it was raised while doing this sweep:
+prefixing the number itself (`BP23` rather than a bare `23`) to mark its
+BestPractice origin inline. Not done — the frontmatter key
+(`source_practice_number`) already carries that provenance, a bare integer
+is what every consumer of the field (`verify_harness.py`'s citation-integrity
+check, a future migration tool doing `int()` comparisons) actually wants,
+and a string tag would just be a second, redundant way to say "this came
+from BestPractice" that the key name already says once.
+
+## Citing Other Practices
+
+**Slugs are practices' official identity and their official citation form,
+always as a markdown link: `[some-slug](some-slug.md)`.** This was already
+true in the plan (`slug: … # permanent identity; cited by name`) and in
+practice — every one of the 52 phase-1 files already had its permanent slug
+— but the 52 files' own prose had not caught up: they still cited each other
+the old way, as bare `practice N` / `practices N and M` text, inherited
+verbatim from BestPractice's numbered catalogue by the phase-1 converter's
+own "move, never invent" rule. A repo about to let practices be reordered,
+split, and retired independently (this fork's whole reason for moving off
+fixed numbers — see [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md),
+"Practices cited by position … making insertion a cross-repo sweep") cannot
+leave its own cross-references pointing at position. A session before phase
+5 (2026-09-01) swept every `practices/*.md` file and replaced each
+cross-reference with a slug link, resolved against the practice's actual
+content, not just its printed number (see "Four Citations Were Simply
+Wrong," next). Two mechanical checks in
+[`tools/verify_harness.py`](../tools/verify_harness.py) hold this going
+forward: `check_no_bare_numeric_citations` fails if a bare `practice N`
+citation reappears in body prose, and `check_slug_link_integrity` fails if a
+`[slug](slug.md)` link points at a slug that does not exist — i.e. the
+numbered check-citation-integrity's the plan's Migration section asked for,
+recast in the form citations now actually take.
+
+**Link path, and why `PRACTICES.md` needed a build-time rewrite.** A link
+inside `practices/<slug>.md` written as `[other-slug](other-slug.md)` is
+correct relative to that file's own directory. The same text is also reused
+verbatim to compose the root-level `PRACTICES.md` catalogue view (via
+[`tools/split_practices.py`](../tools/split_practices.py)'s `cmd_build()`),
+where the same bare relative path would resolve one directory short. Rather
+than write two different link forms into a practice's prose (which the
+Migration section's own "no invented content" spirit argues against — the
+*content* between the two documents must actually be identical prose, not
+two hand-synced copies), `cmd_build()` now rewrites bare
+`](sibling-slug.md)` links to `](practices/sibling-slug.md)` while composing
+`PRACTICES.md` — a mechanical path adjustment for the embedding document's
+location, not a content change.
+
+**Four citations were simply wrong**, found while resolving each one against
+its target's actual content rather than trusting the printed number — the
+same kind of upstream data defect [FIXUP_39](#a-genuine-upstream-finding)
+already documented, not something this sweep introduced:
+
+- [`engine-plus-host-shims.md`](../practices/engine-plus-host-shims.md) and
+  [`one-formatter-per-quantity.md`](../practices/one-formatter-per-quantity.md)
+  and
+  [`permutation-frontier-column.md`](../practices/permutation-frontier-column.md)
+  each cited "practice 44 (shared renderer)" / "(sortable render)" / "(the
+  render layer …)" — but practice 44 is *two named check levels*; the shared
+  renderer is practice 46, `tabular-shared-renderer`. All three now link
+  there. (Three independent citations landing on the same wrong number,
+  never the topic they described, reads as an old renumbering that never
+  got swept — exactly the failure mode slugs exist to end.)
+- [`tabular-shared-renderer.md`](../practices/tabular-shared-renderer.md)
+  itself cited "practice 12 (conventions harden into audits)" — practice 12
+  is *every reply links the files it touched* (`reply-links-files`); "a
+  convention hardens into an audit" is practice 6,
+  `convention-to-audit`. Fixed.
+- [`second-pass-capture.md`](../practices/second-pass-capture.md) cited
+  "(practice 2)" for "decisions queued in the typed TODO" — practice 2 is
+  the *orientation map*; the TODO is one of the three living documents named
+  in practice 1, `repo-is-memory`. Fixed.
+- [`affordance-is-shared.md`](../practices/affordance-is-shared.md) cited
+  "practice 42(b)" for "compute the term whose direction is the point" —
+  `verify-decomposition` (42) is the right practice, but that description
+  matches its **(a)** sub-point (assert on the decomposition, compute terms
+  directly) rather than **(b)** (a negative result is a parameterisation).
+  Changed to `(a)`; lower confidence than the other three, since it is a
+  sub-point call rather than a wrong practice, flagged here rather than
+  silently decided.
+
+None of these were introduced by the phase-1 conversion — the converter's
+"move only" rule carried the wrong numbers forward exactly as BestPractice
+had them, and the previous numeric-only citation-integrity check could only
+confirm a cited number *existed*, not that it was the *right* one. Resolving
+every citation against real content, which the link form forces a person or
+session to do at read time, is what surfaced them.
+
+**What this changes about `check_byte_identical_regeneration`.** Phase 1's
+version of that check compared `cmd_build()`'s output against BestPractice's
+*original, frozen* pre-conversion `PRACTICES.md` text (modulo two named,
+approved exceptions) — a one-time proof that the mechanical split lost and
+invented nothing, which already landed and is preserved in git history. This
+sweep is a deliberate content edit on top of that already-proven split
+(replacing citation text, not moving-or-dropping it), so a rebuild now
+differs from that frozen snapshot by design — the frozen-original check
+would fail forever from here on, on every future legitimate edit, which
+defeats its purpose as an ongoing gate. The check now asserts the check's
+real long-run meaning instead, matching the Migration section's
+"byte-identical regeneration … a hand-edited view fails": `PRACTICES.md` on
+disk must equal `python3 tools/split_practices.py build`'s current output,
+full stop — i.e. `PRACTICES.md` is a generated view of `practices/*.md`, not
+a second place to hand-maintain. Regenerate it (`build > PRACTICES.md`)
+after any `practices/*.md` edit.
 
 ## What's Deliberately Left For Later
 

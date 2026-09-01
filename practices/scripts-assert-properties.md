@@ -63,7 +63,7 @@ fail a build**.
 The sharpest part is where the correct number actually lived. **The
 authoritative document was right and the script was wrong.** The document
 recited the correct figure for exactly the case the script got wrong — and the
-sync gate of practice 19 faithfully published the script's number into the
+sync gate of [computed-numbers-in-scripts](computed-numbers-in-scripts.md) faithfully published the script's number into the
 derived document, because it guards *document agrees with script* and cannot
 know the script is wrong. Every artifact was internally consistent; the only
 disagreement in the repo was with the one document nothing compared against.
@@ -125,12 +125,12 @@ whose class it does not fit — the same session found one of those the same day
 and the tell was again a column identical across rows that should have
 differed.
 
-**Related.** Practice 19 guards *document agrees with script*; this one guards
+**Related.** [computed-numbers-in-scripts](computed-numbers-in-scripts.md) guards *document agrees with script*; this one guards
 *script agrees with reality and with the document of record* — the edge one
 level up, and the one that bites when the script is the wrong artifact.
-Practice 6 (conventions become audits) is the general form. Practice 20
+[convention-to-audit](convention-to-audit.md) (conventions become audits) is the general form. [mistakes-become-rules](mistakes-become-rules.md)
 (mistakes become rules) produced it, including the correction of its own first
 root-cause analysis, which named the stale-copy diagnosis above and had to be
-retracted when a one-line check disproved it. Practice 29 (a variant re-derives
+retracted when a one-line check disproved it. [variant-re-derives](variant-re-derives.md) (a variant re-derives
 what it inherits) is the drafting-time counterpart of the repeat detector
 above.
