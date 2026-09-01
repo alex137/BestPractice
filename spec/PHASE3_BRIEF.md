@@ -1,19 +1,20 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-3 build session -->
+<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session -->
 
 # Phase 3 Brief — Split the Sources
 
-**Status: phase 3 is done on Precedent's side.** This is kept as the record
-of what phase 3 was handed, not as a live work list. What phase 3 actually
-built, what it deliberately did not, and what remains open are in
+**Status: phase 3 is fully closed, as of 2026-09-01.** This is kept as the
+record of what phase 3 was handed, not as a live work list. What phase 3
+actually built and what it deliberately left for a different session are in
 [spec/SOURCES.md](SOURCES.md) and in the plan's
 [What Phase 3 Built, and What It Could Not](../PRACTICE_ENGINE_PLAN.md#what-phase-3-built-and-what-it-could-not).
-The short version: items 2–6 below are done; **item 1 — populating the two
-private sets from RepoPersonalPreferences' 46 rules — is not, and cannot be
-done by a session working in Precedent.** A session cannot hold repositories
-from two owners with push access at once, and the plan forbids staging
-private content on this branch even transiently. That work belongs to a
-session opened against those repositories. See
-[What phase 4 inherits](#what-phase-4-inherits) at the end.
+The short version: items 2–6 below were done here; **item 1 — populating the
+two private sets from RepoPersonalPreferences' 46 rules — could not be done
+by a session working in Precedent** (a session cannot hold repositories from
+two owners with push access at once, and the plan forbids staging private
+content on this branch even transiently) **and has since been done from a
+session opened against those repositories directly** — reported by Morgan,
+2026-09-01, not independently verifiable from here for the same structural
+reason. See [What phase 4 inherits](#what-phase-4-inherits) at the end.
 
 Written for the session that does phase 3, by the session that closed phase
 2. Read [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) first — this

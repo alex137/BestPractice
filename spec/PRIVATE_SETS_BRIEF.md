@@ -1,6 +1,13 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-4 build session -->
+<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session -->
 
 # Brief — Populating the Two Private Sets
+
+**Done, 2026-09-01 — reported by Morgan, from a session opened directly
+against the two private repos. Phase 3 is closed** (see
+[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s Sequence table and
+"What Phase 3 Built, and What It Could Not"). Kept below, unaltered, as the
+record of what that session was handed and why it had to run from outside
+Precedent — not as an open task.
 
 **This is the one part of phase 3 that no session working in Precedent can
 do.** [spec/SOURCES.md](SOURCES.md) records why: phase 3 built the *receiving*

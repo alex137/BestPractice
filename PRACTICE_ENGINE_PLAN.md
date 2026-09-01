@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-4 build session, to version 26 -->
+<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session, to version 27 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -870,7 +870,7 @@ For any repo, before and after migration:
 | 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Open the Precedent branch. Agree this plan. | The branch exists on a current base and this document is approved or amended. |
 | 1 | **Format, converter, harness.** Write the spec and the verification harness; convert Precedent's catalogue; fix the small tooling debts (freshness escalation, drift re-stamp churn). | Practices are files; the catalogue regenerates byte-identically; harness passes. |
 | 2 ✅ | **Loader and generated views.** *(Closed 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
-| 3 ◐ | **Split the sources.** *(Precedent's half closed 2026-08-31 — see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).)* Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. **All four hold. The one part still open is populating the two private sets from RPP's 46 rules, which cannot be done from a session working in Precedent — see the phase-3 section.** |
+| 3 ✅ | **Split the sources.** *(Closed 2026-09-01 — see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).)* Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. **All five hold, the fifth (the two private sets populated from RPP's 46 rules) from a session opened directly against `themorgan/precedent-individual` and `themorgan/precedent-team-maintainers` — reported done by Morgan, 2026-09-01, per this plan's own architecture that population can only happen from a session holding those repos, never from here — see the phase-3 section.** |
 | 4 ✅ | **Enforcement push.** *(Closed 2026-08-31 — see [What Phase 4 Built, and What It Found First](#what-phase-4-built-and-what-it-found-first).)* *(Swapped ahead of the creation pipeline, 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Convert checkable practices to scripts, starting with the ones phase 2 measured as most-missed; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above the current 8-of-52; each converted practice has a test proving its check fires; the routing eval re-run shows the converted practices no longer missed. **The first two hold. The third does not, as written, and cannot: this plan's own design says an enforced practice is never routed, so the routing eval cannot show one 'no longer missed'. It is answered by a coverage report that states its own limit. The row's 'drop their prose from the resident tier' was also not followed, for two practices whose check is narrower than their rule. Both departures are argued in the phase-4 section rather than quietly taken.** |
 | 5 | **The creation pipeline.** Candidates, detection signals, promotion criteria, approval routing, the periodic retirement report. | A candidate can be raised, promoted and landed end to end; a candidate failing any of the four criteria is refused with a reason. |
 | 6 | **Migrate consumer repos**, one at a time, harness-gated. | Each repo passes the harness before its migration lands. |
@@ -1055,11 +1055,15 @@ done.
 
 ## What Phase 3 Built, and What It Could Not
 
-**Phase 3 is closed on Precedent's side and open on the private sets' side,
-and the split is not a matter of how much time there was.** Everything the
-private sets plug into exists, is tested, and is documented. Nothing has been
-written into the private sets, and no session working in Precedent can write
-into them.
+**Phase 3 is now closed on both sides.** Everything the private sets plug
+into exists, is tested, and is documented — and, as of 2026-09-01, the two
+private sets themselves have been populated, from a session opened directly
+against `themorgan/precedent-individual` and `themorgan/precedent-team-maintainers`
+rather than from here, per the structural reason this section originally
+explained: no session working in Precedent can hold those repos or write
+into them. That reasoning is kept below rather than deleted, since it still
+states why the population had to happen from a different session and is not
+a gap in how this one was run.
 
 ### The done-when conditions, one by one
 
@@ -1070,9 +1074,13 @@ into them.
 | `## Rule` is short enough to be worth loading, with the specifics in `## Detail` | **Met.** Rule is 28% of the catalogue (was 40%); the resident block halved, ≈621 → ≈312 tokens. |
 | A README someone outside the project can follow | **Met.** [ADOPTING.md](ADOPTING.md), written to the measured claim rather than the hoped-for one. |
 | The frozen example set | **Met** — and invented rather than copied; see [spec/SOURCES.md](spec/SOURCES.md) for why that is the better artifact and not merely the available one. |
-| The private sets **populated** from RPP's 46 rules | **Not started.** |
+| The private sets **populated** from RPP's 46 rules | **Done, 2026-09-01** — from a session opened against the private sets themselves, reported by Morgan; not verifiable from a session working in Precedent, by the same reasoning that made it impossible to do from here. |
 
 ### Why the private sets could not be populated from here
+
+Kept as an explanation of why the migration ran from a different session
+rather than this one, not as a description of a still-open gap — see the
+table above.
 
 Two independent reasons, both structural rather than circumstantial:
 
@@ -1087,13 +1095,16 @@ Two independent reasons, both structural rather than circumstantial:
   in this working tree, which is the exposure the whole arrangement exists to
   prevent.
 
-So phase 3 built the receiving half. Whoever does the migration now has a
+So phase 3 built the receiving half, and the migration that followed had a
 resolver, a tested precedence contract, a worked example, and a blocklist
-template to work against rather than a blank page. **What that leaves
-unproven is stated rather than glossed:** the precedence contract is tested
-against fixture practices, not against RPP's real 46, and a real migration
-will raise allocation questions — which rules are genuinely generic, which
-are one person's — that no fixture can raise.
+template to work against rather than a blank page. **What that left
+unproven going in is stated rather than glossed, and is not re-verifiable
+from a session working in Precedent now that the migration has happened
+elsewhere:** the precedence contract was tested against fixture practices,
+not against RPP's real 46, and a real migration raises allocation
+questions — which rules are genuinely generic, which are one person's —
+that no fixture can raise. Whether those questions were resolved well is a
+fact about the private sets, not about this branch.
 
 ### The three ways the leak gate passed on a leak
 
@@ -1586,6 +1597,18 @@ it can be generated; the explanation cannot.
 The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; this section is the short record of what moved.
+
+**2026-09-01 — v27, phase 3 closes: the private sets are populated.** The
+one condition phase 3 could not meet from a session working in Precedent —
+writing RPP's 46 rules into `themorgan/precedent-individual` and
+`themorgan/precedent-team-maintainers` — has been done, from a session
+opened directly against those repos, reported by Morgan. Not independently
+re-verifiable from here, by the same structural reason ([Why the private
+sets could not be populated from
+here](#why-the-private-sets-could-not-be-populated-from-here)) that made it
+impossible to do from here in the first place. Phase 3's Sequence row and
+its done-when table are updated to reflect this; phase 5 (the creation
+pipeline) is the next phase not yet started.
 
 **2026-08-31 — v26, the miss rate is mostly not a loading problem, and the
 next phase should say so.** Separating the eval's arms shows the control —
