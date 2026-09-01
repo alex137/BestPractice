@@ -1,0 +1,1 @@
+{"slugs": ["build-buy-decompose"], "reasoning": "This is exactly a build-vs-buy decision (build a job queue vs. use Redis) for an infra review, and the draft recommendation is a single undecomposed verdict resting on capability/cost claims rather than ownership arguments, which is precisely what build-buy-decompose requires fixing."}

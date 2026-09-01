@@ -1,0 +1,1 @@
+{"slugs": ["mistakes-become-rules"], "reasoning": "A code review caught a real bug (unbounded retry hammering the server) and the diff only fixes the instance; mistakes-become-rules is exactly the 'review finds a defect' trigger, calling for root-causing the miss and encoding prevention (e.g. a lint/convention for backoff on retry loops), not just the point fix shown."}
