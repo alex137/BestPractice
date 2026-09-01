@@ -80,7 +80,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 EVAL = ROOT / 'evals' / 'routing'
 PROMPTS = EVAL / 'prompts'
 ANSWERS = EVAL / 'answers'
-ARMS = ('oracle', 'control', 'treatment1', 'review')
+ARMS = ('oracle', 'control', 'treatment1', 'review', 'review-gloss')
 # One hop, deliberately -- spec/ATTENTION_CEILING.md permits either "the same
 # two hops as the treatment if you want the comparison clean, or one hop if
 # you want the cheapest version" and asks only that the choice be stated. The
@@ -150,6 +150,33 @@ def path_channel(commit, practices):
         return "(no practice's applies_to matched the files this change touches)", []
     body = '\n\n'.join(f"### {s}\n{practices[s][1].get('rule','').strip()}" for s in slugs)
     return body, slugs
+
+
+GLOSS_WORDS = 55
+
+
+def gloss_of(sections):
+    """Evals/routing/PREDICTION_GLOSS_TIER.md's gloss tier: one paragraph per
+    practice, mechanically extracted (first GLOSS_WORDS words of ## Detail,
+    or ## Rule if Detail is empty) -- never hand-fitted per practice, since
+    that would be exactly the tuning-after-seeing-cases this eval line
+    exists to prevent."""
+    text = sections.get('detail', '').strip() or sections.get('rule', '').strip()
+    text = re.sub(r'\*\*|`', '', text)
+    words = text.split()
+    snippet = ' '.join(words[:GLOSS_WORDS])
+    if len(words) > GLOSS_WORDS:
+        snippet += ' …'
+    return snippet
+
+
+def gloss_block(practices):
+    """Gloss for every on-demand (non-resident) practice, keyed by slug so it
+    reads next to the occasion index's one-line clause for the same slug."""
+    return '\n'.join(
+        f"- **{slug}**: {gloss_of(sections)}"
+        for slug, (fm, sections) in sorted(practices.items())
+        if fm.get('tier') != 'resident')
 
 
 def approx_tokens(text):
@@ -277,6 +304,53 @@ in mind. Judge only what is in front of you in this prompt. Do not name a
 practice whose Rule you have not seen here -- this prompt holds exactly what
 the loader surfaces for this change and nothing else, and that is the thing
 under test.
+{ANSWER_FORMAT}
+"""
+    if arm == 'review-gloss':
+        path_block, _path_slugs = path_channel(case['commit'], practices)
+        return f"""You are reviewing a change that is already finished. You are not doing
+the work and you have no task of your own -- you are judging a diff someone
+else already wrote.
+
+Your project instructions carry the block below: the practices that are
+always resident, plus an index of every other practice grouped by the
+occasion on which it applies.
+
+{loader_block()}
+
+## A short gloss for every practice named in the occasion index above
+
+For each practice above the index only names in a one-line clause, here is a
+slightly longer paragraph -- more than the clause, still far short of the
+full Rule -- so you have more than one line to judge each candidate against.
+
+{gloss_block(practices)}
+
+## Automatically surfaced for the files this change touches
+
+Your harness matched the files below against every practice's `applies_to`
+and surfaced these Rules without being asked. They are already in front of
+you.
+
+{path_block}
+
+## The change, already complete
+
+Commit message and files touched:
+
+{subject}
+
+Diff:
+
+```
+{diff}
+```
+
+Your ONLY job is to decide, carefully and without time pressure, which of the
+practices shown above -- resident, indexed, glossed, or surfaced -- genuinely
+applied to this change: which ones a reviewer would say the author should
+have had in mind. Judge only what is in front of you in this prompt. Do not
+name a practice whose Rule or gloss you have not seen here.
 {ANSWER_FORMAT}
 """
     path_block, path_slugs = path_channel(case['commit'], practices)

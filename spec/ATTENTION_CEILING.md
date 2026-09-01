@@ -258,6 +258,58 @@ question) was explicitly conditional on this one validating — it did not,
 so per [evals/routing/PREDICTION_REVIEW_ARM.md](../evals/routing/PREDICTION_REVIEW_ARM.md)'s
 own terms it is not run.
 
+## The gloss-tier result (2026-09-01)
+
+Candidate design 1 (below), pre-registered as
+[evals/routing/PREDICTION_GLOSS_TIER.md](../evals/routing/PREDICTION_GLOSS_TIER.md)
+and then actually run against the same 20 cases, same oracle, same one-hop
+judge-only framing as the review arm — the only change is that every
+non-resident practice's occasion-index clause is now paired with a
+mechanically-extracted ≈55-word gloss (first 55 words of `## Detail`,
+truncated, never hand-fitted per practice or per case).
+
+| arm | practice context | framing | recall | miss |
+|---|---|---|---|---|
+| Review (clause only) | ≈4,781 tok | judge only, one hop | 54% | 46% |
+| **Review-gloss** | **≈8,177 tok** | **judge only, one hop** | **53.7%** | **46.3%** |
+
+**53.7% is inside the pre-registered 49–59% band the prediction named as "did
+not help, full stop."** It is not a rounding-distance win; it did not move at
+all, while very nearly doubling the review arm's own token cost — ≈8,177
+tokens against control's ≈8,964, essentially as expensive as carrying the
+whole catalogue, for the same recall as the cheap 54% baseline.
+
+**The oracle-free head-to-head is the sharper result, and it is not "same
+answer, more expensively."** Comparing raw answer sets between review-gloss
+and review, without touching the oracle: review-gloss named 27 practices
+review did not, and missed 36 that review had found. That is large churn in
+both directions on a flat total — the gloss tier did not fail to move the
+needle by leaving the same practices found; it found a substantially
+different, equally-incomplete set. Whatever the gloss paragraph is adding for
+some candidates, it is costing something on others, and the net across 20
+cases is a wash.
+
+**This directly narrows the diagnosis the review-arm write-up left open.**
+That diagnosis said a one-line clause was what c07 (and cases like it) never
+got more than, and reasoned that more text per candidate should recover some
+of the gap to treatment's two-hop 77%. It did not. The plausible reading,
+stated but not further tested here per this document's own rule against
+re-running a falsified experiment with a tuned variant: **candidate design
+2 — a second hop, i.e. actually being able to ask for a named practice's full
+Rule — was doing more of treatment's work than "more text up front" is.** A
+gloss is still a summary chosen in advance for every case; a second hop lets
+the judge choose, per case, which four or five candidates are worth the full
+text. That is a different mechanism, not a bigger version of this one, and
+per this document's standing discipline it needs its own pre-registration
+before anyone spends a session on it — not a retry of this file with a
+longer gloss.
+
+**Verdict per the pre-registered reading table: falsified.** The gloss tier,
+as specified, is not the fix. Candidate design 3 (tagging) was already
+predicted, before this run, to inherit the same null result on this
+document's own routing-pass precedent, and nothing here changes that
+reasoning.
+
 ## The supporting moves, now the primary recommendation
 
 **Written as the fallback whatever the experiment said. The experiment said
@@ -332,15 +384,18 @@ above actually found — the review arm's misses were not, mostly, judgment
 failures on content it saw; they were practices it never got more than an
 80-character occasion-index clause on.
 
-1. **A middle "gloss" tier per practice**, between the occasion index's
-   80-char clause ([spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md)) and the full Rule — structurally
-   OpenViking's L1. This is the most directly motivated of the three: c07
-   missed `layered-practice-packs`, `registry-source-of-truth` and
-   `readers-vocabulary` specifically because a clause was all it ever saw of
-   them. To stay on the right side of "do not tune the occasion index to move
-   a number," this has to be authored once per practice from the practice
-   text itself, as a format change applying uniformly, not hand-fitted to
-   what the 20 cases missed.
+1. **~~A middle "gloss" tier per practice~~ — tried, falsified.** Between the
+   occasion index's 80-char clause ([spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md))
+   and the full Rule, structurally OpenViking's L1. This was the most
+   directly motivated of the three: c07 missed `layered-practice-packs`,
+   `registry-source-of-truth` and `readers-vocabulary` specifically because a
+   clause was all it ever saw of them. Pre-registered as
+   [evals/routing/PREDICTION_GLOSS_TIER.md](../evals/routing/PREDICTION_GLOSS_TIER.md)
+   and run: **53.7% recall, inside the pre-registered no-effect band, at
+   nearly double the review arm's token cost.** See
+   [the gloss-tier result](#the-gloss-tier-result-2026-09-01). Left here,
+   struck through rather than deleted, so nobody re-derives and re-runs the
+   same idea from scratch.
 2. **More budget for the judge pass specifically, not the resident tier.**
    The resident budget (`RESIDENT_BUDGET_TOKENS = 2000` in
    [tools/build_views.py](../tools/build_views.py)) is genuinely zero-sum — a 7th resident practice
@@ -389,16 +444,24 @@ rather than by preference. The first of these fired:
 
 ## For the session that picks this up
 
-**The experiment named above has been run; do not re-run it to see if the
-number moves.** Next up is [the supporting moves](#the-supporting-moves-now-the-primary-recommendation) —
-enforcing more of the 34 prose-only practices, and actually trying the
-retirement path — not another routing pass and not a rebuilt review arm
-chasing a better score than 54%. If a two-hop review arm, a gloss tier, or a
-tagging-based prefilter is ever tried, [Candidate designs for a future
+**Two experiments named above have now been run; do not re-run either to see
+if the number moves.** The review arm scored 54%; the gloss tier, run against
+it directly, scored 53.7% — inside the pre-registered no-effect band, at
+nearly double the review arm's token cost, with large churn in which
+practices it found versus missed
+([the gloss-tier result](#the-gloss-tier-result-2026-09-01)). Next up is
+[the supporting moves](#the-supporting-moves-now-the-primary-recommendation) —
+enforcing more of the remaining prose-only practices (31 of 52 as of
+2026-09-01), and actually trying the retirement path — not another routing
+pass and not a rebuilt review arm or gloss tier chasing a better score. If a
+two-hop review arm (candidate design 2 — the one mechanism this run's
+diagnosis actually points at) or a tagging-based prefilter is ever tried,
+[Candidate designs for a future
 attempt](#candidate-designs-for-a-future-attempt--named-not-scheduled) above
 has the considered starting point and the reasoning behind each — read it
 before designing from scratch, and it still needs its own pre-registration,
-stated as a genuinely new experiment, not a second attempt at this one.
+stated as a genuinely new experiment, not a second attempt at either of the
+two already run.
 
 The tree is at `precedent-beta-v01`. Working rules are in
 [spec/PHASE3_BRIEF.md](PHASE3_BRIEF.md) and
