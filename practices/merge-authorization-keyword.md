@@ -31,7 +31,7 @@ authorization: ask, rather than assume.
 ## Detail
 
 ## Why
-"Merge only when the user says so" (practice 9's authorization
+"Merge only when the user says so" ([merge-runbook](merge-runbook.md)'s authorization
 default) is the right default, but typed out in full every time it's
 invoked, it adds friction to the single most common approval a working
 session asks for. A one-word standing trigger removes that friction
@@ -50,7 +50,7 @@ Pick a word (or short phrase) that reads naturally as a
 one-word reply and isn't likely to appear as ordinary language at the end
 of an unrelated sentence — "go" or "merge" are typical choices. Add it to
 `GLOSSARY.md` with the standalone-sentence rule spelled out, and cross-link
-it from the merge runbook (practice 9) and from the "administrator
+it from the merge runbook ([merge-runbook](merge-runbook.md)) and from the "administrator
 requests" section of `AGENTS.md`, so a session encountering the word for
 the first time in a thread already knows where the rule lives instead of
 inferring it from context.

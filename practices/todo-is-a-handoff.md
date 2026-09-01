@@ -41,9 +41,9 @@ noticed the need holds the reasoning, the file locations, and the half-formed
 approach — and almost none of that survives into a one-line queue entry, so
 deferral converts cheap work into expensive work, and often into work never
 done. The catalog already outlaws deferral for two special cases — capture
-happens in the thread that created the need (practice 10), and the
-inclination to write a verify-later marker means go verify now (practice
-49) — because both learned that the queue is where context goes to die. This
+happens in the thread that created the need ([capture-gate](capture-gate.md)), and the
+inclination to write a verify-later marker means go verify now
+([deliverables-look-like-output](deliverables-look-like-output.md)) — because both learned that the queue is where context goes to die. This
 generalizes the same insight to ordinary work: the typed TODO exists to hand
 work *across a genuine boundary* (to a human decision, to hardware, to a
 session with the right scope), not to spare the current session effort.
@@ -56,7 +56,7 @@ items, done later, cost more to re-orient into than they would have cost to
 finish on the spot.
 
 ## Install
-The TODO template's header (practice 1) carries the compressed
+The TODO template's header ([repo-is-memory](repo-is-memory.md)) carries the compressed
 rule, so every new item is written against it; the periodic sweep enforces
 the stated-reason requirement on the backlog.
 
@@ -64,7 +64,8 @@ Not yet attempted mechanically: a check that scans `TODO.md` entries for a
 stated `blocked-on`/`out-of-scope` reason is a plausible candidate
 (`checkable-gets-checked` applies), left `checked_by: null` here rather than
 wired in without testing, since this file is a straight conversion of
-Alex's practice 53 (merged to `main` after this branch's fork point — see
-[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md)) and not new authorship
-going through the creation pipeline's own review. Revisit when phase 5's
+Alex's addition to `main` (merged after this branch's fork point — see
+[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md); this file's own
+`source_practice_number` above records its original BestPractice number)
+and not new authorship going through the creation pipeline's own review. Revisit when phase 5's
 enforcement work reaches the backlog.

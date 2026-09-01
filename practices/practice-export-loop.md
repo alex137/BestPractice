@@ -31,7 +31,7 @@ abstracted form into `process/upstream/` in the same branch.
 
 ## Why
 Live coupling (submodules read at session start) breaks sessions
-exactly when orientation matters most, and makes capture (practice 10) a
+exactly when orientation matters most, and makes capture ([capture-gate](capture-gate.md)) a
 cross-repo operation that gets skipped. Vendored-and-tracked makes the
 export a local commit; the cross-repo step happens only at deliberate
 check-ins.

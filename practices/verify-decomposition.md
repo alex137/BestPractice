@@ -69,5 +69,5 @@ impossible with these particular settings."*
 ## Story
 
 ## Install
-**Related:** practice 40 (an option you invented is not a baseline) is the same
+**Related:** [check-source-architecture](check-source-architecture.md) (an option you invented is not a baseline) is the same
 family one level up — there the *framing* is unexamined rather than the terms.

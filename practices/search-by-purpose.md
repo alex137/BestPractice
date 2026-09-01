@@ -66,5 +66,5 @@ needed the same measurement, and search for **their** reason for needing it.
 ## Story
 
 ## Install
-**Related:** practice 25 (read the primary, not the summary) is the sibling
+**Related:** [outward-summary-discipline](outward-summary-discipline.md) (read the primary, not the summary) is the sibling
 failure in the *depth* direction — this one is in the *breadth* direction.

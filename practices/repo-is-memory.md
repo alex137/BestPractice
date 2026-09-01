@@ -32,5 +32,5 @@ re-finding files, re-learning environment quirks, re-making settled decisions.
 ## Install
 The three living documents below (MAP, TODO, GLOSSARY) plus a
 project instructions file (`AGENTS.md`, plus a per-harness pointer file —
-see practice 13). Everything else in this
+see [session-bootstrap](session-bootstrap.md)). Everything else in this
 catalog is a refinement of this rule.

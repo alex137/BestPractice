@@ -43,4 +43,4 @@ the form that binds every path to the default branch.
 [tools/doc_lint.py](tools/doc_lint.py) and
 [tools/practice_audit.py](tools/practice_audit.py) are audits of this kind
 (and worked examples for writing your own). Run them before commit; wire them
-into the merge runbook (practice 9).
+into the merge runbook ([merge-runbook](merge-runbook.md)).

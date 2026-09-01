@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session, to version 2 -->
+<!-- Last updated: 2026-09-01 (Buenos Aires) by a pre-phase-5 slug-citation session, to version 3 -->
 
 # The Practice File Format
 
@@ -407,6 +407,47 @@ check, and eventually a real migration tool, resolve `practice 20` to
 `mistakes-become-rules`. It is a phase-1/migration-bridging field, not part
 of the practice's own identity — a promoted team or individual practice
 minted fresh, with no BestPractice-numbered ancestor, simply won't have one.
+
+It stays mandatory for the 52 practices converted from BestPractice's
+numbered catalogue and optional for everything minted after the fork — that
+was already the design intent above, stated here as the explicit, settled
+policy since the question is a natural one to ask now that slugs are the
+citation form everywhere (next section). A `BP23`-style prefixed variant
+(folding the provenance into the number itself) was considered and rejected:
+the frontmatter key already carries that provenance once, and a bare integer
+is what every actual consumer of the field (`verify_harness.py`'s
+citation-integrity check, `split_practices.py`'s sort key) wants — a string
+tag would just be a second way to say what the key name already says.
+
+## Citing Other Practices
+
+**Slugs are practices' official identity and their official citation form,
+always as a markdown link: `[some-slug](some-slug.md)`.** This was already
+true in the plan (`slug: … # permanent identity; cited by name`), but the 52
+phase-1 files' own prose had not caught up: they still cited each other the
+old way, as bare `practice N` / `practices N and M` text, carried forward
+verbatim by the phase-1 converter's own "move, never invent" rule. A
+catalogue built to let practices be reordered, split, and retired
+independently (this fork's whole reason for moving off fixed numbers — see
+[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), "Practices cited by
+position … making insertion a cross-repo sweep") cannot leave its own
+cross-references pointing at position. A pre-phase-5 session (2026-09-01)
+swept every `practices/*.md` file and replaced each cross-reference with a
+slug link, resolved against the practice's actual content rather than just
+its printed number — see
+[CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md) for the full list,
+including four pre-existing miscitations the sweep found and fixed.
+[`tools/verify_harness.py`](../tools/verify_harness.py) holds this going
+forward with two checks: `check_no_bare_numeric_citations` fails if a bare
+`practice N` reappears in body prose, and `check_slug_link_integrity` fails
+if a `[slug](slug.md)` link points at a slug that does not exist.
+
+Converting a citation to a link is a real, disclosed content edit relative to
+BestPractice's frozen original — it adds words (the slug name) the fidelity
+checks below did not count at that frequency — so every affected slug is
+registered in `verify_harness.py`'s `AMENDED_POST_CONVERSION` and logged in
+`CHANGES_TO_TELL_ALEX.md`, per that mechanism's own rule that an exemption
+must be both declared and actually findable there.
 
 ## What's Deliberately Left For Later
 

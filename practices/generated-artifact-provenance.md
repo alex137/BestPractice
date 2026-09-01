@@ -35,8 +35,8 @@ code on the artifact (same content → same code) plus a committed manifest
 makes "what exactly shipped?" a lookup instead of an investigation.
 
 A related gap, same fix, different cause: a repo with **no root `.gitignore`
-at all** leaves every session that runs the vendored Python audits (practice
-6) an untracked `__pycache__/` behind — nobody's build is at fault, there is
+at all** leaves every session that runs the vendored Python audits
+([convention-to-audit](convention-to-audit.md)) an untracked `__pycache__/` behind — nobody's build is at fault, there is
 just nowhere for the ignore rule to live. One dependent repo's check-in
 flagged exactly this after its own merge runbook kept surfacing the stray
 directory.

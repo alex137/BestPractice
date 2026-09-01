@@ -40,8 +40,8 @@ The origin incident: a session recorded a headline-level verdict
 ("this cluster is member-specific — no transfer") that was true as a headline
 and wrong for one mechanism inside it, which transferred to all three sibling
 artifacts. Nothing forced the verdict to be decomposed, re-run, or recorded
-per member, so the miss was invisible until a prompted second pass (practice
-21) caught it. Free-text one-time verdicts have three failure modes the
+per member, so the miss was invisible until a prompted second pass
+([second-pass-capture](second-pass-capture.md)) caught it. Free-text one-time verdicts have three failure modes the
 ledger kills: wrong granularity (headline vs mechanism), staleness (new
 changes inherit old verdicts), and unauditability (nothing can check what was
 never recorded).
@@ -51,4 +51,4 @@ A ledger table (date | originating change | one verdict column
 per family member) plus a small audit keyed on dated change markers in
 whatever registry tracks the family — any marked date without a complete
 ledger row fails. The family definition itself lives at the top of the
-ledger, with the origin incident (practice 20).
+ledger, with the origin incident ([mistakes-become-rules](mistakes-become-rules.md)).

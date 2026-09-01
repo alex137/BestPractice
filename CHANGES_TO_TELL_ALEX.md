@@ -54,6 +54,100 @@ existing "a practice belonging to more than one team" entry.
 
 See [practices/layered-practice-packs.md](practices/layered-practice-packs.md).
 
+## Cross-referenced only, not a behavior change
+
+### Slug-link citation sweep — 2026-09-01
+
+**What changed.** Every in-body `practice N` / `practices N and M` cross-reference
+in `practices/*.md` is now a `[slug](slug.md)` markdown link. Nothing about any
+Rule's substance changed, and no `checked_by` enforcement changed — this is
+purely how one practice points at another. Numbers stop meaning one fixed thing
+the moment practices can be reordered, split, or retired (which this catalogue
+is now built to do), so a bare `practice 44` is a citation that silently rots;
+a slug is permanent. `tools/verify_harness.py` gained
+`check_no_bare_numeric_citations` (the numeric form must not come back) and
+`check_slug_link_integrity` (every link must resolve to a real slug) as the
+forward-looking guards, alongside the existing `check_citation_integrity`.
+
+**Why this needs a CHANGES_TO_TELL_ALEX.md entry at all**, given it isn't a
+mechanism or decision-rule change: converting a citation to a link adds words
+(the slug name) that were not counted at that frequency in BestPractice's
+original numbered prose, so the affected files fail
+`check_no_invented_content` / `check_content_preserved_by_sentence` on the
+citation text alone unless exempted. Registered in `verify_harness.py`'s
+`AMENDED_POST_CONVERSION` (a real, disclosed edit, not a conversion bug) and
+logged here, per that mechanism's own rule that the exemption must be both
+declared *and* found in this file.
+
+**Affected practices** (slug — original BestPractice number):
+`acronyms-glossary` (17), `affordance-is-shared` (43), `build-buy-decompose`
+(35), `capture-gate` (10), `check-source-architecture` (40),
+`computed-numbers-in-scripts` (19), `convention-to-audit` (6),
+`deliverables-look-like-output` (49), `docs-track-models` (33),
+`engine-plus-host-shims` (50), `environment-gotchas` (4),
+`frame-from-audience-question` (28), `generated-artifact-provenance` (8),
+`index-remembers-past` (48), `merge-authorization-keyword` (45),
+`merge-runbook` (9), `mistakes-become-rules` (20), `no-rewrite-for-warnings`
+(31), `one-formatter-per-quantity` (51), `outward-summary-discipline` (25),
+`parallel-artifact-ledger` (22), `permutation-frontier-column` (47),
+`practice-export-loop` (14), `readers-vocabulary` (34),
+`registry-source-of-truth` (7), `repo-is-memory` (1),
+`scripts-assert-properties` (30), `scrub-gate` (15), `search-by-purpose` (41),
+`second-pass-capture` (21), `session-bootstrap` (13),
+`tabular-shared-renderer` (46), `two-check-levels` (44),
+`variant-re-derives` (29), `verify-decomposition` (42),
+`verify-postcondition` (32), `volatile-rules-carry-dates` (16).
+`todo-is-a-handoff` (BestPractice-`main` 53) also had its three citations
+converted, but needs no exemption here: it post-dates this branch's
+`PRACTICES.md` snapshot (`POST_SNAPSHOT_PRACTICE_NUMBERS`), so it already has
+no frozen ancestor for the fidelity checks to compare against.
+
+**Four citations were simply wrong**, found by resolving each one against its
+target's actual content rather than trusting the printed number — a defect
+class BestPractice's own history already has one instance of (the practice-39
+corruption `check_corruption_drop_is_a_duplicate` guards), not something this
+sweep introduced:
+
+- `engine-plus-host-shims`, `one-formatter-per-quantity`, and
+  `permutation-frontier-column` each cited "practice 44" for the shared
+  renderer / sortable render — practice 44 is *two named check levels*
+  (`two-check-levels`); the shared renderer is practice 46,
+  `tabular-shared-renderer`. Three independent citations landing on the same
+  wrong number, never the topic they described, reads as an old renumbering
+  that never got swept. All three now link to `tabular-shared-renderer`.
+- `tabular-shared-renderer` itself cited "practice 12" for "conventions harden
+  into audits" — practice 12 is `reply-links-files`; the audit-hardening rule
+  is practice 6, `convention-to-audit`. Fixed.
+- `second-pass-capture` cited "(practice 2)" for "decisions queued in the
+  typed TODO" — practice 2 is `orientation-map`; the TODO is one of the three
+  living documents named in practice 1, `repo-is-memory`. Fixed.
+- `affordance-is-shared` cited "practice 42(b)" for "compute the term whose
+  direction is the point" — `verify-decomposition` (42) is the right
+  practice, but that description matches its **(a)** sub-point (assert on the
+  decomposition, compute terms directly), not **(b)** (a negative result is a
+  parameterisation). Changed to `(a)` — lower confidence than the other
+  three, since it is a sub-point call rather than a wrong practice.
+
+None of these were introduced by the phase-1 conversion: the converter's
+"move only" rule carried the wrong numbers forward exactly as BestPractice had
+them, and a numeric-only citation check can only confirm a cited number
+*exists*, not that it is the *right* one. Worth a note upstream at the next
+real check-in, alongside the existing practice-39 finding.
+
+**A considered no: `tools/precedent_check.py`'s `cite-the-incident` flags 5 of
+these files** (`mistakes-become-rules`, `permutation-frontier-column`,
+`second-pass-capture`, `tabular-shared-renderer`, `volatile-rules-carry-dates`)
+because the citation being converted happened to sit inside their `## Rule`
+text, and the check's mechanical proxy for "a new or rewritten Rule" is "the
+Rule's text differs from the base commit" — true here, but not what the
+practice it enforces is actually about (`cite-the-incident`'s own `occasion`
+is "writing a new convention or rule"; its `Why` is about *decisions* decaying
+without a recorded origin). No new judgment was written into any of these five
+Rules — only how each one links to another practice — so no Story was added
+to satisfy the check mechanically; per `checkable-gets-checked`'s own
+discipline, that is a considered no with its reason recorded, not an
+unexamined one.
+
 ## Considered, not changed
 
 ### `practice-export-loop` (BestPractice practice 14) and `mistakes-become-rules` (BestPractice practice 20) — 2026-09-01

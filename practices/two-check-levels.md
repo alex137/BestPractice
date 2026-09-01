@@ -49,7 +49,7 @@ already the fast pass — it scans only the markdown a session touched — and
 needs the whole repo. Naming them is the only step this practice adds: pick
 the repo's own pair of names, add both to `GLOSSARY.md` with what each one
 actually runs, and reference the names (not just the script paths) in the
-merge runbook (practice 9) and in any CI wiring (practice 6). A repo that
+merge runbook ([merge-runbook](merge-runbook.md)) and in any CI wiring ([convention-to-audit](convention-to-audit.md)). A repo that
 adds its own extra fast checks (secret-shaped strings, conflict markers,
 JSON/YAML syntax) folds them into the "light" name rather than inventing a
 third level — two named levels is the right number for almost every repo.

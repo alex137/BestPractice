@@ -73,6 +73,6 @@ else.
 ## Story
 
 ## Install
-**Related:** practice 42(b) — compute the term whose direction is the point,
+**Related:** [verify-decomposition](verify-decomposition.md)(a) — compute the term whose direction is the point,
 rather than reasoning about which way it goes; here the term is the cost of the
 cautious option, and the reasoning was backwards.

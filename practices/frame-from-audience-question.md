@@ -51,16 +51,16 @@ artifact answers *that*. Keep it in the finished document if it helps the
 reader; delete it if not. In review, ask of the opening: *whose question is
 this?* When a reframe does arrive, record what it changed — but record it in the
 **dated review artifact, not in the deliverable**. A reader who saw the earlier
-version deserves the diff and the failure mode should stay legible (practice 20
+version deserves the diff and the failure mode should stay legible ([mistakes-become-rules](mistakes-become-rules.md)
 applied to framing rather than to defects), yet a "what this used to say" block
-inside a living document is precisely the changelog that practice 26 forbids.
+inside a living document is precisely the changelog that [docs-are-current-state](docs-are-current-state.md) forbids.
 Put it where dated history belongs; leave the deliverable reading as current
 state.
 
-**Related.** Practice 26 (documents are current state) constrains *where* the
+**Related.** [docs-are-current-state](docs-are-current-state.md) (documents are current state) constrains *where* the
 reframe record goes — the two practices collide if this one is read as
 licensing a changelog inside the artifact, and the review record is the
-resolution. Practice 25 (an adversarial pass on outward-facing work) will not
+resolution. [outward-summary-discipline](outward-summary-discipline.md) (an adversarial pass on outward-facing work) will not
 catch this on its own: a well-framed-for-the-wrong-question document survives
 claim-to-source verification intact, because every claim in it is true. The
 framing check has to be separate, and it has to happen before the verification

@@ -49,7 +49,30 @@ POST_SNAPSHOT_PRACTICE_NUMBERS = {'53'}
 
 # Practices deliberately rewritten after phase-1 conversion -- a real edit,
 # not a conversion bug -- keyed by slug.
-AMENDED_POST_CONVERSION = {'layered-practice-packs'}
+AMENDED_POST_CONVERSION = {
+    'layered-practice-packs',
+    # Pre-phase-5 citation sweep, 2026-09-01 (see CHANGES_TO_TELL_ALEX.md):
+    # every in-body "practice N" cross-reference converted to a [slug](slug.md)
+    # link, since numbers stop meaning one fixed thing once practices can be
+    # reordered, split, and retired. Listed here because a slug link is new
+    # text relative to BestPractice's frozen original, so it fails the
+    # word-multiset and sentence-preservation checks below on the citation
+    # words alone -- the exemption covers a real, disclosed edit, not a
+    # conversion bug.
+    'acronyms-glossary', 'affordance-is-shared', 'build-buy-decompose',
+    'capture-gate', 'check-source-architecture', 'computed-numbers-in-scripts',
+    'convention-to-audit', 'deliverables-look-like-output', 'docs-track-models',
+    'engine-plus-host-shims', 'environment-gotchas', 'frame-from-audience-question',
+    'generated-artifact-provenance', 'index-remembers-past',
+    'merge-authorization-keyword', 'merge-runbook', 'mistakes-become-rules',
+    'no-rewrite-for-warnings', 'one-formatter-per-quantity',
+    'outward-summary-discipline', 'parallel-artifact-ledger',
+    'permutation-frontier-column', 'practice-export-loop', 'readers-vocabulary',
+    'registry-source-of-truth', 'repo-is-memory', 'scripts-assert-properties',
+    'scrub-gate', 'search-by-purpose', 'second-pass-capture', 'session-bootstrap',
+    'tabular-shared-renderer', 'two-check-levels', 'variant-re-derives',
+    'verify-decomposition', 'verify-postcondition', 'volatile-rules-carry-dates',
+}
 
 CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'
 
@@ -644,6 +667,46 @@ def check_citation_integrity(files):
                 print(f"  {f.name}: cites 'practice {m.group(1)}', which does not "
                       f"exist as any source_practice_number")
     check('citation integrity (every "practice N" reference resolves)', ok)
+
+
+CROSS_PRACTICE_LINK_RE = re.compile(r'\]\(([a-z0-9]+(?:-[a-z0-9]+)*)\.md\)')
+
+
+def check_no_bare_numeric_citations(files):
+    """The pre-phase-5 citation sweep (2026-09-01, CHANGES_TO_TELL_ALEX.md)
+    replaced every "practice N" cross-reference in practices/ body text with
+    a [slug](slug.md) link -- numbers stop meaning one fixed thing once
+    practices can be reordered, split, and retired, which this catalogue is
+    now built to do. check_citation_integrity above still checks that a
+    numeric citation, if one exists, resolves; this is the regression guard
+    that the numeric form does not come back in body prose at all. (The
+    `source_practice_number` frontmatter field is exempt by construction --
+    CITATION_RE requires "practice" immediately followed by whitespace,
+    which never matches the `source_practice_number:` key.)"""
+    ok = True
+    for stem, (fm, sections, f) in sorted(files.items()):
+        body = _whole_body(sections)
+        for m in CITATION_RE.finditer(body):
+            ok = False
+            print(f"  {f.name}: body text cites 'practice {m.group(1)}' by number; "
+                  f"convert to a [{{slug}}]({{slug}}.md) link instead")
+    check('no bare numeric citations in body text (slugs are the official reference form)', ok)
+
+
+def check_slug_link_integrity(files):
+    """The slug-link counterpart of check_citation_integrity: every
+    [slug](slug.md)-shaped cross-reference in a practice's body text must
+    resolve to a real slug in this catalogue."""
+    ok = True
+    valid_slugs = set(files.keys())
+    for stem, (fm, sections, f) in sorted(files.items()):
+        body = _whole_body(sections)
+        for m in CROSS_PRACTICE_LINK_RE.finditer(body):
+            if m.group(1) not in valid_slugs:
+                ok = False
+                print(f"  {f.name}: links to '{m.group(1)}.md', which is not a "
+                      f"known practice slug")
+    check('slug-link citation integrity (every [slug](slug.md) cross-reference resolves)', ok)
 
 
 def check_leak_gate():
@@ -1715,6 +1778,8 @@ def main():
     check_corruption_drop_is_a_duplicate(original_practices)
     check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
+    check_no_bare_numeric_citations(files)
+    check_slug_link_integrity(files)
     check_leak_gate()
     check_leak_gate_fires()
     check_source_precedence()
