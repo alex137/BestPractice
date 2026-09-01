@@ -274,3 +274,11 @@ it. Every gate was green, because no gate can see a number in a sentence.
 - **The creation pipeline should ask for a check, not a `checked_by`.** The
   thing phase 4 found is that the field is easy to fill in and the check is
   not; a promotion step that accepts a string has re-created the problem.
+- **This channel exists only for the universal catalogue.** Both private
+  sets' practices carry `checked_by: null` with no infrastructure to change
+  that — [tools/precedent_check.py](../tools/precedent_check.py) is written
+  against this repo's own tree and cannot run against a private set from
+  here. [spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md)
+  hands off what a session opened directly against one of those repos needs
+  to close the gap; phase 5's creation pipeline should not have to
+  rediscover it.
