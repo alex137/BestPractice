@@ -9,8 +9,16 @@ against the two private repos. Phase 3 is closed** (see
 record of what that session was handed and why it had to run from outside
 Precedent — not as an open task.
 
-**This is the one part of phase 3 that no session working in Precedent can
-do.** [spec/SOURCES.md](SOURCES.md) records why: phase 3 built the *receiving*
+**Note added 2026-09-01:** the isolation rule this brief was written under is
+relaxed for active development —
+[decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md).
+A session working on Precedent may now hold and edit these repos directly;
+the "unconfirmed platform restriction" flagged below (2026-08-31) was part
+of the evidence for that decision.
+
+**This was the one part of phase 3 that no session working in Precedent
+could do, under the original rule.** [spec/SOURCES.md](SOURCES.md) records
+why: phase 3 built the *receiving*
 half — resolver, precedence contract, example set, blocklist template — and
 left the private sets empty. This brief is written for the session that fills
 them, by the session that closed phase 4.

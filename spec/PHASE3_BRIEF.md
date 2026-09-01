@@ -16,6 +16,15 @@ session opened against those repositories directly** — reported by Morgan,
 2026-09-01, not independently verifiable from here for the same structural
 reason. See [What phase 4 inherits](#what-phase-4-inherits) at the end.
 
+**Note added 2026-09-01, after this brief was written:** the isolation rule
+this brief describes ("a session cannot hold repositories from two owners...
+even transiently") is relaxed for the duration of active pre-Phase-5
+development — see
+[decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md).
+The history above (why phase 3's population happened from a separate
+session) is accurate as written and unchanged; a session reading this brief
+today may hold and edit the private repos directly.
+
 Written for the session that does phase 3, by the session that closed phase
 2. Read [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) first — this
 brief is what phase 2 learned that the plan could not have known, plus the
