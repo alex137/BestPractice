@@ -1,19 +1,25 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the review-arm experiment session, with a candidate-design addendum from the same session's follow-up -->
+<!-- Last updated: 2026-09-01 (Buenos Aires) by the follow-up session that ran the gloss-tier and two-hop-review experiments -->
 
-# The Attention Ceiling — What Four Runs Measured, and What To Do About It
+# The Attention Ceiling — What Six Runs Measured, and What To Do About It
 
 Written for the session that takes this on next. It carries a finding, the
-recommendation that finding argued for, the experiment that tested the
-recommendation, and the result: **the experiment falsified it.** Read it in
-full; it is short and it changes what the next phase is for.
+recommendation that finding argued for, three experiments that tested the
+recommendation and its two most direct follow-ups, and the result: **all
+three falsified it.** Read it in full; it is short and it changes what the
+next phase is for.
 
 **The one-sentence version:** the routing eval's miss rate is mostly not a
 loading problem, the loader is already within noise of the best any routing
 architecture can do, the largest measured effect in the whole eval (framing)
-looked like an opportunity — and testing it, cheaply, before building
-anything, is exactly what showed it is not one: the review arm scored **54%**,
-below even the loader's own working-session recall of 77%. See
-[The review-arm result](#the-review-arm-result-2026-08-31) below.
+looked like an opportunity — and three cheap tests, in order, closed it:
+the review arm scored **54%** (below the loader's own working-session recall
+of 77%), a gloss tier on top of it scored **53.7%**, and a real second hop
+on top of that scored **50.5%** — the lowest of the three, at
+control-level token cost. Judge-only, retrospective framing has a ceiling
+around 54% on this eval regardless of how much context or choice it is
+given. See [The review-arm result](#the-review-arm-result-2026-08-31),
+[the gloss-tier result](#the-gloss-tier-result-2026-09-01), and
+[the two-hop review result](#the-two-hop-review-result-2026-09-01) below.
 
 ## The finding
 
@@ -310,6 +316,51 @@ predicted, before this run, to inherit the same null result on this
 document's own routing-pass precedent, and nothing here changes that
 reasoning.
 
+## The two-hop review result (2026-09-01)
+
+Candidate design 2, pre-registered as
+[evals/routing/PREDICTION_TWO_HOP_REVIEW.md](../evals/routing/PREDICTION_TWO_HOP_REVIEW.md)
+and run the same day as the gloss tier, directly off that result's own
+diagnosis: gloss-tier's 27-vs-36 oracle-free churn against the review arm
+suggested a fixed, uniform summary was not the mechanism treatment's 77%
+depends on, and that letting the judge choose which candidates to open in
+full — a real second hop, judge-only framing throughout, structurally
+identical to treatment's two hops except retrospective rather than
+prospective — might be.
+
+| arm | practice context | framing | recall | miss |
+|---|---|---|---|---|
+| Review (one hop, clause only) | ≈4,781 tok | judge only, retrospective | 54% | 46% |
+| Review-gloss (one hop, clause+gloss) | ≈8,177 tok | judge only, retrospective | 53.7% | 46.3% |
+| **Review-hop2 (two hop, full Rule on request)** | **≈8,350 tok** (hop1 ≈4,788 + hop2 ≈3,562) | **judge only, retrospective** | **50.5%** | **49.5%** |
+
+**50.5% is not just inside the pre-registered ≤57% band — it is the lowest
+of the three retrospective-framing arms**, at a token cost matching
+control's ≈8,964 for a two-round exchange. The judge got exactly what
+treatment's hop 2 gets — the full Rule of every practice it asked to see —
+and scored below the one-hop clause-only arm that saw far less text.
+
+**This closes the question the gloss-tier write-up left open, in the
+direction the ≤57% branch of that prediction named.** It was not "not
+enough text" (gloss tier) and it was not "the judge couldn't choose what to
+read" (this run) — both were given the mechanism they were missing and
+neither moved the needle. All three retrospective-framing arms now cluster
+at 50–54%, while the two prospective-framing arms (control 84%, treatment
+77%) sit 23–34 points higher on the same 20 cases, same oracle, same
+practice catalogue. **The variable that predicts the score across five runs
+of this eval is not context, not token budget, not whether the judge can
+request full text — it is whether the session is asked "what will you do"
+or "what did someone else do."** Every remaining idea in this document that
+keeps retrospective, judge-only framing (tagging, more resident budget
+spent on the judge pass) inherits the same ceiling on this evidence, not
+just on precedent from the routing-pass history.
+
+**Verdict per the pre-registered reading table: falsified**, and by the
+document's own stated criterion for the ≤57% branch — every remaining
+candidate in this document that keeps judge-only, retrospective framing is
+not worth separately re-testing; the framing itself is the ceiling, not
+what accompanies it.
+
 ## The supporting moves, now the primary recommendation
 
 **Written as the fallback whatever the experiment said. The experiment said
@@ -396,32 +447,39 @@ failures on content it saw; they were practices it never got more than an
    [the gloss-tier result](#the-gloss-tier-result-2026-09-01). Left here,
    struck through rather than deleted, so nobody re-derives and re-runs the
    same idea from scratch.
-2. **More budget for the judge pass specifically, not the resident tier.**
-   The resident budget (`RESIDENT_BUDGET_TOKENS = 2000` in
-   [tools/build_views.py](../tools/build_views.py)) is genuinely zero-sum — a 7th resident practice
-   means demoting one of the current six — and lengthening resident text was
-   already tried once (the Rule/Detail split, v2→v3) with an effect inside
-   this eval's own noise floor. The review arm, by contrast, is running 48%
-   below control's token cost; there is headroom to spend on a genuine
-   two-hop version (open-on-request, like treatment's hop 2) before losing
-   the loader's cost advantage. This is functionally the same fix as idea 1,
-   through a different door — either could close the gap the diagnosis
-   found, and running them separately would say which one actually did.
-3. **Persistent tagging of practices *and* the cases being judged**, as a
-   semantic upgrade to literal path-glob matching. Checked against OpenViking
-   rather than assumed to be validated by it: its README describes no
-   tagging or metadata layer at all — its retrieval is vector search over
-   directory structure, not tags — so this idea is not the thing OpenViking
-   demonstrates; it remains a genuinely untested proposal here. It should
-   also be read against this repo's own history: three routing passes (v3
-   residency, v4 glob fix, v5 catalogue-wide glob pass) each improved *reach*
-   and each left the total miss count unmoved — better reach converted
-   never-shown misses into shown-and-declined misses without shrinking the
-   total. The predicted fate of tagging alone, on that precedent, is the
-   same null result. It is worth trying only as the retrieval mechanism
-   *feeding* idea 1 or 2 — better candidate selection paired with something
-   that actually gets fuller text in front of the judge — not as a
-   standalone bet that reach was the constraint after all.
+2. **~~More budget for the judge pass specifically, via a real second hop~~
+   — tried, falsified, harder than idea 1.** The resident budget
+   (`RESIDENT_BUDGET_TOKENS = 2000` in [tools/build_views.py](../tools/build_views.py))
+   is genuinely zero-sum, and lengthening resident text was already tried
+   once (the Rule/Detail split, v2→v3) with an effect inside this eval's own
+   noise floor — so the proposal was to spend the review arm's token
+   headroom on a genuine two-hop version (open-on-request, like treatment's
+   hop 2) instead. Pre-registered as
+   [evals/routing/PREDICTION_TWO_HOP_REVIEW.md](../evals/routing/PREDICTION_TWO_HOP_REVIEW.md)
+   and run: **50.5% recall — the lowest of the three retrospective-framing
+   arms tried, at control-level token cost.** See
+   [the two-hop review result](#the-two-hop-review-result-2026-09-01). Left
+   here, struck through, for the same reason as idea 1.
+3. **Persistent tagging of practices *and* the cases being judged — now
+   predicted null on stronger grounds than when this was written.** A
+   semantic upgrade to literal path-glob matching, worth trying, per this
+   entry's original text, only as the retrieval mechanism *feeding* idea 1
+   or 2 (a tag-based prefilter paired with something that gets fuller text
+   in front of the judge) rather than standalone — but idea 1 and idea 2 are
+   now both tried and both falsified, at 53.7% and 50.5% respectively,
+   inside noise of the untagged review arm's 54%. The
+   [two-hop result](#the-two-hop-review-result-2026-09-01) narrows this
+   further than the original reasoning did: the constraint on this eval was
+   never *what got surfaced* (both idea 1 and idea 2 changed that, in
+   different ways, and neither moved the number) — it was the
+   retrospective, judge-only framing every arm sharing this discussion has
+   used. A tagging-based prefilter changes only what reaches the judge, so
+   on the evidence now on record it inherits the same ceiling regardless of
+   which channel (glob, gloss, tag) does the surfacing. Still untested in
+   the literal sense — nobody has run it — but the reason to expect a null
+   result no longer rests only on the v3–v5 routing-pass precedent; it rests
+   on two direct falsifications of the two mechanisms it was proposed to
+   pair with.
 
 ## What would change my mind
 
@@ -444,24 +502,33 @@ rather than by preference. The first of these fired:
 
 ## For the session that picks this up
 
-**Two experiments named above have now been run; do not re-run either to see
-if the number moves.** The review arm scored 54%; the gloss tier, run against
-it directly, scored 53.7% — inside the pre-registered no-effect band, at
-nearly double the review arm's token cost, with large churn in which
-practices it found versus missed
-([the gloss-tier result](#the-gloss-tier-result-2026-09-01)). Next up is
+**Three experiments in this line have now been run; do not re-run any of
+them to see if the number moves.** Review (one hop, clause only): 54%.
+Review-gloss (one hop, clause+gloss): 53.7%
+([result](#the-gloss-tier-result-2026-09-01)). Review-hop2 (two hop, full
+Rule on request, still judge-only and retrospective): 50.5%
+([result](#the-two-hop-review-result-2026-09-01)) — the lowest of the
+three, at control-level token cost. **All three cluster at 50–54% while the
+two prospective-framing arms (control 84%, treatment 77%) sit 23–34 points
+higher on the same cases, same oracle.** Read plainly: judge-only,
+retrospective framing has a ceiling around 54% on this eval, and nothing
+tried so far that keeps that framing — more text, more choice — moves it.
+Idea 3 (tagging) was never separately run but is now predicted null on
+direct evidence rather than precedent alone, since it would only change
+what reaches a judge already shown to be capped by its framing, not its
+content — see its entry in [Candidate designs](#candidate-designs-for-a-future-attempt--named-not-scheduled).
+
+**There is no candidate design left in this document that has not been
+either run and falsified, or predicted null on falsified siblings' direct
+evidence.** Next up is
 [the supporting moves](#the-supporting-moves-now-the-primary-recommendation) —
 enforcing more of the remaining prose-only practices (31 of 52 as of
-2026-09-01), and actually trying the retirement path — not another routing
-pass and not a rebuilt review arm or gloss tier chasing a better score. If a
-two-hop review arm (candidate design 2 — the one mechanism this run's
-diagnosis actually points at) or a tagging-based prefilter is ever tried,
-[Candidate designs for a future
-attempt](#candidate-designs-for-a-future-attempt--named-not-scheduled) above
-has the considered starting point and the reasoning behind each — read it
-before designing from scratch, and it still needs its own pre-registration,
-stated as a genuinely new experiment, not a second attempt at either of the
-two already run.
+2026-09-01), and actually trying the retirement path. If review-as-primary-
+control is ever revisited, it needs a framing genuinely different from
+"judge a finished diff, retrospectively" — not a fourth variant of context
+or choice within that framing — and it needs its own pre-registration
+stating why this document's three results don't already predict its
+outcome, not a claim that this run's gloss or hop-count was tuned wrong.
 
 The tree is at `precedent-beta-v01`. Working rules are in
 [spec/PHASE3_BRIEF.md](PHASE3_BRIEF.md) and

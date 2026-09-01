@@ -80,7 +80,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 EVAL = ROOT / 'evals' / 'routing'
 PROMPTS = EVAL / 'prompts'
 ANSWERS = EVAL / 'answers'
-ARMS = ('oracle', 'control', 'treatment1', 'review', 'review-gloss')
+ARMS = ('oracle', 'control', 'treatment1', 'review', 'review-gloss', 'review-hop1')
 # One hop, deliberately -- spec/ATTENTION_CEILING.md permits either "the same
 # two hops as the treatment if you want the comparison clean, or one hop if
 # you want the cheapest version" and asks only that the choice be stated. The
@@ -353,6 +353,48 @@ have had in mind. Judge only what is in front of you in this prompt. Do not
 name a practice whose Rule or gloss you have not seen here.
 {ANSWER_FORMAT}
 """
+    if arm == 'review-hop1':
+        path_block, _path_slugs = path_channel(case['commit'], practices)
+        return f"""You are reviewing a change that is already finished. You are not doing
+the work and you have no task of your own -- you are judging a diff someone
+else already wrote.
+
+Your project instructions carry the block below: the practices that are
+always resident, plus an index of every other practice grouped by the
+occasion on which it applies.
+
+{loader_block()}
+
+## Automatically surfaced for the files this change touches
+
+Your harness matched the files below against every practice's `applies_to`
+and surfaced these Rules without being asked. They are already in front of
+you.
+
+{path_block}
+
+## The change, already complete
+
+Commit message and files touched:
+
+{subject}
+
+Diff:
+
+```
+{diff}
+```
+
+You have not seen the full Rule of anything in the occasion index above --
+only its one-line clause. Before judging, name the practices you want to
+read in full. You will be given the full Rule of each one you name, and
+then asked for a final judgment -- so name anything the clause makes you
+suspect might apply, and anything already surfaced above (resident or
+path-matched) that you believe genuinely applies. Judge each index entry on
+its own; entries sharing an occasion heading does not mean they apply
+together.
+{ANSWER_FORMAT}
+"""
     path_block, path_slugs = path_channel(case['commit'], practices)
     return f"""You are a session about to do a piece of work in a repository.
 
@@ -433,6 +475,71 @@ Rule -- that is the point of having read it -- and you may keep any that were
 surfaced automatically. Do not add a practice whose Rule you have not seen.
 {ANSWER_FORMAT}
 """
+
+
+def build_review_hop2_prompt(case, practices, requested):
+    subject, diff = commit_context(case['commit'])
+    path_block, _ = path_channel(case['commit'], practices)
+    known = [s for s in requested if s in practices]
+    opened = '\n\n'.join(f"### {s}\n{practices[s][1].get('rule','').strip()}" for s in known)
+    if not opened:
+        opened = '(you named no practices, so nothing was opened)'
+    return f"""You are the same reviewer, one step further on. You are still not doing
+the work -- you are judging a diff someone else already wrote, with no task
+of your own.
+
+You named the practices you wanted to see in full, and here are their full
+Rules. This is everything you asked for and nothing else.
+
+{opened}
+
+## Also already in front of you, surfaced automatically by file path
+
+{path_block}
+
+## The change, already complete
+
+Commit message and files touched:
+
+{subject}
+
+Diff:
+
+```
+{diff}
+```
+
+Now give your FINAL judgment: which practices genuinely applied to this
+change -- which ones a reviewer would say the author should have had in
+mind? You may drop any you named that turn out not to fit once you have
+read the Rule, and you may keep any that were surfaced automatically. Do
+not name a practice whose Rule you have not seen.
+{ANSWER_FORMAT}
+"""
+
+
+def cmd_emit_review_hop2():
+    """Mirrors cmd_emit_hop2 for the review-hop1/hop2 pair: the harness
+    resolves what hop 1 requested, hop 2 gets exactly those Rules -- the
+    judge cannot reach past what it named, same discipline as treatment."""
+    cases = json.loads((EVAL / 'cases.json').read_text())['cases']
+    practices = load_practices()
+    written, skipped, cost = 0, [], []
+    for case in cases:
+        got = _read_answer(case['id'], 'review-hop1', set(practices), quiet=True)
+        if got is None:
+            skipped.append(case['id'])
+            continue
+        text = build_review_hop2_prompt(case, practices, sorted(got))
+        (PROMPTS / f"{case['id']}.review-hop2.md").write_text(text, encoding='utf-8')
+        cost.append(approx_tokens(text))
+        written += 1
+    print(f"routing_eval: wrote {written} review-hop2 prompt(s)"
+          + (f"; no review-hop1 answer yet for {skipped}" if skipped else ""))
+    if cost:
+        print(f"  review-hop2  ~{round(sum(cost)/len(cost)):>6} tokens of practice context "
+              f"per case (mean)")
+    return 0
 
 
 def cmd_emit():
@@ -731,6 +838,8 @@ def main():
     args = sys.argv[1:]
     if '--emit-hop2' in args:
         return cmd_emit_hop2()
+    if '--emit-review-hop2' in args:
+        return cmd_emit_review_hop2()
     if '--emit' in args:
         return cmd_emit()
     if '--score' in args:
