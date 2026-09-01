@@ -1236,6 +1236,73 @@ def check_practice_sections_present():
           '## Why, ## Story, ## Install -- ## Detail is optional)', ok)
 
 
+AMENDMENT_ENTRY_RE = re.compile(r'^\*\*(\d{4}-\d{2}-\d{2}) — ', re.M)
+DECISION_LENGTH_WORDS = 120
+PLAN_MD = ROOT / 'PRACTICE_ENGINE_PLAN.md'
+
+
+def check_decision_records_not_inline():
+    """PRACTICE_ENGINE_PLAN.md is the one document AGENTS.md tells every
+    session to read "first, in full" -- and its own "Amendments Since
+    Approval" section grew from 56,675 to 108,557+ bytes across phases 0-4,
+    almost entirely as accumulating dated decision write-ups. This is the
+    exact failure pattern that motivated this whole rewrite (RPP's
+    AGENTS.md: 29,443 -> 71,059 bytes in three days), happening to the plan
+    itself, and it went unnoticed until a 2026-09-01 deep-check audit found
+    it. decisions/README.md instantiates the mechanism
+    PRACTICE_ENGINE_PLAN.md's own "Where Decisions and History Live"
+    already specified but nothing had ever built: `decisions/<date>-
+    <slug>.md`, never loaded automatically. This check is what makes it
+    stick -- a NEW amendment entry over DECISION_LENGTH_WORDS with no
+    decisions/ link fails, so growing the plan the old way costs a build
+    failure, not just a note nobody reads. It is deliberately NOT
+    registered as a `checked_by` in tools/precedent_check.py: it is not a
+    property of any cataloged practice, and registering it there would
+    inflate ENFORCEMENT.md's "N of 54 practices carry a checked_by" count
+    with a phantom row that no practices/*.md file backs -- found the hard
+    way, by doing exactly that and watching computed-numbers-in-scripts
+    correctly reject the resulting drift in spec/ENFORCEMENT.md's generated
+    block. Only judges NEW entries in the current diff -- the plan's own
+    existing amendment history, which is what motivated this check, is not
+    retroactively flagged; see decisions/README.md."""
+    st = subprocess.run(['git', 'status', '--porcelain', '--',
+                         str(PLAN_MD)], cwd=str(ROOT),
+                        capture_output=True, text=True).stdout
+    if not st.strip():
+        not_applicable('decision records not inline', 'PRACTICE_ENGINE_PLAN.md '
+                       'was not changed')
+        return
+    new_text = PLAN_MD.read_text(encoding='utf-8', errors='ignore')
+    old_result = subprocess.run(['git', 'show', f'HEAD:PRACTICE_ENGINE_PLAN.md'],
+                                cwd=str(ROOT), capture_output=True, text=True)
+    old_text = old_result.stdout if old_result.returncode == 0 else ''
+
+    def entries(text):
+        starts = [m.start() for m in AMENDMENT_ENTRY_RE.finditer(text)]
+        if not starts:
+            return []
+        starts.append(len(text))
+        return [text[a:b].strip() for a, b in zip(starts, starts[1:])]
+
+    old_entries = set(entries(old_text))
+    ok = True
+    for entry in entries(new_text):
+        if entry in old_entries:
+            continue          # unchanged -- not this diff's to judge
+        if 'decisions/' in entry:
+            continue           # already points at a record
+        words = len(entry.split())
+        if words > DECISION_LENGTH_WORDS:
+            ok = False
+            first_line = entry.splitlines()[0][:80]
+            print(f"  PRACTICE_ENGINE_PLAN.md: a new amendment entry runs "
+                  f"{words} words with no decisions/ link ({first_line!r}...) "
+                  f"-- split the reasoning into a decisions/<date>-<slug>.md "
+                  f"record and leave a short pointer here instead")
+    check('new plan amendments stay short or point at a decisions/ record '
+          '(PRACTICE_ENGINE_PLAN.md must not regrow the way it just did)', ok)
+
+
 def check_catalogue_anchors():
     """tools/catalogue_stats.py's own ANCHORS list -- prose sentences
     elsewhere that restate a figure the script computes -- is checked by
@@ -2042,6 +2109,7 @@ def main():
     check_source_precedence()
     check_cross_source_resident_budget()
     check_practice_sections_present()
+    check_decision_records_not_inline()
     check_catalogue_anchors()
     check_all_workflows_disclosed()
     check_example_set()
