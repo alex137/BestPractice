@@ -181,26 +181,36 @@ def resolve(sources):
             # A practice replaces the same slug from a lower source, and may
             # additionally name a differently-named lower practice in
             # `overrides:`.
-            targets = [slug]
             ov = bv._json_str(practice['fm'].get('overrides', 'null'))
-            if ov and ov != 'null' and ov != slug:
-                targets.append(ov)
+            has_override = bool(ov) and ov != 'null' and ov != slug
 
-            own_slug_refused = False
-            for target in targets:
-                prior = resolved.get(target)
-                if prior is None:
-                    continue
-                if _is_blocking(prior):
-                    blocked.append({'slug': target, 'kept': prior,
-                                    'refused': practice})
-                    if target == slug:
-                        own_slug_refused = True
-                    continue
-                shadowed.append({'slug': target, 'shadowed': prior, 'by': practice})
-                del resolved[target]
-            if not own_slug_refused:
-                resolved[slug] = practice
+            # Check the practice's OWN slug first. If a blocking prior holds
+            # it, this practice never enters `resolved` at all -- so it must
+            # not be allowed to act on `overrides:` either. The two used to
+            # be processed as independent targets in one loop: an own-slug
+            # block set `own_slug_refused` but the loop had already moved on
+            # to the `overrides:` target, deleting and "shadowing" it even
+            # though the practice that supposedly did the shadowing was never
+            # actually activated. Ordering this as own-slug-first, with an
+            # early return on refusal, makes that combination impossible
+            # rather than merely untested.
+            prior_own = resolved.get(slug)
+            if prior_own is not None and _is_blocking(prior_own):
+                blocked.append({'slug': slug, 'kept': prior_own, 'refused': practice})
+                continue
+
+            if has_override:
+                prior_ov = resolved.get(ov)
+                if prior_ov is not None:
+                    if _is_blocking(prior_ov):
+                        blocked.append({'slug': ov, 'kept': prior_ov, 'refused': practice})
+                    else:
+                        shadowed.append({'slug': ov, 'shadowed': prior_ov, 'by': practice})
+                        del resolved[ov]
+
+            if prior_own is not None and not _is_blocking(prior_own):
+                shadowed.append({'slug': slug, 'shadowed': prior_own, 'by': practice})
+            resolved[slug] = practice
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
             'missing': missing, 'retired': retired}
 
@@ -208,6 +218,39 @@ def resolve(sources):
 def _is_blocking(practice):
     return (bv._json_str(practice['fm'].get('severity', 'default')) == 'blocking'
             and practice['level'] in ('team', 'universal'))
+
+
+def resident_stats(res):
+    """The combined resident block across EVERY resolved source, using the
+    same word*1.3 approximation build_views.py uses for its own hard cap.
+
+    WHY THIS HAS TO LIVE HERE AND NOT JUST IN build_views.py. The single-repo
+    cap (RESIDENT_BUDGET_TOKENS in build_views.py) only ever sees this
+    repo's own practices/ directory -- it was built before a second or third
+    source existed to combine with. `spec/PRIVATE_SETS_BRIEF.md` flagged the
+    gap explicitly and asked the session populating the private sets to
+    report back a combined figure "so a Precedent session can build the
+    cross-source cap" -- nothing ever did. A team set marking six practices
+    resident and an individual set marking three, on top of this repo's own
+    six, pushes a real resolved session's context well past the 2,000-token
+    budget with nothing objecting, because no single source's build ever
+    sees the whole picture. This closes that: it sums `## Rule` text across
+    every `tier: resident` practice in the RESOLVED set, whichever source
+    contributed it, against the same budget."""
+    resident = [p for p in res['practices'].values()
+                if bv._json_str(p['fm'].get('tier', 'on-demand')) == 'resident']
+    resident.sort(key=lambda p: p['slug'])
+    text = '\n\n'.join(
+        f"**{p['slug']}.** {p['sections'].get('rule', '').strip()}"
+        for p in resident)
+    tokens = bv._approx_tokens(text)
+    return {
+        'tokens': tokens,
+        'budget': bv.RESIDENT_BUDGET_TOKENS,
+        'over_budget': tokens > bv.RESIDENT_BUDGET_TOKENS,
+        'practices': [{'slug': p['slug'], 'level': p['level'],
+                       'source': p['source']} for p in resident],
+    }
 
 
 def _report(res, sources, out=sys.stdout):
@@ -228,6 +271,19 @@ def _report(res, sources, out=sys.stdout):
     for r in res['retired']:
         print(f"  not in force: {r['slug']} ({r['source']}) is status: "
               f"{bv._json_str(r['fm'].get('status'))}", file=out)
+    rstats = resident_stats(res)
+    if rstats['practices']:
+        who = ', '.join(f"{p['slug']} ({p['level']})" for p in rstats['practices'])
+        detail = f"{len(rstats['practices'])} practice(s): {who}"
+    else:
+        detail = "no resident practices"
+    print(f"resident block across all sources: ~{rstats['tokens']} of "
+          f"{rstats['budget']} token budget ({detail})", file=out)
+    if rstats['over_budget']:
+        print(f"OVER BUDGET: the combined resident block is ~{rstats['tokens']} "
+              f"tokens against a {rstats['budget']}-token cap -- demote or "
+              f"retire a resident practice in one of the sources above before "
+              f"this set is usable at session start.", file=out)
 
 
 def main():
@@ -284,6 +340,17 @@ def main():
 
     if explain:
         return _explain(explain, res, sources)
+
+    rstats = resident_stats(res)
+    rc = 1 if (res['missing'] and '--strict' in args) else 0
+    # OVER BUDGET is not gated behind --strict: PRACTICE_ENGINE_PLAN.md's
+    # "The Resident Budget" is explicit that exceeding the cap "fails the
+    # build outright... mechanically, not by discipline" for the single-repo
+    # case; a resolved set that blows the budget across sources is the same
+    # failure and gets the same default.
+    if rstats['over_budget']:
+        rc = 1
+
     if '--json' in args:
         rows = [{'slug': p['slug'], 'level': p['level'], 'source': p['source'],
                  'tier': bv._json_str(p['fm'].get('tier', 'on-demand')),
@@ -297,10 +364,15 @@ def main():
             'blocked': [{'slug': b['slug'], 'kept': b['kept']['level'],
                          'refused': b['refused']['level']} for b in res['blocked']],
             'missing': res['missing'],
+            'resident': rstats,
         }, indent=2, sort_keys=True))
-        return 0
+        if rstats['over_budget']:
+            print(f"precedent resolve FAIL: combined resident block is "
+                  f"~{rstats['tokens']} tokens, over the {rstats['budget']}-"
+                  f"token cross-source cap.", file=sys.stderr)
+        return rc
     _report(res, sources)
-    return 0
+    return rc
 
 
 def _explain(slug, res, sources):

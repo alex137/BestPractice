@@ -78,14 +78,19 @@ BLOCKLIST_ENV = 'PRECEDENT_LEAK_BLOCKLIST'
 # directory shaped like a private set here means someone took the shortcut
 # the plan exists to prevent.
 FORBIDDEN_PATHS = [
-    (re.compile(r'(^|/)(individual|personal|private)/'),
+    # re.I throughout: a directory a person names by hand -- Team-Nightjar/,
+    # Individual/, Candidates/ -- is exactly as forbidden as its lowercase
+    # spelling, and the case-sensitive versions of these four passed every
+    # such path silently until a deep-check audit planted one and watched
+    # the gate exit 0.
+    (re.compile(r'(^|/)(individual|personal|private)/', re.I),
      'an individual-level directory -- individual practices live in their own '
      'private repo, never in Precedent'),
-    (re.compile(r'(^|/)team[-_/]'),
+    (re.compile(r'(^|/)team[-_/]', re.I),
      'a team-level path -- team practices live in one private repo per team'),
-    (re.compile(r'(^|/)precedent-(individual|team-)'),
+    (re.compile(r'(^|/)precedent-(individual|team-)', re.I),
      'a vendored copy of a private practice set'),
-    (re.compile(r'(^|/)(candidates|outbox)/'),
+    (re.compile(r'(^|/)(candidates|outbox)/', re.I),
      'a candidates/outbox directory -- these hold unreviewed drafts that may '
      'carry private context (plan, Stage 2)'),
 ]
@@ -107,7 +112,7 @@ FORBIDDEN_CONTENT = [
     (re.compile(r'(?:/Users/|/home/(?!user[/\s]|user$)|[A-Za-z]:\\\\Users\\\\)'
                 r'[A-Za-z0-9._-]+[/\\]'),
      "an absolute path inside someone's home directory"),
-    (re.compile(r'^\s*(source|level)\s*:\s*["\']?(individual|team)', re.M),
+    (re.compile(r'^\s*(source|level)\s*:\s*["\']?(individual|team)', re.M | re.I),
      'a practice claiming a non-universal source'),
 ]
 

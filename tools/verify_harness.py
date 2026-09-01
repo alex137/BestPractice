@@ -17,6 +17,7 @@ import collections, json, os, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
+AGENTS_MD = ROOT / 'AGENTS.md'
 CATALOGUE = ROOT / 'PRACTICES.md'
 
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -670,6 +671,7 @@ def check_citation_integrity(files):
 
 
 CROSS_PRACTICE_LINK_RE = re.compile(r'\]\(([a-z0-9]+(?:-[a-z0-9]+)*)\.md\)')
+AGENTS_PRACTICE_LINK_RE = re.compile(r'\]\(practices/([a-z0-9]+(?:-[a-z0-9]+)*)\.md\)')
 
 
 def check_no_bare_numeric_citations(files):
@@ -690,6 +692,18 @@ def check_no_bare_numeric_citations(files):
             ok = False
             print(f"  {f.name}: body text cites 'practice {m.group(1)}' by number; "
                   f"convert to a [{{slug}}]({{slug}}.md) link instead")
+    # AGENTS.md is the one file every session reads at startup, and its own
+    # hand-written prose (below the generated loader block) used to cite
+    # practices the pre-sweep way -- "practice 12", "practice 34" -- outside
+    # this check's reach, because it only ever scanned practices/*.md. Found
+    # by a 2026-09-01 deep-check audit; the four citations happened to still
+    # resolve correctly, which is not something to rely on going forward.
+    if AGENTS_MD.exists():
+        agents_text = AGENTS_MD.read_text(encoding='utf-8', errors='ignore')
+        for m in CITATION_RE.finditer(agents_text):
+            ok = False
+            print(f"  AGENTS.md: cites 'practice {m.group(1)}' by number; "
+                  f"convert to a [{{slug}}](practices/{{slug}}.md) link instead")
     check('no bare numeric citations in body text (slugs are the official reference form)', ok)
 
 
@@ -706,6 +720,17 @@ def check_slug_link_integrity(files):
                 ok = False
                 print(f"  {f.name}: links to '{m.group(1)}.md', which is not a "
                       f"known practice slug")
+    # AGENTS.md links to a practice as [slug](practices/slug.md) -- a
+    # different href shape than practices/*.md's own sibling-relative
+    # [slug](slug.md) -- so it needs its own regex, not a reuse of
+    # CROSS_PRACTICE_LINK_RE above.
+    if AGENTS_MD.exists():
+        agents_text = AGENTS_MD.read_text(encoding='utf-8', errors='ignore')
+        for m in AGENTS_PRACTICE_LINK_RE.finditer(agents_text):
+            if m.group(1) not in valid_slugs:
+                ok = False
+                print(f"  AGENTS.md: links to 'practices/{m.group(1)}.md', "
+                      f"which is not a known practice slug")
     check('slug-link citation integrity (every [slug](slug.md) cross-reference resolves)', ok)
 
 
@@ -851,6 +876,20 @@ def check_leak_gate_fires():
                       'tree', gate('--range', f'{base}..HEAD') == 1))
         git(repo, 'reset', '-q', '--hard', base)
 
+        # 6b. structural PATH rules must be case-insensitive. Regression
+        # case: the four FORBIDDEN_PATHS regexes had no re.I, so a
+        # directory named the way a person actually types it --
+        # "Team-Nightjar/", "Individual/", "Candidates/" -- passed the gate
+        # silently while its lowercase spelling correctly failed.
+        (repo / 'Team-Nightjar').mkdir()
+        (repo / 'Team-Nightjar' / 'notes.md').write_text('clean\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'mixed-case team dir')
+        cases.append(('a mixed-case forbidden path (Team-Nightjar/) fails the '
+                      'same as its lowercase spelling',
+                      gate('--range', f'{base}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base)
+        shutil.rmtree(repo / 'Team-Nightjar', ignore_errors=True)
+
         # 7. the vocabulary layer must not fail OPEN once you have said you
         #    have a list.
         cases.append(('an unrun vocabulary layer fails when required',
@@ -943,6 +982,22 @@ def check_source_precedence():
         practice(individual, 'my-own-name', level_note='replaces team-only',
                  overrides='team-only')
         practice(individual, 'house-style', level_note='my own house style')
+        # A practice whose OWN slug is blocked, that ALSO names an unrelated
+        # slug in `overrides:`. Regression fixture for a real bug: the
+        # resolver used to process a practice's own-slug collision and its
+        # `overrides:` target as independent loop iterations, so a refused
+        # own-slug collision did not stop the SAME practice's `overrides:`
+        # from still deleting its target -- a practice that was never
+        # activated still "shadowed" something, and the report claimed a
+        # practice was doing the shadowing that was, in fact, never in force.
+        practice(universal, 'client-tone-2', level_note='blocking, unrelated '
+                 'to the override target below', severity='blocking')
+        practice(universal, 'legacy-note-format', level_note='an unrelated '
+                 'universal practice the blocked team practice tries to '
+                 'retire')
+        practice(team, 'client-tone-2', level_note='refused: collides with '
+                 'a blocking universal practice under its OWN slug',
+                 overrides='legacy-note-format')
 
         (consumer / 'precedent.json').write_text(json.dumps({
             'format_version': 1,
@@ -994,7 +1049,7 @@ def check_source_precedence():
                       by_slug.get('client-tone', {}).get('level') == 'team'))
         cases.append(('the refusal is reported, not silent',
                       {b['slug'] for b in data['blocked']}
-                      == {'house-style', 'client-tone'}))
+                      == {'house-style', 'client-tone', 'client-tone-2'}))
         # `overrides:` naming a differently-named lower slug: the named
         # practice leaves the set, and the one naming it enters. Without a
         # non-blocking case here, deleting the whole `overrides:` branch still
@@ -1011,6 +1066,22 @@ def check_source_precedence():
         # lifecycle: a retired practice is resolvable but not in force
         cases.append(('a retired practice is not in force',
                       'retired-one' not in by_slug))
+
+        # a practice refused on its OWN slug must not act on `overrides:` --
+        # the target of its override must survive untouched, and the report
+        # must not credit a never-activated practice with shadowing anything
+        cases.append(('a practice blocked on its own slug does not enter '
+                      'the resolved set',
+                      by_slug.get('client-tone-2', {}).get('level') == 'universal'))
+        cases.append(("that same practice's `overrides:` target is left "
+                      "alone, since the practice naming it was never "
+                      "activated",
+                      by_slug.get('legacy-note-format', {}).get('level')
+                      == 'universal'))
+        cases.append(('and the target is not reported as overridden by a '
+                      'practice that was refused',
+                      not any(s['slug'] == 'legacy-note-format'
+                              for s in data['overridden'])))
 
         # a shared repo may not name someone's individual set
         leaky = tmp / 'leaky-project'
@@ -1052,7 +1123,153 @@ def check_source_precedence():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_cross_source_resident_budget():
+    """The resident-block cap has to hold across ALL resolved sources, not
+    just this repo's own practices/ directory (spec/PRIVATE_SETS_BRIEF.md,
+    "One open gap to report back, not to solve there": build_views.py's
+    RESIDENT_BUDGET_TOKENS only ever saw this repo's practices/, and
+    precedent_resolve.py had no resident/budget logic at all -- a team set
+    marking several practices resident, on top of an individual set doing
+    the same, could push a real session's resident block well past the cap
+    with nothing objecting). Two directions: this repo's own resolved set
+    (single source, well under budget) must NOT be flagged, and a
+    synthetic multi-source set built to exceed the budget MUST be."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-budget-'))
+    try:
+        # direction 1: this repo's own set, unmodified, must resolve clean
+        rc, out, _err = _run([sys.executable, str(ROOT / 'tools' /
+                              'precedent_resolve.py'), '--repo', str(ROOT), '--json'])
+        clean_ok = False
+        if rc == 0:
+            data = json.loads(out)
+            clean_ok = not data.get('resident', {}).get('over_budget', True)
+
+        # direction 2: a synthetic team source with an oversized resident
+        # Rule, stacked on top of this repo's own resident practices, must
+        # push the combined figure over budget and be refused
+        consumer = tmp / 'consumer'
+        team = tmp / 'team'
+        (consumer).mkdir()
+        (team / 'practices').mkdir(parents=True)
+        big_rule = ' '.join(['word'] * 1500)  # ~1950 approx-tokens alone
+        (team / 'practices' / 'huge-resident.md').write_text(
+            "---\nslug:        huge-resident\ntitle:       Huge\n"
+            "tier:        resident\nseverity:    default\n"
+            'applies_to:  ["**"]\noccasion:    null\ngates:       []\n'
+            'index_clause: "n/a"\nchecked_by:  null\ndefines:     []\n'
+            "status:      active\nsupersedes:  []\noverrides:   null\n"
+            'added:       null\napproved_by: "fixture"\n---\n'
+            f"## Rule\n{big_rule}\n\n## Why\n\n## Story\n\n## Install\n",
+            encoding='utf-8')
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(ROOT)},
+                        {'level': 'team', 'name': 'fixture-team',
+                         'path': str(team)}]}), encoding='utf-8')
+        rc2, out2, err2 = _run([sys.executable, str(ROOT / 'tools' /
+                                'precedent_resolve.py'), '--repo', str(consumer),
+                                '--json'])
+        over_data = json.loads(out2) if out2 else {}
+        over_ok = (rc2 == 1
+                   and over_data.get('resident', {}).get('over_budget') is True
+                   and 'huge-resident' in {p['slug'] for p in
+                                           over_data.get('resident', {}).get('practices', [])}
+                   and 'cross-source cap' in err2)
+
+        ok = clean_ok and over_ok
+        if not clean_ok:
+            print("  this repo's own resolved set was wrongly flagged over budget")
+        if not over_ok:
+            print("  a synthetic multi-source set built to exceed the budget "
+                  "was NOT refused")
+        check('cross-source resident budget (this repo alone stays clean; '
+              'a synthetic team+universal combination built to exceed the '
+              '2,000-token cap is refused, not silently carried)', ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _run(cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    return r.returncode, r.stdout, r.stderr
+
+
 EXAMPLE_SET = ROOT / 'examples' / 'practice-set'
+
+
+MANDATORY_SECTIONS = ('rule', 'why', 'story', 'install')  # 'detail' is optional
+
+
+def check_practice_sections_present():
+    """Every REAL practice file carries all four mandatory sections
+    (## Detail is legitimately optional -- only some practices carry one).
+
+    WHY THIS EXISTS SEPARATELY FROM check_example_set's identical-looking
+    check. That check only ever ran against examples/practice-set/. For the
+    52 phase-1-converted practices, a missing section usually gets caught
+    anyway by the word-multiset content-preservation checks, because the
+    corrupted text is not what PRACTICES.md's frozen original said. But
+    those checks have nothing to compare against for a practice with no
+    `source_practice_number` -- exactly the plan's own stated path forward
+    (a new practice minted post-conversion, e.g. checkable-gets-checked).
+    A single accidental trailing space on a heading
+    (split_practices.py's section regex) used to silently merge that whole
+    section into the one before it, with no error anywhere in the harness,
+    for any practice minted this way. This closes that for the real
+    catalogue, not just the shipped example."""
+    ok = True
+    for f in sorted(PRACTICES_DIR.glob('*.md')):
+        try:
+            fm, sections = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue  # a parse failure is check_all_practices_parse's job
+        missing = [s for s in MANDATORY_SECTIONS if s not in sections]
+        if missing:
+            ok = False
+            print(f"  {f.name}: missing section(s) {', '.join(missing)} -- a "
+                  f"heading with trailing whitespace, or one silently merged "
+                  f"into the section before it, produces exactly this")
+    check('every practice file carries all mandatory sections (## Rule, '
+          '## Why, ## Story, ## Install -- ## Detail is optional)', ok)
+
+
+def check_all_workflows_disclosed():
+    """Every EXISTING GitHub Actions workflow file is named in
+    GITHUB_ACTIONS.md -- not just newly-added ones.
+
+    WHY THIS IS SEPARATE FROM `github-setup-disclosed`
+    (tools/precedent_check.py). That check enforces the practice on a
+    CHANGE: it fires on ctx.added_files() in the diff being checked, so a
+    workflow merged before the practice existed to catch it -- exactly what
+    happened to leak-gate.yml, found undisclosed by a 2026-09-01 deep-check
+    audit -- is permanently invisible to it. Once a workflow file is
+    committed, it can never again appear as "added." This check asks the
+    tree-wide question instead: for every .yml/.yaml file that exists RIGHT
+    NOW in .github/workflows/, is its name mentioned anywhere in
+    GITHUB_ACTIONS.md? It complements the change-scoped check rather than
+    replacing it -- this one runs every time regardless of what changed,
+    which is what actually closes the gap the change-scoped check leaves
+    open."""
+    workflows_dir = ROOT / '.github' / 'workflows'
+    if not workflows_dir.is_dir():
+        not_applicable('all workflows disclosed', 'no .github/workflows/ directory')
+        return
+    doc_path = ROOT / 'GITHUB_ACTIONS.md'
+    if not doc_path.exists():
+        check('all workflows disclosed', False,
+              'no GITHUB_ACTIONS.md exists to disclose any workflow in')
+        return
+    doc = doc_path.read_text(encoding='utf-8', errors='ignore')
+    ok = True
+    for f in sorted(workflows_dir.glob('*.y*ml')):
+        if f.name not in doc:
+            ok = False
+            print(f"  {f.name} exists in .github/workflows/ but is not named "
+                  f"anywhere in GITHUB_ACTIONS.md")
+    check('all workflows disclosed (every file in .github/workflows/ is '
+          'named in GITHUB_ACTIONS.md)', ok)
 
 
 def check_example_set():
@@ -1253,6 +1470,27 @@ def check_glob_semantics():
             print(f"  {path!r} vs {glob!r}: expected {expected}, got {got}")
     check(f'path-glob semantics ({len(GLOB_CASES)} stated cases: `**` crosses "/", '
           f'`*` does not, paths normalize to repo-root-relative)', ok)
+
+
+def check_symlinked_root_path_matching():
+    """A path reached through a symlinked route to the repo root (a
+    symlinked workspace, a Docker bind mount) must normalize the same as
+    the real path. Regression case: normalize_path() used to compare only
+    against ROOT's OWN resolved spelling, so a symlinked absolute path fell
+    through untouched and an exact-filename glob (README.md, used by real
+    practices) silently stopped matching -- no error, just a routing miss
+    an ordinary session would never think to suspect."""
+    import tempfile
+    link = pathlib.Path(tempfile.mkdtemp(prefix='precedent-symlink-')) / 'repo-link'
+    try:
+        link.symlink_to(ROOT)
+        exact = pp.path_matches(str(link / 'README.md'), 'README.md')
+        broad = pp.path_matches(str(link / 'README.md'), '**/*.md')
+        check('symlinked repo root: exact-filename and broad globs match '
+              'the same as the real path', exact and broad)
+    finally:
+        link.unlink(missing_ok=True)
+        link.parent.rmdir()
 
 
 def check_generated_views_regenerate():
@@ -1783,10 +2021,14 @@ def main():
     check_leak_gate()
     check_leak_gate_fires()
     check_source_precedence()
+    check_cross_source_resident_budget()
+    check_practice_sections_present()
+    check_all_workflows_disclosed()
     check_example_set()
     check_index_clauses(files)
     check_rule_is_self_contained(files)
     check_glob_semantics()
+    check_symlinked_root_path_matching()
     check_generated_views_regenerate()
     check_resident_subset(files)
     check_behavioral_replay()

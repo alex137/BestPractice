@@ -122,35 +122,57 @@ third source now exist for the first time:
 ## How to verify, from that session
 
 ```
-python3 tools/precedent_resolve.py --repo <a consumer repo> --explain
+python3 tools/precedent_resolve.py --repo <a consumer repo>
+python3 tools/precedent_resolve.py --repo <a consumer repo> --explain SOME-SLUG
 ```
+
+(`--explain` takes a slug — how did *that one practice* resolve — not a
+bare flag; run without it first to see everything, then re-run with a
+specific slug for anything that looks wrong.)
 
 The resolver is the contract, and it is already tested against fixtures by
 `check_source_precedence` in [tools/verify_harness.py](../tools/verify_harness.py)
-(17 stated cases). What has **never** been done is running it against the real
-46. Expect the fixtures to have missed something the real content raises;
-that is the point of doing it.
+(count grows as more cases are added — run the harness for the current
+figure rather than trusting a number written here). What has **never** been
+done is running it against the real 46. Expect the fixtures to have missed
+something the real content raises; that is the point of doing it.
 
 Check specifically that: precedence runs individual > team > universal; a
 missing individual set degrades and *says on stderr* what is not in force; a
 shared repo naming an individual source is refused by name; and a retired
 practice is resolvable by slug but not in force.
 
-## One open gap to report back, not to solve there
+## The cross-source resident cap — built 2026-09-01, unverified against the real sets
 
-**Nothing caps the resident block across sources.**
-[tools/build_views.py](../tools/build_views.py) enforces
-`RESIDENT_BUDGET_TOKENS = 2000` against the *local* `practices/` directory
-only, and [tools/precedent_resolve.py](../tools/precedent_resolve.py) has no
-resident or budget logic at all. So a team set marking six practices resident
-and an individual set marking three would push a real session's resident block
-well past the cap with nothing objecting — the mechanism that was supposed to
-make adding a resident practice cost demoting one only works within a single
-source.
+**Closed on Precedent's side; the one thing this can't finish from here.**
+This brief used to ask you to report back a combined resident-block figure
+so a Precedent session could build the cap — that never came back, and a
+2026-09-01 deep-check audit found the gap still open with no report on file
+anywhere. So the cap is now built directly:
+[tools/precedent_resolve.py](../tools/precedent_resolve.py)'s
+`resident_stats()` sums `## Rule` text across every `tier: resident`
+practice in the RESOLVED set — whichever source contributed it — against
+the same `RESIDENT_BUDGET_TOKENS = 2000` cap
+[tools/build_views.py](../tools/build_views.py) already enforced for the
+single-source case. `precedent_resolve.py` (plain, `--json`, run from any
+consumer repo) now prints the combined figure every time and **exits 1
+when it's over budget** — not gated behind `--strict`, matching the plan's
+"mechanically enforced, not by discipline" for the single-repo case.
+Tested both directions in `check_cross_source_resident_budget`
+([tools/verify_harness.py](../tools/verify_harness.py)): this repo's own
+resolved set stays clean, and a synthetic multi-source set built to exceed
+the budget is refused.
 
-Fixing that belongs in Precedent, not in the private sets. Mark tiers as they
-should be, note what the combined resident block comes to, and report it back
-so a Precedent session can build the cross-source cap.
+**What's still needed, and can only happen from a session against the real
+private sets** (never from here — see
+[Why this cannot run from Precedent](../spec/PRIVATE_ENFORCEMENT_BRIEF.md#why-this-cannot-run-from-precedent)
+for the same two structural reasons): run
+`python3 tools/precedent_resolve.py --repo <a consumer repo>` with a real
+`precedent.json` naming `precedent-team-maintainers` and a user config
+naming `precedent-individual`, and see what the real combined resident
+figure comes to. If either private set marked more than a practice or two
+`tier: resident`, this is very likely to actually fire — that's the point
+of running it, not a sign something is wrong.
 
 ## What must never happen
 
@@ -174,4 +196,7 @@ so a Precedent session can build the cross-source cap.
   `PRECEDENT_LEAK_BLOCKLIST` points at it.
 - The resolver resolves all three sources against the real content, and
   precedence is checked against the four behaviours listed above.
-- The combined resident-block figure is reported back for the cross-source cap.
+- `python3 tools/precedent_resolve.py --repo <a consumer repo>` has actually
+  been run against the real two private sets, and exits 0 (the cross-source
+  cap is built; this is the one remaining step, and it can only happen from
+  a session against the real sets — see above).

@@ -104,6 +104,21 @@ def normalize_path(path):
     root = ROOT.as_posix().rstrip('/') + '/'
     if p.startswith(root):
         p = p[len(root):]
+    elif p.startswith('/'):
+        # The fast path above only matches when the caller's absolute path
+        # already shares ROOT's own fully-resolved spelling. A path reached
+        # through a symlinked route to the repo (a symlinked workspace, a
+        # bind mount) does not, and used to fall through untouched -- the
+        # leading '/' got stripped anyway below, turning e.g.
+        # "/tmp/bp-link/README.md" into "tmp/bp-link/README.md" with no
+        # error. A broad "**/*.md" glob still matched by coincidence; an
+        # exact-filename glob like "README.md" silently stopped matching,
+        # with nothing reporting it. resolve() does not require the path to
+        # exist, so this is safe for a path a git diff names for a file
+        # that was since deleted.
+        resolved = pathlib.Path(p).resolve().as_posix()
+        if resolved.startswith(root):
+            p = resolved[len(root):]
     while p.startswith('./'):
         p = p[2:]
     return p.lstrip('/')

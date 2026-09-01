@@ -89,8 +89,18 @@ def _git(clone, *args):
 
 
 def _files(base):
+    # Skip interpreter droppings alongside .git: running the vendored audits
+    # leaves __pycache__/ behind (ignored by git on both sides via the
+    # baseline .gitignore), and counting them as tree drift made every
+    # status/record noisy with files no repo tracks. (Ported from `main`,
+    # PR #62, 2026-09-01 -- this branch's own checkin.py had already
+    # diverged from main's with its own fixes and never picked this one up;
+    # see AGENTS.md's gotchas section on re-checking main for drift before
+    # phase 5.)
     return {p.relative_to(base) for p in base.rglob('*')
-            if p.is_file() and '.git' not in p.parts}
+            if p.is_file() and '.git' not in p.parts
+            and '__pycache__' not in p.parts
+            and p.suffix not in ('.pyc', '.pyo')}
 
 
 def _diff(clone):

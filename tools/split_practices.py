@@ -366,7 +366,13 @@ def _parse_practice_text(text, path='<text>'):
     cur = None
     buf = []
     for line in body.split('\n'):
-        m = re.match(r'^## (Rule|Detail|Why|Story|Install)$', line)
+        # \s*$ tolerates trailing whitespace on the heading line. Without it
+        # a single accidental trailing space ("## Detail ") silently merged
+        # that entire section -- heading text included -- into whatever
+        # section came before it, with no error: precedent_show.py --detail
+        # would then report "(no detail recorded yet)" while the Rule
+        # silently carried the corrupted trailing content.
+        m = re.match(r'^## (Rule|Detail|Why|Story|Install)\s*$', line)
         if m:
             if cur:
                 sections[cur] = '\n'.join(buf).strip('\n')

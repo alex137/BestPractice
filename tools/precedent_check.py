@@ -270,8 +270,17 @@ GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
 @check('generated-artifact-provenance', 'tree',
        'every generated view names the script that builds it and says it is '
        'generated, and regenerating it changes nothing',
-       'a generated file this repo has not declared. It checks the views '
-       'tools/build_views.py owns.')
+       "the practice's own Rule also requires a content-derived build code "
+       "and an input-hash manifest for deck/** build artifacts -- this check "
+       "verifies neither, because deck/build_deck.py implements no such "
+       "mechanism (its own 'manifest' selects INPUT slides, an unrelated "
+       "concept). It only covers the views tools/build_views.py owns: "
+       "MAP.md and GLOSSARY.md by name here (whole generated files, checked "
+       "by their own stamp); AGENTS.md's generated LOADER BLOCK is a "
+       "different shape (a hand-authored file with one generated section, "
+       "not a wholly generated file) and its byte-identical regeneration is "
+       "covered by verify_harness.py's check_generated_views_regenerate "
+       "instead, not by this check.")
 def _generated_artifact_provenance(ctx):
     out = []
     builder = ROOT / 'tools' / 'build_views.py'
