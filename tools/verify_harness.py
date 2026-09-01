@@ -1351,6 +1351,12 @@ def check_precedent_check_fires():
              lambda repo: rewrite(repo, 'TODO.md',
                                   lambda t: t + '\nabout ~5 items~ remain.\n'))
 
+        # label-describes-content -- a "(one line)" label over a multi-line block
+        case('label-describes-content',
+             lambda repo: (repo / 'planted-label.md').write_text(
+                 '# Doc\n\n## Summary (one line)\n\nThis section actually\n'
+                 'runs to two separate lines of text.\n', encoding='utf-8'))
+
         # deliverables-look-like-output -- process residue in a deliverable
         case('deliverables-look-like-output',
              lambda repo: (repo / 'report.md').write_text(

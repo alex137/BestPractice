@@ -599,6 +599,69 @@ def _deliverables_look_like_output(ctx):
     return out
 
 
+LABEL_RE = re.compile(
+    r'^(#{1,6}\s+.*|\*\*[^*\n]+\*\*:?)\s*$', re.M)
+# Deliberately narrow: a PARENTHETICAL claim ("(one line)"), or the whole
+# label IS the claim ("TL;DR", "One-liner:"). A heading merely mentioning
+# "one-line" while naming something else -- MOBILE.md's "how the one-line
+# opener works" -- is not a claim about the section's own length, and an
+# earlier, broader version of this regex fired on exactly that heading.
+ONE_LINE_CLAIM_RE = re.compile(
+    r'\(\s*(?:in\s+)?one[- ]lin(?:e|er)\s*\)'
+    r'|^#{1,6}\s*TL;DR\s*:?\s*$'
+    r'|^\*\*(?:TL;DR|One-liner)\*\*:?\s*$', re.I)
+ONE_PARA_CLAIM_RE = re.compile(
+    r'\(\s*one[- ]paragraph\s*\)|\(\s*one-pager\s*\)', re.I)
+
+
+@check('label-describes-content', 'change',
+       'a heading or bold lead-in that claims "one line" / "one-liner" / '
+       '"TL;DR" / "one paragraph" / "one-pager" must match the length of '
+       'what actually follows it',
+       'a claim made in running prose rather than a heading or bold '
+       'lead-in — the practice covers both, this check only the labelled '
+       'form, because prose mentions of "one-line" are not a label on a '
+       'section and free text has no reliable block boundary to measure.')
+def _label_describes_content(ctx):
+    out = []
+    for f in _md_in_scope(ctx):
+        text = ctx.read(f)
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
+            if not LABEL_RE.match(line):
+                continue
+            claims_line = ONE_LINE_CLAIM_RE.search(line)
+            claims_para = ONE_PARA_CLAIM_RE.search(line)
+            if not (claims_line or claims_para):
+                continue
+            # the block that follows: non-blank lines up to the next blank
+            # line that precedes a heading/label or end of file, skipping
+            # one immediate blank line after the label itself.
+            j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            first_para = []
+            while j < len(lines) and lines[j].strip():
+                first_para.append(lines[j])
+                j += 1
+            if not first_para:
+                continue
+            # is there a second paragraph before the next label/heading?
+            k = j
+            while k < len(lines) and not lines[k].strip():
+                k += 1
+            has_second_para = k < len(lines) and not LABEL_RE.match(lines[k])
+            if claims_line and (len(first_para) > 1 or has_second_para):
+                out.append(Finding(f'{f}:{i + 1}',
+                                    'labelled "one line" but the content '
+                                    'runs to more than one line'))
+            elif claims_para and has_second_para:
+                out.append(Finding(f'{f}:{i + 1}',
+                                    'labelled "one paragraph" but the '
+                                    'content spans more than one paragraph'))
+    return out
+
+
 @check('search-by-purpose', 'change',
        'a document carrying generated numbers is reachable from an index a '
        'reader actually consults',

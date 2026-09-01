@@ -66,6 +66,7 @@ being checked by it.
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
+| `label-describes-content` | change | a heading or bold lead-in that claims "one line" / "one-liner" / "TL;DR" / "one paragraph" / "one-pager" must match the length of what actually follows it |
 | `no-rewrite-for-warnings` | turn-end | the commit this branch was last published at is still an ancestor of its tip — published history has not been rewritten |
 | `no-version-suffix` | change | a file added by this change must not carry a version, date or state suffix in its name |
 | `orientation-map` | tree | MAP.md exists at the repository root, is not empty, and the session instructions point at it |
@@ -77,7 +78,7 @@ being checked by it.
 | `session-bootstrap` | tree | if the session instructions name a setup command, a session-start hook must run it |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed, and no tracked file left modified |
 
-18 of 52 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+19 of 52 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
