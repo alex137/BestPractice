@@ -7,7 +7,7 @@ applies_to:  ["**"]
 occasion:    "naming what \"run the checks\" means in a repo"
 gates:       []
 index_clause: "name a fast check and a full check; say which gates what"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []

@@ -1318,6 +1318,13 @@ def check_precedent_check_fires():
                 r'\n\| Looking for.*?\n\n', '\n\n', t, flags=re.S))
         case('quick-index', _plant_qi)
 
+        # two-check-levels -- the light/deep check pair removed from AGENTS.md
+        def _plant_tcl(repo):
+            rewrite(repo, 'AGENTS.md', lambda t: t.replace(
+                '**light check**', 'light check', 1).replace(
+                '**deep check**', 'deep check', 1))
+        case('two-check-levels', _plant_tcl)
+
         # environment-gotchas -- an entry that is a bare fix
         def _plant_eg(repo):
             rewrite(repo, 'AGENTS.md', lambda t: t.replace(
@@ -1371,6 +1378,12 @@ def check_precedent_check_fires():
         case('docs-are-current-state',
              lambda repo: (repo / 'planted-revision.md').write_text(
                  '# Doc\n\nThe timeout is 30s (updated 2026-01-15).\n',
+                 encoding='utf-8'))
+
+        # index-remembers-past -- inline lineage language in a document
+        case('index-remembers-past',
+             lambda repo: (repo / 'planted-lineage.md').write_text(
+                 '# New Doc\n\nThis document is the successor to the old one.\n',
                  encoding='utf-8'))
 
         # deliverables-look-like-output -- process residue in a deliverable

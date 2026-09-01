@@ -373,51 +373,81 @@ attention at all — a checked practice is never loaded, so a 500-practice
 catalogue with 500 checks costs a session nothing extra to comply with.**
 
 **Enforce, gate, or mark advisory — every practice, not a token few.** As of
-2026-09-01 (see [spec/ENFORCEMENT.md](ENFORCEMENT.md) for the current,
-generated count): **22 of 52 carry a real `checked_by`** (`label-describes-content`,
+2026-09-01, after a second, more thorough pass through every remaining
+practice rather than stopping at the first verdict — see
+[spec/ENFORCEMENT.md](ENFORCEMENT.md) for the current, generated count):
+**24 of 52 carry a real `checked_by`.** `label-describes-content`,
 `acronyms-glossary`, `github-setup-disclosed` and `docs-are-current-state`
-are the four converted since this document's 54% result, each gating only
-what a change adds rather than the pre-existing corpus, to avoid the
-failure doc_lint's own numbers-gate opt-in already learned: gating legacy
-debt fails forever and gets switched off). **8 more are reached by the
-gate-triggered channel** ([tools/precedent_gate.py](../tools/precedent_gate.py):
-`capture-gate`, `convention-to-audit`, `merge-authorization-keyword`,
-`merge-runbook`, `mistakes-become-rules`, `reply-links-files`,
-`repo-is-memory`, `second-pass-capture`) — deterministic reach at the
-moment they apply (merge, push, reply, review), stronger than the occasion
-index though not compliance-checked, because what they govern is a
-workflow property (did the session do X in this thread), not a diff
-property a script can inspect after the fact. **The remaining 22 are
-genuinely neither**, and the honest reason splits into three groups worth
-naming rather than lumping as one undifferentiated "prose-only" count:
-domain-specific quantitative-document practices this repo doesn't itself
-exercise (`name-both-sides-of-ledger`, `parallel-artifact-ledger`,
-`permutation-frontier-column`, `one-formatter-per-quantity`,
-`tabular-shared-renderer`, `quote-discipline`, `outward-summary-discipline`,
-`verify-decomposition`); reasoning-quality practices with no mechanical
-signature distinguishable from correct work (`affordance-is-shared`,
+were the first four converted since this document's 54% result, each
+gating only what a change adds rather than the pre-existing corpus, to
+avoid the failure doc_lint's own numbers-gate opt-in already learned:
+gating legacy debt fails forever and gets switched off. A second pass added
+two more: **`two-check-levels`**, by making the naming decision the
+practice asks for rather than treating it as blocking — AGENTS.md's
+"Working in this repo" section already described a fast pre-commit lint and
+a fuller pre-push suite without naming them, so the fix was naming what was
+already there (**light check** = `doc_lint.py`, **deep check** = the full
+gate suite), not inventing new process. And **`index-remembers-past`**,
+retried with a narrower design after the first attempt's false positive
+(below): it flags inline language naming what a document replaced or was
+replaced by, in a changed document, with an explicit, named exemption list for
+files whose stated purpose is a historical record — currently just
+[the phase-2 loader spec](LOADER.md), which correctly keeps prior
+measurement runs as a deliberate appendix headed "superseded by vN above."
+The first version of this check had no exemption list and would have fired
+on that correct usage — caught before merge, not after, the same way
+`label-describes-content`'s narrower regex was caught earlier this thread.
+
+**8 more are reached by the gate-triggered channel**
+([tools/precedent_gate.py](../tools/precedent_gate.py): `capture-gate`,
+`convention-to-audit`, `merge-authorization-keyword`, `merge-runbook`,
+`mistakes-become-rules`, `reply-links-files`, `repo-is-memory`,
+`second-pass-capture`) — deterministic reach at the moment they apply
+(merge, push, reply, review), stronger than the occasion index though not
+compliance-checked, because what they govern is a workflow property (did
+the session do X in this thread), not a diff property a script can inspect
+after the fact. `merge-authorization-keyword` was specifically evaluated
+for the same treatment as `two-check-levels` — name a fixed trigger word for
+this repo, then check it's documented — **and deliberately not adopted**:
+unlike a check-level name, a merge-authorization keyword is a standing
+grant of unattended merge authority, and inventing one unilaterally would
+be a bigger decision than the practice's enforcement gap justifies making
+without being asked. It stays gate-reached only, by the repo maintainer's
+explicit choice, not by a check that resisted trying.
+
+**The remaining 20 are genuinely neither**, and the honest reason splits
+into two groups worth naming rather than lumping as one undifferentiated
+"prose-only" count: domain-specific quantitative-document practices this
+repo doesn't itself exercise (`name-both-sides-of-ledger`,
+`parallel-artifact-ledger`, `permutation-frontier-column`,
+`one-formatter-per-quantity`, `tabular-shared-renderer`, `quote-discipline`,
+`outward-summary-discipline`, `verify-decomposition`, `pr-template-honest-gates`
+— this last one specifically because it governs a pull request
+*description's* honesty against the diff, which is checkable in principle but not from
+this repo's local file state, since the description lives on GitHub, not
+in the tree); and reasoning-quality practices with no mechanical signature
+distinguishable from correct work (`affordance-is-shared`,
 `build-buy-decompose`, `check-source-architecture`,
 `frame-from-audience-question`, `lead-with-what-it-is`,
-`layered-practice-packs`, `section-order-by-frequency`,
-`variant-re-derives`, `index-remembers-past` — this last one specifically
-tried and reverted: its natural signature, "superseded by" language inline,
-is legitimately used by [the phase-2 loader spec](LOADER.md)'s own
-historical-record sections, so the check would have fired on correct
-work); and two that
-need an actual repo-level naming decision before a check has anything to
-verify (`two-check-levels`, `merge-authorization-keyword` moved to the
-gated list above once its trigger-word decision is made — until then
-neither has one). `readers-vocabulary` sits with the second group for a
-reason worth stating precisely: doc_lint's acronym scan, now gating via
-`acronyms-glossary`, covers the all-capital-letters half of this practice; the wider
-half — plain-English jargon judged against a specific reader's vocabulary —
-has no signature short of a maintained blocklist of "this repo's jargon,"
-which would be an editorial call fabricated unilaterally rather than a
-check, exactly the failure class phase 4's postmortem already warned
-against. Every practice should either carry a check, a gate, or be
-explicitly labelled advisory, so the catalogue stops claiming a bindingness
-it has not earned. [spec/ENFORCEMENT.md](ENFORCEMENT.md) has the machinery
-and the honest account of which practices resisted a check and why.
+`layered-practice-packs`, `section-order-by-frequency`, `variant-re-derives`,
+`registry-source-of-truth`). `readers-vocabulary` and
+`volatile-rules-carry-dates` sit with the second group for reasons worth
+stating precisely, because both were re-attempted this pass and both failed
+for a checkable, demonstrated reason rather than an assumed one:
+`readers-vocabulary`'s all-capital-letters half is now covered by `acronyms-glossary`,
+but its jargon half has no signature short of a maintained blocklist of
+"this repo's jargon," which would be an editorial call fabricated
+unilaterally rather than a check, exactly the failure class phase 4's
+postmortem already warned against. `volatile-rules-carry-dates` looked
+tractable — check that "verified"/"as of" is followed by a date — until a
+grep of this repo's own prose showed *why not*: "verified by regenerating
+them," "as of this writing," and a dozen more ordinary uses of those words
+with no date anywhere nearby, which a check would have flagged across
+nearly every doc in the repo. Every practice should either carry a check, a
+gate, or be explicitly labelled advisory, so the catalogue stops claiming a
+bindingness it has not earned. [spec/ENFORCEMENT.md](ENFORCEMENT.md) has the
+machinery and the honest account of which practices resisted a check and
+why.
 
 **Retirement is not the fix here and is deliberately not pursued as one.**
 An earlier version of this section named it as a parallel option. It isn't:
@@ -568,14 +598,17 @@ content — see its entry in [Candidate designs](#candidate-designs-for-a-future
 
 **There is no candidate design left in this document that has not been
 either run and falsified, or predicted null on falsified siblings' direct
-evidence.** Next up is
-[the supporting moves](#the-supporting-moves-now-the-primary-recommendation) —
-pushing enforcement and gating as far as they honestly go (22 of 52
-enforced, 8 more gated, 22 genuinely resistant as of 2026-09-01, broken
-down by why in that section) — not retirement, which this document no
-longer recommends: it manages catalogue size against a goal (scaling to
-hundreds or thousands of practices) that retirement works against, not
-toward. If review-as-primary-control is ever revisited, it needs a framing
+evidence.** [The supporting moves](#the-supporting-moves-now-the-primary-recommendation)
+have already been pushed as far as they honestly go for now: **24 of 52
+enforced, 8 more gated, 20 genuinely resistant as of 2026-09-01**, each of
+the 20 broken down by *why* in that section — not a stopping point chosen
+for convenience, but a second full pass through every remaining practice
+that converted two more (`two-check-levels`, `index-remembers-past`) and
+demonstrated, rather than assumed, why the rest resist (`volatile-rules-carry-dates`
+specifically retried and shown false-positive-prone by grepping this
+repo's own prose). Not retirement, which this document no longer
+recommends: it manages catalogue size against a goal (scaling to hundreds
+or thousands of practices) that retirement works against, not toward. If review-as-primary-control is ever revisited, it needs a framing
 genuinely different from "judge a finished diff, retrospectively" — not a
 fourth variant of context or choice within that framing — and it needs its
 own pre-registration stating why this document's three results don't

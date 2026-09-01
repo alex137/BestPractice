@@ -774,6 +774,74 @@ def _docs_are_current_state(ctx):
     return out
 
 
+# Files whose stated purpose IS a historical record -- docs-are-current-state's
+# own exemption (d), "as-shipped/as-filed artifacts whose purpose is
+# historical". spec/LOADER.md keeps prior measurement runs (v2, v3, v4) as a
+# deliberate appendix, each headed "superseded by vN above" -- exactly the
+# phrase this check exists to catch everywhere else. An earlier version of
+# this check had no exemption list and would have fired on that correct,
+# intentional usage; add a file here only with the same kind of stated
+# reason, never to silence a real finding.
+INLINE_LINEAGE_SKIP_FILES = {'spec/LOADER.md'}
+INLINE_LINEAGE_RE = re.compile(
+    r'\bsuccessor to\b|\bsupersede[sd]?\s+by\b|\bsuperseded\s+by\b'
+    r'|\breplaces?\s+the\s+(?:older|previous|prior)\b', re.I)
+
+
+@check('index-remembers-past', 'change',
+       "a changed document does not carry inline lineage language naming "
+       "what it replaced or what replaced it, since provenance belongs in "
+       "the repository index, not annotated into the documents themselves",
+       'the other half of the practice entirely: whether the INDEX actually '
+       'carries the lineage row this check pushes the language out of. It '
+       'only prevents the wrong home, never confirms there is a right one. '
+       'Also blind to any file listed in INLINE_LINEAGE_SKIP_FILES, whose '
+       'stated purpose is a historical record rather than a current-state '
+       'document -- currently just spec/LOADER.md, which keeps prior '
+       'measurement runs as a deliberate, correct appendix.')
+def _index_remembers_past(ctx):
+    out = []
+    for f in _md_in_scope(ctx):
+        if f in INLINE_LINEAGE_SKIP_FILES:
+            continue
+        cur = {(i, m.group(0)) for i, line in enumerate(ctx.read(f).splitlines(), 1)
+               for m in INLINE_LINEAGE_RE.finditer(line)}
+        base_text = ctx.read_base(f)
+        base = {m.group(0).lower() for line in (base_text or '').splitlines()
+                for m in INLINE_LINEAGE_RE.finditer(line)} if base_text else set()
+        for i, phrase in sorted(cur):
+            if phrase.lower() not in base:
+                out.append(Finding(f'{f}:{i}',
+                                    f'carries inline lineage language '
+                                    f'("{phrase}") -- provenance belongs in '
+                                    f'the repository index, not in the '
+                                    f'document'))
+    return out
+
+
+TWO_CHECK_LEVELS_RE = re.compile(
+    r'\*\*light check\*\*.{0,400}?\*\*deep check\*\*', re.S | re.I)
+
+
+@check('two-check-levels', 'tree',
+       'the session instructions name two fixed, distinct check levels '
+       '("light check" / "deep check") and say which gates a commit versus '
+       'a push',
+       'whether those are the RIGHT two tools per level, or whether a '
+       'session actually runs the one it names -- only that a repo-chosen '
+       'pair of names exists, so "run the light check" and "run the deep '
+       'check" are unambiguous requests rather than needing re-description '
+       'every time.')
+def _two_check_levels(ctx):
+    name, text = _instructions_file()
+    if not TWO_CHECK_LEVELS_RE.search(text):
+        return [Finding(name, 'does not name a fixed "light check" / "deep '
+                              'check" pair, so a session asked to run '
+                              '"the check" has to re-derive what that '
+                              'means every time')]
+    return []
+
+
 @check('search-by-purpose', 'change',
        'a document carrying generated numbers is reachable from an index a '
        'reader actually consults',

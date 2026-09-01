@@ -276,6 +276,15 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   touched (`pip install cmarkgfm` — the session-start hook does this);
   after touching the deck engine, rebuild the sample both ways:
   `python3 deck/build_deck.py deck/sample` and `--send`.
+- **Two check levels** (practice `two-check-levels`): **light check** is
+  `python3 tools/doc_lint.py` on the markdown you touched — the fast,
+  constant pass above, run before every commit without thinking about it.
+  **deep check** is the full gate suite run before push or merge:
+  `python3 tools/verify_harness.py`, `python3 tools/doc_lint.py`,
+  `python3 tools/leak_gate.py`, `python3 tools/precedent_check.py`, and
+  `python3 tools/doc_sync.py` (see [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s
+  closing section for the exact expected counts). Light check gates a
+  commit; deep check gates a push.
 
 ## Conventions (every session, every reply)
 

@@ -69,6 +69,7 @@ being checked by it.
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
 | `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named somewhere in GITHUB_ACTIONS.md, where this project's people read about GitHub-specific setup |
+| `index-remembers-past` | change | a changed document does not carry inline lineage language naming what it replaced or what replaced it, since provenance belongs in the repository index, not annotated into the documents themselves |
 | `label-describes-content` | change | a heading or bold lead-in that claims "one line" / "one-liner" / "TL;DR" / "one paragraph" / "one-pager" must match the length of what actually follows it |
 | `no-rewrite-for-warnings` | turn-end | the commit this branch was last published at is still an ancestor of its tip — published history has not been rewritten |
 | `no-version-suffix` | change | a file added by this change must not carry a version, date or state suffix in its name |
@@ -79,9 +80,10 @@ being checked by it.
 | `scrub-gate` | tree | every text file in a vendored tree destined for another repo is clean against that tree's blocklist, at all times |
 | `search-by-purpose` | change | a document carrying generated numbers is reachable from an index a reader actually consults |
 | `session-bootstrap` | tree | if the session instructions name a setup command, a session-start hook must run it |
+| `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed, and no tracked file left modified |
 
-22 of 52 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+24 of 52 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
