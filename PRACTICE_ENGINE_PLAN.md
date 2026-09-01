@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session, to version 28 -->
+<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session, to version 29 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -1123,7 +1123,11 @@ a gap in how this one was run.
 
 Kept as an explanation of why the migration ran from a different session
 rather than this one, not as a description of a still-open gap — see the
-table above.
+table above. **As of 2026-09-01, the rule below is relaxed for active
+development — [decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md)
+— so a session working on Precedent may now hold and edit these
+repositories directly; this section otherwise describes why the historical
+migration happened the way it did, unchanged.**
 
 Two independent reasons, both structural rather than circumstantial:
 
@@ -1608,12 +1612,29 @@ publication, to a repo whose owner is not us.** Two consequences, both
 binding from now on rather than from phase 3:
 
 - **The leak gate must run before every push, not before every merge.** A
-  merge-time gate is a gate on the wrong event now.
+  merge-time gate is a gate on the wrong event now. Unchanged by the note
+  below -- this keeps running regardless.
 - **Nothing from an individual or team set may be staged on this branch at
-  any point, even transiently.** Phase 3's source split has to build the
+  any point, even transiently** *(relaxed 2026-09-01 for active
+  development -- see below)*. Phase 3's source split has to build the
   private sets in their own private repos and wire Precedent to *resolve*
   them, never to hold them. The plan already says levels are repositories
   rather than directories; this removes the last excuse for a shortcut.
+
+  **Relaxed 2026-09-01, by Morgan's explicit direction, for the duration
+  of active pre-Phase-5 development —
+  [decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md).**
+  A session working on Precedent may now also hold
+  `themorgan/precedent-individual` and `themorgan/precedent-team-maintainers`,
+  read and write across all three, and stage their content into this
+  working tree — Morgan's own call about Morgan's own content, made
+  because there is nothing sensitive in either private set today and the
+  "two owners" platform restriction this rule partly rested on was never
+  actually confirmed (spec/PRIVATE_SETS_BRIEF.md already flagged that).
+  **This must be reinstated before Phase 6 migrates any consumer repo
+  other than Morgan's own, and no later than Phase 7** — see the decision
+  record for why. The leak gate itself is untouched by this and keeps
+  running.
 
 **The loader silently not firing.** Covered above; the reachability and
 behavioral-replay checks exist for exactly this.
@@ -1685,6 +1706,15 @@ it can be generated; the explanation cannot.
 The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; this section is the short record of what moved.
+
+**2026-09-01 — v29, the private-repo isolation rule is relaxed for active
+development.** Decided by Morgan, after a deep-check session's own findings
+made the isolation costly (synthetic-only tests of the precedence resolver
+and the cross-source resident-budget cap, both flagged as real gaps).
+Full reasoning, scope, and the reinstatement trigger in
+[decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md);
+the Risks section and "Why the private sets could not be populated from
+here" both carry a short pointer to it rather than being rewritten.
 
 **2026-09-01 — v28, pre-phase-5 review: a naming collision fixed, three
 inherited practices reconciled with the new architecture, and a tracked

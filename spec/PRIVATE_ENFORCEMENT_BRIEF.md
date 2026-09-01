@@ -2,12 +2,15 @@
 
 # Brief — Bringing Mechanical Checks to the Private Sets
 
-**Read this if you are a session opened directly against
-`themorgan/precedent-individual` or `themorgan/precedent-team-maintainers`.**
-It is written for exactly one of those sessions at a time — see
+**Read this if you are a session opened against
+`themorgan/precedent-individual` or `themorgan/precedent-team-maintainers`,
+or against Precedent with one or both of them also attached.** It was
+originally written for exactly one of those sessions at a time — see
 [Why this cannot run from Precedent](#why-this-cannot-run-from-precedent)
-before you consider opening both, or opening one of them alongside this
-repo.
+for that original reasoning — but as of 2026-09-01 that isolation is
+relaxed for active development; see
+[decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md).
+Holding this repo alongside the private sets is fine for now.
 
 It is committed here, in the public repo, rather than left in a chat thread,
 because that is this repo's own `repo-is-memory`: a brief that exists only
@@ -43,7 +46,13 @@ universal one. This brief is the missing piece: how to actually meet it
 from inside a private repo, which has no `precedent_check.py` of its own
 yet.
 
-## Why this cannot run from Precedent
+## Why this could not run from Precedent (original reasoning, relaxed 2026-09-01)
+
+**As of 2026-09-01 this is relaxed for active development —
+[decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md)
+— and reinstated before Phase 6 migrates any consumer repo other than
+Morgan's own. The reasoning below is kept as the original justification,
+not current fact.**
 
 Same two structural reasons [spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md)
 and [spec/SOURCES.md](SOURCES.md) already give for why the private sets had

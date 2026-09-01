@@ -49,8 +49,13 @@ universal individually, move the person-specific handful to individual, and
 retire `morgan-scope` and `bestpractice-wins` because the structure now says
 what they said.
 
-None of that happened, and none of it could have. Two independent reasons,
-both worth writing down so the next session does not rediscover them:
+None of that happened, and none of it could have — under the rule as it
+stood then. **As of 2026-09-01 that rule is relaxed for active development
+— [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md)
+— and a session working on Precedent may now hold and edit these
+repositories directly.** The two reasons below are kept as the original
+justification and the evidence that fed the relaxation decision, not as
+current fact:
 
 - **A platform restriction.** Those repositories belong to a different owner
   than this one, and a session cannot hold both with write access at once.
