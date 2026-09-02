@@ -33,6 +33,14 @@ deck.json:
       "appendix": [{"group": "Backup", "slides": ["slides/a1.md"]}]
     }
 
+Pagemark control (all optional; default = every slide numbered "n / total"):
+a slide entry with "nopage": true carries no pagemark (covers, dividers); a
+slide or group with "pagelabel": "Appendix" shows that fixed label instead
+of a number. The count runs over NUMBERED slides only, so a deck reads
+"3 / 10" against its content spine, not its raw slide count — and the
+denominator recomputes per build (a review_only numbered slide dropped by
+--send shrinks it).
+
 Two builds from one source (the review/send split — speaker notes carry
 internal-only guidance and must not travel with a sent deck):
 
@@ -79,15 +87,24 @@ H1_RE = re.compile(r'<h1[^>]*>(.*?)</h1>', re.S)
 
 
 def _slide_entries(manifest):
-    """Normalize manifest slide lists to (file, review_only, group)."""
+    """Normalize manifest slide lists to (file, review_only, group, page).
+
+    page: None = numbered; '' = no pagemark (nopage); other str = fixed label.
+    """
+    def page_of(e, grp=None):
+        if e.get('nopage'):
+            return ''
+        return e.get('pagelabel') or (grp or {}).get('pagelabel')
+
     out = []
     for e in manifest.get('slides', []):
         e = {'file': e} if isinstance(e, str) else e
-        out.append((e['file'], bool(e.get('review_only')), None))
+        out.append((e['file'], bool(e.get('review_only')), None, page_of(e)))
     for grp in manifest.get('appendix', []):
         for e in grp.get('slides', []):
             e = {'file': e} if isinstance(e, str) else e
-            out.append((e['file'], bool(e.get('review_only')), grp.get('group')))
+            out.append((e['file'], bool(e.get('review_only')),
+                        grp.get('group'), page_of(e, grp)))
     return out
 
 
@@ -238,18 +255,23 @@ def build(deck_dir, send=False):
     if not entries:
         sys.exit("build_deck FAIL: no slides selected")
 
-    total = len(entries)
+    total = sum(1 for e in entries if e[3] is None)
     footer = manifest.get('footer', '')
-    out_parts, last_group = [], None
-    for n, (file, _ro, group) in enumerate(entries, 1):
+    out_parts, last_group, num = [], None, 0
+    for n, (file, _ro, group, page) in enumerate(entries, 1):
         body, notes, _title = _render_slide(deck_dir / file, deck_dir, glossary)
         if group != last_group and group:
             out_parts.append(f'<div class="grouphead">{html.escape(group)}</div>')
         last_group = group
+        if page is None:
+            num += 1
+            mark = f'{num} / {total}'
+        else:
+            mark = html.escape(page)
         out_parts.append(
             f'<section class="slide" id="s{n}">{body}'
             f'<div class="foot"><span>{html.escape(footer)}</span>'
-            f'<span>{n} / {total}</span></div></section>')
+            f'<span>{mark}</span></div></section>')
         if notes and not send:
             out_parts.append(f'<aside class="notes">{notes}</aside>')
 
@@ -275,7 +297,7 @@ def build(deck_dir, send=False):
     if send and ('class="notes"' in doc):
         sys.exit("build_deck FAIL: send build still contains notes markup")
     kb = out.stat().st_size // 1024
-    print(f"build_deck OK: {out.name} — {total} slide(s), {kb} KB, "
+    print(f"build_deck OK: {out.name} — {len(entries)} slide(s), {kb} KB, "
           f"self-contained{' (send: notes & review-only stripped)' if send else ''}")
     return out
 
