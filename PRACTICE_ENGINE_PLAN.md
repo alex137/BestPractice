@@ -1436,22 +1436,27 @@ reaches: [spec/LOADER.md](spec/LOADER.md)'s v5 section.)*
 
 ### What phase 5 should carry forward
 
-**The cross-source resident budget cap is built (2026-09-01); running it
-against the real private sets is not.**
-[spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)'s open gap —
-nothing capped the resident block across all three sources, only within
-this repo's own `practices/` directory — was found still unaddressed by a
-2026-09-01 deep-check audit, with no combined-figure report on file
-anywhere. `tools/precedent_resolve.py` now computes it and exits 1 when the
-resolved set's combined resident block exceeds the same 2,000-token cap
-`tools/build_views.py` enforces locally (`check_cross_source_resident_budget`
-in `tools/verify_harness.py` tests both directions). What remains needs a
-session opened directly against the real `precedent-individual` and
-`precedent-team-maintainers` repos, for the same structural reasons phase 3
-itself could not populate them from here — see
-[spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)'s "cross-source
-resident cap" section for the exact command. Phase 5's creation pipeline
-should assume this check exists and is live, not plan around building it.
+**The cross-source resident budget cap is built (2026-09-01) and has now
+been run against the real private sets (2026-09-02).** With all three
+repositories attached (per
+[decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md)),
+`python3 tools/precedent_resolve.py --repo <a consumer config naming
+universal + team> --user-config <a config naming the individual set>`
+resolved the real 54 universal + 40 team + 5 individual practices (97
+after 2 team/individual overrides replace their universal originals) and
+reported: **resident block across all sources: ~659 of 2000 token budget
+(10 practices: `bold-key-phrases`, `nonblocking-questions`, `small-calls`
+from the team set; `buenos-aires-dates` from the individual set;
+`environment-gotchas`, `orientation-map`, `quick-index`,
+`reply-links-files`, `repo-is-memory`, `verify-postcondition` from the
+universal set)**, exit 0 both plain and `--strict`. Comfortably under
+budget — neither private set marked more than a practice or two `tier:
+resident`, matching [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)'s
+prediction of what would make it fire, and it didn't. This closes
+[spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)'s "Done when" list
+in full. Phase 5's creation pipeline should assume this check exists, is
+live, and currently passes with real headroom (~1,341 tokens) — not plan
+around building or first-running it.
 
 **A promotion step that accepts a `checked_by` string has re-created the
 problem phase 4 spent its first hours undoing.** The creation pipeline should
