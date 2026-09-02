@@ -42,10 +42,12 @@ drift and proprietary leakage loud instead of silent.
 > private branch (step 7), and it becomes official only at the
 > review-and-merge that the [guided install](SETUP.md) walks an
 > administrator through in conversation rather than as a technical
-> checklist. The one
-> decision only you can make: **which private names and code words must
-> never leak into a public file** (step 4) — your assistant cannot guess
-> your project's secrets, so it will ask you directly.
+> checklist. Two decisions only you can make: **which private names and
+> code words must never leak into a public file** (step 4) — your
+> assistant cannot guess your project's secrets, so it will ask you
+> directly — and **whether your team or you personally already have your
+> own practices repo to wire in** (step 9) — most projects don't yet, and
+> that's a fine answer, but you're the only one who'd know if you do.
 
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
@@ -190,6 +192,54 @@ drift and proprietary leakage loud instead of silent.
    it recorded only in this file. This install's own Actions check and PR
    template both need a line there; anything a future update adds does
    too.
+9. **Ask about team and individual practice sources** (PRACTICE_ENGINE_PLAN.md's
+   "Source — Who a Practice Belongs To"). This universal layer is one of
+   three a project can run. Ask the administrator directly: *"Does your
+   team already have its own practices repo — shared conventions beyond
+   what's generic enough for the public BestPractice? Does anyone here
+   have their own personal one — facts specific to them, like a commit
+   identity or a personal shorthand?"* Most projects have neither yet, and
+   that's a complete, valid answer — this step exists so the option is
+   actually offered, not assumed away.
+   - **If yes to a team source:** add `precedent.json` at the project root
+     (create it if this is the first source beyond universal) declaring it:
+     ```json
+     {
+       "sources": [
+         {"level": "universal", "name": "precedent", "path": "process/upstream"},
+         {"level": "team", "name": "<their repo's name>", "path": "../<their repo's name>"}
+       ]
+     }
+     ```
+     A team source is **resolved live from a sibling checkout, never
+     vendored** — it already has its own repo and its own maintainers, so
+     copying it in would just be a second, driftable copy. `path` is
+     relative to the project root; whoever works from the project needs
+     that sibling repo checked out (or added to the session, on a hosted
+     agent platform) for it to resolve.
+   - **If yes to an individual source:** that person declares it
+     themselves, in their **own** user-level config
+     (`~/.config/precedent/config.json`, or wherever `PRECEDENT_USER_CONFIG`
+     points) — **never** in this project's own tracked files. Naming a
+     person's individual set in a shared project's `precedent.json` would
+     leak its existence and location to everyone else who can read that
+     project, and `tools/precedent_resolve.py` refuses it outright for
+     exactly that reason. On an ephemeral or cloud coding environment where
+     nothing under `$HOME` survives between sessions, that config has to be
+     recreated every session — a `SessionStart` hook, committed to the
+     *project* (not the individual repo), that clones the person's set and
+     writes the config file automatically solves this with zero manual
+     steps; see
+     [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     step 4 for the worked pattern.
+   - See [examples/practice-set/](examples/practice-set) for what an
+     individual set's files actually look like, and
+     [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
+     for **universal source**, **team source**, and **individual source**
+     as terms.
+   - This step isn't only for a fresh install — see §2 step 3 for asking it
+     again on an update, since a project's answer can change after this
+     one-time question at install.
 
 `.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8),
 appended to the baseline `.gitignore` instantiated above from
@@ -237,8 +287,13 @@ deliberate procedure below.
    ([templates/github-actions/](templates/github-actions/README.md)), or the
    PR template
    ([templates/pull_request_template.md.template](templates/pull_request_template.md.template)).
-   Instantiate them exactly as §1 describes and add manifest entries — a
-   short catch-up prompt ("take the BestPractice update") is enough to
+   The same applies to a question, not just a file: if this repo installed
+   before §1 step 9 existed, **ask about team and individual practice
+   sources now** — a project doesn't get only one chance at install to say
+   yes, and a "no" the first time (or before the option existed at all)
+   isn't permanent. Instantiate them exactly as §1 describes and add
+   manifest entries — a short catch-up prompt ("take the BestPractice
+   update") is enough to
    propagate a newly introduced template like this to every repo that
    already installed BestPractice before it existed.
 4. **Fix legacy layout.** Older installs sometimes scattered
@@ -519,8 +574,10 @@ on, across the whole lifecycle:
   also be shown `VOICE.md`'s default writing-style rules and asked
   whether to change them, and asked whether a brand guideline exists to
   fill in `STYLEGUIDE.md` from — both stay entirely local to your project.
-  See the [guided install](SETUP.md) for the conversational version of
-  this.
+  You'll also be asked whether your team, or you personally, already have
+  a practices repo of your own to wire in (§1 step 9) — most projects
+  don't yet, and saying so is a complete answer. See the
+  [guided install](SETUP.md) for the conversational version of this.
 - **At every check-in (§4), only if your project gives back at all
   (§3–§4 are both optional):** review the plain-language summary of what's
   being proposed back to the public BestPractice project, and approve,
