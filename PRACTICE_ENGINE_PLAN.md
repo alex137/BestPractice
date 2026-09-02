@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session, to version 29 -->
+<!-- Last updated: 2026-09-02 (Buenos Aires) by the first real Precedent beta-test session, to version 30 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -156,6 +156,9 @@ hold hundreds of practices without the resident set moving.
 | **Practice** | The unit. One file. Replaces both BestPractice's "practice" and RPP's "rule" as the name of the thing. |
 | **Rule** | The imperative section *inside* a practice — one to three sentences. Not a synonym for practice. |
 | **Source** | Where a practice comes from and who may see it: Precedent, a Team set, or an Individual set. |
+| **Universal source** | The Precedent catalogue itself, vendored into a consumer repo at `process/upstream/` and tracked in its `process/manifest.json`. Every consumer repo has one. |
+| **Team source** | A team's own shared conventions, kept in the team's own repo and declared in a consumer repo's `precedent.json` — resolved live from a sibling checkout, never vendored, because the team already maintains it independently. *(Added 2026-09-02, against a real gap found installing a team source for the first time in a dependent repo: this term and Individual source below weren't named on their own, only folded into Source's definition — see [INSTALL.md](INSTALL.md) §1 step 9.)* |
+| **Individual source** | One person's own facts — commit identity, a timezone, a personal shorthand — kept in their own private repo and declared only in their own user-level config (`~/.config/precedent/config.json`, or `PRECEDENT_USER_CONFIG`), never in any shared repo's tracked files. The one case a consumer repo's own `precedent.json` refuses by name. |
 | **Precedent** | The public repo: the engine, the checks, and the universal practice catalogue. BestPractice itself, restructured — the work lands on a branch and merges back. |
 | **Consumer repo** | Any project that uses practices. |
 | **Resolved set** | What a given repo and person actually get after merging their sources. |

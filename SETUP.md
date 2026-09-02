@@ -12,16 +12,22 @@ technical work yourself.
    the project. Tell the administrator, in one sentence, what you are
    about to set up: a practice layer that gives their project durable
    memory, safe concurrent work, and a Getting Started page for members.
-2. **Ask exactly two questions**, together in one message, and wait:
+2. **Ask exactly three questions**, together in one message, and wait:
    - *What is this project about?* (one or two sentences)
    - *Are there private names or code words that must never appear in
      anything public?* Explain why in one sentence: parts of the practice
      layer can flow back to a public repository, and this list is the
      guard that keeps their private vocabulary out of it.
+   - *Does your team already have its own practices repo, or do you
+     personally have one?* Explain in one sentence: BestPractice is only
+     one of three layers this can run — a team's own shared conventions,
+     and one person's own facts, can each live in their own repo and be
+     wired in too. Most projects answer no to this one, and that's a
+     complete answer — the point is offering it, not expecting one.
 3. **Install without further questions.** Fetch the public repo
    `https://github.com/alex137/BestPractice` (add it to the session or
    clone it), copy its working tree into `process/upstream/`, then follow
-   [process/upstream/INSTALL.md](INSTALL.md) §1 using their two answers:
+   [process/upstream/INSTALL.md](INSTALL.md) §1 using their answers:
    instantiate `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`,
    `GETTING_STARTED.md`, `VOICE.md`, and `STYLEGUIDE.md` from the
    templates; insert the README agent-entry block — but the project comes
@@ -35,6 +41,11 @@ technical work yourself.
    `templates/github-actions/` as `.github/workflows/bestpractice-docs.yml`;
    and install `templates/pull_request_template.md.template` as
    `.github/pull_request_template.md`.
+   If they answered yes to the third question, follow INSTALL.md §1 step 9
+   for what to actually do with a team or individual repo (a team source
+   goes in a new `precedent.json`; an individual source is never touched
+   by this session at all — it's declared in that person's own user-level
+   config, not this project).
    `VOICE.md` and `STYLEGUIDE.md` are installed with the templates'
    defaults unchanged for now — they get reviewed explicitly with the
    administrator in step 4, not adapted here.
