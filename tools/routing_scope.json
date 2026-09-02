@@ -6,7 +6,7 @@
     "omission. This is the same discipline tools/section_split.json uses for the",
     "editorial split.",
     "'**' means the path channel never fires for this practice: it is reachable",
-    "GATES are the fourth loading channel: a named MOMENT, not a place. A practice whose occasion is a moment cannot be reached by a glob, however well written -- that is why 24 entries here stay at '**'. tools/precedent_gate.py loads a gate's practices at the moment it is reached.",
+    "GATES are the fourth loading channel: a named MOMENT, not a place. A practice whose occasion is a moment cannot be reached by a glob, however well written -- that is why 26 entries here stay at '**'. tools/precedent_gate.py loads a gate's practices at the moment it is reached.",
     "through the occasion index, a gate, or a check, and the 'why' says which.",
     "tools/verify_harness.py fails if practices/*.md and this file disagree.",
     "THE RULE THIS PASS SETTLED ON, after two rounds of narrowing: a glob is justified only where the path identifies the practice's DISTINGUISHING condition, not merely a necessary one. 'A rule is being written' is necessary for volatile-rules-carry-dates and not distinguishing; 'a new rule is being written' IS distinguishing for cite-the-incident. Applying that uniformly is what stopped this pass from becoming a search for globs that make a number move."
@@ -178,10 +178,12 @@
     },
     "lead-with-what-it-is": {
       "globs": [
-        "README.md"
+        "README.md",
+        "SETUP.md",
+        "templates/GETTING_STARTED.md"
       ],
-      "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
-      "decided": "phase 1"
+      "why": "Phase 1 scoped this to README.md alone from the Install text, but the practice's own occasion is \"writing a README or other project-facing entry document\" -- and AGENTS.md's own Conventions section (readers-vocabulary) already names SETUP.md and templates/GETTING_STARTED.md alongside README.md as this repo's other outward-facing entry documents. Left at README.md only, the glob silently missed the two files the occasion's own \"or other\" clause names.",
+      "decided": "phase 1, widened in the 2026-09-02 deep-check pass"
     },
     "merge-authorization-keyword": {
       "globs": [

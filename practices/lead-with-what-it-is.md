@@ -3,7 +3,7 @@ slug:        lead-with-what-it-is
 title:       A project's own document leads with what the project is
 tier:        on-demand
 severity:    default
-applies_to:  ["README.md"]
+applies_to:  ["README.md", "SETUP.md", "templates/GETTING_STARTED.md"]
 occasion:    "writing a README or other project-facing entry document"
 gates:       []
 index_clause: "say what the project is before how it is maintained"
