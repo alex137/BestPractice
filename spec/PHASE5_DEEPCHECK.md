@@ -8,10 +8,12 @@ pressure on the real creation-pipeline tooling, real candidates run through
 [tools/precedent_promote.py](../tools/precedent_promote.py) and
 [tools/precedent_land.py](../tools/precedent_land.py) for real, and a fresh run of
 every repo's own deep-check suite rather than trusting last session's green
-run. This is that session's account — four real bugs found and fixed in the
-pipeline tooling itself, two real candidates landed end to end, and a fresh
-harness run across all three repos that found real, pre-existing drift
-nobody had caught yet. Written the way [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md)'s
+run. This is that session's account — five real bugs found and fixed
+across the pipeline and documentation tooling, two real candidates landed
+end to end, the step-5 loader-bridge gap closed and proven against the
+real private sets, and a fresh harness run across all three repos that
+found real, pre-existing drift nobody had caught yet. Written the way
+[spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md)'s
 own "Two real bugs this phase's own harness work found" section is written:
 what broke, not just that something was checked.
 
@@ -105,12 +107,12 @@ and are now genuinely live in their target repos' working trees on this
 branch:
 
 - **Individual** — [`match-parsed-id-not-prefix`](https://github.com/themorgan/precedent-individual/blob/claude/bestpractice-deep-test-tkb03u/practices/match-parsed-id-not-prefix.md),
-  landed in `precedent-individual`, approved by "Morgan F". The bug-2 story
-  above, written up as a portable practice for any codebase, not just this
-  one.
+  landed in `precedent-individual` with the owner's own approval, per that
+  level's design. The bug-2 story above, written up as a portable practice
+  for any codebase, not just this one.
 - **Team** — [`resolved-issue-note-updates`](https://github.com/themorgan/precedent-team-maintainers/blob/claude/bestpractice-deep-test-tkb03u/practices/resolved-issue-note-updates.md),
-  landed in `precedent-team-maintainers`, approved by "Morgan F" (a real
-  name in that repo's own `approvers.json`). Raised from watching
+  landed in `precedent-team-maintainers` with a real approver's name from
+  that repo's own `approvers.json`. Raised from watching
   [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md)'s own "not yet fixed" bug note go
   stale the moment this session fixed the bug it described — applied to
   itself in the same commit as the fix, immediately below.
@@ -166,35 +168,125 @@ unnoticed since they were committed:
   keys, to pass the check as currently written without presuming which way
   the rule should change.
 
-## An open calibration question, surfaced but not resolved: the leak gate's vocabulary layer
+## The leak gate's vocabulary layer — miscalibrated, confirmed and fixed
 
 The brief asked whether
-[`precedent-individual/leak-blocklist.txt`](https://github.com/themorgan/precedent-individual/blob/claude/bestpractice-deep-test-tkb03u/leak-blocklist.txt)
-is miscalibrated or whether the vocabulary layer has simply never run clean.
-Running it for real against this branch's current tree (`PRECEDENT_LEAK_BLOCKLIST`
-pointed at the real file, `git config precedent.requireVocabulary true`,
-reverted immediately after) found **51 hits, every single one** on exactly
-two patterns: `\bthemorgan\b` and `\bBuenos\s+Aires\b` (plus the one literal
-`\bAmerica/Argentina/Buenos_Aires\b` timezone (TZ) string). Zero hits on any other
-line in the blocklist — the email, the account-ID-shaped number, or any of
-the other private project names.
+[`precedent-individual/leak-blocklist.txt`](https://github.com/themorgan/precedent-individual/blob/main/leak-blocklist.txt)
+is miscalibrated or whether the vocabulary layer has simply never run
+clean. Running it for real against this branch's current tree
+(`PRECEDENT_LEAK_BLOCKLIST` pointed at the real file, `git config
+precedent.requireVocabulary true`, reverted immediately after) found **51
+hits, every single one** on exactly two patterns: `\bthemorgan\b` and
+`\bBuenos\s+Aires\b` (plus the one literal
+`\bAmerica/Argentina/Buenos_Aires\b` timezone (TZ) string). Zero hits on
+any other line in the blocklist — the email, the account-ID-shaped number,
+or any of the other private project names.
 
-This reads as **miscalibration, not a real leak**: every hit is inside a
+That read as **miscalibration, not a real leak**: every hit was inside a
 `<!-- Last updated: ... (Buenos Aires) -->` header or a
 `github.com/themorgan/...` URL — exactly the two conventions this branch's
 own docs use constantly, by design (`volatile-rules-carry-dates`, and
 every cross-repo link this deep-check's own write-up above also uses). It
-also matches
+also matched
 [`decisions/2026-09-01-relax-private-repo-isolation.md`](../decisions/2026-09-01-relax-private-repo-isolation.md)'s
 own recorded reasoning verbatim: "Morgan's own identifying information
-(name, email) is already public." **Not changed here** — loosening a
-private blocklist is Morgan's own risk-tolerance call, not a documentation
-fix this session should make unilaterally. If that reasoning still holds,
-the fix is narrowing `leak-blocklist.txt`'s two over-broad patterns (or
-scoping `\bthemorgan\b` to contexts that aren't already-public GitHub URLs);
-if it doesn't, the fix is the other direction — stop writing the literal
-city name and GitHub handle into public prose, which would be a much
-larger, disruptive change to an established convention.
+(name, email) is already public." **Morgan confirmed the call**, so the
+three over-broad patterns were removed from `leak-blocklist.txt` (the email,
+domain, full name, and account-ID number were left alone — they never
+showed a false-positive hit, so loosening them would have been the same
+mistake in the other direction: reasoning instead of evidence). Re-running
+the vocabulary layer for real, fresh, after the fix:
+
+```
+leak gate OK: 657 unit(s) in the tracked tree clean against 4 path rule(s),
+3 content rule(s) and 13 blocklist pattern(s) from
+/home/user/precedent-individual/leak-blocklist.txt.
+```
+
+**The vocabulary layer now genuinely runs clean on this branch** — the
+first time that has been true since it was switched on. One real hit
+surfaced along the way and is worth naming: this very document's own first
+draft quoted the real approver's full name in prose (the two landed
+practices' `approved_by` value), which the now-correctly-still-blocked
+`\bMorgan\s+F\b` pattern caught — fixed by rephrasing rather than by
+loosening that pattern, since (unlike the handle and the city) it had never
+shown up anywhere else in this branch's own conventions.
+
+## A fifth bug, found writing this very document: a glossed acronym still got re-flagged
+
+While fixing the acronym warnings this document's own drafts triggered
+(`tools/doc_lint.py` and `tools/precedent_check.py`'s `acronyms-glossary`
+check), expanding an acronym on its first use — *pull request (PR)* — did
+not stop a **second, later, bare** mention of `PR` in the same document
+from being flagged again. Both `doc_lint.py`'s `check_file` and
+`precedent_check.py`'s `_unglossed` (a near-duplicate of the same loop,
+per the latter's own docstring: "one detector, two callers") only added a
+token to their `seen`/`seen_acr` set **inside the violation branch** —
+so a correctly-glossed use, which never entered that branch, never marked
+the acronym as seen for anything after it. "Expand an acronym on first
+use" (the practice's own Rule) silently only ever worked if that acronym
+was used exactly once more, or not at all. Fixed in both places: a token
+is recorded as seen the moment it's first encountered, glossed or not,
+so a real gloss actually protects every later bare mention — confirmed
+with a planted case in each direction
+(`verify_harness.py`'s `check_doc_lint_fires`, two new stated cases).
+
+## The step-5 loader bridge — closed, and proven against the real private sets
+
+`spec/PHASE5_BRIEF.md`'s own step 5 named a real, unrehearsed gap: only
+`tools/precedent_resolve.py` understands more than one source directory —
+`build_views.py`, `precedent_paths.py`, `precedent_gate.py` and
+`precedent_check.py` all read a single local `practices/` directory,
+hard-coded, with no flag to point elsewhere. The brief named "materialize a
+merged tree" as the fastest of two shapes worth trying — a script that
+calls `resolve()` and writes the winning practices into one
+`practices/`-shaped directory, then points the existing tools at it
+unchanged.
+
+**Built as [tools/precedent_materialize.py](../tools/precedent_materialize.py),
+and proven for real** against the two real private sets, not a fixture:
+resolved and materialized the actual 54 universal + 40 team + 5 individual
+practices into a scratch consumer directory (99 after 2 overrides), wrote a
+`MANIFEST.json` (per `generated-artifact-provenance`: what produced the
+snapshot, when, and each file's content hash — the honest cost of a derived
+artifact, named rather than hidden), then ran the **unmodified**
+`build_views.py` against that directory:
+
+```
+build_views OK: wrote AGENTS.md (loader block regenerated, resident 10/99
+practices, ~659 tokens), MAP.md, GLOSSARY.md
+```
+
+**Both figures match `PRACTICE_ENGINE_PLAN.md`'s own "What phase 5 should
+carry forward" note exactly** (~659 of 2000, the same 10 practices) — a
+real, independent confirmation of a number that section could previously
+only report from a one-off resident-budget run, now reproducible by a
+tool. The regenerated `AGENTS.md`'s resident block genuinely combined all
+three sources — `bold-key-phrases`/`nonblocking-questions`/`small-calls`
+from the team set, `buenos-aires-dates` from the individual set, the rest
+from universal — not just proving files got copied. `precedent_paths.py`
+and `precedent_gate.py`, run unmodified against the same materialized
+directory, also correctly surfaced team-level practices
+(`brainstorm-citations` on a path match; `deep-check`/`go-merge`/
+`mirror-into-agents`/`private-repo-scrub` on the `merge` gate) alongside
+universal ones. `precedent_check.py --list` loads cleanly too, though most
+of its individual checks are BestPractice-catalogue-specific and not
+meaningfully runnable against a generic consumer tree — not exercised
+further here.
+
+**Scope, stated plainly**: this tool materializes the CONTENT half only
+(`practices/` + each source's `tools/checks/`, refusing a same-name
+collision across sources rather than silently letting one win — a real
+case, not a hypothetical: both private sets' own `tools/checks/tests/`
+carry a `run_all.sh` driver, which isn't a per-check file and is skipped
+and reported rather than falsely flagged as colliding). It does **not**
+vendor the engine scripts (`build_views.py` and friends) — that half was
+already solved (clone/copy this repo's `tools/`, per `INSTALL.md`'s
+existing vendoring model) and is a separate concern from the content-merge
+gap this closes. A real consumer repo's `AGENTS.md` is also not created by
+this tool — a real one already has the generated-block markers from
+`INSTALL.md`'s install step; the harness test seeds a minimal one only to
+prove the mechanism.
 
 ## What this deep-check deliberately did not attempt
 
@@ -202,18 +294,103 @@ Scoped out, not overlooked — the brief itself frames the consumer-repo
 migration rehearsal as "the biggest and least certain piece of work in this
 brief" and says to do it last, after everything above:
 
-- **The fork-a-consumer-repo rehearsal** (`WritingWithAI`, Phase 6's own
-  first real test) — that repo is outside this session's repository scope
-  (only `alex137/BestPractice`, `precedent-individual`, and
-  `precedent-team-maintainers` are attached), so it could not be started
-  without first requesting access to a fourth repo for a rehearsal the
-  brief itself calls the least certain, highest-cost item on its list.
+- **The fork-a-consumer-repo rehearsal** (Phase 6's own first real test,
+  against Morgan's real target repo rather than a
+  disposable fork — see the naming discrepancy below) — that repo is
+  outside this session's repository scope (only `alex137/BestPractice`,
+  `precedent-individual`, and `precedent-team-maintainers` are attached),
+  so it could not be started without first requesting access to a fourth
+  repo. Morgan will run this in a session coming up soon; notes for that
+  session are below. **No new permission or credential is needed for the
+  parts a session can do unassisted** — the same GitHub connection already
+  used to create and merge every pull request (PR) and to file an Issue in this session
+  works the same way against a newly-attached repo. What genuinely can't
+  be done by a session alone is the "non-collapsed" team-level approval
+  path itself: Stage 4's design is that a *second human* (Morgan or Alex)
+  actually reviews and approves on GitHub — a session opening that PR
+  without a human reviewing it isn't really testing the reviewed-approval
+  path, just leaving a branch open.
 - **Filing a real universal candidate as a GitHub Issue**, and **opening a
   real team-level pull request** (the two manual paths the brief asks to be
   exercised at least once) — both are real, externally-visible actions
   (a public Issue, a real pull request (PR)) this session did not take without asking
   first, consistent with checking before anything visible to others or
   hard to reverse. Both remain open if Morgan wants them done.
-- **The pre-fork catalogue audit table** and **`for_team:`/`in_repos:`**
-  — both still correctly deferred per the brief's own reasoning; nothing
-  found during this pass changes either call.
+- **The pre-fork catalogue audit table** — genuinely unblocked, real
+  bounded work (one row per pre-fork practice: active-as-is / rewritten /
+  superseded / merged, plus whether Alex needs to hear about it), just
+  never done; not attempted this pass without an explicit go-ahead.
+  **`for_team:`/`in_repos:`** — still correctly deferred (fully designed in
+  `PRACTICE_ENGINE_PLAN.md`'s Deferred section; not built because no real
+  second team exists yet to test `for_team:`'s conflict rule against).
+  Neither is currently tracked in `TODO.md` at all, which is the actual gap
+  behind both being *restated* fresh in every brief rather than *tracked
+  once* — worth one line each there (the audit table actionable now,
+  `for_team:`/`in_repos:` marked "blocked on: a real second team's private
+  set existing") so a future session checks one line instead of
+  re-deriving the whole judgment.
+
+  **On whether `precedent-team-maintainers` applying to `BestPractice`
+  itself would satisfy that precondition**: not quite, and worth being
+  precise about why. `BestPractice`'s own `precedent.json` today declares
+  only the universal source — `precedent-team-maintainers` has never
+  actually been wired in as this repo's live team source, despite
+  `precedent-team-maintainers`'s own README describing itself as exactly
+  this team's conventions ("one small group's working conventions... losing
+  to a person's own individual set", listing Morgan and Alex, the people
+  who maintain `BestPractice`/Precedent). Wiring it in is a real, correct,
+  overdue move on its own merits — the cross-source resident-budget cap has
+  only ever been tested against a *synthetic* consumer config naming it,
+  never `BestPractice`'s own real one — but it gives Precedent **one** team
+  in force, not two. `for_team:` specifically needs the *same* individual
+  practice to resolve differently depending on which of *two different*
+  teams' repos a person is working in, so testing it needs a second,
+  distinct team somewhere else — plausibly the live-migration test's own
+  target repo (below), if it ends up with its own team set. Wiring
+  `precedent-team-maintainers` into
+  `BestPractice` now would be team #1 for that eventual test, and is also
+  independently valuable regardless of whether `for_team:` is ever built:
+  it would, for the first time, make `precedent_resolve.py` see a real
+  difference between what's declared and what `BestPractice`'s own
+  generated `AGENTS.md`/enforced channel actually reflects — exactly the
+  step-5 bridge gap above, exercisable on this repo alone, without needing
+  that repo at all. Not done this pass (a real change to this
+  repo's own live configuration); worth a session doing on purpose,
+  eyes-open to that consequence, if Morgan wants it.
+
+### Notes for the next session: the live migration test
+
+Everything below is **the target-repo-specific half** of what this
+deep-check found worth doing before that test — deliberately left for the
+session that actually has that repo attached, per Morgan's own call:
+
+- **Do it on a branch, not directly on the target repo's live default
+  branch** — even calling it a "real-live test," a branch there costs
+  nothing and is trivially revertible if the step-5 bridge (now built and
+  proven against the two real private sets above, but never against a
+  *third*, unrelated repo's content) turns out uglier than expected there.
+- **Check whether the target repo needs its own `leak-blocklist.txt`
+  entries** before anything gets pushed from it back toward
+  `BestPractice`/Precedent — get that configured first, not after; this
+  session's own leak-gate work above found a real hit in its own prose on
+  the very first real run, so treat "surely nothing leaks" as unproven
+  until actually run.
+- **`tools/precedent_materialize.py` is now available** for step 5 of the
+  brief's own walkthrough — point `--repo`/`--user-config` at
+  the target repo's real `precedent.json` (naming universal +
+  `precedent-team-maintainers`, or a real second team if one exists there)
+  and a user config naming `precedent-individual`, materialize into the
+  fork, then vendor this repo's engine `tools/*.py` alongside it (the
+  already-solved half — see the tool's own docstring for the split) and
+  seed the fork's real, hand-authored `AGENTS.md` with the generated-block
+  markers per `INSTALL.md`. Confirm `precedent_check.py --explain` on a
+  real, target-repo-specific slug too, which this session did not push
+  past `--list`.
+- **Confirm a naming discrepancy before starting**: `spec/PHASE5_BRIEF.md`'s
+  own step 0 says fork `WritingWithAI`; `precedent-individual`'s
+  `leak-blocklist.txt` names a different-looking private project name for what may be the same repo. Worth
+  confirming those are the same repo before anything else, since this
+  session has no access to check.
+- **Raise at least one real candidate from something the migration itself
+  surfaces** — the brief's own repeated ask, and a better test done inside
+  a real migration than in isolation, per its own reasoning.

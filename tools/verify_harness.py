@@ -1370,6 +1370,27 @@ def check_doc_lint_fires():
         residue2 = dl.check_residue('flagged.md')
         cases.append(('a genuine verify-later flag is still caught',
                       bool(residue2)))
+
+        # Deep-check regression case: seen_acr used to be recorded only on
+        # the VIOLATION branch (inside the `if ... f'({tok})' not in clean`
+        # block), so a term correctly glossed on first use never actually
+        # marked the acronym as seen -- a second, later BARE mention of the
+        # same term still got flagged, defeating "expand on first use"
+        # entirely for any document that used a glossed acronym twice.
+        (tmp / 'glossed-twice.md').write_text(
+            "Uses the pull request (PR) flow. Later, another PR lands.\n",
+            encoding='utf-8')
+        _s, _u, glossed_twice, *_ = dl.check_file('glossed-twice.md', fix=False, known=set())
+        cases.append(("an acronym glossed on first use is not re-flagged on "
+                      "a later bare mention in the same document",
+                      not glossed_twice))
+
+        (tmp / 'never-glossed.md').write_text(
+            "Uses the ZQX flow. Later, another ZQX lands.\n", encoding='utf-8')
+        _s, _u, never_glossed, *_ = dl.check_file('never-glossed.md', fix=False, known=set())
+        cases.append(('an acronym never glossed at all is still caught '
+                      '(the baseline case, not regressed by the fix above)',
+                      bool(never_glossed)))
     finally:
         dl.ROOT = real_root
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1381,7 +1402,8 @@ def check_doc_lint_fires():
     check(f'doc_lint fires ({len(cases)} stated cases: cross-line and '
           f'same-line strikethrough, clean prose stays clean, a '
           f'*_decision.md link is not residue, a real verify-later flag is '
-          f'still caught)', ok)
+          f'still caught, a glossed acronym stays clean on reuse while an '
+          f'unglossed one is still caught)', ok)
 
 
 def check_practice_heading_parsing():
@@ -2577,6 +2599,108 @@ def check_gate_channel():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_materialize_bridges_loader():
+    """tools/precedent_materialize.py — the deep-check session's own answer
+    to spec/PHASE5_BRIEF.md's named gap: precedent_resolve.py is the only
+    multi-source-aware tool; build_views.py/precedent_paths.py/
+    precedent_gate.py/precedent_check.py all read a single local practices/
+    directory. Proven for real (not just unit-tested here) against the two
+    real private sets by that session; this harness case is the planted,
+    repeatable version: two throwaway sources (one universal-shaped, one
+    team-shaped) with a deliberate tools/checks/ filename collision AND a
+    resident-budget overage, confirming both refuse, then a clean pair
+    materializes and an unmodified build_views.py run against the output
+    actually produces a resident block naming a practice from EACH source
+    (not just proving files got copied)."""
+    import shutil, subprocess, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-materialize-'))
+
+    def write_practice(path, slug, rule, tier='on-demand', occasion='x'):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: {tier}\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "{occasion}"\n'
+            f'gates: []\nindex_clause: "x"\nchecked_by: null\ndefines: []\n'
+            f'status: active\nsupersedes: []\noverrides: null\n'
+            f'added: 2026-09-02\napproved_by: "harness, 2026-09-02"\n'
+            f'source_practice_number: null\n---\n## Rule\n{rule}\n\n'
+            f'## Why\nx\n\n## Story\nx\n\n## Install\nx\n', encoding='utf-8')
+
+    def write_check(path, body='VIOLATION: fixture\n'):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f'#!/usr/bin/env python3\nprint({body!r})\n', encoding='utf-8')
+
+    cases = []
+    try:
+        uni, team = tmp / 'universal', tmp / 'team'
+        write_practice(uni / 'practices' / 'uni-fixture.md', 'uni-fixture',
+                        'A universal fixture Rule.', tier='resident')
+        write_practice(team / 'practices' / 'team-fixture.md', 'team-fixture',
+                        'A team fixture Rule.', tier='resident')
+        write_check(uni / 'tools' / 'checks' / 'check_shared_name.py')
+        write_check(team / 'tools' / 'checks' / 'check_shared_name.py')
+
+        consumer = tmp / 'consumer'
+        (consumer).mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'uni', 'path': str(uni)},
+                        {'level': 'team', 'name': 'team', 'path': str(team)}]
+        }), encoding='utf-8')
+
+        materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
+
+        def run(*extra):
+            r = subprocess.run([sys.executable, materialize_tool, '--out', str(consumer),
+                                 '--repo', str(consumer), *extra],
+                                capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        # --- a tools/checks/ filename collision across sources refuses -----
+        rc, out = run()
+        cases.append(('a checks/ filename collision across two sources refuses',
+                      rc == 1 and 'collision' in out))
+
+        # --- an over-budget combined resident set refuses -------------------
+        (team / 'tools' / 'checks' / 'check_shared_name.py').unlink()
+        huge_rule = ' '.join(['word'] * 2000)
+        write_practice(team / 'practices' / 'huge-fixture.md', 'huge-fixture',
+                        huge_rule, tier='resident')
+        rc, out = run()
+        cases.append(('an over-budget combined resident set refuses to materialize',
+                      rc == 1 and 'over' in out and 'budget' in out))
+
+        # --- a clean pair materializes, and an UNMODIFIED build_views.py run
+        # against the output actually shows both sources' resident practices --
+        (team / 'practices' / 'huge-fixture.md').unlink()
+        rc, out = run()
+        materialized_ok = (rc == 0 and (consumer / 'MANIFEST.json').exists()
+                            and (consumer / 'practices' / 'uni-fixture.md').exists()
+                            and (consumer / 'practices' / 'team-fixture.md').exists())
+
+        for f in ('build_views.py', 'split_practices.py'):
+            shutil.copyfile(ROOT / 'tools' / f, consumer / 'tools' / f)
+        (consumer / 'AGENTS.md').write_text(
+            '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'build_views.py')],
+                            capture_output=True, text=True, cwd=str(consumer))
+        agents_text = (consumer / 'AGENTS.md').read_text(encoding='utf-8') \
+            if (consumer / 'AGENTS.md').exists() else ''
+        cases.append(('a clean materialize + unmodified build_views.py run produces '
+                      "a resident block naming BOTH sources' practices, not just one",
+                      materialized_ok and r.returncode == 0
+                      and 'uni-fixture' in agents_text and 'team-fixture' in agents_text))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'precedent_materialize.py bridges the loader ({len(cases)} stated cases: '
+          f'a checks/ collision refuses, an over-budget combined set refuses, a clean '
+          f"materialize feeds an unmodified build_views.py both sources' content)",
+          not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_detect_restated_fires():
     """`precedent_detect.py restated` (Stage 1's cross-source duplicate-Rule
     scan) had zero harness coverage before this deep-check pass -- a real
@@ -2891,6 +3015,7 @@ def main():
     check_precedent_check_fires()
     check_routing_scope(files)
     check_gate_channel()
+    check_materialize_bridges_loader()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
 

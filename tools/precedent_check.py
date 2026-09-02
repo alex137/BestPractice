@@ -657,9 +657,18 @@ def _unglossed(text, known):
         clean = dl._decontent(line)
         for m in dl.ACRONYM_RE.finditer(clean):
             tok = m.group(1)
-            if tok not in known and tok not in seen and f'({tok})' not in clean:
+            if tok in known or tok in seen:
+                continue
+            if f'({tok})' in clean:
+                # Glossed right here -- covers this use and every later bare
+                # use in the same document (same fix as doc_lint.py's own
+                # check_file: recording `seen` only on the violation branch
+                # meant a correctly-glossed first use never protected a
+                # second, later bare mention).
                 seen.add(tok)
-                out.append((i, tok))
+                continue
+            seen.add(tok)
+            out.append((i, tok))
     return out
 
 
