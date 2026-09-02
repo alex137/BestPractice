@@ -41,14 +41,24 @@ NA = []
 # Post-conversion provenance exceptions -- both narrow and self-checking.
 # --------------------------------------------------------------------------
 
-# Practices that exist on Alex's live `main` but not in this repo's frozen
-# PRACTICES.md (the fork-point snapshot -- spec/PRACTICE_FORMAT.md).
+# Practices that existed on Alex's live `main` but not in this repo's own
+# PRACTICES.md at the time they were converted here (spec/PRACTICE_FORMAT.md).
 # Converted independently against `main`, not against PRACTICES.md, so the
-# fidelity checks below have no ancestor to compare against here and must
-# not read that absence as invention. Frontmatter values come back as
-# strings (see split_practices.py's own int(num) casts before comparison),
-# so these are strings too.
-POST_SNAPSHOT_PRACTICE_NUMBERS = {'53'}
+# fidelity checks below had no ancestor to compare against and had to not
+# read that absence as invention. Frontmatter values come back as strings
+# (see split_practices.py's own int(num) casts before comparison), so these
+# are strings too.
+#
+# EMPTIED 2026-09-02: practice 53 (`todo-is-a-handoff`) stopped qualifying
+# the moment a phase-5 pre-flight `git merge origin/main` brought main's own
+# "## 53." entry into this branch's PRACTICES.md -- an ancestor now exists,
+# so the fidelity checks run for real instead of skipping via this set, and
+# correctly found the same unregistered citation-link edit the 2026-09-01
+# sweep already exempted for the other 52 (see AMENDED_POST_CONVERSION and
+# CHANGES_TO_TELL_ALEX.md's "Slug-link citation sweep" entry, updated to
+# match). Left as an empty set, not deleted, because the mechanism is
+# real and will be needed again the next time `main` outruns this branch.
+POST_SNAPSHOT_PRACTICE_NUMBERS = set()
 
 # Practices deliberately rewritten after phase-1 conversion -- a real edit,
 # not a conversion bug -- keyed by slug.
@@ -75,6 +85,12 @@ AMENDED_POST_CONVERSION = {
     'scrub-gate', 'search-by-purpose', 'second-pass-capture', 'session-bootstrap',
     'tabular-shared-renderer', 'two-check-levels', 'variant-re-derives',
     'verify-decomposition', 'verify-postcondition', 'volatile-rules-carry-dates',
+    # Added 2026-09-02, when a phase-5 pre-flight merge of `main` gave
+    # practice 53 a real ancestor in PRACTICES.md for the first time on this
+    # branch (see the POST_SNAPSHOT_PRACTICE_NUMBERS comment above) and the
+    # fidelity checks found the same category of edit the rest of this set
+    # already covers: three "practice N" citations converted to slug links.
+    'todo-is-a-handoff',
 }
 
 CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'

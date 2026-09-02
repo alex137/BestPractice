@@ -96,11 +96,19 @@ declared *and* found in this file.
 `second-pass-capture` (21), `session-bootstrap` (13),
 `tabular-shared-renderer` (46), `two-check-levels` (44),
 `variant-re-derives` (29), `verify-decomposition` (42),
-`verify-postcondition` (32), `volatile-rules-carry-dates` (16).
+`verify-postcondition` (32), `volatile-rules-carry-dates` (16),
+`todo-is-a-handoff` (53, exempted 2026-09-02 once it gained an ancestor —
+see below).
 `todo-is-a-handoff` (BestPractice-`main` 53) also had its three citations
-converted, but needs no exemption here: it post-dates this branch's
-`PRACTICES.md` snapshot (`POST_SNAPSHOT_PRACTICE_NUMBERS`), so it already has
-no frozen ancestor for the fidelity checks to compare against.
+converted. **Updated 2026-09-02:** it needed no exemption when converted,
+since it post-dated this branch's `PRACTICES.md` snapshot at the time
+(`POST_SNAPSHOT_PRACTICE_NUMBERS`, then `{'53'}`) and had no frozen ancestor
+for the fidelity checks to compare against. A phase-5 pre-flight
+`git merge origin/main` brought main's own "## 53." entry into this branch's
+`PRACTICES.md`, so an ancestor now exists, the checks run for real, and
+`todo-is-a-handoff` needs the same exemption as the 52 above — moved into
+`AMENDED_POST_CONVERSION` and `POST_SNAPSHOT_PRACTICE_NUMBERS` emptied
+accordingly (both in `tools/verify_harness.py`).
 
 **Four citations were simply wrong**, found by resolving each one against its
 target's actual content rather than trusting the printed number — a defect
