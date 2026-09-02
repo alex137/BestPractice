@@ -217,6 +217,24 @@ drift and proprietary leakage loud instead of silent.
      relative to the project root; whoever works from the project needs
      that sibling repo checked out (or added to the session, on a hosted
      agent platform) for it to resolve.
+   - **Proposing a *new* practice into that team source later is a
+     separate question from installing the source itself, worth
+     mentioning here since it comes up the moment anyone actually uses
+     one:** whether it lands immediately or needs someone else's say-so
+     depends on whether whoever's proposing it is a listed approver in the
+     team repo's own `approvers.json`, not on how much git access their
+     session happens to have. A listed approver's own agreement already
+     is the approval `precedent_land.py` looks for — land it directly,
+     right in that conversation (`precedent_promote.py` then
+     `precedent_land.py --approved-by NAME`). Someone who isn't a listed
+     approver can't grant that regardless of what else they can write to,
+     so `precedent_candidate.py create --level team --as-issue true`
+     drafts a GitHub Issue on the team repo instead, for an actual
+     approver to act on later — see
+     [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)
+     for the full "file vs. Issue" reasoning (it also covers individual,
+     which never needs this: you're always the one who gets to say yes to
+     your own set).
    - **If yes to an individual source:** that person declares it
      themselves, in their **own** user-level config
      (`~/.config/precedent/config.json`, or wherever `PRECEDENT_USER_CONFIG`

@@ -2995,6 +2995,85 @@ def check_creation_pipeline_fires():
                       "Rule' heading does not corrupt the extracted Rule text",
                       rc == 0 and 'The real proposed rule text.' in out
                       and 'confused a naive parser' not in out))
+
+        # --- team --as-issue: authority, not access, decides the path ---------
+        # Added 2026-09-02 after a real dependent-repo session worked through
+        # exactly when a team candidate needs to become a GitHub Issue rather
+        # than a quiet candidates/ file: only when whoever's raising it is NOT
+        # a listed approver. A listed approver's own say-so already lands a
+        # team practice directly (precedent_land.py), so --as-issue and the
+        # nudge below are both about authority, never about git access.
+        team_repo = tmp / 'fixture-team'
+        (team_repo / 'candidates').mkdir(parents=True)
+        (team_repo / 'approvers.json').write_text(
+            json.dumps({'approvers': [{'name': 'Approved Person', 'github': 'approved-gh'}]}),
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=team_repo, check=True)
+        subprocess.run(['git', 'remote', 'add', 'origin',
+                        'https://github.com/fixture-owner/fixture-team.git'],
+                       cwd=team_repo, check=True)
+
+        def make_issue_draft(raised_by, **extra):
+            gh_repo = extra.pop('github_repo', None)
+            args = [cand_tool, 'create', '--level', 'team', '--path', str(team_repo),
+                    '--as-issue', 'true',
+                    '--slug', extra.pop('slug', 'pipeline-fixture-issue'),
+                    '--title', 't', '--signal', 'explicit-instruction',
+                    '--raised-by', raised_by, '--observed', 'a fixture incident',
+                    '--proposed-rule', 'Always do the fixture thing.',
+                    '--occasion', 'a fixture occasion', '--recurrence', '2']
+            if gh_repo:
+                args += ['--github-repo', gh_repo]
+            return pyrun(*args)
+
+        rc, out = make_issue_draft('Someone Not An Approver', slug='pipeline-fixture-issue-a')
+        no_file_written = not any(team_repo.glob('candidates/pipeline-fixture-issue-a-*.md'))
+        cases.append(('team --as-issue drafts a GitHub Issue body and URL, and '
+                      'writes nothing to candidates/, for a non-approver',
+                      rc == 0
+                      and 'github.com/fixture-owner/fixture-team/issues/new' in out
+                      and 'labels=precedent-candidate' in out
+                      and no_file_written))
+
+        rc, out = make_issue_draft('Approved Person', slug='pipeline-fixture-issue-b')
+        cases.append(('team --as-issue nudges toward landing directly when '
+                      "--raised-by is already a listed approver, by name",
+                      rc == 0 and 'already a listed approver' in out))
+
+        rc, out = make_issue_draft('approved-gh', slug='pipeline-fixture-issue-c')
+        cases.append(('the same nudge fires matching on the github handle, '
+                      'not just the display name',
+                      rc == 0 and 'already a listed approver' in out))
+
+        rc, out = pyrun(cand_tool, 'create', '--level', 'individual', '--path', str(repo),
+                        '--as-issue', 'true', '--slug', 'pipeline-fixture-issue-d',
+                        '--title', 't', '--signal', 'explicit-instruction',
+                        '--raised-by', 'harness', '--observed', 'x', '--proposed-rule', 'x')
+        cases.append(('--as-issue is refused for --level individual '
+                      '(no one else to notify)',
+                      rc == 1 and 'only applies to --level team' in out))
+
+        no_remote_repo = tmp / 'fixture-team-no-remote'
+        (no_remote_repo / 'candidates').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q'], cwd=no_remote_repo, check=True)
+        rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(no_remote_repo),
+                        '--as-issue', 'true', '--slug', 'pipeline-fixture-issue-e',
+                        '--title', 't', '--signal', 'explicit-instruction',
+                        '--raised-by', 'harness', '--observed', 'x', '--proposed-rule', 'x')
+        cases.append(('--as-issue refuses cleanly, without guessing, when the '
+                      'repo has no detectable GitHub remote and --github-repo '
+                      'was not given',
+                      rc == 1 and 'could not detect a GitHub owner/repo' in out
+                      and '--github-repo' in out))
+
+        rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(no_remote_repo),
+                        '--as-issue', 'true', '--github-repo', 'override-owner/override-repo',
+                        '--slug', 'pipeline-fixture-issue-f',
+                        '--title', 't', '--signal', 'explicit-instruction',
+                        '--raised-by', 'harness', '--observed', 'x', '--proposed-rule', 'x')
+        cases.append(('--github-repo overrides remote detection entirely, for '
+                      'a repo git could not identify on its own',
+                      rc == 0 and 'github.com/override-owner/override-repo/issues/new' in out))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
