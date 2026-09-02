@@ -190,6 +190,147 @@ at least once, so they are proven rather than only described:
   path — the collapsed path is tested; the path Stage 4 describes as the
   normal case for a larger team is not.
 
+### Testing this for real: upgrading a forked consumer repo
+
+Morgan's own request, and the single most valuable thing this session can
+do: **no repo has ever actually been migrated onto Precedent.** Phase 6 is
+where that is supposed to happen for real, but nobody has rehearsed it even
+once, and `INSTALL.md` still documents BestPractice's *old*, pre-fork
+vendoring model (`process/upstream/`, adaptive templates, a manifest) —
+correct for a project still on `main`, silent on what changes for a
+project that wants `precedent-beta-v01` instead. Doing this as a real,
+disposable dry run — on a **fork**, not the real repo, so nothing here
+touches Morgan's actual work — is exactly how phase 2's own premise got
+tested instead of assumed, and it should produce the same kind of thing:
+a written account of what held and what didn't, not a clean success story
+polished after the fact.
+
+**State this plainly going in, so it isn't mistaken for a mistake partway
+through: this is genuinely unrehearsed ground.** The steps below are this
+session's best reasoning from what actually exists (`precedent_resolve.py`,
+`precedent.json`, `ADOPTING.md`'s vendoring guidance, the individual-set
+bootstrap pattern already built and validated), not a procedure anyone has
+run before. Expect at least one real gap — one is named below, found while
+writing this brief, not by running the steps — and treat finding more of
+them as the point of doing this, not as this brief having been wrong.
+
+**0. Set up the fork, isolated from anything real.**
+Fork `WritingWithAI` on GitHub (a real fork, so it is a separate repo with
+its own default branch — not a branch of the original), and `add_repo` it
+to this session with push access. Everything from here on happens only in
+that fork.
+
+**1. Point the universal source at `precedent-beta-v01`, not `main` —
+the actual question Morgan asked.** `precedent.json`'s `path` for a source
+is read straight off the filesystem
+(`tools/precedent_resolve.py`'s `load_source`); nothing about it knows or
+cares which branch of BestPractice a checkout is on. So "point at
+`precedent-beta-v01`" only means: whatever directory that path names must
+itself be checked out to that branch. Two ways to satisfy that, and for a
+repo more than one person will ever work in, only the first one actually
+works:
+
+   - **Vendor it** (the model `ADOPTING.md` describes: "copy Precedent's
+     practice library into your project, as ordinary files"). Clone
+     BestPractice at `precedent-beta-v01`, copy its `practices/` tree into
+     the fork at a tracked path of your choosing (e.g. `precedent/universal/`),
+     and record the exact commit copied from — the same discipline
+     `precedent-team-maintainers/practices/install.md` already names for
+     the old vendoring model ("record the source repo and the commit it
+     was installed from, so a later sync has something real to compare
+     against"), ported to this branch rather than `main`. This is committed,
+     ordinary, git-tracked content: every contributor and every fresh
+     container gets it for free, with nothing to clone at session start.
+   - **Point at a local sibling clone** (what this session's own dev
+     environment does, and what a synthetic test fixture like
+     `check_source_precedence`'s does) — `precedent.json`'s `path` names an
+     absolute path to a `precedent-beta-v01` checkout that happens to exist
+     on this machine. Fine for a quick, throwaway, single-container
+     experiment; wrong for anything committed, since the path is
+     meaningless the moment anyone else opens the fork, or this same
+     container restarts.
+
+   **Vendor it, for this test** — the point is rehearsing what a real
+   migration looks like, and a real migration vendors.
+
+**2. Vendor the team source the same way**, from
+`precedent-team-maintainers`'s own `practices/`, and **wire the individual
+source using the pattern that's already built and already validated** —
+[`precedent-individual`'s own `claude-web-bootstrap.md`](https://github.com/themorgan/precedent-individual/blob/main/practices/claude-web-bootstrap.md)
+names the exact two files to copy in
+(`bootstrap/session-start.sh` → `.claude/hooks/`,
+`bootstrap/settings.snippet.json` merged into `.claude/settings.json`) and
+says this was "validated end-to-end 2026-08-31." Use it rather than
+re-deriving it.
+
+**3. Vendor each source's own `tools/checks/` alongside its `practices/`,
+not just the Rules.** A practice that claims a `checked_by` pointing at
+`tools/checks/check_<name>.py` has nothing behind that claim if only
+`practices/` was copied — the check scripts are what makes the claim real
+(`engine-plus-host-shims`: the engine travels with what it enforces, not
+separately).
+
+**4. Write the fork's own `precedent.json`** naming the universal and team
+sources at their vendored paths, then run
+`python3 tools/precedent_resolve.py --repo <fork>` (from a BestPractice
+checkout, pointed at the fork) to confirm: all three sources resolve, the
+precedence and `overrides:` behavior looks right against real content
+instead of fixtures, and — the thing this whole mechanism was built to
+prevent silently — the combined resident block is reported and stays
+under the 2,000-token cap. This step is real and immediately testable with
+tooling that already exists and is already tested; expect it to work.
+
+**5. Here is the gap this brief can name in advance, found while writing
+it rather than by running these steps.** `precedent_resolve.py` is the
+*only* multi-source-aware tool in this codebase.
+`tools/build_views.py` (`AGENTS.md`'s generated loader block, MAP.md,
+GLOSSARY.md), `tools/precedent_paths.py` (the path-triggered channel),
+`tools/precedent_gate.py` (the gate-triggered channel), and
+`tools/precedent_check.py` (the enforced channel) **all read a single
+local `practices/` directory relative to wherever they're run** —
+none of them accept multiple source directories the way
+`precedent_resolve.py` does. So step 4 proves the *resolver* works; it
+does not, by itself, give the fork a working generated `AGENTS.md`, a
+working occasion index, or a working enforced channel that reflects all
+three sources together. **You will need to bridge this to get a real
+working session out of the fork**, and how to bridge it is genuinely open
+— two shapes worth trying, in order of how much they cost:
+   - **Materialize a merged tree.** A short script that calls
+     `precedent_resolve.py`'s own `resolve()` and writes each winning
+     practice's file into one local `practices/`-shaped directory, then
+     points `build_views.py`/`precedent_paths.py`/`precedent_gate.py`/
+     `precedent_check.py` at that directory unchanged. Fastest to try; the
+     honest cost is that the materialized tree is a derived artifact that
+     needs regenerating on every source update, which is exactly the kind
+     of drift `generated-artifact-provenance` exists to keep visible
+     rather than silent.
+   - **Extend the single-tree tools to accept multiple source directories**,
+     the way `precedent_resolve.py` already does — the more correct fix,
+     and a real chunk of engine work, not a one-off script.
+
+   Don't try to build the permanent version of either mid-test. Do
+   whichever unblocks the experiment fastest, note which one you did and
+   why, and write up what the real fix should look like — that write-up
+   is worth more to Phase 6 than the workaround itself, and if it turns
+   into real, reusable engine code, it belongs in `tools/` here, proposed
+   and merged onto `precedent-beta-v01` like anything else in this phase.
+
+**6. Once the fork has a working loader, do real work in it** — anything
+genuine, not a staged demonstration — with an assistant reading whatever
+`AGENTS.md` step 5 produced. Watch for what phase 2–4 already learned to
+watch for: does the resident block actually get used, does the occasion
+index get consulted for the things it names, do `checked_by` scripts
+actually fire when they should. **Raise at least one real candidate from
+something this work surfaces** — this is the same "genuine incident"
+opportunity named just above, and doing it inside a real migration is a
+better test than doing it in isolation.
+
+**7. Write up what happened**, plainly, the way this document's own "Two
+real bugs" section does — what matched the plan, what didn't, what step 5
+actually needed, and what `INSTALL.md` (or a new phase-6 document) should
+say for the next repo that does this for real. This write-up, not a clean
+migration, is the actual deliverable of this test.
+
 ### A known bug, found while writing this brief, not yet fixed
 
 `precedent_candidate.py create`'s file name is `<slug>-<date>.md`, and
