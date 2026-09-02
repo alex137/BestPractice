@@ -330,33 +330,53 @@ brief" and says to do it last, after everything above:
   set existing") so a future session checks one line instead of
   re-deriving the whole judgment.
 
-  **On whether `precedent-team-maintainers` applying to `BestPractice`
-  itself would satisfy that precondition**: not quite, and worth being
-  precise about why. `BestPractice`'s own `precedent.json` today declares
-  only the universal source — `precedent-team-maintainers` has never
-  actually been wired in as this repo's live team source, despite
-  `precedent-team-maintainers`'s own README describing itself as exactly
-  this team's conventions ("one small group's working conventions... losing
-  to a person's own individual set", listing Morgan and Alex, the people
-  who maintain `BestPractice`/Precedent). Wiring it in is a real, correct,
-  overdue move on its own merits — the cross-source resident-budget cap has
-  only ever been tested against a *synthetic* consumer config naming it,
-  never `BestPractice`'s own real one — but it gives Precedent **one** team
-  in force, not two. `for_team:` specifically needs the *same* individual
-  practice to resolve differently depending on which of *two different*
-  teams' repos a person is working in, so testing it needs a second,
-  distinct team somewhere else — plausibly the live-migration test's own
-  target repo (below), if it ends up with its own team set. Wiring
-  `precedent-team-maintainers` into
-  `BestPractice` now would be team #1 for that eventual test, and is also
-  independently valuable regardless of whether `for_team:` is ever built:
-  it would, for the first time, make `precedent_resolve.py` see a real
-  difference between what's declared and what `BestPractice`'s own
-  generated `AGENTS.md`/enforced channel actually reflects — exactly the
-  step-5 bridge gap above, exercisable on this repo alone, without needing
-  that repo at all. Not done this pass (a real change to this
-  repo's own live configuration); worth a session doing on purpose,
-  eyes-open to that consequence, if Morgan wants it.
+## `precedent-team-maintainers` wired into `BestPractice`'s own `precedent.json` — team #1 of 2
+
+Real, correct, and overdue on its own merits, done at Morgan's request:
+`precedent-team-maintainers` **is** this repo's own maintaining team's
+conventions (Morgan and Alex; its own README says exactly this — "one
+small group's working conventions... losing to a person's own individual
+set"), but `BestPractice`'s `precedent.json` had only ever declared the
+universal source. The cross-source resident-budget cap had only ever been
+tested against a *synthetic* consumer config naming this team source,
+never `BestPractice`'s own real one.
+
+`precedent.json` now declares `precedent-team-maintainers` as a team
+source (path: a sibling checkout — see the config's own comment for what
+that does and doesn't assume, and the resolver's existing graceful-degrade
+contract for a machine without that sibling). Running the resolver for
+real, from this checkout, with no `--repo` flag needed:
+
+```
+resolved 94 practice(s) from 2 source(s): 0 individual, 41 team, 53 universal
+  overridden: doc-references-are-links -- team (precedent-team-maintainers) replaces universal (precedent)
+resident block across all sources: ~560 of 2000 token budget (9 practice(s): ...)
+```
+
+**A real find, not a fixture**: the team set's `rule-links.md` has declared
+`overrides: doc-references-are-links` since it was written, generalizing
+the universal rule (files only) to anything with a destination (commits,
+PRs, branches, chat replies too) — but this is the first time that
+override has ever actually been resolved against `BestPractice`'s own real
+universal set to confirm it takes effect. It does.
+
+**What this does and does not change, stated plainly**: this makes
+`precedent_resolve.py` (and `precedent_materialize.py`, above) correctly
+see `BestPractice`'s own real team source for the first time. It does
+**not** change `BestPractice`'s own generated `AGENTS.md`/`MAP.md`/
+`GLOSSARY.md` — `build_views.py` deliberately stays single-source, so this
+repo's own session-loading is still the universal catalogue alone, exactly
+as before. Materializing the two together into this repo's own working
+`practices/` would be a much bigger, disruptive step (most of
+`verify_harness.py`'s ~40 checks assert this repo's own single-source
+catalogue integrity against `PRACTICES.md`) and was not attempted or asked
+for.
+
+**Still outstanding, restated so it isn't lost**: this is team #1, not the
+second, distinct team `for_team:` needs to actually test its cross-team
+conflict rule — that still needs a real second team elsewhere (plausibly
+the live-migration test's own target repo, below, if it ends up with its
+own team set). `for_team:`/`in_repos:` stays correctly deferred until then.
 
 ### Notes for the next session: the live migration test
 
