@@ -149,3 +149,123 @@ directly, not by reasoning about the code in the abstract:
   because nothing in between happened to open a line with a bold date —
   and got reported as an 800-word amendment violation. Scoped the check to
   the section between its own heading and the next `## `.
+
+## For the session that deep-checks this before Phase 6
+
+Written for the session Morgan opens next, whose job is to test this phase
+against real work rather than fixtures, and close whatever it finds before
+Phase 6 (consumer-repo migration) starts on top of it. **Read
+[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) in full before
+touching anything** — "How a Practice Comes Into Existence" (Stages 1–6),
+the Sequence table's phase-5 row, and v30 of "Amendments Since Approval" —
+and this whole brief, not just this section. Confirm your local checkouts
+of all three repos are current before doing anything else
+(`git fetch origin <branch>` on each — `AGENTS.md`'s gotchas section has the
+story of what a stale checkout looks like and why it gives no error).
+
+### The pipeline has never touched a real candidate — that is the actual gap
+
+Every case run against it so far is a fixture built inside a throwaway
+directory, or a smoke test cleaned up in the same breath it was created.
+The mechanism is proven; the four criteria's specific numbers (recurrence
+≥ 2, > 50% word-overlap for duplication, the 2,000-token resident cap) are
+not calibrated against anything real. **Raise a genuine candidate from a
+genuine incident** — this session's own work is full of candidates
+(a corrected assumption, a repeated instruction, a real cost from getting
+something wrong) — and run it through `precedent_promote.py` and
+`precedent_land.py` for real, at least once each for individual and team
+level. If a real case makes a threshold feel wrong, that is exactly the
+signal Stage 3 exists to produce; change it and say why, the same way this
+phase changed `routing_scope.json`'s globs on evidence rather than by
+precedent.
+
+**Also exercise the two paths this phase deliberately left manual**,
+at least once, so they are proven rather than only described:
+- File a real universal candidate as a GitHub Issue using
+  [.github/ISSUE_TEMPLATE/practice-candidate.md](../.github/ISSUE_TEMPLATE/practice-candidate.md) —
+  confirm the template actually renders sensibly and the fields map cleanly
+  onto what `precedent_promote.py` needs.
+- Open one real team-level proposal as an actual branch and pull request
+  reviewed by an approver, rather than the collapsed direct-`--approved-by`
+  path — the collapsed path is tested; the path Stage 4 describes as the
+  normal case for a larger team is not.
+
+### A known bug, found while writing this brief, not yet fixed
+
+`precedent_candidate.py create`'s file name is `<slug>-<date>.md`, and
+`cmd_create` refuses outright if that exact file already exists. **Raising
+the same candidate twice on the same calendar day currently fails with an
+error, instead of registering as recurrence** — the opposite of Stage 3's
+own design ("a count of files, not a field a session has to remember to
+increment," spec/CANDIDATE_FORMAT.md). Low odds in practice, but a real
+same-day recurrence is exactly the kind of evidence Stage 1 is supposed to
+capture without friction. Fix by suffixing a sequence number when the dated
+name collides, or by detecting the collision and treating it as an explicit
+"raise this again" signal — either way, add a harness case (planted: two
+same-day raises of one slug; confirm neither silently fails and
+`recurrence_count` is right afterward).
+
+### Other things worth adversarial pressure, not yet applied
+
+- **`precedent_promote.py`'s non-duplication check only searches
+  `--against`, which defaults to `[ROOT]` (BestPractice/universal alone)
+  regardless of the candidate's own level.** Promoting a team candidate
+  without explicitly passing `--against <team-path>,<universal-path>`
+  silently never checks it against that team's own catalogue. Worth
+  deciding whether the default should be smarter (derive it from `--level`
+  and `--path`) or whether it is fine as an explicit, documented caller
+  responsibility — but decide on purpose, not by never having noticed.
+- **`precedent_candidate.py`'s frontmatter reader/writer (`_parse_frontmatter`,
+  `_yaml_scalar`) is a hand-rolled, deliberately narrow parser for the
+  frontmatter's restricted shape**, not a real parsing library for the
+  underlying format. It has not been stress-tested against edge cases a real
+  candidate might produce: a comma or a literal `]` inside a quoted list
+  item, an observed-text or proposed-rule containing a line that looks like
+  frontmatter, an embedded `---`. Throw a few adversarial candidates at it.
+- **The word-overlap duplication heuristic** (`precedent_promote.py`'s
+  `_word_set` / Jaccard-style ratio, also reused by
+  `precedent_detect.py restated`) has only been checked against one
+  deliberately-exact collision (`verify-postcondition` vs. itself) and one
+  deliberately-unrelated pair. Run `precedent_detect.py restated` for real
+  across all three sources together (this phase only ever ran it
+  individual-vs-team) and sanity-check a few of its actual near-duplicate
+  claims by eye — a heuristic with no adversarial pressure yet is a
+  heuristic that has not really been tested.
+- **The leak gate's vocabulary layer was switched on once, briefly, during
+  this phase's own pre-flight check** (`PRECEDENT_LEAK_BLOCKLIST` pointed at
+  `precedent-individual`'s real blocklist, `git config
+  precedent.requireVocabulary true`) and immediately found 45 hits on
+  already-committed, already-public content — `themorgan` and `Buenos
+  Aires`, both named as non-sensitive in
+  [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md)
+  and both already appearing throughout this branch's own published spec
+  docs. **This was reverted rather than fixed, and nobody has decided
+  whether the blocklist is miscalibrated (too broad for what it actually
+  guards) or whether the vocabulary layer has in fact never really run
+  clean on this branch.** This is a real gate meant to protect against
+  publishing something sensitive into a public repo, currently sitting
+  unusable in practice — worth Morgan's own judgment call before Phase 6
+  widens who else's content this branch might ever touch, not something to
+  leave discovered-and-dropped a second time.
+- **Re-run the full deep-check suite fresh** on all three repos
+  (`verify_harness.py`, `doc_lint.py`, `leak_gate.py`, `precedent_check.py`,
+  `doc_sync.py` on BestPractice; `tools/checks/tests/run_all.sh` on each
+  private repo) before starting anything new — this phase's own harness
+  work found two real, unrelated bugs (above) just from being written and
+  run, which is exactly the case for not assuming last session's green run
+  is still green.
+
+### Still open from this phase, restated so it is not missed
+
+- **The pre-fork catalogue audit table** (verdict per inherited practice
+  against this plan's architecture, one row each) that
+  [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+  named — not done. The plan only requires it before Phase 6, which makes
+  this the session to do it, not a future one.
+- **`for_team:`/`in_repos:` is designed, not built** — see the plan's own
+  Deferred section. Still correctly not built (no second team exists yet
+  to test `for_team:` against), but worth a fresh look in case that has
+  changed.
+- **`repeated-check-failure` has no detector** and needs a persistent
+  check-run log this codebase doesn't keep — a real gap, plausibly its own
+  candidate rather than something to build reflexively here.
