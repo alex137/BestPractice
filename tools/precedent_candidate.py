@@ -11,7 +11,32 @@ costs nothing, per the plan's own text.
 LEVEL DECIDES STORAGE, exactly like a practice's level decides which
 repository it lives in (spec/SOURCES.md):
 
-  individual / team  ->  a dated file in <repo path>/candidates/*.md
+  individual         ->  always a dated file in <repo path>/candidates/*.md.
+                          There is no one else whose approval could be
+                          missing -- you own the set, so a candidate here is
+                          for deferring a decision, never for asking someone
+                          else's permission.
+  team               ->  a dated file in <repo path>/candidates/*.md BY
+                          DEFAULT, same as individual -- but pass --as-issue
+                          to draft a GitHub Issue on that team repo instead.
+                          WHICH ONE TO USE IS ABOUT AUTHORITY, NOT ACCESS
+                          (2026-09-02, added after a real dependent-repo
+                          session worked through this): if whoever is
+                          raising this is already a listed approver in the
+                          team repo's approvers.json, their own say-so is
+                          the approval PRACTICE_ENGINE_PLAN.md already
+                          describes ("for a small team ... the session
+                          commits it directly") -- promote and land it now,
+                          skip raising a candidate at all. Raise a candidate
+                          only when you're deliberately deferring, or when
+                          --as-issue's real case applies: the person raising
+                          it is NOT a listed approver, so no amount of git
+                          write access changes the fact that someone else's
+                          yes is actually needed. A quiet candidates/ file
+                          nobody is watching for doesn't accomplish that; an
+                          Issue does. This tool nudges (does not require)
+                          landing directly instead, when --raised-by is
+                          already on the approvers list.
   universal          ->  a GitHub Issue, never a file -- tools/leak_gate.py's
                           FORBIDDEN_PATHS already bans any candidates/ or
                           outbox/ directory in Precedent, unconditionally, by
@@ -20,7 +45,10 @@ repository it lives in (spec/SOURCES.md):
                           tool can only draft the Issue body -- opening it
                           needs a GitHub credential this tool does not carry,
                           which is the plan's own "Per-repo credentials...
-                          not day one" deferral, not an oversight.
+                          not day one" deferral, not an oversight. The same
+                          is true of a team --as-issue draft: this tool
+                          drafts the body and, best-effort, the target URL --
+                          it never calls the GitHub API itself.
 
 Usage:
   precedent_candidate.py create --level individual|team --path REPO
@@ -29,6 +57,9 @@ Usage:
       [--recurrence N] [--cost-if-once TEXT] [--tier resident|on-demand]
       [--checked-by PATH] [--applies-to GLOB[,GLOB...]] [--occasion TEXT]
       [--gates NAME[,NAME...]]
+  precedent_candidate.py create --level team --path REPO --as-issue true
+      [--github-repo OWNER/REPO] [--out FILE] [same required/optional flags
+      as above except --path's candidates/ dir is not written to]
   precedent_candidate.py create --level universal
       --slug SLUG --title TITLE --signal SIGNAL --raised-by NAME
       --observed TEXT --proposed-rule TEXT [--out FILE] [same optional flags]
@@ -37,8 +68,10 @@ Usage:
   precedent_candidate.py expire --level individual|team --path REPO --file NAME
 """
 import datetime
+import json
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -108,6 +141,65 @@ def render_candidate(fields, observed, proposed_rule):
     lines.append(proposed_rule.strip())
     lines.append('')
     return '\n'.join(lines)
+
+
+_GITHUB_REMOTE_RE = re.compile(
+    r'^(?:https://github\.com/|git@github\.com:)([^/]+)/([^/]+?)(?:\.git)?$')
+
+
+def _detect_github_repo(path):
+    """Best-effort owner/repo for the clone at `path`, read from its own
+    'origin' remote -- never guessed from `path`'s name or from
+    approvers.json, since neither reliably names the actual GitHub location.
+    Returns None on anything short of a clean match (no git, no origin, a
+    non-GitHub remote); the caller falls back to requiring --github-repo
+    explicitly rather than drafting a URL that might be wrong."""
+    try:
+        r = subprocess.run(['git', '-C', str(path), 'remote', 'get-url', 'origin'],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    m = _GITHUB_REMOTE_RE.match(r.stdout.strip())
+    return (m.group(1), m.group(2)) if m else None
+
+
+def _approver_names(path):
+    """Every name/github-handle approvers.json lists for the team repo at
+    `path`, or an empty set if it has none / isn't parseable -- a missing or
+    broken approvers.json is not this function's problem to raise, only
+    precedent_land.py's when it actually tries to land against it."""
+    approvers_path = pathlib.Path(path) / 'approvers.json'
+    if not approvers_path.is_file():
+        return set()
+    try:
+        data = json.loads(approvers_path.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, OSError):
+        return set()
+    names = set()
+    for a in data.get('approvers', []):
+        if a.get('name'):
+            names.add(a['name'])
+        if a.get('github'):
+            names.add(a['github'])
+    return names
+
+
+def _nudge_if_already_approver(path, raised_by):
+    """Print a note (never a refusal -- deferring a decision is a legitimate
+    reason to raise a candidate even as an approver) when `raised_by` is
+    already a listed approver: PRACTICE_ENGINE_PLAN.md's own allowance for a
+    small team is that a listed approver's say-so lands a practice directly,
+    so raising a candidate at all is the slower path for them specifically."""
+    if raised_by in _approver_names(path):
+        print(
+            f"note: {raised_by!r} is already a listed approver for this team "
+            f"set. If you're landing this yourself right now, "
+            f"precedent_promote.py then precedent_land.py --approved-by "
+            f"{raised_by!r} lands it directly -- no candidate needed. "
+            f"Raising one anyway is fine if you'd rather defer the decision "
+            f"or leave a record first.", file=sys.stderr)
 
 
 def _split_list_items(inner):
@@ -204,6 +296,17 @@ def cmd_create(args):
     tier = args.get('--tier', 'on-demand')
     if tier not in ('resident', 'on-demand'):
         raise CandidateError(f"--tier must be resident or on-demand, got {tier!r}")
+    # Every flag in this tool's arg parser takes a value (_parse_args has no
+    # bare-boolean-flag support) -- so this is `--as-issue true`, not a bare
+    # `--as-issue`, for consistency with the rest of the tool's own style.
+    as_issue = args.get('--as-issue') == 'true'
+    if as_issue and level != 'team':
+        raise CandidateError(
+            "--as-issue only applies to --level team. Individual is always "
+            "your own to land directly -- there's no one else whose "
+            "permission a candidate could stand in for, so an Issue has no "
+            "one to notify. Universal is already always an Issue; --as-issue "
+            "would be redundant.")
 
     date = datetime.date.today().isoformat()
     fields = {
@@ -251,6 +354,43 @@ def cmd_create(args):
     path = args.get('--path')
     if not path:
         raise CandidateError('--path REPO is required for --level individual/team')
+
+    if level == 'team':
+        _nudge_if_already_approver(path, fields['raised_by'])
+
+    if as_issue:
+        owner_repo = args.get('--github-repo')
+        if owner_repo:
+            if '/' not in owner_repo:
+                raise CandidateError(f"--github-repo must be OWNER/REPO, got {owner_repo!r}")
+            owner, repo_name = owner_repo.split('/', 1)
+        else:
+            detected = _detect_github_repo(path)
+            if not detected:
+                raise CandidateError(
+                    f"could not detect a GitHub owner/repo from {path}'s "
+                    f"'origin' remote -- pass --github-repo OWNER/REPO "
+                    f"explicitly.")
+            owner, repo_name = detected
+        out = args.get('--out')
+        dest = pathlib.Path(out) if out else None
+        if dest:
+            dest.write_text(text, encoding='utf-8')
+            print(f"drafted team candidate body written to {dest}")
+        else:
+            print(text)
+        print(
+            f"\nThis tool does NOT open a GitHub Issue -- file this at "
+            f"https://github.com/{owner}/{repo_name}/issues/new"
+            f"?labels=precedent-candidate (add a matching issue template "
+            f"there if you want the form pre-structured; none is required "
+            f"for this to work). Paste the drafted body above into the "
+            f"Issue. Nothing was written to {path}/candidates/ -- this is "
+            f"the alternative to that, for when whoever's raising it is not "
+            f"a listed approver (spec/CANDIDATE_FORMAT.md#where-a-"
+            f"candidate-lives).", file=sys.stderr)
+        return 0
+
     cand_dir = pathlib.Path(path) / 'candidates'
     cand_dir.mkdir(parents=True, exist_ok=True)
     dest = cand_dir / f'{slug}-{date}.md'
