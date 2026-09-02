@@ -190,20 +190,19 @@ at least once, so they are proven rather than only described:
   path — the collapsed path is tested; the path Stage 4 describes as the
   normal case for a larger team is not.
 
-### A known bug, found while writing this brief, not yet fixed
+### A known bug, found while writing this brief — fixed by the deep-check session (2026-09-02)
 
-`precedent_candidate.py create`'s file name is `<slug>-<date>.md`, and
-`cmd_create` refuses outright if that exact file already exists. **Raising
-the same candidate twice on the same calendar day currently fails with an
-error, instead of registering as recurrence** — the opposite of Stage 3's
+`precedent_candidate.py create`'s file name was `<slug>-<date>.md`, and
+`cmd_create` refused outright if that exact file already existed. Raising
+the same candidate twice on the same calendar day used to fail with an
+error, instead of registering as recurrence — the opposite of Stage 3's
 own design ("a count of files, not a field a session has to remember to
-increment," spec/CANDIDATE_FORMAT.md). Low odds in practice, but a real
-same-day recurrence is exactly the kind of evidence Stage 1 is supposed to
-capture without friction. Fix by suffixing a sequence number when the dated
-name collides, or by detecting the collision and treating it as an explicit
-"raise this again" signal — either way, add a harness case (planted: two
-same-day raises of one slug; confirm neither silently fails and
-`recurrence_count` is right afterward).
+increment," spec/CANDIDATE_FORMAT.md). **Fixed**: a same-day, same-slug
+collision now suffixes a sequence number (`<slug>-<date>-2.md`, `-3.md`, …)
+instead of refusing, with a planted harness case (two same-day raises of
+one slug; confirm neither fails and `recurrence_count` reads correctly
+afterward) in [tools/verify_harness.py](../tools/verify_harness.py)'s
+`check_creation_pipeline_fires`.
 
 ### Other things worth adversarial pressure, not yet applied
 

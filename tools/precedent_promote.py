@@ -20,7 +20,9 @@ THE FOUR CRITERIA (PRACTICE_ENGINE_PLAN.md, Stage 3):
 Usage:
   precedent_promote.py --file CANDIDATE.md --level individual|team|universal
       [--against PATH[,PATH...]]   # repo roots whose practices/ to check for
-                                    # duplication; defaults to this repo (universal)
+                                    # duplication; defaults to the candidate's
+                                    # own repo (individual/team) plus this repo
+                                    # (universal) -- see default_against()
 """
 import collections
 import pathlib
@@ -46,8 +48,7 @@ class PromoteRefused(Exception):
 def _load_candidate(path):
     text = pathlib.Path(path).read_text(encoding='utf-8')
     fm, body = pc._parse_frontmatter(text)
-    m = re.search(r'## Proposed Rule\n(.*)', body, re.S)
-    proposed_rule = m.group(1).strip() if m else ''
+    _observed, proposed_rule = pc.split_candidate_sections(body)
     return fm, proposed_rule
 
 
@@ -60,7 +61,19 @@ def check_recurrence_or_cost(fm, candidate_path):
     cand_dir = pathlib.Path(candidate_path).parent
     file_count = 1
     if cand_dir.is_dir():
-        file_count = sum(1 for f in cand_dir.glob(f'{slug}-*.md'))
+        # Match on the parsed slug field, not a filename glob -- `foo-*.md`
+        # also matches `foo-bar-2026-09-02.md`, which would inflate `foo`'s
+        # recurrence count with an unrelated candidate that merely shares a
+        # name prefix.
+        file_count = 0
+        for f in cand_dir.glob('*.md'):
+            try:
+                other_fm, _ = pc._parse_frontmatter(f.read_text(encoding='utf-8'))
+            except (pc.CandidateError, OSError):
+                continue
+            if other_fm.get('slug') == slug:
+                file_count += 1
+        file_count = max(file_count, 1)
     declared = int(fm.get('recurrence_count') or 1)
     actual = max(file_count, declared)
     cost = fm.get('cost_if_once')
@@ -225,6 +238,26 @@ def promote(candidate_path, level, against_paths):
     }
 
 
+def default_against(candidate_path, level):
+    """Derive a sensible non-duplication scope when --against is not given,
+    instead of silently defaulting to universal (this repo) alone regardless
+    of the candidate's own level -- deep-check finding: promoting a team or
+    individual candidate with no explicit --against never checked it against
+    that repo's own catalogue, only ROOT's. A candidate file always lives at
+    <repo>/candidates/<slug>-<date>.md (spec/CANDIDATE_FORMAT.md), so the
+    candidate's own repo is its parent's parent; always include universal
+    too, since every level sits above it in precedence and could duplicate
+    it. Universal candidates have no such repo to infer (they are Issues,
+    not files under a fixed repo layout), so they check universal alone,
+    same as before."""
+    paths = [str(ROOT)]
+    if level != 'universal':
+        own_repo = str(pathlib.Path(candidate_path).resolve().parent.parent)
+        if own_repo not in paths:
+            paths.insert(0, own_repo)
+    return paths
+
+
 def _parse_args(argv):
     args = {}
     i = 0
@@ -244,7 +277,8 @@ def main():
     if not candidate_path or level not in pc.LEVELS:
         sys.exit("precedent_promote FAIL: --file CANDIDATE.md and "
                   f"--level ({sorted(pc.LEVELS)}) are both required")
-    against = (args['--against'].split(',') if args.get('--against') else [str(ROOT)])
+    against = (args['--against'].split(',') if args.get('--against')
+               else default_against(candidate_path, level))
 
     try:
         result = promote(candidate_path, level, against)
