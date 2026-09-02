@@ -1391,6 +1391,41 @@ def check_doc_lint_fires():
         cases.append(('an acronym never glossed at all is still caught '
                       '(the baseline case, not regressed by the fix above)',
                       bool(never_glossed)))
+
+        # 2026-09-02 deep-check finding: a hyphenated filename used as its own
+        # link label (the doc-references-are-links convention: `[docs-team/
+        # BUSINESS-MODEL-CONCEPTS.md](docs-team/BUSINESS-MODEL-CONCEPTS.md)`)
+        # split into spurious ALL-CAPS fragments at each hyphen (MODEL), since
+        # _decontent only ever stripped the `](target)` half and left the
+        # repeated filename label scannable. AI and AGENTS -- generic,
+        # non-project-specific terms this repo's own AGENTS.md and its
+        # AI-assistant boilerplate use constantly -- were never in the
+        # stoplist either, so any repo's README carrying that boilerplate
+        # warned on every doc_lint run.
+        (tmp / 'selflink.md').write_text(
+            "See [docs-team/BUSINESS-MODEL-CONCEPTS.md]"
+            "(docs-team/BUSINESS-MODEL-CONCEPTS.md) for the full analysis.\n",
+            encoding='utf-8')
+        _s, _u, selflink_flagged, *_ = dl.check_file('selflink.md', fix=False, known=set())
+        cases.append(('a hyphenated filename fragment used as its own '
+                      'self-referential link label is not flagged',
+                      not selflink_flagged))
+
+        (tmp / 'reallink.md').write_text(
+            "See the [ZQX report](file.md) for details.\n", encoding='utf-8')
+        _s, _u, reallink_flagged, *_ = dl.check_file('reallink.md', fix=False, known=set())
+        cases.append(('a real acronym inside a descriptive (non-self-'
+                      'referential) link label is still caught',
+                      bool(reallink_flagged)))
+
+        (tmp / 'stoplist.md').write_text(
+            "This repo's AGENTS.md tells AI assistants what to do.\n",
+            encoding='utf-8')
+        _s, _u, stoplist_flagged, *_ = dl.check_file(
+            'stoplist.md', fix=False, known=set(dl.ACRONYM_STOP))
+        cases.append(('AI and AGENTS -- generic, non-project-specific terms '
+                      '-- are in the acronym stoplist and not flagged',
+                      not stoplist_flagged))
     finally:
         dl.ROOT = real_root
         shutil.rmtree(tmp, ignore_errors=True)

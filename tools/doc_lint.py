@@ -97,9 +97,9 @@ ACRONYM_SKIP_FILES = {'GLOSSARY.md'}
 ACRONYM_STOP = {
     'THE','AND','FOR','NOT','BUT','ALL','ONE','TWO','OUR','YOU','WHO','WHY','HOW','NEW',
     'OLD','YES','OFF','ITS','ETC','NB','OK','AKA','VS','IE','EG','AM','PM','PER','TBD',
-    'TODO','MAP','README','FIG','FIGS','NOTE','OPEN','DONE','DRAFT',
+    'TODO','MAP','README','FIG','FIGS','NOTE','OPEN','DONE','DRAFT','AGENTS',
     'PDF','HTML','CSS','JSON','CSV','XML','SVG','PNG','JPG','API','URL','URI','CLI','GUI',
-    'UI','UX','OS','CPU','GPU','RAM','SDK','HTTP','HTTPS','USB','LED','ID','IP',
+    'UI','UX','OS','CPU','GPU','RAM','SDK','HTTP','HTTPS','USB','LED','ID','IP','AI',
     'USA','US','UK','EU','UN','USD','ROI','IRR','NPV','CAGR','CEO','CTO',
     'MJ','MW','MN','GW','KW','KWH','WH','NM','KM','MM','CM','HZ','KHZ','MHZ','GHZ','DB',
     'DBM','PSI','HP','KG','LB','KT','KN','GB','MB','TB','AC','DC','NE','NW','SSE','SSW',
@@ -119,8 +119,19 @@ def load_known_acronyms():
     return known
 
 def _decontent(line):
-    """Strip code spans and link/URL targets so acronyms inside them aren't scanned."""
+    """Strip code spans, self-referential link labels, and link/URL targets so
+    acronyms inside them aren't scanned. A self-referential link -- label
+    identical to its own target, e.g. `[docs-team/BUSINESS-MODEL-CONCEPTS.md]
+    (docs-team/BUSINESS-MODEL-CONCEPTS.md)`, the convention this repo's own
+    doc-references-are-links practice produces -- is dropped whole; a
+    hyphenated filename used this way (BUSINESS-MODEL-CONCEPTS.md) otherwise
+    split into spurious ALL-CAPS fragments (MODEL) at every hyphen, since the
+    old version stripped only the `](target)` half and left the repeated
+    filename as scannable label text. A descriptive label that DIFFERS from
+    its target (`[the ZQX report](file.md)`) still isn't self-referential, so
+    its acronym is still caught."""
     line = re.sub(r'`[^`]*`', ' ', line)
+    line = re.sub(r'\[([^\]]*)\]\(\1\)', ' ', line)
     line = re.sub(r'\]\([^)]*\)', '] ', line)
     line = re.sub(r'https?://\S+', ' ', line)
     return line
