@@ -691,6 +691,67 @@ rather than by preference. The first of these fired:
   commits that write or change rules. A case set drawn from ordinary
   application work might behave differently.
 
+## Does the ceiling reach Stage 1 and Stage 3? (2026-09-02, reasoned not measured)
+
+[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) flags, right before
+Stage 1, that this document's finding might undercut two pieces of the
+creation pipeline: Stage 1's "session judgment at a gate" and Stage 3's
+promotion criteria (recurrence, non-duplication) both ask a session to judge
+something against the existing catalogue, which is the same verb this
+document spent six runs measuring. The plan calls this "not yet resolved
+either way" and asks for the reasoning to happen before Stage 1 is built,
+not after. This section is that reasoning, done in writing rather than
+skipped — and, per its own header, reasoned rather than measured, so treat
+it as an argument to disagree with on evidence, the same invitation the rest
+of this document extends.
+
+**The measured ceiling is about one shape of task, and Stage 1/3 are a
+different shape.** Every arm in this document's six runs asks a session to
+sweep the **whole catalogue** against a **whole finished diff** in **one
+pass**, retrospectively: "which of these 52-to-54 practices apply to this
+change?" The case-level diagnosis of the 54% result found the actual failure
+mode was never getting more than an 80-character occasion-index clause on
+most candidates before having to render a verdict — an attention problem
+created by breadth (many candidates, thin evidence per candidate, one
+judgment covering all of them). Stage 1 and Stage 3 do not have that shape:
+
+- **Stage 1's gate judgment** looks at **one candidate at a time**, each
+  with its own attached evidence (a commit, a quote, a failing check) rather
+  than an 80-character clause, and answers a narrower question than "does
+  this apply" — closer to "is this worth writing down as a candidate,"
+  which costs nothing to get wrong in either direction (Stage 2: "creating
+  one costs nothing; ignoring one costs nothing").
+- **Stage 3's non-duplication check** is a **query** — does an existing
+  slug or text already cover this — not a sweep of judgment over the full
+  catalogue. Its recurrence check is a **count** over dated candidate
+  records, not a retrospective judgment call at all.
+
+Both are structurally closer to the **oracle's** framing (one item, its own
+evidence, a closed question) than to the **review arm's** (54 items, one
+clause each, one pass) — and the oracle is the only arm in six runs that
+does not sit at 50–54%. That is not evidence Stage 1/3 will score like the
+oracle; it is a reason to expect they are not the same task this document
+falsified three times, which is what "not yet resolved" was actually asking
+for.
+
+**Why this is not measured before building, and why that is the right call
+here rather than a shortcut.** This document's own closing discipline
+(["do not re-run any of them to see if the number
+moves"](#for-the-session-that-picks-this-up)) is about re-testing the
+*same* framing hoping for a different result. Stage 1/3 is not that — it is
+an untested framing, and pre-registering a fourth eval arm for a pipeline
+that does not exist yet, to decide whether to build it, spends a full
+measurement cycle to de-risk a task shape nobody has exercised even once.
+The cheaper, honest sequencing is to build Stage 1–3 on the reasoning above,
+stated plainly as reasoning rather than dressed as a finding, and let Stage
+6 close the loop: **the retirement report already asks "did this fire, was
+this cited"** for every promoted practice, which is a real, low-cost place
+to check — once there is a population of Stage-1/3 decisions to check
+against — whether a gate's or a promotion's judgment call agreed with what
+actually happened. If that later comparison goes badly, *that* is the
+measured result this section does not have, and revisits this reasoning on
+its own terms rather than on precedent from a differently-shaped eval.
+
 ## For the session that picks this up
 
 **Three experiments in this line have now been run; do not re-run any of

@@ -854,6 +854,29 @@ Practices that never fire, are never cited, or whose check never trips become
 retirement candidates in the periodic report. This is the half BestPractice
 lacks entirely: three creation prompts and no removal prompt at all.
 
+**Retirement is a candidate, never an action — the report proposes, it does
+not flip `status: retired` itself.** *(Spelled out 2026-09-02, pre-phase-5;
+see [Amendments](#amendments-since-approval).)* Retiring a practice changes
+the binding set exactly as much as adding one does, so [the same principle
+that governs creation](#what-automatic-honestly-means-here) — the system
+notices and proposes, a human approves — applies to removal without
+exception, and it routes through **the same per-level approval gate Stage 4
+already defines**, not a separate one:
+
+| Level | What retirement requires |
+|---|---|
+| **Individual** | The owner's own *"yes, retire it"* — identical to individual creation, since there is no one else's approval to seek. |
+| **Team** | An approver's review, through the same `approvers.json`/`CODEOWNERS` mechanism Stage 4 uses for a new team practice — never an automatic flip, even when the evidence (never fired, never cited) looks conclusive. |
+| **Universal** | A PR to Precedent, same as universal promotion. |
+
+This follows directly from a sentence [Stage 4](#stage-4--approval-by-level)
+already states for a different case — *"Adding or removing an approver is
+itself a change to the set, so it needs the current approvers' approval"* —
+generalized from the approver list to the practice list itself: any change
+to what is binding for a set goes through that set's own approval gate,
+addition and removal alike. The report is Stage 6's whole job; the decision
+stays exactly where Stage 4 already put it.
+
 ### What "Automatic" Honestly Means Here
 
 Worth stating plainly, because it is the product's promise and it can be
@@ -1711,6 +1734,17 @@ it can be generated; the explanation cannot.
 The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; this section is the short record of what moved.
+
+**2026-09-02 — v30, three pre-build calls settled before Stage 1 code.**
+Retirement (Stage 6) is now approval-gated exactly like creation, stated
+directly in [Stage 6](#stage-6--the-loop-closes) itself; the
+attention-ceiling connection the plan flagged as unresolved is reasoned
+through in [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md); universal
+candidates are GitHub Issues, not a `candidates/` file, resolving Stage 2's
+collision with the leak gate, in
+[spec/SOURCES.md](spec/SOURCES.md#universal-candidates-are-github-issues-not-a-fourth-candidates).
+Full reasoning for all three, decided with Morgan in one sitting:
+[decisions/2026-09-02-phase-5-preflight-calls.md](decisions/2026-09-02-phase-5-preflight-calls.md).
 
 **2026-09-01 — v29, the private-repo isolation rule is relaxed for active
 development.** Decided by Morgan, after a deep-check session's own findings

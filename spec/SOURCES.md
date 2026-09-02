@@ -143,3 +143,46 @@ only**, permanently: they have no access to a private list. They are the
 unbypassable backstop, because a `git push --no-verify` cannot skip them; the
 [pre-push hook](../templates/hooks/pre-push) is the complete check, because it
 is the only half that can load the words.
+
+## Universal candidates are GitHub Issues, not a fourth `candidates/`
+
+*(2026-09-02, pre-phase-5 — a call the plan's own illustrative Stage 2 text
+left open, the same way [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md) records
+the calls phase 1's conversion had to make.)*
+
+PRACTICE_ENGINE_PLAN.md's Stage 2 says a candidate is "a dated file in
+`candidates/`." That works for individual and team candidates — each lands
+in `candidates/` inside that level's own private repo, no different from
+`practices/`. It cannot work for a **universal** candidate, because
+[tools/leak_gate.py](../tools/leak_gate.py)'s `FORBIDDEN_PATHS` already bans
+any `candidates/` or `outbox/` directory in Precedent, unconditionally, and
+names Stage 2 by name doing it: *"these hold unreviewed drafts that may carry
+private context."* A universal candidate is not private, but the gate bans
+the **shape**, not the content behind it — the same reasoning
+`FORBIDDEN_PATHS`'s other entries use throughout this file — so adding an
+exception for "this one is fine, it's universal" reopens exactly the
+shortcut the gate exists to close, the moment anyone else's candidate
+lands in the same directory by habit.
+
+**So universal candidates are GitHub Issues on `alex137/BestPractice`**,
+labeled `precedent-candidate`, using
+[.github/ISSUE_TEMPLATE/practice-candidate.md](../.github/ISSUE_TEMPLATE/practice-candidate.md) —
+the same fields a `candidates/*.md` file carries (observed evidence, a
+commit/quote/failing-check, a proposed rule sentence, a proposed level and
+channel), just stored where the leak gate's ban does not reach because
+nothing is committed to the tree. This is not a special case invented for
+universal: it is Stage 4's own answer for universal approval ("a PR to
+Precedent") pulled one stage earlier, so the universal level's proposal
+mechanism is GitHub-native start to finish rather than a file for stage 2
+and a PR for stage 4.
+
+**The cost, stated rather than hidden**: `tools/precedent_candidate.py`
+lists and creates individual/team candidates by reading the filesystem, but
+for universal it can only draft the Issue body — it does not open the Issue
+itself. Automated Issue creation needs a GitHub credential this tool does
+not carry, which is exactly the gap
+[Per-repo credentials](../PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
+already names as deferred, not day one: "failing gracefully and reporting
+the gap" is the documented behavior, not an oversight here. A person (or a
+session with its own GitHub access, as this one has) files the drafted Issue
+by hand.
