@@ -373,7 +373,13 @@ def _parse_practice_text(text, path='<text>'):
         # precedent_show.py --detail would then report "(no detail recorded
         # yet)" while the Rule silently carried the corrupted trailing
         # content.
-        m = re.match(r'^## (Rule|Detail|Why|Story|Install)\s*$', line)
+        # CommonMark starts an ATX heading on a space OR a tab after the
+        # `#`s, not only a space -- `##\tDetail` renders as a real <h2> on
+        # GitHub exactly like `## Detail` does, so the recognizer (and the
+        # loud-failure near-match below) must accept a tab too, or a
+        # tab-separated heading is silently merged into the section above
+        # it, the identical corruption the case-typo fix above closed.
+        m = re.match(r'^##[ \t](Rule|Detail|Why|Story|Install)\s*$', line)
         if m:
             if cur:
                 sections[cur] = '\n'.join(buf).strip('\n')
@@ -390,7 +396,7 @@ def _parse_practice_text(text, path='<text>'):
         # body (no practices/*.md file does, as of this check). So any such
         # line fails loudly here instead of corrupting content that goes on
         # to be loaded into a session's context.
-        near = re.match(r'^## \s*(\S.*?)\s*$', line)
+        near = re.match(r'^##[ \t]\s*(\S.*?)\s*$', line)
         if near and near.group(1).strip().lower() in (
                 'rule', 'detail', 'why', 'story', 'install'):
             raise PracticeFileError(

@@ -75,6 +75,10 @@ def main():
         sys.exit(f"precedent gate FAIL: unknown option(s) {', '.join(sorted(unknown))} "
                  f"-- the only option is --list.")
     if '--list' in flags:
+        if args:
+            sys.exit(f"precedent gate FAIL: --list takes no arguments, got "
+                     f"{', '.join(args)!r}. Did you mean to drop --list and "
+                     f"name a gate instead?")
         for g, moment in sorted(vocab.items()):
             print(f"  {g:8} {moment}")
             for s in by_gate.get(g, []):

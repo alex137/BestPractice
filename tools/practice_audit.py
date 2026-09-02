@@ -14,7 +14,9 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      opts the pack out, with a notice), else the default
      process/scrub_blocklist.txt. Any hit FAILS: a vendored tree destined
      for another repo must be clean at all times, not just at check-in. A
-     missing blocklist file skips the check with a notice.
+     configured blocklist file that does not exist on disk FAILS — a
+     configured-but-missing blocklist is a check that did not run, not a
+     pass; only an explicit `scrub_blocklist: null` skips the check.
 
   2. DRIFT (baseline snapshots, practice 7). For each manifest entry with
      granularity "file": the local file's sha256 is compared to the recorded
@@ -63,8 +65,18 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 def load_blocklist(path):
-    if path is None or not path.exists():
-        return None
+    """-> (patterns_or_None, reason). `path is None` is an explicit opt-out
+    (`scrub_blocklist: null`) -- a deliberate choice, distinct from a
+    configured path that simply doesn't exist on disk, which is a check
+    that did not run, not a pass. Conflating the two (both used to return
+    plain `None`) meant a manifest that never opted out, but whose
+    blocklist file went missing -- a typo'd path, a file never committed --
+    scrubbed nothing and reported success, same shape as the leak_gate.py
+    bug this mirrors."""
+    if path is None:
+        return None, 'opt_out'
+    if not path.exists():
+        return None, 'missing'
     pats = []
     for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
         line = line.strip()
@@ -74,14 +86,19 @@ def load_blocklist(path):
             pats.append(re.compile(line))
         except re.error as e:
             print(f"WARN: blocklist line {i} is not a valid regex ({e}): {line}")
-    return pats
+    return pats, 'ok'
 
 def scrub(tree, blocklist_path, fails, label):
-    pats = load_blocklist(blocklist_path)
+    pats, reason = load_blocklist(blocklist_path)
+    if reason == 'missing':
+        fails.append(f"SCRUB: [{label}] blocklist configured at "
+                     f"{blocklist_path.relative_to(ROOT)} but the file does not "
+                     f"exist — the scrub did not run, which is not a pass")
+        print(f"scrub [{label}]: FAIL — configured blocklist "
+              f"{blocklist_path.relative_to(ROOT)} is missing.")
+        return
     if pats is None:
-        why = "pack opted out (scrub_blocklist: null)" if blocklist_path is None else \
-              f"no blocklist at {blocklist_path.relative_to(ROOT)}"
-        print(f"scrub [{label}]: skipped — {why}.")
+        print(f"scrub [{label}]: skipped — pack opted out (scrub_blocklist: null).")
         return
     hits = 0
     for path in sorted(tree.rglob('*')):

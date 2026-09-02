@@ -83,12 +83,12 @@ def strip_fenced_code(text):
     for line in text.splitlines():
         m = re.match(r"\s*(`{3,}|~{3,})", line)
         if fence is None and m:
-            fence = m.group(1)[0] * 3
-            out.append("")
-            continue
+            fence = m.group(1)  # the real run, not normalized to length 3 --
+            out.append("")      # per CommonMark a fence only closes on a run
+            continue             # of the SAME character at least as long.
         if fence is not None:
             out.append("")
-            if m and m.group(1)[0] * 3 == fence:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
                 fence = None
             continue
         out.append(line)
@@ -208,7 +208,7 @@ def main():
         for script in sorted({s for d, n, s in PAIRS if d == doc}):
             for label, forms in owned_figures(script):
                 for form in forms:
-                    rx = re.compile(re.escape(form) + r"(?![/\w])")
+                    rx = re.compile(r"(?<![\w.])" + re.escape(form) + r"(?![/\w])")
                     for line in outside.splitlines():
                         if rx.search(line) and "<!--owned-ok-->" not in line:
                             print(f"[doc_sync] FAIL  {doc}: restates "
