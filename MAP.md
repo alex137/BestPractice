@@ -79,10 +79,15 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/practice_audit.py](tools/practice_audit.py) | Audits the practice-export layer for a repo that vendors one (this repo does not) |
+| [tools/precedent_candidate.py](tools/precedent_candidate.py) | Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates |
 | [tools/precedent_check.py](tools/precedent_check.py) | The ENFORCED loading channel — runs every practice's `checked_by` script |
+| [tools/precedent_detect.py](tools/precedent_detect.py) | Stage 1 (phase 5) — the mechanical half of candidate detection |
 | [tools/precedent_gate.py](tools/precedent_gate.py) | The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply) |
+| [tools/precedent_land.py](tools/precedent_land.py) | Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to` |
+| [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
+| [tools/precedent_retire.py](tools/precedent_retire.py) | Stage 6 (phase 5) — the periodic retirement report; proposes, never acts |
 | [tools/precedent_show.py](tools/precedent_show.py) | Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file |
 | [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json |
 | [tools/routing_eval.py](tools/routing_eval.py) | Measures whether trigger-based loading actually beats carrying the whole catalogue |

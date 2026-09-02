@@ -1953,9 +1953,43 @@ enforcement are two problems, not one. Recorded in
   they're in — e.g. a different name used with different groups — which
   needs the team, not the repo, as the scoping key (`for_team:`). The
   second has a concrete origin (Morgan, 2026-09-01) where the first still
-  does not; design both together, since they're the same field shape with a
-  different key, when phase 5 reaches the private-set schema. Still not
-  built speculatively ahead of that.
+  does not.
+
+  **Designed 2026-09-02, when phase 5 reached the private-set schema, per
+  this entry's own instruction — still not built.** Both are the same
+  shape, an optional frontmatter field on an *individual* practice only
+  (never team or universal, since neither of those needs to narrow by
+  which team a repo belongs to):
+
+  ```
+  in_repos:  ["owner/repo", ...]   # null (default) = every repo, per the plan's own default
+  for_team:  "team-slug"           # null (default) = every team
+  ```
+
+  **The resolver's conflict rule, same pattern as `overrides:`.** Two
+  individual practices sharing a slug, each scoped by a *disjoint*
+  `for_team:` (or `in_repos:`), are not a conflict — that is the whole
+  point of the field, one practice per scope. Two sharing a slug where the
+  scopes *overlap* (including one narrower and one `null`/wide-open) is a
+  conflict the resolver refuses loudly, the same way
+  [source precedence](#precedence-and-the-one-case-where-the-individual-does-not-win)
+  already refuses an ambiguous `overrides:` rather than picking one
+  arbitrarily — a resolver that silently picked the first match on disk
+  would make "which one applies here" depend on filesystem iteration
+  order, which is exactly the kind of silent, undebuggable behavior this
+  whole plan exists to replace with something checkable. `for_team:`
+  resolves against whichever team source a consumer repo's own
+  `precedent.json` names (a repo not naming that team keeps the
+  `for_team: null` variant, if one exists, or gets nothing); `in_repos:`
+  resolves against the consuming repo's own identity (`owner/repo`, read
+  the same way a git remote is already read elsewhere in this codebase).
+
+  Not built: no real second team exists yet to test the `for_team:` half
+  against, and building the resolver change without a real conflicting
+  pair to verify it against is exactly the untested-precedence-code gap
+  [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not)
+  already found once, in `precedent_resolve.py` itself, before real private
+  sets existed to test against.
 - **Per-repo credentials.** Different teams may pay for their own tokens, so
   sync and automation will eventually need per-repo Claude and GitHub
   credentials, failing gracefully and reporting the gap. Real, but not day one.

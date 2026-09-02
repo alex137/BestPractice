@@ -1517,6 +1517,30 @@ def _decision_records_violations(root):
         return 'na', True, ('PRACTICE_ENGINE_PLAN.md has not changed '
                             f'relative to {base_ref[:9]}')
 
+    def amendments_section(text):
+        """This check is about ONE section's own growth pattern
+        ("Amendments Since Approval"), not the whole document -- found the
+        hard way, planting a Deferred-section edit and watching it get
+        swept into a single 800+-word "entry" that actually ran from the
+        Amendments section's last 2026-08-31 item all the way past Settled
+        Since Draft v1 into Deferred, because nothing in either of those
+        later sections happens to open a line with a bold date and the
+        unscoped regex kept matching across the boundary. Scoping to the
+        section between its own heading and the next top-level "## " is
+        what the check was always meant to measure."""
+        m = re.search(r'^## Amendments Since Approval\s*$', text, re.M)
+        if not m:
+            return ''
+        rest = text[m.end():]
+        end = re.search(r'^## ', rest, re.M)
+        return rest[:end.start()] if end else rest
+
+    old_section = amendments_section(old_text)
+    new_section = amendments_section(new_text)
+    if new_section == old_section:
+        return 'na', True, ('the Amendments Since Approval section has not '
+                            f'changed relative to {base_ref[:9]}')
+
     def entries(text):
         starts = [m.start() for m in AMENDMENT_ENTRY_RE.finditer(text)]
         if not starts:
@@ -1524,10 +1548,10 @@ def _decision_records_violations(root):
         starts.append(len(text))
         return [text[a:b].strip() for a, b in zip(starts, starts[1:])]
 
-    old_entries = set(entries(old_text))
+    old_entries = set(entries(old_section))
     ok = True
     messages = []
-    for entry in entries(new_text):
+    for entry in entries(new_section):
         if entry in old_entries:
             continue          # unchanged -- not this diff's to judge
         if DECISIONS_LINK_RE.search(entry):
@@ -2552,6 +2576,138 @@ def check_gate_channel():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_creation_pipeline_fires():
+    """Phase 5's own done-when, tested directly rather than trusted from a
+    manual smoke test: "a candidate can be raised, promoted and landed end
+    to end; a candidate failing any of the four criteria is refused with a
+    reason" (PRACTICE_ENGINE_PLAN.md, Sequence). Not registered as a
+    `checked_by` in tools/precedent_check.py -- same reasoning
+    check_decision_records_not_inline already states for itself: no single
+    practices/*.md file backs "the creation pipeline works," so registering
+    it there would inflate ENFORCEMENT.md's coverage count with a phantom
+    row.
+
+    Fixture is a throwaway individual-shaped repo (practices/ + candidates/)
+    against THIS repo's real universal catalogue for the non-duplication and
+    checked_by-registration cases, since those need a real, populated
+    CHECKS registry and a real existing slug to collide with -- a fixture
+    catalogue of one or two invented practices would not exercise either."""
+    import shutil, tempfile
+
+    def pyrun(*args, env_extra=None):
+        env = dict(os.environ)
+        if env_extra:
+            env.update(env_extra)
+        r = subprocess.run([sys.executable, *args], capture_output=True,
+                           text=True, env=env)
+        return r.returncode, r.stdout + r.stderr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-pipeline-'))
+    cases = []
+    try:
+        repo = tmp / 'fixture-individual'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'candidates').mkdir(parents=True)
+
+        cand_tool = str(ROOT / 'tools' / 'precedent_candidate.py')
+        promote_tool = str(ROOT / 'tools' / 'precedent_promote.py')
+        land_tool = str(ROOT / 'tools' / 'precedent_land.py')
+
+        def make_candidate(slug, **extra):
+            args = [cand_tool, 'create', '--level', 'individual', '--path', str(repo),
+                    '--slug', slug, '--title', slug, '--signal', 'explicit-instruction',
+                    '--raised-by', 'harness', '--observed', 'a fixture incident',
+                    '--proposed-rule', extra.pop('rule', f'Always do the {slug} thing.')]
+            for k, v in extra.items():
+                args += [f'--{k}', str(v)]
+            rc, out = pyrun(*args)
+            if rc != 0:
+                raise RuntimeError(f"fixture candidate creation failed: {out}")
+            found = sorted((repo / 'candidates').glob(f'{slug}-*.md'))
+            return found[-1]
+
+        # --- criterion 1: recurrence or real cost ---------------------------
+        f1 = make_candidate('pipeline-fixture-c1', recurrence=1)
+        rc, out = pyrun(promote_tool, '--file', str(f1), '--level', 'individual')
+        cases.append(('criterion 1 (recurrence/cost) refuses a lone, costless candidate',
+                      rc == 1 and 'criterion 1' in out and 'recurrence or real cost' in out))
+        f1b = make_candidate('pipeline-fixture-c1b', recurrence=1, occasion='a fixture occasion',
+                            **{'cost-if-once': 'a stated one-time cost'})
+        rc, out = pyrun(promote_tool, '--file', str(f1b), '--level', 'individual')
+        cases.append(('criterion 1 passes on a stated one-time cost '
+                      '(reachability also satisfied, so only criterion 1 is isolated)',
+                      rc == 0 and 'PROMOTED' in out))
+
+        # --- criterion 2: reachability ---------------------------------------
+        f2 = make_candidate('pipeline-fixture-c2', recurrence=2)
+        rc, out = pyrun(promote_tool, '--file', str(f2), '--level', 'individual')
+        cases.append(('criterion 2 (reachability) refuses a wide-open, occasion-less candidate',
+                      rc == 1 and 'criterion 2' in out and 'reachability' in out))
+
+        # --- criterion 3: non-duplication (against THIS repo's real catalogue) ---
+        real_slug = 'verify-postcondition'
+        f3 = make_candidate(real_slug, recurrence=2, occasion='a fixture occasion')
+        rc, out = pyrun(promote_tool, '--file', str(f3), '--level', 'individual',
+                        '--against', str(ROOT))
+        cases.append(('criterion 3 (non-duplication) refuses an exact-slug collision '
+                      'with a real existing practice',
+                      rc == 1 and 'criterion 3' in out and 'non-duplication' in out))
+
+        # --- criterion 4: budget ----------------------------------------------
+        huge_rule = ' '.join(['word'] * 3000)  # ~3900 tokens at 1.3/word, alone over the 2000 cap
+        f4 = make_candidate('pipeline-fixture-c4', recurrence=2, tier='resident', rule=huge_rule)
+        rc, out = pyrun(promote_tool, '--file', str(f4), '--level', 'individual')
+        cases.append(('criterion 4 (budget) refuses a resident request that blows the cap',
+                      rc == 1 and 'criterion 4' in out and 'budget' in out))
+
+        # --- full pass: create, promote, land, and the file really parses -----
+        f5 = make_candidate('pipeline-fixture-pass', recurrence=2, occasion='a fixture occasion')
+        rc, out = pyrun(promote_tool, '--file', str(f5), '--level', 'individual')
+        promoted = rc == 0 and 'PROMOTED' in out
+        rc, out = pyrun(land_tool, '--file', str(f5), '--level', 'individual',
+                        '--path', str(repo), '--approved-by', 'harness')
+        landed_file = repo / 'practices' / 'pipeline-fixture-pass.md'
+        parses = False
+        if landed_file.exists():
+            try:
+                sp._read_practice_file(landed_file)
+                parses = True
+            except sp.PracticeFileError:
+                parses = False
+        cases.append(('a fully-valid candidate promotes, lands, and the landed '
+                      'file parses as a real practice',
+                      promoted and rc == 0 and landed_file.exists() and parses))
+
+        # --- landing hard-refuses an unregistered checked_by claim -------------
+        f6 = make_candidate('pipeline-fixture-checkedby', recurrence=2,
+                            **{'checked-by': 'tools/doc_lint.py'})
+        rc, out = pyrun(land_tool, '--file', str(f6), '--level', 'universal',
+                        '--against', str(ROOT))
+        cases.append(("landing refuses a checked_by naming a real file that is not "
+                      "registered in precedent_check.py's CHECKS",
+                      rc == 1 and 'not a key in' in out
+                      and not (ROOT / 'practices' / 'pipeline-fixture-checkedby.md').exists()))
+
+        # --- landing hard-refuses an unlisted team approver ---------------------
+        f7 = make_candidate('pipeline-fixture-approver', recurrence=2, occasion='x')
+        rc, out = pyrun(land_tool, '--file', str(f7), '--level', 'team',
+                        '--path', str(ROOT), '--approved-by', 'Someone Not An Approver')
+        # ROOT has no approvers.json at all -- refused for that reason, which is
+        # itself the right failure mode (never landed without one to check against).
+        cases.append(('landing refuses a team candidate when there is no '
+                      'approvers.json to check the named approver against',
+                      rc == 1 and not (ROOT / 'practices' / 'pipeline-fixture-approver.md').exists()))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'creation pipeline fires ({len(cases)} stated cases: all four '
+          f'promotion criteria refuse individually and pass together, '
+          f'landing enforces registered-check and named-approver invariants)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -2596,6 +2752,7 @@ def main():
     check_precedent_check_fires()
     check_routing_scope(files)
     check_gate_channel()
+    check_creation_pipeline_fires()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0
