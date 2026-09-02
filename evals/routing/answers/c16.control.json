@@ -1,1 +1,8 @@
-{"slugs": ["scrub-gate", "practice-export-loop", "cite-the-incident", "environment-gotchas", "volatile-rules-carry-dates", "pr-template-honest-gates", "reply-links-files"], "reasoning": "This is a scrubbed check-in of abstracted practices from a dependent repo into the public upstream tree, so the scrub gate and the export loop govern it, and each new rule must keep its origin incident inline. The bootstrap.sh change records an expensive environment discovery (stale apt index 404s) about an external tool, so it belongs in the do-not-rediscover section and carries its inline date; the PR body must be written from the actual diff (which adds practices 26-27, not just 24-25), and the reply ends with a Files touched list."}
+{
+  "slugs": [
+    "practice-export-loop",
+    "cite-the-incident",
+    "environment-gotchas"
+  ],
+  "reasoning": "This is the periodic check-in step of practice-export-loop, folding a dependent repo's practices into upstream; each new rule's Why section cites its origin incident inline, and the bootstrap apt-retry note is an environment-discovery fix of the kind environment-gotchas calls for."
+}

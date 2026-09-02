@@ -252,15 +252,28 @@ VERSION_SUFFIX_RE = re.compile(
 def _no_version_suffix(ctx):
     out = []
     for f in ctx.added_files():
-        stem = pathlib.PurePath(f).name
+        path = pathlib.PurePath(f)
+        stem = path.name
+        ext = ''
         for suffix in ('.md', '.py', '.json', '.txt', '.sh', '.yml', '.yaml',
                        '.template', '.html'):
             if stem.endswith(suffix):
+                ext = suffix
                 stem = stem[:-len(suffix)]
                 break
-        if VERSION_SUFFIX_RE.search(stem):
-            out.append(Finding(f, 'the file name carries its version or state '
-                                  '— name it for what it is'))
+        m = VERSION_SUFFIX_RE.search(stem)
+        if not m:
+            continue
+        # The Rule's own coexistence exception: a version suffix earns its
+        # place when two versions must coexist and it is the NEW file that is
+        # suffixed beside its unsuffixed predecessor. If a sibling with the
+        # suffix stripped already exists in the same directory, this added
+        # file is that legitimate case, not a redundant-with-VCS label.
+        predecessor = path.with_name(stem[:m.start()] + ext)
+        if (ctx.root / predecessor).exists():
+            continue
+        out.append(Finding(f, 'the file name carries its version or state '
+                              '— name it for what it is'))
     return out
 
 
@@ -550,6 +563,19 @@ def _verify_postcondition(ctx):
                                    f'reachable from any remote — the command '
                                    f'that reported success is not the state '
                                    f'you wanted'))
+    # `refs/heads` only lists named branches. A detached HEAD is committed
+    # work reachable from neither a branch nor (if unpushed) a remote — one
+    # level worse than the branch case this check was rewritten for: there
+    # is not even a name to notice it by by via `git branch -v`. Caught
+    # directly: `git symbolic-ref` fails exactly when HEAD is detached.
+    if _git('symbolic-ref', '-q', 'HEAD').returncode != 0:
+        ahead = _git('rev-list', '--count', 'HEAD', '--not',
+                     '--remotes').stdout.strip()
+        if ahead and ahead != '0':
+            out.append(Finding('', f'{ahead} commit(s) on the detached HEAD '
+                                   f'are not reachable from any remote and are '
+                                   f'on no branch — the command that reported '
+                                   f'success is not the state you wanted'))
     dirty = [l for l in _git('status', '--porcelain').stdout.splitlines()
              if l and not l.startswith('??')]
     if dirty:
@@ -997,8 +1023,20 @@ def _scripts_assert_properties(ctx):
     # so the audit can warn when a listed script has no assertions") and the
     # enforced gate must actually treat that warning as the violation it is,
     # not discard it.
+    #
+    # Matching is on the SPECIFIC warning text ("no self_check() or
+    # ANCHORS"), not a bare `WARN:` prefix. model_audit.py currently emits
+    # only this one kind of warning, so the two were equivalent -- but a
+    # bare-prefix match would misclassify any future advisory WARN (e.g. "1
+    # anchor instrumented, consider adding more") as a Rule violation just
+    # because it happens to share the WARN: label. The Rule is about a
+    # script asserting its own properties at all, which is exactly what
+    # this one warning text reports; FAIL: stays a broad match, since every
+    # kind of failure model_audit.py can emit already is a genuine assertion
+    # or import failure by that script's own design, not an advisory note.
     return [Finding('', l.strip()) for l in out.splitlines()
-            if l.startswith('FAIL:') or l.startswith('WARN:')]
+            if l.startswith('FAIL:')
+            or (l.startswith('WARN:') and 'no self_check() or ANCHORS' in l)]
 
 
 # --------------------------------------------------------------------------

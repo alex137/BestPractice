@@ -1,1 +1,8 @@
-{"slugs": ["cite-the-incident", "mistakes-become-rules", "layered-practice-packs", "convention-to-audit", "doc-references-are-links", "docs-are-current-state"], "reasoning": "This work writes a new rule born from a caught mistake, so the incident goes inline (cite-the-incident), the root cause is encoded at the strongest available rung (mistakes-become-rules) and the prose-sweep guard should be considered as a failing audit rather than advice (convention-to-audit); the rule is generic so it belongs in the upstream catalogue (layered-practice-packs), and the ordinary document-writing rules bind the added section (doc-references-are-links, docs-are-current-state)."}
+{
+  "slugs": [
+    "computed-numbers-in-scripts",
+    "cite-the-incident",
+    "mistakes-become-rules"
+  ],
+  "reasoning": "Directly extends the existing generated-block gate (computed-numbers-in-scripts) to cover prose figures too, prompted by a real incident (a fixed script whose hand-written prose stayed wrong) cited inline and root-caused into a new rule."
+}

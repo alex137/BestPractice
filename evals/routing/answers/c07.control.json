@@ -1,1 +1,7 @@
-{"slugs": ["layered-practice-packs", "practice-export-loop", "registry-source-of-truth", "readers-vocabulary", "cite-the-incident", "doc-references-are-links"], "reasoning": "The core of this change is a scope decision — VOICE.md/STYLEGUIDE.md are project identity, not generic practice, so they are local-only (layered-practice-packs) and are explicitly carved out of the export gate (practice-export-loop), with that status recorded once in process/manifest.json which the prose restates (registry-source-of-truth). The rest is documentation work on install docs read by non-developer administrators (readers-vocabulary), where each new rule states inline the failure it prevents — never vendoring the brand-guide binary, never inventing brand values (cite-the-incident) — and the added text references repo files (doc-references-are-links)."}
+{
+  "slugs": [
+    "layered-practice-packs",
+    "practice-export-loop"
+  ],
+  "reasoning": "VOICE.md/STYLEGUIDE.md are explicitly classified as repo-local-by-category, never generic (layered-practice-packs), and the change directly edits the export gate's exclusion logic in INSTALL.md (practice-export-loop)."
+}

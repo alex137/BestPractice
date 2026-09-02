@@ -284,8 +284,8 @@ JS = """
     // parse as their values. This grammar is mirrored by parse_key in
     // tools/table_fmt.py (the formatter↔renderer seam contract) —
     // extend BOTH together.
-    var kmatch = /\\p{Sc}\\s*[\\d.,]+k/u.test(t);
-    var mmatch = /\\p{Sc}\\s*[\\d.,]+\\s*M/u.test(t);
+    var kmatch = /\\p{Sc}\\s*[\\d.,]+k(?![A-Za-z0-9])/u.test(t);
+    var mmatch = /\\p{Sc}\\s*[\\d.,]+\\s*M(?![A-Za-z0-9])/u.test(t);
     var m = t.replace(/[,≈≤≥]/g, "").match(/-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)/);
     if (m) {
       var v = parseFloat(m[0]);

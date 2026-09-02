@@ -157,16 +157,40 @@ def opts_in(text):
     return any(l.strip() == GATE_MARKER for l in text.splitlines())
 
 
+# A citing URL must actually cite the quantity, not merely share its line --
+# a whole-line exemption let an unrelated URL anywhere on the line (a footer
+# link, an unrelated reference) exempt a number nowhere near it. Require
+# nothing but filler punctuation/whitespace (and an optional markdown link's
+# own brackets) between the quantity and the URL that cites it, in EITHER
+# direction: "500 mph (https://...)", "500 mph -- https://...", "[500
+# mph](url)" all qualify; "500 mph, unrelated link: https://..." does not,
+# because "unrelated link:" is content, not filler.
+FILLER_RE = re.compile(r"^[\s,;:()\[\]—–-]*$")
+URL_RE = re.compile(r"https?://\S+")
+
+
+def _cited_by_nearby_url(line, qty_start, qty_end, urls):
+    for u_start, u_end in urls:
+        if u_end <= qty_start and FILLER_RE.match(line[u_end:qty_start]):
+            return True
+        if qty_end <= u_start and FILLER_RE.match(line[qty_end:u_start]):
+            return True
+    return False
+
+
 def check_quantities(text):
     """[(line_no, quantity)] for quantities that are neither generated, cited,
     nor <!--rom-->-marked. Only meaningful for a document that opts in."""
     out = []
     outside = GEN_BLOCK_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
     for i, line in enumerate(outside.splitlines(), 1):
-        if "http://" in line or "https://" in line or "<!--rom-->" in line:
+        if "<!--rom-->" in line:
             continue
-        for q in QTY_RE.findall(line):
-            out.append((i, q.strip()))
+        urls = [m.span() for m in URL_RE.finditer(line)]
+        for m in QTY_RE.finditer(line):
+            if urls and _cited_by_nearby_url(line, m.start(), m.end(), urls):
+                continue
+            out.append((i, m.group(0).strip()))
     return out
 
 
@@ -294,7 +318,7 @@ RESIDUE_PATTERNS = [
     (re.compile(r"\[verify\b", re.I),
      "verify-later flag -- verify now, or record the externally-blocked "
      "item in the record doc's open tail"),
-    (re.compile(r"\[TBV\]", re.I), "verify-later flag -- same rule"),
+    (re.compile(r"[\[(]\s*TBV\b", re.I), "verify-later flag -- same rule"),
     (re.compile(r"claims.to.source", re.I),
      "claims-to-source apparatus belongs in the record doc"),
     (re.compile(r"verification record", re.I),

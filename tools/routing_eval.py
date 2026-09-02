@@ -39,10 +39,10 @@ THE DESIGN. Twenty real commits from this repo's own history, from before the
 Precedent work began. For each, three sessions answer the same underlying
 question -- which practices apply to this change? -- under three conditions:
 
-  ORACLE     sees all 52 Rules and is asked ONLY to classify, one case at a
-             time, with nothing else competing for attention. This is the
-             ground truth. It is not an arm; it is the answer key.
-  CONTROL    sees all 52 Rules and is asked to do the WORK, naming the
+  ORACLE     sees the full Rule catalogue and is asked ONLY to classify, one
+             case at a time, with nothing else competing for attention. This
+             is the ground truth. It is not an arm; it is the answer key.
+  CONTROL    sees the full Rule catalogue and is asked to do the WORK, naming the
              practices it will apply. This is the pre-migration
              arrangement. The difference from the oracle is attention under
              task load, which is precisely the plan's thesis.
@@ -221,7 +221,7 @@ def build_prompt(arm, case, practices):
     if arm == 'oracle':
         return f"""You are building an answer key for an evaluation.
 
-Below is the complete catalogue of 52 engineering practices, each as its
+Below is the complete catalogue of {len(practices)} engineering practices, each as its
 imperative Rule. Below that is a real change made to a repository.
 
 Your ONLY job is to decide, carefully and without time pressure, which of
@@ -249,7 +249,7 @@ Diff:
     if arm == 'control':
         return f"""You are a session about to do a piece of work in a repository.
 
-Your project instructions carry the full catalogue of 52 engineering
+Your project instructions carry the full catalogue of {len(practices)} engineering
 practices, reproduced in full below, as they always are at session start.
 
 ## Practices (always loaded)
@@ -762,7 +762,7 @@ def cmd_score():
     digest = hashlib.sha256(b''.join(f.read_bytes() for f in files)).hexdigest()[:12]
     print(f"Routing eval — {scored} case(s) scored against the oracle answer key.")
     print(f"answer set: {len(files)} files, digest {digest}\n")
-    print(f"{'case':6} {'applies':>7}   {'CONTROL (all 52 loaded)':<28} {'TREATMENT (index only)':<28} {'REVIEW (loader, judge-only)':<28}")
+    print(f"{'case':6} {'applies':>7}   {'CONTROL (all ' + str(len(valid)) + ' loaded)':<28} {'TREATMENT (index only)':<28} {'REVIEW (loader, judge-only)':<28}")
     print(f"{'':6} {'':>7}   {'hit/miss/extra':<28} {'hit/miss/extra':<28} {'hit/miss/extra':<28}")
     for r in rows:
         if r.get('control') is None and r.get('treatment') is None and r.get('review') is None:
@@ -779,7 +779,7 @@ def cmd_score():
             continue
         recall = 100 * hit / applicable
         precision = 100 * hit / (hit + extra) if (hit + extra) else 0.0
-        label = {'control': 'CONTROL  (all 52 always loaded)',
+        label = {'control': f'CONTROL  (all {len(valid)} always loaded)',
                  'treatment': 'TREATMENT (resident block + occasion index)',
                  'review': 'REVIEW   (the loader, judge-only framing)'}[arm]
         print(f"{label}")

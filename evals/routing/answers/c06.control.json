@@ -1,1 +1,7 @@
-{"slugs": ["cite-the-incident", "mistakes-become-rules", "verify-postcondition", "reply-links-files"], "reasoning": "The fix encodes a caught mistake, so the inline comment records the incident the rule prevents (cite-the-incident) and the root cause is pushed up to a durable lesson about gates not being done until the whole loop is walked (mistakes-become-rules); the failure itself is a postcondition miss -- record() reported success while the manifest state was not what was wanted -- so the fix is confirmed by re-walking the cycle and checking synced_from advanced, not by the command exiting 0 (verify-postcondition). The reply modifies a file, so it ends with a Files touched list (reply-links-files)."}
+{
+  "slugs": [
+    "mistakes-become-rules",
+    "cite-the-incident"
+  ],
+  "reasoning": "A bug found by walking the full guard cycle end-to-end is root-caused and fixed with the lesson recorded inline in the code comment, rather than just patched silently."
+}

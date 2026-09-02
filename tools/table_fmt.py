@@ -78,7 +78,11 @@ def _currency_magnitude(t, tail):
     optional whitespace, by a Unicode currency symbol — the renderer
     treats k/M as magnitude ONLY on currency amounts (a bare "58 M" is a
     unit, not money). Mirrors keyOf's /\\p{Sc}\\s*[\\d.,]+k|M/u."""
-    for m in re.finditer(r"[\d.,]+" + tail, t):
+    # A trailing boundary keeps "$5km" (kilometers) or "$5Mbps" from being
+    # read as the k/M currency-magnitude suffix just because the digit run
+    # happens to be followed by the right letter -- the suffix must END the
+    # token, not merely start it.
+    for m in re.finditer(r"[\d.,]+" + tail + r"(?![A-Za-z0-9])", t):
         i = m.start() - 1
         while i >= 0 and t[i].isspace():
             i -= 1
