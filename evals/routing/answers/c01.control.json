@@ -1,1 +1,7 @@
-{"slugs": ["readers-vocabulary", "lead-with-what-it-is", "acronyms-glossary", "reply-links-files"], "reasoning": "This edits the README's opening — an outward-facing entry document read by non-developers — so the new paragraph must use the reader's words, must state what the project is before how it is maintained, and must expand the acronyms it introduces (it currently says \"LLM\" and \"AI\" bare). Because the session modifies a file, its reply also owes a Files touched list."}
+{
+  "slugs": [
+    "readers-vocabulary",
+    "lead-with-what-it-is"
+  ],
+  "reasoning": "The new README paragraph is outward-facing prose for non-developer readers (readers-vocabulary), and it's opening-section material describing what the project is about (lead-with-what-it-is)."
+}

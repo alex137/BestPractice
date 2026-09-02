@@ -361,6 +361,75 @@ candidate in this document that keeps judge-only, retrospective framing is
 not worth separately re-testing; the framing itself is the ceiling, not
 what accompanies it.
 
+## The catalogue re-run (2026-09-02)
+
+**Why this ran.** `tools/routing_eval.py`'s recall/miss figures, and the
+answer files under `evals/routing/answers/`, were frozen against a
+52-practice snapshot (`ef4e9cc`, 2026-08-31). The catalogue grew to 54
+(`checkable-gets-checked`, `todo-is-a-handoff`) and neither new practice
+had ever been scored — a 2026-09-02 independent deep-check audit found the
+gap, plus a smaller bug: the script hardcoded the literal string `"52"` in
+several prompt/output labels even though it dynamically assembled all 54
+practices' Rules into the prompt (`build_prompt`'s oracle/control framing
+text, and `cmd_score`'s table header and arm labels). Both are fixed —
+labels now read `len(practices)`/`len(valid)` — and all five answer sets
+(oracle, control, treatment1, treatment2, review; 100 files) were
+regenerated from scratch: fresh independent judgments against the full
+54-practice catalogue and current `AGENTS.md` loader block, not a patch
+onto the old 52-practice answers.
+
+**The fresh numbers, this run:**
+
+| arm | recall | miss | precision |
+|---|---|---|---|
+| Control (all 54 loaded) | 64% | 36% | 77% |
+| Treatment (resident + index, two hop) | 62% | 38% | 62% |
+| Review (loader, judge-only) | 78% | 22% | 51% |
+
+**The number that actually matters here is not any single row above — it is
+how far all three rows moved from the last recorded run**, reproduced
+exactly by re-scoring the old (pre-fix) answer files unchanged before they
+were overwritten:
+
+| arm | 2026-08-31 (52-practice, frozen) | 2026-09-02 (54-practice, fresh) | swing |
+|---|---|---|---|
+| Control | 84% recall / 16% miss | 64% recall / 36% miss | **20 points** |
+| Treatment | 77% recall / 23% miss | 62% recall / 38% miss | **15 points** |
+| Review | 54% recall / 46% miss | 78% recall / 22% miss | **24 points** |
+
+Two new practices out of 54 (3.7% of the catalogue) cannot honestly account
+for a 15-24 point swing in any arm, let alone one arm swinging down while
+another swings up. The dominant cause is judge-to-judge variance across an
+independent re-run of the identical 20 cases and identical prompts — not
+the catalogue change the re-run was nominally testing. **This is a finding
+in its own right, more important than any single row's number**: this
+eval's per-run recall/miss figures carry noise on the order of 15-25
+points, which is *larger* than several of the effects this document's
+"read a gap under ~10-15 points as unconvincing" guidance was calibrated
+against. A single run's numbers — this one included — should be read as
+one noisy draw, not a precise measurement; a claim resting on a
+15-point-or-smaller difference between two arms measured in *different*
+runs is not supportable from this evidence at all, only a difference
+measured within the *same* run (where both arms share whatever that run's
+judge-variance happened to be) comes close to comparable.
+
+**What this does and does not change.** It does not overturn the two-hop
+review result's falsification above — that verdict rested on a
+pre-registered ≤57% band tested within one run (review's 54% against
+control's same-run number), and the framing argument (retrospective
+judge-only framing is the ceiling, not what accompanies it) is about
+*mechanism*, which this re-run does not speak to either way. It does mean
+future work citing this document's specific percentages should say which
+run they come from and treat single-run deltas across time as unreliable;
+[tools/catalogue_stats.py](../tools/catalogue_stats.py)-style regeneration
+answers "did the catalogue grow", not "did routing get better or worse".
+
+**Method note for reproducing this comparison**: the "before" row above
+was obtained by `git checkout HEAD -- evals/routing/answers/` (restoring
+the then-committed pre-fix answers), scoring, then restoring the fresh
+answers actually being committed — not from a second live judging pass, so
+it is exact, not an estimate.
+
 ## The supporting moves, now the primary recommendation
 
 **Written as the fallback whatever the experiment said. The experiment said

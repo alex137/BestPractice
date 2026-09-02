@@ -1,1 +1,8 @@
-{"slugs": ["session-bootstrap", "practice-export-loop", "engine-plus-host-shims", "cite-the-incident", "scrub-gate", "doc-references-are-links", "reply-links-files"], "reasoning": "The change puts an automated freshness check into the session-start bootstrap (session-bootstrap) inside the vendored upstream/check-in machinery, with a thin host-side bootstrap shim delegating to the vendored checkin.py engine (practice-export-loop, engine-plus-host-shims), and the new rule text in PRACTICES.md must carry the failure it prevents (cite-the-incident) while abstracted dependent-repo content entering this public tree must be scrubbed (scrub-gate); editing INSTALL.md/PRACTICES.md invokes the link convention and the reply must list files touched."}
+{
+  "slugs": [
+    "session-bootstrap",
+    "convention-to-audit",
+    "cite-the-incident"
+  ],
+  "reasoning": "Wires an automated check into the session-start bootstrap hook (session-bootstrap), proposes promoting a costly merge-loss pattern to a mechanical required-sections check (convention-to-audit), and the extension text narrates the specific incident that motivated it (cite-the-incident)."
+}

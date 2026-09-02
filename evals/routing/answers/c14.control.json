@@ -1,1 +1,8 @@
-{"slugs": ["convention-to-audit", "cite-the-incident", "mistakes-become-rules", "registry-source-of-truth", "engine-plus-host-shims", "doc-references-are-links"], "reasoning": "The core of the change is promoting two conventions (registered generated blocks; explained quantities) into scripts that exit non-zero, with each check's origin incident kept inline in its docstring and the root-caused false positives encoded as guards rather than left as prose. It also verifies a hand-maintained registry against the facts it restates, splits domain-neutral mechanism from the one repo-specific knob (DOC_GLOB), and adds prose to PRACTICES.md that must follow the document conventions (relative links, the ≈ form)."}
+{
+  "slugs": [
+    "registry-source-of-truth",
+    "checkable-gets-checked",
+    "docs-track-models"
+  ],
+  "reasoning": "The PAIRS wiring registry is verified against the two facts it restates rather than trusted by hand (registry-source-of-truth), the new opt-in gate was measured against the whole corpus before being wired in to avoid a gate nobody can pass (checkable-gets-checked), and it's a companion audit for docs-track-models' quantity-sourcing rule."
+}
