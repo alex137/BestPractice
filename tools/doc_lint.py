@@ -271,9 +271,18 @@ def check_file(path, fix=False, known=None):
             clean = _decontent(line)
             for m in ACRONYM_RE.finditer(clean):
                 tok = m.group(1)
-                if tok not in known and tok not in seen_acr and f'({tok})' not in clean:
+                if tok in known or tok in seen_acr:
+                    continue
+                if f'({tok})' in clean:
+                    # Glossed right here -- covers THIS use, and every later
+                    # bare use in the same document. Recording seen_acr only
+                    # inside the violation branch below (the bug this
+                    # replaces) meant a correctly-glossed first use never
+                    # actually protected a second, later bare mention.
                     seen_acr.add(tok)
-                    unglossed.append((i, tok))
+                    continue
+                seen_acr.add(tok)
+                unglossed.append((i, tok))
     if fix and changed_lines:
         lines = (ROOT / path).read_text(encoding='utf-8', errors='ignore').splitlines()
         for i, new in changed_lines.items():

@@ -285,6 +285,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_candidate.py': "Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates",
     'precedent_detect.py': "Stage 1 (phase 5) — the mechanical half of candidate detection",
     'precedent_land.py': "Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant",
+    'precedent_materialize.py': "Bridges precedent_resolve.py's multi-source resolution to the single-tree loader tools",
     'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
     'precedent_resolve.py': "Resolves the universal, team and individual sources into one set, by precedence",

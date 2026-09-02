@@ -84,6 +84,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_detect.py](tools/precedent_detect.py) | Stage 1 (phase 5) — the mechanical half of candidate detection |
 | [tools/precedent_gate.py](tools/precedent_gate.py) | The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply) |
 | [tools/precedent_land.py](tools/precedent_land.py) | Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant |
+| [tools/precedent_materialize.py](tools/precedent_materialize.py) | Bridges precedent_resolve.py's multi-source resolution to the single-tree loader tools |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to` |
 | [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
