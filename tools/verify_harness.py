@@ -23,6 +23,7 @@ CATALOGUE = ROOT / 'PRACTICES.md'
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
 import precedent_paths as pp
+import precedent_candidate as pcand
 import doc_lint as dl
 # build_views is imported for its pure helpers only (_json_str,
 # INDEX_CLAUSE_MAX). check_generated_views_regenerate still shells out to it
@@ -2576,6 +2577,58 @@ def check_gate_channel():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_detect_restated_fires():
+    """`precedent_detect.py restated` (Stage 1's cross-source duplicate-Rule
+    scan) had zero harness coverage before this deep-check pass -- a real
+    run against all three real sources together (this repo, and both
+    private sets, once populated) found nothing, which is consistent with
+    there being no actual restatement today, but is indistinguishable from
+    the detector being silently broken without a planted case that proves
+    it still fires. Two throwaway sources, one practice each: a near-exact
+    reword (should fire) and a genuinely unrelated Rule (should not)."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-detect-restated-'))
+
+    def write_practice(path, slug, rule):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "x"\ngates: []\n'
+            f'index_clause: "x"\nchecked_by: null\ndefines: []\nstatus: active\n'
+            f'supersedes: []\noverrides: null\nadded: 2026-09-02\n'
+            f'approved_by: "harness, 2026-09-02"\nsource_practice_number: null\n'
+            f'---\n## Rule\n{rule}\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+            encoding='utf-8')
+
+    try:
+        src_a, src_b = tmp / 'source-a', tmp / 'source-b'
+        write_practice(src_a / 'practices' / 'reworded-one.md', 'reworded-one',
+                        'After any state-changing operation, check the state you '
+                        'wanted, not that the command reported success.')
+        write_practice(src_b / 'practices' / 'reworded-two.md', 'reworded-two',
+                        'After any state changing operation check the state you '
+                        'actually wanted, never just that the command reported success.')
+        write_practice(src_b / 'practices' / 'unrelated.md', 'unrelated',
+                        'Slide decks are built by the deck engine and delivered '
+                        'as a viewable file attached to the same reply.')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_detect.py'),
+                             'restated', '--against', f'{src_a},{src_b}'],
+                            capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        fires_on_reword = (r.returncode == 0 and "'reworded-one'" in out
+                            and "'reworded-two'" in out and '1 pair' in out)
+        silent_on_unrelated = "'unrelated'" not in out
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    check('precedent_detect.py restated fires (2 stated cases: a genuine '
+          'reword across sources is caught, an unrelated Rule in the same '
+          'run is not)',
+          fires_on_reword and silent_on_unrelated,
+          f'fires_on_reword={fires_on_reword} silent_on_unrelated={silent_on_unrelated}')
+
+
 def check_creation_pipeline_fires():
     """Phase 5's own done-when, tested directly rather than trusted from a
     manual smoke test: "a candidate can be raised, promoted and landed end
@@ -2653,6 +2706,28 @@ def check_creation_pipeline_fires():
                       'with a real existing practice',
                       rc == 1 and 'criterion 3' in out and 'non-duplication' in out))
 
+        # --- non-duplication defaults to checking the candidate's OWN repo too --
+        # Deep-check regression case: --against used to default to ROOT alone
+        # regardless of the candidate's level, so promoting an individual/team
+        # candidate with no explicit --against silently never checked it
+        # against that repo's own catalogue.
+        (repo / 'practices' / 'pipeline-fixture-owncatalogue.md').write_text(
+            '---\nslug: pipeline-fixture-owncatalogue\ntitle: Fixture\n'
+            'tier: on-demand\nseverity: default\napplies_to: ["**"]\n'
+            'occasion: "x"\ngates: []\nindex_clause: "x"\nchecked_by: null\n'
+            'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+            'added: 2026-09-02\napproved_by: "harness, 2026-09-02"\n'
+            'source_practice_number: null\n---\n## Rule\nAlways do the fixture thing.\n\n'
+            '## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+            encoding='utf-8')
+        f3b = make_candidate('pipeline-fixture-owncatalogue', recurrence=2,
+                              occasion='a fixture occasion',
+                              rule='Always do the fixture thing.')
+        rc, out = pyrun(promote_tool, '--file', str(f3b), '--level', 'individual')
+        cases.append(("non-duplication's default --against catches a collision with "
+                      "the candidate's OWN repo, not just this repo (universal)",
+                      rc == 1 and 'criterion 3' in out and 'non-duplication' in out))
+
         # --- criterion 4: budget ----------------------------------------------
         huge_rule = ' '.join(['word'] * 3000)  # ~3900 tokens at 1.3/word, alone over the 2000 cap
         f4 = make_candidate('pipeline-fixture-c4', recurrence=2, tier='resident', rule=huge_rule)
@@ -2688,6 +2763,20 @@ def check_creation_pipeline_fires():
                       rc == 1 and 'not a key in' in out
                       and not (ROOT / 'practices' / 'pipeline-fixture-checkedby.md').exists()))
 
+        # --- landing marks the source candidate promoted, not left open ---------
+        # Deep-check regression case: `status: promoted` was a declared valid
+        # value nothing ever set -- a landed candidate stayed `status: open`
+        # forever, so `list --status open` kept surfacing it as if it still
+        # needed a decision.
+        f5b = make_candidate('pipeline-fixture-marks-promoted', recurrence=2,
+                              occasion='a fixture occasion')
+        rc, out = pyrun(promote_tool, '--file', str(f5b), '--level', 'individual')
+        rc, out = pyrun(land_tool, '--file', str(f5b), '--level', 'individual',
+                        '--path', str(repo), '--approved-by', 'harness')
+        landed_fm, _ = pcand._parse_frontmatter(f5b.read_text(encoding='utf-8'))
+        cases.append(('landing rewrites the source candidate to status: promoted',
+                      rc == 0 and landed_fm.get('status') == 'promoted'))
+
         # --- landing hard-refuses an unlisted team approver ---------------------
         f7 = make_candidate('pipeline-fixture-approver', recurrence=2, occasion='x')
         rc, out = pyrun(land_tool, '--file', str(f7), '--level', 'team',
@@ -2697,6 +2786,56 @@ def check_creation_pipeline_fires():
         cases.append(('landing refuses a team candidate when there is no '
                       'approvers.json to check the named approver against',
                       rc == 1 and not (ROOT / 'practices' / 'pipeline-fixture-approver.md').exists()))
+
+        # --- a same-day, same-slug raise registers as recurrence, never fails --
+        # Deep-check regression case: cmd_create used to hard-refuse a second
+        # same-day raise of the same slug ("already exists"), silently dropping
+        # exactly the recurrence signal Stage 1 exists to capture.
+        rc_a, out_a = pyrun(cand_tool, 'create', '--level', 'individual', '--path', str(repo),
+                             '--slug', 'pipeline-fixture-sameday', '--title', 't',
+                             '--signal', 'explicit-instruction', '--raised-by', 'harness',
+                             '--observed', 'first raise', '--proposed-rule', 'r',
+                             '--occasion', 'a fixture occasion')
+        rc_b, out_b = pyrun(cand_tool, 'create', '--level', 'individual', '--path', str(repo),
+                             '--slug', 'pipeline-fixture-sameday', '--title', 't',
+                             '--signal', 'explicit-instruction', '--raised-by', 'harness',
+                             '--observed', 'second raise, same day', '--proposed-rule', 'r',
+                             '--occasion', 'a fixture occasion')
+        sameday_files = sorted((repo / 'candidates').glob('pipeline-fixture-sameday-*.md'))
+        rc, out = pyrun(promote_tool, '--file', str(sameday_files[0]), '--level', 'individual')
+        cases.append(('a second same-day raise of the same slug does not fail, and '
+                      'registers as recurrence rather than needing recurrence hand-bumped',
+                      rc_a == 0 and rc_b == 0 and len(sameday_files) == 2
+                      and rc == 0 and 'PROMOTED' in out))
+
+        # --- recurrence counting matches on the parsed slug, not a filename prefix --
+        # Deep-check regression case: counting file_count via glob(f'{slug}-*.md')
+        # let a candidate named e.g. 'foo-bar' inflate 'foo''s recurrence count,
+        # since 'foo-bar-<date>.md' also matches the glob 'foo-*.md'.
+        make_candidate('pipeline-fixture-prefix', recurrence=1)
+        make_candidate('pipeline-fixture-prefix-longer', recurrence=1,
+                        **{'cost-if-once': 'unrelated candidate, shares a slug prefix'})
+        f_prefix = sorted((repo / 'candidates').glob('pipeline-fixture-prefix-2*.md'))[0]
+        rc, out = pyrun(promote_tool, '--file', str(f_prefix), '--level', 'individual')
+        cases.append(("a differently-slugged candidate sharing a name prefix "
+                      "('foo-bar' alongside 'foo') never inflates the shorter "
+                      "slug's recurrence count",
+                      rc == 1 and 'criterion 1' in out and 'actual file count 1' in out))
+
+        # --- Observed text quoting the Proposed Rule heading does not corrupt the split --
+        # Deep-check regression case: a naive first-match split on '## Proposed
+        # Rule' truncates Observed and folds the rest of it into the Rule the
+        # moment Observed narrates something that itself contains that literal
+        # heading line -- a real risk for a candidate ABOUT a heading collision.
+        f8 = make_candidate(
+            'pipeline-fixture-heading', recurrence=2, occasion='x',
+            observed='the output contained a line reading\n## Proposed Rule\nwhich confused a naive parser',
+            rule='The real proposed rule text.')
+        rc, out = pyrun(promote_tool, '--file', str(f8), '--level', 'individual')
+        cases.append(("an Observed section that quotes the literal '## Proposed "
+                      "Rule' heading does not corrupt the extracted Rule text",
+                      rc == 0 and 'The real proposed rule text.' in out
+                      and 'confused a naive parser' not in out))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -2752,6 +2891,7 @@ def main():
     check_precedent_check_fires()
     check_routing_scope(files)
     check_gate_channel()
+    check_detect_restated_fires()
     check_creation_pipeline_fires()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")

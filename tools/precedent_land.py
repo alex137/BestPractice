@@ -179,15 +179,21 @@ def land(candidate_path, level, repo_path, approved_by, against):
             _verify_checked_by_private(repo_path, checked_by)
         dest_dir = pathlib.Path(repo_path) / 'practices'
 
-    observed_match = re.search(r'## Observed\n(.*?)\n## Proposed Rule',
-                                pathlib.Path(candidate_path).read_text(encoding='utf-8'), re.S)
-    observed = observed_match.group(1).strip() if observed_match else ''
+    _fm, _body = pc._parse_frontmatter(pathlib.Path(candidate_path).read_text(encoding='utf-8'))
+    observed, _proposed_rule = pc.split_candidate_sections(_body)
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / f"{fm['slug']}.md"
     if dest.exists():
         raise LandRefused(f'{dest} already exists -- refusing to overwrite')
     dest.write_text(_render_practice(fm, result['proposed_rule'], observed, approved_by, level), encoding='utf-8')
+    if level in ('individual', 'team'):
+        # Mark the source candidate promoted so it stops reading as still
+        # open -- an already-landed candidate left at `status: open` would
+        # keep surfacing from `precedent_candidate.py list --status open`
+        # as if it still needed a decision, and nothing would stop a second
+        # promote/land of the same file.
+        pc.set_candidate_status(candidate_path, 'promoted', required_current='open')
     return dest, level
 
 
@@ -210,7 +216,8 @@ def main():
     if not candidate_path or level not in pc.LEVELS:
         sys.exit(f"precedent_land FAIL: --file CANDIDATE.md and --level "
                   f"({sorted(pc.LEVELS)}) are both required")
-    against = args['--against'].split(',') if args.get('--against') else [str(ROOT)]
+    against = (args['--against'].split(',') if args.get('--against')
+               else pp.default_against(candidate_path, level))
 
     try:
         dest, level = land(candidate_path, level, args.get('--path'),

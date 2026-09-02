@@ -61,6 +61,16 @@ class CandidateError(Exception):
     pass
 
 
+def _escape_scalar(v):
+    """Shared by the plain-scalar and list-item paths: backslash-escape a
+    quote or embedded newline so a value containing either survives being
+    written inside a double-quoted frontmatter scalar. Does not escape a
+    bare backslash itself -- narrow and deliberate, same as the rest of
+    this parser; a value containing a literal backslash followed by `n` or
+    `"` is a known, accepted gap for a format this restricted."""
+    return v.replace('"', '\\"').replace('\n', '\\n')
+
+
 def _yaml_scalar(v):
     """Minimal, deliberate: candidate frontmatter values are all either
     plain scalars, null, or a flat list of strings -- the same restricted
@@ -73,10 +83,10 @@ def _yaml_scalar(v):
     if isinstance(v, int):
         return str(v)
     if isinstance(v, list):
-        return '[' + ', '.join(f'"{x}"' for x in v) + ']'
+        return '[' + ', '.join('"' + _escape_scalar(str(x)) + '"' for x in v) + ']'
     v = str(v)
-    if v == '' or any(c in v for c in ':#"\n') or v != v.strip():
-        return '"' + v.replace('"', '\\"') + '"'
+    if v == '' or any(c in v for c in ':#"\n,[]') or v != v.strip():
+        return '"' + _escape_scalar(v) + '"'
     return v
 
 
@@ -100,6 +110,33 @@ def render_candidate(fields, observed, proposed_rule):
     return '\n'.join(lines)
 
 
+def _split_list_items(inner):
+    """Comma-split `inner` (the text between a list's `[` and `]`) without
+    breaking on a comma that falls inside a quoted item -- a glob or gate
+    name is unlikely to contain one, but a hand-edited or adversarial
+    candidate might (spec/CANDIDATE_FORMAT.md's own list fields are plain
+    strings, not enums, so nothing stops it)."""
+    items, buf, in_quotes = [], [], False
+    i = 0
+    while i < len(inner):
+        c = inner[i]
+        if c == '"' and (i == 0 or inner[i - 1] != '\\'):
+            in_quotes = not in_quotes
+            buf.append(c)
+        elif c == ',' and not in_quotes:
+            items.append(''.join(buf))
+            buf = []
+        else:
+            buf.append(c)
+        i += 1
+    items.append(''.join(buf))
+    return items
+
+
+def _unescape_scalar(v):
+    return v.replace('\\"', '"').replace('\\n', '\n')
+
+
 def _parse_frontmatter(text):
     """Deliberately tolerant of the same narrow shape render_candidate()
     produces -- this is a read path for files this tool itself wrote (or a
@@ -119,14 +156,34 @@ def _parse_frontmatter(text):
         if val.startswith('[') and val.endswith(']'):
             inner = val[1:-1].strip()
             fm[key] = [] if not inner else [
-                s.strip().strip('"') for s in inner.split(',')]
+                _unescape_scalar(s.strip().strip('"')) for s in _split_list_items(inner)]
         elif val == 'null':
             fm[key] = None
         elif val.startswith('"') and val.endswith('"'):
-            fm[key] = val[1:-1].replace('\\"', '"')
+            fm[key] = _unescape_scalar(val[1:-1])
         else:
             fm[key] = val
     return fm, body.strip('\n')
+
+
+def split_candidate_sections(body):
+    """Split a candidate's post-frontmatter body into (observed, proposed_rule).
+
+    Splits on the LAST line that is exactly `## Proposed Rule`, not the
+    first. A naive first-match split breaks the moment Observed prose
+    quotes that heading verbatim -- a real risk, not a hypothetical one: a
+    candidate about a heading-collision bug, or one that pastes markdown
+    containing that literal line, truncates Observed and folds the rest of
+    it into Proposed Rule. render_candidate() only ever writes the heading
+    once, so the last (only) real match is always the actual section
+    boundary regardless of what Observed contains earlier."""
+    matches = list(re.finditer(r'^## Proposed Rule\s*$', body, re.M))
+    if not matches:
+        return body.strip(), ''
+    split_at = matches[-1]
+    observed_part = re.sub(r'^## Observed\s*\n', '', body[:split_at.start()], count=1)
+    proposed_rule = body[split_at.end():].strip()
+    return observed_part.strip(), proposed_rule
 
 
 def cmd_create(args):
@@ -198,8 +255,15 @@ def cmd_create(args):
     cand_dir.mkdir(parents=True, exist_ok=True)
     dest = cand_dir / f'{slug}-{date}.md'
     if dest.exists():
-        raise CandidateError(f'{dest} already exists -- a candidate for this '
-                              f'slug was already raised today')
+        # A same-day, same-slug raise is a genuine recurrence, not an error
+        # (spec/CANDIDATE_FORMAT.md: "a count of files, not a field a
+        # session has to remember to increment") -- suffix a sequence number
+        # rather than refusing outright, which used to silently drop the
+        # signal Stage 3's recurrence criterion is built to capture.
+        n = 2
+        while (cand_dir / f'{slug}-{date}-{n}.md').exists():
+            n += 1
+        dest = cand_dir / f'{slug}-{date}-{n}.md'
     dest.write_text(text, encoding='utf-8')
     print(f"candidate written: {dest}")
     return 0
@@ -252,6 +316,29 @@ def cmd_list(args):
     return 0
 
 
+def set_candidate_status(target, new_status, required_current='open'):
+    """Rewrite a candidate file's `status:` field in place -- shared by
+    cmd_expire and precedent_land.py's post-landing update, so a candidate
+    that has actually been landed does not sit reading `status: open`
+    forever (list --status open would otherwise keep surfacing it as if it
+    still needed a decision, and nothing would stop a second promote/land
+    of the same already-landed file)."""
+    target = pathlib.Path(target)
+    if not target.exists():
+        raise CandidateError(f'{target} does not exist')
+    text = target.read_text(encoding='utf-8')
+    fm, _body = _parse_frontmatter(text)
+    if required_current is not None and fm.get('status') != required_current:
+        raise CandidateError(
+            f"{target} has status {fm.get('status')!r}, not {required_current!r} "
+            f"-- only a {required_current!r} candidate can become {new_status!r}")
+    new_text = re.sub(rf'^status:\s*{re.escape(fm.get("status"))}\s*$',
+                       f'status: {new_status}', text, count=1, flags=re.MULTILINE)
+    if new_text == text:
+        raise CandidateError(f"could not find the status line in {target} to rewrite")
+    target.write_text(new_text, encoding='utf-8')
+
+
 def cmd_expire(args):
     level = args.get('--level')
     if level not in ('individual', 'team'):
@@ -262,18 +349,7 @@ def cmd_expire(args):
     if not path or not fname:
         raise CandidateError('--path REPO and --file NAME are both required')
     target = pathlib.Path(path) / 'candidates' / fname
-    if not target.exists():
-        raise CandidateError(f'{target} does not exist')
-    fm, body = _parse_frontmatter(target.read_text(encoding='utf-8'))
-    if fm.get('status') != 'open':
-        raise CandidateError(f"{target} has status {fm.get('status')!r}, not 'open' "
-                              f"-- only an open candidate can be expired")
-    text = target.read_text(encoding='utf-8')
-    new_text = re.sub(r'^status:\s*open\s*$', 'status: expired', text,
-                       count=1, flags=re.MULTILINE)
-    if new_text == text:
-        raise CandidateError(f"could not find 'status: open' line in {target} to rewrite")
-    target.write_text(new_text, encoding='utf-8')
+    set_candidate_status(target, 'expired', required_current='open')
     print(f"expired: {target}")
     return 0
 
