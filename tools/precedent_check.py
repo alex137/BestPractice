@@ -1048,17 +1048,58 @@ def _scripts_assert_properties(ctx):
             or (l.startswith('WARN:') and 'no self_check() or ANCHORS' in l)]
 
 
-CODE_PRACTICE_CITE_RE = re.compile(
-    r'#\s*practice:\s*([a-z][a-z0-9-]*)'      # a `#`-prefixed line comment
-    r'|\(practice:\s*([a-z][a-z0-9-]*)\)')    # a parenthetical, in a docstring
+_CODE_CITE_SLUG_RE = re.compile(r'\bpractice:\s*([a-z][a-z0-9-]*)')
+_CODE_CITE_PAREN_SPAN_RE = re.compile(r'\(([^()]*)\)')
+_CODE_CITE_HASH_COMMENT_RE = re.compile(r'#([^\n]*)')
 # The parenthetical form matters: several existing citations are narrative,
 # inside a module's own triple-quoted docstring ("the mechanism (practice:
 # one-formatter-per-quantity) requires"), which is just as
 # machine-checkable and just as much "right at the point of implementation"
-# as a bare `#` comment. The closing paren is required, not cosmetic -- an
-# earlier, looser version of this pattern (bare `practice:` with no comment
-# marker or parens) matched ordinary prose reading "Each practice: the
-# **rule**, **why**..." as a citation to a practice literally named "the".
+# as a bare `#` comment. Requiring SOME anchor -- a `#` comment or a
+# parenthetical -- is not cosmetic: an earlier, looser version of this
+# pattern (bare "practice" + colon, no comment marker or parens) matched
+# ordinary prose reading "Each PRACTICE_LABEL: the **rule**, **why**..."
+# as a citation to a practice literally named "the"
+# (tools/split_practices.py's own docstring, PRACTICE_LABEL standing in
+# here for the actual word so THIS comment doesn't retrigger the very
+# false positive it describes -- still unparenthesized prose today, which
+# is why the anchor stays required rather than being dropped as "too
+# strict").
+#
+# A 2026-09-03 deep-check audit found the FIRST version of this anchor
+# requirement too strict in the other direction: requiring the slug to be
+# immediately followed by `)` missed six real, live citations already in
+# this codebase -- a trailing clause before the close-paren
+# (`(practice: layered-practice-packs: "repo-local ... never leave")`,
+# itself split across two physical lines by its own paragraph wrap), and
+# more than one slug inside one parenthetical
+# (`(practice: practice-export-loop; practice: scrub-gate; practice:
+# layered-practice-packs)`), which a single `re.search()` per line could
+# not have found either way -- only the first match on a line was ever
+# checked. _iter_code_citations below scans the WHOLE FILE'S text (not
+# line by line, so a citation split across a wrapped paragraph is not
+# invisible) and every occurrence within a `#` comment or a parenthetical
+# span (not just the first), while keeping the same anchor requirement
+# that keeps ordinary prose from being read as a citation.
+
+
+def _iter_code_citations(text):
+    """Yield (line_no, slug) for every `practice: SLUG` citation in `text`,
+    per the two forms this practice recognizes. A `#` comment never spans
+    lines in Python, so that half is still naturally line-scoped; a
+    parenthetical can (see above), so it is matched across the whole text
+    with `re.finditer`, then the line number is recovered from the match's
+    character offset. The same citation can never match twice (each
+    character range belongs to exactly one comment, or to the innermost
+    unnested parenthetical containing it), so no dedup is needed."""
+    for m in _CODE_CITE_HASH_COMMENT_RE.finditer(text):
+        line_no = text.count('\n', 0, m.start()) + 1
+        for cm in _CODE_CITE_SLUG_RE.finditer(m.group(1)):
+            yield line_no, cm.group(1)
+    for m in _CODE_CITE_PAREN_SPAN_RE.finditer(text):
+        for cm in _CODE_CITE_SLUG_RE.finditer(m.group(1)):
+            line_no = text.count('\n', 0, m.start(1) + cm.start()) + 1
+            yield line_no, cm.group(1)
 CODE_PRACTICE_NUMBER_RE = re.compile(r'\bpractice\s+(\d+)\b')
 # The exact anti-pattern this practice exists to end: citing by POSITION
 # rather than by the slug that survives a renumbering. Flagged even with no
@@ -1098,23 +1139,30 @@ def _code_cites_practice(ctx):
         if f.name in CODE_CITE_SKIP_FILES:
             continue
         text = f.read_text(encoding='utf-8', errors='ignore')
+        seen = set()
+        for i, slug in _iter_code_citations(text):
+            # A citation inside a `#` comment that itself sits inside a
+            # multi-line parenthetical is found by both halves of
+            # _iter_code_citations -- once per comment line, once as part
+            # of the larger parenthetical span. Same (line, slug), reported
+            # once.
+            if (i, slug) in seen:
+                continue
+            seen.add((i, slug))
+            status = known.get(slug)
+            if status is None:
+                out.append(Finding(f'tools/{f.name}:{i}',
+                                    f'cites {slug!r}, which is not a real '
+                                    f'practice slug (typo, or the file was '
+                                    f'deleted instead of retired)'))
+            elif status != 'active':
+                out.append(Finding(f'tools/{f.name}:{i}',
+                                    f'cites {slug!r}, which is status: '
+                                    f'{status!r} -- this code implements a '
+                                    f'practice that no longer is one; update '
+                                    f'or remove it, or reconsider the '
+                                    f'retirement'))
         for i, line in enumerate(text.splitlines(), 1):
-            m = CODE_PRACTICE_CITE_RE.search(line)
-            if m:
-                slug = m.group(1) or m.group(2)
-                status = known.get(slug)
-                if status is None:
-                    out.append(Finding(f'tools/{f.name}:{i}',
-                                        f'cites {slug!r}, which is not a real '
-                                        f'practice slug (typo, or the file was '
-                                        f'deleted instead of retired)'))
-                elif status != 'active':
-                    out.append(Finding(f'tools/{f.name}:{i}',
-                                        f'cites {slug!r}, which is status: '
-                                        f'{status!r} -- this code implements a '
-                                        f'practice that no longer is one; update '
-                                        f'or remove it, or reconsider the '
-                                        f'retirement'))
             mn = CODE_PRACTICE_NUMBER_RE.search(line)
             if mn:
                 out.append(Finding(f'tools/{f.name}:{i}',
@@ -1151,11 +1199,28 @@ def _migration_scrubs_vocabulary(ctx):
         cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
     except json.JSONDecodeError as e:
         return [Finding(RETIRED_VOCAB_CONFIG, f'not valid JSON: {e}')]
+    if not isinstance(cfg, dict):
+        # Valid JSON, wrong shape (e.g. a bare `["OldName"]` array where a
+        # `{"terms": [...]}` object belongs) used to reach `cfg.get(...)`
+        # below and raise an uncaught AttributeError, taking down every
+        # OTHER check in the same run with it (found in a 2026-09-03
+        # deep-check audit) -- a malformed config is exactly the kind of
+        # thing this check exists to catch, not crash on.
+        return [Finding(RETIRED_VOCAB_CONFIG,
+                        f'must be a JSON object with a "terms" list (e.g. '
+                        f'{{"terms": [...], "exempt_files": [...]}}), not a '
+                        f'{type(cfg).__name__}')]
     terms = cfg.get('terms') or []
+    exempt_files = cfg.get('exempt_files') or []
+    if not isinstance(terms, list) or not isinstance(exempt_files, list):
+        bad = 'terms' if not isinstance(terms, list) else 'exempt_files'
+        return [Finding(RETIRED_VOCAB_CONFIG,
+                        f'{bad!r} must be a JSON array of strings, not a '
+                        f'{type(cfg[bad]).__name__}')]
     if not terms:
         raise NotApplicable(f'{RETIRED_VOCAB_CONFIG} declares no terms -- '
                             f'nothing to scrub for')
-    exempt = {RETIRED_VOCAB_CONFIG} | set(cfg.get('exempt_files') or [])
+    exempt = {RETIRED_VOCAB_CONFIG} | set(exempt_files)
     out = []
     for dirpath, dirnames, filenames in os.walk(ROOT):
         rel_dir = pathlib.Path(dirpath).relative_to(ROOT).as_posix()
@@ -1203,6 +1268,22 @@ def run(slugs, ctx, scopes):
                             findings, None))
         except NotApplicable as e:
             results.append((slug, 'SKIPPED', [], str(e)))
+        except Exception as e:
+            # A check's own bug (a malformed config it didn't validate, an
+            # unhandled edge case) must not take the other checks down with
+            # it -- a 2026-09-03 deep-check audit found a malformed
+            # process/retired_vocabulary.json (a JSON array instead of an
+            # object) raised AttributeError straight out of
+            # migration-scrubs-vocabulary's check, uncaught here, aborting
+            # the whole run before any of the other ~40 checks got a
+            # chance to report anything at all -- loud, but a crash, not
+            # the isolated refusal this repo's own "refuse loudly, never
+            # silently" philosophy calls for. ERROR is its own status,
+            # never folded into VIOLATION (a check that could not run
+            # found no evidence either way) or SKIPPED (that means the
+            # check legitimately does not apply here, not that it broke).
+            results.append((slug, 'ERROR', [],
+                            f'{type(e).__name__}: {e}'))
     return results
 
 
@@ -1249,6 +1330,7 @@ def main():
 
     violated = [r for r in results if r[1] == 'VIOLATION']
     skipped = [r for r in results if r[1] == 'SKIPPED']
+    errored = [r for r in results if r[1] == 'ERROR']
     passed = [r for r in results if r[1] == 'PASS']
 
     for slug, _st, findings, _why in violated:
@@ -1259,14 +1341,17 @@ def main():
         for line in rule_of(slug).splitlines():
             print(f'    {line}')
 
+    for slug, _st, _f, why in errored:
+        print(f'\nERROR      {slug} — the check itself failed to run: {why}')
+
     for slug, _st, _f, why in skipped:
         print(f'SKIPPED    {slug} — {why}')
     if ctx.scope_reason and any(CHECKS[s]['scope'] == 'change' for s in slugs):
         print(f'note: {ctx.scope_reason}')
 
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
-          f'{len(skipped)} skipped (a skip is not a pass).')
-    if violated:
+          f'{len(errored)} errored, {len(skipped)} skipped (a skip is not a pass).')
+    if violated or errored:
         return 1
     if skipped and '--strict' in flags:
         print('--strict: a check that could not run is a failure here.')

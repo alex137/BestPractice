@@ -143,7 +143,16 @@ def load_config(repo, user_config=None):
     source declared at `path: "."` into that same repo's own root silently
     overwrote the hand-authored source file the moment another source won
     resolution on a shared slug, with no trace left that it had ever held
-    different content."""
+    different content. `path: "."` still resolves HERE -- this validation
+    only guarantees the path stays inside the declaring repo, not that it
+    differs from wherever a session later points precedent_materialize.py's
+    --out -- but a 2026-09-03 deep-check audit found the silent-overwrite
+    case survived that first fix (which only protected a WINNING practice's
+    file, not one that loses right where it lives) plus a second, worse
+    case (materialize()'s own prior output gets read back on the next run
+    as if this source had authored it). precedent_materialize.py now
+    refuses outright, unconditionally, whenever any source's resolved path
+    equals its own --out -- see its `_self_referential_sources`."""
     repo_root = pathlib.Path(repo).resolve()
     sources = []
     repo_cfg_path = repo_root / REPO_CONFIG

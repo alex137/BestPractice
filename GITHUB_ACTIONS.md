@@ -6,10 +6,24 @@ This is especially important when working through GitHub-connected ChatGPT. A no
 
 ## Precedent's own workflows (this repo, not a template)
 
-Two workflows run on this repo itself, in [.github/workflows/](.github/workflows/):
+Three workflows run on this repo itself, in [.github/workflows/](.github/workflows/):
 
 - **`docs.yml`** — pre-fork BestPractice content: the Markdown lint job
   described below, running here rather than only shipped as a template.
+- **`deep-check.yml`** — added by a 2026-09-03 deep-check audit. Runs
+  [tools/verify_harness.py](tools/verify_harness.py),
+  [tools/precedent_check.py](tools/precedent_check.py) and
+  [tools/doc_sync.py](tools/doc_sync.py) — the three of AGENTS.md's five
+  named "deep check" tools that had no continuous-integration (CI) check
+  of their own until this landed, having been session discipline only.
+  That gap is exactly where
+  a same-day audit found two critical, reproduced bugs (a self-referential
+  `repo-local` source silently destroying its own content, and a second
+  that broke every re-sync after it) sitting undetected on a branch whose
+  merges were all green — neither doc_lint.py nor leak_gate.py could ever
+  have caught either, since neither runs the resolver or materializer at
+  all. Runs on every push and pull request, on every branch, same as
+  leak-gate.yml below.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](tools/leak_gate.py)'s structural
   layer on every push and every pull request, on every branch (this repo is
