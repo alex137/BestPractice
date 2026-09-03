@@ -493,7 +493,7 @@ above was wrong even at the moment it was written: `checkable-gets-checked`
 carries `gates: [review]` and belongs in this list too, making the
 contemporaneous count 9, not 8. `todo-is-a-handoff`, converted from
 `main` later the same day (see CHANGES_TO_TELL_ALEX.md), is also
-gate-only (`gates: [merge]`) and brings the CURRENT total to **10**:
+gate-only (`gates: [merge]`) and brings the total at the time to **10**:
 `capture-gate`, `checkable-gets-checked`, `convention-to-audit`,
 `merge-authorization-keyword`, `merge-runbook`, `mistakes-become-rules`,
 `reply-links-files`, `repo-is-memory`, `second-pass-capture`,
@@ -502,6 +502,14 @@ live list rather than trusting a count written here — this correction
 itself will go stale the next time a gate-only practice is added, which
 is the reason `orientation-map` and the catalogue's own generated figures
 exist as scripts rather than as prose asserted once and left.
+
+**Second correction, 2026-09-03 (a later deep-check audit) — proving the
+point directly above.** `disclose-landing` (`gates: [reply]`,
+`checked_by: null`), landed after the first correction, brings the
+CURRENT total to **11**, the eleventh name unlisted above. Not fixed by
+re-counting harder: `python3 tools/precedent_gate.py --list` remains the
+one place this number cannot go stale, precisely because it is derived,
+not typed.
 
 **The remaining 20 are genuinely neither**, and the honest reason splits
 into two groups worth naming rather than lumping as one undifferentiated

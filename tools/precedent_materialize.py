@@ -54,6 +54,36 @@ class MaterializeError(Exception):
     pass
 
 
+def _self_referential_sources(sources, out_dir):
+    """A source whose declared `path` resolves to THIS run's own `out_dir`
+    is not a separate tree materialize() can safely delete-and-rewrite: it
+    is someone's hand-authored content, with no other copy anywhere
+    (precedent_resolve.py's load_config only guarantees a repo-local
+    source's path stays INSIDE the declaring repo, not that it differs
+    from the sync target -- `path: "."` still resolves there by design,
+    since a subdirectory is a convention, not a safety rule the resolver
+    itself enforces).
+
+    Two real, reproduced bugs came from allowing this combination through
+    to materialize() anyway (2026-09-03 deep-check audit): (1) the moment a
+    higher-precedence source shadows a slug this source also holds, ITS
+    file is deleted and the winner's content is written over it, with no
+    trace left that anything different was ever there -- the earlier
+    "read every resolved practice into memory before deleting" fix only
+    protects the file of the practice that WINS, not one that loses right
+    where it lives; (2) once materialize() has run once, its own output
+    (a check script or practice file belonging to a DIFFERENT source)
+    sits physically inside this source's declared tree, so the NEXT run's
+    resolve()/`_plan_checks` reads it back as if this source had authored
+    it -- corrupting the resolved set itself, not just materialize()'s
+    output, and not something a clean run today rules out for the run
+    after it. Both are structural to source == destination, not fixable
+    by reading harder before deleting -- refused unconditionally, whether
+    or not today's resolved set happens to collide."""
+    out_dir = pathlib.Path(out_dir).resolve()
+    return [s for s in sources if pathlib.Path(s['path']).resolve() == out_dir]
+
+
 def _plan_checks(sources):
     """Read every source's per-check tools/checks/check_*.py and
     tools/checks/tests/test_*.sh INTO MEMORY, refusing a same-name
@@ -121,6 +151,25 @@ def materialize(sources, res, out_dir):
     anything is removed, every byte this function still needs is already
     held in memory, whether or not its original path just got wiped."""
     out_dir = pathlib.Path(out_dir)
+    self_referential = _self_referential_sources(sources, out_dir)
+    if self_referential:
+        names = ', '.join(f"{s['name']!r} ({s['level']})" for s in self_referential)
+        raise MaterializeError(
+            f"{names} declares its `path` as this run's --out directory "
+            f"itself ({out_dir.resolve()}). materialize() deletes and "
+            f"rewrites practices/ and tools/checks/ in --out on every run; "
+            f"a source living at that exact path has no other copy of its "
+            f"own hand-authored content and will eventually be destroyed "
+            f"or corrupted by a future run even if this one is clean (a "
+            f"slug it loses to a higher-precedence source is deleted for "
+            f"good; a file materialize() itself writes for a DIFFERENT "
+            f"source is read back on the next run as if this source had "
+            f"authored it). Move {names}'s declared `path` to a "
+            f"subdirectory (e.g. \"local\", holding local/practices/ -- "
+            f"the repo-local convention PRACTICE_ENGINE_PLAN.md's "
+            f"\"Source\" section recommends) so its tree and "
+            f"materialize()'s output are physically separate.")
+
     practices_dir = out_dir / 'practices'
     checks_dir = out_dir / 'tools' / 'checks'
 

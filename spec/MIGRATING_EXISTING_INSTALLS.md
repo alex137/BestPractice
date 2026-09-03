@@ -220,6 +220,19 @@ the loader.
    `--check` on a second pass to confirm it's stable (byte-identical,
    nothing left to regenerate) before committing the result.
 
+   **Re-confirm step 5's vocabulary scrub here too, as a named gate, not
+   just at the moment step 5 itself was done.** `process/retired_vocabulary.json`
+   has no other check pointed at it and nothing else in this pattern
+   revisits it — a migration that got interrupted between steps, or a
+   session that skipped straight to validating the sync and never
+   circled back, leaves the check permanently silent (`NotApplicable`
+   forever looks identical to "correctly scrubbed," from outside) with no
+   later step catching the gap. Run `python3 process/upstream/tools/precedent_check.py
+   --only migration-scrubs-vocabulary` here, as part of *this* validation
+   pass, and do not consider the migration finished until it passes —
+   the same requirement step 5 already states, restated at the one point
+   in this pattern that claims the migration is actually validated.
+
 ## The default-branch gotcha
 
 `tools/checkin.py`'s `fresh`, `update`, and `record` commands all resolve

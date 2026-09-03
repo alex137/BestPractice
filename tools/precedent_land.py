@@ -194,6 +194,35 @@ def land(candidate_path, level, repo_path, approved_by, against):
         # as if it still needed a decision, and nothing would stop a second
         # promote/land of the same file.
         pc.set_candidate_status(candidate_path, 'promoted', required_current='open')
+
+    print(f"LANDED: {dest}")
+    # A file path alone requires the reader to already know this repo's
+    # layout to know what just happened -- say it in plain words too, so a
+    # session relaying this to a human has no way to leave out WHICH of the
+    # three it is or WHERE. Lives HERE, in land() itself, not in main() --
+    # a 2026-09-03 deep-check audit found the disclosure printed only from
+    # the CLI entry point, so a future programmatic caller of land() (an
+    # orchestration script, a batch-land tool) would land a practice with
+    # no disclosure at all. No such caller exists today, but the practice's
+    # own Rule is "every time", not "every time through this one CLI".
+    # practice: disclose-landing
+    if level == 'individual':
+        print(f"DISCLOSE TO THE HUMAN: this is now part of YOUR OWN "
+              f"individual practice set ({repo_path}). It applies "
+              f"only to you, is already in force, and nobody else approved "
+              f"or needs to.")
+    elif level == 'team':
+        print(f"DISCLOSE TO THE HUMAN: this is now part of the TEAM "
+              f"practice set at {repo_path}, approved by "
+              f"{approved_by!r}. It is already in force for "
+              f"everyone on that team.")
+    else:  # universal
+        print("DISCLOSE TO THE HUMAN: this is a DRAFT ONLY, not yet in "
+              "force for anyone. Stage 4's universal approval is a PR to "
+              "Precedent -- commit this file on a branch and open a PR; this "
+              "tool does not merge it, and nothing is in force until that PR "
+              "is reviewed and merged by a human other than whoever wrote "
+              "it.")
     return dest, level
 
 
@@ -230,30 +259,10 @@ def main():
             print(f"REFUSED at landing: {e}")
         return 1
 
-    print(f"LANDED: {dest}")
-    # A file path alone requires the reader to already know this repo's
-    # layout to know what just happened -- say it in plain words too, so a
-    # session relaying this to a human has no way to leave out WHICH of the
-    # three it is or WHERE, whether or not it also shows the path above.
-    # practice: disclose-landing
-    if level == 'individual':
-        print(f"DISCLOSE TO THE HUMAN: this is now part of YOUR OWN "
-              f"individual practice set ({args.get('--path')}). It applies "
-              f"only to you, is already in force, and nobody else approved "
-              f"or needs to.")
-    elif level == 'team':
-        print(f"DISCLOSE TO THE HUMAN: this is now part of the TEAM "
-              f"practice set at {args.get('--path')}, approved by "
-              f"{args.get('--approved-by')!r}. It is already in force for "
-              f"everyone on that team.")
-    if level == 'universal':
-        print("DISCLOSE TO THE HUMAN: this is a DRAFT ONLY, not yet in "
-              "force for anyone. Stage 4's universal approval is a PR to "
-              "Precedent -- commit this file on a branch and open a PR; this "
-              "tool does not merge it, and nothing is in force until that PR "
-              "is reviewed and merged by a human other than whoever wrote "
-              "it.")
-    else:
+    # LANDED: / DISCLOSE TO THE HUMAN: already printed inside land() itself
+    # (practice: disclose-landing) -- every caller gets it, not just this
+    # CLI entry point.
+    if level != 'universal':
         print(f"Regenerate this repo's generated views if it has any "
               f"(tools/build_views.py in Precedent; the private sets carry "
               f"no generated views today).")

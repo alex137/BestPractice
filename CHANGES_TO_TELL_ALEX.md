@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by a deep-check fix session -->
 
 # Changes to tell Alex
 
@@ -53,6 +53,39 @@ Tracked as a Deferred item in `PRACTICE_ENGINE_PLAN.md`, merged with the
 existing "a practice belonging to more than one team" entry.
 
 See [practices/layered-practice-packs.md](practices/layered-practice-packs.md).
+
+### `layered-practice-packs` (BestPractice practice 23) — 2026-09-03, repo-local formalized
+
+**What changed.** The practice's third tier — repo-local, "rules that live
+in that repo's instructions files and never leave" — is now a real fourth
+`precedent.json` source the loader itself understands, not just prose a
+repo-local rule happened to sit in: a `practices/` directory (declared
+with `path: "."` or, per the recommended convention, a subdirectory),
+ranked in `PRECEDENCE` between individual and team by default, and subject
+to the same `overrides:` and `severity: blocking` mechanics every other
+level gets. Found while designing this, and worth naming here even though
+it does not touch the three-way decision rule itself: a 2026-09-03
+deep-check audit found materializing a self-referential repo-local
+source (`path` equal to the sync target) could silently destroy or
+corrupt its own hand-authored content across runs — `precedent_materialize.py`
+now refuses that combination outright rather than attempting to make it
+safe.
+
+**What did not change.** The three-way decision rule itself (generic /
+domain / repo-local) is untouched by this — this is the *same* mechanism
+upgrade the entry above already logs for the middle (domain) tier,
+now landing for the third. A repo-local rule described only in prose
+(pre-migration, phase 6 not yet run) still works exactly as before.
+
+**What's still open.** Same gap the entry above names for the domain
+tier, now also true of repo-local formalized: nothing yet gives a rule a
+home independent of the one repo it was declared for, which was never
+repo-local's job to begin with (its whole point is staying scoped to one
+repo) — no new gap here, noted only so this entry doesn't read as if it
+closed something the one above left open.
+
+See [practices/layered-practice-packs.md](practices/layered-practice-packs.md)
+and [spec/SOURCES.md](spec/SOURCES.md).
 
 ## Cross-referenced only, not a behavior change
 
