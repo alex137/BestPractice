@@ -54,15 +54,13 @@ class MaterializeError(Exception):
     pass
 
 
-def _hash_file(path):
-    return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()[:16]
-
-
-def _copy_checks(sources, out_dir):
-    """Merge every source's per-check tools/checks/check_*.py and
-    tools/checks/tests/test_*.sh into out_dir/tools/checks/, refusing a
-    same-name collision across different sources rather than letting the
-    last one silently win.
+def _plan_checks(sources):
+    """Read every source's per-check tools/checks/check_*.py and
+    tools/checks/tests/test_*.sh INTO MEMORY, refusing a same-name
+    collision across different sources rather than letting the last one
+    silently win. Returns a write plan (rel_label, filename, source_name,
+    bytes) and does not touch the filesystem at all -- see materialize()
+    for why reading has to fully finish before anything is deleted.
 
     Deliberately narrower than 'every file in tools/checks/': a source's
     own tools/checks/tests/run_all.sh (found colliding on the very first
@@ -70,25 +68,19 @@ def _copy_checks(sources, out_dir):
     DRIVER, not a per-check test a `checked_by` claim could ever name --
     merging it would be a false collision over a file nothing actually
     needs merged. Skipped explicitly and reported, never silently."""
-    checks_dir = out_dir / 'tools' / 'checks'
-    tests_dir = checks_dir / 'tests'
-    owner_of = {}   # filename -> source name that already placed it
-    copied, skipped = [], []
+    owner_of = {}   # 'rel_label/filename' -> source name that already claimed it
+    plan, skipped = [], []
 
-    def place(src_file, dest_dir, rel_label):
-        dest_dir.mkdir(parents=True, exist_ok=True)
+    def claim(src_file, rel_label, source_name):
         key = f'{rel_label}/{src_file.name}'
         prior = owner_of.get(key)
-        if prior is not None and prior != s['name']:
+        if prior is not None and prior != source_name:
             raise MaterializeError(
                 f"tools/checks/{key} exists in both {prior!r} and "
-                f"{s['name']!r} -- a filename collision across sources. "
+                f"{source_name!r} -- a filename collision across sources. "
                 f"Pick one, or rename one of them before materializing.")
-        owner_of[key] = s['name']
-        dest = dest_dir / src_file.name
-        shutil.copyfile(src_file, dest)
-        copied.append({'path': f'tools/checks/{key}', 'source': s['name'],
-                        'sha256_16': _hash_file(src_file)})
+        owner_of[key] = source_name
+        plan.append((rel_label, src_file.name, source_name, src_file.read_bytes()))
 
     for s in sources:
         src_checks = pathlib.Path(s['path']) / 'tools' / 'checks'
@@ -96,26 +88,46 @@ def _copy_checks(sources, out_dir):
             continue
         for f in sorted(src_checks.glob('*.py')):
             if f.name.startswith('check_'):
-                place(f, checks_dir, 'checks')
+                claim(f, 'checks', s['name'])
             else:
                 skipped.append(f'tools/checks/{f.name} ({s["name"]})')
         src_tests = src_checks / 'tests'
         if src_tests.is_dir():
             for f in sorted(src_tests.glob('*.sh')):
                 if f.name.startswith('test_'):
-                    place(f, tests_dir, 'checks/tests')
+                    claim(f, 'checks/tests', s['name'])
                 else:
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
     if skipped:
         print(f"precedent_materialize: not a per-check file, not vendored: "
               + ', '.join(skipped), file=sys.stderr)
-    return copied
+    return plan
 
 
 def materialize(sources, res, out_dir):
+    """Reads every resolved practice file and every source's check/test
+    file INTO MEMORY before deleting or writing anything in out_dir.
+
+    WHY THE READ HAS TO FINISH BEFORE ANY DELETE. A repo-local source's
+    own `path` can be -- and, per its whole point, often is -- the SAME
+    repo this tool is materializing INTO: a consuming repo's own
+    hand-authored practices/ is both a real source (its repo-local level)
+    and the directory this tool's output also lands in. The original
+    version of this function did `shutil.rmtree(practices_dir)` first and
+    only THEN read each resolved practice's file to copy it -- which, for
+    any slug repo-local contributed, deleted the file and then tried to
+    read it from the path just deleted. Reading everything up front makes
+    the delete/write order irrelevant to correctness: by the time
+    anything is removed, every byte this function still needs is already
+    held in memory, whether or not its original path just got wiped."""
     out_dir = pathlib.Path(out_dir)
     practices_dir = out_dir / 'practices'
     checks_dir = out_dir / 'tools' / 'checks'
+
+    practice_plan = {slug: (practice, pathlib.Path(practice['file']).read_bytes())
+                      for slug, practice in res['practices'].items()}
+    checks_plan = _plan_checks(sources)   # raises MaterializeError before any write
+
     if practices_dir.exists():
         shutil.rmtree(practices_dir)
     if checks_dir.exists():
@@ -123,14 +135,21 @@ def materialize(sources, res, out_dir):
     practices_dir.mkdir(parents=True)
 
     written = []
-    for slug, practice in sorted(res['practices'].items()):
+    for slug, (practice, data) in sorted(practice_plan.items()):
         dest = practices_dir / f'{slug}.md'
-        shutil.copyfile(practice['file'], dest)
+        dest.write_bytes(data)
         written.append({'slug': slug, 'level': practice['level'],
                          'source': practice['source'],
-                         'sha256_16': _hash_file(dest)})
+                         'sha256_16': hashlib.sha256(data).hexdigest()[:16]})
 
-    checks_written = _copy_checks(sources, out_dir)
+    checks_written = []
+    for rel_label, filename, source_name, data in checks_plan:
+        dest_dir = checks_dir if rel_label == 'checks' else checks_dir / 'tests'
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        (dest_dir / filename).write_bytes(data)
+        checks_written.append({'path': f'tools/checks/{rel_label}/{filename}',
+                                'source': source_name,
+                                'sha256_16': hashlib.sha256(data).hexdigest()[:16]})
 
     rstats = pr.resident_stats(res)
     if rstats['over_budget']:

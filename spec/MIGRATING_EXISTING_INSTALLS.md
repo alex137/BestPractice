@@ -85,6 +85,16 @@ the loader.
      refuses this by name, with the privacy reason in the message, and for
      good reason: naming a person's individual set in a repo anyone else on
      the team can read leaks that set's existence and location to them.
+   - `level: "repo-local"`, if the old pack tree (or the old instructions
+     file directly) carried rules true only of *this* repo's own subject
+     matter, per [layered-practice-packs](../PRACTICES.md#23-layered-practice-packs-a-domain-layer-between-generic-and-repo-local)'s
+     own decision rule ("only here?"). `path: "local"` — a subdirectory,
+     holding `local/practices/*.md` — not the bare repo root
+     (`path: "."`): the root's own `practices/` is where
+     `tools/precedent_sync_views.py` writes its resolved output, and a
+     repo-local source declared there collides with that (see this
+     document's own "Known gap" section below for what that collision
+     actually does, reproduced, not theoretical).
 
 4. **Wire the individual source's own bootstrap, if the person has one and
    the harness needs it.** For a Claude Code Web session specifically, this
@@ -182,23 +192,33 @@ the loader.
    a scheduled GitHub Actions job.
 
 7. **Rewrite the consuming repo's own instructions file** (`AGENTS.md` or
-   equivalent). The temptation is to inline the team/individual catalogues
-   the same way the old pack was inlined in full — resist it: that is
-   exactly the duplication a repo's own `no-duplication`-shaped rule warns
-   against, now generalized past "don't restate BestPractice" to "don't
-   restate any resolved source." Point at
-   `precedent_resolve.py --repo .` for the real merged set, and — because
-   of the loading-channel gap below — hand-curate only the resident
-   practices (always needed) plus the handful of on-demand practices the
-   repo's own daily operation actually depends on, explicitly labeled as a
-   stopgap rather than a substitute for the full catalogue.
+   equivalent) with the same `<!-- BEGIN GENERATED: precedent-loader -->` /
+   `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses, then
+   run `python3 tools/precedent_sync_views.py` (vendor it alongside
+   `precedent_resolve.py`, `precedent_materialize.py`, `build_views.py`,
+   `precedent_show.py`, `precedent_paths.py`, `precedent_gate.py`, and
+   `split_practices.py` — all together, at the consuming repo's own
+   `tools/`, not nested under `process/upstream/tools/`, which stays
+   reserved for the audit/sync tools that operate on the vendored
+   universal tree itself) to fill them in from the *real* resolved set —
+   universal, team, individual and repo-local, all four. **Don't hand-curate
+   a subset and call it a stopgap**: that was only ever necessary because
+   nothing connected the resolver's output to a generated view; now
+   something does, so there's nothing to approximate by hand. The
+   temptation to inline the team/individual catalogues the way the old
+   pack was inlined in full still applies just as much as it always did —
+   resist it; the generated block *is* the non-duplicated form.
 
-8. **Validate for real**, not against a fixture: `precedent_resolve.py
-   --repo .` from the consuming repo, with its `precedent.json` and a real
-   user-level individual config in place. Check the reported precedence,
-   any `overridden`/`blocked` entries, and the combined resident-block
-   budget — this is the first place any of that runs against real content
-   rather than the verification harness's synthetic sources.
+8. **Validate for real**, not against a fixture: `python3
+   tools/precedent_sync_views.py --repo .` from the consuming repo, with
+   its `precedent.json` and a real user-level individual config in place.
+   Check the reported precedence, any `overridden`/`blocked` entries, the
+   combined resident-block budget, and that the generated `AGENTS.md`
+   actually names practices from every source that's supposed to be in
+   play — this is the first place any of that runs against real content
+   rather than the verification harness's synthetic sources. Re-run with
+   `--check` on a second pass to confirm it's stable (byte-identical,
+   nothing left to regenerate) before committing the result.
 
 ## The default-branch gotcha
 
@@ -259,19 +279,55 @@ itself; flagged here rather than attempted, since it touches a checked-in
 gate every dependent repo relies on and deserves its own pass, not a
 side-effect of a migration writeup.
 
-## Known gap this migration ran into, not created
+## Known gap this migration ran into — closed 2026-09-03, read this for what changed
+
+**This section used to say the cross-source consumer-repo view was
+unbuilt, and that step 7 below hand-curates a stopgap because of it.**
+That's no longer true, and the fix corrects a framing this document itself
+had slightly wrong, not just a missing feature.
 
 `precedent_show.py`, `precedent_paths.py`, and `precedent_gate.py` — the
 three loading channels that pull a slug's `## Rule` text into context
-automatically — are single-source as of `precedent-beta-v01`: each
-hardcodes its own repo as `ROOT` and only ever reads `<that repo>/practices/`.
-Only `precedent_resolve.py` merges all three sources. A migrated repo's
-`AGENTS.md` therefore cannot yet regenerate its own resident block or
-occasion index automatically from the full resolved set the way this
-repo's own does from its single source — step 7's hand-curated stopgap
-exists specifically because of this gap, not as a stylistic choice.
-Building the cross-source equivalent of `precedent_show.py` (and,
-eventually, a `build_views.py` analogue that can run from a consuming
-repo) is real future work this migration surfaced but did not attempt —
-scope-creeping a loader feature into a migration was judged worse than
-naming the gap plainly and moving on.
+automatically — are still single-source, and stay that way on purpose:
+each hardcodes its own repo as `ROOT` and only ever reads
+`<that repo>/practices/`. **The fix was never to make these three
+multi-source-aware.** It was to materialize a real, ordinary,
+single-source `practices/` directory *from* the multi-source resolution,
+and point these same, unmodified tools at that — which
+[tools/precedent_materialize.py](../tools/precedent_materialize.py)
+already did, tested, before this gap was even written down (phase 5); the
+gap this document originally named was really that nobody had connected
+that tool to `build_views.py`'s own `AGENTS.md` generation in one
+documented, consumer-facing command.
+
+That connection is [tools/precedent_sync_views.py](../tools/precedent_sync_views.py)
+now: `python3 tools/precedent_sync_views.py [--repo DIR]` resolves every
+declared source, materializes the merged `practices/` + `tools/checks/`,
+and regenerates `AGENTS.md`'s loader block from the *same* resolved
+practices (not re-read from disk) — one command, in place of step 7's old
+hand-curated stopgap below.
+
+**Finishing this surfaced a real bug, not just a missing convenience.**
+`precedent_materialize.py` deletes and rewrites the output `practices/`
+directory; a repo-local source declared at the bare repo root
+(`path: "."`, this document's own earlier examples) has its own
+hand-authored `practices/` at exactly that same path. Materializing into
+a repo that also self-sources at its own root either crashed (reading a
+file the tool had just deleted) or, worse, silently overwrote a
+hand-authored file with a different source's winning content the moment
+another source shadowed a repo-local slug — reproduced directly, not
+theoretical. Fixed two ways: `precedent_materialize.py` now reads every
+source file into memory before deleting anything, so the crash and the
+silent-overwrite-with-no-trace case are both gone; and repo-local's
+recommended `path` is now a subdirectory (`"local"`, holding
+`local/practices/`), which keeps the hand-authored source and the
+materialized output physically apart regardless. `path: "."` still
+resolves — `tools/precedent_resolve.py`'s validation only refuses a path
+OUTSIDE the repo — it just isn't the recommended shape anymore for a repo
+that also runs `precedent_sync_views.py` against its own root.
+
+Tested against a real four-source fixture, not just reasoned about
+(`check_sync_views_cross_source` in
+[tools/verify_harness.py](../tools/verify_harness.py)); not yet run
+against a real consumer repo with real content — that is exactly what
+this document's own migration pattern is for, next.

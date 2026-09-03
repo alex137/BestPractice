@@ -128,12 +128,22 @@ def load_config(repo, user_config=None):
     individual source declared in a SHARED repo is refused by name, because
     that is the privacy boundary above, and a mistake that is silent here is
     a mistake nobody finds. A repo-local source is refused if its path
-    doesn't resolve to the declaring repo itself -- the whole point of the
-    level is that it never leaves the one repo it describes
+    resolves to somewhere OUTSIDE the declaring repo -- the whole point of
+    the level is that it never leaves the one repo it describes
     (practice: layered-practice-packs: "repo-local ... live in that repo's
     instructions files and never leave"); a repo-local entry pointing
-    somewhere else would let a repo quietly claim another repo's tree as if
-    it were its own local content."""
+    elsewhere would let a repo quietly claim another repo's tree as if it
+    were its own local content. It does NOT have to be the repo's bare
+    root, though: a subdirectory (the recommended convention -- see
+    PRACTICE_ENGINE_PLAN.md's "Source" section) is exactly as "inside the
+    repo" as the root itself, and keeps repo-local's own hand-authored
+    practices/ physically separate from tools/precedent_materialize.py's
+    output directory, which by convention IS the bare root's practices/ --
+    a real, reproduced bug (not a hypothetical): materializing a repo-local
+    source declared at `path: "."` into that same repo's own root silently
+    overwrote the hand-authored source file the moment another source won
+    resolution on a shared slug, with no trace left that it had ever held
+    different content."""
     repo_root = pathlib.Path(repo).resolve()
     sources = []
     repo_cfg_path = repo_root / REPO_CONFIG
@@ -155,14 +165,16 @@ def load_config(repo, user_config=None):
                     f"{repo_cfg_path}: source {entry.get('name')!r} has level "
                     f"{level!r}; expected one of {', '.join(PRECEDENCE)}.")
             entry_path = (repo_root / entry['path']).resolve()
-            if level == 'repo-local' and entry_path != repo_root:
+            if level == 'repo-local' and entry_path != repo_root \
+                    and repo_root not in entry_path.parents:
                 raise ResolveError(
                     f"{repo_cfg_path} declares a repo-local source "
-                    f"({entry.get('name')!r}) at {entry_path}, which is not "
-                    f"{repo_root} itself. A repo-local source's `path` must "
-                    f"resolve to the declaring repo's own root -- that is what "
-                    f"keeps it from ever being someone else's vendored copy of "
-                    f"a different repo's local practices.")
+                    f"({entry.get('name')!r}) at {entry_path}, which is "
+                    f"outside {repo_root}. A repo-local source's `path` must "
+                    f"resolve to the declaring repo's own root or a "
+                    f"subdirectory of it -- that is what keeps it from ever "
+                    f"being someone else's vendored copy of a different "
+                    f"repo's local practices.")
             sources.append({'level': level, 'name': entry.get('name', level),
                             'path': str(entry_path)})
 

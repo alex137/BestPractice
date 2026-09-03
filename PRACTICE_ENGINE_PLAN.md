@@ -425,12 +425,30 @@ named exception.** The tempting arrangement is a single repo with
 contact with a public Precedent: **individual practices must never be
 world-readable.** A practice's level is really a statement about its source,
 and sources are enforced by repo boundaries. Repo-local is the one level that
-genuinely **is** "a directory inside the repo" (`practices/` at the consuming
-repo's own root, declared in its `precedent.json` with `path: "."`) rather
-than a separate repository — and that is fine specifically because it carries
-none of the world-readability risk the other three levels are structured
-around: a repo-local practice is already exactly as visible as everything
-else in that repo, to everyone who can already read it. See PRACTICES.md
+genuinely **is** "a directory inside the repo" rather than a separate
+repository — and that is fine specifically because it carries none of the
+world-readability risk the other three levels are structured around: a
+repo-local practice is already exactly as visible as everything else in
+that repo, to everyone who can already read it.
+
+**Recommended: a subdirectory (`path: "local"`, holding `local/practices/`),
+not the bare repo root (`path: "."`).** Either satisfies "never leaves the
+repo" — `tools/precedent_resolve.py`'s own validation only refuses a path
+OUTSIDE the declaring repo — but `path: "."` puts repo-local's own
+hand-authored `practices/` in the exact same place
+`tools/precedent_materialize.py`'s resolved output goes when a repo
+materializes into its own root, which is the ordinary way a consuming repo
+regenerates its own `AGENTS.md`. Reproduced, not hypothetical: materializing
+a `path: "."` repo-local source into that same repo's own root silently
+overwrote the hand-authored source file the moment another source won
+resolution on a shared slug — no crash, no warning, just different content
+on disk than the person wrote, with nothing left to show it had changed.
+A subdirectory keeps the two physically apart: the hand-authored source at
+`local/practices/`, the generated, resolved view at the repo's own
+`practices/`, never colliding regardless of which source wins any given
+slug.
+
+See PRACTICES.md
 practice 23 (layered-practice-packs) for what belongs at this level in the
 first place — a rule true only of one repo's own subject matter, never
 exported, never vendored in from anywhere.

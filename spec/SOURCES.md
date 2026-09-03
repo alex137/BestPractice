@@ -25,7 +25,7 @@ without belaboring it).
 
 | Plan's requirement | Built as | Status |
 |---|---|---|
-| Levels are repositories, not directories (with one exception: repo-local, which is a `practices/` directory in the consuming repo's own tree, `path: "."`) | [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves N source *directories*, each a checkout of a separate repo, or the consumer's own root for repo-local | Built. Nothing about a level is a field; it comes from which source a file was loaded from. |
+| Levels are repositories, not directories (with one exception: repo-local, which is a `practices/` directory somewhere in the consuming repo's own tree — recommended at a subdirectory, `path: "local"`, not the bare root, so it never collides with `tools/precedent_materialize.py`'s own output directory; see PRACTICE_ENGINE_PLAN.md's "Source" section) | [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves N source *directories*, each a checkout of a separate repo, or a path inside the consumer's own root for repo-local | Built. Nothing about a level is a field; it comes from which source a file was loaded from. |
 | A consumer repo declares universal + team + repo-local | [precedent.json](../precedent.json), tracked, at the repo root | Built. Precedent carries one for itself: it runs on the universal set it publishes. |
 | A person declares their own individual set | `~/.config/precedent/config.json`, or `PRECEDENT_USER_CONFIG` | Built. A shared repo naming an individual source is refused **by name**, with the privacy reason in the message. |
 | Precedence: team > repo-local > individual > universal | Sources walked lowest-first; later replaces earlier | Built and tested. |

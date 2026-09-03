@@ -148,7 +148,16 @@ def _occasion_clause(rule_text, max_len=90):
     return clause
 
 
-def build_loader_block(practices):
+def build_loader_block(practices, source_levels=None):
+    """practices: (fm, sections, file) triples, exactly as load_practices()
+    returns for this repo's own single-source catalogue. source_levels:
+    optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
+    tools/precedent_materialize.py's output, walked by a consuming repo's
+    own precedent_sync_views.py) -- purely cosmetic, breaking the header's
+    practice count out by level, so the generated block discloses
+    provenance at a glance rather than only in MANIFEST.json. Omitting it
+    (the default) renders byte-identical to before this parameter existed,
+    which is what keeps this repo's own single-source generation unchanged."""
     resident = [(fm, sections) for fm, sections, _f in practices if fm.get('tier') == 'resident']
     resident.sort(key=lambda t: t[0]['slug'])
 
@@ -180,8 +189,21 @@ def build_loader_block(practices):
     lines.append(f"<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit "
                  f"this block, tools/verify_harness.py's regeneration check fails on drift. -->")
     lines.append('')
+    count_detail = f"{len(resident)} of {len(practices)} practices"
+    if source_levels and resident:
+        # Levels of the RESIDENT set specifically (not all `practices`) --
+        # this sits right after "X of Y practices", so a reader's natural
+        # reading is "the breakdown of X", not of the larger Y. Breaking
+        # down Y instead once rendered "1 of 4 practices (1 individual, 1
+        # repo-local, 1 team, 1 universal)" for a fixture with exactly ONE
+        # resident practice -- readable as four resident practices, one per
+        # level, which was never true.
+        by_level = collections.Counter(source_levels.get(fm['slug'], '?')
+                                        for fm, _s in resident)
+        count_detail += ' (' + ', '.join(f"{by_level[l]} {l}" for l in
+                                          sorted(by_level) if by_level[l]) + ')'
     lines.append(f"### Resident block (~{token_count} of {RESIDENT_BUDGET_TOKENS} token budget, "
-                 f"{len(resident)} of {len(practices)} practices)")
+                 f"{count_detail})")
     lines.append('')
     lines.append(resident_text)
     lines.append('')
@@ -299,6 +321,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_resolve.py': "Resolves the universal, team and individual sources into one set, by precedence",
     'precedent_retire.py': "Stage 6 (phase 5) — the periodic retirement report; proposes, never acts",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
+    'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
     'resplit_sections.py': "The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json",
     'routing_eval.py': "Measures whether trigger-based loading actually beats carrying the whole catalogue",
     'split_practices.py': "PRACTICES.md ↔ practices/ converter",
