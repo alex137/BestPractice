@@ -2392,6 +2392,21 @@ def check_precedent_check_fires():
                 'guidance for zorbulon\n', encoding='utf-8')
         case('scrub-gate', _plant_scrub, setup=_setup_pack)
 
+        # migration-scrubs-vocabulary -- a declared retired term still
+        # appears outside the declared exempt files
+        def _setup_retired_vocab(repo):
+            (repo / 'process').mkdir(parents=True, exist_ok=True)
+            (repo / 'process' / 'retired_vocabulary.json').write_text(
+                json.dumps({'terms': ['OldPackName'],
+                            'exempt_files': ['MIGRATION.md']}),
+                encoding='utf-8')
+            (repo / 'MIGRATION.md').write_text(
+                'OldPackName is discussed here, on purpose.\n', encoding='utf-8')
+        case('migration-scrubs-vocabulary',
+             lambda repo: (repo / 'STALE.md').write_text(
+                 'Still mentions OldPackName here.\n', encoding='utf-8'),
+             setup=_setup_retired_vocab)
+
         # practice-export-loop -- a vendored file improved locally and never
         # exported: the entry still says "synced" and its baseline no longer
         # matches

@@ -59,7 +59,7 @@ Run:
   python3 tools/precedent_check.py --explain        # what each check does NOT check
   python3 tools/precedent_check.py --strict         # a SKIP is a failure
 """
-import io, json, pathlib, re, subprocess, sys
+import io, json, os, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
@@ -1124,6 +1124,67 @@ def _code_cites_practice(ctx):
                                     f'once after a renumbering; use `practice: '
                                     f'SLUG` instead'))
     return out
+
+
+RETIRED_VOCAB_CONFIG = 'process/retired_vocabulary.json'
+# tools/verify_harness.py plants retired-term fixture text (to test this
+# very check) inside its own source, so scanning it for real violations
+# would fail on its own planted fixtures every time it runs against a copy
+# of this repo -- the one file excluded, mechanically, not a content carve-out.
+RETIRED_VOCAB_SKIP_FILES = {'tools/verify_harness.py'}
+
+
+@check('migration-scrubs-vocabulary', 'tree',
+       "a repo that has declared process/retired_vocabulary.json carries "
+       "none of its listed terms outside the declared exempt files",
+       "NotApplicable for any repo that hasn't declared the config -- this "
+       "is opt-in per migrated repo, since the terms themselves (a specific "
+       "old repo's name, a retired secret) are never something BestPractice "
+       "could know in advance. process/upstream/ is always excluded, "
+       "vendored content never being this repo's own migration to finish.")
+def _migration_scrubs_vocabulary(ctx):
+    cfg_path = ROOT / RETIRED_VOCAB_CONFIG
+    if not cfg_path.is_file():
+        raise NotApplicable(f'no {RETIRED_VOCAB_CONFIG} -- this repo has not '
+                            f'declared any retired vocabulary to scrub for')
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        return [Finding(RETIRED_VOCAB_CONFIG, f'not valid JSON: {e}')]
+    terms = cfg.get('terms') or []
+    if not terms:
+        raise NotApplicable(f'{RETIRED_VOCAB_CONFIG} declares no terms -- '
+                            f'nothing to scrub for')
+    exempt = {RETIRED_VOCAB_CONFIG} | set(cfg.get('exempt_files') or [])
+    out = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        rel_dir = pathlib.Path(dirpath).relative_to(ROOT).as_posix()
+        rel_dir = '' if rel_dir == '.' else rel_dir
+        # Prune .git and the vendored copy before descending -- .git is
+        # never this repo's own content, and process/upstream/ is a
+        # byte-identical mirror of a DIFFERENT repo, never hand-edited
+        # regardless of what it happens to still say.
+        dirnames[:] = [d for d in dirnames
+                       if (f'{rel_dir}/{d}' if rel_dir else d)
+                       not in ('.git', 'process/upstream')]
+        for name in filenames:
+            rel = f'{rel_dir}/{name}' if rel_dir else name
+            if rel in exempt or rel in RETIRED_VOCAB_SKIP_FILES:
+                continue
+            try:
+                text = (ROOT / rel).read_text(encoding='utf-8')
+            except (UnicodeDecodeError, OSError):
+                continue
+            for i, line in enumerate(text.splitlines(), 1):
+                for term in terms:
+                    if term in line:
+                        out.append(Finding(f'{rel}:{i}',
+                                            f'still carries retired term '
+                                            f'{term!r} -- scrub it, or add '
+                                            f'this file to exempt_files if '
+                                            f'it is genuinely a historical '
+                                            f'record'))
+    return sorted(out, key=lambda f: f.where)
 
 
 # --------------------------------------------------------------------------

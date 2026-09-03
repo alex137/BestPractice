@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 56 practice files (6 resident, 50 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 57 practice files (6 resident, 51 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -36,6 +36,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
 | [merge-authorization-keyword](practices/merge-authorization-keyword.md) | on-demand | the user gives a standing merge instruction |
 | [merge-runbook](practices/merge-runbook.md) | on-demand | merging a branch that touches shared files |
+| [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) | on-demand | migrating a repo off an old practice system onto Precedent |
 | [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a review finds a defect |
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |

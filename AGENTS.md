@@ -23,7 +23,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 56 practices)
+### Resident block (~312 of 2000 token budget, 6 of 57 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -100,6 +100,8 @@ When merging a branch that improved a generic practice:
   practice-export-loop — vendor upstream as tracked files; check improvements back in
 When merging a branch that touches shared files:
   merge-runbook — write conflict resolution per file class, once, then follow it
+When migrating a repo off an old practice system onto Precedent:
+  migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming what "run the checks" means in a repo:

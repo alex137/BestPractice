@@ -225,6 +225,13 @@
       ],
       "gates_why": "Fires when merging a branch that touches shared files."
     },
+    "migration-scrubs-vocabulary": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment (migrating off an old system) rather than a place -- reachable only through the occasion index, since no gate exists for a moment this rare.",
+      "decided": "follow-up session, 2026-09-03"
+    },
     "mistakes-become-rules": {
       "globs": [
         "**"
