@@ -6,6 +6,13 @@ BestPractice into that repository while guiding them in plain language.
 Assume they are not a programmer — explain simply, ask little, and do all
 technical work yourself.
 
+This conversation installs [INSTALL.md](INSTALL.md) §1, the proven,
+classic model — the right default for essentially every install today. A
+newer path exists ([INSTALL.md](INSTALL.md) §0, installing directly onto
+Precedent's three-source loader) but has not yet been rehearsed against a
+real project; only follow it instead if the administrator specifically
+asks for it by name.
+
 ## The conversation
 
 1. **Confirm the target.** The repository this session is opened on is

@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by the session that opened phase 6 for real -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by the follow-up session that also built INSTALL.md §0 -->
 
 # Phase 6 Brief — Migrating Consumer Repos
 
@@ -41,6 +41,14 @@ inherits" section first — this brief does not restate them.
    were previously only ever *restated* in briefs rather than tracked once
    — the audit table (closed by this brief), `for_team:`/`in_repos:`'s
    blocked-on status, and the `additionalContext` delivery question.
+5. **A genuinely clean install directly onto the Precedent loader** —
+   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+   and [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template).
+   Also corrects a stale claim this brief's own first draft made (that the
+   "step-5 bridge" was unbuilt) — `tools/precedent_sync_views.py` already
+   closed it, documented in [LOADER.md](LOADER.md) earlier the same
+   day this brief was first written. See "The real work still ahead"
+   below for what §0 does and does not cover yet.
 
 ## What this session could not close, and why — needs Morgan
 
@@ -85,53 +93,58 @@ commands interactively as they run), or explicitly adding a Bash
 permission rule that lets a future session run this unattended. Neither is
 something a session can grant itself.
 
-## The real work still ahead — not attempted this session
+## The real work still ahead
 
-Everything below needs the actual target repo attached, which this
-session's scope (`alex137/BestPractice` only) doesn't have. Written so the
-next session with that access can start immediately rather than re-derive
-the plan.
+Item 1 was built in a follow-up session (2026-09-03, same day) without
+needing the target repo — a correction worth stating plainly: an earlier
+draft of this brief listed a "step-5 bridge" as unbuilt, sketched as two
+possible shapes. That was stale. [LOADER.md](LOADER.md) already
+documented, from earlier the same day, that
+`tools/precedent_sync_views.py` closes exactly that gap — this brief
+simply hadn't been cross-checked against it before being written. Items
+2–4 below still need the actual target repo attached, which no session
+writing this brief has had access to yet.
 
-1. **Extend `SETUP.md`/`INSTALL.md` for a genuinely clean install directly
-   onto the Precedent loader**, not the old `process/upstream/` vendoring
-   they still document today
-   ([spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md) already names this gap
-   precisely). For a repo with no prior BestPractice install: write
-   `precedent.json`, vendor `practices/` + `tools/*.py` (engine and
-   `checks/`) from `precedent-beta-v01`, run `build_views.py` for a
-   generated `AGENTS.md`, and ask the existing team/individual-source
-   question (`SETUP.md` §2 already asks it) to wire those in too.
-2. **Bridge the step-5 gap** [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md) already
-   named: `build_views.py`, `precedent_paths.py`, `precedent_gate.py` and
-   `precedent_check.py` are all single-source today; a real consumer repo
-   needs the materialize-or-extend fix described there (two shapes
-   sketched, neither built) before a multi-source install actually works
-   end to end.
-3. **Wire the creation pipeline itself into an installed repo** — vendor
+1. ~~**Extend `SETUP.md`/`INSTALL.md` for a genuinely clean install
+   directly onto the Precedent loader.**~~ **Done (2026-09-03).**
+   [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+   and [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template)
+   — vendor `practices/` + the whole `tools/` engine, write
+   `precedent.json`, instantiate the loader-variant `AGENTS.md`, run
+   `tools/precedent_sync_views.py`. The vendoring + `precedent.json` +
+   `precedent_sync_views.py` sequence was dry-run tested in a scratch
+   fixture while writing it and does work as documented; the section as a
+   whole has **not** been rehearsed against a real repo end to end — that
+   is what item 4 below is for. `SETUP.md` still defaults to the
+   classic §1 install; §0 is opt-in, by name, until rehearsed.
+2. **Wire the creation pipeline itself into an installed repo** — vendor
    `precedent_candidate.py`/`precedent_detect.py`/etc. alongside the
    loader, and update the merge-runbook's capture-gate step so it raises a
-   real candidate on the new model instead of the old "fold into
-   `process/upstream/`" instruction `templates/AGENTS.md.template` still
-   carries.
-4. **Upgrade `SETUP.md`/`GETTING_STARTED.md`'s disclosure** once 1–3 are
-   real — name the individual/team/universal levels explicitly, rather
-   than the capture-gate-only description
+   real candidate on the new model instead of the placeholder
+   "open a plain PR against the upstream repo" instruction
+   `templates/AGENTS.md.loader.template`'s own export-gate step currently
+   carries (deliberately honest about not being wired in yet, not an
+   oversight).
+3. **Upgrade `SETUP.md`/`GETTING_STARTED.md`'s disclosure** once §0 is
+   rehearsed and item 2 lands — name the individual/team/universal levels
+   explicitly, rather than the capture-gate-only description
    [decisions/2026-09-03-setup-getting-started-disclosure-gap.md](../decisions/2026-09-03-setup-getting-started-disclosure-gap.md)
    deliberately limited itself to.
-5. **Run the actual rehearsal** [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md)
+4. **Run the actual rehearsal** [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md)
    specced in detail (confirm the real target repo's name first — see
-   above — fork it, vendor all sources, bridge the loader, do real work,
-   raise at least one real candidate, exercise both manual approval
-   paths). This is still, as that brief said, "the biggest and least
-   certain piece of work" here — do it after 1–4, not instead of them.
-6. **Confirm `additionalContext` delivery** — [TODO.md](../TODO.md) item
+   above — fork it, vendor all sources via §0, do real work, raise at
+   least one real candidate, exercise both manual approval paths). This
+   is still, as that brief said, "the biggest and least certain piece of
+   work" here — do it after item 2, not instead of it, since a rehearsal
+   with no working export gate can't test the round trip.
+5. **Confirm `additionalContext` delivery** — [TODO.md](../TODO.md) item
    11 has the recommended test procedure.
 
 ## Sequencing recommendation
 
-Items 1–3 above are the actual engine work a clean install needs; item 4
-is cheap and should follow immediately once they land, since it's the same
-disclosure gap this branch already found once. Item 5 is the expensive,
+Item 2 above is the remaining engine work a clean install needs; item 3
+is cheap and should follow immediately once it lands, since it's the same
+disclosure gap this branch already found once. Item 4 is the expensive,
 uncertain one and should stay last, same as the brief that first specced
-it said. Item 6 can happen any time a live session is available — it does
+it said. Item 5 can happen any time a live session is available — it does
 not block anything else here.
