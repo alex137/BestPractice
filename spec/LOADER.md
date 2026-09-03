@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-2 build session -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, adding the cross-source consumer-repo generator -->
 
 # The Loader (Phase 2)
 
@@ -31,12 +31,26 @@ instruction treatment this repo's own `AGENTS.md` gets — `--agents-only`
 skips `render_map_md()`/`render_glossary_md()`, which assume this repo's own
 structure (`TOOLS_DESCRIPTIONS`, "this repo is BestPractice itself" prose)
 and aren't meaningful for a practice-set repo with a different `tools/`
-layout. **What this does NOT close**: each source repo still generates its
-own view, single-source, exactly as this repo always has. The cross-source
-case — one consuming repo (universal + team + individual + repo-local, all
-resolved together into one generated `AGENTS.md`) — is still unbuilt; see
+layout.
+
+**The cross-source case is also built now (2026-09-03, same day).** A
+consuming repo — universal + team + individual + repo-local, all resolved
+together into one generated `AGENTS.md` — runs
+[tools/precedent_sync_views.py](../tools/precedent_sync_views.py), which
+does two things already independently built and tested
+([tools/precedent_materialize.py](../tools/precedent_materialize.py) to
+merge every declared source into a real `practices/` directory, then
+`build_loader_block()` — the *same* renderer, fed the resolved practices
+directly rather than re-read from disk) as one command. See
 [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s
-"Known gap" section, which this change does not resolve.
+"Known gap" section for what this replaces and one real bug it took to get
+here (a repo-local source declared at the bare repo root silently losing
+hand-authored content to `precedent_materialize.py`'s own output — fixed,
+and now why repo-local's recommended `path` is a subdirectory, not `"."`).
+Built and tested against a real four-source fixture
+(`check_sync_views_cross_source` in
+[tools/verify_harness.py](../tools/verify_harness.py)); not yet exercised
+against a real consumer repo with real content — that's the next test.
 
 ## The catalogue as it stands
 

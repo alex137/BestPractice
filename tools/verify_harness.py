@@ -2839,6 +2839,127 @@ def check_materialize_bridges_loader():
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_sync_views_cross_source():
+    """tools/precedent_sync_views.py -- the one-command glue over
+    precedent_materialize.py + build_views.py --agents-only that a
+    CONSUMING repo (all four sources at once) actually runs, as opposed to
+    the two tools it wraps, each already covered by their own harness
+    case. Built and this case added 2026-09-03 alongside the precedence
+    reorder and the repo-local level -- the fixture below is what caught
+    two real bugs before either shipped: precedent_materialize.py deleting
+    a repo-local source's own file before reading it (a self-referential
+    `path: "."` source), and this tool's resident-count-by-level header
+    counting every resolved practice instead of only the resident ones."""
+    import shutil, tempfile
+
+    def write_practice(path, slug, rule, tier='on-demand', occasion='x'):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: {tier}\nseverity: default\n'
+            f'applies_to: ["**"]\noccasion: "{occasion}"\ngates: []\n'
+            f'index_clause: "x"\nchecked_by: null\ndefines: []\nstatus: active\n'
+            f'supersedes: []\noverrides: null\nadded: null\napproved_by: "x"\n'
+            f'source_practice_number: null\n---\n## Rule\n{rule}\n\n## Why\nx\n\n'
+            f'## Story\nx\n\n## Install\nx\n', encoding='utf-8')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-sync-views-'))
+    cases = []
+    try:
+        consumer = tmp / 'consumer'
+        universal, team, individual = tmp / 'u', tmp / 't', tmp / 'i'
+
+        write_practice(universal / 'practices' / 'uni-fixture.md', 'uni-fixture',
+                        'A universal fixture rule.', tier='resident')
+        write_practice(team / 'practices' / 'team-fixture.md', 'team-fixture',
+                        'A team fixture rule.', tier='resident')
+        write_practice(individual / 'practices' / 'ind-fixture.md', 'ind-fixture',
+                        'An individual fixture rule.', occasion='doing individual things')
+        # repo-local at a SUBDIRECTORY, per the recommended convention --
+        # this is what keeps its hand-authored source apart from the
+        # materialized output, both of which land under `consumer/`.
+        write_practice(consumer / 'local' / 'practices' / 'local-fixture.md',
+                        'local-fixture', 'A repo-local fixture rule.',
+                        occasion='doing local things')
+
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'uni', 'path': str(universal)},
+                        {'level': 'team', 'name': 'team', 'path': str(team)},
+                        {'level': 'repo-local', 'name': 'self', 'path': 'local'}]
+        }), encoding='utf-8')
+        user_cfg = tmp / 'user.json'
+        user_cfg.write_text(json.dumps({
+            'individual': {'name': 'ind', 'path': str(individual)}}), encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text(
+            '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+
+        sync_tool = str(ROOT / 'tools' / 'precedent_sync_views.py')
+
+        def run(*extra):
+            r = subprocess.run([sys.executable, sync_tool, '--repo', str(consumer),
+                                 '--user-config', str(user_cfg), *extra],
+                                capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run()
+        cases.append(('a clean sync across all four sources exits 0', rc == 0, out))
+
+        agents_text = (consumer / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('the resident block names BOTH resident sources, not just one',
+                      'uni-fixture' in agents_text and 'team-fixture' in agents_text))
+        cases.append(('the resident-count-by-level header counts only the '
+                      'RESIDENT practices, not all four resolved ones',
+                      '2 of 4 practices (1 team, 1 universal)' in agents_text))
+        cases.append(('the occasion index reaches the on-demand individual '
+                      'and repo-local practices too',
+                      'ind-fixture' in agents_text and 'local-fixture' in agents_text))
+        cases.append(('the repo-local source file at its OWN subdirectory '
+                      'survives the sync untouched',
+                      (consumer / 'local' / 'practices' / 'local-fixture.md').exists()))
+
+        rc2, out2 = run('--check')
+        cases.append(('--check on a just-synced, unmodified AGENTS.md exits 0',
+                      rc2 == 0, out2))
+
+        (consumer / 'AGENTS.md').write_text(
+            agents_text.replace('uni-fixture', 'HAND-EDITED'), encoding='utf-8')
+        rc3, out3 = run('--check')
+        cases.append(('--check on a hand-edited AGENTS.md exits 1, not silently 0',
+                      rc3 == 1, out3))
+
+        # the exact bug this fixture was built to catch: a repo-local
+        # source declared at the bare repo root (`path: "."`) must not
+        # crash precedent_materialize.py when it and the output directory
+        # are the same place
+        selfref = tmp / 'selfref'
+        write_practice(selfref / 'practices' / 'local-only.md', 'local-only',
+                        'A self-referential repo-local rule.')
+        (selfref / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'repo-local', 'name': 'self', 'path': '.'}]
+        }), encoding='utf-8')
+        (selfref / 'AGENTS.md').write_text(
+            '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        r_self = subprocess.run([sys.executable, sync_tool, '--repo', str(selfref)],
+                                 capture_output=True, text=True)
+        cases.append(("a repo-local source declared at the bare repo root "
+                      "(`path: \".\"`) does not crash materialize when the "
+                      "source and the output directory coincide",
+                      r_self.returncode == 0
+                      and (selfref / 'practices' / 'local-only.md').exists(),
+                      r_self.stdout + r_self.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'precedent_sync_views.py syncs a consuming repo across all four '
+          f'sources ({len(cases)} stated cases: clean sync, both resident '
+          f'sources shown, correct level-of-resident counting, occasion '
+          f'index reaches on-demand practices, --check both directions, a '
+          f'self-referential repo-local source does not crash materialize)',
+          not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_detect_restated_fires():
     """`precedent_detect.py restated` (Stage 1's cross-source duplicate-Rule
     scan) had zero harness coverage before this deep-check pass -- a real
@@ -3315,6 +3436,7 @@ def main():
     check_routing_scope(files)
     check_gate_channel()
     check_materialize_bridges_loader()
+    check_sync_views_cross_source()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
 
