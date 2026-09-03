@@ -5,6 +5,20 @@
      (process/upstream/AGENTS.md) this file is inert — the dependent repo
      has its own instantiated AGENTS.md at ITS root. -->
 
+**TEMPORARY, read before opening or merging any pull request (PR) here:
+every PR in this repository targets `precedent-beta-v01`, never `main`, until Alex reviews
+and merges `precedent-beta-v01` into `main` for real — a deliberate,
+phase-7 act, not something any routine PR does incidentally. A general
+"PR and merge it" authorization means `precedent-beta-v01`; merging into
+`main` requires Alex naming `main` explicitly, in that specific request.
+Check the base branch explicitly before acting — do not assume `main`
+just because it is the repository's configured default branch, and do not
+assume the two branches are interchangeable even when they happen to sit
+at the same commit, which is exactly the condition under which this rule's
+own origin incident happened. Full story, the mechanical check, and the
+retirement condition:
+[local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
+
 **This repo is becoming Precedent, a restructuring of BestPractice — read
 [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) first, in full, before
 touching anything else here.** It is the approved plan of record; its "For

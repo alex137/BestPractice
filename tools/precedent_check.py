@@ -95,6 +95,8 @@ import split_practices as sp
 def rule_of(slug):
     path = ROOT / 'practices' / f'{slug}.md'
     if not path.exists():
+        path = ROOT / 'local' / 'practices' / f'{slug}.md'
+    if not path.exists():
         return f'(no practice file for {slug})'
     try:
         _fm, sections = sp._read_practice_file(path)
@@ -969,6 +971,44 @@ def _routing_audit(ctx):
             for slug in state if slug not in active]
 
 
+# practice: merge-target-is-beta-branch
+@check('merge-target-is-beta-branch', 'tree',
+       'while this repository is mid-restructure, origin/precedent-beta-v01 '
+       'is not an ancestor of origin/main -- i.e. main has not absorbed '
+       'the restructuring work via a merge',
+       'a PR opened with the wrong base BEFORE it merges -- this only '
+       'catches the state after a bad merge already landed on main, not '
+       'before. It also cannot run at all without both origin/main and '
+       'origin/precedent-beta-v01 fetched locally (SKIPPED, not PASS, in '
+       'that case).')
+def _merge_target_is_beta_branch(ctx):
+    def rev_parse(ref):
+        r = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref],
+                           cwd=ROOT, capture_output=True, text=True)
+        return r.stdout.strip() if r.returncode == 0 else None
+
+    main = rev_parse('origin/main')
+    beta = rev_parse('origin/precedent-beta-v01')
+    if not main or not beta:
+        raise NotApplicable(
+            'origin/main and origin/precedent-beta-v01 must both be '
+            'fetched locally to compare them -- run `git fetch origin '
+            'main precedent-beta-v01` first')
+    is_ancestor = subprocess.run(
+        ['git', 'merge-base', '--is-ancestor', beta, main], cwd=ROOT
+    ).returncode == 0
+    if is_ancestor:
+        return [Finding('main',
+                        f'contains origin/precedent-beta-v01 ({beta[:8]}) as '
+                        f'an ancestor -- the restructuring work has been '
+                        f'merged into main. Expected ONLY once Alex has '
+                        f'reviewed and merged precedent-beta-v01 into main '
+                        f'for real (in which case retire this practice in '
+                        f'the same PR); otherwise this is the PR #89 '
+                        f'mistake happening again.')]
+    return []
+
+
 @check('search-by-purpose', 'change',
        'a document carrying generated numbers is reachable from an index a '
        'reader actually consults',
@@ -1185,12 +1225,13 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        "makes sure that fix never has to happen by hand again).")
 def _code_cites_practice(ctx):
     known = {}
-    for f in sorted((ROOT / 'practices').glob('*.md')):
-        try:
-            fm, _sections = sp._read_practice_file(f)
-        except sp.PracticeFileError:
-            continue
-        known[fm['slug']] = fm.get('status')
+    for d in ((ROOT / 'practices'), (ROOT / 'local' / 'practices')):
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sections = sp._read_practice_file(f)
+            except sp.PracticeFileError:
+                continue
+            known[fm['slug']] = fm.get('status')
     out = []
     for f in sorted((ROOT / 'tools').glob('*.py')):
         if f.name in CODE_CITE_SKIP_FILES:
