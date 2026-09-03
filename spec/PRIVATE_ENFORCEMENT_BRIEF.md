@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session -->
 
 # Brief — Bringing Mechanical Checks to the Private Sets
 
@@ -159,6 +159,20 @@ python3 check_<slug>.py; echo "exit: $?"   # must be 1
 cd -  # back to the real working copy
 python3 check_<slug>.py; echo "exit: $?"   # must be 0
 ```
+
+**If the check walks `git log` and needs to know a commit's parents** (to
+tell a merge commit apart from an ordinary one, say), don't parse
+`--format=%P`: it silently reports no parents for a commit sitting at a
+shallow clone's boundary, even when the commit object genuinely has two —
+this repo is normally cloned `--depth 1` (AGENTS.md's own
+"Build-environment gotchas"), so a check written and tested against a full
+clone can pass every local test and still misclassify exactly the boundary
+commit the next time someone clones fresh. Use `git cat-file -p <sha>` and
+count lines starting with `parent ` instead — it reads the commit object's
+own header directly, unaffected by the shallow graft. Test this exact case,
+not just the happy path: `git clone --depth 1 file:///path/to/repo
+/tmp/scratch` and run the check against `/tmp/scratch`, the same way the
+two-direction test above is run against a planted violation.
 
 Only wire `checked_by: check_<slug>.py` into the practice's frontmatter
 once **both** directions pass. If you can't get a real check to hold —
