@@ -235,6 +235,7 @@ def main():
     # layout to know what just happened -- say it in plain words too, so a
     # session relaying this to a human has no way to leave out WHICH of the
     # three it is or WHERE, whether or not it also shows the path above.
+    # practice: disclose-landing
     if level == 'individual':
         print(f"DISCLOSE TO THE HUMAN: this is now part of YOUR OWN "
               f"individual practice set ({args.get('--path')}). It applies "

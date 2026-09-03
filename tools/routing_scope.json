@@ -75,6 +75,13 @@
       ],
       "gates_why": "A review that produces a rule produces it here; it also has a glob for where the rule is written."
     },
+    "code-cites-practice": {
+      "globs": [
+        "tools/**"
+      ],
+      "why": "The occasion is writing code because a practice requires it, which happens in tools/ -- this repo's only place code implementing a practice's behavior is written.",
+      "decided": "follow-up session, 2026-09-03"
+    },
     "computed-numbers-in-scripts": {
       "globs": [
         "**/*.md"
