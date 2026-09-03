@@ -1,1 +1,0 @@
-{"slugs": ["mistakes-become-rules", "cite-the-incident", "practice-export-loop"], "reasoning": "The fix root-caused a caught mistake and encoded the prevention as a dated, incident-carrying comment in the code (mistakes-become-rules, cite-the-incident); and since this is checkin.py, a change to it must be folded into process/upstream/ per the export gate (practice-export-loop)."}

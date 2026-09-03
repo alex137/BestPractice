@@ -1,8 +1,0 @@
-{
-  "slugs": [
-    "practice-export-loop",
-    "cite-the-incident",
-    "environment-gotchas"
-  ],
-  "reasoning": "This is the periodic check-in step of practice-export-loop, folding a dependent repo's practices into upstream; each new rule's Why section cites its origin incident inline, and the bootstrap apt-retry note is an environment-discovery fix of the kind environment-gotchas calls for."
-}

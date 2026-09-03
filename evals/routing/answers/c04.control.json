@@ -1,7 +1,0 @@
-{
-  "slugs": [
-    "generated-artifact-provenance",
-    "doc-references-are-links"
-  ],
-  "reasoning": "Directly extends the .gitignore/.gitattributes stanza guidance that generated-artifact-provenance already calls for, and the new prose links to the new template file rather than naming it bare."
-}

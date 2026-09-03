@@ -1,9 +1,0 @@
-{
-  "slugs": [
-    "practice-export-loop",
-    "cite-the-incident",
-    "convention-to-audit",
-    "merge-runbook"
-  ],
-  "reasoning": "A second check-in round mechanizing the manual update direction into a guarded tool (convention-to-audit, practice-export-loop), with each incident (rsync absence, stale ref, partial renumber) cited inline, and a new repo-wide renumbering rule folded into the merge runbook."
-}

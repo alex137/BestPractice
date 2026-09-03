@@ -1,1 +1,0 @@
-{"slugs": ["docs-are-current-state"], "reasoning": "The edit corrects INSTALL.md's plain-terms callout so it states the actual current approval process (review-and-merge, not step 7) rather than the stale wording from PR #30; the other document-editing slugs (acronyms, doc-links, label naming) don't touch anything present in this diff."}

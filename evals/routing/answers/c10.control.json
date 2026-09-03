@@ -1,7 +1,0 @@
-{
-  "slugs": [
-    "volatile-rules-carry-dates",
-    "mistakes-become-rules"
-  ],
-  "reasoning": "Directly clarifies the volatile-rules-carry-dates practice itself, prompted by a caught mistake (an agent using its own clock) that gets root-caused and encoded as a corollary."
-}

@@ -1,1 +1,0 @@
-{"slugs": [], "reasoning": "This is a narrow, self-contained wording/tone fix to one existing sentence in INSTALL.md, already fully explained by its own commit message; it doesn't add acronyms, doc links, sortable tables, generated content, new rules, or touch any of the other specific occasions listed, so none of the on-demand practices genuinely apply."}

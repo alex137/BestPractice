@@ -1,1 +1,0 @@
-{"slugs": ["session-bootstrap", "cite-the-incident"], "reasoning": "The staleness notice is wired into the session-start bootstrap hook exactly as session-bootstrap prescribes, and the PRACTICES.md addition states inline the failure mode (forgetting the periodic check-in) that the automated notice prevents."}

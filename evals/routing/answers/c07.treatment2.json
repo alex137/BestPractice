@@ -1,1 +1,0 @@
-{"slugs": ["layered-practice-packs", "registry-source-of-truth"], "reasoning": "VOICE.md/STYLEGUIDE.md are explicitly classified as repo-local (never exported upstream) per the generic/domain/repo-local decision rule, and their local-only status is recorded once in the manifest.json registry with INSTALL/SETUP restating rather than owning it."}

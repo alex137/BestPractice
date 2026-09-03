@@ -1,8 +1,0 @@
-{
-  "slugs": [
-    "registry-source-of-truth",
-    "checkable-gets-checked",
-    "docs-track-models"
-  ],
-  "reasoning": "The PAIRS wiring registry is verified against the two facts it restates rather than trusted by hand (registry-source-of-truth), the new opt-in gate was measured against the whole corpus before being wired in to avoid a gate nobody can pass (checkable-gets-checked), and it's a companion audit for docs-track-models' quantity-sourcing rule."
-}

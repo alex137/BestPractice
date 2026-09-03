@@ -1,8 +1,0 @@
-{
-  "slugs": [
-    "session-bootstrap",
-    "convention-to-audit",
-    "cite-the-incident"
-  ],
-  "reasoning": "Wires an automated check into the session-start bootstrap hook (session-bootstrap), proposes promoting a costly merge-loss pattern to a mechanical required-sections check (convention-to-audit), and the extension text narrates the specific incident that motivated it (cite-the-incident)."
-}
