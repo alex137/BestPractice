@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """doc_html -- the ONE sortable-table HTML renderer for repo documents
-(practice 46).
+(practice: tabular-shared-renderer).
 
 Convention: any document whose tables have multiple columns a reader might
 want to sort ships an HTML render built from the .md by THIS module -- the
-.md stays the source of record (doc_sync keeps its generated tables live,
-practice 33), the .html is the committed reading product. Table behavior
+.md stays the source of record -- doc_sync keeps its generated tables live
+(practice: docs-track-models) -- the .html is the committed reading
+product. Table behavior
 (multi-column sort, pinned sort columns, sticky headers, numeric-aware sort
 keys) lives HERE and only here, so a functionality change upgrades every
 table in the repo at once: edit CSS/JS below, run `python3 tools/doc_html.py`
@@ -15,8 +16,9 @@ table in the repo at once: edit CSS/JS below, run `python3 tools/doc_html.py`
     python3 tools/doc_html.py path/to/doc.md # render one (registered or not)
     python3 tools/doc_html.py --list         # show the registry
 
-Behavior contract (the full spec is practice 46's numbered list; this
-module is its reference implementation): multi-column sort (click; shift-
+Behavior contract (the full spec is tabular-shared-renderer's numbered list
+(practice: tabular-shared-renderer); this module is its reference
+implementation): multi-column sort (click; shift-
 click or Multi-sort adds keys; re-click reverses; header marks show key
 order) with numeric-aware keys (approximation marks, any Unicode currency
 symbol with k/M magnitude suffixes on currency amounts, thousands
@@ -39,7 +41,7 @@ the active view); one Reset
 clearing sorts AND
 filters and restoring row/column order; a live "N of M rows" count;
 a frontier axis pull-down on every table with a Frontier column
-(practice 47; see below); header
+(practice: permutation-frontier-column; see below); header
 cells link their definition notes with mouse-over tooltips, and each
 note's return link lands back on the header cell it defines; the build
 timestamp renders in the page header (the .html is the versioned product;
@@ -47,11 +49,11 @@ the source carries none); includes expanded, relative repo links
 rewritten to the hosted view, wide tables scrolling in their own
 container.
 
-Frontier axis pull-down (practice 47): every table with a Frontier
+Frontier axis pull-down (practice: permutation-frontier-column): every table with a Frontier
 column gets it, from the engine alone -- no per-document or per-model
-wiring. The printed ✓/— marks are the default view (practice 47 already
-makes them the generating model's own full-precision computation, so
-the default frontier's semantics arrive as table data); the pull-down
+wiring. The printed ✓/— marks are the default view (permutation-frontier-column
+already makes them the generating model's own full-precision computation,
+so the default frontier's semantics arrive as table data); the pull-down
 lets the reader pick which columns form the frontier instead, and the
 page recomputes the marks from the displayed values. EVERY non-frontier
 column is offered: on a numeric column the reader sets the axis's
@@ -860,7 +862,7 @@ JS = """
       if (resetFrontier) resetFrontier();
       marks(); reorder(); refilter();
     });
-    // Frontier controls (practice 47). Any table with a Frontier column
+    // Frontier controls (practice: permutation-frontier-column). Any table with a Frontier column
     // gets the axis pull-down, from the engine alone: the printed ✓/—
     // marks (the generating model's own full-precision computation) are
     // the default view, so no table metadata is required. On a custom

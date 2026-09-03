@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """model_audit -- run each computing script's self-assertions, and check the
-figures its authoritative source documents recite (practice 30).
+figures its authoritative source documents recite (practice: scripts-assert-properties).
 
 The failure mode this kills is NOT a stale copy, and that is the whole point.
 In the incident that produced this tool, a script published results out by a
@@ -14,7 +14,7 @@ does not scale.
 
 So the check that matters is not "do the numbers match" but "does the output
 satisfy the properties it must satisfy". And the edge that mattered was not
-document-vs-script (practice 19's sync gate covers that, and it faithfully
+document-vs-script (computed-numbers-in-scripts' sync gate covers that, and it faithfully
 published the wrong number) but SCRIPT-VS-SOURCE-DOCUMENT: the authoritative
 document recited the correct figure for exactly the case the script got wrong,
 and nothing compared them. The most carefully reasoned documents in a repo are

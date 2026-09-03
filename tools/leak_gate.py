@@ -27,7 +27,7 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   catches private words -- client names, code words, internal identifiers.
   **That list cannot live in the repo it protects.** A blocklist of secret
   terms, committed to a public repo, publishes the secrets it exists to
-  guard. This is the same reason practice 15 (`scrub-gate`) keeps the
+  guard. This is the same reason (practice: scrub-gate) keeps the
   blocklist in the private dependent repo and scans the public vendored
   tree from there, and it generalizes unchanged.
 
@@ -269,8 +269,8 @@ def load_blocklist():
     else:
         sys.exit(f"leak gate FAIL: the blocklist at {path} is INSIDE Precedent. A list "
                  f"of private terms committed to a public repo publishes the terms it "
-                 f"exists to protect. Keep it in the private set (see practice 15, "
-                 f"scrub-gate) and point {BLOCKLIST_ENV} at it there.")
+                 f"exists to protect. Keep it in the private set "
+                 f"(see practice: scrub-gate) and point {BLOCKLIST_ENV} at it there.")
     pats = []
     for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
         line = line.strip()

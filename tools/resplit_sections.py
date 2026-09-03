@@ -123,7 +123,7 @@ def resolve(ref, paras):
     # structure of a markdown list: the tokenizer treats "2." as its own
     # sentence, so slicing across a numbered list silently turns its items
     # into running prose. Caught once, by verify_harness's list-structure
-    # check, on practice 47. Refuse it here instead, where the message can
+    # check, on permutation-frontier-column. Refuse it here instead, where the message can
     # say what to do about it.
     if re.search(r'^\s*([-*+]|\d+\.)\s', para, re.M):
         sys.exit(f"resplit FAIL: reference {ref!r} slices a paragraph containing a "

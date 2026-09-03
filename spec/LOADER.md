@@ -36,7 +36,7 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | Practices in the catalogue | 56 |
 | Resident, loaded every session | 6 of 56 practices |
 | Resident block size | ≈312 tokens of a 2000-token hard cap |
-| `## Rule` share of the catalogue | 27% of the catalogue |
+| `## Rule` share of the catalogue | 26% of the catalogue |
 | Rules still over 150 words | 7 |
 | Carrying a `## Detail` | 18 |
 | Carrying a `## Story` | 23 |

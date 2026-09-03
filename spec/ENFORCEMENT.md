@@ -60,7 +60,7 @@ being checked by it.
 |---|---|---|
 | `acronyms-glossary` | change | a changed document does not introduce a NEW unglossed acronym -- one not already in GLOSSARY.md and not expanded on first use |
 | `cite-the-incident` | change | a practice file whose Rule is new or changed must carry a non-empty ## Story |
-| `code-cites-practice` | tree | a `# practice: SLUG` citation in tools/**/*.py names a real, active practice -- never a typo, a deleted file, or one since retired |
+| `code-cites-practice` | tree | a `practice: SLUG` citation in tools/**/*.py names a real, active practice -- never a typo, a deleted file, one since retired, or a position number instead of a slug |
 | `computed-numbers-in-scripts` | tree | every generated block in a document matches what its script emits, is registered, and its document names the scripts that feed it |
 | `deliverables-look-like-output` | change | a reader-facing document in scope carries no process residue — no verify-later flag, claims-to-source apparatus or decision provenance |
 | `doc-references-are-links` | change | a changed document must not render an accidental strikethrough span — use the approximately sign, never a tilde |

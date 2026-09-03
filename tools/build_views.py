@@ -22,8 +22,9 @@ tools/verify_harness.py).
 The resident block has a hard token ceiling (see RESIDENT_BUDGET_TOKENS
 below, and PRACTICE_ENGINE_PLAN.md's "The Resident Budget" -- "target ~2,000
 tokens, hard-capped"). Token count is approximated as words * 1.3 (no
-tokenizer dependency; see practice 19, computed numbers live in scripts --
-this IS that script, not a number restated by hand elsewhere). Exceeding the
+tokenizer dependency; see (practice: computed-numbers-in-scripts), computed
+numbers live in scripts -- this IS that script, not a number restated by
+hand elsewhere). Exceeding the
 cap fails the build outright: adding a resident practice must cost demoting
 or retiring another, mechanically, not by discipline.
 
