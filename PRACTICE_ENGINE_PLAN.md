@@ -410,20 +410,30 @@ smaller font.
 
 ### Source — Who a Practice Belongs To
 
-Three levels. **The repo is public**, which decides the shape.
+Four levels. **The repo is public**, which decides the shape.
 
 | Level | Lives in | Visible to | Decided by |
 |---|---|---|---|
 | **Universal** | Precedent, public | Everyone | Precedent's maintainer, via PR |
 | **Team** | One private repo per team | That team | That set's **approvers** — a review *is* the decision |
 | **Individual** | One private repo per person | Only that person | The person. No review. |
+| **Repo-local** | The consuming repo itself | Everyone with access to that repo | Whoever can commit to that repo |
 
-**Levels are repositories, not directories inside one repository.** The
-tempting arrangement is a single repo with `universal/`, `team/` and
-`individual/` side by side, and it does not survive contact with a public
-Precedent: **individual practices must never be world-readable.** A practice's
-level is really a statement about its source, and sources are enforced by repo
-boundaries.
+**Levels are repositories, not directories inside one repository — with one
+named exception.** The tempting arrangement is a single repo with
+`universal/`, `team/` and `individual/` side by side, and it does not survive
+contact with a public Precedent: **individual practices must never be
+world-readable.** A practice's level is really a statement about its source,
+and sources are enforced by repo boundaries. Repo-local is the one level that
+genuinely **is** "a directory inside the repo" (`practices/` at the consuming
+repo's own root, declared in its `precedent.json` with `path: "."`) rather
+than a separate repository — and that is fine specifically because it carries
+none of the world-readability risk the other three levels are structured
+around: a repo-local practice is already exactly as visible as everything
+else in that repo, to everyone who can already read it. See PRACTICES.md
+practice 23 (layered-practice-packs) for what belongs at this level in the
+first place — a rule true only of one repo's own subject matter, never
+exported, never vendored in from anywhere.
 
 **Why one repo per team rather than directories in one private repo.** Git
 permissions are per-repo; a directory boundary inside a shared repo is a
@@ -518,21 +528,37 @@ clone fails, the session **degrades gracefully**: it runs on universal plus
 team and says plainly that personal practices are missing, rather than
 pretending they were applied.
 
-#### Precedence, and the One Case Where the Individual Does Not Win
+#### Precedence, and the One Case Precedence Alone Does Not Decide
 
-The engine resolves with **precedence: individual > team > universal** — RPP's
-`bestpractice-wins` generalized. A practice may name a lower-source slug in
-`overrides:`; the resolver fails loudly if two same-level practices claim one
-slug.
+The engine resolves with **precedence: team > repo-local > individual >
+universal** (reordered 2026-09-03; originally individual > team > universal —
+see below for why). A practice may name a lower-source slug in `overrides:`;
+the resolver fails loudly if two same-level practices claim one slug.
 
-**The exception is what `severity: blocking` is for.** Plain precedence would
-let a personal *"keep the tone casual"* beat a team's *"this client work is
-always formal"*, which is right for how a person works and wrong for what a
-shared deliverable looks like. So: **a team or universal practice marked
-`blocking` cannot be overridden by a higher-precedence source.** Everything
-else, the individual wins. This is the difference between a practice about
-*how I work* and a practice about *what we ship*, and marking it is the
-team's call at approval time.
+**Noted here, not to belabor it: the order reflects each level's actual
+authority, not the reverse.** A team's rules bind everyone in it — the
+closest thing here to actual law for that group — so team ranks highest.
+Universal covers every Precedent user in the world and is, by design, the
+lowest common denominator: the weakest claim on any one person or team, so it
+ranks lowest. An individual's own practices sit in between: more binding than
+something meant to work for the whole world, less binding than what a
+person's own team actually requires of them. Repo-local sits alongside that
+same ladder, between individual and team, since it speaks to one specific
+repo's own working reality rather than a person's general style.
+
+**The exception is what `severity: blocking` is for.** A practice at any
+level below the top of that order may be marked `severity: blocking`, which
+means no source ranked above it can override it by precedence alone — a
+universal information-leak guard a team must not be able to quietly turn off
+for itself, say. Everything else, plain precedence decides. This is the
+difference between a practice about *how something is done* and a practice
+about *what must never happen*, and marking it is the call of whoever
+approves the practice that needs the protection.
+
+Nothing above is a hard ceiling on any one practice, either: `overrides:` and
+`severity: blocking` both exist precisely so a specific rule can depart from
+the default order when it needs to, at whichever level actually needs the
+exception. The table is a default, not a constraint.
 
 ### Scope — What a Practice Applies To
 
@@ -1947,6 +1973,18 @@ enforcement are two problems, not one. Recorded in
   would all want, independent of any one team's roster — the case the old
   practice-pack mechanism solved and the loader does not yet replace for the
   cross-team form. Revisit both together when a real case appears.
+- **A single consumer repo declaring more than one `team` source, and what
+  happens when they disagree.** Distinct from the item above (which is about
+  one practice needing to be claimed by two team repositories); this is about one
+  repo's own `precedent.json` naming two team sources at once. Same-slug
+  collisions between them are already caught loudly today (`resolve()`'s
+  `override_claims_by_level` check applies per level regardless of how many
+  sources contribute to that level), but two teams' practices that don't
+  collide on a slug and still contradict each other in substance are not
+  caught at all, and it's not even settled whether declaring two `team`
+  sources in one repo is meant to be supported in the first place. Noted
+  2026-09-03 during the precedence reorder; explicitly not solved now —
+  revisit when a real multi-team-import case appears.
 - **Narrowing an individual practice to particular repos, or to a team.**
   An individual set applies wherever its owner works, and `applies_to`
   narrows by path within a repo but not across repos or by which team's

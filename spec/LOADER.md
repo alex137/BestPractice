@@ -22,6 +22,22 @@ implementation note, not a restatement.
 | Resident budget, hard-capped | `RESIDENT_BUDGET_TOKENS = 2000` in tools/build_views.py; the build exits nonzero over budget | Built. Current size is in [The catalogue as it stands](#the-catalogue-as-it-stands) below, generated. |
 | Premise measured, not assumed | [tools/behavioral_replay.py](../tools/behavioral_replay.py) | Built. See "What the replay measures" below — it is honest about what it can and cannot prove. |
 
+**Generated views are no longer this-repo-only (2026-09-03).** A team or
+individual source repo (e.g. `precedent-team-maintainers`,
+`precedent-individual`) vendors the same [tools/build_views.py](../tools/build_views.py)
+and runs `python3 tools/build_views.py --agents-only` on its own
+`practices/`, getting the identical resident-block/occasion-index/standing-
+instruction treatment this repo's own `AGENTS.md` gets — `--agents-only`
+skips `render_map_md()`/`render_glossary_md()`, which assume this repo's own
+structure (`TOOLS_DESCRIPTIONS`, "this repo is BestPractice itself" prose)
+and aren't meaningful for a practice-set repo with a different `tools/`
+layout. **What this does NOT close**: each source repo still generates its
+own view, single-source, exactly as this repo always has. The cross-source
+case — one consuming repo (universal + team + individual + repo-local, all
+resolved together into one generated `AGENTS.md`) — is still unbuilt; see
+[spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s
+"Known gap" section, which this change does not resolve.
+
 ## The catalogue as it stands
 
 Generated — do not hand-edit, and do not restate these figures in the prose

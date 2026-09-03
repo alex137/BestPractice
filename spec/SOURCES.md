@@ -10,29 +10,41 @@ build to in this repo, and — as importantly — what phase 3 could **not** bui
 from here and why. Read the plan sections first; this is the implementation
 note.
 
+**A fourth source, repo-local, and a reordered precedence, landed
+2026-09-03** — after phase 3, so this document's title and most of its prose
+below still say "three" where phase 3's own work is being described; that is
+accurate to what phase 3 actually built and is left as the historical
+record, per this repo's own convention of dated addenda over rewritten
+history. The "What exists" table immediately below is current status,
+though, and is updated to match: it now reflects four sources and the
+current precedence order (team > repo-local > individual > universal — see
+PRACTICE_ENGINE_PLAN.md's "Source" section for the reasoning, noted there
+without belaboring it).
+
 ## What exists
 
 | Plan's requirement | Built as | Status |
 |---|---|---|
-| Levels are repositories, not directories | [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves N source *directories*, each a checkout of a separate repo | Built. Nothing about a level is a field; it comes from which source a file was loaded from. |
-| A consumer repo declares universal + team | [precedent.json](../precedent.json), tracked, at the repo root | Built. Precedent carries one for itself: it runs on the universal set it publishes. |
+| Levels are repositories, not directories (with one exception: repo-local, which is a `practices/` directory in the consuming repo's own tree, `path: "."`) | [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves N source *directories*, each a checkout of a separate repo, or the consumer's own root for repo-local | Built. Nothing about a level is a field; it comes from which source a file was loaded from. |
+| A consumer repo declares universal + team + repo-local | [precedent.json](../precedent.json), tracked, at the repo root | Built. Precedent carries one for itself: it runs on the universal set it publishes. |
 | A person declares their own individual set | `~/.config/precedent/config.json`, or `PRECEDENT_USER_CONFIG` | Built. A shared repo naming an individual source is refused **by name**, with the privacy reason in the message. |
-| Precedence: individual > team > universal | Sources walked lowest-first; later replaces earlier | Built and tested. |
+| Precedence: team > repo-local > individual > universal | Sources walked lowest-first; later replaces earlier | Built and tested. |
 | `overrides:` names a lower slug | Same walk, with the named slug as a second target | Built and tested. |
-| `severity: blocking` at team/universal cannot be overridden | Refused, and the refusal is *reported* | Built and tested. |
+| `severity: blocking` on any level below the top of precedence cannot be overridden by a source ranked above it | Refused, and the refusal is *reported* | Built and tested. |
 | Degrade gracefully when the individual set is missing | Resolves on what it has, says on stderr what is **not in force** | Built and tested. `--strict` makes it fatal where a caller wants that. |
 | A retired practice is resolvable but not in force | `status:` filtered at resolve time | Built and tested. |
 | The frozen example set | [examples/practice-set/](../examples/practice-set) | Built — invented content, see below. |
 | The leak gate's vocabulary layer | [tools/leak_gate.py](../tools/leak_gate.py), blocklist from `PRECEDENT_LEAK_BLOCKLIST`, template at [templates/leak-blocklist.txt.template](../templates/leak-blocklist.txt.template) | Built and switched on. |
 | The private sets **populated** from RepoPersonalPreferences' 46 rules | — | **Not done. See below.** |
 
-Twenty-one stated cases in [tools/verify_harness.py](../tools/verify_harness.py)
-(`check_source_precedence`) build a throwaway consumer repo with all three
+Twenty-five stated cases in [tools/verify_harness.py](../tools/verify_harness.py)
+(`check_source_precedence`) build a throwaway consumer repo with all four
 sources and assert each rule above. Every one was verified by breaking the
 resolver and watching the matching case fail — inverted precedence, ignored
 `severity`, ignored `overrides:`, a retired practice let through, a shared
-repo allowed to name an individual set, a missing source made fatal, and a
-missing source degraded *silently*.
+repo allowed to name an individual set, a repo-local source pointed
+somewhere other than the declaring repo's own root, a missing source made
+fatal, and a missing source degraded *silently*.
 
 **The fixture is built in a temporary directory and never committed.** A
 committed fixture holding a team- or individual-shaped tree inside Precedent

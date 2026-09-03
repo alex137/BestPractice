@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""precedent_resolve.py — resolve the three sources into one set of practices
+"""precedent_resolve.py — resolve the four sources into one set of practices
 (PRACTICE_ENGINE_PLAN.md, "Source — Who a Practice Belongs To" and
 "Precedence, and the One Case Where the Individual Does Not Win").
 
 A practice's LEVEL is not a field. It is implied by which repository the file
 lives in, "so it cannot drift from reality" — universal in Precedent, team in
-one private repo per team, individual in one private repo per person. This
-tool is what turns "three repositories" into "the practices in force here".
+one private repo per team, individual in one private repo per person,
+repo-local in the consuming repo's own tree. This tool is what turns "up to
+four repositories" into "the practices in force here".
 
 WHO DECLARES WHICH SOURCE, AND WHY THAT SPLIT IS A PRIVACY BOUNDARY RATHER
 THAN A CONVENIENCE.
 
-  The CONSUMER REPO declares universal plus its team set, in a tracked config
-  file (precedent.json). Everyone working there gets those, and everyone
-  working there can already read them.
+  The CONSUMER REPO declares universal, its team set, and its own repo-local
+  set, in a tracked config file (precedent.json). Everyone working there
+  gets those, and everyone working there can already read them.
 
   THE PERSON declares their own individual set in their USER-LEVEL config,
   outside any shared repo (~/.config/precedent/config.json, or wherever
@@ -25,18 +26,30 @@ THAN A CONVENIENCE.
   their own personal practices and neither seeing the other's. That falls out
   of where the declaration lives; it is not a rule anyone has to remember.
 
-PRECEDENCE is individual > team > universal, by slug — RPP's `bestpractice-
-wins` generalized into the engine, so it is a property of the resolver rather
-than a rule written down and hoped to be read. A practice may also name a
-lower-source slug in `overrides:` to replace a practice it does not share a
-name with.
+PRECEDENCE is team > repo-local > individual > universal, by slug (changed
+2026-09-03 from the phase-3 individual > team > universal order — see
+spec/SOURCES.md for the reasoning). A team's rules bind everyone in it, so
+they are the strongest -- closest to actual law for that group. Universal
+covers every Precedent user in the world, so by design it is the lowest
+common denominator and the weakest. An individual's own practices sit in
+between: more binding than a rule meant for the whole world, less binding
+than what a person's own team requires of them. Repo-local sits alongside
+that same ladder, between individual and team, since it speaks to the actual
+working reality of one specific repo rather than a person's general style --
+but nothing here is fixed forever: any practice at any level can still be
+reordered relative to one slug via `overrides:`, or protected from every
+level above it via `severity: blocking` (see below). This is a property of
+the resolver, not a rule written down and hoped to be read.
 
-THE ONE CASE WHERE THE INDIVIDUAL DOES NOT WIN. A team or universal practice
-marked `severity: blocking` cannot be overridden by a higher-precedence
-source. Plain precedence would let a personal "keep the tone casual" beat a
-team's "this client work is always formal", which is right for how a person
-works and wrong for what a shared deliverable looks like. This is the
-difference between a practice about HOW I WORK and one about WHAT WE SHIP.
+THE ONE CASE PRECEDENCE ALONE DOES NOT DECIDE. A practice at any level below
+the top of PRECEDENCE (currently: repo-local, individual, or universal) may
+be marked `severity: blocking`, which means no source ranked above it can
+override it by ordinary precedence -- only a same-level `overrides:` still
+can. This is for the rare case where a lower-ranked practice must hold
+regardless of what a higher-ranked source happens to say: a universal
+information-leak guard a team must not be able to quietly turn off for
+itself, say. This is the difference between a practice about HOW SOMETHING
+IS DONE and one about WHAT MUST NEVER HAPPEN.
 
 DEGRADING GRACEFULLY IS PART OF THE CONTRACT, not an error path. A fresh
 cloud session with no persistent home directory has no local individual set.
@@ -66,9 +79,27 @@ REPO_CONFIG = 'precedent.json'
 USER_CONFIG_ENV = 'PRECEDENT_USER_CONFIG'
 DEFAULT_USER_CONFIG = pathlib.Path.home() / '.config' / 'precedent' / 'config.json'
 
-# Lowest first: later sources win, which is what makes `PRECEDENCE.index()`
-# the whole precedence rule rather than a chain of comparisons.
-PRECEDENCE = ('universal', 'team', 'individual')
+# HIGHEST PRECEDENCE FIRST -- read this tuple left to right as strongest to
+# weakest. (Changed 2026-09-03: this used to be listed lowest-first, weakest
+# to strongest, which reads backwards to an English speaker scanning a
+# left-to-right list -- team > repo-local > individual > universal is the
+# actual precedence order, matching how it is written and spoken everywhere
+# else in this codebase and its docs.)
+#
+# The resolver still needs to WALK sources lowest-precedence-first internally
+# (a later source simply replaces what an earlier one put in place -- see
+# resolve() below), so every place that turns a level into a walk position
+# reads this tuple in reverse: `_precedence_rank()` gives the weakest level
+# rank 0, not `PRECEDENCE` itself.
+PRECEDENCE = ('team', 'repo-local', 'individual', 'universal')
+
+
+def _precedence_rank(level):
+    """0 = weakest (walked first), higher = stronger (walked later, wins on a
+    shared slug). The one place PRECEDENCE's highest-first order gets
+    inverted back into a walk order -- everything else should call this
+    rather than re-deriving the inversion locally."""
+    return len(PRECEDENCE) - 1 - PRECEDENCE.index(level)
 
 # A practice that is not active is resolvable by slug -- so `supersedes:`
 # still points somewhere real -- but is not in force.
@@ -93,12 +124,19 @@ def _read_json(path, what):
 def load_config(repo, user_config=None):
     """-> list of {level, name, path}, lowest precedence first.
 
-    The repo config may name universal and team sources only. An individual
-    source declared in a SHARED repo is refused by name, because that is the
-    privacy boundary above, and a mistake that is silent here is a mistake
-    nobody finds."""
+    The repo config may name universal, team, and repo-local sources. An
+    individual source declared in a SHARED repo is refused by name, because
+    that is the privacy boundary above, and a mistake that is silent here is
+    a mistake nobody finds. A repo-local source is refused if its path
+    doesn't resolve to the declaring repo itself -- the whole point of the
+    level is that it never leaves the one repo it describes
+    (practice: layered-practice-packs: "repo-local ... live in that repo's
+    instructions files and never leave"); a repo-local entry pointing
+    somewhere else would let a repo quietly claim another repo's tree as if
+    it were its own local content."""
+    repo_root = pathlib.Path(repo).resolve()
     sources = []
-    repo_cfg_path = pathlib.Path(repo) / REPO_CONFIG
+    repo_cfg_path = repo_root / REPO_CONFIG
     if repo_cfg_path.exists():
         cfg = _read_json(repo_cfg_path, 'the repository config')
         for entry in cfg.get('sources', []):
@@ -116,8 +154,17 @@ def load_config(repo, user_config=None):
                 raise ResolveError(
                     f"{repo_cfg_path}: source {entry.get('name')!r} has level "
                     f"{level!r}; expected one of {', '.join(PRECEDENCE)}.")
+            entry_path = (repo_root / entry['path']).resolve()
+            if level == 'repo-local' and entry_path != repo_root:
+                raise ResolveError(
+                    f"{repo_cfg_path} declares a repo-local source "
+                    f"({entry.get('name')!r}) at {entry_path}, which is not "
+                    f"{repo_root} itself. A repo-local source's `path` must "
+                    f"resolve to the declaring repo's own root -- that is what "
+                    f"keeps it from ever being someone else's vendored copy of "
+                    f"a different repo's local practices.")
             sources.append({'level': level, 'name': entry.get('name', level),
-                            'path': str((pathlib.Path(repo) / entry['path']).resolve())})
+                            'path': str(entry_path)})
 
     user_cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
         os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
@@ -128,7 +175,7 @@ def load_config(repo, user_config=None):
             sources.append({'level': 'individual',
                             'name': ind.get('name', 'precedent-individual'),
                             'path': str(pathlib.Path(ind['path']).expanduser())})
-    sources.sort(key=lambda s: PRECEDENCE.index(s['level']))
+    sources.sort(key=lambda s: _precedence_rank(s['level']))
     return sources
 
 
@@ -162,8 +209,8 @@ def resolve(sources):
 
     Sources are walked lowest precedence first, so a later source simply
     replaces what an earlier one put in place -- except where the practice it
-    would replace is `severity: blocking` at team or universal level, which is
-    the one case the individual does not win."""
+    would replace is `severity: blocking`, which no source ranked above it
+    can override by precedence alone (see _is_blocking)."""
     by_source, missing = [], []
     for s in sources:
         loaded, why = load_source(s)
@@ -244,8 +291,14 @@ def resolve(sources):
 
 
 def _is_blocking(practice):
+    """`severity: blocking` is meaningful for any level except the very top
+    of PRECEDENCE -- there is nothing ranked above the top level, so nothing
+    for it to need protection from. Deriving this from PRECEDENCE (rather
+    than hardcoding the two non-top level names, which is what this used to
+    do) means a future reordering of PRECEDENCE does not silently leave a
+    level's `blocking` marking inert or wrongly honored."""
     return (bv._json_str(practice['fm'].get('severity', 'default')) == 'blocking'
-            and practice['level'] in ('team', 'universal'))
+            and practice['level'] != PRECEDENCE[0])
 
 
 def resident_stats(res):
@@ -287,7 +340,11 @@ def _report(res, sources, out=sys.stdout):
         counts[p['level']] = counts.get(p['level'], 0) + 1
     print(f"resolved {len(res['practices'])} practice(s) from "
           f"{len(sources) - len(res['missing'])} source(s): "
-          + ', '.join(f"{counts.get(l, 0)} {l}" for l in reversed(PRECEDENCE)), file=out)
+          # PRECEDENCE is already highest-first, so this prints strongest to
+          # weakest with no reversal needed -- iterating it directly used to
+          # print weakest-to-strongest here, back when the tuple itself was
+          # lowest-first and this call compensated with reversed().
+          + ', '.join(f"{counts.get(l, 0)} {l}" for l in PRECEDENCE), file=out)
     for s in res['shadowed']:
         print(f"  overridden: {s['slug']} -- {s['by']['level']} "
               f"({s['by']['source']}) replaces {s['shadowed']['level']} "
