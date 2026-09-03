@@ -32,6 +32,13 @@ Run:
   python3 tools/build_views.py             # write AGENTS.md/MAP.md/GLOSSARY.md
   python3 tools/build_views.py --check      # regenerate to memory, diff against
                                              # the committed files, exit 1 on any diff
+  python3 tools/build_views.py --agents-only [--check]
+      # write (or check) only AGENTS.md's loader block. MAP.md and
+      # GLOSSARY.md's content is specific to how THIS repo is laid out
+      # (render_map_md()'s TOOLS_DESCRIPTIONS table, its "this repo is
+      # BestPractice itself" prose); a team or individual source repo
+      # vendoring this same file for its own practices/ catalogue wants
+      # the resident-block/occasion-index mechanism, not those two.
 """
 import collections, json, pathlib, re, sys
 
@@ -334,13 +341,24 @@ def render_glossary_md(practices):
 
 def main():
     check = '--check' in sys.argv
+    # --agents-only: regenerate just AGENTS.md's loader block (resident
+    # block, occasion index, standing instruction), skip MAP.md and
+    # GLOSSARY.md. render_map_md()'s TOOLS_DESCRIPTIONS table and "this repo
+    # is BestPractice itself" prose are specific to this repo; a team or
+    # individual source repo vendoring this same engine for its OWN
+    # catalogue (practice: layered-practice-packs -- every level needs the
+    # same resident/occasion-index treatment universal already gets, not
+    # just a hand-written README describing the practice list in prose)
+    # wants only the loader-block mechanism, not BestPractice's own MAP/
+    # GLOSSARY conventions.
+    agents_only = '--agents-only' in sys.argv
     practices = load_practices()
 
     new_agents = render_agents_md(practices)
-    new_map = render_map_md(practices)
-    new_glossary = render_glossary_md(practices)
-
-    targets = [(AGENTS_MD, new_agents), (MAP_MD, new_map), (GLOSSARY_MD, new_glossary)]
+    targets = [(AGENTS_MD, new_agents)]
+    if not agents_only:
+        targets.append((MAP_MD, render_map_md(practices)))
+        targets.append((GLOSSARY_MD, render_glossary_md(practices)))
 
     if check:
         drift = []
@@ -352,15 +370,16 @@ def main():
             print(f"build_views --check FAIL: hand-edited or stale, drifted from "
                   f"regeneration: {', '.join(drift)}")
             return 1
-        print("build_views --check OK: AGENTS.md, MAP.md, GLOSSARY.md all byte-identical "
-              "to a fresh regeneration")
+        print(f"build_views --check OK: {', '.join(p.name for p, _t in targets)} "
+              f"all byte-identical to a fresh regeneration")
         return 0
 
     for path, new_text in targets:
         path.write_text(new_text, encoding='utf-8')
     _block, tokens, n_resident = build_loader_block(practices)
-    print(f"build_views OK: wrote AGENTS.md (loader block regenerated, resident "
-          f"{n_resident}/{len(practices)} practices, ~{tokens} tokens), MAP.md, GLOSSARY.md")
+    wrote = ', '.join(p.name for p, _t in targets)
+    print(f"build_views OK: wrote {wrote} (loader block regenerated, resident "
+          f"{n_resident}/{len(practices)} practices, ~{tokens} tokens)")
     return 0
 
 

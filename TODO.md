@@ -44,7 +44,12 @@ the upstream layer. Ordered by priority.
    Evaluate a GitHub Actions job that emails a plain-language digest of
    merged changes (or leans on GitHub's built-in Watch notifications,
    documented in the members' page) — as of 2026-08, unexplored.
-7. **Reduce GitHub dependency when ready.** The layer itself is plain git
+7. **Define what happens when a consumer repo imports multiple `team`
+   sources that disagree.** See PRACTICE_ENGINE_PLAN.md's `## Deferred`
+   section (added 2026-09-03, alongside that session's precedence reorder)
+   for the detail — not duplicated here. Not needed today; revisit when a
+   real multi-team-import case appears.
+8. **Reduce GitHub dependency when ready.** The layer itself is plain git
    + markdown + Python; GitHub specifics are the worked examples (PRs,
    Actions, Issues, branch rulesets). When priorities allow, document
    Gitea equivalents (Gitea Actions is workflow-compatible; Issues and
