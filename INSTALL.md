@@ -215,8 +215,19 @@ drift and proprietary leakage loud instead of silent.
      vendored** — it already has its own repo and its own maintainers, so
      copying it in would just be a second, driftable copy. `path` is
      relative to the project root; whoever works from the project needs
-     that sibling repo checked out (or added to the session, on a hosted
-     agent platform) for it to resolve.
+     that sibling repo checked out locally, or — on a hosted agent
+     platform like Claude Code Remote/Web, where a session's git access is
+     scoped per session rather than inherited from the project — the
+     session needs to be granted read access to it. **That grant must be
+     something the session does for itself, automatically, every session
+     — never a manual step a person has to remember or a failure they
+     have to notice and react to.** `templates/AGENTS.md.template`'s
+     "Build-environment gotchas" section carries the exact bullet to
+     instantiate for this — use it rather than writing your own version;
+     see [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     step 4 for the worked pattern and the incident that made "write your
+     own version" the wrong call once already (it covers both this and the
+     individual source below together, since they hit the identical gap).
    - **Proposing a *new* practice into that team source later is a
      separate question from installing the source itself, worth
      mentioning here since it comes up the moment anyone actually uses
@@ -246,10 +257,18 @@ drift and proprietary leakage loud instead of silent.
      nothing under `$HOME` survives between sessions, that config has to be
      recreated every session — a `SessionStart` hook, committed to the
      *project* (not the individual repo), that clones the person's set and
-     writes the config file automatically solves this with zero manual
-     steps; see
+     writes the config file automatically. **That clone still needs the
+     session to actually have git read access to the individual repo
+     first, and on a hosted agent platform that access is not automatic
+     just because the hook exists** — a session's git access is scoped per
+     session, and a shell hook has no way to grant itself more of it. No
+     token or secret closes this gap: it costs nothing but a behavioral
+     instruction, told to the agent itself (not the hook), to extend its
+     own session's access to that repo, unconditionally, before the hook
+     ever runs. See
      [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
-     step 4 for the worked pattern.
+     step 4 for the worked pattern, including the access gate and exactly
+     how to close it.
    - See [examples/practice-set/](examples/practice-set) for what an
      individual set's files actually look like, and
      [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Vocabulary table

@@ -37,6 +37,34 @@ deliverables and indexes which documents back each part of each one.
 - At session start, run `bash tools/bootstrap.sh` before other work (harnesses
   with a hook mechanism run it automatically — see `templates/harness/`).
 
+<!-- INSTALL.md §1 step 9: if the administrator answered yes to a team
+     and/or individual practice source, add the bullet below (drop whichever
+     half doesn't apply) BEFORE the bootstrap-script bullet above, not after
+     — the access grant has to happen before anything tries to clone. Fill
+     in the real repo name(s); keep the wording, since it's answering a
+     failure mode that already happened once for real (a first pass at this
+     wrote "ask to add the repo" instead of just calling it, which meant it
+     only ever got fixed when a human happened to notice a session-start
+     failure — see spec/MIGRATING_EXISTING_INSTALLS.md's step 4 upstream for
+     the incident). Do NOT weaken "no asking first" to something softer;
+     that softening is the exact mistake this bullet exists to prevent. -->
+
+- **A brand-new session on this repo alone has no git read access to
+  <team-repo-name> or <individual-repo-name>** — session repo access is
+  scoped per session, never inherited just because `precedent.json` or a
+  bootstrap hook names a repo. No token or secret is involved: the tool
+  that grants a session this access rides the same GitHub identity already
+  behind the session, so it only ever succeeds because that person is
+  already a collaborator on the target repo. **At the very start of every
+  session, before running `tools/bootstrap.sh`, call that tool for
+  <team-repo-name> (and <individual-repo-name>, for the person it belongs
+  to) — silently, with no confirmation needed first.** This is a read-only
+  scope extension, not a credential or production change. Never write this
+  as "if the clone fails, ask to add the repo" — that only works when a
+  human happens to be watching for the failure, and the whole point is
+  that a person only ever attaches the one repo they're actually working
+  in; reaching for the others is this session's own job, every time.
+
 - <package/tool that must be installed, what failed without it, how long it cost>
 - <tool that does not work here; what to use instead>
 

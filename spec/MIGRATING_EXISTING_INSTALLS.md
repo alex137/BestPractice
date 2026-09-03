@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-02 (Buenos Aires) by the first real Precedent beta-test session -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, after the session-repo-access gate was found and fixed for real in WorkingWithAI -->
 
 # Migrating a repo that already has BestPractice installed
 
@@ -76,7 +76,11 @@ the loader.
      team repo (`../<team-repo-name>`) — **not** vendored. A team set that
      already has its own maintained repo (unlike a domain pack with no repo
      yet) is resolved live, the same way Precedent's own `precedent.json`
-     resolves `precedent-team-maintainers` for itself.
+     resolves `precedent-team-maintainers` for itself. On a hosted agent
+     platform, resolving it live needs the session to actually have git
+     read access to that sibling repo — step 4 below covers this gap and
+     its fix together with the individual source's identical one; don't
+     stop at declaring the path here and assume access follows.
    - **Never** a `level: "individual"` entry — `tools/precedent_resolve.py`
      refuses this by name, with the privacy reason in the message, and for
      good reason: naming a person's individual set in a repo anyone else on
@@ -93,9 +97,52 @@ the loader.
    `$HOME` cannot itself live there), and merge its
    `bootstrap/settings.snippet.json` into the target's own
    `.claude/settings.json` (append to an existing `SessionStart` array,
-   don't replace it). This is what makes the individual source resolvable
-   with zero manual steps, on every fresh session, without ever naming it
-   in the repo's own tracked config.
+   don't replace it). This makes the individual source resolvable without
+   ever naming it in the repo's own tracked config — but on its own it is
+   **not** zero manual steps on a hosted agent platform, which is the next
+   part of this step, not a separate concern.
+
+   **The session-repo-access gate, and the one behavioral fix that closes
+   it for both sources at once.** On Claude Code Remote/Web, a session's
+   git access is scoped *per session* — attached when it's created, or
+   added mid-session — never inherited just because a project's config or
+   a hook references another repo by name. A brand-new session opened on
+   only the consuming project has no git credentials for either sibling
+   repo at all, so the individual bootstrap hook above, and the team
+   source's live resolution in step 3, both fail on a fresh session with
+   nothing wrong in the code — until this gate is closed.
+
+   **This costs no token or secret.** The tool that extends a session's
+   scope to another repo (`add_repo` in Claude Code Remote/Web) rides the
+   *same* GitHub identity already behind that session; it only ever
+   succeeds because the person is already a collaborator on the target
+   repo — the same fact that let them declare the source at all. There is
+   nothing to generate, store, or rotate.
+
+   **What actually closes the gap is an instruction to the agent, not to
+   the hook.** A `SessionStart` shell hook cannot grant its own session
+   more repo access — that is an agent-level action, not a shell command
+   — so the fix cannot live in `bootstrap/session-start.sh` no matter how
+   it's written. It has to live in the consuming repo's own `AGENTS.md`,
+   as a plain instruction to the agent: **call `add_repo` (read access)
+   for both the team and individual sibling repos at the very start of
+   every session, before running any bootstrap script, without asking
+   first.** Not "if the clone fails, ask to add the repo" — that only
+   works when a human happens to be watching for the failure, and the
+   whole point is that a person only ever attaches the *one* repo they're
+   actually working in. Reaching for the other two has to be the
+   session's own job, every single time, since repo access is a
+   per-session grant that does not persist to the next one. `add_repo`
+   granting only read access, and this being a reversible, no-cost scope
+   extension rather than anything touching credentials or production,
+   is exactly why it doesn't need to wait for a human's yes first.
+
+   `WorkingWithAI`'s own migration got this wrong on the first pass —
+   its `AGENTS.md` said to *ask* to add the repo once a clone had already
+   failed — and its fix is the pattern to copy (private repo, not
+   fetchable from here, but the shape: state plainly that no credential
+   is needed, then instruct the agent to call `add_repo` for both sources
+   unconditionally, ahead of the clone hook, every session).
 
 5. **Retire the old vendored pack tree**, but salvage anything in it that
    was never really *pack content* — a generic utility script the pack
