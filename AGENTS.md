@@ -291,6 +291,20 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   [tools/precedent_check.py](tools/precedent_check.py) reports that as
   skipped rather than passed.
 
+- **`git log --format=%P` silently reports no parents at all for a commit
+  sitting at a shallow clone's boundary, even when it really has two.** Writing a mechanical check for `precedent-team-maintainers`
+  (a `checked_by` script that needed to tell a merge commit apart from an
+  ordinary one, to exempt merges from a per-commit rule) used `%P` and
+  worked perfectly against a full clone, then silently misclassified the
+  exact commit sitting at the shallow boundary as parentless the moment the
+  same script ran against a fresh `--depth 1` clone of the same repo —
+  reproduced directly, not just suspected. Git's pretty-printers respect
+  the shallow graft for traversal purposes even though the commit object's
+  own header still genuinely records both parents. `git cat-file -p <sha>`
+  reads that header directly and is unaffected — count lines starting with
+  `parent ` instead of parsing `%P`, anywhere a check needs to know a
+  shallow-clone-safe parent count or parent list.
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
