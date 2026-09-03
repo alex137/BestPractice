@@ -342,6 +342,7 @@ def cmd_create(args):
             print(f"drafted universal candidate body written to {dest}")
         else:
             print(text)
+        # practice: disclose-landing
         print(
             "\nDISCLOSE TO THE HUMAN: this is a proposal for EVERYONE using "
             "Precedent, not yet a practice and not yet in force for anyone. "
@@ -381,6 +382,7 @@ def cmd_create(args):
             print(f"drafted team candidate body written to {dest}")
         else:
             print(text)
+        # practice: disclose-landing
         print(
             f"\nDISCLOSE TO THE HUMAN: this is a proposal for the TEAM set "
             f"at {path}, not yet a practice and not yet in force for "
@@ -410,6 +412,7 @@ def cmd_create(args):
         dest = cand_dir / f'{slug}-{date}-{n}.md'
     dest.write_text(text, encoding='utf-8')
     print(f"candidate written: {dest}")
+    # practice: disclose-landing
     if level == 'individual':
         print(f"DISCLOSE TO THE HUMAN: this is a proposal only, sitting in "
               f"YOUR OWN individual set ({path}) -- not yet a practice, and "

@@ -2413,6 +2413,37 @@ def check_precedent_check_fires():
                  'print("shim, improved")\n', encoding='utf-8'),
              setup=_setup_manifest)
 
+        # code-cites-practice -- a code comment citing a slug that does not
+        # exist (a typo, or a practice file deleted instead of retired)
+        case('code-cites-practice',
+             lambda repo: (repo / 'tools' / 'cite_fixture.py').write_text(
+                 '# practice: this-slug-does-not-exist\nprint("x")\n',
+                 encoding='utf-8'))
+
+        # code-cites-practice -- a real slug, but retired: the code should
+        # have been updated or removed along with the practice, not left
+        # citing a rule that no longer applies
+        def _plant_retired_cite(repo):
+            (repo / 'practices' / 'zzz-retired-fixture.md').write_text(
+                '---\nslug:        zzz-retired-fixture\ntitle:       A retired fixture\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\noccasion:    "testing"\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      retired\nsupersedes:  []\n'
+                'overrides:   null\nadded:       null\n'
+                'approved_by: "harness"\n---\n\n'
+                '## Rule\nDo the thing.\n\n## Detail\n\n## Why\nBecause.\n\n'
+                '## Story\n\n## Install\nNone.\n', encoding='utf-8')
+            (repo / 'tools' / 'cite_retired_fixture.py').write_text(
+                '# practice: zzz-retired-fixture\nprint("x")\n', encoding='utf-8')
+        retired_repo = fresh('code-cites-practice-retired')
+        _plant_retired_cite(retired_repo)
+        rc_retired, out_retired = run(retired_repo, 'code-cites-practice')
+        cases.append(('code-cites-practice: a citation naming a real but '
+                      'retired practice fails the check',
+                      rc_retired == 1 and 'VIOLATION' in out_retired
+                      and "status: 'retired'" in out_retired))
+
         # scripts-assert-properties -- an instrumented script whose own
         # invariant no longer holds
         case('scripts-assert-properties',
