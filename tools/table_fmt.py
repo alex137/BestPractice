@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""One formatter per quantity kind (practice 51) — the engine.
+"""One formatter per quantity kind (practice: one-formatter-per-quantity) — the engine.
 
 A reader comparing two table cells must never have to normalize
 precision in their head ("2 t" beside "2.0 t"). The rule this module
 mechanizes: every value of one quantity kind, everywhere it prints,
 goes through ONE formatter object carrying that kind's whole precision
 policy — never an inline format string. A host repo declares its kinds
-once in a thin shim (practice 50) and imports them in every emitter.
+once in a thin shim (practice: engine-plus-host-shims) and imports them in every emitter.
 
 Policy guidance (the practice text carries the reasoning):
 - pick decimals from the estimate's own noise — tenths a model cannot

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""practice_audit.py — audit the practice-export layer (BestPractice 14, 15 & 23).
+"""practice_audit.py — audit the practice-export layer
+(practice: practice-export-loop; practice: scrub-gate; practice: layered-practice-packs).
 
 Runs from a dependent repo (script lives at process/upstream/tools/). A repo
-may install several practice layers ("packs", practice 23): the generic
+may install several practice layers ("packs" -- (practice: layered-practice-packs)): the generic
 upstream at process/upstream/ tracked by process/manifest.json, plus any
 domain packs vendored at process/<pack>/ tracked by process/manifest_<pack>.json.
 This audit discovers every process/manifest*.json and runs the same three
@@ -18,7 +19,7 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      configured-but-missing blocklist is a check that did not run, not a
      pass; only an explicit `scrub_blocklist: null` skips the check.
 
-  2. DRIFT (baseline snapshots, practice 7). For each manifest entry with
+  2. DRIFT (baseline snapshots, practice: registry-source-of-truth). For each manifest entry with
      granularity "file": the local file's sha256 is compared to the recorded
      local_sha256 baseline. Changed while status is "synced" → FAIL — the
      local improvement must be exported to the vendored tree and re-baselined

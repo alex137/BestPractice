@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""doc_sync -- keep script-generated blocks inside documents in sync (practice 19).
+"""doc_sync -- keep script-generated blocks inside documents in sync (practice: computed-numbers-in-scripts).
 
 The failure mode this kills: a script that computes numbers (a model, a cost
 rollup) changes, and a document quoting those numbers silently keeps the old
@@ -191,7 +191,7 @@ def main():
             print(f"[doc_sync] FAIL  {doc}: footer does not name "
                   f"{', '.join(sorted(missing))}")
             fail = True
-    # Restatement check (practice 33): a figure a script OWNS must not be
+    # Restatement check (practice: docs-track-models): a figure a script OWNS must not be
     # hand-typed into the prose around its generated block. The gate can only
     # see what it is pointed at, so a corrected script self-corrects every
     # generated table and leaves every hand-typed restatement wrong.

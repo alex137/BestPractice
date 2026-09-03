@@ -20,8 +20,8 @@ walk instead: read the body as a sequence of paragraphs; track a
 "current section", which starts at 'rule' and only changes when a paragraph
 OPENS with a recognized bold label (**Rule.**, **The practice.**, **Why...**,
 **Install.**, **Related...**); every other paragraph — including one that opens
-with an UNRECOGNIZED bold sub-heading, e.g. practice 20's "**Proportionality
-guard.**" — stays in whatever section is already open. This carries every
+with an UNRECOGNIZED bold sub-heading, e.g. mistakes-become-rules's
+"**Proportionality guard.**" — stays in whatever section is already open. This carries every
 sentence into some section with zero content invented and zero content lost,
 regardless of which of the two source formats a given practice used.
 
@@ -45,19 +45,19 @@ Two structural decisions this makes, stated so they can be revisited:
     original PRACTICES.md is Rule+Why+Install and nothing else per practice.
     See spec/PRACTICE_FORMAT.md for the full note on this.
 
-One documented exception to the "move and drop only" rule: practice 39's
+One documented exception to the "move and drop only" rule: pr-template-honest-gates's
 raw body in the source file is followed, in the source, by a stray duplicate
-of part of practice 34's body (a corruption in the upstream file, not
-authored content of practice 39's own — see FIXUP_39_MARKER below and
+of part of readers-vocabulary's body (a corruption in the upstream file, not
+authored content of pr-template-honest-gates's own (practice: pr-template-honest-gates) — see FIXUP_39_MARKER below and
 spec/PRACTICE_FORMAT.md). That duplicate is dropped, precisely and only
 there, and the byte-identical-regeneration check treats exactly that
 removal as the one approved exception to an otherwise-exact diff.
 
 The duplicate is pasted MID-PARAGRAPH — it begins mid-word on the line
-immediately after practice 39's own "**Install.**" paragraph ends, with no
+immediately after pr-template-honest-gates's own "**Install.**" paragraph ends, with no
 blank line between — so the drop must begin at the marker itself. An
 earlier version walked back to the preceding blank line, which deleted
-practice 39's whole Install paragraph along with the corruption, silently
+pr-template-honest-gates's whole Install paragraph along with the corruption, silently
 and with the harness fully green: every check compared the lossy output
 against a source parsed through the same lossy fixup. The span actually
 dropped is now recorded on each parsed practice as `dropped_corruption`,
@@ -159,13 +159,13 @@ def parse_catalogue(text):
 
         if number == '39' and FIXUP_39_MARKER in body:
             # The corrupted fragment is pasted mid-paragraph, with no blank
-            # line before it: practice 39's own "**Install.**" paragraph
+            # line before it: pr-template-honest-gates's own "**Install.**" paragraph
             # ends "...not just the template itself." and the very next
             # LINE is the stray duplicate, starting mid-word ("...acquir"
             # + "es a source's vocabulary..."). So the drop begins exactly
             # at the marker. An earlier version of this walked back to the
             # previous BLANK line instead, which silently swallowed the
-            # whole of practice 39's Install paragraph along with the
+            # whole of pr-template-honest-gates's Install paragraph along with the
             # corruption -- real authored content, lost with no check
             # firing (the no-invented-content check is a subset test, so
             # a deletion passes it, and the byte-identical check's own
@@ -191,7 +191,7 @@ def parse_catalogue(text):
         # "no label ever existed" apart once both leave no leading "**".
         first_para = next((p for p in paragraphs if p.strip()), '')
         rule_unlabeled = not bool(LABEL_RE.match(first_para))
-        stripped_once = set()  # a repeated canonical label (practice 28 has
+        stripped_once = set()  # a repeated canonical label (frame-from-audience-question has
                                 # two separate "**Install.**" blocks) can only
                                 # be stripped the first time -- cmd_build has
                                 # nowhere to put a second re-emitted label, so
@@ -273,7 +273,7 @@ def cmd_split(force=False):
 
     # Validate the WHOLE catalogue before writing a single file. This used
     # to be checked inside the write loop, so a missing metadata entry for
-    # practice 39 left practices/ holding 38 files and 14 missing -- a
+    # pr-template-honest-gates left practices/ holding 38 files and 14 missing -- a
     # half-converted tree, from a command that had already refused to run
     # over a non-empty directory precisely to avoid clobbering one.
     seen_slugs = {}

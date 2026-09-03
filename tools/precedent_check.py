@@ -1048,17 +1048,33 @@ def _scripts_assert_properties(ctx):
             or (l.startswith('WARN:') and 'no self_check() or ANCHORS' in l)]
 
 
-CODE_PRACTICE_CITE_RE = re.compile(r'#\s*practice:\s*([a-z][a-z0-9-]*)')
-# tools/verify_harness.py plants this exact marker as fixture text (to test
-# this very check), so scanning it for real citations would fail on its own
+CODE_PRACTICE_CITE_RE = re.compile(
+    r'#\s*practice:\s*([a-z][a-z0-9-]*)'      # a `#`-prefixed line comment
+    r'|\(practice:\s*([a-z][a-z0-9-]*)\)')    # a parenthetical, in a docstring
+# The parenthetical form matters: several existing citations are narrative,
+# inside a module's own triple-quoted docstring ("the mechanism (practice:
+# one-formatter-per-quantity) requires"), which is just as
+# machine-checkable and just as much "right at the point of implementation"
+# as a bare `#` comment. The closing paren is required, not cosmetic -- an
+# earlier, looser version of this pattern (bare `practice:` with no comment
+# marker or parens) matched ordinary prose reading "Each practice: the
+# **rule**, **why**..." as a citation to a practice literally named "the".
+CODE_PRACTICE_NUMBER_RE = re.compile(r'\bpractice\s+(\d+)\b')
+# The exact anti-pattern this practice exists to end: citing by POSITION
+# rather than by the slug that survives a renumbering. Flagged even with no
+# slug anywhere nearby, so a citation can never quietly regress back to this
+# form once fixed.
+# tools/verify_harness.py plants both patterns as fixture text (to test this
+# very check), so scanning it for real citations would fail on its own
 # planted fixtures every time -- the one file excluded, and the reason is
 # mechanical, not a carve-out for its content.
 CODE_CITE_SKIP_FILES = {'verify_harness.py'}
 
 
 @check('code-cites-practice', 'tree',
-       'a `# practice: SLUG` citation in tools/**/*.py names a real, active '
-       'practice -- never a typo, a deleted file, or one since retired',
+       'a `practice: SLUG` citation in tools/**/*.py names a real, active '
+       'practice -- never a typo, a deleted file, one since retired, or a '
+       'position number instead of a slug',
        'This only checks citations that EXIST -- it has no way to notice code '
        'that implements a practice but was never given a citation in the '
        'first place, since that requires knowing WHY a line of code exists, '
@@ -1067,8 +1083,8 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        'that already exist from silently going stale, which is exactly what '
        "happened to source_practice_number's old position-based citations "
        "(three tool comments cited a stale practice NUMBER after a "
-       "renumbering -- fixed in 2026-08, the incident that motivated citing "
-       "by slug instead of position at all).")
+       "renumbering -- fixed once by hand in 2026-08; this check is what "
+       "makes sure that fix never has to happen by hand again).")
 def _code_cites_practice(ctx):
     known = {}
     for f in sorted((ROOT / 'practices').glob('*.md')):
@@ -1084,22 +1100,29 @@ def _code_cites_practice(ctx):
         text = f.read_text(encoding='utf-8', errors='ignore')
         for i, line in enumerate(text.splitlines(), 1):
             m = CODE_PRACTICE_CITE_RE.search(line)
-            if not m:
-                continue
-            slug = m.group(1)
-            status = known.get(slug)
-            if status is None:
+            if m:
+                slug = m.group(1) or m.group(2)
+                status = known.get(slug)
+                if status is None:
+                    out.append(Finding(f'tools/{f.name}:{i}',
+                                        f'cites {slug!r}, which is not a real '
+                                        f'practice slug (typo, or the file was '
+                                        f'deleted instead of retired)'))
+                elif status != 'active':
+                    out.append(Finding(f'tools/{f.name}:{i}',
+                                        f'cites {slug!r}, which is status: '
+                                        f'{status!r} -- this code implements a '
+                                        f'practice that no longer is one; update '
+                                        f'or remove it, or reconsider the '
+                                        f'retirement'))
+            mn = CODE_PRACTICE_NUMBER_RE.search(line)
+            if mn:
                 out.append(Finding(f'tools/{f.name}:{i}',
-                                    f'cites {slug!r}, which is not a real '
-                                    f'practice slug (typo, or the file was '
-                                    f'deleted instead of retired)'))
-            elif status != 'active':
-                out.append(Finding(f'tools/{f.name}:{i}',
-                                    f'cites {slug!r}, which is status: '
-                                    f'{status!r} -- this code implements a '
-                                    f'practice that no longer is one; update '
-                                    f'or remove it, or reconsider the '
-                                    f'retirement'))
+                                    f'cites practice {mn.group(1)} by position '
+                                    f'number, not by slug -- this is exactly '
+                                    f'the citation form that already drifted '
+                                    f'once after a renumbering; use `practice: '
+                                    f'SLUG` instead'))
     return out
 
 
