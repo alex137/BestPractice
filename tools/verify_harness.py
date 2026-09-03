@@ -3609,6 +3609,83 @@ def check_creation_pipeline_fires():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_pretooluse_hook_fires():
+    """The path-triggered channel's consumer-repo integration
+    (spec/LOADER.md's status table, "not yet wired into a PreToolUse hook...
+    that is consumer-repo integration, phase 6 territory") -- the wrapper
+    itself (templates/harness/claude-code/hooks/precedent-paths.sh) had no
+    harness coverage before this check: a shell script under templates/
+    isn't scanned by anything else here (checkable-gets-checked). practice:
+    engine-plus-host-shims -- this is the thin host shim's own test, not a
+    re-test of tools/precedent_paths.py's matching logic, which
+    check_glob_semantics and the rest of this file already cover; every
+    case below asserts the wrapper's stdin-parsing, field-name fallback,
+    and PreToolUse JSON reshaping, against real practice files rather than
+    a fixture catalogue, since the two slugs used
+    (code-cites-practice, applies_to tools/**; checkable-gets-checked,
+    applies_to practices/** + PRACTICES.md) are stable, narrowly-scoped and
+    unlikely to be retired."""
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'precedent-paths.sh'
+    if not hook.exists():
+        check('PreToolUse hook fires (5 stated cases: Edit file_path, a '
+              'no-match path, NotebookEdit notebook_path fallback, '
+              'malformed stdin, always exits 0)', False,
+              f'{hook} does not exist')
+        return
+
+    def run_hook(stdin_text):
+        r = subprocess.run(['bash', str(hook)], input=stdin_text,
+                           capture_output=True, text=True,
+                           env={**os.environ, 'CLAUDE_PROJECT_DIR': str(ROOT)})
+        return r.returncode, r.stdout.strip()
+
+    def parsed_context(stdout):
+        try:
+            obj = json.loads(stdout)
+        except json.JSONDecodeError:
+            return None
+        return obj.get('hookSpecificOutput', {})
+
+    cases = []
+
+    rc, out = run_hook(json.dumps({'tool_name': 'Edit',
+                                    'tool_input': {'file_path': 'tools/some_new_thing.py'}}))
+    hso = parsed_context(out) or {}
+    cases.append(('an Edit on a tools/** path surfaces code-cites-practice\'s '
+                  'Rule as additionalContext, never denying the edit',
+                  rc == 0 and hso.get('hookEventName') == 'PreToolUse'
+                  and hso.get('permissionDecision') == 'allow'
+                  and 'code-cites-practice' in hso.get('additionalContext', '')))
+
+    rc, out = run_hook(json.dumps({'tool_name': 'Write',
+                                    'tool_input': {'file_path': 'random/unrelated/thing.xyz'}}))
+    cases.append(('a Write on a path no on-demand practice scopes to prints nothing',
+                  rc == 0 and out == ''))
+
+    rc, out = run_hook(json.dumps({'tool_name': 'NotebookEdit',
+                                    'tool_input': {'notebook_path': 'PRACTICES.md'}}))
+    hso = parsed_context(out) or {}
+    cases.append(("a NotebookEdit keyed under notebook_path (not file_path) still "
+                  "resolves -- the field-name fallback the public hooks reference "
+                  "leaves ambiguous for this tool -- and surfaces "
+                  "checkable-gets-checked's Rule",
+                  rc == 0 and 'checkable-gets-checked' in hso.get('additionalContext', '')))
+
+    rc, out = run_hook('not json at all')
+    cases.append(('malformed stdin does not crash the hook or its shell', rc == 0 and out == ''))
+
+    rc, out = run_hook(json.dumps({'tool_name': 'Bash'}))
+    cases.append(('a tool call with no tool_input at all (matcher scopes this out '
+                  'in settings.json, but the wrapper itself must not assume that) '
+                  'prints nothing', rc == 0 and out == ''))
+
+    bad = [(n, '') for n, ok in cases if not ok]
+    check(f'PreToolUse hook fires ({len(cases)} stated cases: Edit file_path, '
+          f'a no-match path, NotebookEdit notebook_path fallback, malformed '
+          f'stdin, a tool call with no tool_input)',
+          not bad, '; '.join(n for n, _ in bad))
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -3657,6 +3734,7 @@ def main():
     check_sync_views_cross_source()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
+    check_pretooluse_hook_fires()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0

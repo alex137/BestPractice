@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a deep-check fix session -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by the PreToolUse-hook session -->
 
 # Changes to tell Alex
 
@@ -202,6 +202,24 @@ needs, not commentary about a related mechanism elsewhere. That cross-reference
 now lives in `PRACTICE_ENGINE_PLAN.md`'s "What phase 5 should carry forward"
 instead. **Both files are byte-for-byte unchanged from BestPractice's
 original text.**
+
+### `engine-plus-host-shims` (BestPractice practice 50) — 2026-09-03
+
+The new `templates/harness/claude-code/hooks/precedent-paths.sh`
+(a `PreToolUse` hook wiring the path-triggered loading channel into a
+fresh install — see `spec/LOADER.md`) is a real, new *application* of this
+practice's engine-plus-shim split: the vendored engine
+(`tools/precedent_paths.py`) stays the single implementation, the new file
+is a thin host shim that shells out and reshapes its output for Claude
+Code's own hook contract. Considered logging it here as a mechanism
+change and decided against it: this practice's own Rule, Why, and Story
+are untouched, byte-for-byte — a new instance of an existing pattern is
+not a change to what the pattern means or how it works, any more than a
+new practice file citing `code-cites-practice` would be. This is purely
+Precedent-native engine work (phase 6, consumer-repo integration for a
+channel that did not exist pre-fork), so it needs no separate call-out by
+this file's own stated scope; `git log` and `spec/LOADER.md`'s own status
+table already say what was added.
 
 ## Alex's real-time additions
 

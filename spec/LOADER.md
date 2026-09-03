@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, adding the cross-source consumer-repo generator -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, wiring the path-triggered channel into a PreToolUse hook (phase 6 consumer-repo integration) -->
 
 # The Loader (Phase 2)
 
@@ -14,7 +14,7 @@ implementation note, not a restatement.
 | Resident block | The generated block in [AGENTS.md](../AGENTS.md), between `<!-- BEGIN GENERATED: precedent-loader -->` / `<!-- END GENERATED -->` | Built. Regenerate with [tools/build_views.py](../tools/build_views.py); hand-editing fails [tools/verify_harness.py](../tools/verify_harness.py). |
 | Occasion index | Same generated block, grouped by `occasion` | Built, same mechanism. |
 | Standing instruction | Same generated block, one sentence | Built. |
-| Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) | Built as a command; not yet wired into a `PreToolUse` hook in [templates/harness/](../templates/harness/) — that is consumer-repo integration, phase 6 territory, not phase 2's done-when. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost-the-numbers) below. |
+| Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) + [templates/harness/claude-code/hooks/precedent-paths.sh](../templates/harness/claude-code/hooks/precedent-paths.sh) | **Built and wired (2026-09-03)** — a `PreToolUse` hook, matching `Edit\|Write\|NotebookEdit`, is now templated in [templates/harness/claude-code/settings.json](../templates/harness/claude-code/settings.json); a fresh install of the Claude Code adapter gets it automatically, closing the consumer-repo-integration gap this row named. See [The PreToolUse hook, and what is confirmed versus assumed](#the-pretooluse-hook-and-what-is-confirmed-versus-assumed) below for what the harness actually proves. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost-the-numbers) below. |
 | Gate-triggered | — | Not built. Depends on the runbook/gate-receipt machinery the plan describes under "Gate Receipts" and "Decisions" (phase 5). |
 | Enforced (`checked_by`) | Already exists from phase 1 (8 of 52 practices carry one, naming 4 distinct scripts) | Unchanged by phase 2; phase 4 is "convert checkable practices to scripts." |
 | "One code path" (`precedent show`) | [tools/precedent_show.py](../tools/precedent_show.py) (phase 1) | Unchanged; `precedent_paths.py` calls the same file reader (`split_practices._read_practice_file`), not a second extractor. |
@@ -51,6 +51,61 @@ Built and tested against a real four-source fixture
 (`check_sync_views_cross_source` in
 [tools/verify_harness.py](../tools/verify_harness.py)); not yet exercised
 against a real consumer repo with real content — that's the next test.
+
+## The PreToolUse hook, and what is confirmed versus assumed
+
+The wrapper ([templates/harness/claude-code/hooks/precedent-paths.sh](../templates/harness/claude-code/hooks/precedent-paths.sh))
+reads the tool call's target path off stdin (`tool_input.file_path`, or
+`tool_input.notebook_path` as a fallback — see below), shells out to
+`python3 tools/precedent_paths.py` unchanged, and reshapes a match into a
+`PreToolUse` JSON response naming the matched Rules as
+`hookSpecificOutput.additionalContext`, with `permissionDecision: "allow"`
+so the edit always proceeds — this is advisory context, never a gate. It
+is one code path with `precedent_paths.py` — same matching logic
+`tools/behavioral_replay.py` already drives — so a `## Rule` shown by the
+hook is the same text either channel would print (`code-cites-practice`,
+`tools/precedent_paths.py`; `engine-plus-host-shims`, the wrapper itself).
+
+**What `check_pretooluse_hook_fires` in [tools/verify_harness.py](../tools/verify_harness.py) actually proves**
+(5 stated cases, run against two stable, narrowly-scoped real practices —
+`code-cites-practice`, `applies_to: ["tools/**"]`, and
+`checkable-gets-checked`, `applies_to: ["practices/**", "PRACTICES.md"]`
+— rather than a fixture catalogue): the wrapper parses real Claude Code
+`PreToolUse` stdin shapes, extracts the target path under either field
+name, shells out and reshapes the result into valid, correctly-keyed JSON
+on a match, prints nothing on a miss, and never exits non-zero — not on a
+match, not on a miss, not on malformed stdin, not on a tool call carrying
+no `tool_input` at all (the `matcher` in `settings.json` already scopes
+the hook to `Edit|Write|NotebookEdit`, but the wrapper does not rely on
+that holding).
+
+**What it does not, and cannot, prove from here.** Two things the public
+Claude Code hooks reference leaves unstated *(as of 2026-09-03)*, checked
+against the docs at [code.claude.com/docs/en/hooks.md](https://code.claude.com/docs/en/hooks.md)
+before this was built:
+
+- **Whether `hookSpecificOutput.additionalContext` actually reaches the
+  model's context for that turn**, versus being visible only to the human
+  in a transcript. The documented shape is used here because it is the
+  one the reference names for exactly this purpose (injecting advisory
+  context from a `PreToolUse` hook without blocking), but nothing in this
+  repo can drive a live model turn against a real hook invocation to
+  confirm delivery — that needs an actual Claude Code session exercising
+  an Edit/Write/NotebookEdit call with this hook installed, watched for
+  whether the surfaced Rule text shows up in the model's own reasoning,
+  not just the transcript. Worth doing as part of the phase-6 consumer-repo
+  rehearsal [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md) already calls for,
+  not assumed here.
+- **The exact `tool_input` field name for `NotebookEdit`.** The reference
+  documents `file_path` for Edit and Write without isolating a
+  `NotebookEdit`-specific field; this wrapper tries `file_path` first,
+  falls back to `notebook_path`, and the harness case above only proves
+  the fallback branch parses correctly — not which field a real
+  `NotebookEdit` call actually sends. Whichever it is, the fallback chain
+  keeps working; nothing here depends on guessing right.
+
+Named plainly rather than smoothed over, per this document's own
+"measured, not assumed" standard elsewhere on this page.
 
 ## The catalogue as it stands
 
