@@ -184,6 +184,16 @@ the loader.
    ```
    — then run `python3 process/upstream/tools/precedent_check.py --only migration-scrubs-vocabulary` and don't call this step done until it passes. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
+   **A `/`-suffixed `exempt_files` entry exempts a whole directory**, not
+   just one file — reach for this only for a *materialized*, regenerated
+   directory (this repo's own `practices/`, wherever
+   `tools/precedent_materialize.py` fills it in from every declared
+   source): that directory can legitimately hold another source's own
+   content, unrelated to this migration, and its file list changes on
+   every sync — hand-listing it file-by-file would go stale. Don't reach
+   for a directory exemption anywhere else; a retired term in this repo's
+   own hand-authored tree is real, unfinished migration work.
+
 6. **Retire the old sync workflow entirely** (there is nothing left to
    vendor-and-sync for the team/individual sources — they resolve live).
    Keeping the sibling clones themselves fresh becomes a session-start
@@ -341,6 +351,63 @@ that also runs `precedent_sync_views.py` against its own root.
 
 Tested against a real four-source fixture, not just reasoned about
 (`check_sync_views_cross_source` in
-[tools/verify_harness.py](../tools/verify_harness.py)); not yet run
-against a real consumer repo with real content — that is exactly what
-this document's own migration pattern is for, next.
+[tools/verify_harness.py](../tools/verify_harness.py)); now also run
+against a real consumer repo with real content
+(`themorgan/HavrutaBrainstorm`, 2026-09-03) — see the next section for
+what that run found.
+
+## Two real bugs this pattern's first real run found — closed 2026-09-03
+
+`themorgan/HavrutaBrainstorm`'s migration (2026-09-03) is this pattern's
+first end-to-end run against a real dependent repo with real content, not
+a fixture. It surfaced two real bugs in the tooling itself, both now
+fixed, both worth naming here so the next migration doesn't have to
+rediscover them:
+
+1. **`tools/precedent_check.py`'s `ROOT` resolved to the wrong repo once
+   vendored.** `ROOT = pathlib.Path(__file__).resolve().parents[1]` is
+   correct when this file runs self-hosted at this repo's own `tools/`,
+   but wrong once vendored into a dependent repo at
+   `process/upstream/tools/precedent_check.py` — that layout resolves
+   `ROOT` to `process/upstream/` itself, not the dependent repo's real
+   root. A check meant to scan the *consuming* repo's own tree —
+   `migration-scrubs-vocabulary` is the one that actually surfaced this —
+   silently scanned `process/upstream/`'s own tree instead when invoked
+   exactly as this document's own step 5 says, and reported a false-clean
+   `SKIPPED` (no `process/retired_vocabulary.json` inside
+   `process/upstream/`, correctly, since none belongs there) rather than
+   ever seeing the dependent repo's real files. Fixed: `ROOT` now resolves
+   via `git rev-parse --show-toplevel`, the same resolution `doc_lint.py`
+   and `practice_audit.py` already used for the same reason, which is
+   correct in both the self-hosted and vendored layouts without needing to
+   know which one it's in.
+
+2. **`process/retired_vocabulary.json`'s `exempt_files` had no way to
+   exempt a directory**, only exact file paths. That's fine for a repo's
+   own hand-authored documents, but a *materialized* directory (this
+   repo's own `practices/`, filled in by `tools/precedent_materialize.py`
+   on every `precedent_sync_views.py` run) holds *other* repos' own
+   content — including, in the migrating repo's case, a team-source
+   practice file's own `approved_by` frontmatter citing **its own**
+   provenance ("migrated from RepoPersonalPreferences...", true of that
+   *source's* history, unrelated to the migrating repo's). The migration
+   declared `RepoPersonalPreferences` as a retired term and the check then
+   failed on every one of those materialized files — a directory the
+   migrating repo doesn't author and can't hand-exempt file-by-file
+   without the list going stale the next time materialization adds or
+   drops a slug. The same thing happened again with `PERSONAL_PACK_TOKEN`:
+   this file's own [`migration-scrubs-vocabulary` practice](../practices/migration-scrubs-vocabulary.md)
+   uses that exact string in its own Story section as its illustrative
+   example of "a retired secret name" — a different repo's history
+   (`themorgan/WorkingWithAI`'s), not the migrating repo's, but the same
+   literal substring, materialized into `practices/` the same way. Fixed:
+   an `exempt_files` entry ending in `/` now exempts a whole directory
+   (see the pattern's own step 5 above, and the practice file's Detail
+   section) — reach for it only for a materialized directory, never as a
+   shortcut around a repo's own hand-authored tree.
+
+Neither bug was in the migration pattern itself; both were in tooling the
+pattern depends on that had never been exercised against real content
+before. That's exactly why this document keeps asking a migrating session
+to validate for real (step 8) and report back what looked wrong, rather
+than treating a clean run as proof the machinery is correct.

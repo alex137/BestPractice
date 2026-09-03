@@ -47,6 +47,17 @@ Everything else in the tracked tree is fair game, and a retired term
 found outside the exempt list is real, unfinished migration work, not a
 style nitpick.
 
+An `exempt_files` entry ending in `/` exempts a whole directory rather
+than one file — for exactly one case: a *materialized*, regenerated
+directory (this repo's own `practices/`, wherever
+[tools/precedent_materialize.py](../tools/precedent_materialize.py) fills
+it in from a repo's declared sources) can legitimately hold *other*
+repos' own content, which isn't this repo's own migration to finish and
+whose file list changes on every sync — hand-listing it file-by-file
+would go stale the moment a slug is added or dropped. Reach for a
+directory exemption only for a materialized directory, never as a
+shortcut around scrubbing a repo's own hand-authored tree.
+
 ## Why
 Asked directly whether cleaning up old-system vocabulary had happened as
 part of a real migration, the honest answer was no — it took a separate,
@@ -70,12 +81,30 @@ migration record's own mentions, trim everywhere else), which is exactly
 why it belongs in the migration pattern itself and behind a real check,
 not in a person's memory of to ask about it eventually.
 
+A second, different migration (`themorgan/HavrutaBrainstorm`, 2026-09-03)
+ran the check for real and found two bugs in the check itself, not in the
+migration: the check's own `ROOT` resolved wrong once vendored at
+`process/upstream/tools/precedent_check.py` (it silently scanned
+`process/upstream/`'s own tree instead of the migrated repo's, reporting
+a false-clean `SKIPPED`), and a real retired term
+(`RepoPersonalPreferences`) collided with team-set content this same
+migration's own `precedent_materialize.py` step had just copied in —
+unrelated to this repo's migration, since it was that other source's own
+legitimate provenance note. Both are fixed as of this writing (the `ROOT`
+fix, and the directory-exemption support in Detail above); this Story
+entry is the record that they were real, not hypothetical.
+
 ## Install
 `tools/precedent_check.py`'s `migration-scrubs-vocabulary` check reads
 `process/retired_vocabulary.json` (absent = `NotApplicable`, the correct
 state for a repo that has never migrated off anything) and scans every
-tracked file outside its `exempt_files` list for any declared term,
-outside `process/upstream/` (a byte-identical vendored copy, never
-hand-edited regardless). [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)'s
+tracked file outside its `exempt_files` list (files and, since 2026-09-03,
+`/`-suffixed directories — see Detail) for any declared term, outside
+`process/upstream/` (a byte-identical vendored copy, never hand-edited
+regardless). [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)'s
 step 5 is where a migration declares the file and runs the check for the
-first time, before the migration is considered done.
+first time, before the migration is considered done. `ROOT` resolves via
+`git rev-parse --show-toplevel` (matching `doc_lint.py` and
+`practice_audit.py`), which is what makes the check see the *consuming*
+repo's own tree correctly whether this file is running self-hosted or
+vendored at `process/upstream/tools/`.

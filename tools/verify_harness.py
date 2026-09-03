@@ -2485,6 +2485,87 @@ def check_precedent_check_fires():
                       and 'must be a JSON object' in out_malf,
                       out_malf))
 
+        # migration-scrubs-vocabulary -- a `/`-suffixed exempt_files entry
+        # exempts a whole DIRECTORY, not just one file (2026-09-03 fix: a
+        # materialized directory like practices/, filled in by
+        # precedent_materialize.py on every precedent_sync_views.py run,
+        # can hold another source's own legitimate content that happens to
+        # share a literal substring with a retired term -- a real
+        # dependent-repo migration hit this with a team source's own
+        # `approved_by` provenance note). Both directions in one fixture:
+        # the term INSIDE the exempted directory is clean; the SAME term
+        # OUTSIDE it still fails -- proving this isn't a blanket disable.
+        dir_exempt_repo = fresh('migration-scrubs-vocabulary-dir-exempt')
+        (dir_exempt_repo / 'process').mkdir(parents=True, exist_ok=True)
+        (dir_exempt_repo / 'process' / 'retired_vocabulary.json').write_text(
+            json.dumps({'terms': ['OldPackName'],
+                        'exempt_files': ['materialized/']}),
+            encoding='utf-8')
+        (dir_exempt_repo / 'materialized').mkdir(parents=True, exist_ok=True)
+        (dir_exempt_repo / 'materialized' / 'other_source.md').write_text(
+            'OldPackName, mentioned by a different source, on purpose.\n',
+            encoding='utf-8')
+        (dir_exempt_repo / 'STALE.md').write_text(
+            'Still mentions OldPackName here.\n', encoding='utf-8')
+        rc_dir, out_dir = run(dir_exempt_repo, 'migration-scrubs-vocabulary')
+        cases.append(("migration-scrubs-vocabulary: a `/`-suffixed "
+                      "exempt_files entry exempts everything under that "
+                      "directory, but not files outside it",
+                      rc_dir == 1 and 'VIOLATION' in out_dir
+                      and 'materialized/other_source.md' not in out_dir
+                      and 'STALE.md' in out_dir,
+                      out_dir))
+
+        # migration-scrubs-vocabulary / ROOT resolution -- when
+        # precedent_check.py is VENDORED into a dependent repo at
+        # process/upstream/tools/ (the documented convention --
+        # spec/MIGRATING_EXISTING_INSTALLS.md step 7 also vendors
+        # split_practices.py at the dependent repo's own top-level tools/,
+        # which precedent_check.py needs importable), ROOT must resolve to
+        # the DEPENDENT repo's own root, not process/upstream/ itself
+        # (2026-09-03 fix -- Path(__file__).resolve().parents[1] got this
+        # wrong in exactly that layout: a real dependent-repo migration's
+        # migration-scrubs-vocabulary run silently scanned process/upstream/'s
+        # own tree instead and reported a false-clean SKIPPED, no matter
+        # how the check was invoked, exactly as spec/MIGRATING_EXISTING_INSTALLS.md
+        # step 5 documents). Before this fix this fixture reproduced that
+        # exact false-clean SKIPPED; it now correctly reports the violation
+        # sitting at the dependent repo's own root.
+        vendored_repo = tmp / 'migration-scrubs-vocabulary-vendored'
+        (vendored_repo / 'process' / 'upstream').mkdir(parents=True)
+        shutil.copytree(pristine / 'tools',
+                        vendored_repo / 'process' / 'upstream' / 'tools')
+        shutil.copytree(pristine / 'practices',
+                        vendored_repo / 'process' / 'upstream' / 'practices')
+        (vendored_repo / 'tools').mkdir(parents=True, exist_ok=True)
+        shutil.copy(pristine / 'tools' / 'split_practices.py',
+                   vendored_repo / 'tools' / 'split_practices.py')
+        git(vendored_repo, 'init', '-q')
+        git(vendored_repo, 'config', 'user.email', 'harness@example.com')
+        git(vendored_repo, 'config', 'user.name', 'harness')
+        (vendored_repo / 'process' / 'retired_vocabulary.json').write_text(
+            json.dumps({'terms': ['OldPackName'], 'exempt_files': []}),
+            encoding='utf-8')
+        (vendored_repo / 'STALE.md').write_text(
+            "Still mentions OldPackName here, at the dependent repo's own "
+            "root.\n", encoding='utf-8')
+        git(vendored_repo, 'add', '-A')
+        git(vendored_repo, 'commit', '-qm', 'baseline')
+        r_vend = subprocess.run(
+            [sys.executable,
+             str(vendored_repo / 'process' / 'upstream' / 'tools' / 'precedent_check.py'),
+             '--only', 'migration-scrubs-vocabulary'],
+            capture_output=True, text=True, cwd=str(vendored_repo))
+        out_vend = r_vend.stdout + r_vend.stderr
+        cases.append(('migration-scrubs-vocabulary: ROOT resolves to the '
+                      'DEPENDENT repo when precedent_check.py runs vendored '
+                      'at process/upstream/tools/, not to process/upstream/ '
+                      'itself',
+                      r_vend.returncode == 1 and 'VIOLATION' in out_vend
+                      and 'STALE.md' in out_vend
+                      and 'SKIPPED' not in out_vend,
+                      out_vend))
+
         # precedent_check.py's runner -- ANY check's own uncaught bug
         # (not just this one) must fail that check alone, not abort every
         # OTHER check in the same run. Proven directly by making an

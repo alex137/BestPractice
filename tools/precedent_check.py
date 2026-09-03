@@ -61,7 +61,29 @@ Run:
 """
 import io, json, os, pathlib, re, subprocess, sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+# `git rev-parse --show-toplevel`, not `Path(__file__).resolve().parents[1]`:
+# this module runs two ways -- self-hosted at THIS repo's own tools/
+# (parents[1] is correct there) and vendored into a dependent repo at
+# process/upstream/tools/ (parents[1] resolves to process/upstream/ itself
+# in that layout, not the dependent repo's real root). A tree-scope check
+# meant to scan the CONSUMING repo -- migration-scrubs-vocabulary is the one
+# that surfaced this, in a real dependent-repo migration, 2026-09-03 --
+# silently scanned process/upstream/'s own tree instead and reported a
+# false-clean SKIPPED, never seeing the dependent repo's real files, no
+# matter how the check itself was invoked. `git rev-parse --show-toplevel`
+# walks up from wherever this file actually sits to the enclosing git
+# repository's root, which is correct in both layouts without needing to
+# know which one it's in -- doc_lint.py and practice_audit.py already use
+# this same resolution for the same reason (this module's own `_git` helper,
+# defined below, isn't used here -- it returns the full CompletedProcess,
+# not the string ROOT needs, and isn't defined yet at this point in the
+# file). The literal `parents[N]` stays as a last-resort fallback for the
+# no-git case only (matching those two tools' own pattern), never as the
+# primary path.
+_toplevel = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                           cwd=pathlib.Path(__file__).resolve().parent,
+                           capture_output=True, text=True).stdout.strip()
+ROOT = pathlib.Path(_toplevel) if _toplevel else pathlib.Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
 sys.path.insert(0, str(TOOLS))
 import split_practices as sp
@@ -1182,9 +1204,19 @@ RETIRED_VOCAB_CONFIG = 'process/retired_vocabulary.json'
 RETIRED_VOCAB_SKIP_FILES = {'tools/verify_harness.py'}
 
 
+def _exempt_matches(rel, exempt_entry):
+    """True if `rel` (a POSIX-relative path) is covered by one
+    `exempt_files` entry. An entry ending in `/` is a DIRECTORY exemption --
+    `rel` matches if it equals that directory or sits under it; anything
+    else is an exact file match, unchanged from before this existed."""
+    if exempt_entry.endswith('/'):
+        return rel == exempt_entry.rstrip('/') or rel.startswith(exempt_entry)
+    return rel == exempt_entry
+
+
 @check('migration-scrubs-vocabulary', 'tree',
        "a repo that has declared process/retired_vocabulary.json carries "
-       "none of its listed terms outside the declared exempt files",
+       "none of its listed terms outside the declared exempt files/directories",
        "NotApplicable for any repo that hasn't declared the config -- this "
        "is opt-in per migrated repo, since the terms themselves (a specific "
        "old repo's name, a retired secret) are never something BestPractice "
@@ -1220,7 +1252,25 @@ def _migration_scrubs_vocabulary(ctx):
     if not terms:
         raise NotApplicable(f'{RETIRED_VOCAB_CONFIG} declares no terms -- '
                             f'nothing to scrub for')
-    exempt = {RETIRED_VOCAB_CONFIG} | set(exempt_files)
+    # A directory exemption (an exempt_files entry ending in `/`) exists for
+    # exactly one reason: a MATERIALIZED, regenerated directory (this repo's
+    # own practices/, filled in by precedent_materialize.py on every
+    # precedent_sync_views.py run) can legitimately hold OTHER repos' own
+    # content -- another source's own practice file citing ITS OWN
+    # provenance, say -- that happens to share a literal substring with a
+    # term this repo's migration is scrubbing for its own reasons. That
+    # content isn't this repo's own migration to finish, the same reasoning
+    # that already exempts process/upstream/ below, and a materialized
+    # directory's file list changes on every sync, so hand-listing it
+    # file-by-file in exempt_files would go stale the next time a slug is
+    # added or dropped. Found for real, migrating a dependent repo
+    # (2026-09-03): 'RepoPersonalPreferences' collided with a team-source
+    # practice's own approved_by provenance, and 'PERSONAL_PACK_TOKEN'
+    # collided with this file's own migration-scrubs-vocabulary.md Story
+    # section, which uses that string as ITS illustrative example -- both
+    # forced dropping otherwise-real retired terms rather than exempting the
+    # one directory they were colliding in.
+    exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files
     out = []
     for dirpath, dirnames, filenames in os.walk(ROOT):
         rel_dir = pathlib.Path(dirpath).relative_to(ROOT).as_posix()
@@ -1234,7 +1284,9 @@ def _migration_scrubs_vocabulary(ctx):
                        not in ('.git', 'process/upstream')]
         for name in filenames:
             rel = f'{rel_dir}/{name}' if rel_dir else name
-            if rel in exempt or rel in RETIRED_VOCAB_SKIP_FILES:
+            if rel in RETIRED_VOCAB_SKIP_FILES:
+                continue
+            if any(_exempt_matches(rel, e) for e in exempt_files):
                 continue
             try:
                 text = (ROOT / rel).read_text(encoding='utf-8')
@@ -1246,9 +1298,11 @@ def _migration_scrubs_vocabulary(ctx):
                         out.append(Finding(f'{rel}:{i}',
                                             f'still carries retired term '
                                             f'{term!r} -- scrub it, or add '
-                                            f'this file to exempt_files if '
-                                            f'it is genuinely a historical '
-                                            f'record'))
+                                            f'this file (or its directory, '
+                                            f'trailing "/") to exempt_files '
+                                            f'if it is genuinely a historical '
+                                            f'record or materialized '
+                                            f'third-party content'))
     return sorted(out, key=lambda f: f.where)
 
 

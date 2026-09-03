@@ -72,7 +72,7 @@ being checked by it.
 | `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named somewhere in GITHUB_ACTIONS.md, where this project's people read about GitHub-specific setup |
 | `index-remembers-past` | change | a changed document does not carry inline lineage language naming what it replaced or what replaced it, since provenance belongs in the repository index, not annotated into the documents themselves |
 | `label-describes-content` | change | a heading or bold lead-in that claims "one line" / "one-liner" / "TL;DR" / "one paragraph" / "one-pager" must match the length of what actually follows it |
-| `migration-scrubs-vocabulary` | tree | a repo that has declared process/retired_vocabulary.json carries none of its listed terms outside the declared exempt files |
+| `migration-scrubs-vocabulary` | tree | a repo that has declared process/retired_vocabulary.json carries none of its listed terms outside the declared exempt files/directories |
 | `no-rewrite-for-warnings` | turn-end | the commit this branch was last published at is still an ancestor of its tip — published history has not been rewritten |
 | `no-version-suffix` | change | a file added by this change must not carry a version, date or state suffix in its name |
 | `orientation-map` | tree | MAP.md exists at the repository root, is not empty, and the session instructions point at it |
