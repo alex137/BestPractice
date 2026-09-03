@@ -23,7 +23,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 54 practices)
+### Resident block (~312 of 2000 token budget, 6 of 55 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -66,6 +66,8 @@ When a document presents a script-derived figure:
   docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
+When a practice lands or a candidate is raised, at any level:
+  disclose-landing — state plainly what happened and where — individual, named team, or universal
 When a review finds a defect:
   mistakes-become-rules — root-cause the miss, then encode the prevention
 When a tool warns about already-published git history:

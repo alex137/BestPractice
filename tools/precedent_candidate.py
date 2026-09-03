@@ -343,7 +343,9 @@ def cmd_create(args):
         else:
             print(text)
         print(
-            "\nThis tool does NOT open a GitHub Issue -- universal candidates "
+            "\nDISCLOSE TO THE HUMAN: this is a proposal for EVERYONE using "
+            "Precedent, not yet a practice and not yet in force for anyone. "
+            "This tool does NOT open a GitHub Issue -- universal candidates "
             "are filed at https://github.com/alex137/BestPractice/issues/new"
             "?template=practice-candidate.md, labeled precedent-candidate "
             "(spec/SOURCES.md#universal-candidates-are-github-issues-not-a-"
@@ -380,7 +382,9 @@ def cmd_create(args):
         else:
             print(text)
         print(
-            f"\nThis tool does NOT open a GitHub Issue -- file this at "
+            f"\nDISCLOSE TO THE HUMAN: this is a proposal for the TEAM set "
+            f"at {path}, not yet a practice and not yet in force for "
+            f"anyone. This tool does NOT open a GitHub Issue -- file this at "
             f"https://github.com/{owner}/{repo_name}/issues/new"
             f"?labels=precedent-candidate (add a matching issue template "
             f"there if you want the form pre-structured; none is required "
@@ -406,6 +410,29 @@ def cmd_create(args):
         dest = cand_dir / f'{slug}-{date}-{n}.md'
     dest.write_text(text, encoding='utf-8')
     print(f"candidate written: {dest}")
+    if level == 'individual':
+        print(f"DISCLOSE TO THE HUMAN: this is a proposal only, sitting in "
+              f"YOUR OWN individual set ({path}) -- not yet a practice, and "
+              f"not yet in force. You are the only one who can promote and "
+              f"land it (precedent_promote.py then "
+              f"precedent_land.py --approved-by NAME); nothing happens to "
+              f"it until you do.")
+    elif fields['raised_by'] in _approver_names(path):
+        print(f"DISCLOSE TO THE HUMAN: this is a proposal only, filed in "
+              f"the TEAM set at {path} -- not yet a practice, and not yet "
+              f"in force for anyone. It needs a listed approver's yes "
+              f"(precedent_land.py --approved-by NAME) before it lands; "
+              f"raised_by ({fields['raised_by']!r}) is already an approver "
+              f"here, so that yes can happen in this same conversation if "
+              f"that is what's wanted instead of leaving it queued.")
+    else:
+        print(f"DISCLOSE TO THE HUMAN, PLAINLY: {fields['raised_by']!r} is "
+              f"NOT a listed approver for the TEAM set at {path}, and "
+              f"nothing is watching this candidates/ directory for a new "
+              f"file -- this proposal will very likely sit unseen. Say so, "
+              f"and suggest --as-issue true instead so an approver actually "
+              f"gets notified (spec/CANDIDATE_FORMAT.md#which-one-for-team-"
+              f"file-or-issue).")
     return 0
 
 

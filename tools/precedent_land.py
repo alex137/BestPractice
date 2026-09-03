@@ -231,11 +231,27 @@ def main():
         return 1
 
     print(f"LANDED: {dest}")
+    # A file path alone requires the reader to already know this repo's
+    # layout to know what just happened -- say it in plain words too, so a
+    # session relaying this to a human has no way to leave out WHICH of the
+    # three it is or WHERE, whether or not it also shows the path above.
+    if level == 'individual':
+        print(f"DISCLOSE TO THE HUMAN: this is now part of YOUR OWN "
+              f"individual practice set ({args.get('--path')}). It applies "
+              f"only to you, is already in force, and nobody else approved "
+              f"or needs to.")
+    elif level == 'team':
+        print(f"DISCLOSE TO THE HUMAN: this is now part of the TEAM "
+              f"practice set at {args.get('--path')}, approved by "
+              f"{args.get('--approved-by')!r}. It is already in force for "
+              f"everyone on that team.")
     if level == 'universal':
-        print("This is a DRAFT only. Stage 4's universal approval is a PR to "
+        print("DISCLOSE TO THE HUMAN: this is a DRAFT ONLY, not yet in "
+              "force for anyone. Stage 4's universal approval is a PR to "
               "Precedent -- commit this file on a branch and open a PR; this "
               "tool does not merge it, and nothing is in force until that PR "
-              "is reviewed and merged.")
+              "is reviewed and merged by a human other than whoever wrote "
+              "it.")
     else:
         print(f"Regenerate this repo's generated views if it has any "
               f"(tools/build_views.py in Precedent; the private sets carry "

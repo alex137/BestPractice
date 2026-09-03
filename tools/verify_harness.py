@@ -2946,6 +2946,39 @@ def check_creation_pipeline_fires():
                       'approvers.json to check the named approver against',
                       rc == 1 and not (ROOT / 'practices' / 'pipeline-fixture-approver.md').exists()))
 
+        # --- disclose-landing: landing states plainly what happened and where --
+        # Added 2026-09-03 after Morgan asked directly whether this was
+        # already happening -- it wasn't guaranteed, only implied by the
+        # tools' own file paths. The tools now print an unconditional
+        # DISCLOSE TO THE HUMAN line naming the level, the location, and
+        # whether it's already in force; this is that line's own test, not
+        # a proxy for it, so a future edit that quietly drops the line fails
+        # here rather than only in a live conversation.
+        f9 = make_candidate('pipeline-fixture-disclose-individual', recurrence=2,
+                             occasion='a fixture occasion')
+        rc, out = pyrun(promote_tool, '--file', str(f9), '--level', 'individual')
+        rc, out = pyrun(land_tool, '--file', str(f9), '--level', 'individual',
+                        '--path', str(repo), '--approved-by', 'harness')
+        cases.append(('landing an individual practice discloses it as the '
+                      "person's own set, already in force",
+                      rc == 0 and 'DISCLOSE TO THE HUMAN' in out
+                      and 'YOUR OWN individual practice set' in out
+                      and str(repo) in out))
+
+        # A dynamic execution test for the universal disclosure line would
+        # need to actually land into ROOT/practices/ (precedent_land.py
+        # hardcodes universal's dest_dir to this repo's own tree) -- the
+        # checked_by-refusal case above deliberately avoids ever doing that
+        # for real, and this test follows the same caution rather than risk
+        # a stray file in this repo's real, public catalogue on a crash
+        # mid-test. A static source check is the honest, zero-risk substitute.
+        land_src = (ROOT / 'tools' / 'precedent_land.py').read_text(encoding='utf-8')
+        cases.append(('precedent_land.py source still carries the universal '
+                      'DISCLOSE line (static check -- see comment above for why '
+                      'this is not an execution test)',
+                      'DISCLOSE TO THE HUMAN' in land_src
+                      and 'DRAFT ONLY' in land_src))
+
         # --- a same-day, same-slug raise registers as recurrence, never fails --
         # Deep-check regression case: cmd_create used to hard-refuse a second
         # same-day raise of the same slug ("already exists"), silently dropping
@@ -3013,6 +3046,16 @@ def check_creation_pipeline_fires():
                         'https://github.com/fixture-owner/fixture-team.git'],
                        cwd=team_repo, check=True)
 
+        f10 = make_candidate('pipeline-fixture-disclose-team', recurrence=2, occasion='x')
+        rc, out = pyrun(promote_tool, '--file', str(f10), '--level', 'team')
+        rc, out = pyrun(land_tool, '--file', str(f10), '--level', 'team',
+                        '--path', str(team_repo), '--approved-by', 'Approved Person')
+        cases.append(('landing a team practice by a real approver discloses the '
+                      'named team set, already in force for everyone on it',
+                      rc == 0 and 'DISCLOSE TO THE HUMAN' in out
+                      and 'TEAM practice set' in out and str(team_repo) in out
+                      and "'Approved Person'" in out))
+
         def make_issue_draft(raised_by, **extra):
             gh_repo = extra.pop('github_repo', None)
             args = [cand_tool, 'create', '--level', 'team', '--path', str(team_repo),
@@ -3046,12 +3089,51 @@ def check_creation_pipeline_fires():
                       rc == 0 and 'already a listed approver' in out))
 
         rc, out = pyrun(cand_tool, 'create', '--level', 'individual', '--path', str(repo),
+                        '--slug', 'pipeline-fixture-disclose-cand-i', '--title', 't',
+                        '--signal', 'explicit-instruction', '--raised-by', 'harness',
+                        '--observed', 'x', '--proposed-rule', 'x')
+        cases.append(('raising an individual candidate discloses it as a '
+                      "proposal in the person's own set, not yet a practice",
+                      rc == 0 and 'DISCLOSE TO THE HUMAN' in out
+                      and 'YOUR OWN individual set' in out and str(repo) in out))
+
+        rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(team_repo),
+                        '--slug', 'pipeline-fixture-disclose-cand-t', '--title', 't',
+                        '--signal', 'explicit-instruction', '--raised-by', 'Approved Person',
+                        '--observed', 'x', '--proposed-rule', 'x')
+        cases.append(('an approver filing a team candidate (rather than landing '
+                      'directly) discloses which team set it sits in and that it '
+                      'still needs a yes',
+                      rc == 0 and 'DISCLOSE TO THE HUMAN' in out
+                      and 'TEAM set at' in out and str(team_repo) in out
+                      and 'already an approver' in out))
+
+        rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(team_repo),
+                        '--slug', 'pipeline-fixture-disclose-cand-n', '--title', 't',
+                        '--signal', 'explicit-instruction', '--raised-by', 'Someone Not An Approver',
+                        '--observed', 'x', '--proposed-rule', 'x')
+        cases.append(('a non-approver filing a plain team candidate (forgetting '
+                      '--as-issue) gets an explicit warning that nothing is '
+                      'watching for it, not just a quiet file',
+                      rc == 0 and 'DISCLOSE TO THE HUMAN, PLAINLY' in out
+                      and 'NOT a listed approver' in out and '--as-issue' in out))
+
+        rc, out = pyrun(cand_tool, 'create', '--level', 'individual', '--path', str(repo),
                         '--as-issue', 'true', '--slug', 'pipeline-fixture-issue-d',
                         '--title', 't', '--signal', 'explicit-instruction',
                         '--raised-by', 'harness', '--observed', 'x', '--proposed-rule', 'x')
         cases.append(('--as-issue is refused for --level individual '
                       '(no one else to notify)',
                       rc == 1 and 'only applies to --level team' in out))
+
+        rc, out = pyrun(cand_tool, 'create', '--level', 'universal',
+                        '--slug', 'pipeline-fixture-disclose-cand-u', '--title', 't',
+                        '--signal', 'explicit-instruction', '--raised-by', 'harness',
+                        '--observed', 'x', '--proposed-rule', 'x')
+        cases.append(('raising a universal candidate discloses it as a proposal '
+                      'for everyone, not yet a practice for anyone',
+                      rc == 0 and 'DISCLOSE TO THE HUMAN' in out
+                      and 'proposal for EVERYONE using Precedent' in out))
 
         no_remote_repo = tmp / 'fixture-team-no-remote'
         (no_remote_repo / 'candidates').mkdir(parents=True)

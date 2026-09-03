@@ -100,6 +100,17 @@
       "why": "A reader-facing deliverable is a document. Its check already runs over changed markdown; the glob makes the Rule reachable at the same scope.",
       "decided": "phase 4 routing pass"
     },
+    "disclose-landing": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment — routed by the `reply` gate instead.",
+      "decided": "follow-up session, 2026-09-03",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Its occasion is the reply that follows a landing or a candidate being raised."
+    },
     "doc-references-are-links": {
       "globs": [
         "**/*.md"
