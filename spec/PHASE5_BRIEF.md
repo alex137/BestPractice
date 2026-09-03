@@ -300,7 +300,15 @@ writing this brief, not by running the steps — and treat finding more of
 them as the point of doing this, not as this brief having been wrong.
 
 **0. Set up the fork, isolated from anything real.**
-Fork `WritingWithAI` on GitHub (a real fork, so it is a separate repo with
+**Confirm the real target repo's name before forking anything** — an
+earlier draft of this step named `WritingWithAI`, but
+`precedent-individual`'s own `leak-blocklist.txt` names a
+different-looking private project for what may be the same repo, and
+nobody has confirmed the two are actually the same (see
+[spec/PHASE5_DEEPCHECK.md](PHASE5_DEEPCHECK.md)'s "Notes for the next
+session" for how this was found). Read that blocklist, or ask Morgan
+directly, rather than trusting either name on its own. Once confirmed,
+fork the real repo on GitHub (a real fork, so it is a separate repo with
 its own default branch — not a branch of the original), and `add_repo` it
 to this session with push access. Everything from here on happens only in
 that fork.
