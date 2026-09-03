@@ -2778,6 +2778,8 @@ def check_materialize_bridges_loader():
                         'A team fixture Rule.', tier='resident')
         write_check(uni / 'tools' / 'checks' / 'check_shared_name.py')
         write_check(team / 'tools' / 'checks' / 'check_shared_name.py')
+        write_check(uni / 'tools' / 'checks' / 'tests' / 'test_uni_fixture.sh',
+                    body='fixture\n')
 
         consumer = tmp / 'consumer'
         (consumer).mkdir()
@@ -2815,6 +2817,23 @@ def check_materialize_bridges_loader():
         materialized_ok = (rc == 0 and (consumer / 'MANIFEST.json').exists()
                             and (consumer / 'practices' / 'uni-fixture.md').exists()
                             and (consumer / 'practices' / 'team-fixture.md').exists())
+
+        # --- every MANIFEST.json path (practices AND checks) actually
+        # resolves to a file on disk -- regression case for a doubled
+        # tools/checks/checks/ segment in checks[].path entries -------------
+        manifest_paths_ok = False
+        manifest_paths_detail = ''
+        if materialized_ok:
+            manifest = json.loads((consumer / 'MANIFEST.json').read_text(encoding='utf-8'))
+            entries = ([('practices', e['slug'], f"practices/{e['slug']}.md")
+                        for e in manifest.get('practices', [])]
+                       + [('checks', e['path'], e['path'])
+                          for e in manifest.get('checks', [])])
+            missing = [label for _, label, rel in entries if not (consumer / rel).exists()]
+            manifest_paths_ok = not missing
+            manifest_paths_detail = f"missing on disk: {missing}" if missing else ''
+        cases.append(('every MANIFEST.json practices[]/checks[] path resolves to a '
+                      'real file on disk', manifest_paths_ok, manifest_paths_detail))
 
         for f in ('build_views.py', 'split_practices.py'):
             shutil.copyfile(ROOT / 'tools' / f, consumer / 'tools' / f)

@@ -147,7 +147,7 @@ def materialize(sources, res, out_dir):
         dest_dir = checks_dir if rel_label == 'checks' else checks_dir / 'tests'
         dest_dir.mkdir(parents=True, exist_ok=True)
         (dest_dir / filename).write_bytes(data)
-        checks_written.append({'path': f'tools/checks/{rel_label}/{filename}',
+        checks_written.append({'path': f'tools/{rel_label}/{filename}',
                                 'source': source_name,
                                 'sha256_16': hashlib.sha256(data).hexdigest()[:16]})
 
