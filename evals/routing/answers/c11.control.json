@@ -1,7 +1,0 @@
-{
-  "slugs": [
-    "session-bootstrap",
-    "verify-postcondition"
-  ],
-  "reasoning": "Extends session-bootstrap's hook discipline to the stop/teardown end of a turn, and the hook itself is a mechanical implementation of verify-postcondition's own worked example (checking for unpushed commits, not just that the agent believes it finished)."
-}

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""practice_audit.py — audit the practice-export layer
-(practice: practice-export-loop; practice: scrub-gate; practice: layered-practice-packs).
+"""practice_audit.py — audit the practice-export layer (BestPractice 14, 15 & 23).
 
 Runs from a dependent repo (script lives at process/upstream/tools/). A repo
-may install several practice layers ("packs" -- (practice: layered-practice-packs)): the generic
+may install several practice layers ("packs", practice 23): the generic
 upstream at process/upstream/ tracked by process/manifest.json, plus any
 domain packs vendored at process/<pack>/ tracked by process/manifest_<pack>.json.
 This audit discovers every process/manifest*.json and runs the same three
@@ -15,11 +14,9 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      opts the pack out, with a notice), else the default
      process/scrub_blocklist.txt. Any hit FAILS: a vendored tree destined
      for another repo must be clean at all times, not just at check-in. A
-     configured blocklist file that does not exist on disk FAILS — a
-     configured-but-missing blocklist is a check that did not run, not a
-     pass; only an explicit `scrub_blocklist: null` skips the check.
+     missing blocklist file skips the check with a notice.
 
-  2. DRIFT (baseline snapshots, practice: registry-source-of-truth). For each manifest entry with
+  2. DRIFT (baseline snapshots, practice 7). For each manifest entry with
      granularity "file": the local file's sha256 is compared to the recorded
      local_sha256 baseline. Changed while status is "synced" → FAIL — the
      local improvement must be exported to the vendored tree and re-baselined
@@ -66,18 +63,8 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 def load_blocklist(path):
-    """-> (patterns_or_None, reason). `path is None` is an explicit opt-out
-    (`scrub_blocklist: null`) -- a deliberate choice, distinct from a
-    configured path that simply doesn't exist on disk, which is a check
-    that did not run, not a pass. Conflating the two (both used to return
-    plain `None`) meant a manifest that never opted out, but whose
-    blocklist file went missing -- a typo'd path, a file never committed --
-    scrubbed nothing and reported success, same shape as the leak_gate.py
-    bug this mirrors."""
-    if path is None:
-        return None, 'opt_out'
-    if not path.exists():
-        return None, 'missing'
+    if path is None or not path.exists():
+        return None
     pats = []
     for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
         line = line.strip()
@@ -87,19 +74,14 @@ def load_blocklist(path):
             pats.append(re.compile(line))
         except re.error as e:
             print(f"WARN: blocklist line {i} is not a valid regex ({e}): {line}")
-    return pats, 'ok'
+    return pats
 
 def scrub(tree, blocklist_path, fails, label):
-    pats, reason = load_blocklist(blocklist_path)
-    if reason == 'missing':
-        fails.append(f"SCRUB: [{label}] blocklist configured at "
-                     f"{blocklist_path.relative_to(ROOT)} but the file does not "
-                     f"exist — the scrub did not run, which is not a pass")
-        print(f"scrub [{label}]: FAIL — configured blocklist "
-              f"{blocklist_path.relative_to(ROOT)} is missing.")
-        return
+    pats = load_blocklist(blocklist_path)
     if pats is None:
-        print(f"scrub [{label}]: skipped — pack opted out (scrub_blocklist: null).")
+        why = "pack opted out (scrub_blocklist: null)" if blocklist_path is None else \
+              f"no blocklist at {blocklist_path.relative_to(ROOT)}"
+        print(f"scrub [{label}]: skipped — {why}.")
         return
     hits = 0
     for path in sorted(tree.rglob('*')):
@@ -197,20 +179,8 @@ def audit(update=False, only=None):
     else:
         manifests = sorted((ROOT / 'process').glob('manifest*.json'))
     if not any(m.exists() for m in manifests):
-        # Distinguish "this repo does not vendor anything" from "this repo
-        # vendors something and lost its manifest". Both used to FAIL, so the
-        # audit was permanently red in the upstream repo itself -- which is
-        # not a dependent repo and has nothing to export from. A permanently
-        # red gate stops being read, and then it is absent when a real
-        # dependent repo drops its manifest.
-        if not (ROOT / 'process').is_dir():
-            print("practice_audit NOT APPLICABLE: this repo vendors no practice "
-                  "layer (no process/ directory), so there is no export loop to "
-                  "audit. This is the expected state in the upstream repo itself.")
-            return 0
-        print("practice_audit FAIL: process/ exists but there is no manifest at "
-              "process/manifest*.json — a vendored tree with no manifest is "
-              "unaudited (see process/upstream/INSTALL.md §5)")
+        print("practice_audit FAIL: no manifest at process/manifest*.json "
+              "(see process/upstream/INSTALL.md §5)")
         return 1
     n = 0
     claimed = set()

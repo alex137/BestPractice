@@ -1,1 +1,0 @@
-{"slugs": ["cite-the-incident", "convention-to-audit", "mistakes-become-rules"], "reasoning": "This is a mistake root-caused into a mechanical guard (mistakes-become-rules), promoting a violated convention into a script-enforced check (convention-to-audit), with the origin incident recorded inline in both the docstring and PRACTICES.md (cite-the-incident)."}

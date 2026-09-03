@@ -1,1 +1,0 @@
-{"slugs": ["mistakes-become-rules"], "reasoning": "This is a defect caught by running the full cycle end to end, root-caused (record()'s stronger verification wasn't reflected in synced_from) and the fix encodes the prevention with an explanatory comment plus an explicit stated lesson -- exactly the review-finds-a-defect occasion."}

@@ -44,19 +44,6 @@ work at the same time. The whole loop:
    Until that happens, nobody else sees your change: unlike Google Docs,
    nothing becomes shared automatically.
 
-## How the project remembers new rules
-
-You don't have to ask for this by name — it happens as part of ordinary
-conversation. If you say something like *"always name these a certain
-way"*, *"never merge without running the tests"*, or *"from now on, do
-X"*, the assistant will notice and offer to write that down as one of
-this project's own working rules, so every future conversation follows it
-too — not just the one you're having right now. It always tells you
-plainly when it's doing this and where the rule is going, and nothing
-becomes official until it's reviewed and approved the same way any other
-change is (see the five steps above) — you're never signing up for
-something without seeing it first.
-
 ## Setting up your AI tool
 
 Before any of it works, an administrator must have given your GitHub

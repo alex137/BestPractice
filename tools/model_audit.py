@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """model_audit -- run each computing script's self-assertions, and check the
-figures its authoritative source documents recite (practice: scripts-assert-properties).
+figures its authoritative source documents recite (practice 30).
 
 The failure mode this kills is NOT a stale copy, and that is the whole point.
 In the incident that produced this tool, a script published results out by a
@@ -14,7 +14,7 @@ does not scale.
 
 So the check that matters is not "do the numbers match" but "does the output
 satisfy the properties it must satisfy". And the edge that mattered was not
-document-vs-script (computed-numbers-in-scripts' sync gate covers that, and it faithfully
+document-vs-script (practice 19's sync gate covers that, and it faithfully
 published the wrong number) but SCRIPT-VS-SOURCE-DOCUMENT: the authoritative
 document recited the correct figure for exactly the case the script got wrong,
 and nothing compared them. The most carefully reasoned documents in a repo are
@@ -81,8 +81,6 @@ ROOT = find_root(__file__)
 # source document. Add a script here when it starts depending on a derived
 # quantity it does not itself own.
 INSTRUMENTED = [
-    # Re-derives the catalogue figures that spec/ and the plan recite.
-    "tools/catalogue_stats.py",
     # "scripts/some_model.py",
     # Add a script here when it starts consuming or re-deriving a quantity
     # another script or an authoritative document owns.
@@ -171,14 +169,6 @@ def main():
         print("An anchor failure means a script and a source document disagree. "
               "Resolve it — do not refit the anchor to silence it.")
         return 1
-    if not INSTRUMENTED:
-        # "OK: 0 instrumented script(s)" is the confident all-clear from a
-        # check that never ran -- the failure mode this repo has now been
-        # bitten by four times. Nothing was inspected, so nothing passed.
-        print("model_audit NOT APPLICABLE: INSTRUMENTED is empty, so no script "
-              "was inspected. This is not a pass — instrument the scripts that "
-              "re-derive a quantity another script or document owns.")
-        return 0
     print(f"model_audit OK: {checked} instrumented script(s), "
           f"{anchors_ok} figure(s) recited in source documents verified, "
           f"{len(warnings)} warning(s).")

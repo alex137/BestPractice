@@ -1,1 +1,0 @@
-{"slugs": ["mistakes-become-rules"], "reasoning": "The commit fixes a bug caught by walking the whole guard cycle end-to-end, and explicitly generalizes the root-caused lesson (a gate isn't done until the whole loop is walked) inline in the code comment and commit message."}

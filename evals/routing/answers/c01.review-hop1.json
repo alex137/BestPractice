@@ -1,1 +1,0 @@
-{"slugs": ["readers-vocabulary", "docs-are-current-state", "section-order-by-frequency"], "reasoning": "The README is an outward-facing document so its new prose should use reader vocabulary and be placed by how often readers need it; docs-are-current-state is worth checking since the paragraph explains a rationale/comparison rather than adding a dated annotation."}

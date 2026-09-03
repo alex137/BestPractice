@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """doc_html -- the ONE sortable-table HTML renderer for repo documents
-(practice: tabular-shared-renderer).
+(practice 46).
 
 Convention: any document whose tables have multiple columns a reader might
 want to sort ships an HTML render built from the .md by THIS module -- the
-.md stays the source of record -- doc_sync keeps its generated tables live
-(practice: docs-track-models) -- the .html is the committed reading
-product. Table behavior
+.md stays the source of record (doc_sync keeps its generated tables live,
+practice 33), the .html is the committed reading product. Table behavior
 (multi-column sort, pinned sort columns, sticky headers, numeric-aware sort
 keys) lives HERE and only here, so a functionality change upgrades every
 table in the repo at once: edit CSS/JS below, run `python3 tools/doc_html.py`
@@ -16,9 +15,8 @@ table in the repo at once: edit CSS/JS below, run `python3 tools/doc_html.py`
     python3 tools/doc_html.py path/to/doc.md # render one (registered or not)
     python3 tools/doc_html.py --list         # show the registry
 
-Behavior contract (the full spec is tabular-shared-renderer's numbered list
-(practice: tabular-shared-renderer); this module is its reference
-implementation): multi-column sort (click; shift-
+Behavior contract (the full spec is practice 46's numbered list; this
+module is its reference implementation): multi-column sort (click; shift-
 click or Multi-sort adds keys; re-click reverses; header marks show key
 order) with numeric-aware keys (approximation marks, any Unicode currency
 symbol with k/M magnitude suffixes on currency amounts, thousands
@@ -41,7 +39,7 @@ the active view); one Reset
 clearing sorts AND
 filters and restoring row/column order; a live "N of M rows" count;
 a frontier axis pull-down on every table with a Frontier column
-(practice: permutation-frontier-column; see below); header
+(practice 47; see below); header
 cells link their definition notes with mouse-over tooltips, and each
 note's return link lands back on the header cell it defines; the build
 timestamp renders in the page header (the .html is the versioned product;
@@ -49,11 +47,11 @@ the source carries none); includes expanded, relative repo links
 rewritten to the hosted view, wide tables scrolling in their own
 container.
 
-Frontier axis pull-down (practice: permutation-frontier-column): every table with a Frontier
+Frontier axis pull-down (practice 47): every table with a Frontier
 column gets it, from the engine alone -- no per-document or per-model
-wiring. The printed ✓/— marks are the default view (permutation-frontier-column
-already makes them the generating model's own full-precision computation,
-so the default frontier's semantics arrive as table data); the pull-down
+wiring. The printed ✓/— marks are the default view (practice 47 already
+makes them the generating model's own full-precision computation, so
+the default frontier's semantics arrive as table data); the pull-down
 lets the reader pick which columns form the frontier instead, and the
 page recomputes the marks from the displayed values. EVERY non-frontier
 column is offered: on a numeric column the reader sets the axis's
@@ -118,29 +116,6 @@ def find_root(start):
 ROOT = find_root(Path(__file__).resolve().parent)
 
 
-def _default_branch():
-    """Same logic as doc_lint.py's default_branch(), duplicated rather than
-    imported because this module is meant to be dropped into a host repo on
-    its own. `origin/HEAD` is the authoritative source; 'main'/'master' are
-    a fallback for a clone where it was never set. Without this, every
-    relative link this module rewrites hardcoded '/blob/master/' -- silently
-    a dead link on any repo (this one included) whose default branch is
-    'main', which is the actual default on GitHub since 2020."""
-    r = subprocess.run(["git", "-C", str(ROOT), "symbolic-ref",
-                       "refs/remotes/origin/HEAD"],
-                       capture_output=True, text=True)
-    head = r.stdout.strip()
-    if head:
-        return head.rsplit("/", 1)[-1]
-    for cand in ("main", "master"):
-        r = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--verify",
-                           "--quiet", f"origin/{cand}"],
-                           capture_output=True, text=True)
-        if r.stdout.strip():
-            return cand
-    return "main"
-
-
 def _link_base():
     """Hosted-view base URL for rewriting relative repo links, from the git
     remote (GitHub-shaped hosts); override LINK_BASE for others."""
@@ -151,7 +126,7 @@ def _link_base():
         url = url.replace(":", "/", 1).replace("git@", "https://", 1)
     if url.endswith(".git"):
         url = url[:-4]
-    return f"{url}/blob/{_default_branch()}/" if url else ""
+    return f"{url}/blob/master/" if url else ""
 
 
 LINK_BASE = _link_base()
@@ -297,8 +272,8 @@ JS = """
     // parse as their values. This grammar is mirrored by parse_key in
     // tools/table_fmt.py (the formatter↔renderer seam contract) —
     // extend BOTH together.
-    var kmatch = /\\p{Sc}\\s*[\\d.,]+k(?![A-Za-z0-9])/u.test(t);
-    var mmatch = /\\p{Sc}\\s*[\\d.,]+\\s*M(?![A-Za-z0-9])/u.test(t);
+    var kmatch = /\\p{Sc}\\s*[\\d.,]+k/u.test(t);
+    var mmatch = /\\p{Sc}\\s*[\\d.,]+\\s*M/u.test(t);
     var m = t.replace(/[,≈≤≥]/g, "").match(/-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)/);
     if (m) {
       var v = parseFloat(m[0]);
@@ -862,7 +837,7 @@ JS = """
       if (resetFrontier) resetFrontier();
       marks(); reorder(); refilter();
     });
-    // Frontier controls (practice: permutation-frontier-column). Any table with a Frontier column
+    // Frontier controls (practice 47). Any table with a Frontier column
     // gets the axis pull-down, from the engine alone: the printed ✓/—
     // marks (the generating model's own full-precision computation) are
     // the default view, so no table metadata is required. On a custom

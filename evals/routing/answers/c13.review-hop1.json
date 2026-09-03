@@ -1,1 +1,0 @@
-{"slugs": ["mistakes-become-rules", "cite-the-incident", "convention-to-audit"], "reasoning": "This diff root-causes a real data-loss incident and encodes prevention as both a documented rule (with the incident cited inline) and a mechanical, non-zero-exiting check in checkin.py, matching mistakes-become-rules, cite-the-incident, and convention-to-audit directly."}

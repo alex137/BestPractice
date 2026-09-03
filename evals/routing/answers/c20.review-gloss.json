@@ -1,1 +1,0 @@
-{"slugs": ["cite-the-incident", "mistakes-become-rules"], "reasoning": "The change adds a new practice to PRACTICES.md that root-causes a defect (script fixed but hand-written prose stayed wrong) into a codified prevention rule, exactly matching mistakes-become-rules, and it records that incident inline with the rule text, matching cite-the-incident."}

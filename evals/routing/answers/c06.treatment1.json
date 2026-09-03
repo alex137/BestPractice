@@ -1,1 +1,0 @@
-{"slugs": ["mistakes-become-rules"], "reasoning": "This is a defect found by running the guard through a full real cycle; the commit root-causes the miss (record() didn't advance synced_from) and encodes the prevention directly in code and comment, matching mistakes-become-rules."}

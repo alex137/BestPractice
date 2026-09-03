@@ -1,6 +1,0 @@
-{
-  "slugs": [
-    "layered-practice-packs"
-  ],
-  "reasoning": "The commit message itself frames both new practices as generic patterns belonging in the upstream GLOSSARY.md rather than repo-local -- exactly the classification question layered-practice-packs answers."
-}

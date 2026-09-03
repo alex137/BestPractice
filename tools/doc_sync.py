@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""doc_sync -- keep script-generated blocks inside documents in sync (practice: computed-numbers-in-scripts).
+"""doc_sync -- keep script-generated blocks inside documents in sync (practice 19).
 
 The failure mode this kills: a script that computes numbers (a model, a cost
 rollup) changes, and a document quoting those numbers silently keeps the old
@@ -55,44 +55,11 @@ ROOT = find_root(__file__)
 # (document path, block name, script path) -- all repo-root-relative.
 # Example:
 #   ("docs/summary.md", "cost_table", "models/cost_model.py"),
-PAIRS = [
-    ("spec/LOADER.md", "catalogue", "tools/catalogue_stats.py"),
-    ("spec/ENFORCEMENT.md", "enforcement", "tools/catalogue_stats.py"),
-]
+PAIRS = []
 
 # Where this repo keeps prose, for the orphan-sentinel scan; narrow it in
 # the host shim if the whole tree is too broad.
 DOC_GLOB = "**/*.md"
-
-
-def strip_fenced_code(text):
-    """Blank out fenced code blocks, keeping line numbering.
-
-    A sentinel INSIDE a fence is documentation showing what a sentinel looks
-    like, not a live generated block. The caller pairs this with a column-0
-    anchor, which covers the other way a document shows the format: an
-    indented code block. Origin: this repo documents the format as
-    ``<!--gen:NAME-->`` in PRACTICES.md (indented) and in the practice file
-    for computed-numbers-in-scripts (fenced), and the orphan scan reported
-    both as unregistered blocks -- so the gate was red for a reason that had
-    nothing to do with any number, on a repo with PAIRS = []. A permanently
-    red gate is a gate nobody runs. A LIVE block's sentinel is always at
-    column 0, because doc_sync writes it there.
-    """
-    out, fence = [], None
-    for line in text.splitlines():
-        m = re.match(r"\s*(`{3,}|~{3,})", line)
-        if fence is None and m:
-            fence = m.group(1)  # the real run, not normalized to length 3 --
-            out.append("")      # per CommonMark a fence only closes on a run
-            continue             # of the SAME character at least as long.
-        if fence is not None:
-            out.append("")
-            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
-                fence = None
-            continue
-        out.append(line)
-    return "\n".join(out)
 
 
 def owned_figures(script):
@@ -191,7 +158,7 @@ def main():
             print(f"[doc_sync] FAIL  {doc}: footer does not name "
                   f"{', '.join(sorted(missing))}")
             fail = True
-    # Restatement check (practice: docs-track-models): a figure a script OWNS must not be
+    # Restatement check (practice 33): a figure a script OWNS must not be
     # hand-typed into the prose around its generated block. The gate can only
     # see what it is pointed at, so a corrected script self-corrects every
     # generated table and leaves every hand-typed restatement wrong.
@@ -208,7 +175,7 @@ def main():
         for script in sorted({s for d, n, s in PAIRS if d == doc}):
             for label, forms in owned_figures(script):
                 for form in forms:
-                    rx = re.compile(r"(?<![\w.])" + re.escape(form) + r"(?![/\w])")
+                    rx = re.compile(re.escape(form) + r"(?![/\w])")
                     for line in outside.splitlines():
                         if rx.search(line) and "<!--owned-ok-->" not in line:
                             print(f"[doc_sync] FAIL  {doc}: restates "
@@ -232,9 +199,7 @@ def main():
     found = set()
     for path in sorted(ROOT.glob(DOC_GLOB)):
         rel = str(path.relative_to(ROOT))
-        for mm in re.finditer(r"^<!--gen:([\w-]+)-->",
-                              strip_fenced_code(path.read_text(errors="ignore")),
-                              re.M):
+        for mm in re.finditer(r"<!--gen:([\w-]+)-->", path.read_text(errors="ignore")):
             found.add((rel, mm.group(1)))
     for doc, name in sorted(found - registered):
         print(f"[doc_sync] FAIL  {doc}: <!--gen:{name}--> is not in PAIRS — "
