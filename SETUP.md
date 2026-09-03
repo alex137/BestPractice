@@ -80,11 +80,16 @@ technical work yourself.
    Actions**, or the **Actions** tab's enable button) and confirm the
    check appears afterward. Never leave this step silently unfinished —
    the checks are what make the practices enforceable.
-7. **Hand them the keys.** Close by telling them two things: members are
+7. **Hand them the keys.** Close by telling them three things: members are
    onboarded by saying **"Add project members"** to the project's agent
    (the installed instructions file teaches every future session how to
-   guide that), and day-to-day work is just asking questions and
-   requesting changes in plain language.
+   guide that); day-to-day work is just asking questions and requesting
+   changes in plain language; and **if anyone tells an assistant working
+   here "always do X" or "never do Y," it will notice and offer to write
+   that down as one of this project's own rules** — captured into the
+   instructions file every future session reads, not just remembered for
+   this one conversation. Nobody has to ask for that by name, and nothing
+   gets written down without saying so and getting a yes first.
 
 ## Rules while guiding
 
