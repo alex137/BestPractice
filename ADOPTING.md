@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, rewriting "What happens as you work" as "How an idea becomes a practice" -->
 
 # Precedent
 
@@ -134,27 +134,45 @@ formal is about what you all ship, and the second one has to win. Whenever
 that happens, you are told which practice is in force and which one was set
 aside. Nothing is dropped quietly.
 
-## What happens as you work
+## How an idea becomes a practice
 
-You work normally. Around that:
+You work normally. Around that, one path takes an idea from something that
+happened in conversation to a rule your assistant follows from then on — and
+it only ever turns on one question: ***who has to say yes to this?***
 
-**It notices.** When you say *"from now on"*, or *"always"*, or *"never"* —
-or when you rewrite something an assistant produced, or when the same
-instruction comes up a second time, or when a review turns up the same
-mistake again — that is the moment a practice is worth writing down, and it
-gets noticed rather than depending on someone remembering later.
+**It notices.** When you say *"from now on,"* or *"always,"* or *"never"* —
+or when you rewrite something an assistant produced, or the same instruction
+comes up a second time, or a review turns up the same mistake again — that is
+the moment worth writing down, and it gets noticed rather than depending on
+someone remembering later.
 
-**It proposes; you decide.** What it produces is a *suggestion*, never a
-rule. It comes with a draft of the rule, where it thinks the practice belongs
-(yours, your team's, or everyone's), and why. Confirming costs you one word.
-Ignoring it costs you nothing, and suggestions expire on their own.
+**It proposes.** What it produces is a *suggestion*, never a rule on its
+own: a draft of the practice, where it thinks the practice belongs — yours,
+your team's, or everyone's — and why. Ignoring it costs you nothing, and an
+ignored suggestion expires on its own.
 
-**You approve.** This step is deliberate and it is not going away. An
-assistant that writes its own binding rules unsupervised is exactly how the
-project that led to this one went from twenty-one rules to forty-six in three
-days, and a rulebook nobody agreed to is a rulebook nobody trusts.
+**Someone says yes, or it waits.** This step is deliberate and it is not
+going away — an assistant that writes its own binding rules unsupervised is
+exactly how the project that led to this one went from twenty-one rules to
+forty-six in three days, and a rulebook nobody agreed to is a rulebook nobody
+trusts. Who has to give that yes depends on which of the three it belongs to:
 
-**Then it routes and enforces.** Once approved, the practice is filed where
+- **Yours alone?** There is no one else to ask. The moment you agree, in the
+  conversation, it already has every approval it will ever need — it lands
+  right then.
+- **Your team's?** The same is true if you happen to be one of the people
+  your team trusts to say yes for it (an *approver*): your agreement in that
+  conversation *is* the approval, and it lands immediately, same as your
+  own. If you are not one of those people, it cannot land on your word
+  alone, however sure you are about it — instead it becomes a suggestion
+  sitting where an approver will actually see it (a notification wherever
+  they already get them), and it lands only once one of them agrees.
+- **Everyone's?** No single person's word is enough here, not even whoever
+  runs this whole shared library — it always goes up for a real, visible
+  review, and someone other than whoever proposed it has to accept it
+  before it's real.
+
+**Then it routes and enforces.** Once it lands, the practice is filed where
 it belongs, shows up when the work calls for it, and — if it can be checked
 automatically — is checked from then on.
 
@@ -162,6 +180,10 @@ automatically — is checked from then on.
 whose check never trips gets listed as a candidate for retirement. A
 collection that can only grow eventually collapses under itself; being able
 to remove things is what lets it stay useful.
+
+So the whole thing reduces to one question, asked and answered in the same
+breath as the idea itself: *am I the person allowed to say yes to this?* If
+yes, it's already done. If no, it becomes something the right person sees.
 
 ## What it does not do
 
