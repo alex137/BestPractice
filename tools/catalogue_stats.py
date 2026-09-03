@@ -171,20 +171,32 @@ def block():
 
 def enforcement_block():
     """The enforced-practice registry, rendered from the registry itself, so
-    a document listing what is enforced cannot drift from what is."""
+    a document listing what is enforced cannot drift from what is.
+
+    tools/precedent_check.py's CHECKS registry is shared infrastructure --
+    it also carries checks for practices/ that live outside the universal
+    catalogue (repo-local, under local/practices/, e.g.
+    merge-target-is-beta-branch). This document is universal Precedent
+    documentation, read by every consumer, so it lists and counts only
+    checks whose slug names one of the universal practices/*.md files --
+    a repo-local check appearing here would misrepresent a BestPractice-only
+    rule as part of the catalogue every Precedent user gets."""
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         '_pc', ROOT / 'tools' / 'precedent_check.py')
     pc = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(pc)
+    universal_slugs = {fm['slug'] for fm, _sections, _f in _load()}
+    universal_checks = {slug: c for slug, c in pc.CHECKS.items()
+                        if slug in universal_slugs}
     s = stats()
     out = ['| practice | scope | what the check asserts |', '|---|---|---|']
-    for slug, c in sorted(pc.CHECKS.items()):
+    for slug, c in sorted(universal_checks.items()):
         out.append(f"| `{slug}` | {c['scope']} | {c['what']} |")
     out.append('')
-    out.append(f"{len(pc.CHECKS)} of {s['practices']} practices are enforced. "
-               f"Run `python3 tools/precedent_check.py --explain` for what each "
-               f"check does **not** catch.")
+    out.append(f"{len(universal_checks)} of {s['practices']} practices are "
+               f"enforced. Run `python3 tools/precedent_check.py --explain` "
+               f"for what each check does **not** catch.")
     return '\n'.join(out)
 
 

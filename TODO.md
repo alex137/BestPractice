@@ -102,3 +102,12 @@ the upstream layer. Ordered by priority.
     (`evals/routing/` discipline) — genuinely too large to fold into the
     session that built `routing-audit` and `full-practice-audit` in the
     same sitting.
+13. **Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
+    (and its check in [tools/precedent_check.py](tools/precedent_check.py),
+    and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the
+    moment Alex reviews and merges `precedent-beta-v01` into `main` for
+    real.** Delete the practice file, remove the
+    `merge-target-is-beta-branch` check function, and remove the
+    [AGENTS.md](AGENTS.md) pointer, all in that same PR. **Blocked on:** Alex's review
+    and approval of `precedent-beta-v01` for the real phase-7 merge into
+    `main` — not something to anticipate or do early.
