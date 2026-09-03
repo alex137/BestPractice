@@ -1,0 +1,1 @@
+{"slugs": ["mistakes-become-rules"], "reasoning": "This is a bug fix where a defect (record() not advancing synced_from) was found by walking the full cycle, root-caused, and fixed with an inline comment encoding the lesson for the future -- exactly the root-cause-then-encode-prevention pattern mistakes-become-rules covers."}

@@ -1,0 +1,52 @@
+name: Deep check
+
+# The three tools AGENTS.md's own "deep check" gate suite names besides
+# doc_lint.py (Documentation checks) and leak_gate.py (Leak gate), both
+# already their own workflows. Until now, none of these three ran in CI at
+# all -- they were session discipline only (AGENTS.md: "deep check is the
+# full gate suite run before push or merge"), and TODO.md's own item 1
+# already named the gap ("required CI checks bind every path to the
+# default branch [...] runbook gates bind only sessions that run the
+# runbook"). A 2026-09-03 deep-check audit found two critical,
+# reproduced bugs and three other real gaps sitting in exactly this
+# territory -- verify_harness.py, precedent_check.py -- none of which a
+# passing doc_lint/leak_gate run would ever have caught, on a branch
+# whose own merges are all green. This closes that: the same three tools
+# a session is already supposed to run before every push or merge, now
+# bound to every push and PR the same way the other two already are.
+#
+# Runs on every branch, not just main -- same reasoning as leak-gate.yml:
+# on this project the branch IS the published artifact.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deep-check:
+    name: verify_harness + precedent_check + doc_sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Markdown parser
+        run: python -m pip install cmarkgfm
+
+      - name: Run the verification harness
+        run: python3 tools/verify_harness.py
+
+      - name: Run precedent_check.py
+        run: python3 tools/precedent_check.py
+
+      - name: Run doc_sync.py
+        run: python3 tools/doc_sync.py

@@ -1,0 +1,8 @@
+{
+  "slugs": [
+    "mistakes-become-rules",
+    "cite-the-incident",
+    "checkable-gets-checked"
+  ],
+  "reasoning": "A subtle computational defect is root-caused and the prevention encoded at the strongest rung (an audit), with the incident narrated at length inline in both the practice text and the tool's docstring, and validated by real anchor failures before being trusted."
+}

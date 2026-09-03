@@ -1,0 +1,1 @@
+{"slugs": ["volatile-rules-carry-dates", "cite-the-incident", "practice-export-loop"], "reasoning": "This is a check-in from a dependent repo clarifying volatile-rules-carry-dates itself (the date must be the contributor's local calendar date, not the agent's clock) and cites the incident that motivated the corollary inline."}

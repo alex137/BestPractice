@@ -1,0 +1,6 @@
+{
+  "slugs": [
+    "readers-vocabulary"
+  ],
+  "reasoning": "This is a wording fix to an approver-facing passage in INSTALL.md so it doesn't read as dismissive to that outside audience -- the readers-vocabulary discipline for outward-facing text."
+}

@@ -1,0 +1,8 @@
+{
+  "slugs": [
+    "computed-numbers-in-scripts",
+    "cite-the-incident",
+    "mistakes-become-rules"
+  ],
+  "reasoning": "Directly extends the existing generated-block gate (computed-numbers-in-scripts) to cover prose figures too, prompted by a real incident (a fixed script whose hand-written prose stayed wrong) cited inline and root-caused into a new rule."
+}

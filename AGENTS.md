@@ -5,6 +5,175 @@
      (process/upstream/AGENTS.md) this file is inert — the dependent repo
      has its own instantiated AGENTS.md at ITS root. -->
 
+**This repo is becoming Precedent, a restructuring of BestPractice — read
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) first, in full, before
+touching anything else here.** It is the approved plan of record; its "For
+the Session Implementing This" section says how to work from it (phase by
+phase, in order — do not read the whole plan trying to hold it all in
+context at once; work from the phase you are on).
+[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) documents the phase-1
+practice-file format this repo's `practices/*.md` files are written in,
+including where the actual conversion had to make a call the plan's own
+illustrative example left open. [spec/LOADER.md](spec/LOADER.md) documents
+phase 2's loader: what got built, the resident-set curation and why, and
+what the behavioral-replay measurement does and does not prove about the
+plan's premise.
+
+<!-- BEGIN GENERATED: precedent-loader -->
+
+<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
+
+### Resident block (~312 of 2000 token budget, 6 of 59 practices)
+
+**environment-gotchas.** Every expensive environment discovery (a package that must be
+installed, a tool that silently doesn't work, a path that does work) is
+written into a "do NOT rediscover these" section — with the story of what
+failed and why, not just the fix.
+
+**orientation-map.** A top-level `MAP.md` indexes the repo: what the key deliverables
+are, where everything lives, and — crucially — which supporting documents back
+each part of each deliverable. Every session reads it before doing anything.
+
+**quick-index.** The project instructions file carries a "check here BEFORE searching
+the repo" table: *looking for X → go to Y*, one row per thing sessions
+actually hunt for.
+
+**reply-links-files.** A session's reply that created or modified files ends with a
+"Files touched" list: each entry links the file on the working branch *and*
+its post-merge location, with a one-line description. The reader must be able
+to open the work from the chat, not merely learn it exists.
+
+**repo-is-memory.** Everything a future session needs — orientation, open items,
+decisions, lessons — lives in committed files. A session's chat thread is
+disposable; if knowledge exists only in a thread, it is already lost.
+
+**verify-postcondition.** After any state-changing operation, check **the state you wanted**,
+not that the command reported success. Name the postcondition before you run
+the command — *"no unpushed commits on any branch"*, *"the gate passed"*,
+*"the file contains X"* — and then test that, independently of whatever the
+command printed.
+
+### Occasion index
+
+```
+When a change must propagate across several parallel artifacts:
+  parallel-artifact-ledger — ledger the transfer verdict per member, per change
+When a computation books a transfer between two parties:
+  name-both-sides-of-ledger — name both sides; check what is charged against what is received
+When a convention is violated for the first time:
+  convention-to-audit — promote a costly broken convention to a script that exits non-zero
+When a document presents a script-derived figure:
+  docs-track-models — every script-derived figure sits inside a generated block
+When a document replaces or is replaced by an earlier one:
+  index-remembers-past — put the lineage in the index, not in either document
+When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
+  full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
+When a practice lands or a candidate is raised, at any level:
+  disclose-landing — state plainly what happened and where — individual, named team, or universal
+When a review finds a defect:
+  mistakes-become-rules — root-cause the miss, then encode the prevention
+When a tool warns about already-published git history:
+  no-rewrite-for-warnings — fix the setting forward; never rewrite published history
+When an install step adds something GitHub-specific:
+  github-setup-disclosed — disclose GitHub-specific setup where the project's people read
+When building a mechanism that makes something discoverable or reachable:
+  affordance-is-shared — name who else the mechanism you just built now serves
+When building a permutation or configuration-sweep table:
+  permutation-frontier-column — one full table with a computed Frontier column
+When building a variant of an existing thing:
+  variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
+When building or committing a generated artifact:
+  generated-artifact-provenance — stamp a build code and a manifest; never hand-edit output
+When checking whether the practices that should have fired for recent work actually fired:
+  routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
+When committing anything that touches the vendored/public tree:
+  scrub-gate — the public tree is public-safe at all times, not just at check-in
+When comparing an option against a baseline:
+  check-source-architecture — check both options exist in the source before costing them
+When deciding where a new rule belongs:
+  layered-practice-packs — generic, domain, repo-local — each rule to its own layer
+When deciding whether to build or buy a component:
+  build-buy-decompose — decompose first; one verdict per part, on ownership grounds
+When exporting a tool across a repo boundary:
+  engine-plus-host-shims — one vendored engine, thin host shims, never a fork
+When finishing a substantial work-product, before the merge-time capture gate:
+  second-pass-capture — a separate capture pass after the work, not inside it
+When merging a branch:
+  capture-gate — capture the follow-on work in the thread that created the need
+When merging a branch that improved a generic practice:
+  practice-export-loop — vendor upstream as tracked files; check improvements back in
+When merging a branch that touches shared files:
+  merge-runbook — write conflict resolution per file class, once, then follow it
+When migrating a repo off an old practice system onto Precedent:
+  migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
+When naming a new file:
+  no-version-suffix — name a file for what it is; the repository is the version
+When naming what "run the checks" means in a repo:
+  two-check-levels — name a fast check and a full check; say which gates what
+When ordering sections in a document:
+  section-order-by-frequency — order sections by how often the reader needs them
+When printing a numeric quantity that will be compared across rows:
+  one-formatter-per-quantity — one formatter per quantity kind, declared in one module
+When publishing a document with a multi-column sortable table:
+  tabular-shared-renderer — ship a sortable render from the one shared renderer
+When quoting or compressing someone else's figures:
+  quote-discipline — compression rounds against you; qualifiers travel with the figure
+When reporting a computed total or a negative feasibility result:
+  verify-decomposition — check the parts, not the total; never assert an impossibility
+When setting up a new repo's session start:
+  session-bootstrap — setup lives in a session-start hook, not in memory
+When starting an outward-facing deliverable:
+  frame-from-audience-question — build it around the audience's question, not your material
+When starting work the repository may already cover:
+  search-by-purpose — search by purpose and by mechanism before concluding nothing exists
+When the user gives a standing merge instruction:
+  merge-authorization-keyword — one fixed word means "merge as agreed"; document it exactly
+When tracking state that multiple documents need to agree on:
+  registry-source-of-truth — state lives in one machine-readable registry; documents derive
+When writing a README or other project-facing entry document:
+  lead-with-what-it-is — say what the project is before how it is maintained
+When writing a document that cites a computed number:
+  computed-numbers-in-scripts — computed content lives in a sync-gated generated block
+When writing a new convention or rule:
+  checkable-gets-checked — attempt a mechanical check before leaving a new practice advisory-only
+  cite-the-incident — record the failure a rule prevents, inline with the rule
+When writing a reader-facing deliverable with supporting apparatus:
+  deliverables-look-like-output — the deliverable holds only what its audience needs
+When writing a rule that depends on the outside world:
+  volatile-rules-carry-dates — a rule about the outside world carries its date, inline
+When writing a script whose numbers a document will cite:
+  scripts-assert-properties — scripts assert their own properties and their cited anchors
+When writing an outward-facing document:
+  readers-vocabulary — use the reader's words; gloss inline or replace
+When writing an outward-facing summary of claims:
+  outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
+When writing code because a specific practice requires it:
+  code-cites-practice — cite the practice's slug in a comment, right where the code is
+When writing or editing a document:
+  acronyms-glossary — expand acronyms on first use; keep one central glossary
+  doc-references-are-links — reference repo files as relative links; use ≈, never ~
+  docs-are-current-state — state what is true now; version control holds the history
+  label-describes-content — "one line" must be one line; else name it for its content
+When writing or filling out a pull-request description:
+  pr-template-honest-gates — write the body from the diff; an unchecked box is fine
+When writing or triaging an open item:
+  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
+```
+
+### Standing instruction
+
+Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging, reviewing, pushing, ending a turn — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those.
+
+<!-- END GENERATED -->
+
+The rest of this file (below) is BestPractice's own pre-fork orientation —
+still accurate for `PRACTICES.md`, `INSTALL.md`, and the rest of the
+inherited tree, which the plan has not restructured yet. It will be rewritten
+in place as later phases land (the plan's own generated-views work, phase 2)
+rather than kept as a second, drifting copy.
+
+---
+
 **Orientation: read [README.md](README.md) first.** This repo is
 BestPractice itself — the upstream practice layer that dependent repos
 vendor. Practices you follow here are the ones this repo teaches; a session
@@ -14,7 +183,42 @@ that skips them in this repo of all places is the joke writing itself.
 
 | Looking for… | Go to |
 |---|---|
+| The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
+| Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) |
+| The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
+| The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
+| The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
+| The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |
+| The phase-4 enforced channel: what is checked, and what each check is blind to | [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md) |
+| The phase-5 creation pipeline: what got built stage by stage, what's deferred, what phase 6 inherits | [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md) |
+| The phase-5 candidate file format (Stage 2) and why universal candidates are GitHub Issues, not files | [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md) |
+| The phase-5 deep-check before phase 6: real bugs found and fixed, real candidates landed, open questions for Morgan | [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md) |
+| The phase-6 brief: what's closed, what's blocked and needs Morgan, what's still ahead and needs the target repo attached | [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) |
+| The pre-fork catalogue audit: verdict per inherited practice against this plan's architecture | [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md) |
+| Populating the two private sets (done 2026-09-01, closing phase 3 — brief kept for how it was done) | [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md) |
+| Bringing mechanical checks to the two private sets' practices (open; cannot run from here) | [spec/PRIVATE_ENFORCEMENT_BRIEF.md](spec/PRIVATE_ENFORCEMENT_BRIEF.md) |
+| How a repo that already had BestPractice installed migrates to Precedent's three-source model (the recommended pattern, from the first real dependent-repo test) | [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md) |
+| Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team) — distinct from creating one or retiring one outright | [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) |
+| Why the miss rate is what it is, and the plan for it (read before phase 5) | [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) |
+| Why each practice is routed the way it is (every glob, and every `**`) | [tools/routing_scope.json](tools/routing_scope.json) |
+| The routing audit: coverage check + rotating deep read, on-demand, never a routine gate | [practices/routing-audit.md](practices/routing-audit.md), engine at [tools/routing_audit.py](tools/routing_audit.py) |
+| The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
+| Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
+| Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
+| Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
+| The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
+| Precedent explained for someone adopting it (not a developer) | [ADOPTING.md](ADOPTING.md) |
+| Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
+| An example personal practice set | [examples/practice-set/](examples/practice-set/) |
+| The private-term blocklist template (copy into your own private set) | [templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template) |
+| The leak gate (push-time; both layers live) | [tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check |
+| The editorial section split, as reviewable data | [tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py) |
+| The converted practice files (phase 1) | [practices/](practices/) |
 | What each practice is and why | [PRACTICES.md](PRACTICES.md) |
+| Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
+| Canonical names, generated (phase 2) | [GLOSSARY.md](GLOSSARY.md) — built from every practice's `defines:` field |
+| The loader — resident block, occasion index, path-trigger channel | This file's generated block above; engine at [tools/build_views.py](tools/build_views.py), [tools/precedent_paths.py](tools/precedent_paths.py) |
+| Loader premise, measured against this repo's own history | [tools/behavioral_replay.py](tools/behavioral_replay.py) |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) |
 | Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
 | Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
@@ -27,6 +231,88 @@ that skips them in this repo of all places is the joke writing itself.
 | Slide-deck engine + deck conventions | [deck/](deck/) — engine [build_deck.py](deck/build_deck.py), practice in [deck/README.md](deck/README.md) |
 | Portable audits | [tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py) |
 | Skeletons dependent repos instantiate | [templates/](templates/) (+ per-agent adapters in [templates/harness/](templates/harness/)) |
+
+## Build-environment gotchas — do NOT rediscover these
+
+Each entry carries what failed, not only the fix — the fix alone is a fact
+you cannot judge, and the next session re-derives it the moment it looks
+wrong. [tools/precedent_check.py](tools/precedent_check.py) gates this
+section: an entry with no failure attached fails `--only environment-gotchas`.
+
+- **`pip install cmarkgfm`, or [tools/doc_lint.py](tools/doc_lint.py)'s
+  strikethrough check silently stops running.** Without it the check does not
+  fail — it prints a one-line notice and scans for everything else, so a
+  document that renders an unintended `<del>` on GitHub passes the gate.
+  [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh) installs
+  it, but only when `CLAUDE_CODE_REMOTE=true`; a local shell has to do it.
+
+- **This repo is normally cloned `--depth 1`, and several tools degrade
+  rather than fail on that.** [tools/behavioral_replay.py](tools/behavioral_replay.py)
+  divided by the replayable-commit count and took the whole harness down with
+  a `ZeroDivisionError` on a one-commit clone — the exact environment a fresh
+  session starts in. It now reports `REPLAY_STATUS: DEGRADED` instead. On the
+  same clone `origin/main` does not exist, so doc_lint's changed-vs-default-branch
+  scope quietly becomes changed-vs-`HEAD`: it checks your uncommitted files
+  and nothing else. Fix both with a bounded
+  `git fetch --depth=500 origin <branch>`; some git policy hooks block
+  `--unshallow`, and a bounded fetch works either way.
+
+- **`git clone --depth 1 /some/path` is ignored; git only honours `--depth`
+  over a transport.** A phase-2 smoke test believed it was exercising a
+  shallow clone for an hour and was not — the bug it was written to catch was
+  still there. Use `file:///some/path` to force a genuinely shallow local
+  clone.
+
+- **The leak gate's vocabulary layer fails open unless you also set the git
+  config.** `export PRECEDENT_LEAK_BLOCKLIST=<a path OUTSIDE this repo>` is
+  half of it; without `git config precedent.requireVocabulary true` a shell
+  that starts without the variable prints `PARTIAL`, exits 0, and the push
+  goes through with only the structural rules applied. Every push here is
+  publication into a public repository, so the half-configured state is the
+  dangerous one. See `python3 tools/leak_gate.py --explain`.
+
+- **A session's local checkout can be stale enough to look complete while
+  missing real, merged work — with no error.** A session opened here on
+  2026-09-01 had a local `precedent-beta-v01` that shared **zero** commits
+  with origin's tip: phases 1.5 through 4, every `spec/*.md` brief, and
+  `CHANGES_TO_TELL_ALEX.md` simply did not exist locally. `git status`
+  reported "up to date with origin" because that check runs against
+  whatever the remote-tracking ref happened to be at last fetch, and no
+  fetch had happened yet. Reading the tree, running the harness, anything
+  short of `git fetch` first would have silently analyzed or built on a
+  months-stale snapshot. [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh)
+  now fetches the current branch and warns loudly (never fails the
+  session — a git failure here must not block startup) if local `HEAD`
+  differs from origin's, distinguishing "behind" from "shares no history
+  at all" (a force-push or rewrite, the worse case). If you see that
+  warning, and your working tree is clean: `git checkout -B <branch>
+  origin/<branch>`.
+
+- **Four inherited audits are NOT APPLICABLE in this repo, and three of them
+  used to say `FAIL` instead.** [tools/practice_audit.py](tools/practice_audit.py)
+  wants a `process/manifest*.json`, [tools/doc_sync.py](tools/doc_sync.py)'s
+  `PAIRS` is empty and [tools/model_audit.py](tools/model_audit.py)'s
+  `INSTRUMENTED` is empty — all correct, because this repo is the upstream
+  they audit a *dependent* repo against. Two of them exited non-zero for that
+  reason and one printed `OK` on having inspected nothing, so the first were
+  permanently red and the last was a confident all-clear from a scan that
+  never ran. They now say NOT APPLICABLE with the reason, and
+  [tools/precedent_check.py](tools/precedent_check.py) reports that as
+  skipped rather than passed.
+
+- **`git log --format=%P` silently reports no parents at all for a commit
+  sitting at a shallow clone's boundary, even when it really has two.** Writing a mechanical check for `precedent-team-maintainers`
+  (a `checked_by` script that needed to tell a merge commit apart from an
+  ordinary one, to exempt merges from a per-commit rule) used `%P` and
+  worked perfectly against a full clone, then silently misclassified the
+  exact commit sitting at the shallow boundary as parentless the moment the
+  same script ran against a fresh `--depth 1` clone of the same repo —
+  reproduced directly, not just suspected. Git's pretty-printers respect
+  the shallow graft for traversal purposes even though the commit object's
+  own header still genuinely records both parents. `git cat-file -p <sha>`
+  reads that header directly and is unaffected — count lines starting with
+  `parent ` instead of parsing `%P`, anywhere a check needs to know a
+  shallow-clone-safe parent count or parent list.
 
 ## Working in this repo
 
@@ -46,23 +332,35 @@ that skips them in this repo of all places is the joke writing itself.
   touched (`pip install cmarkgfm` — the session-start hook does this);
   after touching the deck engine, rebuild the sample both ways:
   `python3 deck/build_deck.py deck/sample` and `--send`.
+- **Two check levels** (practice `two-check-levels`): **light check** is
+  `python3 tools/doc_lint.py` on the markdown you touched — the fast,
+  constant pass above, run before every commit without thinking about it.
+  **deep check** is the full gate suite run before push or merge:
+  `python3 tools/verify_harness.py`, `python3 tools/doc_lint.py`,
+  `python3 tools/leak_gate.py`, `python3 tools/precedent_check.py`, and
+  `python3 tools/doc_sync.py` (see [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s
+  closing section for the exact expected counts). Light check gates a
+  commit; deep check gates a push.
 
 ## Conventions (every session, every reply)
 
-- **Reply convention** (practice 12): every reply that created or modified
+- **Reply convention** ([reply-links-files](practices/reply-links-files.md)):
+  every reply that created or modified
   files ends with a **"Files touched"** list — for each file, the branch
   link (readable now) plus the post-merge `main` link, with a one-line
   description. The reader opens the work from the chat; they never go
   hunting for it. A touched HTML render or picture also gets its
   rendered-view (artifact) link when the harness offers one — a repo link
   shows source, not the render.
-- **Doc references are links** (practice 11): relative markdown links,
+- **Doc references are links** ([doc-references-are-links](practices/doc-references-are-links.md)):
+  relative markdown links,
   never bare backticked filenames. Use `≈`, not `~`, for "approximately".
-- **Volatile rules carry their dates** (practice 16): anything asserted
+- **Volatile rules carry their dates** ([volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md)):
+  anything asserted
   here about an external platform or tool carries *as of / verified
   `<date>`* inline, in the contributor's local calendar date, not the
   agent's system clock.
-- **Outward-facing documents use the reader's words** (practice 34): this
+- **Outward-facing documents use the reader's words** ([readers-vocabulary](practices/readers-vocabulary.md)): this
   repo's README, [SETUP.md](SETUP.md), and
   [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) are read by
   people who are not developers. Terms that name a category are the

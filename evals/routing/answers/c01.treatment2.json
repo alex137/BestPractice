@@ -1,0 +1,1 @@
+{"slugs": ["acronyms-glossary", "readers-vocabulary"], "reasoning": "The new paragraph introduces the unexpanded acronym 'LLM' in a README read by non-developers, so both the first-use expansion rule and the reader's-vocabulary jargon check apply; the addition doesn't reorder sections or add links/numbers, so the other surfaced practices don't fit."}

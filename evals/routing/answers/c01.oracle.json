@@ -1,0 +1,1 @@
+{"slugs": ["readers-vocabulary"], "reasoning": "The added paragraph is new prose in the README's opening section, an outward-facing document read by non-developers, so it needs to stay in the reader's plain vocabulary rather than drift into jargon; none of the other practices (links, glossary, ordering, history-annotation, etc.) are touched by this addition."}

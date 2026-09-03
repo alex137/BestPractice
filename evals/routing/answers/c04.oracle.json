@@ -1,0 +1,1 @@
+{"slugs": ["mistakes-become-rules"], "reasoning": "A dependent repo's check-in surfaced a systemic gap (no root .gitignore, so every session running the vendored audits leaves stray __pycache__ behind), and the fix encodes prevention into the install playbook (a new template, an INSTALL.md step, and a PRACTICES.md note) rather than just patching the one instance."}

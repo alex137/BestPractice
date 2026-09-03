@@ -1,0 +1,57 @@
+# Private-term blocklist — the leak gate's VOCABULARY layer.
+#
+# WHERE THIS FILE GOES, AND WHY IT IS A TEMPLATE RATHER THAN A REAL LIST.
+# Copy it into your own individual practice set (the private repository
+# named in your user-level config), fill it in there, and point the
+# environment variable at it:
+#
+#     cp templates/leak-blocklist.txt.template \
+#        <your individual set>/leak-blocklist.txt
+#     export PRECEDENT_LEAK_BLOCKLIST=<your individual set>/leak-blocklist.txt
+#     git config precedent.requireVocabulary true
+#
+# It must NOT be filled in here. A list of the words you are keeping private,
+# committed to a public repository, publishes the words it exists to guard —
+# and Precedent is a branch of a public repo, so a push cannot be taken back.
+# The leak gate refuses a blocklist path inside this repository, by name.
+# This is the same arrangement `scrub-gate` already uses: the blocklist lives
+# in the private repo and scans the public tree from there.
+#
+# The `git config` line above matters as much as the export. Without it the
+# vocabulary layer fails OPEN: a shell that starts without the variable set
+# scans only the structural rules and exits 0, so the push goes through.
+#
+# FORMAT. One Python regular expression per line, matched case-insensitively
+# against every file's text and every commit message in whatever the gate is
+# scanning. Blank lines and lines beginning with `#` are ignored. An invalid
+# expression fails the gate rather than being skipped.
+#
+# WHAT BELONGS IN IT. Words that are private *because of who they name*,
+# which no structural rule can recognise: client and employer names, project
+# code words, internal system and service names, unreleased product names,
+# people's names where the association is the sensitive part, internal
+# hostnames and ticket prefixes. The structural layer already covers shapes —
+# email addresses, home directories, individual- and team-level paths — so
+# there is no need to restate those here.
+#
+# WRITING THE PATTERNS. Prefer `\b…\b` so a term does not match inside an
+# unrelated word. Cover the spellings the term actually appears in: hyphenated
+# and spaced, singular and possessive, the abbreviation as well as the full
+# name. A term that only ever appears one way in your notes today will appear
+# another way the first time it matters.
+#
+# The entries below are placeholders, and are here to show the shape. Replace
+# them with your own terms.
+#
+# They are deliberately spelled as unmistakable non-words rather than as
+# plausible examples. A first draft of this file shipped `\bacme[- ]?corp\b`
+# as its example, and the very first run of the gate failed — on "Acme Corp"
+# in this repository's own style-guide template, which is placeholder text and
+# not a leak. A gate that fails on innocent text the day you install it is a
+# gate you uninstall, so the shipped examples cannot be words anything else
+# might legitimately contain. If one of these ever fires, it means this file
+# was copied and not edited.
+
+\bexample-client-name-goes-here\b
+\bexample-code-word-goes-here\b
+\bEXAMPLE-TICKET-\d+\b

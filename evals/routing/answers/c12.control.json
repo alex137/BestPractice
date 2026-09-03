@@ -1,0 +1,6 @@
+{
+  "slugs": [
+    "repo-is-memory"
+  ],
+  "reasoning": "Restoring content that had been silently erased by earlier syncs, so a future session doesn't have to re-derive it from scratch, is squarely the repo-is-memory concern -- committed files, not a thread, are what must carry the knowledge."
+}

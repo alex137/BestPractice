@@ -4,6 +4,45 @@ BestPractice uses repository checks for rules that should not depend on a partic
 
 This is especially important when working through GitHub-connected ChatGPT. A normal ChatGPT conversation can read and update repository files, but it does not receive a local checkout or an interactive shell. GitHub Actions supplies the missing execution environment: ChatGPT prepares a branch, GitHub runs the checks, and the result appears on the pull request.
 
+## Precedent's own workflows (this repo, not a template)
+
+Three workflows run on this repo itself, in [.github/workflows/](.github/workflows/):
+
+- **`docs.yml`** — pre-fork BestPractice content: the Markdown lint job
+  described below, running here rather than only shipped as a template.
+- **`deep-check.yml`** — added by a 2026-09-03 deep-check audit. Runs
+  [tools/verify_harness.py](tools/verify_harness.py),
+  [tools/precedent_check.py](tools/precedent_check.py) and
+  [tools/doc_sync.py](tools/doc_sync.py) — the three of AGENTS.md's five
+  named "deep check" tools that had no continuous-integration (CI) check
+  of their own until this landed, having been session discipline only.
+  That gap is exactly where
+  a same-day audit found two critical, reproduced bugs (a self-referential
+  `repo-local` source silently destroying its own content, and a second
+  that broke every re-sync after it) sitting undetected on a branch whose
+  merges were all green — neither doc_lint.py nor leak_gate.py could ever
+  have caught either, since neither runs the resolver or materializer at
+  all. Runs on every push and pull request, on every branch, same as
+  leak-gate.yml below.
+- **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
+  (`b3bfb54`). Runs [tools/leak_gate.py](tools/leak_gate.py)'s structural
+  layer on every push and every pull request, on every branch (this repo is
+  the branch being published, not just its default). It is the unbypassable
+  backstop for the private-source separation described in
+  [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "Source — Who a
+  Practice Belongs To": a `git push --no-verify` can skip the local
+  [pre-push hook](templates/hooks/pre-push), but not this. See
+  [spec/SOURCES.md](spec/SOURCES.md) for what it checks and why it has two
+  layers, only one of which can run here. (This section exists because the
+  workflow went undisclosed for months after being added — the practice
+  requiring disclosure, `github-setup-disclosed`, only fires on a
+  newly-added workflow file in the diff being checked, so it structurally
+  cannot catch a workflow that was already merged before the practice
+  existed to check it. Found by a 2026-09-01 deep-check audit; see
+  [tools/verify_harness.py](tools/verify_harness.py)'s
+  `check_all_workflows_disclosed` for the tree-wide check added in
+  response, which does catch this going forward.)
+
 ## What the Markdown check does
 
 The supplied workflow:

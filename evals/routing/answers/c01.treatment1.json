@@ -1,0 +1,1 @@
+{"slugs": ["acronyms-glossary", "readers-vocabulary"], "reasoning": "The new README paragraph switches from the document's established term \"AI\" to the unexplained acronym \"LLM\", which is both an unexpanded acronym and unnecessary jargon for an outward-facing README with a plain equivalent already in use nearby."}

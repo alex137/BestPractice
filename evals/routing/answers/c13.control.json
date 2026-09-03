@@ -1,0 +1,8 @@
+{
+  "slugs": [
+    "cite-the-incident",
+    "convention-to-audit",
+    "practice-export-loop"
+  ],
+  "reasoning": "The carry-all-pending rule is written with its origin incident inline (cite-the-incident), turns a violated convention into a mechanical refuse-to-record gate (convention-to-audit), and the whole change modifies the check-in/export mechanism itself (practice-export-loop)."
+}

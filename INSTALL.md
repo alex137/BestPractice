@@ -29,7 +29,101 @@ instantiate templates with the repo's subject matter, placing real files at
 their real locations. **Export is abstractive** — when installed practice
 improves, you fold the generic form back into `process/upstream/`. The
 **manifest** records the mapping in both directions; the **audit** makes
-drift and proprietary leakage loud instead of silent.
+drift and proprietary leakage loud instead of silent. **This is the
+classic model** (§1 below) — a repo with no prior BestPractice install
+that wants Precedent's three-source loader directly, without ever going
+through `process/upstream/`, should read §0 first instead.
+
+## 0. Installing directly onto the Precedent loader (new, 2026-09-03 — read the caveat before using)
+
+> **In plain terms.** This is an alternative to §1 below, for a project
+> that has never installed BestPractice before and wants to start on
+> Precedent's newer three-source system (universal + team + individual)
+> directly, rather than installing the older single-source model first and
+> migrating later. Most projects today should still use §1 — this path is
+> new and has not yet been rehearsed end to end against a real project
+> (see the caveat at the end of this section). [SETUP.md](SETUP.md)'s
+> guided conversation still uses §1 by default; ask for this path by name
+> if you want it.
+
+**When to use this instead of §1**: a genuinely fresh repo, never
+BestPractice-vendored before. A repo that already vendored BestPractice
+the old way and wants to move to the three-source model is a different,
+already-documented case —
+[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
+not this section.
+
+1. **Vendor the universal source.** Clone Precedent
+   (`precedent-beta-v01` today; `main` once phase 7 merges it back) and
+   copy two things into this repo as ordinary tracked files: its
+   `practices/` tree, into a tracked path of your choosing (recommended:
+   `precedent/universal/practices/`), and its whole `tools/` directory —
+   the engine (`precedent_resolve.py`, `precedent_materialize.py`,
+   `precedent_sync_views.py`, `build_views.py`, `precedent_show.py`,
+   `precedent_paths.py`, `precedent_gate.py`, `precedent_check.py`,
+   `split_practices.py`, and everything else there — `checked_by:
+   "tools/precedent_check.py"` claims are hollow without it) — into this
+   repo's own `tools/`. Record the exact commit you copied from.
+2. **Write `precedent.json`** at the repo root, naming the universal
+   source (`level: "universal"`, `path` pointing at step 1's vendored
+   copy) and, if the administrator answered yes to the team/individual
+   question (step 3 below, same question §1 step 9 asks), a `team` source
+   too — resolved live from a sibling clone, per
+   [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+   §3, **never vendored**. Never declare a `level: "individual"` entry —
+   `tools/precedent_resolve.py` refuses this by name, and for good
+   reason: naming a person's individual set in a repo anyone else on the
+   team can read leaks its existence and location to them.
+3. **Ask the team/individual-source question** exactly as §1 step 9
+   describes, and wire the individual source's own bootstrap pattern the
+   same way if the person has one — this step doesn't change between the
+   two install models.
+4. **Instantiate `AGENTS.md` from
+   [templates/AGENTS.md.loader.template](templates/AGENTS.md.loader.template)**
+   — not `templates/AGENTS.md.template`, which is §1's classic-model
+   version. Adapt it the same way §1 step 2 describes (real subject
+   matter, keep the section structure), and leave the
+   `<!-- BEGIN GENERATED: precedent-loader -->` /
+   `<!-- END GENERATED -->` markers exactly as the template has them,
+   empty — step 6 fills them in.
+5. **Instantiate everything else §1 step 2 already covers**: `MAP.md`,
+   `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, `VOICE.md`,
+   `STYLEGUIDE.md`, the README agent-entry block, the harness adapter(s),
+   `tools/bootstrap.sh`, the Actions check, the PR template — unchanged
+   by which install model this is. **Skip** `process/manifest.json` and
+   `process/scrub_blocklist.txt` — those are §1's own bookkeeping for a
+   model this path doesn't use.
+6. **Run `python3 tools/precedent_sync_views.py`** — it resolves every
+   source `precedent.json` declares and writes `AGENTS.md`'s generated
+   block from the result (the resident block, the occasion index, the
+   standing instruction). Confirm it prints `OK`, not `FAIL`, and that
+   the reported resident-block size is inside its stated budget.
+7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
+   loose at the repo root except the instantiated files above — the
+   vendored engine and universal catalogue live under `tools/` and step
+   1's tracked path, not scattered elsewhere.
+8. Commit everything on a branch, same as §1.
+
+**The caveat, stated plainly rather than left to be discovered.** This
+section is new. Steps 1–2 and 6 (vendoring, `precedent.json`, and
+`precedent_sync_views.py` actually producing a working `AGENTS.md`) were
+dry-run tested in a scratch fixture while writing this section and do
+work as described — but the section as a whole has not yet been rehearsed
+end to end against a real repo, which
+[spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) names as still ahead. Two
+things it deliberately does **not** cover, by design and not oversight:
+
+- **`MAP.md`/`GLOSSARY.md` generation.** `tools/precedent_sync_views.py`
+  deliberately does not build these for a consuming repo (see its own
+  docstring) — they stay hand-templated, same as §1.
+- **The creation pipeline isn't wired into a fresh install yet.**
+  Candidates, promotion, and approval routing
+  (`tools/precedent_candidate.py` and friends) exist in Precedent's own
+  `tools/` and in the private team/individual repos, not in what this
+  section vendors. `templates/AGENTS.md.loader.template`'s own
+  merge-runbook export-gate step says so explicitly and names the real
+  mechanism until it is wired in: an ordinary pull request against the
+  vendored source's own upstream repo.
 
 ## 1. Install into a dependent repo
 
@@ -42,10 +136,12 @@ drift and proprietary leakage loud instead of silent.
 > private branch (step 7), and it becomes official only at the
 > review-and-merge that the [guided install](SETUP.md) walks an
 > administrator through in conversation rather than as a technical
-> checklist. The one
-> decision only you can make: **which private names and code words must
-> never leak into a public file** (step 4) — your assistant cannot guess
-> your project's secrets, so it will ask you directly.
+> checklist. Two decisions only you can make: **which private names and
+> code words must never leak into a public file** (step 4) — your
+> assistant cannot guess your project's secrets, so it will ask you
+> directly — and **whether your team or you personally already have your
+> own practices repo to wire in** (step 9) — most projects don't yet, and
+> that's a fine answer, but you're the only one who'd know if you do.
 
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
@@ -190,6 +286,91 @@ drift and proprietary leakage loud instead of silent.
    it recorded only in this file. This install's own Actions check and PR
    template both need a line there; anything a future update adds does
    too.
+9. **Ask about team and individual practice sources** (PRACTICE_ENGINE_PLAN.md's
+   "Source — Who a Practice Belongs To"). This universal layer is one of
+   three a project can run. Ask the administrator directly: *"Does your
+   team already have its own practices repo — shared conventions beyond
+   what's generic enough for the public BestPractice? Does anyone here
+   have their own personal one — facts specific to them, like a commit
+   identity or a personal shorthand?"* Most projects have neither yet, and
+   that's a complete, valid answer — this step exists so the option is
+   actually offered, not assumed away.
+   - **If yes to a team source:** add `precedent.json` at the project root
+     (create it if this is the first source beyond universal) declaring it:
+     ```json
+     {
+       "sources": [
+         {"level": "universal", "name": "precedent", "path": "process/upstream"},
+         {"level": "team", "name": "<their repo's name>", "path": "../<their repo's name>"}
+       ]
+     }
+     ```
+     A team source is **resolved live from a sibling checkout, never
+     vendored** — it already has its own repo and its own maintainers, so
+     copying it in would just be a second, driftable copy. `path` is
+     relative to the project root; whoever works from the project needs
+     that sibling repo checked out locally, or — on a hosted agent
+     platform like Claude Code Remote/Web, where a session's git access is
+     scoped per session rather than inherited from the project — the
+     session needs to be granted read access to it. **That grant must be
+     something the session does for itself, automatically, every session
+     — never a manual step a person has to remember or a failure they
+     have to notice and react to.** `templates/AGENTS.md.template`'s
+     "Build-environment gotchas" section carries the exact bullet to
+     instantiate for this — use it rather than writing your own version;
+     see [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     step 4 for the worked pattern and the incident that made "write your
+     own version" the wrong call once already (it covers both this and the
+     individual source below together, since they hit the identical gap).
+   - **Proposing a *new* practice into that team source later is a
+     separate question from installing the source itself, worth
+     mentioning here since it comes up the moment anyone actually uses
+     one:** whether it lands immediately or needs someone else's say-so
+     depends on whether whoever's proposing it is a listed approver in the
+     team repo's own `approvers.json`, not on how much git access their
+     session happens to have. A listed approver's own agreement already
+     is the approval `precedent_land.py` looks for — land it directly,
+     right in that conversation (`precedent_promote.py` then
+     `precedent_land.py --approved-by NAME`). Someone who isn't a listed
+     approver can't grant that regardless of what else they can write to,
+     so `precedent_candidate.py create --level team --as-issue true`
+     drafts a GitHub Issue on the team repo instead, for an actual
+     approver to act on later — see
+     [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)
+     for the full "file vs. Issue" reasoning (it also covers individual,
+     which never needs this: you're always the one who gets to say yes to
+     your own set).
+   - **If yes to an individual source:** that person declares it
+     themselves, in their **own** user-level config
+     (`~/.config/precedent/config.json`, or wherever `PRECEDENT_USER_CONFIG`
+     points) — **never** in this project's own tracked files. Naming a
+     person's individual set in a shared project's `precedent.json` would
+     leak its existence and location to everyone else who can read that
+     project, and `tools/precedent_resolve.py` refuses it outright for
+     exactly that reason. On an ephemeral or cloud coding environment where
+     nothing under `$HOME` survives between sessions, that config has to be
+     recreated every session — a `SessionStart` hook, committed to the
+     *project* (not the individual repo), that clones the person's set and
+     writes the config file automatically. **That clone still needs the
+     session to actually have git read access to the individual repo
+     first, and on a hosted agent platform that access is not automatic
+     just because the hook exists** — a session's git access is scoped per
+     session, and a shell hook has no way to grant itself more of it. No
+     token or secret closes this gap: it costs nothing but a behavioral
+     instruction, told to the agent itself (not the hook), to extend its
+     own session's access to that repo, unconditionally, before the hook
+     ever runs. See
+     [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     step 4 for the worked pattern, including the access gate and exactly
+     how to close it.
+   - See [examples/practice-set/](examples/practice-set) for what an
+     individual set's files actually look like, and
+     [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
+     for **universal source**, **team source**, and **individual source**
+     as terms.
+   - This step isn't only for a fresh install — see §2 step 3 for asking it
+     again on an update, since a project's answer can change after this
+     one-time question at install.
 
 `.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8),
 appended to the baseline `.gitignore` instantiated above from
@@ -237,8 +418,13 @@ deliberate procedure below.
    ([templates/github-actions/](templates/github-actions/README.md)), or the
    PR template
    ([templates/pull_request_template.md.template](templates/pull_request_template.md.template)).
-   Instantiate them exactly as §1 describes and add manifest entries — a
-   short catch-up prompt ("take the BestPractice update") is enough to
+   The same applies to a question, not just a file: if this repo installed
+   before §1 step 9 existed, **ask about team and individual practice
+   sources now** — a project doesn't get only one chance at install to say
+   yes, and a "no" the first time (or before the option existed at all)
+   isn't permanent. Instantiate them exactly as §1 describes and add
+   manifest entries — a short catch-up prompt ("take the BestPractice
+   update") is enough to
    propagate a newly introduced template like this to every repo that
    already installed BestPractice before it existed.
 4. **Fix legacy layout.** Older installs sometimes scattered
@@ -406,7 +592,7 @@ order records a hash the vendored tree doesn't match.
     },
     {
       "practice": "merge-runbook",
-      "upstream_path": "templates/CLAUDE.md.template",
+      "upstream_path": "templates/AGENTS.md.template",
       "local_path": "CLAUDE.md",
       "granularity": "section",
       "section_marker": "## Merge runbook",
@@ -519,8 +705,10 @@ on, across the whole lifecycle:
   also be shown `VOICE.md`'s default writing-style rules and asked
   whether to change them, and asked whether a brand guideline exists to
   fill in `STYLEGUIDE.md` from — both stay entirely local to your project.
-  See the [guided install](SETUP.md) for the conversational version of
-  this.
+  You'll also be asked whether your team, or you personally, already have
+  a practices repo of your own to wire in (§1 step 9) — most projects
+  don't yet, and saying so is a complete answer. See the
+  [guided install](SETUP.md) for the conversational version of this.
 - **At every check-in (§4), only if your project gives back at all
   (§3–§4 are both optional):** review the plain-language summary of what's
   being proposed back to the public BestPractice project, and approve,

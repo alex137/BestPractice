@@ -1,0 +1,1 @@
+{"slugs": ["cite-the-incident", "mistakes-become-rules"], "reasoning": "The change is a textbook mistakes-become-rules pass (root-causing a wrong-computed-number incident into an audit-enforced practice), and the new practice 30's Rule correctly follows cite-the-incident by recording the origin failure inline rather than as a bare rule."}
