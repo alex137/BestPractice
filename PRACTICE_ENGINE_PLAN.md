@@ -1775,6 +1775,26 @@ it can be generated; the explanation cannot.
   given in a session, with the repo write happening behind it. Worth
   deciding before the first non-technical team is onboarded, not
   before phase 0.
+- **Is the leak gate's vocabulary blocklist miscalibrated, or has it just
+  never run clean?** Found switching it on for the first time
+  ([spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md)'s pre-flight check): 45
+  hits on already-committed, already-public content (`themorgan`, `Buenos
+  Aires`) that a 2026-09-01 decision
+  ([decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md))
+  already named as non-sensitive. Reverted rather than fixed, so the gate
+  meant to protect against publishing something real into a public repo is
+  currently sitting unusable in practice. Morgan's call: narrow the
+  blocklist, or accept the current hit rate as correct and fix the
+  now-flagged content instead. Full context in
+  [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md#other-things-worth-adversarial-pressure-not-yet-applied).
+- **`Session:` vs. `Claude-Session:` — which key does the session-trailer
+  check actually want?** `precedent-team-maintainers/practices/session-trailer.md`'s
+  Rule names only `Session:`; this branch's own attribution convention has
+  always written `Claude-Session:`. Every Claude Code commit to that repo
+  trips the check on the key name alone until one of the two changes.
+  Morgan's call: teach the check to also accept `Claude-Session:`, or have
+  sessions add a literal `Session:` line too. Full context in
+  [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md#fresh-harness-run-across-all-three-repos-found-real-pre-existing-drift).
 
 ## Amendments Since Approval
 

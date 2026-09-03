@@ -406,11 +406,15 @@ session that actually has that repo attached, per Morgan's own call:
   markers per `INSTALL.md`. Confirm `precedent_check.py --explain` on a
   real, target-repo-specific slug too, which this session did not push
   past `--list`.
-- **Confirm a naming discrepancy before starting**: `spec/PHASE5_BRIEF.md`'s
-  own step 0 says fork `WritingWithAI`; `precedent-individual`'s
-  `leak-blocklist.txt` names a different-looking private project name for what may be the same repo. Worth
-  confirming those are the same repo before anything else, since this
-  session has no access to check.
+- **Confirm a naming discrepancy before starting** — `spec/PHASE5_BRIEF.md`'s
+  step 0 named `WritingWithAI`, while `precedent-individual`'s
+  `leak-blocklist.txt` names a different-looking private project for what
+  may be the same repo. **Fixed on this repo's side (2026-09-03):**
+  PHASE5_BRIEF.md's step 0 no longer hardcodes either name — it now says
+  to confirm the real target against `precedent-individual`'s own
+  blocklist (or ask Morgan) before forking anything. The actual
+  confirmation itself still needs a session holding `precedent-individual`
+  (or Morgan directly), which this session did not have.
 - **Raise at least one real candidate from something the migration itself
   surfaces** — the brief's own repeated ask, and a better test done inside
   a real migration than in isolation, per its own reasoning.

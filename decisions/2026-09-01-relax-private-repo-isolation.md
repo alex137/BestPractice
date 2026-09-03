@@ -106,3 +106,25 @@ risk tolerance for Morgan's own content. It does not generalize:
   it -- the two reasons above (no real secrets in this content, and the
   platform restriction being unconfirmed) may or may not still hold for
   whatever is in the private sets by then.
+
+## Addendum, 2026-09-03: the platform restriction is now confirmed, at least for one tool
+
+This record's own reasoning leaned partly on the restriction being
+*unconfirmed*. A session working from `alex137/BestPractice` (this
+branch) tried to `add_repo` `themorgan/precedent-individual` mid-session,
+specifically to carry out a fix Morgan had just authorized, and got a
+concrete, unambiguous tool error rather than a vague failure: *"cross-tier
+adds are not supported in v1: requested 'themorgan/precedent-individual'
+but session already has repos from owner(s) [alex137]. Start a new
+session with the requested repo as the initial source, or add a repo from
+the same owner as the existing sources."* That is a real, current
+limitation of Claude Code Remote's `add_repo` specifically (a session
+cannot pick up a second owner's repo mid-session, though it can start
+with one), not the git/GitHub-permissions question this record was
+originally reasoning about. **This does not reopen or reverse this
+decision** -- the actual git push permissions this record is about are
+unaffected, and a *new* session started with the private repo as its
+initial source works around the tool-level limit fine. Recorded because
+the next session reasoning about this shouldn't re-litigate whether the
+restriction is real; for this one tool, it is, and starting fresh against
+the target repo is the workaround.
