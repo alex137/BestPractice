@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a deep-check fix session -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by the phase-6 pre-fork audit session -->
 
 # Changes to tell Alex
 
@@ -87,7 +87,68 @@ closed something the one above left open.
 See [practices/layered-practice-packs.md](practices/layered-practice-packs.md)
 and [spec/SOURCES.md](spec/SOURCES.md).
 
+### The phase-4 enforcement rollout — 24 inherited practices gained a real `checked_by` — 2026-09-03, found doing the pre-fork audit
+
+**What changed.** This branch's own scope statement, above, says plainly:
+"changes what its `checked_by` actually enforces goes here." Phase 4
+(`spec/ENFORCEMENT.md`) converted 24 of your 53 inherited practices from
+`checked_by: null` — advisory prose only, compliance depended on a session
+noticing and following it — to a real script in `tools/precedent_check.py`.
+That never got logged here as its own event: 16 of the 24 are mentioned in
+this file only for the unrelated citation-link sweep above, whose own text
+("no `checked_by` enforcement changed") is true of *that specific commit*
+but left the separate, earlier enforcement commits undisclosed; 8 are
+absent from this file entirely. Found auditing the full pre-fork catalogue
+against this plan's architecture
+([spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md)), not from any one commit's
+own review.
+
+**Affected practices** (slug — original BestPractice number): `cite-the-incident`
+(5), `computed-numbers-in-scripts` (19), `deliverables-look-like-output`
+(49), `doc-references-are-links` (11, a *re-point* — this one already had a
+`checked_by` naming `tools/doc_lint.py`; phase 4 moved it to
+`tools/precedent_check.py`, which is exactly "changes what its `checked_by`
+actually enforces" in the file's own words), `docs-are-current-state` (26),
+`docs-track-models` (33), `engine-plus-host-shims` (50),
+`environment-gotchas` (4), `generated-artifact-provenance` (8),
+`github-setup-disclosed` (37), `index-remembers-past` (48),
+`label-describes-content` (27), `no-rewrite-for-warnings` (31),
+`no-version-suffix` (18), `orientation-map` (2), `practice-export-loop`
+(14), `quick-index` (3), `scripts-assert-properties` (30), `scrub-gate`
+(15), `search-by-purpose` (41, whose `occasion` wording was also rewritten
+in the same pass — a routing-trigger fix, not a Rule change),
+`session-bootstrap` (13), `two-check-levels` (44), `verify-postcondition`
+(32, also resident — see the entry below), `acronyms-glossary` (17).
+
+**What did not change.** Every affected practice's `## Rule` — what it
+actually asks a session to do — is unchanged; [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md)
+confirms this practice-by-practice, not just asserted. This is purely
+*how* compliance is checked, never *what* is being asked.
+
+### The phase-2 resident-tier promotion — 6 inherited practices are now always loaded — 2026-09-03, found doing the pre-fork audit
+
+**What changed.** BestPractice pre-fork had no `tier` concept at all — every
+practice was equally prose, consulted the same way. Phase 2 introduced
+`tier: resident` (always loaded into every session, via `AGENTS.md`'s
+generated block) versus `tier: on-demand` (reached only through the
+occasion index, a path glob, or a check). Six of your inherited practices
+are now resident: `repo-is-memory` (1), `orientation-map` (2),
+`quick-index` (3), `environment-gotchas` (4), `reply-links-files` (12),
+`verify-postcondition` (32). This is the architecture's own headline move
+([PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md), "The Resident
+Budget") and none of these six practices' own files log it — the same gap
+the entry above names for enforcement, for a different mechanism.
+
+**What did not change.** Same as above — the Rule text of all six is
+untouched; only where and how often a session sees it changed.
+
 ## Cross-referenced only, not a behavior change
+
+**A scope note on the entry below, added 2026-09-03**: "no `checked_by`
+enforcement changed" in the Slug-link citation sweep entry is accurate for
+that specific commit, not a claim that none of the affected practices ever
+gained enforcement — several did, in separate, earlier commits, logged
+above once this branch's own pre-fork audit actually found the gap.
 
 ### Slug-link citation sweep — 2026-09-01
 
