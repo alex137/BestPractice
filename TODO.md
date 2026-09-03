@@ -92,3 +92,13 @@ the upstream layer. Ordered by priority.
     negative result (the session never mentions the practice across
     several such edits) is itself the answer, and should be recorded here
     either way rather than left unconfirmed indefinitely.
+12. **Investigate why `routing-audit` fell through, audit the plan for
+    other silent drops, and pre-register a real evaluation of the two new
+    audit mechanisms before trusting their output.** Full instructions in
+    [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md). **Blocked
+    on:** a fresh session with room for both the investigation (grepping
+    the plan for other approved-but-unbuilt commitments, cross-referencing
+    phase briefs) and a properly pre-registered evaluation
+    (`evals/routing/` discipline) — genuinely too large to fold into the
+    session that built `routing-audit` and `full-practice-audit` in the
+    same sitting.

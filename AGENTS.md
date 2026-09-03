@@ -23,7 +23,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 57 practices)
+### Resident block (~312 of 2000 token budget, 6 of 59 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -66,6 +66,8 @@ When a document presents a script-derived figure:
   docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
+When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
+  full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
 When a practice lands or a candidate is raised, at any level:
   disclose-landing — state plainly what happened and where — individual, named team, or universal
 When a review finds a defect:
@@ -82,6 +84,8 @@ When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
 When building or committing a generated artifact:
   generated-artifact-provenance — stamp a build code and a manifest; never hand-edit output
+When checking whether the practices that should have fired for recent work actually fired:
+  routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
 When committing anything that touches the vendored/public tree:
   scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
@@ -197,6 +201,9 @@ that skips them in this repo of all places is the joke writing itself.
 | Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team) — distinct from creating one or retiring one outright | [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) |
 | Why the miss rate is what it is, and the plan for it (read before phase 5) | [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) |
 | Why each practice is routed the way it is (every glob, and every `**`) | [tools/routing_scope.json](tools/routing_scope.json) |
+| The routing audit: coverage check + rotating deep read, on-demand, never a routine gate | [practices/routing-audit.md](practices/routing-audit.md), engine at [tools/routing_audit.py](tools/routing_audit.py) |
+| The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
+| Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |

@@ -934,6 +934,41 @@ def _two_check_levels(ctx):
     return []
 
 
+@check('routing-audit', 'tree',
+       'tools/routing_audit.py exists, and tools/routing_audit_state.json '
+       '(if present) has no rotation entry for a practice that is not '
+       'currently active',
+       'whether the audit is actually being RUN or a slice actually READ -- '
+       'only that the tool exists and its own bookkeeping stays honest.')
+def _routing_audit(ctx):
+    tool = ROOT / 'tools' / 'routing_audit.py'
+    if not tool.exists():
+        return [Finding(str(tool.relative_to(ROOT)),
+                        "does not exist -- routing-audit.md names it as "
+                        "this practice's implementation")]
+    state_path = ROOT / 'tools' / 'routing_audit_state.json'
+    if not state_path.exists():
+        return []
+    try:
+        state = json.loads(state_path.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, OSError) as e:
+        return [Finding(str(state_path.relative_to(ROOT)),
+                        f'is not valid JSON ({e})')]
+    active = set()
+    for f in sorted((ROOT / 'practices').glob('*.md')):
+        try:
+            fm, _sections = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue
+        if (fm.get('status', 'active') or 'active').strip().strip('"') == 'active':
+            active.add(fm.get('slug', f.stem))
+    return [Finding(str(state_path.relative_to(ROOT)),
+                    f'records a rotation entry for {slug!r}, which is not '
+                    f'an active practice -- stale bookkeeping left behind '
+                    f'by a retired or renamed practice')
+            for slug in state if slug not in active]
+
+
 @check('search-by-purpose', 'change',
        'a document carrying generated numbers is reachable from an index a '
        'reader actually consults',
