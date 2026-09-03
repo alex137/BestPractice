@@ -466,6 +466,20 @@
       "gates_why": "A turn ending is when knowledge either got committed or was lost.",
       "why": "Resident; its applies_to is not this file's business.",
       "decided": "phase 4 routing pass"
+    },
+    "routing-audit": {
+      "globs": [
+        "**"
+      ],
+      "why": "Not a place -- \"checking whether practices that should have fired, fired\" is a periodic act a person invokes, not a file-touch trigger. Reachability comes from its occasion clause.",
+      "decided": "2026-09-03, full-practice-audit / routing-audit session"
+    },
+    "full-practice-audit": {
+      "globs": [
+        "**"
+      ],
+      "why": "Not a place -- a whole-catalogue sweep is invoked explicitly by a person, not triggered by touching any one file. Reachability comes from its occasion clause.",
+      "decided": "2026-09-03, full-practice-audit / routing-audit session"
     }
   },
   "gates": {
