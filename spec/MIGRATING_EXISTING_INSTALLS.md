@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, after the session-repo-access gate was found and fixed for real in WorkingWithAI -->
+<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, after old-system vocabulary was found lingering in WorkingWithAI a day past its own migration -->
 
 # Migrating a repo that already has BestPractice installed
 
@@ -152,11 +152,27 @@ the loader.
    against. Delete the pack's own manifest file, its README, its templates.
    Anything the pack's own tooling depended on (a merge-runbook file-class
    rule naming the old manifest, a CI workflow calling the old tool path)
-   needs the same update — grep the whole repo for the old tree's path
-   before considering this step done; it touches more files than the
-   obvious ones (this repo's own conventions doc, glossary, map, and any
-   essay or brainstorm document that used the old pack as a running example
-   of some mechanism, not just its own instructions file).
+   needs the same update.
+
+   **Scrub the old system's whole vocabulary now, in this same migration —
+   never as a separate cleanup someone has to ask for later**
+   ([migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md)).
+   This is broader than the file paths above: the old system's real name,
+   any secret or token name it used, and every paragraph that explains
+   what a now-retired workflow *used to do* — grep the whole repo, not
+   just the obvious files (this repo's own conventions doc, glossary, map,
+   onboarding page, and any comment inside a workflow configuration file
+   (YAML) that used the old system as a running example) before
+   considering this step done. Declare what
+   you find once, don't decide file-by-file: write
+   `process/retired_vocabulary.json` —
+   ```json
+   {
+     "terms": ["<the old repo or system's real name>", "<a retired secret name>", "..."],
+     "exempt_files": ["process/PRECEDENT_MIGRATION.md", "TODO.md", "<any file that is explicitly a historical log by its own stated purpose>"]
+   }
+   ```
+   — then run `python3 process/upstream/tools/precedent_check.py --only migration-scrubs-vocabulary` and don't call this step done until it passes. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
 6. **Retire the old sync workflow entirely** (there is nothing left to
    vendor-and-sync for the team/individual sources — they resolve live).
