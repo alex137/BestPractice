@@ -1782,6 +1782,22 @@ The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; this section is the short record of what moved.
 
+**2026-09-03 — v31, nothing ever told an installer or a member this system
+exists — partially closed.** Neither [SETUP.md](SETUP.md) nor
+[templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) is named
+anywhere in this plan; Stage 4's approver-notification design and
+`disclose-landing` both cover a proposal *already raised*, not a newcomer
+learning the capability exists at all. Both docs now disclose the
+capture-gate mechanism (practice 10), calibrated to what a clean install
+actually gets today — not the full Stages 1–5 pipeline, which nothing
+[SETUP.md](SETUP.md) vendors out yet actually has. Full reasoning, what was rejected
+and why, in
+[decisions/2026-09-03-setup-getting-started-disclosure-gap.md](decisions/2026-09-03-setup-getting-started-disclosure-gap.md).
+Disclosing the real pipeline honestly is proposed as Phase 6 scope, in the
+plan Morgan is reviewing separately. Also closed: two items
+[spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md) flagged as real but
+untracked, now [TODO.md](TODO.md) items 9–10.
+
 **2026-09-02 — v30, three pre-build calls settled before Stage 1 code.**
 Retirement (Stage 6) is now approval-gated exactly like creation, stated
 directly in [Stage 6](#stage-6--the-loop-closes) itself; the
