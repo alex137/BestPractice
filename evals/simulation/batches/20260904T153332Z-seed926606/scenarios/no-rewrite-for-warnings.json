@@ -1,0 +1,14 @@
+{
+  "positive": {
+    "scenario": "A contributor's push to the shared trunk trips a commit-message linter that just got stricter, flagging a colleague's commit from last week for a missing trailer. The colleague has since moved on to other work and isn't easily reachable. Rather than rebasing trunk to patch that old commit's message, the engineer updates the linter's config so it only enforces the new rule going forward, and leaves the flagged commit as-is.",
+    "files": ["tools/commit_lint.py", ".githooks/commit-msg", "docs/commit-conventions.md"]
+  },
+  "negative": {
+    "scenario": "While cleaning up a personal feature branch that hasn't been pushed anywhere yet, an engineer notices the CI badge would fail on their last three commits because of inconsistent authorship email addresses from switching laptops. Since the branch is entirely local and unshared, they interactively rebase to squash the commits and fix the author field before opening the PR.",
+    "files": ["src/feature/parser.py", ".git/config"]
+  },
+  "adversarial": {
+    "scenario": "A release-readiness check starts failing after a new signing-key policy goes live, complaining that several tags already pushed months ago were signed with a now-untrusted key. It looks like a straightforward key-rotation cleanup task, so the on-call engineer's first instinct is to re-sign and force-push the old tags to quiet the check. Instead, they update the verification tool's trusted-keys list to accept the historical key for anything predating the policy change, keeping the published tags untouched.",
+    "files": ["tools/verify_release_signatures.py", "spec/RELEASE_POLICY.md", "ci/release-check.yml"]
+  }
+}

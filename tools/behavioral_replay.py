@@ -28,10 +28,27 @@ precisely because of it). This script reports how many on-demand practices
 are occasion-only and therefore outside what it can verify, rather than
 silently treating "not measurable" as "passing."
 
+MECHANICAL CORRECTNESS, ADDED LATER (spec/SIMULATION_BRIEF.md phase 1). The
+measurement above is REACH ONLY: would a practice have been surfaced. It
+never asks whether the work that followed was actually correct. `--with-
+checks` adds a second, still-mechanical measurement for the ~26 practices
+whose checked_by is PROVEN to fire both ways by
+tools/verify_harness.py's check_precedent_check_fires (never the full 26 --
+only the ones that function actually exercises; a checked_by claim nobody
+has watched fire is worth less than no claim, per spec/ENFORCEMENT.md's own
+phase-4 finding): check out each replayed commit into a scratch worktree
+and run THAT COMMIT'S OWN tools/precedent_check.py against the diff it
+made. This is retrospective enforcement compliance, not routing -- it says
+whether the check would have fired at the time, nothing about whether a
+session was ever shown the practice or complied with it on purpose. It is
+also slower (a worktree checkout and two subprocesses per commit), so it is
+bounded separately by --max-correctness-commits and left off by default.
+
 Run:
   python3 tools/behavioral_replay.py [--max-commits N]
+  python3 tools/behavioral_replay.py --with-checks [--max-correctness-commits N]
 """
-import fnmatch, pathlib, subprocess, sys
+import fnmatch, pathlib, re, subprocess, sys, tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -115,6 +132,162 @@ def is_shallow_clone():
     return out == 'true'
 
 
+# --------------------------------------------------- mechanical correctness
+# (phase 1 of spec/SIMULATION_BRIEF.md -- see the module docstring above)
+
+def _proven_checked_slugs():
+    """Slugs verify_harness.py's check_precedent_check_fires() actually
+    proves fire both ways -- read from its own case(...) calls rather than
+    hand-copied here, so this list cannot silently drift from what the
+    harness actually proves as new checks are added or retired. Returns []
+    if the function cannot be found (a vendored/older tree, say), so a
+    caller failing to find any proven slugs reads as "nothing to check",
+    never as a crash."""
+    vh_path = ROOT / 'tools' / 'verify_harness.py'
+    if not vh_path.exists():
+        return []
+    text = vh_path.read_text(encoding='utf-8', errors='ignore')
+    m = re.search(r'\ndef check_precedent_check_fires\(.*?(?=\ndef [a-zA-Z_]+\()',
+                  text, re.S)
+    if not m:
+        return []
+    return sorted(set(re.findall(r"\bcase\('([a-z][a-z0-9-]*)'", m.group(0))))
+
+
+def _git_out(*args, cwd=None):
+    r = subprocess.run(['git', *args], cwd=str(cwd or ROOT),
+                       capture_output=True, text=True)
+    return r.returncode, r.stdout, r.stderr
+
+
+_VIOLATION_RE = re.compile(r'^VIOLATION\s+(\S+)', re.M)
+_ERROR_RE = re.compile(r'^ERROR\s+(\S+)', re.M)
+_SKIPPED_RE = re.compile(r'^SKIPPED\s+(\S+)', re.M)
+# scope is padded to 8 chars with trailing spaces before the closing "]" --
+# \S+ stops at the first space regardless, so the padding is harmless here.
+_LIST_ROW_RE = re.compile(r'^\s{2}(\S+)\s+\[(\S+)\s*\]', re.M)
+
+
+def checked_replay(commits, max_commits, proven):
+    """For up to `max_commits` of the given (already non-merge,
+    file-touching) commits, most recent first: check the commit out into a
+    scratch worktree and run THAT COMMIT'S OWN tools/precedent_check.py
+    (not this tree's copy -- older commits may predate a check entirely,
+    which is a real "not yet built" fact, not a gap to paper over) against
+    the diff that single commit made, via --range parent..commit. Only
+    `proven` slugs are trusted, and only in 'tree' or 'change' scope --
+    'turn-end' checks (verify-postcondition, no-rewrite-for-warnings) are
+    about live session state, never exercised by --range at all, and would
+    read as a false 100% pass rate if counted here.
+
+    PASS is inferred: the slug appears in that commit's own --list output
+    (the check existed and applies in general) and in none of that
+    commit's VIOLATION/ERROR/SKIPPED lines. This is the same "a skip is
+    not a pass" convention precedent_check.py itself uses; a check that
+    raises NotApplicable for that commit contributes no data point either
+    way, in either direction.
+
+    Returns (commits_considered, {slug: {'PASS': n, 'VIOLATION': n,
+    'ERROR': n}}), or a string explaining why it could not run at all."""
+    sample = commits[:max_commits]
+    if not sample:
+        return 0, {}
+    tally = {}
+    considered = 0
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-checked-replay-'))
+    try:
+        rc, _out, err = _git_out('worktree', 'add', '--detach', '-q', str(tmp), 'HEAD')
+        if rc != 0:
+            return f'could not create a scratch worktree: {err.strip()}'
+        for sha in sample:
+            rc, parent, _e = _git_out('rev-parse', f'{sha}^')
+            if rc != 0:
+                continue        # no parent (the initial commit) -- nothing to diff
+            parent = parent.strip()
+            rc, _o, _e = _git_out('checkout', '--detach', '-q', sha, cwd=tmp)
+            if rc != 0:
+                continue
+            script = tmp / 'tools' / 'precedent_check.py'
+            if not script.exists():
+                continue        # the enforced channel did not exist yet at this commit
+            list_r = subprocess.run([sys.executable, str(script), '--list'],
+                                    cwd=str(tmp), capture_output=True, text=True)
+            available = dict(_LIST_ROW_RE.findall(list_r.stdout))
+            run_r = subprocess.run([sys.executable, str(script), '--range',
+                                    f'{parent}..{sha}'],
+                                   cwd=str(tmp), capture_output=True, text=True)
+            out = run_r.stdout + run_r.stderr
+            violated = set(_VIOLATION_RE.findall(out))
+            errored = set(_ERROR_RE.findall(out))
+            skipped = set(_SKIPPED_RE.findall(out))
+            considered += 1
+            for slug in proven:
+                if available.get(slug) not in ('tree', 'change'):
+                    continue    # not registered yet at this commit, or turn-end scope
+                t = tally.setdefault(slug, {'PASS': 0, 'VIOLATION': 0, 'ERROR': 0})
+                if slug in violated:
+                    t['VIOLATION'] += 1
+                elif slug in errored:
+                    t['ERROR'] += 1
+                elif slug in skipped:
+                    continue    # NotApplicable at this commit -- not a data point
+                else:
+                    t['PASS'] += 1
+        return considered, tally
+    finally:
+        _git_out('worktree', 'remove', '--force', str(tmp))
+
+
+def report_checked_replay(commits, max_correctness_commits):
+    print("\n== Mechanical correctness (checked_by, historical replay) ==")
+    proven = _proven_checked_slugs()
+    if not proven:
+        print("  Could not find any proven checked_by slugs in verify_harness.py's "
+              "check_precedent_check_fires -- skipping.")
+        return
+    result = checked_replay(commits, max_correctness_commits, set(proven))
+    if isinstance(result, str):
+        print(f"  {result}")
+        return
+    considered, tally = result
+    if not tally:
+        print(f"  {considered} commit(s) sampled, checked out one at a time into a "
+              f"scratch worktree -- none of the {len(proven)} proven checked_by "
+              f"practices both existed at the time and applied to any of them.")
+        return
+    total_pass = sum(t['PASS'] for t in tally.values())
+    total_violation = sum(t['VIOLATION'] for t in tally.values())
+    total_error = sum(t['ERROR'] for t in tally.values())
+    total = total_pass + total_violation + total_error
+    print(f"  {considered} commit(s) checked out into a scratch worktree, each run "
+          f"through THAT COMMIT'S OWN tools/precedent_check.py against the diff it "
+          f"made, for the {len(proven)} practices verify_harness.py proves fire both "
+          f"ways.")
+    if total:
+        print(f"  {total} (commit, proven-check) data point(s): {total_pass} clean, "
+              f"{total_violation} violated, {total_error} errored "
+              f"({100 * total_violation / total:.0f}% violation rate).")
+    else:
+        print("  0 data points -- every proven check either did not exist yet or "
+              "raised NotApplicable on every commit sampled.")
+    for slug in sorted(tally):
+        t = tally[slug]
+        n = t['PASS'] + t['VIOLATION'] + t['ERROR']
+        if n == 0:
+            continue
+        note = f", {t['ERROR']} errored" if t['ERROR'] else ""
+        print(f"    {slug:32} {t['PASS']}/{n} clean{note}")
+    print("  Read this narrowly. It is retrospective enforcement compliance for the "
+          f"{len(proven)} practices with a checked_by proven to fire both ways -- it "
+          "says nothing about the other practices in the catalogue, and nothing about "
+          "whether a session was ever shown or complied with these on purpose. Some "
+          "change-scope checks also return a vacuous clean result (no findings) when "
+          "no file of the relevant type was touched at all, rather than raising "
+          "NotApplicable for it -- so 'clean' here is an upper bound on compliance, "
+          "not confirmation the check meaningfully exercised anything on every commit "
+          "counted.")
+
+
 # Below this many replayable (non-merge, file-touching) commits, a miss-rate
 # or cost-reduction percentage is noise, not a measurement -- report the
 # gap plainly and degrade rather than either crashing (a fresh `git clone
@@ -138,6 +311,22 @@ def main():
                      f"{args[i]!r}.")
         if max_commits < 1:
             sys.exit("behavioral_replay FAIL: --max-commits must be at least 1.")
+
+    with_checks = '--with-checks' in args
+    max_correctness_commits = 25
+    if '--max-correctness-commits' in args:
+        i = args.index('--max-correctness-commits') + 1
+        if i >= len(args):
+            sys.exit("behavioral_replay FAIL: --max-correctness-commits needs a "
+                     "number after it.")
+        try:
+            max_correctness_commits = int(args[i])
+        except ValueError:
+            sys.exit(f"behavioral_replay FAIL: --max-correctness-commits wants an "
+                     f"integer, got {args[i]!r}.")
+        if max_correctness_commits < 1:
+            sys.exit("behavioral_replay FAIL: --max-correctness-commits must be at "
+                     "least 1.")
 
     practices = load_all_practices()
     n_total = len(practices)
@@ -202,6 +391,8 @@ def main():
             print(f"  This is a shallow clone (git rev-parse --is-shallow-repository: true). "
                   f"Deepen it first: `git fetch --depth=500 origin <branch>` (bounded, per this "
                   f"repo's own environment notes), then re-run.")
+        if with_checks:
+            report_checked_replay(commits, max_correctness_commits)
         print("REPLAY_STATUS: DEGRADED (insufficient commit history for a meaningful replay -- "
               "not a loader defect; deepen the clone and re-run)")
         return 0
@@ -258,6 +449,9 @@ def main():
               f"{n_commits} replayed commits -- precedent_paths.py's output disagreed with an "
               f"independent fnmatch re-derivation over the same files (see examples above). "
               f"This is a real bug in the loader's path-matching, not a measurement caveat.")
+
+    if with_checks:
+        report_checked_replay(commits, max_correctness_commits)
 
     print(f"\nREPLAY_STATUS: {'OK' if verify_ok else 'MISMATCH'}")
     return 0 if verify_ok else 1

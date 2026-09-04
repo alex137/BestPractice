@@ -1,0 +1,11 @@
+{
+  "batch_id": "20260904T143422Z-seed745016",
+  "seed": 745016,
+  "created_utc": "2026-09-04T14:34:22.103574+00:00",
+  "practices": [
+    "parallel-artifact-ledger",
+    "scrub-gate",
+    "doc-references-are-links"
+  ],
+  "status": "generated-prompts-written"
+}

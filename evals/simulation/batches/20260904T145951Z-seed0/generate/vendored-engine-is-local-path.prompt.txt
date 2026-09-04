@@ -1,0 +1,31 @@
+You are helping build a routing-quality simulation for a practice-loading system. Below is one practice's full Rule. Invent THREE SHORT, independent, fictional work scenarios for it, each 3-6 sentences, as if describing a real task someone is partway through in a software repository.
+
+Do not mention the practice's name, slug, or quote its Rule back. A reader must recognize the practice applies (or doesn't) from the situation alone, the way a real session would.
+
+PRACTICE RULE (for your reference only -- do not reveal it in your answer):
+---
+No file outside `vendor/precedent-engine/` duplicates a run of lines from
+inside it — that is a fork, not a shim. Same rule as the universal
+`engine-plus-host-shims`, narrowed to where *this* repo actually keeps its
+vendored copy: `process/upstream/**` and `templates/harness/**` are
+BestPractice's own paths for this, not this repo's.
+---
+
+Write exactly this JSON object and nothing else (no markdown fence, no commentary before or after):
+
+{
+  "positive": {
+    "scenario": "<a situation where this practice's Rule clearly applies>",
+    "files": ["<1-3 plausible file paths this work touches>"]
+  },
+  "negative": {
+    "scenario": "<a situation that superficially RESEMBLES the trigger -- similar words, similar setting -- but where the Rule does NOT actually apply, and a careful reader should say so>",
+    "files": ["<1-3 plausible file paths>"]
+  },
+  "adversarial": {
+    "scenario": "<a situation where the Rule genuinely DOES apply, but framed to look like a different kind of task, or easy to miss on a quick read -- the hardest true positive you can construct>",
+    "files": ["<1-3 plausible file paths>"]
+  }
+}
+
+File paths must fit THIS repository's own real conventions -- here is a sample of its actual committed files, to draw on or extend in the same style (invent new paths under the same directories rather than reusing these exact files verbatim): README.md, app/api/routes.py, app/models.py, infra/deploy.yml, vendor/precedent-engine/engine.py. Do not invent a path that would trivially give away the answer by naming the practice.
