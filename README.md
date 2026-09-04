@@ -9,6 +9,29 @@
 > has not reached; it is rewritten in place as later phases land rather than
 > kept as a second, drifting copy.
 
+## The philosophy behind this project
+
+BestPractice is one working expression of a broader philosophy about how
+people and AI should work together, developed in
+**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)** (private for
+now — it will be made public soon). Read that repo for the theory this
+platform is built to embody.
+
+In short: it's an alternative to Google Docs, built on three core ideas,
+each showing up in more than one place — in the software itself and in the
+conventions around it:
+
+- **Human collaboration comes first.** The tool exists to make people
+  working together better, not to route around them.
+- **AI sits between the work and the people doing it**, rather than
+  everyone drafting, deciding, and documenting alone — pushing back on
+  your ideas to strengthen them, and keeping the record of how a decision
+  was reached, not just the decision itself.
+- **AI watches what's actually happening and proposes the rules for it** —
+  generating the practices and protocols a team should follow from its own
+  real history, and putting them up for people to approve, never landing
+  them unapproved.
+
 **Keep the project's memory in GitHub, and let people work with that
 memory through AI conversations.**
 
