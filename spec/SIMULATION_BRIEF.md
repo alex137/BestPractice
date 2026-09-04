@@ -1,10 +1,10 @@
-<!-- Last updated: 2026-09-04, drafted for approval — not yet implemented -->
+<!-- Last updated: 2026-09-04, phase 1 landed -->
 
-# The Practice Simulation (Brief, Pending Approval)
+# The Practice Simulation (Brief)
 
-**Status: draft. Nothing in this document is built.** Written up per Morgan's
-request to have a plan to approve before implementation starts. Once
-approved, treat this the way `spec/PHASE5_BRIEF.md` and friends were treated
+**Status: approved; phase 1 (rough phasing, below) is built.** Written up per
+Morgan's request to have a plan to approve before implementation starts.
+Treat this the way `spec/PHASE5_BRIEF.md` and friends were treated
 — a brief a phase is built from, updated in place as it's actually built,
 not superseded by a second drifting copy.
 
@@ -166,11 +166,26 @@ currently narrates routing-eval rounds by hand.
   models/personas to reduce the risk of one session's blind spots
   producing both the test and its own passing grade.
 
-## Rough phasing, if approved
+## Rough phasing
 
-1. Mechanical correctness scoring against proven `checked_by` checks,
-   folded into `behavioral_replay.py` — no new infrastructure, no LLM
-   calls, immediately runnable.
+1. **Built.** Mechanical correctness scoring against proven `checked_by`
+   checks, folded into `behavioral_replay.py` as `--with-checks`
+   (`--max-correctness-commits N` bounds it, default 25 — each sampled
+   commit is checked out into a scratch git worktree and run through
+   *that commit's own* `tools/precedent_check.py`, since older commits
+   predate some checks entirely). Trusts only the slugs
+   `verify_harness.py`'s `check_precedent_check_fires` actually proves
+   fire both ways (read from its own `case(...)` registrations, not
+   hand-copied, so this can't silently drift) — 26 as of this writing —
+   and only in `tree`/`change` scope (`turn-end` checks are about live
+   session state, never exercised by a historical `--range` replay, and
+   would misreport as a false 100% pass rate if counted). A first run
+   against this repo's own history found 2 real, live violations in
+   `acronyms-glossary` and `index-remembers-past` out of 114 (commit,
+   check) data points sampled — genuine signal, not a smoke test.
+   Deliberately narrow: this measures retrospective enforcement
+   compliance for the ~26 checked practices only, nothing about the other
+   ~31, and nothing about routing or intent.
 2. Synthetic scenario generation (§1-4) against this repo only, replacing
    `routing_eval.py`'s fixed case set — proves the generation approach
    before adding repo-count as a second axis.
