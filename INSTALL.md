@@ -30,100 +30,12 @@ their real locations. **Export is abstractive** — when installed practice
 improves, you fold the generic form back into `process/upstream/`. The
 **manifest** records the mapping in both directions; the **audit** makes
 drift and proprietary leakage loud instead of silent. **This is the
-classic model** (§1 below) — a repo with no prior BestPractice install
-that wants Precedent's three-source loader directly, without ever going
-through `process/upstream/`, should read §0 first instead.
-
-## 0. Installing directly onto the Precedent loader (new, 2026-09-03 — read the caveat before using)
-
-> **In plain terms.** This is an alternative to §1 below, for a project
-> that has never installed BestPractice before and wants to start on
-> Precedent's newer three-source system (universal + team + individual)
-> directly, rather than installing the older single-source model first and
-> migrating later. Most projects today should still use §1 — this path is
-> new and has not yet been rehearsed end to end against a real project
-> (see the caveat at the end of this section). [SETUP.md](SETUP.md)'s
-> guided conversation still uses §1 by default; ask for this path by name
-> if you want it.
-
-**When to use this instead of §1**: a genuinely fresh repo, never
-BestPractice-vendored before. A repo that already vendored BestPractice
-the old way and wants to move to the three-source model is a different,
-already-documented case —
-[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
-not this section.
-
-1. **Vendor the universal source.** Clone Precedent
-   (`precedent-beta-v01` today; `main` once phase 7 merges it back) and
-   copy two things into this repo as ordinary tracked files: its
-   `practices/` tree, into a tracked path of your choosing (recommended:
-   `precedent/universal/practices/`), and its whole `tools/` directory —
-   the engine (`precedent_resolve.py`, `precedent_materialize.py`,
-   `precedent_sync_views.py`, `build_views.py`, `precedent_show.py`,
-   `precedent_paths.py`, `precedent_gate.py`, `precedent_check.py`,
-   `split_practices.py`, and everything else there — `checked_by:
-   "tools/precedent_check.py"` claims are hollow without it) — into this
-   repo's own `tools/`. Record the exact commit you copied from.
-2. **Write `precedent.json`** at the repo root, naming the universal
-   source (`level: "universal"`, `path` pointing at step 1's vendored
-   copy) and, if the administrator answered yes to the team/individual
-   question (step 3 below, same question §1 step 9 asks), a `team` source
-   too — resolved live from a sibling clone, per
-   [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
-   §3, **never vendored**. Never declare a `level: "individual"` entry —
-   `tools/precedent_resolve.py` refuses this by name, and for good
-   reason: naming a person's individual set in a repo anyone else on the
-   team can read leaks its existence and location to them.
-3. **Ask the team/individual-source question** exactly as §1 step 9
-   describes, and wire the individual source's own bootstrap pattern the
-   same way if the person has one — this step doesn't change between the
-   two install models.
-4. **Instantiate `AGENTS.md` from
-   [templates/AGENTS.md.loader.template](templates/AGENTS.md.loader.template)**
-   — not `templates/AGENTS.md.template`, which is §1's classic-model
-   version. Adapt it the same way §1 step 2 describes (real subject
-   matter, keep the section structure), and leave the
-   `<!-- BEGIN GENERATED: precedent-loader -->` /
-   `<!-- END GENERATED -->` markers exactly as the template has them,
-   empty — step 6 fills them in.
-5. **Instantiate everything else §1 step 2 already covers**: `MAP.md`,
-   `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, `VOICE.md`,
-   `STYLEGUIDE.md`, the README agent-entry block, the harness adapter(s),
-   `tools/bootstrap.sh`, the Actions check, the PR template — unchanged
-   by which install model this is. **Skip** `process/manifest.json` and
-   `process/scrub_blocklist.txt` — those are §1's own bookkeeping for a
-   model this path doesn't use.
-6. **Run `python3 tools/precedent_sync_views.py`** — it resolves every
-   source `precedent.json` declares and writes `AGENTS.md`'s generated
-   block from the result (the resident block, the occasion index, the
-   standing instruction). Confirm it prints `OK`, not `FAIL`, and that
-   the reported resident-block size is inside its stated budget.
-7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
-   loose at the repo root except the instantiated files above — the
-   vendored engine and universal catalogue live under `tools/` and step
-   1's tracked path, not scattered elsewhere.
-8. Commit everything on a branch, same as §1.
-
-**The caveat, stated plainly rather than left to be discovered.** This
-section is new. Steps 1–2 and 6 (vendoring, `precedent.json`, and
-`precedent_sync_views.py` actually producing a working `AGENTS.md`) were
-dry-run tested in a scratch fixture while writing this section and do
-work as described — but the section as a whole has not yet been rehearsed
-end to end against a real repo, which
-[spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) names as still ahead. Two
-things it deliberately does **not** cover, by design and not oversight:
-
-- **`MAP.md`/`GLOSSARY.md` generation.** `tools/precedent_sync_views.py`
-  deliberately does not build these for a consuming repo (see its own
-  docstring) — they stay hand-templated, same as §1.
-- **The creation pipeline isn't wired into a fresh install yet.**
-  Candidates, promotion, and approval routing
-  (`tools/precedent_candidate.py` and friends) exist in Precedent's own
-  `tools/` and in the private team/individual repos, not in what this
-  section vendors. `templates/AGENTS.md.loader.template`'s own
-  merge-runbook export-gate step says so explicitly and names the real
-  mechanism until it is wired in: an ordinary pull request against the
-  vendored source's own upstream repo.
+classic model** (§1) — the right default for essentially every install
+today, and where the sections below start. A repo with no prior
+BestPractice install that wants Precedent's three-source loader directly,
+without ever going through `process/upstream/`, should use §0 instead —
+covered after §1, since it is the rarer path; see §0's own note for when
+it applies.
 
 ## 1. Install into a dependent repo
 
@@ -396,6 +308,97 @@ appended to the baseline `.gitignore` instantiated above from
 *.pdf binary
 <generated-md-glob> binary   # stop git text-merging generated files
 ```
+
+## 0. Installing directly onto the Precedent loader (new, 2026-09-03 — read the caveat before using)
+
+> **In plain terms.** This is an alternative to §1 above, for a project
+> that has never installed BestPractice before and wants to start on
+> Precedent's newer three-source system (universal + team + individual)
+> directly, rather than installing the older single-source model first and
+> migrating later. Most projects today should still use §1 — this path is
+> new and has not yet been rehearsed end to end against a real project
+> (see the caveat at the end of this section). [SETUP.md](SETUP.md)'s
+> guided conversation still uses §1 by default; ask for this path by name
+> if you want it.
+
+**When to use this instead of §1**: a genuinely fresh repo, never
+BestPractice-vendored before. A repo that already vendored BestPractice
+the old way and wants to move to the three-source model is a different,
+already-documented case —
+[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
+not this section.
+
+1. **Vendor the universal source.** Clone Precedent
+   (`precedent-beta-v01` today; `main` once phase 7 merges it back) and
+   copy two things into this repo as ordinary tracked files: its
+   `practices/` tree, into a tracked path of your choosing (recommended:
+   `precedent/universal/practices/`), and its whole `tools/` directory —
+   the engine (`precedent_resolve.py`, `precedent_materialize.py`,
+   `precedent_sync_views.py`, `build_views.py`, `precedent_show.py`,
+   `precedent_paths.py`, `precedent_gate.py`, `precedent_check.py`,
+   `split_practices.py`, and everything else there — `checked_by:
+   "tools/precedent_check.py"` claims are hollow without it) — into this
+   repo's own `tools/`. Record the exact commit you copied from.
+2. **Write `precedent.json`** at the repo root, naming the universal
+   source (`level: "universal"`, `path` pointing at step 1's vendored
+   copy) and, if the administrator answered yes to the team/individual
+   question (step 3 below, same question §1 step 9 asks), a `team` source
+   too — resolved live from a sibling clone, per
+   [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+   §3, **never vendored**. Never declare a `level: "individual"` entry —
+   `tools/precedent_resolve.py` refuses this by name, and for good
+   reason: naming a person's individual set in a repo anyone else on the
+   team can read leaks its existence and location to them.
+3. **Ask the team/individual-source question** exactly as §1 step 9
+   describes, and wire the individual source's own bootstrap pattern the
+   same way if the person has one — this step doesn't change between the
+   two install models.
+4. **Instantiate `AGENTS.md` from
+   [templates/AGENTS.md.loader.template](templates/AGENTS.md.loader.template)**
+   — not `templates/AGENTS.md.template`, which is §1's classic-model
+   version. Adapt it the same way §1 step 2 describes (real subject
+   matter, keep the section structure), and leave the
+   `<!-- BEGIN GENERATED: precedent-loader -->` /
+   `<!-- END GENERATED -->` markers exactly as the template has them,
+   empty — step 6 fills them in.
+5. **Instantiate everything else §1 step 2 already covers**: `MAP.md`,
+   `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, `VOICE.md`,
+   `STYLEGUIDE.md`, the README agent-entry block, the harness adapter(s),
+   `tools/bootstrap.sh`, the Actions check, the PR template — unchanged
+   by which install model this is. **Skip** `process/manifest.json` and
+   `process/scrub_blocklist.txt` — those are §1's own bookkeeping for a
+   model this path doesn't use.
+6. **Run `python3 tools/precedent_sync_views.py`** — it resolves every
+   source `precedent.json` declares and writes `AGENTS.md`'s generated
+   block from the result (the resident block, the occasion index, the
+   standing instruction). Confirm it prints `OK`, not `FAIL`, and that
+   the reported resident-block size is inside its stated budget.
+7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
+   loose at the repo root except the instantiated files above — the
+   vendored engine and universal catalogue live under `tools/` and step
+   1's tracked path, not scattered elsewhere.
+8. Commit everything on a branch, same as §1.
+
+**The caveat, stated plainly rather than left to be discovered.** This
+section is new. Steps 1–2 and 6 (vendoring, `precedent.json`, and
+`precedent_sync_views.py` actually producing a working `AGENTS.md`) were
+dry-run tested in a scratch fixture while writing this section and do
+work as described — but the section as a whole has not yet been rehearsed
+end to end against a real repo, which
+[spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) names as still ahead. Two
+things it deliberately does **not** cover, by design and not oversight:
+
+- **`MAP.md`/`GLOSSARY.md` generation.** `tools/precedent_sync_views.py`
+  deliberately does not build these for a consuming repo (see its own
+  docstring) — they stay hand-templated, same as §1.
+- **The creation pipeline isn't wired into a fresh install yet.**
+  Candidates, promotion, and approval routing
+  (`tools/precedent_candidate.py` and friends) exist in Precedent's own
+  `tools/` and in the private team/individual repos, not in what this
+  section vendors. `templates/AGENTS.md.loader.template`'s own
+  merge-runbook export-gate step says so explicitly and names the real
+  mechanism until it is wired in: an ordinary pull request against the
+  vendored source's own upstream repo.
 
 ## 2. Take an upstream update
 

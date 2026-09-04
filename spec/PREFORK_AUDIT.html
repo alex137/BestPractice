@@ -1,173 +1,9 @@
-#!/usr/bin/env python3
-"""doc_html -- the ONE sortable-table HTML renderer for repo documents
-(practice: tabular-shared-renderer).
-
-Convention: any document whose tables have multiple columns a reader might
-want to sort ships an HTML render built from the .md by THIS module -- the
-.md stays the source of record -- doc_sync keeps its generated tables live
-(practice: docs-track-models) -- the .html is the committed reading
-product. Table behavior
-(multi-column sort, pinned sort columns, sticky headers, numeric-aware sort
-keys) lives HERE and only here, so a functionality change upgrades every
-table in the repo at once: edit CSS/JS below, run `python3 tools/doc_html.py`
-(no args = rebuild everything in DOCS), commit the renders.
-
-    python3 tools/doc_html.py                # rebuild all registered docs
-    python3 tools/doc_html.py path/to/doc.md # render one (registered or not)
-    python3 tools/doc_html.py --list         # show the registry
-
-Behavior contract (the full spec is tabular-shared-renderer's numbered list
-(practice: tabular-shared-renderer); this module is its reference
-implementation): multi-column sort (click; shift-
-click or Multi-sort adds keys; re-click reverses; header marks show key
-order) with numeric-aware keys (approximation marks, any Unicode currency
-symbol with k/M magnitude suffixes on currency amounts, thousands
-separators, leading zeros, bare decimals, units; em-dash empties last);
-decimal-aligned numeric columns (cells leading with a number are padded
-so the integer end / decimal point lines up down the column, measured
-markup-safe with Range rects); a filter dropdown on EVERY column --
-value checkboxes when 2-60 distinct values (MULTI-select: any checked
-subset keeps its rows, none checked = All), plus on value columns a
-</≤/=/≥/> comparator against a typed threshold (displayed units; empty
-cells never pass), and a contains match on text columns too varied to
-enumerate; constraints AND together and the button shows the active
-selection; on a text column that is a frontier ordinal axis the
-dropdown's value rows carry ⠿ grips and drag to edit the same
-best→worst ranking the frontier picker uses; sorted and filtered columns pin
-where they sit and stay visible under horizontal scroll, with sticky
-headers -- column movement is user-driven only (drag a header); optional alternate-value views (per-cell data-view spans, a
-checkbox per extra view swapping every such cell, sort/filter on
-the active view); one Reset
-clearing sorts AND
-filters and restoring row/column order; a live "N of M rows" count;
-a frontier axis pull-down on every table with a Frontier column
-(practice: permutation-frontier-column; see below); header
-cells link their definition notes with mouse-over tooltips, and each
-note's return link lands back on the header cell it defines; the build
-timestamp renders in the page header (the .html is the versioned product;
-the source carries none); includes expanded, relative repo links
-rewritten to the hosted view, wide tables scrolling in their own
-container.
-
-Frontier axis pull-down (practice: permutation-frontier-column): every table with a Frontier
-column gets it, from the engine alone -- no per-document or per-model
-wiring. The printed ✓/— marks are the default view (permutation-frontier-column
-already makes them the generating model's own full-precision computation,
-so the default frontier's semantics arrive as table data); the pull-down
-lets the reader pick which columns form the frontier instead, and the
-page recomputes the marks from the displayed values. EVERY non-frontier
-column is offered: on a numeric column the reader sets the axis's
-better-direction (↓/↑); a TEXT column is an ordinal axis ranked by its
-value list, which the reader drags into best→worst order (default: the
-column's sorted order). Only a text column with too many distinct
-values to order (>60) is listed as not rankable. A generating model MAY
-curate the picker by preceding its table with an invisible spec
-comment:
-
-    <!--frontier: default=Price:min,Cargo:max|rank=Span:min,...
-        |inputs=A,B,C|partition=P-->
-
-`default=` names the printed marks' axes as label:direction pairs
-(labels are header-cell text; min = lower is better, max = higher);
-`rank=` other columns whose directions the model fixes; `inputs=`
-columns tagged "(input)" in the picker (still selectable -- the tag is
-information, not a gate); `partition=` a column whose distinct values
-are judged as separate frontiers. Columns the spec does not name are
-still offered, with reader-set direction or ordering. The renderer
-attaches the spec to the table as a data-frontier attribute. The spec
-refines the pull-down; it never gates it -- and that is the general
-rule for this module: a new table capability must manifest on every
-registered render from the engine alone, with host or model
-declarations as optional refinement, never as a prerequisite.
-
-Host configuration: fill DOCS with (repo-relative .md, title) pairs. Link
-rewriting targets the repo's own hosted-view URL, detected from the git
-remote; override LINK_BASE if detection does not fit your host. When a
-registered document's render is itself hosted somewhere (an artifact URL,
-a pages deployment), record it in RENDER_URLS (repo-relative .md path ->
-render URL): a cross-reference from one render to a document that has a
-render then lands on the RENDERED page — sortable tables and all —
-instead of the hosted source view. Unregistered targets keep the
-source-view fallback, which is also the .md's role as source of record.
-
-Per-document build scripts may keep documented entry points, but as thin
-wrappers importing render() from here -- never as forks of the CSS/JS.
-
-Requires: pip install markdown.
-"""
-
-import html as html_mod  # noqa: F401  (kept for extensions that escape text)
-import re
-import sys
-from pathlib import Path
-
-import markdown
-
-import subprocess
-import datetime
-
-
-def find_root(start):
-    """Git toplevel containing this file (the renderer lives in the repo it
-    serves)."""
-    r = subprocess.run(["git", "-C", str(start), "rev-parse", "--show-toplevel"],
-                       capture_output=True, text=True)
-    return Path(r.stdout.strip()) if r.returncode == 0 else Path(start).parents[1]
-
-
-ROOT = find_root(Path(__file__).resolve().parent)
-
-
-def _default_branch():
-    """Same logic as doc_lint.py's default_branch(), duplicated rather than
-    imported because this module is meant to be dropped into a host repo on
-    its own. `origin/HEAD` is the authoritative source; 'main'/'master' are
-    a fallback for a clone where it was never set. Without this, every
-    relative link this module rewrites hardcoded '/blob/master/' -- silently
-    a dead link on any repo (this one included) whose default branch is
-    'main', which is the actual default on GitHub since 2020."""
-    r = subprocess.run(["git", "-C", str(ROOT), "symbolic-ref",
-                       "refs/remotes/origin/HEAD"],
-                       capture_output=True, text=True)
-    head = r.stdout.strip()
-    if head:
-        return head.rsplit("/", 1)[-1]
-    for cand in ("main", "master"):
-        r = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--verify",
-                           "--quiet", f"origin/{cand}"],
-                           capture_output=True, text=True)
-        if r.stdout.strip():
-            return cand
-    return "main"
-
-
-def _link_base():
-    """Hosted-view base URL for rewriting relative repo links, from the git
-    remote (GitHub-shaped hosts); override LINK_BASE for others."""
-    r = subprocess.run(["git", "-C", str(ROOT), "remote", "get-url", "origin"],
-                       capture_output=True, text=True)
-    url = r.stdout.strip()
-    if url.startswith("git@"):
-        url = url.replace(":", "/", 1).replace("git@", "https://", 1)
-    if url.endswith(".git"):
-        url = url[:-4]
-    return f"{url}/blob/{_default_branch()}/" if url else ""
-
-
-LINK_BASE = _link_base()
-
-# Registry: (repo-relative source .md, page title). Output = same stem, .html.
-# Host repos fill this in.
-DOCS = [
-    ('spec/PREFORK_AUDIT.md', 'Pre-Fork Catalogue Audit'),
-]
-
-# Hosted-render registry: repo-relative .md path -> URL of that document's
-# hosted render. Cross-links between renders resolve here first (see the
-# module docstring); host repos fill this in beside DOCS.
-RENDER_URLS = {}
-
-CSS = """
+<title>Pre-Fork Catalogue Audit</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet"
+ href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
 .renderstamp { color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
 td span[data-view] { display: none; }
 td span[data-view].von { display: inline; }
@@ -274,9 +110,446 @@ caption, .tablehint {
 table.narrow { font-size: 0.9rem; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-"""
+</style>
+<main>
+<!-- Last updated: 2026-09-03 (Buenos Aires) by the phase-6 pre-fork audit session -->
 
-JS = """
+<h1>Pre-Fork Catalogue Audit</h1>
+<div class="renderstamp">Built 2026-09-04 22:46 UTC</div>
+<p>One row per practice inherited from pre-fork BestPractice (the original 52,
+numbered <code>PRACTICES.md</code> catalogue, plus Alex's practice 53 added on <code>main</code>
+after the fork point), verdict against this plan's architecture: does it
+still mean and do the same thing, or did something about how it works
+change under Precedent. Named as required before phase 6 starts migrating a
+consumer repo by <a href="https://github.com/alex137/BestPractice/blob/main/PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward">What phase 5 should carry forward</a>
+and restated as still not done by <a href="https://github.com/alex137/BestPractice/blob/main/spec/PHASE5_DEEPCHECK.md">spec/PHASE5_DEEPCHECK.md</a>;
+built here, closing that gap.</p>
+<p><strong>Practices native to Precedent</strong> (no <code>source_practice_number:</code> —
+<code>disclose-landing</code>, <code>checkable-gets-checked</code>, <code>code-cites-practice</code>, and any
+added since) are out of scope for this table by definition: there is
+nothing pre-fork to compare them against.</p>
+<h2>The table</h2>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Slug</th>
+<th>BestPractice #</th>
+<th>Verdict</th>
+<th>Alex told?</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/repo-is-memory.md">repo-is-memory</a></td>
+<td>1</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Promoted on-demand → resident (always loaded)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/orientation-map.md">orientation-map</a></td>
+<td>2</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Promoted resident + gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/quick-index.md">quick-index</a></td>
+<td>3</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Promoted resident + gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/environment-gotchas.md">environment-gotchas</a></td>
+<td>4</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Promoted resident + gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/cite-the-incident.md">cite-the-incident</a></td>
+<td>5</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Scope narrowed to <code>practices/**</code>, gained <code>gates: ["review"]</code> and a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/convention-to-audit.md">convention-to-audit</a></td>
+<td>6</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/registry-source-of-truth.md">registry-source-of-truth</a></td>
+<td>7</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/generated-artifact-provenance.md">generated-artifact-provenance</a></td>
+<td>8</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/merge-runbook.md">merge-runbook</a></td>
+<td>9</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/capture-gate.md">capture-gate</a></td>
+<td>10</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/doc-references-are-links.md">doc-references-are-links</a></td>
+<td>11</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td><code>checked_by</code> re-pointed from <code>tools/doc_lint.py</code> to <code>tools/precedent_check.py</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/reply-links-files.md">reply-links-files</a></td>
+<td>12</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Promoted resident, gained <code>gates: ["reply"]</code> (<code>checked_by</code> stays <code>null</code>)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/session-bootstrap.md">session-bootstrap</a></td>
+<td>13</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/practice-export-loop.md">practice-export-loop</a></td>
+<td>14</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code> — Rule/Why/Story stay byte-for-byte unchanged (a separate 2026-09-01 consideration already logged)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/scrub-gate.md">scrub-gate</a></td>
+<td>15</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/volatile-rules-carry-dates.md">volatile-rules-carry-dates</a></td>
+<td>16</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/acronyms-glossary.md">acronyms-glossary</a></td>
+<td>17</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/no-version-suffix.md">no-version-suffix</a></td>
+<td>18</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/computed-numbers-in-scripts.md">computed-numbers-in-scripts</a></td>
+<td>19</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/mistakes-become-rules.md">mistakes-become-rules</a></td>
+<td>20</td>
+<td>active-as-is</td>
+<td>—</td>
+<td><code>checked_by</code> genuinely still <code>null</code> — a deliberate, considered no (proportionality guard resists automation)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/second-pass-capture.md">second-pass-capture</a></td>
+<td>21</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/parallel-artifact-ledger.md">parallel-artifact-ledger</a></td>
+<td>22</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Routing-scope glob narrowed only; <code>checked_by</code> stays <code>null</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/layered-practice-packs.md">layered-practice-packs</a></td>
+<td>23</td>
+<td>rewritten</td>
+<td><strong>already logged</strong></td>
+<td>Two dated <code>CHANGES_TO_TELL_ALEX.md</code> entries already cover this</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/quote-discipline.md">quote-discipline</a></td>
+<td>24</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Untouched beyond mechanical index-clause authoring</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/outward-summary-discipline.md">outward-summary-discipline</a></td>
+<td>25</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/docs-are-current-state.md">docs-are-current-state</a></td>
+<td>26</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/label-describes-content.md">label-describes-content</a></td>
+<td>27</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/frame-from-audience-question.md">frame-from-audience-question</a></td>
+<td>28</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/variant-re-derives.md">variant-re-derives</a></td>
+<td>29</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/scripts-assert-properties.md">scripts-assert-properties</a></td>
+<td>30</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/no-rewrite-for-warnings.md">no-rewrite-for-warnings</a></td>
+<td>31</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/verify-postcondition.md">verify-postcondition</a></td>
+<td>32</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Promoted resident + gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/docs-track-models.md">docs-track-models</a></td>
+<td>33</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/readers-vocabulary.md">readers-vocabulary</a></td>
+<td>34</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/build-buy-decompose.md">build-buy-decompose</a></td>
+<td>35</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/section-order-by-frequency.md">section-order-by-frequency</a></td>
+<td>36</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Untouched beyond mechanical index-clause authoring</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/github-setup-disclosed.md">github-setup-disclosed</a></td>
+<td>37</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Scope narrowed to <code>.github/**</code>, gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/lead-with-what-it-is.md">lead-with-what-it-is</a></td>
+<td>38</td>
+<td>active-as-is</td>
+<td>—</td>
+<td><code>applies_to</code> widened (+<code>SETUP.md</code>, +<code>GETTING_STARTED.md</code>) — a scope correction, not a Rule/enforcement change</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/pr-template-honest-gates.md">pr-template-honest-gates</a></td>
+<td>39</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Untouched beyond mechanical index-clause authoring</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/check-source-architecture.md">check-source-architecture</a></td>
+<td>40</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/search-by-purpose.md">search-by-purpose</a></td>
+<td>41</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code>; <code>occasion</code> wording also rewritten (a routing-trigger fix, not a Rule change)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/verify-decomposition.md">verify-decomposition</a></td>
+<td>42</td>
+<td>active-as-is</td>
+<td>—</td>
+<td><code>occasion</code> wording rewritten (minor routing fix); citation-link logged</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/affordance-is-shared.md">affordance-is-shared</a></td>
+<td>43</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only (one of the four fixed wrong-citation cases, already logged)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/two-check-levels.md">two-check-levels</a></td>
+<td>44</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/merge-authorization-keyword.md">merge-authorization-keyword</a></td>
+<td>45</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/tabular-shared-renderer.md">tabular-shared-renderer</a></td>
+<td>46</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only (one of the four fixed wrong-citation cases, already logged)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/permutation-frontier-column.md">permutation-frontier-column</a></td>
+<td>47</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only (one of the four fixed wrong-citation cases, already logged)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/index-remembers-past.md">index-remembers-past</a></td>
+<td>48</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/deliverables-look-like-output.md">deliverables-look-like-output</a></td>
+<td>49</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/engine-plus-host-shims.md">engine-plus-host-shims</a></td>
+<td>50</td>
+<td>rewritten</td>
+<td>yes (below)</td>
+<td>Gained a real <code>checked_by</code>; today's <code>PreToolUse</code>-hook work is a new <em>application</em> of the pattern, not a change to this file (already logged separately)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/one-formatter-per-quantity.md">one-formatter-per-quantity</a></td>
+<td>51</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Citation-link only</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/name-both-sides-of-ledger.md">name-both-sides-of-ledger</a></td>
+<td>52</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Untouched beyond mechanical index-clause authoring</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/todo-is-a-handoff.md">todo-is-a-handoff</a></td>
+<td>53</td>
+<td>active-as-is</td>
+<td>—</td>
+<td>Alex's own post-fork addition, converted unmodified; already logged</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Two systemic gaps this audit found, bigger than any one row</h2>
+<p>Neither is a single-practice miss — both are a whole <em>mechanism</em> that
+landed across many inherited practices at once without ever being logged
+as its own event in <a href="https://github.com/alex137/BestPractice/blob/main/CHANGES_TO_TELL_ALEX.md">CHANGES_TO_TELL_ALEX.md</a>,
+whose own scope statement says plainly: "changes what its <code>checked_by</code>
+actually enforces goes here." Both are now logged there
+(2026-09-03), in full, rather than only summarized here.</p>
+<p><strong>1. The phase-4 enforcement rollout was unlogged.</strong> 24 of the 53 inherited
+practices gained a real <code>checked_by</code> — moving from purely advisory (a
+session had to notice and follow the prose) to mechanically checked. 16 of
+the 24 were mentioned in <code>CHANGES_TO_TELL_ALEX.md</code> only for the unrelated
+citation-link sweep, whose own text ("no <code>checked_by</code> enforcement changed")
+is true of that specific commit but left the separate, earlier
+enforcement-adding commits undisclosed; 8 were absent from the file
+entirely.</p>
+<p><strong>2. The phase-2 resident-tier promotion was unlogged.</strong> Six inherited
+practices were promoted from <code>tier: on-demand</code> to <code>tier: resident</code> — always
+loaded into every session via <code>AGENTS.md</code>'s generated block, rather than
+reached on demand. BestPractice pre-fork had no tier concept at all, so
+this is a first-order change to how these six practices reach a session.
+None of the six practices' own files, nor any prior <code>CHANGES_TO_TELL_ALEX.md</code>
+entry, ever named this.</p>
+<h2>What was checked and found clean</h2>
+<ul>
+<li><strong>No <code>status:</code> frontmatter value other than <code>active</code></strong> anywhere in
+  <code>practices/*.md</code> — no inherited practice is self-declared superseded or
+  merged (<code>layered-practice-packs</code>' pack-mechanism note is the only
+  "superseded" language anywhere, already logged).</li>
+<li><strong>No populated <code>supersedes:</code> field</strong> on any file.</li>
+<li><strong>The whole-catalogue editorial passes</strong> — the Rule/Detail split, the
+  index-clause authoring pass, the routing-glob narrowing pass
+  (<code>tools/routing_scope.json</code>) — are genuinely non-substantive by their own
+  commit messages' own stated reasoning, and are not treated as individual
+  gaps here, the same way the citation sweep already isn't.</li>
+</ul>
+</main>
+<script>
 (function () {
   function cellText(cell) {
     // Alternate-value views: a cell may hold one <span data-view=...>
@@ -294,14 +567,14 @@ JS = """
     var t = cellText(cell).trim();
     if (t === "—" || t === "") return { n: -Infinity, s: "" };
     // k/M magnitude suffixes are recognized on CURRENCY amounts only
-    // (any Unicode currency symbol, \\p{Sc}): a bare "58 M" is a unit
+    // (any Unicode currency symbol, \p{Sc}): a bare "58 M" is a unit
     // (megajoules), not money. Leading zeros and bare decimals (".59")
     // parse as their values. This grammar is mirrored by parse_key in
     // tools/table_fmt.py (the formatter↔renderer seam contract) —
     // extend BOTH together.
-    var kmatch = /\\p{Sc}\\s*[\\d.,]+k(?![A-Za-z0-9])/u.test(t);
-    var mmatch = /\\p{Sc}\\s*[\\d.,]+\\s*M(?![A-Za-z0-9])/u.test(t);
-    var m = t.replace(/[,≈≤≥]/g, "").match(/-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)/);
+    var kmatch = /\p{Sc}\s*[\d.,]+k(?![A-Za-z0-9])/u.test(t);
+    var mmatch = /\p{Sc}\s*[\d.,]+\s*M(?![A-Za-z0-9])/u.test(t);
+    var m = t.replace(/[,≈≤≥]/g, "").match(/-?(?:\d+(?:\.\d+)?|\.\d+)/);
     if (m) {
       var v = parseFloat(m[0]);
       if (kmatch) v *= 1000;
@@ -383,7 +656,7 @@ JS = """
     // the DOM is never rewritten; trailing annotations don't disturb
     // the alignment. Columns with digits only inside text (part codes,
     // composite cells) don't qualify.
-    var alignLeadRe = /^[-≈≤≥~×±]*\\s*\\p{Sc}?\\s*[\\d.]/u;
+    var alignLeadRe = /^[-≈≤≥~×±]*\s*\p{Sc}?\s*[\d.]/u;
     function alignSplit(cell) {
       // [textNode, offset] just past the leading number's integer
       // digits (i.e., before its decimal point), or null. A bare
@@ -396,7 +669,7 @@ JS = """
         nodes.push(node);
         all += node.nodeValue;
       }
-      var m = all.match(/\\d[\\d,]*|(?=\\.\\d)/);
+      var m = all.match(/\d[\d,]*|(?=\.\d)/);
       if (!m) return null;
       var end = m.index + m[0].length;
       for (var i = 0, pos = 0; i < nodes.length; i++) {
@@ -1258,135 +1531,4 @@ JS = """
     }
   });
 })();
-"""
-
-INCLUDE_RE = re.compile(r"<!--include:([\w./-]+)-->")
-
-
-def expand_includes(md_text, src_dir):
-    """Replace <!--include:file.md--> markers with the named file's markdown,
-    headings demoted one level (its H1 becomes an H2 of the including
-    document) and its Numbers-by footer kept."""
-    def sub(m):
-        inc = (src_dir / m.group(1)).read_text(encoding="utf-8")
-        out = []
-        for line in inc.splitlines():
-            if line.startswith("#"):
-                line = "#" + line
-            out.append(line)
-        return "\n".join(out)
-    return INCLUDE_RE.sub(sub, md_text)
-
-
-def rewrite_links(body, src_dir):
-    """Relative .md/.py links -> the target's hosted RENDER when it has one
-    (RENDER_URLS), else GitHub master URLs (path-resolved)."""
-    def sub(m):
-        href = m.group(1)
-        if href.startswith(("http://", "https://", "#", "mailto:")):
-            return m.group(0)
-        path, frag = (href.split("#", 1) + [""])[:2]
-        frag = f"#{frag}" if frag else ""
-        target = (src_dir / path).resolve()
-        try:
-            rel = target.relative_to(ROOT).as_posix()
-        except ValueError:
-            return m.group(0)
-        if rel in RENDER_URLS:
-            return f'href="{RENDER_URLS[rel]}{frag}"'
-        if not LINK_BASE:
-            return m.group(0)
-        return f'href="{LINK_BASE}{rel}{frag}"'
-    return re.sub(r'href="([^"]+)"', sub, body)
-
-
-def _wire_frontier_specs(body):
-    """Attach each <!--frontier: ...--> spec comment (see the module
-    docstring) to the table that follows it as a data-frontier attribute
-    the table script reads. Run after the tablewrap wrapping."""
-    def sub(m):
-        spec = html_mod.escape(" ".join(m.group(1).split()), quote=True)
-        return f'<div class="tablewrap"><table data-frontier="{spec}">'
-    return re.sub(
-        r'<!--frontier:\s*(.*?)\s*-->\s*<div class="tablewrap"><table>',
-        sub, body, flags=re.S)
-
-
-def _wire_note_backlinks(body):
-    """Point each note's ↩ link back at the header cell it defines.
-
-    Header cells link their notes ([Label](#note-x "tip")); the note's ↩
-    return link, written in the markdown as a jump to the table section,
-    is rewritten to land on the exact header cell: the FIRST th linking
-    #note-x gains id th-note-x, and the ↩ following <a id="note-x"> is
-    retargeted to it."""
-    seen = set()
-
-    def th_id(m):
-        note = m.group(2)
-        if note in seen:
-            return m.group(0)
-        seen.add(note)
-        return f'<th id="th-{note}">{m.group(1)}'
-
-    body = re.sub(r'<th>(<a href="#(note-[\w-]+)")', th_id, body)
-
-    def back(m):
-        note = m.group(2)
-        if note not in seen:
-            return m.group(0)
-        return f'{m.group(1)}<a href="#th-{note}">{m.group(3)}</a>'
-
-    return re.sub(
-        r'(<a id="(note-[\w-]+)"></a>.*?)<a href="[^"]*">(↩[^<]*)</a>',
-        back, body, flags=re.S)
-
-
-def render(src, out_path, title):
-    """Render one markdown document to its sortable-table HTML product."""
-    src, out_path = Path(src), Path(out_path)
-    md_text = expand_includes(src.read_text(encoding="utf-8"), src.parent)
-    body = markdown.markdown(md_text, extensions=["tables"])
-    body = rewrite_links(body, src.parent)
-    body = _wire_note_backlinks(body)
-    # wide-table wrapper + prose-width class for the small tables
-    body = body.replace("<table>", '<div class="tablewrap"><table>')
-    body = body.replace("</table>", "</table></div>")
-    body = _wire_frontier_specs(body)
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    body = body.replace(
-        "</h1>", f'</h1>\n<div class="renderstamp">Built {stamp}</div>', 1)
-    out = f"""<title>{title}</title>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet"
- href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
-<style>{CSS}</style>
-<main>
-{body}
-</main>
-<script>{JS}</script>
-"""
-    out_path.write_text(out, encoding="utf-8")
-    n_tables = body.count("<table>")
-    print(f"wrote {out_path.relative_to(ROOT) if out_path.is_absolute() else out_path}"
-          f": {len(out):,} bytes, {n_tables} tables sortable")
-
-
-def build_all():
-    for rel, title in DOCS:
-        src = ROOT / rel
-        render(src, src.with_suffix(".html"), title)
-
-
-if __name__ == "__main__":
-    if "--list" in sys.argv:
-        for rel, title in DOCS:
-            print(f"  {rel}  ->  {Path(rel).with_suffix('.html')}  ({title})")
-    elif len(sys.argv) > 1:
-        src = Path(sys.argv[1]).resolve()
-        rel = str(src.relative_to(ROOT))
-        title = dict(DOCS).get(rel, src.stem.replace("_", " ").title())
-        render(src, src.with_suffix(".html"), title)
-    else:
-        build_all()
+</script>

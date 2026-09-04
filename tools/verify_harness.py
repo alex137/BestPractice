@@ -968,6 +968,90 @@ def check_leak_gate_fires():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_practice_audit_fires():
+    """practice_audit.py's --update-baseline, stated as cases against a
+    throwaway manifest (practice: mistakes-become-rules).
+
+    Regression case, found in the wild via a dependent repo's check-in
+    (themorgan/WorkingWithAI, 2026-09-04): a 'diverged' manifest entry
+    marks a file as a deliberate, permanent customization that must never
+    be proposed for export -- the whole point of the status. Before this
+    fix, --update-baseline read ANY hash mismatch against the recorded
+    local_sha256 as "the local file changed, so the divergence must be
+    resolved" and silently flipped 'diverged' to 'synced' -- even when the
+    mismatch was really just a stale baseline already wrong in the
+    manifest, with the file itself untouched. Nothing in the tool's output
+    named the flip, so it was invisible short of hand-diffing the manifest.
+    A repo carrying a diverged entry could lose that marking on the next
+    routine --update-baseline run for an unrelated reason, and a later
+    check-in (INSTALL.md §4) could then propose the customization for
+    export with nothing downstream able to tell "genuinely synced" apart
+    from "flipped by this bug".
+
+    Asserts the fix from outside the tool: run --update-baseline as a
+    subprocess against a scratch manifest and read the entries back."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-practiceaudit-'))
+    try:
+        repo = tmp / 'repo'
+        tools_dir = repo / 'process' / 'upstream' / 'tools'
+        tools_dir.mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'practice_audit.py', tools_dir / 'practice_audit.py')
+        (repo / 'process' / 'upstream').mkdir(exist_ok=True)
+        (repo / 'local').mkdir()
+        (repo / 'local' / 'diverged.md').write_text('customized on purpose\n', encoding='utf-8')
+        (repo / 'local' / 'synced.md').write_text('vendored as-is\n', encoding='utf-8')
+        manifest = repo / 'process' / 'manifest.json'
+
+        def write_manifest():
+            manifest.write_text(json.dumps({
+                'upstream': {'vendored_at': 'process/upstream', 'scrub_blocklist': None},
+                'entries': [
+                    {'practice': 'diverged_one', 'local_path': 'local/diverged.md',
+                     'status': 'diverged', 'granularity': 'file',
+                     'local_sha256': 'stale-hash-not-a-real-sha', 'notes': 'never export'},
+                    {'practice': 'synced_one', 'local_path': 'local/synced.md',
+                     'status': 'synced', 'granularity': 'file',
+                     'local_sha256': 'stale-hash-not-a-real-sha', 'notes': ''},
+                ],
+            }, indent=2), encoding='utf-8')
+
+        def run_update():
+            r = subprocess.run(
+                [sys.executable, str(tools_dir / 'practice_audit.py'),
+                 '--update-baseline', '--manifest', str(manifest)],
+                capture_output=True, text=True, cwd=str(repo))
+            entries = json.loads(manifest.read_text(encoding='utf-8'))['entries']
+            return r, {e['practice']: e for e in entries}
+
+        write_manifest()
+        before = json.loads(manifest.read_text(encoding='utf-8'))['entries']
+        before_hash = {e['practice']: e['local_sha256'] for e in before}
+        result, after = run_update()
+
+        cases = [
+            ("a 'diverged' entry's status is untouched by a stale-baseline "
+             "re-run", after['diverged_one']['status'] == 'diverged'),
+            ("a 'diverged' entry's hash IS re-baselined (the fix narrows the bug, "
+             "it doesn't stop the hash update)",
+             after['diverged_one']['local_sha256'] != before_hash['diverged_one']),
+            ("a 'synced' entry re-baselining still stays 'synced' (unchanged "
+             "behaviour)", after['synced_one']['status'] == 'synced'),
+            ("the diverged re-baseline is named in the output, not silent",
+             "was 'diverged'" in result.stdout),
+        ]
+
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  practice_audit --update-baseline did NOT behave as stated: {name}")
+        check(f"practice_audit --update-baseline fires ({len(cases)} stated cases: "
+              f"'diverged' status survives a hash-only re-baseline)", ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_source_precedence():
     """Four sources resolved by a consumer repo, and the precedence rules
     asserted as stated cases (PRACTICE_ENGINE_PLAN.md, phase-3 done-when: "a
@@ -3049,9 +3133,21 @@ def check_gate_channel():
     cases.append(('the push gate is wired into templates/hooks/pre-push',
                   hook.exists() and 'precedent_gate' in hook.read_text(errors='ignore')))
 
+    # the reply gate must actually be wired too -- a 2026-09-04 gate audit
+    # found it was not: routing_scope.json names this gate's moment as "the
+    # stop hook", but the only stop-hook script any adapter ships never
+    # called precedent_gate.py at all. Checked in both the template a
+    # dependent repo installs and this repo's own instantiated copy, so
+    # neither can drift back to cited-only without this case catching it.
+    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+                      ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'):
+        cases.append((f'the reply gate is wired into {stop_hook.relative_to(ROOT)}',
+                      stop_hook.exists() and 'precedent_gate' in stop_hook.read_text(errors='ignore')))
+
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'gate-triggered channel ({len(cases)} stated cases: closed vocabulary, '
-          f'no empty gate, every gate resolves, unknown gates fail loudly)',
+          f'no empty gate, every gate resolves, unknown gates fail loudly, '
+          f'push and reply actually wired)',
           not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
@@ -3906,6 +4002,7 @@ def main():
     check_slug_link_integrity(files)
     check_leak_gate()
     check_leak_gate_fires()
+    check_practice_audit_fires()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()

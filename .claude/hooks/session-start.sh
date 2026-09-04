@@ -1,13 +1,17 @@
 #!/bin/bash
 # SessionStart hook for the BestPractice repo itself (practice 13).
 # cmarkgfm gives doc_lint its exact GitHub-renderer strikethrough check and
-# the deck engine its markdown renderer.
+# the deck engine its markdown renderer. markdown is tools/doc_html.py's
+# renderer (tabular-shared-renderer) -- absent until 2026-09-04, when running
+# it for the first real registered document (spec/PREFORK_AUDIT.md) found
+# ModuleNotFoundError: nobody had run this tool successfully in a fresh
+# session before either.
 set -euo pipefail
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
-pip install --quiet cmarkgfm 2>/dev/null || \
-  echo "WARN: pip install failed - doc_lint strikethrough check and .md deck slides degrade" >&2
+pip install --quiet cmarkgfm markdown 2>/dev/null || \
+  echo "WARN: pip install failed - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py all degrade" >&2
 
 # Verify the local checkout actually matches origin before any work starts.
 # See AGENTS.md's gotchas section for the incident: a session's local branch

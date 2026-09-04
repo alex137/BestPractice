@@ -163,13 +163,20 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
                 if e.get('local_sha256') != cur:
                     # Name every re-baselined entry: a 'synced' entry re-baselining
                     # here means its drift was never exported — silent absorption
-                    # once masked a missed export for days.
+                    # once masked a missed export for days. A 'diverged' entry is a
+                    # deliberate, permanent "never export this" marker (practice:
+                    # registry-source-of-truth) — a hash mismatch alone (which can be a
+                    # stale baseline, not a new edit) is never grounds to infer the
+                    # divergence is resolved, so status is re-baselined but left
+                    # untouched here; flip it to 'synced' by hand once you have
+                    # actually confirmed the divergence is gone.
                     print(f"  re-baselined [{name}] {e['local_path']}"
                           + ("  <-- was 'synced' and drifted: export the change to the vendored tree"
-                             if status == 'synced' and e.get('local_sha256') else ""))
+                             if status == 'synced' and e.get('local_sha256') else "")
+                          + ("  <-- was 'diverged': status left as-is, hash only re-baselined; "
+                             "flip to 'synced' by hand if the divergence is actually resolved"
+                             if status == 'diverged' else ""))
                     e['local_sha256'] = cur
-                    if status == 'diverged':
-                        e['status'] = 'synced'
                     changed = True
             elif not e.get('local_sha256'):
                 warns.append(f"[{name}] no baseline hash — run --update-baseline")

@@ -21,10 +21,12 @@ describes, not here.
 ## The gap, stated plainly
 
 Phase 3 populated the two private sets with one practice each. Phase 4 built
-real, tested enforcement for the universal catalogue: 24 of 54 practices now
-carry a `checked_by` backed by a test that plants the exact violation the
-practice exists to prevent and proves it fires (see
-[spec/ENFORCEMENT.md](ENFORCEMENT.md)). **Neither private set has any of
+real, tested enforcement for the universal catalogue — a `checked_by` backed
+by a test that plants the exact violation the practice exists to prevent and
+proves it fires; see [spec/ENFORCEMENT.md](ENFORCEMENT.md) for the live
+count (24 of 54 as this brief was first written, 2026-09-03; the catalogue
+has grown since — run `python3 tools/catalogue_stats.py` rather than
+trusting a number typed into this brief). **Neither private set has any of
 that.** Both of their practices currently carry `checked_by: null`, and no
 infrastructure exists yet — in either private repo — to change that, because
 the checking engine ([tools/precedent_check.py](../tools/precedent_check.py))
