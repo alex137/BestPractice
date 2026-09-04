@@ -1770,6 +1770,21 @@ just a dated index of what moved and where its record actually lives,
 matching the rest of this document's own current-state discipline
 ([docs-are-current-state](practices/docs-are-current-state.md)).
 
+- **2026-09-04 — v32.** An adopter with no individual or team repo yet had
+  nowhere to start — closed for the case that doesn't need the full
+  creation pipeline. New skeletons
+  ([templates/practice-set-individual/](templates/practice-set-individual/),
+  [templates/practice-set-team/](templates/practice-set-team/)), a new
+  bootstrap tool
+  ([tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),
+  harness-tested against a real resolve, precedence included), and a real
+  [SETUP.md](SETUP.md)/[INSTALL.md](INSTALL.md) branch replace what used to
+  be a dead end at "do you already have one?" — deliberately independent of
+  [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) item 2, which stays open.
+  The procedure itself is
+  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md). Full
+  reasoning, alternatives considered, and what this does not close:
+  [decisions/2026-09-04-bootstrap-new-sources.md](decisions/2026-09-04-bootstrap-new-sources.md).
 - **2026-09-03 — v31.** [SETUP.md](SETUP.md) and
   [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) now disclose
   the capture-gate mechanism to newcomers, calibrated to what a clean

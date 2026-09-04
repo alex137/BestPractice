@@ -81,6 +81,12 @@ practice once; you never copy it, re-approve it, or remember it in three
 places. There is a worked example to copy in
 [examples/practice-set/](examples/practice-set).
 
+**You don't need this to already exist before you start.** If you don't
+have one yet, just say so — your assistant sets it up in the same
+conversation: a real starter file in the right format, and the one line of
+your own settings that points at it. Nothing about adopting Precedent
+waits on you having built this ahead of time.
+
 **Nothing personal ever reaches a shared place, and that is enforced rather
 than promised.** Three things hold it up:
 
@@ -111,6 +117,11 @@ change in it. Whoever creates the space is its first approver, so there is
 always at least one and no ceremony to get started. Adding or removing an
 approver is itself a change that the current approvers have to agree to,
 which is what stops someone quietly adding themselves.
+
+**No team space yet? Your assistant can set one up right now** — same as
+the personal case above: a real starter file, and the one small addition
+to your project's own settings that wires it in. You don't need to build
+this ahead of time either.
 
 **What approval looks like day to day:** your assistant writes the practice
 and asks an approver to look at it. They get a notification wherever they

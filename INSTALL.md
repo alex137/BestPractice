@@ -292,9 +292,19 @@ things it deliberately does **not** cover, by design and not oversight:
    team already have its own practices repo — shared conventions beyond
    what's generic enough for the public BestPractice? Does anyone here
    have their own personal one — facts specific to them, like a commit
-   identity or a personal shorthand?"* Most projects have neither yet, and
-   that's a complete, valid answer — this step exists so the option is
-   actually offered, not assumed away.
+   identity or a personal shorthand? And if not — would setting one up now
+   be useful?"* Most projects have neither yet, and that's a complete,
+   valid answer on its own — this step exists so the option is actually
+   offered, not assumed away, and offering it costs nothing even when the
+   answer stays no.
+   - **If neither exists yet and they'd like one (or both) set up now:**
+     follow [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)
+     — it creates the repository (or hands the administrator the exact
+     command/click-path where this session can't create one itself), runs
+     `tools/precedent_bootstrap_source.py` to instantiate a real starter
+     set in the right format, and wires the result in exactly as the two
+     "if yes" branches below describe. Do this before the two branches
+     below, since after it the answer to this step's question is yes.
    - **If yes to a team source:** add `precedent.json` at the project root
      (create it if this is the first source beyond universal) declaring it:
      ```json

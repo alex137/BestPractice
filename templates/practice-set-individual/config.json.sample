@@ -1,0 +1,15 @@
+{
+  "format_version": 1,
+  "_comment": [
+    "This file does NOT belong in a shared project. Copy it to your own",
+    "environment -- by default ~/.config/precedent/config.json, or",
+    "wherever $PRECEDENT_USER_CONFIG points -- so it names your personal",
+    "set, which nobody else can read.",
+    "A shared project declares only universal and team sources, in its own",
+    "tracked precedent.json; the tools refuse a personal set declared there."
+  ],
+  "individual": {
+    "name": "{{NAME}}",
+    "path": "{{DEST_PATH}}"
+  }
+}
