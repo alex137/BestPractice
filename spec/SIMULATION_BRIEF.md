@@ -1,12 +1,30 @@
-<!-- Last updated: 2026-09-04, phase 1 landed -->
+<!-- Last updated: 2026-09-04, phase 2 landed -->
 
 # The Practice Simulation (Brief)
 
-**Status: approved; phase 1 (rough phasing, below) is built.** Written up per
-Morgan's request to have a plan to approve before implementation starts.
+**Status: approved; phases 1-2 (rough phasing, below) are built.** Written up
+per Morgan's request to have a plan to approve before implementation starts.
 Treat this the way `spec/PHASE5_BRIEF.md` and friends were treated
 — a brief a phase is built from, updated in place as it's actually built,
-not superseded by a second drifting copy.
+never left to drift out of sync with a second, separate copy.
+
+## Never automatic
+
+**No keyword, phrase, or occasion-index entry triggers any of this.** Both
+tools this brief has produced —
+[`tools/behavioral_replay.py`](../tools/behavioral_replay.py)'s
+`--with-checks` and [`tools/practice_simulation.py`](../tools/practice_simulation.py)
+— are plain command-line scripts. Nothing in `practices/*.md`'s `occasion`
+fields, `AGENTS.md`'s generated loader block, `tools/precedent_gate.py`'s
+named moments, or any git/session-start hook mentions either script — this
+is a checked fact, not an intention (`grep -rn "behavioral_replay\|
+practice_simulation" practices/ tools/precedent_gate.py .claude/` returns
+nothing). They run only when a person runs them directly, or explicitly
+asks an agent session to run them in that turn. That must hold for every
+future phase too: neither tool is ever to be added to a hook, a gate, an
+`occasion` clause, or a session-start script. A session encountering
+`spec/SIMULATION_BRIEF.md` while working on something else has no standing
+to run either tool on its own initiative from that alone.
 
 ## The question this exists to answer
 
@@ -27,7 +45,7 @@ routing is getting better or worse over time.
   replays a fixed set of 20 historical commits from this repo's own past.
   That's the design flaw this brief exists to fix: a fixed replay set is
   something the loader's own inputs get tuned against — the v5 round in
-  [spec/LOADER.md](LOADER.md) already shows a glob pass "converting reach
+  [the phase-2 loader spec](LOADER.md) already shows a glob pass "converting reach
   failures into judgment failures" on the *same* 20 cases. Optimizing a
   design against the thing that scores it is Goodhart's law, not
   validation. It also can't say anything about how routing behaves on a
@@ -79,7 +97,7 @@ it's been fit once.
   verifies fire in both directions — see the `checked_by` explanation
   above), have the agent under test actually perform the synthetic task
   and run the real check script against its output. Objective, free of
-  grader bias, no LLM judgment involved.
+  grader bias, no large language model (LLM) judgment involved.
 - **Judged, for everything else.** The remaining prose-only practices need
   an LLM verdict on whether the produced work actually satisfies the
   Rule. Report this separately from the mechanical score rather than
@@ -180,15 +198,43 @@ currently narrates routing-eval rounds by hand.
    and only in `tree`/`change` scope (`turn-end` checks are about live
    session state, never exercised by a historical `--range` replay, and
    would misreport as a false 100% pass rate if counted). A first run
-   against this repo's own history found 2 real, live violations in
-   `acronyms-glossary` and `index-remembers-past` out of 114 (commit,
-   check) data points sampled — genuine signal, not a smoke test.
+   against this repo's own history found 3 real, live violations
+   (`acronyms-glossary` ×2, `docs-are-current-state` ×1,
+   `index-remembers-past` ×1, across 5 violated data points total — one
+   commit tripped two checks at once) out of 459 (commit, check) data
+   points sampled on a later, larger run — genuine signal, not a smoke
+   test, and all 3 were fixed in the same session that found them (a
+   version-control annotation removed, two acronyms expanded, one
+   accidental "superseded by" phrase reworded) and reverified clean
+   against both the specific commits and the whole tree before landing.
    Deliberately narrow: this measures retrospective enforcement
    compliance for the ~26 checked practices only, nothing about the other
    ~31, and nothing about routing or intent.
-2. Synthetic scenario generation (§1-4) against this repo only, replacing
-   `routing_eval.py`'s fixed case set — proves the generation approach
-   before adding repo-count as a second axis.
-3. Multi-repo pass (§6) once (2) is trusted on this repo alone.
+2. **Built.** Synthetic scenario generation, as `tools/practice_simulation.py`
+   (`new-batch` / `route` / `score`), against this repo only — replacing
+   `routing_eval.py`'s fixed case set with practices sampled fresh each
+   batch (no fixed default seed; rotation is the point) and three
+   invented scenarios per practice (positive / negative / adversarial,
+   §1-4), each naming plausible file paths so the actual path-triggered
+   channel (`tools/precedent_paths.py`) is exercised mechanically, not
+   simulated. Single-hop treatment only for this v1 (the "cheapest
+   version" `spec/ATTENTION_CEILING.md` already validates as legitimate,
+   not an ad hoc cut) — reads the real generated loader block straight out
+   of `AGENTS.md`, never a re-derivation of it. Scoring reports plain-case
+   recall, negative-case correct-rejection, and adversarial-case recall
+   *separately*, plus the plain-vs-adversarial gap — the number a fixed
+   replay set structurally cannot show. Validated end to end on a real
+   3-practice batch (`20260904T143422Z-seed745016`, kept under
+   `evals/simulation/` as the record): 3/3 plain, 3/3 negative, 3/3
+   adversarial, all correct — a genuinely tiny sample (n=3) that proves
+   the mechanism runs correctly, not that routing is flawless; a real
+   read on routing quality needs several batches at a larger `--count`.
+   **Deferred, stated plainly:** the treatment agent does not yet perform
+   the synthetic task and have a real `checked_by` script run against its
+   output (extending phase 1's mechanical-correctness idea to synthetic
+   work) — that needs a real sandboxed workspace for it to edit files in,
+   which this file-based prompt/answer handoff does not provide. Real,
+   separate follow-on work, not silently folded into the score above.
+3. Multi-repo pass (§6) once (2) has run on several batches, not just one.
 4. Wire both tiers into a single `precedent simulate` command and the
    running trend log.

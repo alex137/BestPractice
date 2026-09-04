@@ -311,6 +311,7 @@ TOOLS_DESCRIPTIONS = {
     'leak_gate.py': "The push-time leak gate — structural rules always, private-term blocklist when configured",
     'model_audit.py': "Runs each computing script's own self-assertions and checks the figures it recites",
     'practice_audit.py': "Audits the practice-export layer for a repo that vendors one (this repo does not)",
+    'practice_simulation.py': "Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark",
     'precedent_check.py': "The ENFORCED loading channel — runs every practice's `checked_by` script",
     'precedent_gate.py': "The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply)",
     'precedent_candidate.py': "Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates",
