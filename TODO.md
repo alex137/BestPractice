@@ -92,3 +92,11 @@ the upstream layer. Ordered by priority.
     negative result (the session never mentions the practice across
     several such edits) is itself the answer, and should be recorded here
     either way rather than left unconfirmed indefinitely.
+12. **Run the non-technical-contributor access plan for real.**
+    [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+    is drafted but not executed — it doubles as item 9's neighbor,
+    [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s still-open item 4 (the
+    first end-to-end rehearsal of INSTALL.md §0). **Blocked on:** a real
+    person and repo to run it against, and Morgan adding the GitHub
+    collaborator role by hand (no tool in this repo's GitHub toolset
+    creates a collaborator invite).
