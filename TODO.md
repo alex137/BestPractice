@@ -115,3 +115,16 @@ the upstream layer. Ordered by priority.
     person and repo to run it against, and Morgan adding the GitHub
     collaborator role by hand (no tool in this repo's GitHub toolset
     creates a collaborator invite).
+15. **Build the team practice repo and reusable document-project template
+    for non-technical document work.**
+    [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)
+    is drafted but not executed. Unlike item 14, this one is not blocked on
+    a real person — creating the (empty) team repo and the template is
+    real, bounded, agent-doable work. **Blocked on:** Morgan naming the new
+    team repo and who goes in its `approvers.json` (Prerequisites items 1-2
+    in the plan) — the implementing session cannot invent those.
+16. **Run the document-project pilot once item 15 lands and Morgan has a
+    real first project.** Deliberately not planned yet — see
+    [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
+    "Sequencing" section for why. **Blocked on:** item 15, plus a real
+    subject and a real person, neither of which exists yet.
