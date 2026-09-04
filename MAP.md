@@ -85,6 +85,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/practice_audit.py](tools/practice_audit.py) | Audits the practice-export layer for a repo that vendors one (this repo does not) |
+| [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py) | Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet |
 | [tools/precedent_candidate.py](tools/precedent_candidate.py) | Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates |
 | [tools/precedent_check.py](tools/precedent_check.py) | The ENFORCED loading channel — runs every practice's `checked_by` script |
 | [tools/precedent_detect.py](tools/precedent_detect.py) | Stage 1 (phase 5) — the mechanical half of candidate detection |

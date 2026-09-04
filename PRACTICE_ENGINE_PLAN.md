@@ -1802,6 +1802,17 @@ The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; this section is the short record of what moved.
 
+**2026-09-04 — v32, an adopter with no individual or team repo yet had
+nowhere to start — closed for the case that doesn't need the full
+creation pipeline.** New skeletons, a new bootstrap tool
+(harness-tested against a real resolve, precedence included), and a real
+`SETUP.md`/`INSTALL.md` branch replace what used to be a dead end at "do
+you already have one?" — deliberately independent of
+[spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) item 2, which stays open. Full
+reasoning, alternatives considered, and what this does not close in
+[decisions/2026-09-04-bootstrap-new-sources.md](decisions/2026-09-04-bootstrap-new-sources.md);
+the procedure itself is [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md).
+
 **2026-09-03 — v31, nothing ever told an installer or a member this system
 exists — partially closed.** Neither [SETUP.md](SETUP.md) nor
 [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) is named

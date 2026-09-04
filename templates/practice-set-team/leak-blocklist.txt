@@ -1,0 +1,39 @@
+# Private-term blocklist — the leak gate's VOCABULARY layer.
+#
+# This file is already in the right place: {{NAME}}'s own team practice
+# set. Fill it in here, then point the environment variable at it and turn
+# vocabulary checking on, in every shared project this team works in:
+#
+#     export PRECEDENT_LEAK_BLOCKLIST={{DEST_PATH}}/leak-blocklist.txt
+#     git config precedent.requireVocabulary true
+#
+# Without the git config line the leak gate fails OPEN (scans only the
+# structural rules, exits 0 even with this file unset).
+#
+# FORMAT. One Python regular expression per line, matched case-insensitively
+# against every file's text and every commit message in whatever the gate is
+# scanning. Blank lines and lines beginning with `#` are ignored. An invalid
+# expression fails the gate rather than being skipped.
+#
+# WHAT BELONGS IN IT. Words that are private *because of who they name*,
+# which no structural rule can recognise: client names, project code words,
+# internal system and service names, unreleased product names, people's
+# names where the association is the sensitive part, internal hostnames
+# and ticket prefixes. The structural layer (built into every consuming
+# project's leak gate) already covers shapes — email addresses, home
+# directories, individual- and team-level paths — so there is no need to
+# restate those here.
+#
+# WRITING THE PATTERNS. Prefer `\b…\b` so a term does not match inside an
+# unrelated word. Cover the spellings the term actually appears in: hyphenated
+# and spaced, singular and possessive, the abbreviation as well as the full
+# name. A term that only ever appears one way in your notes today will appear
+# another way the first time it matters.
+#
+# The entries below are placeholders, and are here to show the shape. Replace
+# them with the team's own terms — and if one of these ever fires, it means
+# this file was copied and not edited.
+
+\bexample-client-name-goes-here\b
+\bexample-code-word-goes-here\b
+\bEXAMPLE-TICKET-\d+\b
