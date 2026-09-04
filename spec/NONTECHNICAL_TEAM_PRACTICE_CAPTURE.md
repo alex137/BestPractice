@@ -137,14 +137,26 @@ invented here to have something to test against.
 
 ### Step 1 — Create the team practice repo
 
-Private. `practices/` and `candidates/` directories (both start empty —
-see "Architecture," above). `approvers.json` naming Morgan (Prerequisites
-item 2). No `leak-blocklist.txt` needed here — that mechanism protects the
-*public* Precedent repo from private leakage on check-in
-([spec/SOURCES.md](SOURCES.md#the-leak-gates-vocabulary-layer-as-switched-on));
-nothing in this new team repo is ever checked into a public tree unless a
-practice is later promoted to universal, which is a separate, deliberate
-act.
+Use [spec/BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)'s "For a team
+set" procedure, not a hand-rolled skeleton — it landed after this plan was
+first drafted and is now the documented way to do exactly this:
+
+```
+python3 tools/precedent_bootstrap_source.py --level team \
+    --name <name from Prerequisites item 1> --dest <local clone path> \
+    --approver "Morgan:<github-handle>"
+```
+
+This copies [templates/practice-set-team/](../templates/practice-set-team/)
+(`practices/` and an `example-starter.md` to delete once a real first
+practice replaces it, `approvers.json`, a `leak-blocklist.txt` — included by
+the skeleton, not something this plan needs to populate or switch on, since
+nothing in this new repo is checked into the public Precedent tree unless a
+practice is later promoted to universal, a separate deliberate act) into
+the destination, filling in the approver named on the command line.
+Creating the actual GitHub repository and pushing the bootstrapped content
+to it is still a separate, explicit step — the tool never touches a git
+remote (BOOTSTRAP_NEW_SOURCES.md's "What the tool does, and does not do").
 
 ### Step 2 — Build the reusable document-project template
 
