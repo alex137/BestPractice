@@ -107,3 +107,11 @@ the upstream layer. Ordered by priority.
     [AGENTS.md](AGENTS.md) pointer, all in that same PR. **Blocked on:** Alex's review
     and approval of `precedent-beta-v01` for the real phase-7 merge into
     `main` — not something to anticipate or do early.
+14. **Run the non-technical-contributor access plan for real.**
+    [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+    is drafted but not executed — it doubles as item 9's neighbor,
+    [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s still-open item 4 (the
+    first end-to-end rehearsal of INSTALL.md §0). **Blocked on:** a real
+    person and repo to run it against, and Morgan adding the GitHub
+    collaborator role by hand (no tool in this repo's GitHub toolset
+    creates a collaborator invite).
