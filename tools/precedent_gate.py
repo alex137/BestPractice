@@ -22,11 +22,32 @@ the gate is invoked, the practice's Rule is in context, with no session
 judgment involved. That is strictly stronger than the occasion index, which
 requires a session to recognise the occasion, read a one-line clause, and
 choose to open it. What it moves rather than solves is the question of
-**whether the gate gets invoked** — a wiring problem, not a routing one. The
-push gate is wired into templates/hooks/pre-push, so it fires whether or not
-anyone remembers it. The others are cited by runbook steps and by the standing
-instruction in the loader block, which is weaker, and is worth being plain
-about rather than counting as solved.
+**whether the gate gets invoked** — a wiring problem, not a routing one.
+
+A 2026-09-04 gate audit applied the same skepticism phase 4 applied to
+`checked_by` (see spec/ENFORCEMENT.md's "What phase 4 found before it built
+anything") to this channel, and found the identical failure class once:
+`push` and `reply`
+are the only two gates with an actual invocation point anywhere in this
+repo's templates (a git pre-push hook, a Claude Code Stop hook — the only
+two adapter mechanisms that exist to interrupt a session at all; see
+templates/harness/README.md's table). `push` was wired, into
+templates/hooks/pre-push. `reply` was not: routing_scope.json's own
+vocabulary names its moment as "the stop hook", and
+templates/harness/claude-code/hooks/stop-git-check.sh — the only stop-hook
+script any adapter ships — never called this file. The claim and the wiring
+had drifted apart, unnoticed, the same way seven of eight `checked_by`
+claims had. It is fixed now (both that template and this repo's own
+`.claude/hooks/stop-git-check.sh`), and `check_gate_channel` in
+tools/verify_harness.py asserts it stays fixed, the same way it already
+asserted `push`'s wiring.
+
+`merge` and `review` remain cited only — by runbook steps and by the
+standing instruction in the loader block — and that is not a TODO to close,
+it is this channel's honest, permanent shape: no adapter here has a
+merge-time or review-time hook to interrupt a session the way Stop and
+pre-push do, so there is nothing to wire. Weaker than `push`/`reply`, and
+worth staying plain about rather than counting as solved.
 
 **The routing eval cannot measure any of this.** It simulates the resident
 block, the occasion index and the path channel against twenty commits; a gate
