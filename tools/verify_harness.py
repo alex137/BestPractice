@@ -3069,9 +3069,21 @@ def check_gate_channel():
     cases.append(('the push gate is wired into templates/hooks/pre-push',
                   hook.exists() and 'precedent_gate' in hook.read_text(errors='ignore')))
 
+    # the reply gate must actually be wired too -- a 2026-09-04 gate audit
+    # found it was not: routing_scope.json names this gate's moment as "the
+    # stop hook", but the only stop-hook script any adapter ships never
+    # called precedent_gate.py at all. Checked in both the template a
+    # dependent repo installs and this repo's own instantiated copy, so
+    # neither can drift back to cited-only without this case catching it.
+    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+                      ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'):
+        cases.append((f'the reply gate is wired into {stop_hook.relative_to(ROOT)}',
+                      stop_hook.exists() and 'precedent_gate' in stop_hook.read_text(errors='ignore')))
+
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'gate-triggered channel ({len(cases)} stated cases: closed vocabulary, '
-          f'no empty gate, every gate resolves, unknown gates fail loudly)',
+          f'no empty gate, every gate resolves, unknown gates fail loudly, '
+          f'push and reply actually wired)',
           not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
