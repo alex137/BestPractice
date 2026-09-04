@@ -17,7 +17,7 @@ level decides which repository it lives in** — [spec/SOURCES.md](SOURCES.md)'s
 | Level | Where |
 |---|---|
 | Individual | Always `candidates/*.md` in that person's own individual-set repo. There's no one else whose approval a candidate could be standing in for — you own the set — so this is for deliberately deferring a decision, never for asking permission. |
-| Team | `candidates/*.md` in that team's own private repo, **by default** — or a GitHub Issue on that same repo, via `precedent_candidate.py create --level team --as-issue true` (added 2026-09-02). See "Which one for team" below for how to choose; it's not a free choice between two equivalent options. |
+| Team | `candidates/*.md` in that team's own private repo, **by default** — or a GitHub Issue on that same repo, via `precedent_candidate.py create --level team --as-issue true`. See "Which one for team" below for how to choose; it's not a free choice between two equivalent options. |
 | Universal | **A GitHub Issue** on `alex137/BestPractice`, labeled `precedent-candidate`, using [.github/ISSUE_TEMPLATE/practice-candidate.md](../.github/ISSUE_TEMPLATE/practice-candidate.md) — never a file. See [spec/SOURCES.md](SOURCES.md#universal-candidates-are-github-issues-not-a-fourth-candidates) for why: `tools/leak_gate.py` already forbids a `candidates/` directory in Precedent, unconditionally, by shape rather than content. |
 
 A `candidates/` directory is exactly as private-shaped as `practices/` and
@@ -29,8 +29,8 @@ goes instead.
 
 **This is a question about authority, not about who has git access.**
 `precedent_land.py`'s own rule for team practices is that a listed
-approver's own say-so lands one directly — no PR, no candidate, no
-waiting (PRACTICE_ENGINE_PLAN.md: *"for a small team ... the session
+approver's own say-so lands one directly — no pull request (PR), no
+candidate, no waiting (PRACTICE_ENGINE_PLAN.md: *"for a small team ... the session
 commits it directly"*). That means the quiet `candidates/*.md` path and
 the noisier `--as-issue` path answer two different situations, not one
 preference:
@@ -46,8 +46,9 @@ preference:
   `candidates/` accomplishes nothing on its own, since nothing is watching
   that directory for it. Use `--as-issue true` instead: it drafts the same
   candidate body, but as a GitHub Issue on that team repo (auto-detecting
-  the repo from the clone's own `origin` remote, or `--github-repo
-  OWNER/REPO` if that can't be determined), labeled `precedent-candidate`
+  the repo from the clone's own `origin` remote, or the GitHub org/user
+  (OWNER) and repository name (REPO) via `--github-repo OWNER/REPO`
+  if that can't be determined), labeled `precedent-candidate`
   the same way universal candidates are. Same reasoning as universal's own
   Issue path, applied to a private repo for a different cause: there, the
   repo structurally can't hold `candidates/` at all; here, the repo could,
