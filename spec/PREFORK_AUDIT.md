@@ -11,6 +11,11 @@ consumer repo by [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#
 and restated as still not done by [spec/PHASE5_DEEPCHECK.md](PHASE5_DEEPCHECK.md);
 built here, closing that gap.
 
+**A sortable render of the table below** (multi-column sort, per-column
+filters, per [tabular-shared-renderer](../practices/tabular-shared-renderer.md))
+ships alongside this source: [PREFORK_AUDIT.html](PREFORK_AUDIT.html) —
+rebuild with `python3 tools/doc_html.py` after editing the table.
+
 **Practices native to Precedent** (no `source_practice_number:` —
 `disclose-landing`, `checkable-gets-checked`, `code-cites-practice`, and any
 added since) are out of scope for this table by definition: there is

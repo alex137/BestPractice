@@ -30,3 +30,9 @@ can block ending a turn — port the git-hygiene check
 ([claude-code/hooks/stop-git-check.sh](claude-code/hooks/stop-git-check.sh))
 if so; (4) can commands be pre-approved — port the allowlist idea if so.
 Then contribute the adapter back upstream.
+
+**Transfer verdicts for changes to any one adapter are ledgered:**
+[LEDGER.md](LEDGER.md) — a change to one member presumptively transfers to
+the others, and this family's ledger records the per-member verdict for
+each change rather than leaving it to a headline judgment call
+([parallel-artifact-ledger](../../practices/parallel-artifact-ledger.md)).
