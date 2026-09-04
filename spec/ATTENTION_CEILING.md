@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by the follow-up session that ran the gloss-tier and two-hop-review experiments -->
+<!-- Last updated: 2026-09-04 (Buenos Aires) by the session that ran the audit-judgment result -->
 
 # The Attention Ceiling — What Six Runs Measured, and What To Do About It
 
@@ -760,7 +760,81 @@ actually happened. If that later comparison goes badly, *that* is the
 measured result this section does not have, and revisits this reasoning on
 its own terms rather than on precedent from a differently-shaped eval.
 
+## The audit-judgment result (2026-09-04)
+
+Pre-registered as
+[evals/routing/PREDICTION_AUDIT_JUDGMENT.md](../evals/routing/PREDICTION_AUDIT_JUDGMENT.md)
+and run against the judgment mechanism
+[full-practice-audit](../practices/full-practice-audit.md) and
+[routing-audit](../practices/routing-audit.md)'s rotating slice share:
+full Rule text, one judgment-only practice at a time, closed question
+("does it apply; if so, is it satisfied"), against the actual current repo
+state rather than a frozen diff. This is not another arm of the review-arm
+lineage above — it deliberately tests the framing
+["Does the ceiling reach Stage 1 and Stage 3?"](#does-the-ceiling-reach-stage-1-and-stage-3-2026-09-02-reasoned-not-measured)
+argued but did not measure: one candidate, its own attached evidence, a
+closed question, structurally closer to the oracle than to the falsified
+review arm.
+
+**Method.** Six judgment-only practices from the universal catalogue, in an
+isolated `git worktree`, judged by a freshly spawned agent with no memory of
+this conversation or of writing the prediction. Three carried a real seeded
+violation (`registry-source-of-truth`, `volatile-rules-carry-dates`,
+`lead-with-what-it-is`); three were judged in their real, unmodified state
+with ground truth established by inspection before the run
+(`check-source-architecture`, `build-buy-decompose` — grep-confirmed no
+matching content exists in this repo — and `one-formatter-per-quantity`,
+already named not-applicable-here by this document's own earlier pass). See
+the prediction document for the seeded content and the full ground-truth
+table.
+
+**Result: 6 of 6 correct (100%).** All three seeded violations were found
+and correctly flagged, with the specific seeded file cited as evidence
+each time; all three real practices judged in their unmodified state were
+correctly called not-applicable/satisfied, with no false positive. This
+clears the pre-registered ≥83% validating band with room to spare, and is
+nowhere near the ≤67% falsifying band. **Verdict: validated, on this run.**
+
+**What this does and does not establish.** N=6, one judge, one run — a
+first, coarse signal for a single-session turn budget, explicitly not the
+routing eval's 20-case, multi-run, noise-floor-calibrated discipline (see
+["The catalogue re-run"](#the-catalogue-re-run-2026-09-02) above for how
+much a single run of *that* eval can swing on judge variance alone — 15-25
+points between otherwise-identical runs). A 100% score on 6 cases is
+consistent with the true rate being anywhere from roughly 60% up once
+sampling uncertainty is accounted for; it is evidence for the prediction,
+not proof at the review-arm chain's own standard. Should this mechanism's
+reliability start to matter for something higher-stakes than an on-demand,
+human-invoked backstop, it still needs the fuller multi-run discipline
+before being trusted at that level — this run does not substitute for it,
+it only makes the prediction worth that investment rather than a guess.
+
+**An unplanned finding, disclosed rather than acted on unilaterally.** The
+same judge, working through all 21 judgment-only practices (not just the 6
+scored above) against this repo's real, unmodified state, flagged four more
+as genuinely violated: `parallel-artifact-ledger` (no dated ledger exists
+for the `templates/harness/` adapter family despite a real cross-adapter
+change having landed), `pr-template-honest-gates` (this repo — which
+teaches the practice — has no `.github/pull_request_template.md` of its
+own), `section-order-by-frequency` (`INSTALL.md`'s §0, the rare and
+unrehearsed install path, sits before §1, which `SETUP.md` itself calls
+"the right default for essentially every install today"), and
+`tabular-shared-renderer` (`tools/doc_html.py`'s `DOCS` registry is empty
+and no `.html` render exists anywhere in the repo, despite several
+genuine multi-column tables). Each was independently spot-checked before
+being recorded here (file existence, an empty `DOCS = []`, a grep for any
+ledger file) and held up. These were not pre-registered, so they are not
+part of the scored result and not fixed by this session — recorded here as
+real audit output worth someone's attention, per this practice's own
+disclosure-over-silent-fix discipline, not as a fourth eval arm.
+
 ## For the session that picks this up
+
+**A related but distinct result exists for a different question — the
+audit-judgment mechanism, not the review-arm lineage below**: see
+[The audit-judgment result](#the-audit-judgment-result-2026-09-04)
+above, 100% on a small (N=6), single-run, single-judge test. It does not
+change anything below, which is about the review-arm chain specifically.
 
 **Three experiments in this line have now been run; do not re-run any of
 them to see if the number moves.** Review (one hop, clause only): 54%.

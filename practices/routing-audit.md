@@ -82,7 +82,15 @@ fell through, and what else the plan approved that the tree does not show.
 `tools/precedent_check.py`'s `routing-audit` check verifies the tool exists
 and that `tools/routing_audit_state.json`, if present, carries no rotation
 entry for a practice that is no longer active — stale bookkeeping a
-retired or renamed practice would otherwise leave behind silently. On-demand
-only, invoked explicitly; not wired into a commit, push, or merge gate
-until a session validates it is worth the cost (see
-[spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)).
+retired or renamed practice would otherwise leave behind silently.
+`coverage()`'s glob-matching is itself a planted case in
+`tools/verify_harness.py` (`check_routing_audit_coverage`, added
+2026-09-04) rather than only asserted correct. The rotating slice's
+judgment step shares its mechanism with
+[full-practice-audit](full-practice-audit.md)'s whole sweep, and shares
+that practice's first evaluation result — 6 of 6 (100%) on a small,
+single-run test, 2026-09-04, see
+[spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md), "The
+audit-judgment result." On-demand only, invoked explicitly; not wired into
+a commit, push, or merge gate until a session validates it is worth the
+cost (see [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)).
