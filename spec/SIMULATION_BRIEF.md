@@ -1,8 +1,8 @@
-<!-- Last updated: 2026-09-04, phase 3 landed -->
+<!-- Last updated: 2026-09-04, phase 4 landed -->
 
 # The Practice Simulation (Brief)
 
-**Status: approved; phases 1-3 (rough phasing, below) are built.** Written up
+**Status: approved; phases 1-4 (rough phasing, below) are built.** Written up
 per Morgan's request to have a plan to approve before implementation starts.
 Treat this the way `spec/PHASE5_BRIEF.md` and friends were treated
 — a brief a phase is built from, updated in place as it's actually built,
@@ -10,21 +10,23 @@ never left to drift out of sync with a second, separate copy.
 
 ## Never automatic
 
-**No keyword, phrase, or occasion-index entry triggers any of this.** Both
-tools this brief has produced —
+**No keyword, phrase, or occasion-index entry triggers any of this.** All
+three tools this brief has produced —
 [`tools/behavioral_replay.py`](../tools/behavioral_replay.py)'s
-`--with-checks` and [`tools/practice_simulation.py`](../tools/practice_simulation.py)
-— are plain command-line scripts. Nothing in `practices/*.md`'s `occasion`
+`--with-checks`, [`tools/practice_simulation.py`](../tools/practice_simulation.py),
+and [`tools/precedent_simulate.py`](../tools/precedent_simulate.py) — are
+plain command-line scripts. Nothing in `practices/*.md`'s `occasion`
 fields, `AGENTS.md`'s generated loader block, `tools/precedent_gate.py`'s
-named moments, or any git/session-start hook mentions either script — this
+named moments, or any git/session-start hook mentions any of them — this
 is a checked fact, not an intention (`grep -rn "behavioral_replay\|
-practice_simulation" practices/ tools/precedent_gate.py .claude/` returns
-nothing). They run only when a person runs them directly, or explicitly
-asks an agent session to run them in that turn. That must hold for every
-future phase too: neither tool is ever to be added to a hook, a gate, an
-`occasion` clause, or a session-start script. A session encountering
-`spec/SIMULATION_BRIEF.md` while working on something else has no standing
-to run either tool on its own initiative from that alone.
+practice_simulation\|precedent_simulate" practices/ tools/precedent_gate.py
+.claude/` returns nothing). They run only when a person runs them directly,
+or explicitly asks an agent session to run them in that turn. That must
+hold for every future phase too: none of these tools is ever to be added
+to a hook, a gate, an `occasion` clause, or a session-start script. A
+session encountering `spec/SIMULATION_BRIEF.md` while working on something
+else has no standing
+to run any of these tools on its own initiative from that alone.
 
 ## The question this exists to answer
 
@@ -257,5 +259,25 @@ currently narrates routing-eval rounds by hand.
    the score output for why. A real dependent repo works identically:
    attach it and point `--repo-root` at its checkout once it has its own
    `precedent.json` and a synced `AGENTS.md`.
-4. Wire both tiers into a single `precedent simulate` command and the
-   running trend log.
+4. **Built.** `tools/precedent_simulate.py`, one front door over both
+   tiers, plus `evals/simulation/trend.jsonl` — a run's worth of numbers
+   appended, never overwritten or averaged into a restated figure. `quick`
+   runs `behavioral_replay.py --with-checks` start to finish in one
+   command (no LLM calls) and logs reach %, context reduction, and
+   mechanical-correctness clean/violated/errored counts. The full tier's
+   generate/route steps still need a person or an explicitly-asked agent
+   in the loop — that cannot be, and must not be, wired into one
+   synchronous command (see "Never automatic" above) — so `record --batch
+   ID` closes the loop instead: once a batch is fully scored, it reads
+   `practice_simulation.score_batch()`'s real result (never a second
+   computation of the same arithmetic) and logs it. Refuses to log a
+   batch with any unanswered scenario, so a partial run can't misreport
+   as a small, misleadingly clean one. `trend` reads the log back, split
+   by tier and, within the full tier, by repo — a quick-tier run, a
+   this-repo batch, and a different-repo batch are three different
+   measurements and pooling them would misstate all three (sections 6-7).
+   Validated end to end: a real `quick` run (`OK`, 100% reach on the
+   60-commit sample, 287/290 mechanical-correctness data points clean),
+   both phase-2/3 batches recorded via `record`, and `trend` printed all
+   three back correctly grouped. Also verified `record` actually refuses
+   an unscored batch rather than logging a hollow result.

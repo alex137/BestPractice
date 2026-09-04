@@ -416,8 +416,12 @@ def _mentions_slug(answer_text, slug):
     return slug in set(_SLUG_RE.findall(answer_text.lower()))
 
 
-def cmd_score(args):
-    batch_id = args[args.index('--batch') + 1]
+def score_batch(batch_id):
+    """The actual scoring computation, importable -- tools/precedent_simulate.py
+    (phase 4) calls this directly to feed the trend log, rather than
+    re-parsing cmd_score's own printed text. One computation, two
+    consumers (this module's CLI, and precedent_simulate.py's record
+    command), never two implementations of the same arithmetic."""
     batch_dir = BATCHES_DIR / batch_id
     manifest = json.loads((batch_dir / 'manifest.json').read_text(encoding='utf-8'))
     repo_root = manifest.get('repo_root')
@@ -448,6 +452,36 @@ def cmd_score(args):
             scored += 1
             rows.append((slug, kind, named, correct))
 
+    per_kind = {}
+    for kind in KINDS:
+        total = sum(1 for s, k, _n, _c in rows if k == kind)
+        if not total:
+            continue
+        hit = counts[kind]['named']
+        per_kind[kind] = {'hit': hit, 'total': total, 'rate': hit / total}
+
+    gap_points = None
+    if 'positive' in per_kind and 'adversarial' in per_kind:
+        gap_points = 100 * (per_kind['positive']['rate'] - per_kind['adversarial']['rate'])
+
+    return {
+        'batch_id': batch_id,
+        'repo_root': repo_root,
+        'scored': scored,
+        'unscored': unscored,
+        'per_kind': per_kind,
+        'plain_vs_adversarial_gap_points': gap_points,
+    }
+
+
+def cmd_score(args):
+    batch_id = args[args.index('--batch') + 1]
+    summary = score_batch(batch_id)
+    batch_dir = BATCHES_DIR / batch_id
+    manifest = json.loads((batch_dir / 'manifest.json').read_text(encoding='utf-8'))
+    repo_root = summary['repo_root']
+    scored, unscored = summary['scored'], summary['unscored']
+
     print(f'Batch {batch_id}: {scored} scored, {len(unscored)} not yet answered.')
     if repo_root:
         print(f'  Target repo: {repo_root}')
@@ -461,31 +495,25 @@ def cmd_score(args):
     if unscored:
         print(f'  Missing answers: {", ".join(unscored)}')
     print()
+    per_kind = summary['per_kind']
     for kind in KINDS:
-        total = sum(1 for s, k, _n, _c in rows if k == kind)
-        if not total:
+        if kind not in per_kind:
             continue
+        hit, total = per_kind[kind]['hit'], per_kind[kind]['total']
         if kind == 'negative':
-            correct = counts['negative']['named']   # correct REJECTIONS
             print(f'  negative (should NOT name the practice): '
-                  f'{correct}/{total} correctly rejected '
-                  f'({100 * correct / total:.0f}%)')
+                  f'{hit}/{total} correctly rejected '
+                  f'({100 * hit / total:.0f}%)')
         else:
-            hit = counts[kind]['named']
             label = 'positive (plain case)' if kind == 'positive' else \
                     'adversarial (hardened case)'
             print(f'  {label}: {hit}/{total} correctly named '
                   f'({100 * hit / total:.0f}%)')
-    if 'positive' in [k for _s, k, _n, _c in rows] and \
-       'adversarial' in [k for _s, k, _n, _c in rows]:
-        pos_total = sum(1 for s, k, _n, _c in rows if k == 'positive')
-        adv_total = sum(1 for s, k, _n, _c in rows if k == 'adversarial')
-        if pos_total and adv_total:
-            pos_rate = counts['positive']['named'] / pos_total
-            adv_rate = counts['adversarial']['named'] / adv_total
-            print(f'\n  Plain-vs-hardened gap: {100 * (pos_rate - adv_rate):.0f} '
-                  f'point(s) -- this is the number a fixed replay set cannot show, '
-                  f'and the reason this batch was invented rather than replayed.')
+    if summary['plain_vs_adversarial_gap_points'] is not None:
+        print(f'\n  Plain-vs-hardened gap: '
+              f'{summary["plain_vs_adversarial_gap_points"]:.0f} point(s) -- this is '
+              f'the number a fixed replay set cannot show, and the reason this batch '
+              f'was invented rather than replayed.')
     print('\n  Read this per batch, never cumulatively across batches: each batch '
           'samples different practices and invents fresh scenarios, by design (see '
           'the module docstring) -- a score here is not comparable commit-for-commit '
