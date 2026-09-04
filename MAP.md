@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 57 practice files (6 resident, 51 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 59 practice files (6 resident, 53 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -28,6 +28,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [engine-plus-host-shims](practices/engine-plus-host-shims.md) | on-demand | exporting a tool across a repo boundary |
 | [environment-gotchas](practices/environment-gotchas.md) | resident | hitting an environment or tooling quirk |
 | [frame-from-audience-question](practices/frame-from-audience-question.md) | on-demand | starting an outward-facing deliverable |
+| [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue |
 | [generated-artifact-provenance](practices/generated-artifact-provenance.md) | on-demand | building or committing a generated artifact |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific |
 | [index-remembers-past](practices/index-remembers-past.md) | on-demand | a document replaces or is replaced by an earlier one |
@@ -54,6 +55,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state that multiple documents need to agree on |
 | [reply-links-files](practices/reply-links-files.md) | resident | ending a reply that created or modified files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
+| [routing-audit](practices/routing-audit.md) | on-demand | checking whether the practices that should have fired for recent work actually fired |
 | [scripts-assert-properties](practices/scripts-assert-properties.md) | on-demand | writing a script whose numbers a document will cite |
 | [scrub-gate](practices/scrub-gate.md) | on-demand | committing anything that touches the vendored/public tree |
 | [search-by-purpose](practices/search-by-purpose.md) | on-demand | starting work the repository may already cover |
@@ -79,9 +81,11 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/doc_html.py](tools/doc_html.py) | The one sortable-table HTML renderer for repo documents |
 | [tools/doc_lint.py](tools/doc_lint.py) | Markdown hygiene checks — strikethrough, links, acronyms |
 | [tools/doc_sync.py](tools/doc_sync.py) | Keeps script-generated blocks inside documents in sync with what the script emits |
+| [tools/full_practice_audit.py](tools/full_practice_audit.py) | The full practice audit — on-demand, whole-catalogue sweep across every source |
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/practice_audit.py](tools/practice_audit.py) | Audits the practice-export layer for a repo that vendors one (this repo does not) |
+| [tools/practice_simulation.py](tools/practice_simulation.py) | Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark |
 | [tools/precedent_candidate.py](tools/precedent_candidate.py) | Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates |
 | [tools/precedent_check.py](tools/precedent_check.py) | The ENFORCED loading channel — runs every practice's `checked_by` script |
 | [tools/precedent_detect.py](tools/precedent_detect.py) | Stage 1 (phase 5) — the mechanical half of candidate detection |
@@ -93,8 +97,10 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
 | [tools/precedent_retire.py](tools/precedent_retire.py) | Stage 6 (phase 5) — the periodic retirement report; proposes, never acts |
 | [tools/precedent_show.py](tools/precedent_show.py) | Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file |
+| [tools/precedent_simulate.py](tools/precedent_simulate.py) | One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log |
 | [tools/precedent_sync_views.py](tools/precedent_sync_views.py) | One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together |
 | [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json |
+| [tools/routing_audit.py](tools/routing_audit.py) | The routing audit — mechanical coverage check plus a rotating deep-read slice |
 | [tools/routing_eval.py](tools/routing_eval.py) | Measures whether trigger-based loading actually beats carrying the whole catalogue |
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |

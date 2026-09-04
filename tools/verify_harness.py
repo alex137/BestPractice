@@ -2329,6 +2329,32 @@ def check_precedent_check_fires():
                 '**deep check**', 'deep check', 1))
         case('two-check-levels', _plant_tcl)
 
+        # routing-audit -- a stale rotation entry for a practice that no
+        # longer exists (the exact bookkeeping-drift case the check exists
+        # to catch: a retired or renamed practice left behind in the state
+        # file)
+        def _plant_ra(repo):
+            (repo / 'tools' / 'routing_audit_state.json').write_text(
+                '{"not-a-real-practice-zzz": {"last_reviewed": '
+                '"2020-01-01", "commit": "deadbeef"}}\n', encoding='utf-8')
+        case('routing-audit', _plant_ra)
+
+        # merge-target-is-beta-branch -- origin/main advanced to include
+        # origin/precedent-beta-v01 as an ancestor (the PR #89 incident,
+        # replayed against the throwaway repo's own two remote-tracking
+        # refs rather than the real ones). The pristine copy has exactly one
+        # commit, so a second is made here to give the two refs a real
+        # ancestor relationship to plant.
+        def _plant_mtib(repo):
+            c1 = git(repo, 'rev-parse', 'HEAD')
+            (repo / 'PLANT_MARKER.txt').write_text('planted\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'second commit for the plant')
+            c2 = git(repo, 'rev-parse', 'HEAD')
+            git(repo, 'update-ref', 'refs/remotes/origin/precedent-beta-v01', c1)
+            git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
+        case('merge-target-is-beta-branch', _plant_mtib)
+
         # environment-gotchas -- an entry that is a bare fix
         def _plant_eg(repo):
             rewrite(repo, 'AGENTS.md', lambda t: t.replace(

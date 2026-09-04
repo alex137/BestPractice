@@ -5,7 +5,7 @@
 What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
 "[Source — Who a Practice Belongs To](../PRACTICE_ENGINE_PLAN.md#source--who-a-practice-belongs-to)"
 and
-"[Precedence, and the One Case Where the Individual Does Not Win](../PRACTICE_ENGINE_PLAN.md#precedence-and-the-one-case-where-the-individual-does-not-win)"
+"[Precedence, and the One Case Precedence Alone Does Not Decide](../PRACTICE_ENGINE_PLAN.md#precedence-and-the-one-case-precedence-alone-does-not-decide)"
 build to in this repo, and — as importantly — what phase 3 could **not** build
 from here and why. Read the plan sections first; this is the implementation
 note.

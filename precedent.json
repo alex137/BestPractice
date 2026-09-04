@@ -18,7 +18,17 @@
     "resolve this repo's own real team source, for the first time -- it",
     "does NOT change this repo's own generated AGENTS.md/MAP.md/GLOSSARY.md",
     "(build_views.py deliberately stays single-source: this repo's own",
-    "session-loading is the universal catalogue alone, same as before)."
+    "session-loading is the universal catalogue alone, same as before).",
+    "",
+    "The repo-local source below (declared 2026-09-03, after the PR #89",
+    "merge-target incident) is this repo's own temporary practice: every",
+    "PR targets precedent-beta-v01, never main, until Alex reviews and",
+    "merges precedent-beta-v01 for real. Per the same single-source note",
+    "above, this does NOT reach AGENTS.md's generated loader block either",
+    "-- AGENTS.md's hand-authored 'Working in this repo' section carries",
+    "the rule directly for that reason. See local/practices/ and",
+    "PRACTICE_ENGINE_PLAN.md's 'Source' section for the path: \"local\"",
+    "convention this follows."
   ],
   "sources": [
     {
@@ -30,6 +40,11 @@
       "level": "team",
       "name": "precedent-team-maintainers",
       "path": "../precedent-team-maintainers"
+    },
+    {
+      "level": "repo-local",
+      "name": "bestpractice-local",
+      "path": "local"
     }
   ]
 }

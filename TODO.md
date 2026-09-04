@@ -57,14 +57,10 @@ the upstream layer. Ordered by priority.
    losing the practices. Deliberately below the Actions/Issues items
    above: deeper GitHub integration now is acceptable, since equivalents
    can be added later.
-9. **The pre-fork catalogue audit table.** One row per inherited practice
-   (active-as-is / rewritten / superseded / merged, plus whether Alex
-   needs to hear about it) — named as real, bounded, unblocked work by
-   [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
-   and restated as still not done by
-   [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md). The plan only
-   requires it before phase 6 starts migrating a consumer repo — actionable
-   now, not blocked on anything.
+9. ~~**The pre-fork catalogue audit table.**~~ **Done (2026-09-03).** One
+   row per inherited practice, verdict against this plan's architecture,
+   plus whether Alex needs to hear about it:
+   [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md).
 10. **`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
     in [PRACTICE_ENGINE_PLAN.md's Deferred section](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet),
     correctly not built yet. **Blocked on:** a real second team's private
@@ -92,7 +88,26 @@ the upstream layer. Ordered by priority.
     negative result (the session never mentions the practice across
     several such edits) is itself the answer, and should be recorded here
     either way rather than left unconfirmed indefinitely.
-12. **Run the non-technical-contributor access plan for real.**
+12. **Investigate why `routing-audit` fell through, audit the plan for
+    other silent drops, and pre-register a real evaluation of the two new
+    audit mechanisms before trusting their output.** Full instructions in
+    [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md). **Blocked
+    on:** a fresh session with room for both the investigation (grepping
+    the plan for other approved-but-unbuilt commitments, cross-referencing
+    phase briefs) and a properly pre-registered evaluation
+    (`evals/routing/` discipline) — genuinely too large to fold into the
+    session that built `routing-audit` and `full-practice-audit` in the
+    same sitting.
+13. **Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
+    (and its check in [tools/precedent_check.py](tools/precedent_check.py),
+    and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the
+    moment Alex reviews and merges `precedent-beta-v01` into `main` for
+    real.** Delete the practice file, remove the
+    `merge-target-is-beta-branch` check function, and remove the
+    [AGENTS.md](AGENTS.md) pointer, all in that same PR. **Blocked on:** Alex's review
+    and approval of `precedent-beta-v01` for the real phase-7 merge into
+    `main` — not something to anticipate or do early.
+14. **Run the non-technical-contributor access plan for real.**
     [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
     is drafted but not executed — it doubles as item 9's neighbor,
     [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s still-open item 4 (the
