@@ -1,8 +1,8 @@
-<!-- Last updated: 2026-09-04, phase 2 landed -->
+<!-- Last updated: 2026-09-04, phase 3 landed -->
 
 # The Practice Simulation (Brief)
 
-**Status: approved; phases 1-2 (rough phasing, below) are built.** Written up
+**Status: approved; phases 1-3 (rough phasing, below) are built.** Written up
 per Morgan's request to have a plan to approve before implementation starts.
 Treat this the way `spec/PHASE5_BRIEF.md` and friends were treated
 — a brief a phase is built from, updated in place as it's actually built,
@@ -235,6 +235,27 @@ currently narrates routing-eval rounds by hand.
    work) — that needs a real sandboxed workspace for it to edit files in,
    which this file-based prompt/answer handoff does not provide. Real,
    separate follow-on work, not silently folded into the score above.
-3. Multi-repo pass (§6) once (2) has run on several batches, not just one.
+3. **Built.** Multi-repo pass (§6): `new-batch` and `route` accept
+   `--repo-root PATH`, pointing every step at a different repo's own
+   materialized practice set and generated loader block instead of this
+   repo's. No real dependent repo was attached to the session that built
+   this, so `build-fixture-repo` constructs an honestly-labeled FIXTURE
+   consumer repo at `evals/simulation/fixtures/demo-consumer-repo/` (its
+   own fictional Flask-style file tree, one repo-local override of
+   `engine-plus-host-shims` narrowed to that fixture's own vendored path)
+   through the real `tools/precedent_sync_views.py` /
+   `tools/precedent_materialize.py` pipeline this repo already ships and
+   tests — never a re-implementation of source resolution. Validated end
+   to end: the override provably wins precedence (the materialized set
+   drops `engine-plus-host-shims` entirely; only the override's slug
+   reaches the fixture's own loader block), the real path-triggered
+   channel fires the override on a scenario touching its narrowed path
+   and correctly does NOT fire it on a path the narrowing excludes, and
+   all 3 invented scenarios (plain/negative/adversarial) routed correctly
+   against the fixture's own materialized loader block. Scoring reports
+   per repo, never pooled across repos or with a same-repo batch — see
+   the score output for why. A real dependent repo works identically:
+   attach it and point `--repo-root` at its checkout once it has its own
+   `precedent.json` and a synced `AGENTS.md`.
 4. Wire both tiers into a single `precedent simulate` command and the
    running trend log.
