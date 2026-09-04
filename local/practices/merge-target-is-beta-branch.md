@@ -1,19 +1,19 @@
 ---
 slug:        merge-target-is-beta-branch
-title:       Every merge targets precedent-beta-v01, never main, unless Alex says otherwise
+title:       Alex approves only major merges into main; precedent-beta-v01 needs no sign-off
 tier:        on-demand
 severity:    blocking
 applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
 gates:       ["merge"]
-index_clause: "every PR targets precedent-beta-v01; main only on Alex's explicit say-so"
+index_clause: "Alex approves only major main merges; precedent-beta-v01 is unrestricted"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "Alex, 2026-09-03"
+approved_by: "Alex, 2026-09-03 (original rule); approval scope narrowed by Morgan, 2026-09-04"
 ---
 ## Rule
 Until Alex reviews and approves `precedent-beta-v01` and merges it into
@@ -22,9 +22,16 @@ every pull request (PR) opened in this repository targets
 `precedent-beta-v01`, never `main`. Before opening or merging a PR, confirm
 the base branch is `precedent-beta-v01` — do not assume `main` is the
 default just because it is the repository's configured default branch.
-Merging into `main` requires Alex saying so explicitly, in that specific
-request, naming `main` by name — a general "PR and merge it" authorization
-means `precedent-beta-v01`.
+
+Merging a PR into `precedent-beta-v01` needs no sign-off from Alex: once
+the PR's own deep check (`two-check-levels`) passes, a session may merge
+it directly — that branch is where routine work lands, not a gate he sits
+behind. His approval is reserved for `main`, and specifically for merges
+that carry major changes onto it — the phase-7 fold-in of
+`precedent-beta-v01` itself is the paradigm case, but any other merge
+reaching `main` with a non-trivial change needs the same explicit, named
+go-ahead, naming `main` by name. A general "PR and merge it" authorization,
+with no branch named, still defaults to `precedent-beta-v01`.
 
 ## Detail
 This holds even when `main` and `precedent-beta-v01` happen to be at the
@@ -33,16 +40,21 @@ practice exists to prevent occurred — the two branches looked
 interchangeable at that moment, and they were not.
 
 ## Why
-`main` is this repository's public, shared default branch; `precedent-beta-v01`
-is the working branch for the Precedent restructuring
-(`PRACTICE_ENGINE_PLAN.md`: "Precedent is a branch of BestPractice, not a
-fork" — merging back to `main` is `CHANGES_TO_TELL_ALEX.md`'s explicit,
-deferred phase-7 step, not something any single PR does incidentally). A
-branch based off `precedent-beta-v01`'s tip, opened with `base: main`,
-merges cleanly with no conflict and no warning — git has no concept of
-"the wrong branch," only of mergeable or not — so nothing in the mechanics
-of opening or merging the PR signals the mistake. The only thing that
-catches it is checking the base explicitly, every time, before acting.
+`main` is this repository's public, shared default branch, and a major
+change landing there without Alex's review risks exactly the kind of
+incident the Story below describes. `precedent-beta-v01` is the working
+branch for the Precedent restructuring (`PRACTICE_ENGINE_PLAN.md`:
+"Precedent is a branch of BestPractice, not a fork" — merging back to
+`main` is `CHANGES_TO_TELL_ALEX.md`'s explicit, deferred phase-7 step, not
+something any single PR does incidentally), so the day-to-day PRs building
+toward it don't need to wait on Alex one at a time: this repo's own deep
+check (`two-check-levels`) is what gates a push to `precedent-beta-v01`,
+not a human. A branch based off `precedent-beta-v01`'s tip, opened with
+`base: main`, merges cleanly with no conflict and no warning — git has no
+concept of "the wrong branch," only of mergeable or not — so nothing in
+the mechanics of opening or merging the PR signals the mistake. The only
+thing that catches it is checking the base explicitly, every time, before
+acting.
 
 ## Story
 2026-09-03: a session built two new practices on a branch created from
@@ -59,6 +71,17 @@ happened to ask "did that merge to main?" afterward. Fixed with a
 real pre-incident tree) and a second PR re-targeting `precedent-beta-v01`
 correctly. This practice is the fix that stops a session from needing to
 be asked.
+
+**Update, 2026-09-04 — approval scope narrowed, at Morgan's direction.**
+The rule above had left "reviewed by Alex, not self-merged" as this
+repo's assumed default for every PR, `precedent-beta-v01` included — PR
+#93 was opened correctly against `precedent-beta-v01` and still held for
+Alex, on that assumption, before this update. Restated explicitly: Alex's
+approval gate is for `main`, and only for merges carrying major changes;
+`precedent-beta-v01` merges need no sign-off from him at all, and a
+session may merge its own PR there once the deep check passes. This
+narrowing is Morgan's call, not Alex's — the original targeting rule above
+carries his 2026-09-03 approval, this narrowing does not yet.
 
 ## Install
 `tools/precedent_check.py`'s `merge-target-is-beta-branch` check compares

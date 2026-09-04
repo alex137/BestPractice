@@ -8,14 +8,21 @@
 **TEMPORARY, read before opening or merging any pull request (PR) here:
 every PR in this repository targets `precedent-beta-v01`, never `main`, until Alex reviews
 and merges `precedent-beta-v01` into `main` for real — a deliberate,
-phase-7 act, not something any routine PR does incidentally. A general
-"PR and merge it" authorization means `precedent-beta-v01`; merging into
-`main` requires Alex naming `main` explicitly, in that specific request.
-Check the base branch explicitly before acting — do not assume `main`
-just because it is the repository's configured default branch, and do not
-assume the two branches are interchangeable even when they happen to sit
-at the same commit, which is exactly the condition under which this rule's
-own origin incident happened. Full story, the mechanical check, and the
+phase-7 act, not something any routine PR does incidentally. Merging a PR
+into `precedent-beta-v01` needs no sign-off from Alex — once its deep
+check passes, a session may merge it directly; that branch is where
+routine work lands, not a gate he sits behind. Alex's approval is reserved
+for `main`, and specifically for merges carrying major changes onto it —
+the phase-7 fold-in is the paradigm case, but any other merge reaching
+`main` with a non-trivial change needs the same explicit, named go-ahead.
+A general "PR and merge it" authorization, with no branch named, still
+means `precedent-beta-v01`; merging into `main` requires Alex naming
+`main` explicitly, in that specific request. Check the base branch
+explicitly before acting — do not assume `main` just because it is the
+repository's configured default branch, and do not assume the two
+branches are interchangeable even when they happen to sit at the same
+commit, which is exactly the condition under which this rule's own
+origin incident happened. Full story, the mechanical check, and the
 retirement condition:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
 

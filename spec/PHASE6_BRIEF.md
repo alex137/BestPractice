@@ -93,6 +93,20 @@ commands interactively as they run), or explicitly adding a Bash
 permission rule that lets a future session run this unattended. Neither is
 something a session can grant itself.
 
+**Update, 2026-09-03 — all three closed.** Morgan ran a session
+directly against precedent-individual (exactly the path this brief
+names as "what actually closes this"), approving the rebase/force-push
+interactively as it ran. `ac525c9` and `0016903` are rewritten in
+place — correct author (`Morgan F <morgan@westegg\.com>`), correct
+`-0300` offset, wall-clock time unchanged — verified by comparing every
+commit's tree hash before/after (identical throughout) and a fresh
+clone showing both checks exit 0. A follow-up commit cleared the two
+check scripts' now-dead `GRANDFATHERED_SHAS` entries and updated both
+practices' Install text. The five old PR-source branches that still
+held the unrewritten commits were deleted from precedent-individual's
+remote. The two Open Decisions above are closed the same day — see
+[PRACTICE_ENGINE_PLAN.md's Open Decisions](../PRACTICE_ENGINE_PLAN.md#open-decisions).
+
 ## The real work still ahead
 
 Item 1 was built in a follow-up session (2026-09-03, same day) without
