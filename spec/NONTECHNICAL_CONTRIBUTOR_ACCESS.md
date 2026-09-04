@@ -107,7 +107,7 @@ been rehearsed end to end before this — expect to hit gaps; record them
 
 [tools/precedent_candidate.py](../tools/precedent_candidate.py) gets vendored by step 1 (it's part of
 `tools/`), but the loader template's merge-runbook step 0b currently
-carries a placeholder — a plain PR against the upstream repo — because, per
+carries a placeholder — a plain pull request (PR) against the upstream repo — because, per
 that template's own comment, "the candidate/promotion pipeline ... is not
 wired into a fresh install as of this writing"
 ([spec/PHASE6_BRIEF.md](PHASE6_BRIEF.md) tracks this as open item 2). That

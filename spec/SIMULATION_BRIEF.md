@@ -207,8 +207,9 @@ currently narrates routing-eval rounds by hand.
    points sampled on a later, larger run — genuine signal, not a smoke
    test, and all 3 were fixed in the same session that found them (a
    version-control annotation removed, two acronyms expanded, one
-   accidental "superseded by" phrase reworded) and reverified clean
-   against both the specific commits and the whole tree before landing.
+   accidental document-lineage-sounding phrase reworded) and reverified
+   clean against both the specific commits and the whole tree before
+   landing.
    Deliberately narrow: this measures retrospective enforcement
    compliance for the ~26 checked practices only, nothing about the other
    ~31, and nothing about routing or intent.
