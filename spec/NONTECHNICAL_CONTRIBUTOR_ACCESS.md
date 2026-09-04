@@ -99,13 +99,13 @@ exactly: vendor `practices/` and the whole `tools/` directory from this
 repo (`precedent-beta-v01` today — see this repo's own
 `environment-gotchas` entry on that name), write `precedent.json`,
 instantiate [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template)
-as her repo's `AGENTS.md`, run `tools/precedent_sync_views.py`. §0 has not
+as her repo's `AGENTS.md`, run [tools/precedent_sync_views.py](../tools/precedent_sync_views.py). §0 has not
 been rehearsed end to end before this — expect to hit gaps; record them
 (see "Closing the loop," below) rather than silently working around them.
 
 ### Step 2 — Wire the candidate pipeline for real use, not the placeholder
 
-`tools/precedent_candidate.py` gets vendored by step 1 (it's part of
+[tools/precedent_candidate.py](../tools/precedent_candidate.py) gets vendored by step 1 (it's part of
 `tools/`), but the loader template's merge-runbook step 0b currently
 carries a placeholder — a plain PR against the upstream repo — because, per
 that template's own comment, "the candidate/promotion pipeline ... is not
@@ -117,7 +117,7 @@ repo's own local candidates. Add an explicit instruction to her repo's
 when she raises a practice idea in plain language, Claude:
 
 1. Restates it back to her in her own words to confirm before acting.
-2. Drafts a candidate with `tools/precedent_candidate.py` at whatever level
+2. Drafts a candidate with [tools/precedent_candidate.py](../tools/precedent_candidate.py) at whatever level
    fits (individual, if it's just her working style; team/universal via
    `--as-issue true` if it should become a GitHub Issue others can see and
    comment on — see [spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md)'s
@@ -186,7 +186,7 @@ only in this plan.
 
 - Team- or universal-level candidate promotion once she's raised one — that
   still needs a listed approver (Morgan, or whoever `approvers.json` names)
-  to run `precedent_promote.py`/`precedent_land.py`; nothing here changes
+  to run [precedent_promote.py](../tools/precedent_promote.py)/[precedent_land.py](../tools/precedent_land.py); nothing here changes
   who can land a practice.
 - What happens if her repo needs a `team` source too (a second private
   set shared with other technical contributors) — same mechanics, not
