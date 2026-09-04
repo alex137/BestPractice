@@ -431,22 +431,35 @@ world-readability risk the other three levels are structured around: a
 repo-local practice is already exactly as visible as everything else in
 that repo, to everyone who can already read it.
 
-**Recommended: a subdirectory (`path: "local"`, holding `local/practices/`),
-not the bare repo root (`path: "."`).** Either satisfies "never leaves the
-repo" — `tools/precedent_resolve.py`'s own validation only refuses a path
-OUTSIDE the declaring repo — but `path: "."` puts repo-local's own
-hand-authored `practices/` in the exact same place
-`tools/precedent_materialize.py`'s resolved output goes when a repo
-materializes into its own root, which is the ordinary way a consuming repo
-regenerates its own `AGENTS.md`. Reproduced, not hypothetical: materializing
-a `path: "."` repo-local source into that same repo's own root silently
-overwrote the hand-authored source file the moment another source won
-resolution on a shared slug — no crash, no warning, just different content
-on disk than the person wrote, with nothing left to show it had changed.
-A subdirectory keeps the two physically apart: the hand-authored source at
-`local/practices/`, the generated, resolved view at the repo's own
-`practices/`, never colliding regardless of which source wins any given
-slug.
+**Required: a subdirectory (`path: "local"`, holding `local/practices/`),
+never the bare repo root (`path: "."`) and never any other subdirectory
+name.** This was only ever a *recommendation* through 2026-09-04 — any
+path inside the repo passed `tools/precedent_resolve.py`'s validation, a
+subdirectory was merely "the better choice" — until a cross-repo
+comparison found that being advisory, not enforced, meant nothing actually
+stopped a new dependent repo from picking a different name. Two reasons
+this is now a hard rule instead: (1) reproduced, not hypothetical —
+materializing a `path: "."` repo-local source into that same repo's own
+root silently overwrote the hand-authored source file the moment another
+source won resolution on a shared slug, no crash, no warning, just
+different content on disk than the person wrote, with nothing left to
+show it had changed; (2) the name itself needs to be the same everywhere
+— a session that has seen one Precedent repo's `local/practices/` should
+not have to re-derive the name for the next one, and "recommended" left
+every dependent repo free to pick its own. `tools/precedent_resolve.py`'s
+`load_config` now refuses any repo-local source whose `path` is not
+exactly `"local"`, unconditionally — see `check_source_precedence` in
+`tools/verify_harness.py` for the cases this fires on (bare root, and an
+in-repo but differently-named subdirectory), and
+[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md)'s 2026-09-04 entry for
+the incident that prompted it. A subdirectory keeps the two physically
+apart regardless: the hand-authored source at `local/practices/`, the
+generated, resolved view at the repo's own `practices/`, never colliding
+regardless of which source wins any given slug. (Universal may still sit
+at `path: "."` — this repo's own self-hosted `precedent.json` does exactly
+that — `tools/precedent_materialize.py`'s level-agnostic
+`_self_referential_sources` guard remains the backstop for that case,
+unaffected by this rule.)
 
 See PRACTICES.md
 practice 23 (layered-practice-packs) for what belongs at this level in the

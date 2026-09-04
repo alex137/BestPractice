@@ -1095,9 +1095,13 @@ def check_source_precedence():
         universal, team, individual = tmp / 'u', tmp / 't', tmp / 'i'
         (consumer).mkdir()
 
-        # repo-local practices live IN the consumer repo itself (path ".")
-        # -- `practice(consumer, ...)` writes to consumer/practices/, which
-        # is exactly what a repo-local source resolves against.
+        # repo-local practices live at the FIXED subdirectory `local`
+        # (precedent_resolve.py now requires exactly `path: "local"` for
+        # any repo-local source -- see load_config's own docstring) --
+        # `practice(consumer / 'local', ...)` writes to
+        # consumer/local/practices/, which is exactly what a repo-local
+        # source declared at `path: "local"` resolves against.
+        consumer_local = consumer / 'local'
         practice(universal, 'shared-slug', level_note='universal wins nothing')
         practice(universal, 'shared-slug-2', level_note='universal wins nothing here either')
         practice(universal, 'universal-only', level_note='only here')
@@ -1107,13 +1111,13 @@ def check_source_precedence():
         practice(team, 'shared-slug', level_note='team beats everything, '
                  'even repo-local')
         practice(team, 'team-only', level_note='only here')
-        practice(consumer, 'shared-slug', level_note='repo-local beats '
+        practice(consumer_local, 'shared-slug', level_note='repo-local beats '
                  'individual and universal, but not team')
-        practice(consumer, 'shared-slug-2', level_note='repo-local beats '
+        practice(consumer_local, 'shared-slug-2', level_note='repo-local beats '
                  'individual and universal here too, and team is not in '
                  'play for this slug at all')
-        practice(consumer, 'repo-local-only', level_note='only here')
-        practice(consumer, 'house-style', level_note='a repo-local attempt '
+        practice(consumer_local, 'repo-local-only', level_note='only here')
+        practice(consumer_local, 'house-style', level_note='a repo-local attempt '
                  'at the same slug the blocking universal practice holds')
         practice(individual, 'shared-slug', level_note='individual beats '
                  'universal, loses to repo-local and team')
@@ -1154,7 +1158,7 @@ def check_source_precedence():
                         {'level': 'team', 'name': 'precedent-team-fixture',
                          'path': str(team)},
                         {'level': 'repo-local', 'name': 'a-project-local',
-                         'path': '.'}]}), encoding='utf-8')
+                         'path': 'local'}]}), encoding='utf-8')
         user_cfg = tmp / 'user.json'
         user_cfg.write_text(json.dumps({
             'format_version': 1,
@@ -1296,9 +1300,10 @@ def check_source_precedence():
                       r.returncode == 1 and 'individual source' in
                       (r.stdout + r.stderr)))
 
-        # a repo-local source whose path is NOT the declaring repo's own
-        # root is refused -- the level only means anything if a repo cannot
-        # point it at someone else's tree and call that "local"
+        # a repo-local source whose path is NOT exactly "local" is refused --
+        # the level only means anything if a repo cannot point it at
+        # someone else's tree, or at any name of its own choosing, and call
+        # that "local"
         elsewhere = tmp / 'elsewhere-project'
         elsewhere.mkdir()
         (elsewhere / 'precedent.json').write_text(json.dumps({
@@ -1309,10 +1314,69 @@ def check_source_precedence():
             [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
              '--repo', str(elsewhere)],
             capture_output=True, text=True)
-        cases.append(('a repo-local source whose path is not the declaring '
-                      "repo's own root is refused",
+        cases.append(('a repo-local source whose path is someone else\'s '
+                      'tree entirely is refused',
                       r_el.returncode == 1 and 'repo-local source' in
                       (r_el.stdout + r_el.stderr)))
+
+        # a repo-local source at the bare repo root ("." -- the path that
+        # silently lost its own hand-authored content to
+        # precedent_materialize.py before this was a hard rule) is refused
+        bare_root = tmp / 'bare-root-project'
+        bare_root.mkdir()
+        (bare_root / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'repo-local', 'name': 'bare-root-local',
+                         'path': '.'}]}), encoding='utf-8')
+        r_br = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+             '--repo', str(bare_root)],
+            capture_output=True, text=True)
+        cases.append(('a repo-local source at the bare repo root (".") is '
+                      'refused', r_br.returncode == 1 and 'must resolve to '
+                      'exactly "local"' in (r_br.stdout + r_br.stderr)))
+
+        # a repo-local source at some OTHER in-repo subdirectory name (not
+        # "local") is refused too -- an in-repo path is necessary but not
+        # sufficient; the whole point is that the name is the SAME across
+        # every Precedent repo, not merely "somewhere safe"
+        other_name = tmp / 'other-name-project'
+        other_name.mkdir()
+        (other_name / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'repo-local', 'name': 'oddly-named',
+                         'path': 'repo-local-stuff'}]}), encoding='utf-8')
+        r_on = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+             '--repo', str(other_name)],
+            capture_output=True, text=True)
+        cases.append(('a repo-local source at an in-repo but non-"local" '
+                      'subdirectory name is refused too',
+                      r_on.returncode == 1 and 'must resolve to exactly '
+                      '"local"' in (r_on.stdout + r_on.stderr)))
+
+        # but a path that's merely a DIFFERENT SPELLING of "local" -- a
+        # trailing slash, or a "./" prefix -- is accepted, not refused: the
+        # rule is about the resolved directory, not the literal string. A
+        # real bug found testing the strict-string-equality version of this
+        # check, fixed by normalizing with posixpath.normpath before
+        # comparing.
+        for slug_variant in ('local/', './local'):
+            spelling = tmp / f'spelling-{slug_variant.replace("/", "-").replace(".", "")}'
+            spelling.mkdir()
+            (spelling / 'local' / 'practices').mkdir(parents=True)
+            (spelling / 'precedent.json').write_text(json.dumps({
+                'format_version': 1,
+                'sources': [{'level': 'repo-local', 'name': 'spelled-differently',
+                             'path': slug_variant}]}), encoding='utf-8')
+            r_sp = subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                 '--repo', str(spelling)],
+                capture_output=True, text=True)
+            cases.append((f'a repo-local path spelled {slug_variant!r} -- the '
+                          'same directory as "local", just written '
+                          'differently -- is accepted, not refused',
+                          r_sp.returncode == 0))
 
         # degrade gracefully: the individual set is gone (a fresh cloud session)
         shutil.rmtree(individual)
@@ -3307,11 +3371,22 @@ def check_sync_views_cross_source():
         # source had authored it on the NEXT run) -- materialize() now
         # refuses this combination outright, unconditionally, rather than
         # attempting to make source == destination safe.
+        #
+        # repo-local itself can no longer even REACH this fixture:
+        # precedent_resolve.py's load_config now requires a repo-local
+        # source's `path` to be exactly "local" (see check_source_precedence's
+        # own bare-root and other-subdirectory-name cases), so `path: "."`
+        # for `level: "repo-local"` is refused before materialize() runs at
+        # all. This fixture uses `level: "universal"` instead -- still a
+        # perfectly legal `path: "."` (this repo's own precedent.json does
+        # exactly that, self-hosting) -- to keep materialize()'s
+        # level-agnostic `_self_referential_sources` guard itself under
+        # test, on a configuration that is still allowed to reach it.
         selfref = tmp / 'selfref'
         write_practice(selfref / 'practices' / 'local-only.md', 'local-only',
-                        'A self-referential repo-local rule.')
+                        'A self-referential universal rule.')
         (selfref / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'repo-local', 'name': 'self', 'path': '.'}]
+            'sources': [{'level': 'universal', 'name': 'self', 'path': '.'}]
         }), encoding='utf-8')
         (selfref / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
@@ -3330,9 +3405,14 @@ def check_sync_views_cross_source():
                           == original_selfref,
                       r_self.stdout + r_self.stderr))
 
-        # the shadow-and-second-run case: repo-local at path "." shares a
-        # slug with a HIGHER-precedence source -- this must also refuse
-        # before any file is touched, not just the single-source case above
+        # the shadow-and-second-run case: a self-referential source at path
+        # "." shares a slug with a HIGHER-precedence source -- this must
+        # also refuse before any file is touched, not just the
+        # single-source case above. `level: "universal"` again, for the
+        # same reason as selfref above -- repo-local at "." can no longer
+        # reach materialize() at all, so this exercises the same
+        # lowest-precedence-loses-and-must-not-be-destroyed shape with
+        # universal (still below team) standing in for it.
         selfref2 = tmp / 'selfref2'
         other = tmp / 'other-team'
         write_practice(selfref2 / 'practices' / 'shared.md', 'shared',
@@ -3341,14 +3421,14 @@ def check_sync_views_cross_source():
                         'TEAM VERSION.')
         (selfref2 / 'precedent.json').write_text(json.dumps({
             'sources': [{'level': 'team', 'name': 'other-team', 'path': str(other)},
-                        {'level': 'repo-local', 'name': 'self', 'path': '.'}]
+                        {'level': 'universal', 'name': 'self', 'path': '.'}]
         }), encoding='utf-8')
         (selfref2 / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
             '<!-- END GENERATED -->\n', encoding='utf-8')
         r_self2 = subprocess.run([sys.executable, sync_tool, '--repo', str(selfref2)],
                                   capture_output=True, text=True)
-        cases.append(('a self-referential repo-local source shadowed by a '
+        cases.append(('a self-referential source shadowed by a '
                       'higher-precedence source is refused before its own '
                       'file is touched, not silently overwritten',
                       r_self2.returncode == 1
@@ -3363,8 +3443,8 @@ def check_sync_views_cross_source():
           f'sources ({len(cases)} stated cases: clean sync, both resident '
           f'sources shown, correct level-of-resident counting, occasion '
           f'index reaches on-demand practices, --check both directions, a '
-          f'self-referential repo-local source is refused rather than '
-          f'crashed or silently overwritten, alone or shadowed)',
+          f'self-referential source is refused rather than crashed or '
+          f'silently overwritten, alone or shadowed)',
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
