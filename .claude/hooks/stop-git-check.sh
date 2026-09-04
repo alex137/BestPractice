@@ -1,13 +1,12 @@
 #!/bin/bash
-# Claude Code adapter: Stop hook. Install to .claude/hooks/stop-git-check.sh
-# (wired by the adapter's settings.json). Blocks the agent from ending a
-# turn with uncommitted, untracked, or unpushed work still sitting in the
-# working tree — a repo-tracked backstop for whatever a given session's own
-# environment doesn't already provide (some managed Claude Code environments
-# ship an equivalent check outside the repo; this makes the same guarantee
-# travel with the practice layer for the ones that don't). Harness-specific,
-# unlike tools/bootstrap.sh: only Claude Code's hook mechanism can block a
-# stop this way (see templates/harness/README.md's enforcement caveat).
+# Stop hook for the BestPractice repo itself (practice 13), instantiated
+# from templates/harness/claude-code/hooks/stop-git-check.sh — logic
+# unchanged; that file already resolves tools/precedent_gate.py correctly
+# for this repo's own root-tools/ layout (it also checks
+# process/upstream/tools/, which a dependent repo needs and this repo does
+# not have). This repo went without a Stop hook at all until the same
+# 2026-09-04 gate audit that fixed the template found the reply gate unwired
+# — dogfooding it here closes the same gap in the repo that teaches it.
 set -euo pipefail
 
 # Claude Code re-invokes a Stop hook once after it already blocked a stop
@@ -24,13 +23,9 @@ git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
 # The REPLY gate (`disclose-landing`, `reply-links-files`, `repo-is-memory`,
 # `verify-postcondition`) — the gate-triggered channel's other real
-# invocation point, alongside templates/hooks/pre-push's `push` gate.
-# tools/routing_scope.json names this gate's moment as "the stop hook", but
-# a 2026-09-04 gate audit found this script — the only stop-hook mechanism
-# any adapter has (see templates/harness/README.md) — never called it: the
-# claim and the wiring had drifted apart, the same failure class phase 4
-# found in eight fake `checked_by` claims. It never blocks; printing costs
-# nothing when the Rules are already being followed.
+# invocation point, alongside templates/hooks/pre-push's `push` gate. It
+# never blocks; printing costs nothing when the Rules are already being
+# followed.
 root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -n "$root" ]]; then
   for gate_script in "$root/tools/precedent_gate.py" "$root/process/upstream/tools/precedent_gate.py"; do
