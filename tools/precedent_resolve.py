@@ -68,7 +68,7 @@ Run:
 Exit: 0 on a resolved set, 1 on a conflict, a malformed source, or --strict
 with a source missing.
 """
-import json, os, pathlib, sys
+import json, os, pathlib, posixpath, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -179,14 +179,23 @@ def load_config(repo, user_config=None):
                 raise ResolveError(
                     f"{repo_cfg_path}: source {entry.get('name')!r} has level "
                     f"{level!r}; expected one of {', '.join(PRECEDENCE)}.")
-            if level == 'repo-local' and entry.get('path') != 'local':
+            # Compare the NORMALIZED path, not the raw string: "local/",
+            # "./local" and "local" all name the identical directory, and a
+            # strict `!= 'local'` on the raw JSON value refused the first
+            # two as if they were a different, non-compliant path -- a real
+            # bug found testing this rule, not a hypothetical one.
+            raw_path = entry.get('path')
+            normalized_path = (posixpath.normpath(raw_path)
+                                if isinstance(raw_path, str) else raw_path)
+            if level == 'repo-local' and normalized_path != 'local':
                 raise ResolveError(
                     f"{repo_cfg_path} declares a repo-local source "
                     f"({entry.get('name')!r}) at path {entry.get('path')!r}. "
-                    f"A repo-local source's `path` must be exactly \"local\" "
-                    f"(holding local/practices/) -- not the bare repo root "
-                    f"(\".\") and not any other subdirectory name. This is a "
-                    f"fixed convention, not a per-repo choice: it is what "
+                    f"A repo-local source's `path` must resolve to exactly "
+                    f"\"local\" (holding local/practices/) -- not the bare "
+                    f"repo root (\".\") and not any other subdirectory "
+                    f"name. This is a fixed convention, not a per-repo "
+                    f"choice: it is what "
                     f"keeps repo-local's own hand-authored practices/ "
                     f"physically separate from tools/precedent_materialize.py's "
                     f"output directory (a `path: \".\"` repo-local source has "

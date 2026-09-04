@@ -1249,8 +1249,8 @@ def check_source_precedence():
              '--repo', str(bare_root)],
             capture_output=True, text=True)
         cases.append(('a repo-local source at the bare repo root (".") is '
-                      'refused', r_br.returncode == 1 and 'must be exactly '
-                      '"local"' in (r_br.stdout + r_br.stderr)))
+                      'refused', r_br.returncode == 1 and 'must resolve to '
+                      'exactly "local"' in (r_br.stdout + r_br.stderr)))
 
         # a repo-local source at some OTHER in-repo subdirectory name (not
         # "local") is refused too -- an in-repo path is necessary but not
@@ -1268,8 +1268,31 @@ def check_source_precedence():
             capture_output=True, text=True)
         cases.append(('a repo-local source at an in-repo but non-"local" '
                       'subdirectory name is refused too',
-                      r_on.returncode == 1 and 'must be exactly "local"' in
-                      (r_on.stdout + r_on.stderr)))
+                      r_on.returncode == 1 and 'must resolve to exactly '
+                      '"local"' in (r_on.stdout + r_on.stderr)))
+
+        # but a path that's merely a DIFFERENT SPELLING of "local" -- a
+        # trailing slash, or a "./" prefix -- is accepted, not refused: the
+        # rule is about the resolved directory, not the literal string. A
+        # real bug found testing the strict-string-equality version of this
+        # check, fixed by normalizing with posixpath.normpath before
+        # comparing.
+        for slug_variant in ('local/', './local'):
+            spelling = tmp / f'spelling-{slug_variant.replace("/", "-").replace(".", "")}'
+            spelling.mkdir()
+            (spelling / 'local' / 'practices').mkdir(parents=True)
+            (spelling / 'precedent.json').write_text(json.dumps({
+                'format_version': 1,
+                'sources': [{'level': 'repo-local', 'name': 'spelled-differently',
+                             'path': slug_variant}]}), encoding='utf-8')
+            r_sp = subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                 '--repo', str(spelling)],
+                capture_output=True, text=True)
+            cases.append((f'a repo-local path spelled {slug_variant!r} -- the '
+                          'same directory as "local", just written '
+                          'differently -- is accepted, not refused',
+                          r_sp.returncode == 0))
 
         # degrade gracefully: the individual set is gone (a fresh cloud session)
         shutil.rmtree(individual)
