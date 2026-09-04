@@ -1,0 +1,33 @@
+You are helping build a routing-quality simulation for a practice-loading system. Below is one practice's full Rule. Invent THREE SHORT, independent, fictional work scenarios for it, each 3-6 sentences, as if describing a real task someone is partway through in a software repository.
+
+Do not mention the practice's name, slug, or quote its Rule back. A reader must recognize the practice applies (or doesn't) from the situation alone, the way a real session would.
+
+PRACTICE RULE (for your reference only -- do not reveal it in your answer):
+---
+When a hook, linter, badge, or CI check complains about commits that
+are **already published** — on the shared trunk, or authored by someone else —
+the response is to fix the setting **forward** and leave the history alone.
+Configure the identity, the tool, or the exemption so future commits are clean;
+do not rebase, amend, or force-push to satisfy the warning. Rewriting published
+history is reserved for an explicit human instruction, never inferred from a
+tool's output.
+---
+
+Write exactly this JSON object and nothing else (no markdown fence, no commentary before or after):
+
+{
+  "positive": {
+    "scenario": "<a situation where this practice's Rule clearly applies>",
+    "files": ["<1-3 plausible file paths this work touches>"]
+  },
+  "negative": {
+    "scenario": "<a situation that superficially RESEMBLES the trigger -- similar words, similar setting -- but where the Rule does NOT actually apply, and a careful reader should say so>",
+    "files": ["<1-3 plausible file paths>"]
+  },
+  "adversarial": {
+    "scenario": "<a situation where the Rule genuinely DOES apply, but framed to look like a different kind of task, or easy to miss on a quick read -- the hardest true positive you can construct>",
+    "files": ["<1-3 plausible file paths>"]
+  }
+}
+
+File paths should look like real paths in a software repository (this repository's own conventions -- practices/, tools/, spec/, docs, etc. -- are fine to draw on, or plausible equivalents). Do not invent a path that would trivially give away the answer by naming the practice.
