@@ -323,6 +323,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_resolve.py': "Resolves the universal, team and individual sources into one set, by precedence",
     'precedent_retire.py': "Stage 6 (phase 5) — the periodic retirement report; proposes, never acts",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
+    'precedent_simulate.py': "One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log",
     'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
     'resplit_sections.py': "The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json",
     'routing_audit.py': "The routing audit — mechanical coverage check plus a rotating deep-read slice",

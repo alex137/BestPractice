@@ -97,6 +97,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
 | [tools/precedent_retire.py](tools/precedent_retire.py) | Stage 6 (phase 5) — the periodic retirement report; proposes, never acts |
 | [tools/precedent_show.py](tools/precedent_show.py) | Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file |
+| [tools/precedent_simulate.py](tools/precedent_simulate.py) | One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log |
 | [tools/precedent_sync_views.py](tools/precedent_sync_views.py) | One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together |
 | [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json |
 | [tools/routing_audit.py](tools/routing_audit.py) | The routing audit — mechanical coverage check plus a rotating deep-read slice |
