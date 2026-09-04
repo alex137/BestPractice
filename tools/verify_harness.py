@@ -2853,6 +2853,74 @@ def check_routing_scope(files):
           not problems, '; '.join(problems[:6]))
 
 
+def check_routing_audit_coverage():
+    """routing_audit.py's coverage() -- the mechanical half of the routing
+    audit (practices/routing-audit.md) -- against real practices already in
+    the catalogue, not a synthetic fixture: PRACTICES_DIR is hardcoded in
+    routing_audit.py (it reads the real tree, deliberately, the same way
+    this file's own PRACTICES_DIR is), so the planted case is choosing real
+    judgment-only practices with known narrow globs and asserting on their
+    known, checkable behavior -- the checkable-gets-checked discipline
+    applied to the routing audit's own tool, per spec/UNBUILT_PLAN_ITEMS.md
+    ("Part 2"), which found this half had never actually been exercised.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_ra', ROOT / 'tools' / 'routing_audit.py')
+    ra = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ra)
+
+    practices = {slug: globs for slug, globs, _rule, _f in ra.judgment_only_practices()}
+    problems = []
+
+    def want(slug):
+        if slug not in practices:
+            problems.append(f"fixture practice {slug!r} is no longer judgment-only "
+                            f"or no longer active -- pick a replacement fixture")
+            return False
+        return True
+
+    # A narrow glob that should match: lead-with-what-it-is names README.md
+    # explicitly (not '**').
+    if want('lead-with-what-it-is'):
+        hits = {slug for slug, _path in ra.coverage(['README.md'])}
+        if 'lead-with-what-it-is' not in hits:
+            problems.append("coverage(['README.md']) missed lead-with-what-it-is, "
+                            "whose applies_to names README.md directly")
+
+    # A file none of the narrow-glob fixtures should match -- catches a glob
+    # implementation that over-matches (e.g. '**' leaking through, or a bad
+    # path-matching call) as well as one that under-matches.
+    unrelated_hits = {slug for slug, _path in ra.coverage(['tools/verify_harness.py'])}
+    for slug in ('lead-with-what-it-is', 'pr-template-honest-gates', 'parallel-artifact-ledger'):
+        if slug in practices and slug in unrelated_hits:
+            problems.append(f"coverage(['tools/verify_harness.py']) false-positived "
+                            f"on {slug}, whose applies_to does not match this path")
+
+    # The practice's own stated design: applies_to: ['**'] carries no routing
+    # signal (routing_audit.coverage() drops it deliberately -- "narrow = [g
+    # for g in globs if g != '**']; if not narrow: continue") and must never
+    # surface as a coverage hit for any file, even one everything matches.
+    if want('registry-source-of-truth'):
+        wildcard_hits = {slug for slug, _path in ra.coverage(['README.md', 'AGENTS.md'])}
+        if 'registry-source-of-truth' in wildcard_hits:
+            problems.append("coverage() surfaced registry-source-of-truth (applies_to: "
+                            "['**']) as a hit -- '**' is not a routing signal and must "
+                            "be excluded, per the tool's own docstring")
+
+    # A glob scoped to a directory that does not include the probe file.
+    if want('pr-template-honest-gates'):
+        hits = {slug for slug, _path in ra.coverage(['.github/pull_request_template.md'])}
+        if 'pr-template-honest-gates' not in hits:
+            problems.append("coverage(['.github/pull_request_template.md']) missed "
+                            "pr-template-honest-gates")
+
+    check('routing audit coverage() matches narrow applies_to globs correctly, '
+          'in both directions, and drops \'**\' as a non-signal (5 stated cases '
+          'against real catalogue fixtures)',
+          not problems, '; '.join(problems))
+
+
 def check_gate_channel():
     """The gate channel, as stated cases against the real registry.
 
@@ -3777,6 +3845,7 @@ def main():
     check_behavioral_replay()
     check_precedent_check_fires()
     check_routing_scope(files)
+    check_routing_audit_coverage()
     check_gate_channel()
     check_materialize_bridges_loader()
     check_sync_views_cross_source()
