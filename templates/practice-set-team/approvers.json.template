@@ -1,0 +1,16 @@
+{
+  "format_version": 1,
+  "_comment": [
+    "The people who can say yes to a change in this team's practice set.",
+    "tools/precedent_land.py matches --approved-by NAME against either",
+    "field below (name or github) for a level: team candidate -- see",
+    "PRACTICE_ENGINE_PLAN.md's Stage 4 (Approval, by Level).",
+    "",
+    "Adding or removing an approver is itself a change to this set, so it",
+    "needs a current approver's own agreement first -- that's what stops",
+    "someone quietly adding themselves."
+  ],
+  "approvers": [
+    {"name": "{{APPROVER_NAME}}", "github": "{{APPROVER_GITHUB}}"}
+  ]
+}

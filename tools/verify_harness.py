@@ -3635,6 +3635,105 @@ def check_creation_pipeline_fires():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_bootstrap_source_produces_resolvable_set():
+    """spec/BOOTSTRAP_NEW_SOURCES.md's own claim, tested rather than trusted:
+    tools/precedent_bootstrap_source.py's output is not just files copied
+    into place, it is a working individual set AND team set that
+    tools/precedent_resolve.py actually resolves cleanly the moment they're
+    wired in -- the property that matters, since a skeleton nobody can
+    resolve is no better than no skeleton at all.
+
+    Fixture: bootstrap one individual set and one team set into a scratch
+    dir, point a synthetic consumer repo's precedent.json (team) and
+    PRECEDENT_USER_CONFIG (individual) at them, and resolve. Both skeletons'
+    example-starter.md intentionally share a slug -- that also exercises the
+    precedence resolver for real (team must win over individual, per
+    tools/precedent_resolve.py's documented order) rather than only proving
+    the sources load."""
+    import shutil, tempfile
+
+    def pyrun(*args, env_extra=None):
+        env = dict(os.environ)
+        if env_extra:
+            env.update(env_extra)
+        r = subprocess.run([sys.executable, *args], capture_output=True,
+                           text=True, env=env)
+        return r.returncode, r.stdout + r.stderr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-bootstrap-'))
+    cases = []
+    try:
+        bootstrap_tool = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        indiv_dest = tmp / 'indiv-set'
+        team_dest = tmp / 'team-set'
+
+        rc, out = pyrun(bootstrap_tool, '--level', 'individual',
+                        '--name', 'harness-fixture-individual', '--dest', str(indiv_dest))
+        cases.append(('bootstrapping an individual set succeeds and writes its files',
+                      rc == 0 and (indiv_dest / 'practices' / 'example-starter.md').is_file()
+                      and (indiv_dest / 'config.json.sample').is_file(), out))
+
+        rc, out = pyrun(bootstrap_tool, '--level', 'team',
+                        '--name', 'harness-fixture-team', '--dest', str(team_dest))
+        cases.append(('bootstrapping a team set without --approver is refused',
+                      rc == 1 and 'approver' in out, out))
+
+        rc, out = pyrun(bootstrap_tool, '--level', 'team',
+                        '--name', 'harness-fixture-team', '--dest', str(team_dest),
+                        '--approver', 'Harness Approver:harness-approver-gh')
+        approvers_json = team_dest / 'approvers.json'
+        cases.append(('bootstrapping a team set succeeds and seeds approvers.json',
+                      rc == 0 and approvers_json.is_file()
+                      and json.loads(approvers_json.read_text()).get('approvers')
+                      == [{'name': 'Harness Approver', 'github': 'harness-approver-gh'}], out))
+
+        non_empty = tmp / 'occupied'
+        (non_empty / 'something.txt').parent.mkdir(parents=True)
+        (non_empty / 'something.txt').write_text('pre-existing', encoding='utf-8')
+        rc, out = pyrun(bootstrap_tool, '--level', 'individual',
+                        '--name', 'harness-fixture-refused', '--dest', str(non_empty))
+        cases.append(('bootstrapping into a non-empty destination is refused without --force',
+                      rc == 1 and 'not empty' in out, out))
+
+        consumer = tmp / 'consumer'
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
+                {'level': 'team', 'name': 'harness-fixture-team', 'path': str(team_dest)},
+            ],
+        }), encoding='utf-8')
+        user_config = tmp / 'user-config.json'
+        user_config.write_text(json.dumps({
+            'individual': {'name': 'harness-fixture-individual', 'path': str(indiv_dest)},
+        }), encoding='utf-8')
+
+        rc, out = pyrun(str(ROOT / 'tools' / 'precedent_resolve.py'),
+                        '--repo', str(consumer), '--json',
+                        env_extra={'PRECEDENT_USER_CONFIG': str(user_config)})
+        resolved = {}
+        try:
+            resolved = json.loads(out)
+        except json.JSONDecodeError:
+            pass
+        slugs = {p['slug']: p for p in resolved.get('practices', [])}
+        cases.append(('the resulting consumer repo resolves cleanly -- no missing, '
+                      'no blocked sources',
+                      rc == 0 and not resolved.get('missing') and not resolved.get('blocked'), out))
+        cases.append(('example-starter resolves, won by the team set over the '
+                      'individual set (real precedence, not just presence)',
+                      slugs.get('example-starter', {}).get('level') == 'team', out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'bootstrap_source produces a resolvable individual and team set '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -3683,6 +3782,7 @@ def main():
     check_sync_views_cross_source()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
+    check_bootstrap_source_produces_resolvable_set()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0
