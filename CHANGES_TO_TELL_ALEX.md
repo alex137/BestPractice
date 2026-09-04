@@ -87,6 +87,37 @@ closed something the one above left open.
 See [practices/layered-practice-packs.md](practices/layered-practice-packs.md)
 and [spec/SOURCES.md](spec/SOURCES.md).
 
+### `layered-practice-packs` (BestPractice practice 23) — 2026-09-04, repo-local's `path` is now a fixed rule, not a recommendation
+
+**What changed.** The entry above formalized repo-local as a real source
+but left its subdirectory placement as a *recommendation*: `path: "."` or a
+subdirectory both resolved, with a subdirectory only ever "the better
+choice." Raised by a dependent-repo comparison (`WorkingWithAI` has no
+repo-local practices at all and so no `local/`; `TodoMorgan` does, at
+`local/practices/`, following the recommendation) — the two repos are not
+actually inconsistent with each other, but the convention itself was only
+ever advisory, so a third repo was always free to pick a different
+subdirectory name, or the bare root, and nothing would have refused it.
+`tools/precedent_resolve.py`'s `load_config` now requires a repo-local
+source's `path` to be exactly `"local"` — refused outright otherwise, with
+the reproduced silent-overwrite bug named in the refusal message. This is
+the `checkable-gets-checked` treatment: what was prose-only advice is now
+a mechanical check, with a firing test in `tools/verify_harness.py`
+(`check_source_precedence`'s bare-root and other-subdirectory-name cases).
+
+**What did not change.** `tools/precedent_materialize.py`'s own
+level-agnostic `_self_referential_sources` guard (any source, not just
+repo-local, whose `path` equals the materialize target) is untouched and
+still the backstop for the levels this new rule doesn't reach — universal
+self-hosted at `path: "."` (this repo's own `precedent.json`, unaffected)
+remains legal. Every existing repo-local declaration already in the wild
+(this repo's own `local/`, `TodoMorgan`'s) already used `"local"`, so
+nothing that already followed the recommendation needed to change.
+
+See [practices/layered-practice-packs.md](practices/layered-practice-packs.md),
+[spec/SOURCES.md](spec/SOURCES.md), and
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "Source" section.
+
 ### The phase-4 enforcement rollout — 24 inherited practices gained a real `checked_by` — 2026-09-03, found doing the pre-fork audit
 
 **What changed.** This branch's own scope statement, above, says plainly:

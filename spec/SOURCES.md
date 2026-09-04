@@ -21,11 +21,20 @@ current precedence order (team > repo-local > individual > universal — see
 PRACTICE_ENGINE_PLAN.md's "Source" section for the reasoning, noted there
 without belaboring it).
 
+**Repo-local's `path` was tightened from a recommendation to a refusal,
+2026-09-04.** Through the day before, any path inside the declaring repo
+passed validation for a repo-local source, with `path: "local"` merely
+recommended over the bare root. `tools/precedent_resolve.py`'s
+`load_config` now refuses a repo-local source outright unless its `path`
+is exactly `"local"` — see PRACTICE_ENGINE_PLAN.md's "Source" section and
+CHANGES_TO_TELL_ALEX.md's 2026-09-04 entry for what prompted it and what
+it does and does not change.
+
 ## What exists
 
 | Plan's requirement | Built as | Status |
 |---|---|---|
-| Levels are repositories, not directories (with one exception: repo-local, which is a `practices/` directory somewhere in the consuming repo's own tree — recommended at a subdirectory, `path: "local"`, not the bare root, so it never collides with `tools/precedent_materialize.py`'s own output directory; see PRACTICE_ENGINE_PLAN.md's "Source" section) | [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves N source *directories*, each a checkout of a separate repo, or a path inside the consumer's own root for repo-local | Built. Nothing about a level is a field; it comes from which source a file was loaded from. |
+| Levels are repositories, not directories (with one exception: repo-local, which is a `practices/` directory somewhere in the consuming repo's own tree — **required** at the subdirectory `path: "local"`, never the bare root, so it never collides with `tools/precedent_materialize.py`'s own output directory; see PRACTICE_ENGINE_PLAN.md's "Source" section) | [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves N source *directories*, each a checkout of a separate repo, or `local` inside the consumer's own root for repo-local, refusing any other path for that level | Built, and tightened 2026-09-04 from a recommendation to a refusal — see CHANGES_TO_TELL_ALEX.md's 2026-09-04 entry. |
 | A consumer repo declares universal + team + repo-local | [precedent.json](../precedent.json), tracked, at the repo root | Built. Precedent carries one for itself: it runs on the universal set it publishes. |
 | A person declares their own individual set | `~/.config/precedent/config.json`, or `PRECEDENT_USER_CONFIG` | Built. A shared repo naming an individual source is refused **by name**, with the privacy reason in the message. |
 | Precedence: team > repo-local > individual > universal | Sources walked lowest-first; later replaces earlier | Built and tested. |

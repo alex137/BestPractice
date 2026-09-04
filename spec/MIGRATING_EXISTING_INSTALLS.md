@@ -89,12 +89,16 @@ the loader.
      file directly) carried rules true only of *this* repo's own subject
      matter, per [layered-practice-packs](../PRACTICES.md#23-layered-practice-packs-a-domain-layer-between-generic-and-repo-local)'s
      own decision rule ("only here?"). `path: "local"` — a subdirectory,
-     holding `local/practices/*.md` — not the bare repo root
-     (`path: "."`): the root's own `practices/` is where
+     holding `local/practices/*.md` — **is now the only path
+     `tools/precedent_resolve.py` accepts for this level**, not merely the
+     recommended one: the bare repo root (`path: "."`) is refused
+     outright, because the root's own `practices/` is where
      `tools/precedent_sync_views.py` writes its resolved output, and a
      repo-local source declared there collides with that (see this
      document's own "Known gap" section below for what that collision
-     actually does, reproduced, not theoretical).
+     actually does, reproduced, not theoretical). Every dependent repo
+     ends up with the *same* name for its own local practices, `local/`,
+     rather than each one picking its own.
 
 4. **Wire the individual source's own bootstrap, if the person has one and
    the harness needs it.** For a Claude Code Web session specifically, this
@@ -342,12 +346,14 @@ another source shadowed a repo-local slug — reproduced directly, not
 theoretical. Fixed two ways: `precedent_materialize.py` now reads every
 source file into memory before deleting anything, so the crash and the
 silent-overwrite-with-no-trace case are both gone; and repo-local's
-recommended `path` is now a subdirectory (`"local"`, holding
+`path` is now required to be a subdirectory (`"local"`, holding
 `local/practices/`), which keeps the hand-authored source and the
-materialized output physically apart regardless. `path: "."` still
-resolves — `tools/precedent_resolve.py`'s validation only refuses a path
-OUTSIDE the repo — it just isn't the recommended shape anymore for a repo
-that also runs `precedent_sync_views.py` against its own root.
+materialized output physically apart regardless. **2026-09-04 addendum:**
+`path: "."` no longer resolves at all for a repo-local source —
+`tools/precedent_resolve.py`'s `load_config` refuses anything but
+`path: "local"` outright, closing the gap this paragraph originally left
+open (a recommendation a repo could still ignore). See
+[CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md)'s 2026-09-04 entry.
 
 Tested against a real four-source fixture, not just reasoned about
 (`check_sync_views_cross_source` in

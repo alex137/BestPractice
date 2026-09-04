@@ -57,12 +57,19 @@ class MaterializeError(Exception):
 def _self_referential_sources(sources, out_dir):
     """A source whose declared `path` resolves to THIS run's own `out_dir`
     is not a separate tree materialize() can safely delete-and-rewrite: it
-    is someone's hand-authored content, with no other copy anywhere
-    (precedent_resolve.py's load_config only guarantees a repo-local
-    source's path stays INSIDE the declaring repo, not that it differs
-    from the sync target -- `path: "."` still resolves there by design,
-    since a subdirectory is a convention, not a safety rule the resolver
-    itself enforces).
+    is someone's hand-authored content, with no other copy anywhere.
+    precedent_resolve.py's load_config now REQUIRES a repo-local source's
+    path to be exactly "local" (2026-09-04), which rules out the most
+    common way this used to happen -- a repo-local source declared at the
+    bare root, colliding with a materialize run pointed at that same root
+    -- before it ever reaches this function. This guard stays, unaffected,
+    as the backstop for every OTHER level: a repo may legitimately declare
+    universal or team at `path: "."` (this repo's own self-hosted
+    precedent.json does exactly that), and load_config has no reason to
+    forbid that on its own -- only a materialize() run whose --out happens
+    to equal that same path makes it unsafe, which is a fact about the
+    materialize INVOCATION, not the source declaration, and so has to be
+    caught here rather than at resolve time.
 
     Two real, reproduced bugs came from allowing this combination through
     to materialize() anyway (2026-09-03 deep-check audit): (1) the moment a
@@ -165,10 +172,11 @@ def materialize(sources, res, out_dir):
             f"good; a file materialize() itself writes for a DIFFERENT "
             f"source is read back on the next run as if this source had "
             f"authored it). Move {names}'s declared `path` to a "
-            f"subdirectory (e.g. \"local\", holding local/practices/ -- "
-            f"the repo-local convention PRACTICE_ENGINE_PLAN.md's "
-            f"\"Source\" section recommends) so its tree and "
-            f"materialize()'s output are physically separate.")
+            f"subdirectory (a repo-local source must use \"local\", "
+            f"holding local/practices/ -- see PRACTICE_ENGINE_PLAN.md's "
+            f"\"Source\" section; a non-repo-local source may pick any "
+            f"other subdirectory) so its tree and materialize()'s output "
+            f"are physically separate.")
 
     practices_dir = out_dir / 'practices'
     checks_dir = out_dir / 'tools' / 'checks'
