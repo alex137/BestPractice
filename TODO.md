@@ -57,14 +57,10 @@ the upstream layer. Ordered by priority.
    losing the practices. Deliberately below the Actions/Issues items
    above: deeper GitHub integration now is acceptable, since equivalents
    can be added later.
-9. **The pre-fork catalogue audit table.** One row per inherited practice
-   (active-as-is / rewritten / superseded / merged, plus whether Alex
-   needs to hear about it) — named as real, bounded, unblocked work by
-   [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
-   and restated as still not done by
-   [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md). The plan only
-   requires it before phase 6 starts migrating a consumer repo — actionable
-   now, not blocked on anything.
+9. ~~**The pre-fork catalogue audit table.**~~ **Done (2026-09-03).** One
+   row per inherited practice, verdict against this plan's architecture,
+   plus whether Alex needs to hear about it:
+   [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md).
 10. **`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
     in [PRACTICE_ENGINE_PLAN.md's Deferred section](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet),
     correctly not built yet. **Blocked on:** a real second team's private

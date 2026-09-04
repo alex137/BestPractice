@@ -1565,26 +1565,12 @@ commits past the fork point by the time this was caught.
 
 ## What Morgan Needs to Do
 
-Only these need a human; everything else a session can do.
-
-**Before phase 0**
-
-- **Review and amend this document.** It is a draft; the shape is the thing to
-  react to.
-- **Decide the license** for Precedent. **Resolved by the branch decision:**
-  the work lives in BestPractice, so BestPractice's own license governs it and
-  there is no fork to license separately or attribute across. This only
-  reopens if the work is ever extracted into a standalone repo.
-
-**Phase 0 — repository setup** (each is a GitHub click-path or a one-liner a
-session can prepare but not execute)
-
-- ~~**Create `Precedent`** as a fork of BestPractice.~~ **Superseded** — the
-  work is a branch of BestPractice (`precedent-beta-v01`), not a fork.
-- **Create `themorgan/precedent-individual`** — private, Morgan only. **Done.**
-- **Create `themorgan/precedent-team-maintainers`** — private; Morgan and Alex
-  as collaborators and as the set's **approvers**. **Done.**
-- **Confirm the default branch is `main`** on each new repo.
+Only these need a human; everything else a session can do. Phase 0 is
+done — both practice-set repos exist, and the license and fork-vs-branch
+questions are closed (see
+[decisions/2026-08-31-branch-not-fork.md](decisions/2026-08-31-branch-not-fork.md))
+— so that checklist is gone from here; what's left is what's still
+actually pending.
 
 **Naming convention for practice sets**
 
@@ -1612,14 +1598,6 @@ Precedent                              the engine and universal catalogue
 An org backs approver lists with real GitHub Teams and stops team repos living
 in a personal account when the team is not personal. Not worth doing for one
 team; worth knowing before there are five.
-
-**Phase 3 — when sources split**
-
-- **Invite people**: Alex to his team's set, Fabian to his, and so on. Each
-  team is a separate repo with separate collaborators.
-- ~~**Decide whether Precedent goes public**, and when.~~ **Moot** — Precedent
-  is a branch of BestPractice, which is public, so every push is publication.
-  See the leak-gate consequence under [Risks](#risks).
 
 **Phase 7**
 
@@ -1762,11 +1740,6 @@ it can be generated; the explanation cannot.
 
 ## Open Decisions
 
-- ~~**License and attribution** for Precedent.~~ **Closed (2026-08-31)** —
-  the work is a branch of BestPractice, so BestPractice's own license governs
-  it. Reopens only if the work is ever extracted into a standalone repo.
-- ~~**When Precedent goes public.**~~ **Closed (2026-08-31)** — it is public
-  now. BestPractice is a public repo and Precedent is a branch of it.
 - **How a non-developer approves.** The approval flow above assumes a
   team member comfortable with a GitHub review. Many users of this will
   be working on documents and ideas rather than software, and for them
@@ -1775,242 +1748,75 @@ it can be generated; the explanation cannot.
   given in a session, with the repo write happening behind it. Worth
   deciding before the first non-technical team is onboarded, not
   before phase 0.
-- ~~**Is the leak gate's vocabulary blocklist miscalibrated, or has it
-  just never run clean?**~~ **Closed (2026-09-03)** — narrowed, on
-  Morgan's call. Switching the vocabulary layer on for real against
-  precedent-individual's current tree found 36 hits (not the 45 first
-  reported — that count reflected an earlier state), all on
-  `morgan@westegg\.com`, `\bwestegg\.com\b`, and `\bMorgan\s+F\b`,
-  colliding with this branch's own by-design identity content (the
-  `commit-author`/`buenos-aires-dates` practices' own Rule text quoting
-  the actual values, `check_commit_author.py`'s hardcoded expected
-  constants, and `approved_by:` frontmatter on every practice file).
-  Removed those three patterns — same evidence-based treatment as the
-  prior `themorgan`/`Buenos Aires` fix. `\bmorganfriedman\b` and
-  `\b6497032\b` stay blocked: zero observed collisions, no evidence to
-  loosen them. [precedent-individual#10](https://github.com/themorgan/precedent-individual/pull/10),
-  merged; re-running the vocabulary layer against the real tree
-  afterward comes back with zero hits.
-- ~~**`Session:` vs. `Claude-Session:` — which key does the
-  session-trailer check actually want?**~~ **Closed (2026-09-03)** —
-  Morgan's call: teach the check to accept `Claude-Session:` too.
-  `check_session_trailer.py` already did this (commit `ba49ea2`); the
-  practice's own Rule text still named only `Session:`, undercutting
-  "check the Rule text, not a paraphrase." Updated to name both
-  accepted keys. [precedent-team-maintainers#10](https://github.com/themorgan/precedent-team-maintainers/pull/10),
-  merged.
+
+Four decisions once tracked here are closed and moved to
+[decisions/](decisions/README.md), which is where a closed decision's full
+reasoning belongs: license and attribution (2026-08-31, closed by the
+[branch-not-fork](decisions/2026-08-31-branch-not-fork.md) decision itself),
+when Precedent goes public (2026-08-31, same decision), the leak gate's
+vocabulary-blocklist recalibration
+([2026-09-03](decisions/2026-09-03-leak-gate-vocabulary-recalibration.md)),
+and the session-trailer key
+([2026-09-03](decisions/2026-09-03-session-trailer-key.md)).
 
 ## Amendments Since Approval
 
 The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
-current state; this section is the short record of what moved.
+current state; a change that is genuinely a standalone decision (not about
+a practice, not merely restating what a section above already says) gets
+its own record in [decisions/](decisions/README.md) — this section is now
+just a dated index of what moved and where its record actually lives,
+matching the rest of this document's own current-state discipline
+([docs-are-current-state](practices/docs-are-current-state.md)).
 
-**2026-09-03 — v31, nothing ever told an installer or a member this system
-exists — partially closed.** Neither [SETUP.md](SETUP.md) nor
-[templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) is named
-anywhere in this plan; Stage 4's approver-notification design and
-`disclose-landing` both cover a proposal *already raised*, not a newcomer
-learning the capability exists at all. Both docs now disclose the
-capture-gate mechanism (practice 10), calibrated to what a clean install
-actually gets today — not the full Stages 1–5 pipeline, which nothing
-[SETUP.md](SETUP.md) vendors out yet actually has. Full reasoning, what was rejected
-and why, in
-[decisions/2026-09-03-setup-getting-started-disclosure-gap.md](decisions/2026-09-03-setup-getting-started-disclosure-gap.md).
-Disclosing the real pipeline honestly is proposed as Phase 6 scope, in the
-plan Morgan is reviewing separately. Also closed: two items
-[spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md) flagged as real but
-untracked, now [TODO.md](TODO.md) items 9–10.
-
-**2026-09-02 — v30, three pre-build calls settled before Stage 1 code.**
-Retirement (Stage 6) is now approval-gated exactly like creation, stated
-directly in [Stage 6](#stage-6--the-loop-closes) itself; the
-attention-ceiling connection the plan flagged as unresolved is reasoned
-through in [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md); universal
-candidates are GitHub Issues, not a `candidates/` file, resolving Stage 2's
-collision with the leak gate, in
-[spec/SOURCES.md](spec/SOURCES.md#universal-candidates-are-github-issues-not-a-fourth-candidates).
-Full reasoning for all three, decided with Morgan in one sitting:
-[decisions/2026-09-02-phase-5-preflight-calls.md](decisions/2026-09-02-phase-5-preflight-calls.md).
-
-**2026-09-01 — v29, the private-repo isolation rule is relaxed for active
-development.** Decided by Morgan, after a deep-check session's own findings
-made the isolation costly (synthetic-only tests of the precedence resolver
-and the cross-source resident-budget cap, both flagged as real gaps).
-Full reasoning, scope, and the reinstatement trigger in
-[decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md);
-the Risks section and "Why the private sets could not be populated from
-here" both carry a short pointer to it rather than being rewritten.
-
-**2026-09-01 — v28, pre-phase-5 review: a naming collision fixed, three
-inherited practices reconciled with the new architecture, and a tracked
-Alex-facing changelog opened.** Discussed with Morgan before phase 5 starts.
-Six changes:
-
-1. **"Deep check" was claimed by two different things** — this plan's
-   periodic routing audit (design only, unbuilt) and `two-check-levels`'
-   already-shipped full gate suite. The unbuilt one is renamed *routing
-   audit*; see [The Routing Audit Checks Coverage, Not
-   Content](#the-routing-audit-checks-coverage-not-content). A fourth,
-   heavier thing — RPP's inherited audit list — gets its own name, **very
-   deep check**, on-demand only, never a routine gate.
-2. **`practice-export-loop` (14)** — cross-referenced against Stage 5's
-   round-trip in its Install section; unchanged otherwise, still the live
-   mechanism for a pre-migration consumer repo.
-3. **`mistakes-become-rules` (20)** — cross-referenced against the
-   creation-pipeline stages (phase 5, not yet built) in its Install section;
-   Rule and habit unchanged and still what actually runs today.
-4. **`layered-practice-packs` (23)** — its vendored-pack *mechanism*
-   marked superseded for any repo on Precedent's loader (the occasion
-   index and path-triggered channel already do the routing); its
-   generic/domain/repo-local *decision rule* kept, since nothing replaced
-   it. The still-open cross-team domain-bundle gap is merged into the
-   multi-team-practice item below.
-5. **[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) opened** — every
-   change to a pre-fork BestPractice practice's meaning or mechanism gets a
-   dated entry there, kept current as this branch diverges from `main`, so
-   the eventual phase-7 merge-back conversation starts from a list instead
-   of a diff.
-6. **Alex's practice 53** (`todo-is-a-handoff`, merged to `main` after this
-   branch's fork point) converted through the phase-1 pipeline into
-   `practices/todo-is-a-handoff.md`. `main` had moved 3 commits past the
-   fork point by the time this was caught — see [What phase 5 should carry
-   forward](#what-phase-5-should-carry-forward) for the standing
-   re-sync-before-phase-5 note.
-
-The [Deferred](#deferred-speculative--do-not-build-yet) section's multi-team
-and individual-practice-scoping entries are also updated in the same pass —
-a real case for team-scoped individual practices now exists (Morgan,
-2026-09-01) where before there was none.
-
-**2026-09-01 — v27, phase 3 closes: the private sets are populated.** The
-one condition phase 3 could not meet from a session working in Precedent —
-writing RPP's 46 rules into `themorgan/precedent-individual` and
-`themorgan/precedent-team-maintainers` — has been done, from a session
-opened directly against those repos, reported by Morgan. Not independently
-re-verifiable from here, by the same structural reason ([Why the private
-sets could not be populated from
-here](#why-the-private-sets-could-not-be-populated-from-here)) that made it
-impossible to do from here in the first place. Phase 3's Sequence row and
-its done-when table are updated to reflect this; phase 5 (the creation
-pipeline) is the next phase not yet started.
-
-**2026-08-31 — v26, the miss rate is mostly not a loading problem, and the
-next phase should say so.** Separating the eval's arms shows the control —
-carrying all 52 Rules — misses 16% of applicable practices, and the loader
-adds only 7 points on top. The oracle and the control see identical
-information and differ only in task load and prospective-vs-retrospective
-framing, so **16 of the 23 points have nothing to do with loading and nothing
-in the design addresses them.** The recommendation, the experiment that should
-settle it before anything is built, and what would falsify it are in
-[spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md). This does not amend
-any phase yet — it is the analysis a phase should be written from.
-
-**2026-08-31 — v25, the reach question closed with a negative result.** A
-glob pass over all 46 on-demand practices and the gate-triggered channel — the
-fourth channel this plan names and the last to be built — moved the routing
-eval's miss count from 21 to 22 at 8% more context. More routing bought no
-recall. What it did buy is measurable and different: the practices a session
-was never shown fell from 13 to 11 while the practices it was shown and missed
-rose from 8 to 11, so the pass converted reach failures into judgment
-failures. Three runs have now asked whether better routing produces better
-compliance and answered no in three different ways. See
-[The routing pass, and the negative result that closes the reach question](#the-routing-pass-and-the-negative-result-that-closes-the-reach-question).
-
-**2026-08-31 — v24, phase 4 closed, and one of its own done-when conditions
-re-read rather than met.** *"The routing eval re-run shows the converted
-practices no longer missed"* asks the loader to route practices this plan
-elsewhere says are never routed. The condition is answered by a coverage
-report and an honest statement of what it does and does not show, not by
-tuning the loader until the number moved. The phase's starting premise — that
-the most-missed practices all carry `checked_by: null` — was also found to be
-wrong in the other direction: none of the eight practices that carried one was
-actually enforced. See [What Phase 4 Built, and What It Found First](#what-phase-4-built-and-what-it-found-first).
-
-**2026-08-31 — Precedent is a branch of BestPractice, not a fork.** Decided by
-Morgan. The plan was written assuming a fork, private on day one, merged back
-at phase 7 if Alex agreed. It is instead `precedent-beta-v01`, a branch of
-`alex137/BestPractice`, merging to that repo's own `main`.
-
-What this buys: the top risk in this plan — divergence — is largely
-neutralised, because a branch shares one history with `main` and is merge-clean
-by construction rather than by discipline. There is no re-sync treadmill and no
-content reconciliation at phase 7.
-
-What it costs, and this is the part worth reading twice: **the "private
-initially" safety margin is gone.** BestPractice is public, so every push to
-this branch is publication, into a repo owned by someone else. The leak gate
-moves from a merge-time gate to a push-time one, and no individual- or
-team-level content may be staged here even transiently. Recorded in full under
-[Risks](#risks).
-
-It also closes two open decisions outright (license, and when Precedent goes
-public) and supersedes the phase-0 "create a fork" action.
-
-**2026-08-31 — the practice file gains a fifth body section, `## Detail`,
-split out at phase 3.** Decided by Morgan, against phase 1.5's measurement:
-`## Rule` came out at 40% of the catalogue rather than the ~10% this plan
-predicted, because normative operational detail had no home other than
-`Rule`. This amends "The Practice File" and the phase-3 row. It is the second
-addition to the plan's original three-section body — `## Install` was the
-first, at phase 1 — and both were forced by the same thing: the real
-catalogue carries more kinds of content than the illustrative example had
-places for.
-
-**2026-08-31 — phase 2 closed; the premise measured and the result against
-it; enforcement swapped ahead of the creation pipeline.** The phase-2
-done-when ("the premise is measured, not assumed") is met: the loader routes
-worse than carrying the whole catalogue (38% miss against 19%) while costing
-62% less context. Both arrangements miss the same practices, and every one of
-the seven most-missed carries `checked_by: null` — so the old phase 5
-(enforcement) is now phase 4, and the creation pipeline is phase 5. Full
-record, including what NOT to do with the result, in
-[What Phase 2 Measured](#what-phase-2-measured).
-
-**2026-08-31 — the leak gate is built at phase 2, not phase 3.** A direct
-consequence of the branch decision above: with no "private initially" grace
-period, a gate that first runs at phase 3 arrives after the exposure it
-exists to prevent. Built as [tools/leak_gate.py](tools/leak_gate.py), gating
-every push (a [pre-push hook](templates/hooks/pre-push)) and every branch in
-CI. Its structural layer is on now; its vocabulary layer switches on at
-phase 3, when there is a private set to keep the blocklist in. Full
-reasoning under the [Sequence](#sequence) table.
-
-Running it for the first time found a live instance of the exact
-anti-pattern it exists to prevent: the phase-1 leak-gate stand-in hardcoded a
-list of private terms — including a personal email address — **inside this
-public repo**. Fixed forward, not by rewriting published history (practice
-31).
-
-**2026-08-31 — the two private practice-set repos exist.**
-`themorgan/precedent-individual` and `themorgan/precedent-team-maintainers`
-are created, so phase 3's repository prerequisites are met and only the
-content split and the leak gate remain.
-
-**2026-08-31 — phase 3 closed on Precedent's side; the private-set migration
-is not startable from here.** All four of phase 3's done-when conditions are
-met in this repository: the leak gate's vocabulary layer is on, a consumer
-repo resolves all three sources with precedence tested, `## Detail` is split
-out (Rule from 40% to 28% of the catalogue; the resident block halved), and
-[ADOPTING.md](ADOPTING.md) exists. Populating the two private sets from RPP's
-46 rules is not done and cannot be done by a session working in Precedent —
-a session cannot hold repositories from two owners with push access at once,
-and this plan already forbids staging private content on this branch even
-transiently. Full record, including the three ways the leak gate passed on a
-leak and the three practices whose Rules could not be split, in
-[What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).
-
-**2026-08-31 — the routing eval re-baselined after the Rule/Detail split.**
-Phase 3 changed every arm's input, so the eval was re-run on the same 20 cases
-before phase 4, to keep phase 4's own result attributable. Cost fell 25% for
-the control and recall moved within noise for both arms; the direction —
-triggering misses more than residency — held for a third time, with the gap
-now at the resolution limit. Two findings change phase 4's starting point: the
-two resident practices are now missed by the loader and caught by the control
-(where v2 had both arms missing them), and the largest single miss,
-`practice-export-loop`, already carries a `checked_by` — so reach and
-enforcement are two problems, not one. Recorded in
-[What the Re-Baseline Changed](#what-the-re-baseline-changed).
+- **2026-09-03 — v31.** [SETUP.md](SETUP.md) and
+  [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) now disclose
+  the capture-gate mechanism to newcomers, calibrated to what a clean
+  install actually has today. Full reasoning:
+  [decisions/2026-09-03-setup-getting-started-disclosure-gap.md](decisions/2026-09-03-setup-getting-started-disclosure-gap.md).
+- **2026-09-02 — v30.** Three pre-Stage-5 calls settled: retirement (Stage 6)
+  is approval-gated like creation; the attention-ceiling connection is
+  reasoned through in [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md);
+  universal candidates are GitHub Issues, not a `candidates/` file. Full
+  reasoning:
+  [decisions/2026-09-02-phase-5-preflight-calls.md](decisions/2026-09-02-phase-5-preflight-calls.md).
+- **2026-09-01 — v29.** The private-repo isolation rule is relaxed for
+  active development. Full reasoning, scope, and the reinstatement trigger:
+  [decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md).
+- **2026-09-01 — v28.** Pre-phase-5 review: "deep check" (ambiguous between
+  two things) renamed to *routing audit* and *very deep check*;
+  `practice-export-loop`, `mistakes-become-rules` and
+  `layered-practice-packs` reconciled with the new architecture (see
+  [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md), opened in this same
+  pass); Alex's practice 53 (`todo-is-a-handoff`) converted into the
+  catalogue.
+- **2026-09-01 — v27.** Phase 3 closed: the private sets are populated —
+  see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).
+- **2026-08-31 — v26.** The miss rate is mostly not a loading problem —
+  full analysis in [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md).
+- **2026-08-31 — v25.** The reach question closed with a negative result —
+  see [The routing pass, and the negative result that closes the reach
+  question](#the-routing-pass-and-the-negative-result-that-closes-the-reach-question).
+- **2026-08-31 — v24.** Phase 4 closed — see
+  [What Phase 4 Built, and What It Found First](#what-phase-4-built-and-what-it-found-first).
+- **2026-08-31.** Precedent is a branch of BestPractice, not a fork; the
+  original fork-then-merge-back plan, the "private initially" leak-gate
+  margin it assumed, and what this closed and cost: full record in
+  [decisions/2026-08-31-branch-not-fork.md](decisions/2026-08-31-branch-not-fork.md).
+- **2026-08-31.** The practice file gains a fifth body section, `## Detail`
+  — see "The Practice File" above and
+  [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md).
+- **2026-08-31.** Phase 2 closed, premise measured against the plan, and it
+  did not hold — see [What Phase 2 Measured](#what-phase-2-measured).
+- **2026-08-31.** The leak gate is built at phase 2, not phase 3, a direct
+  consequence of the branch decision above. Running it for the first time
+  found a live instance of the exact anti-pattern it exists to prevent — a
+  hardcoded personal email address inside this public repo, in the
+  phase-1 leak-gate stand-in. Fixed forward, not by rewriting published
+  history ([no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)).
+- **2026-08-31.** The routing eval re-baselined after the Rule/Detail
+  split — see [What the Re-Baseline Changed](#what-the-re-baseline-changed).
 
 ### Settled Since Draft v1
 
