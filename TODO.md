@@ -88,16 +88,21 @@ the upstream layer. Ordered by priority.
     negative result (the session never mentions the practice across
     several such edits) is itself the answer, and should be recorded here
     either way rather than left unconfirmed indefinitely.
-12. **Investigate why `routing-audit` fell through, audit the plan for
-    other silent drops, and pre-register a real evaluation of the two new
-    audit mechanisms before trusting their output.** Full instructions in
-    [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md). **Blocked
-    on:** a fresh session with room for both the investigation (grepping
-    the plan for other approved-but-unbuilt commitments, cross-referencing
-    phase briefs) and a properly pre-registered evaluation
-    (`evals/routing/` discipline) — genuinely too large to fold into the
-    session that built `routing-audit` and `full-practice-audit` in the
-    same sitting.
+12. ~~**Investigate why `routing-audit` fell through, audit the plan for
+    other silent drops.**~~ **Part 1 done (2026-09-04)** — root cause and
+    scan for other drops in
+    [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s "Part 1,
+    answered" section; the one adjacent gap it found is item 17 below.
+    **Part 2 (pre-register and run a real evaluation of the two new audit
+    mechanisms before trusting their output) is pre-registered** —
+    [evals/routing/PREDICTION_AUDIT_JUDGMENT.md](evals/routing/PREDICTION_AUDIT_JUDGMENT.md)
+    — **and run once**, a smaller single-session eval than the routing
+    eval's own multi-run discipline; see
+    [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s dated
+    2026-09-04 section for the result and its stated caveats. Left open:
+    the same document's own read that a single 6-case run is a first
+    signal, not a replacement for that fuller discipline, if the finding
+    turns out to matter enough to invest in later.
 13. **Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
     (and its check in [tools/precedent_check.py](tools/precedent_check.py),
     and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the
@@ -128,3 +133,18 @@ the upstream layer. Ordered by priority.
     [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
     "Sequencing" section for why. **Blocked on:** item 15, plus a real
     subject and a real person, neither of which exists yet.
+17. **Enumerate and wire the inherited RPP "very deep check" audit list as
+    an on-demand tool.** Named in
+    [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s v28 amendment,
+    deliberately deferred there ("when phase 5 or later actually needs
+    it") rather than dropped, but never tracked anywhere but that one
+    paragraph — the exact structural risk item 12's Part 1 answer found
+    routing-audit fell into, caught here before it repeated rather than
+    after. Full context:
+    [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s "Part 1,
+    answered" section. **Blocked on:** a session holding the private RPP
+    repo, to actually enumerate its list — cannot be done from here; also
+    worth a real decision, not just building, about whether
+    `full-practice-audit` (built 2026-09-03) has already made this
+    redundant now that it exists, rather than inventorying a fourth
+    mechanism out of habit.

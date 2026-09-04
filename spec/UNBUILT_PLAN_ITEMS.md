@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by the full-practice-audit / routing-audit session -->
+<!-- Last updated: 2026-09-04 (Buenos Aires) by the session that answered Part 1 and pre-registered Part 2 -->
 
 # Unbuilt Plan Items — What Else the Plan Approved and the Tree Doesn't Show
 
@@ -75,6 +75,91 @@ note here that it was checked.
 second silent drop, the finding is not "fix that one item" — it's that
 plan-approval alone does not reliably survive into the build list, which is
 a process gap bigger than any one missing tool.
+
+## Part 1, answered (2026-09-04)
+
+**Root cause: a genuine drop, not a deliberate scoping-out — and it
+happened one specific way, not by carelessness.**
+[`PRACTICE_ENGINE_PLAN.md`'s v28 amendment](../PRACTICE_ENGINE_PLAN.md#amendments-since-approval)
+(2026-09-01) named routing audit "still to build in phase 5" in the prose
+of ["The Routing Audit Checks Coverage, Not
+Content"](../PRACTICE_ENGINE_PLAN.md#the-routing-audit-checks-coverage-not-content)
+— but the *same pass's* own
+["What phase 5 should carry forward"](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+section, written immediately after, never mentions it, and neither does the
+top-level [Sequence table](../PRACTICE_ENGINE_PLAN.md#sequence)'s phase-5
+row ("Done when": candidates, detection, promotion, approval routing, the
+retirement report — no routing audit). Those two sections are the
+checklists a downstream session actually works from — confirmed by reading
+[spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md)'s own "what phase 5 covers"
+framing, which never mentions routing audit either way (not a stated
+exclusion, a genuine absence) — while the naming-fix prose sits several
+hundred lines earlier, in an architecture section, not a checklist.
+[spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md) (2026-09-02),
+[spec/PHASE5_DEEPCHECK.md](PHASE5_DEEPCHECK.md) (2026-09-02) and
+[spec/PHASE6_BRIEF.md](PHASE6_BRIEF.md) (2026-09-03) each read the plan per
+`AGENTS.md`'s standing instruction and correctly worked from the
+carry-forward/Sequence checklists rather than re-deriving a build list by
+re-reading the whole plan's prose for commitments — which is the rational
+way to work from a document `AGENTS.md` itself says not to hold entirely in
+context at once. **The mechanism is structural, not a lapse: a v-numbered
+amendment has no required second write into the checklist a downstream
+session actually consults, so an approval that lives only in prose is
+invisible to the method every subsequent session correctly used.**
+`todo-is-a-handoff`'s discipline (queue only with a stated reason) was not
+violated so much as never invoked — the amendment was implicitly treated
+as self-tracking ("it's written down, so it will be seen") when the plan's
+own working method guarantees the opposite for anything not also mirrored
+into `TODO.md` or a phase's own carry-forward note.
+
+**The scan for other drops** (method: grep the plan for "to build", "still
+to build", "not yet built", "not yet inventoried", "deferred"; check every
+phase's Sequence done-when row; check the only two other blockquote-style
+"amended" callouts in the document) found no second live gap of the same
+shape, and two adjacent cases worth recording rather than re-deriving later:
+
+- **The gate-triggered channel** ("still unbuilt" at the time of the
+  routing-eval-recall section, [PRACTICE_ENGINE_PLAN.md line
+  1136](../PRACTICE_ENGINE_PLAN.md)) was never logged in any carry-forward
+  section either — but it got built anyway
+  ([tools/precedent_gate.py](../tools/precedent_gate.py), 10 gate-only
+  practices as of [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md)'s
+  2026-09-03 correction). A second near-miss of the identical shape that
+  happened not to cost anything. Not actioned further; recorded so the next
+  audit of this kind does not re-discover it from zero.
+- **The RPP "very deep check" audit list**
+  ([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), the same v28
+  naming-fix callout: "Not yet inventoried here (RPP is a separate private
+  repo); enumerate and wire it as an on-demand tool when phase 5 or later
+  actually needs it") is genuinely still not inventoried or wired —
+  confirmed by grep: zero hits anywhere in the tree outside the plan
+  itself, and one passing mention in
+  [tools/full_practice_audit.py](../tools/full_practice_audit.py)'s own
+  docstring naming `full-practice-audit` its "closest existing analog,"
+  which nobody had connected back to this specific unmet commitment.
+  Unlike routing audit, this deferral was conditional ("when... actually
+  needs it") rather than phase-bound, so it is arguably still correctly
+  pending rather than dropped — but it carries the identical structural
+  risk (a real, named commitment tracked nowhere but the plan's own prose)
+  and has now sat through the entirety of phases 5 and 6-so-far with nobody
+  weighing whether the condition has since been met. Given a second place
+  to be tracked from **is** the fix this investigation argues for, it is
+  added as `TODO.md` item 14 now rather than left to be found by accident a
+  second time.
+- The plan's only other blockquote-style "amended" callout (Phase 2,
+  "Superseded in part, 2026-08-31") correctly points to its own
+  replacement section and introduces no untracked commitment.
+  `in_repos:`/team-scoped individual practices sits in an explicitly named
+  "Deferred (speculative — do not build yet)" section — disclosed by its
+  own heading, not a silent drop.
+
+**The generalized finding, stated as plainly as the original question
+asked for:** plan-approval alone does not reliably survive into the build
+list. The fix demonstrated here is not "read more carefully" — every
+session that missed this read carefully — it is that a v-numbered amendment
+introducing a "still to build" commitment needs a `TODO.md` line (or a
+carry-forward-section edit) in the same commit that writes the amendment,
+not only when a later session notices the gap by accident, as this one did.
 
 ## Part 2 — Pre-register and run a real evaluation of both new mechanisms
 
