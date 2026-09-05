@@ -117,12 +117,16 @@ ANCHORS = [
     ('PRACTICE_ENGINE_PLAN.md, "The resident block ... Target ~2,000 tokens"',
      2000, 2000, lambda: (stats()['budget'], stats()['budget'])),
     # spec/PRACTICE_FORMAT.md's phase-3 column records the catalogue as this
-    # session inherited it: 15 practices with a Detail, 8 Rules over 150 words.
-    # Scoped to the original 52 (phase3_snapshot_stats), not the live
-    # directory -- a dated snapshot, not an invariant that should fail every
-    # time a later practice is added. See phase3_snapshot_stats's docstring.
+    # session inherited it: originally 15 practices with a Detail, 8 Rules
+    # over 150 words. Scoped to the original 52 (phase3_snapshot_stats), not
+    # the live directory -- a dated snapshot, not an invariant that should
+    # fail every time a later practice is added -- but a DELIBERATE rewrite
+    # of an original-52 practice still moves it, same as the 8->7 Rules-over-
+    # 150-words correction below: moved 15->16 on 2026-09-05 when
+    # session-bootstrap gained a real Detail (see CHANGES_TO_TELL_ALEX.md).
+    # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     15, 15, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     16, 16, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as

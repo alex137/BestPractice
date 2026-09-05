@@ -102,61 +102,79 @@ the loader.
 
 4. **Wire the individual source's own bootstrap, if the person has one and
    the harness needs it.** For a Claude Code Web session specifically, this
-   is the individual repo's own
-   `claude-web-bootstrap` practice (see that repo's own `practices/` for
-   the exact slug and file) — copy its `bootstrap/session-start.sh` into
-   the target repo as a tracked `.claude/hooks/<name>-bootstrap.sh`
-   (**copied**, not referenced by a `$HOME`-relative path — on a brand-new
-   container nothing under `$HOME` exists yet, so the hook that populates
-   `$HOME` cannot itself live there), and merge its
-   `bootstrap/settings.snippet.json` into the target's own
-   `.claude/settings.json` (append to an existing `SessionStart` array,
-   don't replace it). This makes the individual source resolvable without
-   ever naming it in the repo's own tracked config — but on its own it is
-   **not** zero manual steps on a hosted agent platform, which is the next
-   part of this step, not a separate concern.
+   is [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template) —
+   instantiate it with
+   `python3 tools/precedent_bootstrap_source.py --level individual
+   --name <the set's name> --dest <local clone path>
+   --write-session-hook <target repo path> --repo-url <the set's git URL>`
+   (see [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)), which writes
+   the target repo's tracked `.claude/hooks/precedent-individual-bootstrap.sh`
+   for you, and merge its `bootstrap/settings.snippet.json` into the
+   target's own `.claude/settings.json` (append to an existing
+   `SessionStart` array, don't replace it). This makes the individual
+   source resolvable without ever naming it in the repo's own tracked
+   config — but on its own it is **not** zero manual steps on a hosted
+   agent platform, which is the next part of this step, not a separate
+   concern.
 
-   **The session-repo-access gate, and the one behavioral fix that closes
-   it for both sources at once.** On Claude Code Remote/Web, a session's
-   git access is scoped *per session* — attached when it's created, or
-   added mid-session — never inherited just because a project's config or
-   a hook references another repo by name. A brand-new session opened on
-   only the consuming project has no git credentials for either sibling
-   repo at all, so the individual bootstrap hook above, and the team
-   source's live resolution in step 3, both fail on a fresh session with
-   nothing wrong in the code — until this gate is closed.
+   *(Before 2026-09-05 this step said to hand-copy the individual repo's
+   own `claude-web-bootstrap`-practice script. Don't — that per-adopter
+   hand copy is exactly what let the gap below go unnoticed in more than
+   one place at once; see the incident this rewrite is based on below.)*
+
+   **The session-repo-access gate.** On Claude Code Remote/Web, a
+   session's git access is scoped *per session* — attached when it's
+   created, or added mid-session — never inherited just because a
+   project's config or a hook references another repo by name. A
+   brand-new session opened on only the consuming project has no git
+   credentials for either sibling repo at all, so the individual
+   bootstrap hook above, and the team source's live resolution in step 3,
+   both fail on a fresh session with nothing wrong in the code — until
+   this gate is closed.
 
    **This costs no token or secret.** The tool that extends a session's
    scope to another repo (`add_repo` in Claude Code Remote/Web) rides the
    *same* GitHub identity already behind that session; it only ever
    succeeds because the person is already a collaborator on the target
    repo — the same fact that let them declare the source at all. There is
-   nothing to generate, store, or rotate.
+   nothing to generate, store, or rotate. The consuming repo's own
+   `AGENTS.md` still needs the plain instruction this always required:
+   **call `add_repo` (read access) for both the team and individual
+   sibling repos at the very start of every session, before running any
+   bootstrap script, without asking first** — reaching for both is the
+   session's own job every time, since repo access is a per-session grant
+   that does not persist to the next one, and `add_repo` granting only
+   read access is exactly why it doesn't need to wait for a human's yes
+   first.
 
-   **What actually closes the gap is an instruction to the agent, not to
-   the hook.** A `SessionStart` shell hook cannot grant its own session
-   more repo access — that is an agent-level action, not a shell command
-   — so the fix cannot live in `bootstrap/session-start.sh` no matter how
-   it's written. It has to live in the consuming repo's own `AGENTS.md`,
-   as a plain instruction to the agent: **call `add_repo` (read access)
-   for both the team and individual sibling repos at the very start of
-   every session, before running any bootstrap script, without asking
-   first.** Not "if the clone fails, ask to add the repo" — that only
-   works when a human happens to be watching for the failure, and the
-   whole point is that a person only ever attaches the *one* repo they're
-   actually working in. Reaching for the other two has to be the
-   session's own job, every single time, since repo access is a
-   per-session grant that does not persist to the next one. `add_repo`
-   granting only read access, and this being a reversible, no-cost scope
-   extension rather than anything touching credentials or production,
-   is exactly why it doesn't need to wait for a human's yes first.
-
-   `WorkingWithAI`'s own migration got this wrong on the first pass —
-   its `AGENTS.md` said to *ask* to add the repo once a clone had already
-   failed — and its fix is the pattern to copy (private repo, not
-   fetchable from here, but the shape: state plainly that no credential
-   is needed, then instruct the agent to call `add_repo` for both sources
-   unconditionally, ahead of the clone hook, every session).
+   **That instruction is necessary and, on its own, not sufficient — two
+   independent adopters proved it, 2026-09-05.** This step used to claim
+   the `add_repo` instruction above was "the one behavioral fix that
+   closes [the gate] for both sources at once." It is not: a
+   `SessionStart` hook runs before the agent's own first turn starts, so
+   an instruction telling the agent to call `add_repo` "before running
+   any bootstrap script" cannot make that tool call precede a hook the
+   harness has already started running — the hook simply loses the race
+   before the agent gets a chance to act. Both `HavrutaBrainstorm` and (by
+   report) a second, independent repo hit exactly this: the individual
+   source silently wasn't resolving because its bootstrap hook had
+   already run and failed before `add_repo` completed, and nothing said
+   so — it read as "no individual set," not "not yet." **The real fix
+   ships in the engine now**, closing this at the mechanism level rather
+   than relying on instruction-following to win a race it structurally
+   cannot: [`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py)
+   retries the clone with a bound instead of trying once (the hook usually
+   wins the race on its own now), and
+   [`tools/precedent_resolve.py`](../tools/precedent_resolve.py)'s own
+   `load_config()` treats "the individual config is absent, and this is a
+   remote session" as "try the bootstrap hook once more" rather than "no
+   individual set" — so even a hook that still lost its race gets a second
+   chance the next time anything actually asks for the individual source.
+   See [`practices/session-bootstrap.md`](../practices/session-bootstrap.md)'s
+   Story for the incident in full, and `tools/precedent_source_bootstrap.py`'s
+   own module docstring for the mechanism. The `add_repo` instruction above
+   stays required — the self-heal has nothing to retry *into* without it —
+   it is just no longer asked to close the gate by itself.
 
 5. **Retire the old vendored pack tree**, but salvage anything in it that
    was never really *pack content* — a generic utility script the pack
