@@ -975,6 +975,37 @@ _LEDGER_MEMBER_DIRS = ('templates/harness/claude-code',
                        'templates/harness/codex', 'templates/harness/gemini-cli')
 
 
+def _shallow_boundary_commits():
+    """Commits git's OWN `.git/shallow` file records as grafted boundaries --
+    ground truth, unlike `git rev-list --max-parents=0` (used below to
+    exempt the repository's real root commit) or `git log --format=%P`:
+    this repo's own AGENTS.md documents both of those as unreliable at
+    exactly a shallow boundary -- a commit that genuinely has two parents
+    can be silently reported as having none, and the exact boundary a
+    shallow fetch lands on is not something a caller of this function
+    controls or can predict (it depends on the fetch depth requested, the
+    target being a merge commit rather than a single ref, and apparently
+    on the git version doing the negotiating -- confirmed 2026-09-05: a
+    genuinely reproduced CI failure on a real PR whose LEDGER.md row for
+    the flagged commit already existed and matched byte-for-byte, on a
+    git version this session's own environment could not install to
+    compare directly). `.git/shallow` is git's own bookkeeping for exactly
+    this fact and isn't subject to either unreliability -- reading it
+    directly, instead of inferring shallowness indirectly, sidesteps the
+    whole class of version- and negotiation-dependent surprise rather than
+    chasing one more instance of it."""
+    git_dir = _git('rev-parse', '--git-dir').stdout.strip()
+    if not git_dir:
+        return set()
+    git_dir_path = pathlib.Path(git_dir)
+    if not git_dir_path.is_absolute():
+        git_dir_path = ROOT / git_dir_path
+    shallow_path = git_dir_path / 'shallow'
+    if not shallow_path.is_file():
+        return set()
+    return set(shallow_path.read_text(encoding='utf-8', errors='ignore').split())
+
+
 @check('parallel-artifact-ledger', 'tree',
        '`templates/harness/LEDGER.md` exists, and every commit that touched '
        'a harness-adapter member (claude-code/, codex/, or gemini-cli/) has '
@@ -995,8 +1026,14 @@ def _parallel_artifact_ledger(ctx):
     # into existence, zero parents -- is inception, not "a change to any
     # member" the practice's Rule is about; exclude it, or every squashed-
     # history scratch copy and this repo's own real "Initial import" commit
-    # would need a ledger row for simply existing.
+    # would need a ledger row for simply existing. Also exclude whatever
+    # git's OWN `.git/shallow` bookkeeping records as a grafted boundary --
+    # see _shallow_boundary_commits()'s own docstring: on a shallow clone (a
+    # CI checkout, most obviously) `--max-parents=0` cannot be trusted to
+    # find every commit this check should treat as "can't verify, don't
+    # guess" the same way it already treats a genuine root.
     roots = set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split())
+    roots |= _shallow_boundary_commits()
     findings = []
     for member_dir in _LEDGER_MEMBER_DIRS:
         out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
