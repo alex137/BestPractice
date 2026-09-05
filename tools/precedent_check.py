@@ -1035,8 +1035,10 @@ def _parallel_artifact_ledger(ctx):
     roots = set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split())
     roots |= _shallow_boundary_commits()
     findings = []
+    per_dir_hashes = {}
     for member_dir in _LEDGER_MEMBER_DIRS:
         out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
+        per_dir_hashes[member_dir] = out
         for full_hash in out:
             if full_hash in roots:
                 continue
@@ -1046,6 +1048,42 @@ def _parallel_artifact_ledger(ctx):
                     f'no row references {full_hash[:7]} ({member_dir}), a '
                     f'commit that changed a member of the harness-adapter '
                     f'family -- add a dated row with a per-member verdict'))
+
+    if findings:
+        # TEMP DIAGNOSTIC -- remove after this CI run. This check has failed
+        # in GitHub Actions (git 2.55.0) on content confirmed correct four
+        # independent ways (byte-identical LEDGER.md via the GitHub API, at
+        # both the PR branch tip and the PR merge ref; a faithful local
+        # reproduction of CI's exact `git fetch` command against the same
+        # commit SHA; and a full, non-shallow local clone) while passing
+        # cleanly every time it's been run locally (git 2.43.0, the newest
+        # available in that environment). Printing runtime values instead of
+        # guessing again which of them differs.
+        import hashlib
+        print('== TEMP DIAGNOSTIC (parallel-artifact-ledger) ==', file=sys.stderr)
+        gv = _git('--version')
+        print(f'git --version (from inside this process): {gv.stdout.strip()!r} '
+              f'(stderr: {gv.stderr.strip()!r})', file=sys.stderr)
+        for member_dir, hashes in per_dir_hashes.items():
+            print(f'git log --no-merges --format=%H -- {member_dir}: '
+                  f'{len(hashes)} hash(es): {hashes}', file=sys.stderr)
+        print(f'roots (max-parents=0 | .git/shallow): {sorted(roots)}', file=sys.stderr)
+        print(f'ledger_path: {ledger_path} (exists: {ledger_path.exists()})', file=sys.stderr)
+        print(f'len(ledger_text): {len(ledger_text)}', file=sys.stderr)
+        print(f'sha256(ledger_text): '
+              f'{hashlib.sha256(ledger_text.encode("utf-8")).hexdigest()}', file=sys.stderr)
+        for full_hash in per_dir_hashes.get('templates/harness/claude-code', []):
+            short = full_hash[:7]
+            print(f'  full_hash={full_hash!r} short={short!r} '
+                  f'ledger_text.find(short)={ledger_text.find(short)} '
+                  f'ledger_text.find(full_hash)={ledger_text.find(full_hash)}',
+                  file=sys.stderr)
+        print(f'ledger_text.find("f2078d6"): {ledger_text.find("f2078d6")}', file=sys.stderr)
+        print(f'repr(ledger_text[1030:1060]) (byte-offset window around the '
+              f'row this repo\'s own checkout has it at): '
+              f'{ledger_text[1030:1060]!r}', file=sys.stderr)
+        print('== END TEMP DIAGNOSTIC ==', file=sys.stderr)
+
     return findings
 
 
