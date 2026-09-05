@@ -4312,6 +4312,180 @@ def check_bootstrap_source_engine_is_functional():
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 
 
+def _write_fixture_practice(path, slug, applies_to, rule_text):
+    """Same frontmatter shape check_bootstrap_source_engine_is_functional's
+    own fixture practice uses -- kept as a helper here because this check
+    needs three of these (one per source level) instead of one."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+        f'severity: default\napplies_to: {json.dumps(applies_to)}\n'
+        f'occasion: "testing the vendored consumer engine"\n'
+        f'gates: []\nindex_clause: "{slug} — a consumer-engine-harness fixture"\n'
+        'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+        'overrides: null\nadded: 2026-09-05\n'
+        'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
+        f'---\n## Rule\n{rule_text}\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+        encoding='utf-8')
+
+
+def check_vendor_engine_consumer_case():
+    """TODO.md item 18, tested rather than trusted: tools/precedent_vendor_
+    engine.py's 'consumer' kind (added 2026-09-05, piloted against the real
+    themorgan/HavrutaBrainstorm repo) produces a genuinely working
+    four-source engine in a consumer repo, the same rigor
+    check_bootstrap_source_engine_is_functional() already applies to the
+    narrower source-set case -- not just that the right files land in the
+    right place.
+
+    Distinct from that check in what it has to prove: a source set's
+    vendored engine only ever reads ONE practices/ directory (its own). A
+    consumer's vendored engine has to actually RESOLVE three real, separate
+    sources (universal = this repo's own checkout, a fixture team set, a
+    fixture repo-local set) through precedent_resolve.py/precedent_
+    materialize.py/precedent_sync_views.py into one materialized tree
+    BEFORE build_views.py/precedent_gate.py/precedent_paths.py/
+    precedent_show.py have anything to read -- so this fixture wires all
+    three, seeds the consumer's own vendored engine with `--kind consumer`,
+    then proves a fixture practice AT EACH LEVEL survives the whole pipeline
+    into AGENTS.md and into each command's real output."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-consumer-engine-'))
+    cases = []
+    try:
+        consumer = tmp / 'consumer'
+        team_dir = tmp / 'fixture-team'
+        consumer.mkdir()
+
+        _write_fixture_practice(team_dir / 'practices' / 'consumer-fixture-team.md',
+                                 'consumer-fixture-team', ['team-only/**'],
+                                 'A team-level fixture rule, present in no other repo.')
+        _write_fixture_practice(consumer / 'local' / 'practices' / 'consumer-fixture-local.md',
+                                 'consumer-fixture-local', ['local-only/**'],
+                                 'A repo-local fixture rule, present in no other repo.')
+
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
+                {'level': 'team', 'name': 'consumer-fixture-team', 'path': str(team_dir)},
+                {'level': 'repo-local', 'name': 'consumer-harness-local', 'path': 'local'},
+            ],
+        }), encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text(
+            f'# fixture consumer\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+
+        # -- seed the consumer's OWN vendored engine, from THIS checkout,
+        # exactly how INSTALL.md's consumer procedure runs it --
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+                            'seed', str(consumer), '--kind', 'consumer'],
+                           capture_output=True, text=True)
+        cases.append(('seeding the consumer engine succeeds', r.returncode == 0,
+                      r.stdout + r.stderr))
+
+        manifest_path = consumer / 'tools' / 'ENGINE_MANIFEST.json'
+        consumer_files = ['build_views.py', 'precedent_gate.py', 'precedent_paths.py',
+                          'precedent_show.py', 'split_practices.py',
+                          'precedent_materialize.py', 'precedent_resolve.py',
+                          'precedent_sync_views.py', 'precedent_vendor_engine.py',
+                          'routing_scope.json']
+        cases.append(('every consumer engine file is present -- all 8 content files plus '
+                      'the vendoring tool itself',
+                      all((consumer / 'tools' / f).is_file() for f in consumer_files),
+                      str([f for f in consumer_files if not (consumer / 'tools' / f).is_file()])))
+
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.is_file() else {}
+        cases.append(("ENGINE_MANIFEST.json records kind: consumer",
+                      manifest.get('kind') == 'consumer', str(manifest.get('kind'))))
+
+        import hashlib
+        mismatched = [f for f, h in manifest.get('sha256', {}).items()
+                     if hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
+        cases.append(('every recorded sha256 matches the file actually written',
+                      bool(manifest.get('sha256')) and not mismatched, str(mismatched)))
+
+        # -- status(), run from the consumer's OWN vendored copy, against
+        # this real checkout, finds zero drift right after seeding --
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                            'status', str(ROOT)], capture_output=True, text=True)
+        cases.append(('status() against a real BestPractice checkout finds no drift '
+                      'right after seeding', r.returncode == 0, r.stdout + r.stderr))
+
+        # -- the drift-refusal / --force pair, the same property status()
+        # depends on and that refresh() must actually honor (a real,
+        # reproduced bug: --force used to no-op silently when the upstream
+        # commit had not moved -- see refresh()'s own comment) --
+        hand_edited = (consumer / 'tools' / 'build_views.py')
+        original_bytes = hand_edited.read_bytes()
+        hand_edited.write_bytes(original_bytes + b'\n# hand edit\n')
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                            'refresh', str(ROOT)], capture_output=True, text=True)
+        cases.append(('refresh() without --force refuses a hand-edited vendored file',
+                      r.returncode != 0 and 'hand-edited' in (r.stdout + r.stderr),
+                      r.stdout + r.stderr))
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                            'refresh', str(ROOT), '--force'], capture_output=True, text=True)
+        cases.append(('refresh() with --force actually overwrites the hand-edited file '
+                      '(not a silent no-op), even when the upstream commit has not moved',
+                      r.returncode == 0 and hand_edited.read_bytes() == original_bytes,
+                      r.stdout + r.stderr))
+
+        # -- the consumer's OWN vendored precedent_sync_views.py, run the way
+        # a real consumer's AGENTS.md documents it (--repo .), resolves all
+        # three sources and materializes + regenerates the loader block --
+        r = subprocess.run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(('precedent_sync_views.py --repo . resolves and materializes '
+                      'cleanly', r.returncode == 0, r.stdout + r.stderr))
+
+        agents_text = (consumer / 'AGENTS.md').read_text(encoding='utf-8') if (consumer / 'AGENTS.md').exists() else ''
+        cases.append(('the regenerated AGENTS.md loader block names a real universal '
+                      'practice (proves the universal source, not just the fixtures, '
+                      'flowed through)', 'orientation-map' in agents_text, agents_text[:300]))
+
+        team_practice = consumer / 'practices' / 'consumer-fixture-team.md'
+        local_practice = consumer / 'practices' / 'consumer-fixture-local.md'
+        cases.append(('the team fixture practice was materialized', team_practice.is_file(), ''))
+        cases.append(('the repo-local fixture practice was materialized', local_practice.is_file(), ''))
+
+        # -- precedent_gate.py / precedent_paths.py / precedent_show.py, run
+        # IN PLACE (no --repo) against the materialized tree, same as the
+        # source-set case's own rigor --
+        r = subprocess.run([sys.executable, 'tools/precedent_gate.py', '--list'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(('the vendored precedent_gate.py lists the real (trimmed) gate '
+                      'vocabulary against the materialized tree',
+                      r.returncode == 0 and 'merge' in r.stdout, r.stdout + r.stderr))
+
+        r = subprocess.run([sys.executable, 'tools/precedent_paths.py', 'team-only/x.md'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(('the vendored precedent_paths.py matches the team fixture by its '
+                      'real applies_to glob', r.returncode == 0
+                      and 'consumer-fixture-team' in r.stdout, r.stdout + r.stderr))
+
+        r = subprocess.run([sys.executable, 'tools/precedent_show.py', 'consumer-fixture-local'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(("the vendored precedent_show.py returns the repo-local fixture's "
+                      "real Rule text", r.returncode == 0
+                      and 'repo-local fixture rule' in r.stdout, r.stdout + r.stderr))
+
+        # -- a second sync, unchanged, is a clean --check (idempotency, and
+        # the exact invocation a consumer's own session-start documents) --
+        r = subprocess.run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.', '--check'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(('a second, unchanged sync passes --check cleanly (idempotent)',
+                      r.returncode == 0, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the vendored engine\'s "consumer" kind is real and functional against a real '
+          f'four-source pipeline, not just present ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
 def check_pretooluse_hook_fires():
     """The path-triggered channel's consumer-repo integration
     (spec/LOADER.md's status table, "not yet wired into a PreToolUse hook...
@@ -4443,6 +4617,7 @@ def main():
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_source_engine_is_functional()
+    check_vendor_engine_consumer_case()
     check_pretooluse_hook_fires()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")

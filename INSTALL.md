@@ -332,13 +332,21 @@ not this section.
    (`precedent-beta-v01` today; `main` once phase 7 merges it back) and
    copy two things into this repo as ordinary tracked files: its
    `practices/` tree, into a tracked path of your choosing (recommended:
-   `precedent/universal/practices/`), and its whole `tools/` directory —
-   the engine (`precedent_resolve.py`, `precedent_materialize.py`,
+   `precedent/universal/practices/`), and the loader engine itself.
+   **Don't hand-copy the engine files** — from the Precedent clone, run
+   `python3 tools/precedent_vendor_engine.py seed <this repo's path> --kind consumer`
+   to write `precedent_resolve.py`, `precedent_materialize.py`,
    `precedent_sync_views.py`, `build_views.py`, `precedent_show.py`,
-   `precedent_paths.py`, `precedent_gate.py`, `precedent_check.py`,
-   `split_practices.py`, and everything else there — `checked_by:
-   "tools/precedent_check.py"` claims are hollow without it) — into this
-   repo's own `tools/`. Record the exact commit you copied from.
+   `precedent_paths.py`, `precedent_gate.py`, `split_practices.py`, and the
+   vendoring tool itself into this repo's own `tools/`, plus a trimmed
+   `routing_scope.json` and a tracked `tools/ENGINE_MANIFEST.json`
+   recording the exact commit and a sha256 per file — see "Keep the
+   vendored engine current (consumer repos)" under §2 for what that buys
+   over a hand-copy, and how to refresh it later. Separately, copy
+   `precedent_check.py` by hand (`checked_by: "tools/precedent_check.py"`
+   claims are hollow without it) — it belongs to phase 4's enforced-checks
+   channel, not this loader engine, so `precedent_vendor_engine.py` does
+   not vendor it.
 2. **Write `precedent.json`** at the repo root, naming the universal
    source (`level: "universal"`, `path` pointing at step 1's vendored
    copy) and, if the administrator answered yes to the team/individual
@@ -452,6 +460,45 @@ deliberate procedure below.
    (export first, or `--force` to overwrite) — then update
    `upstream.commit` (`checkin.py record <upstream-clone>`), run the
    audit `--update-baseline`, commit.
+6. **Keep the vendored engine current (consumer repos).** Steps 1–5 above
+   are about `process/upstream/` — the vendored *content* (universal
+   practices, `PRACTICES.md`, the audit scripts). This step is about the
+   separate tree at this repo's own top-level `tools/`: the loader
+   *engine* (`build_views.py`, `precedent_gate.py`, `precedent_paths.py`,
+   `precedent_show.py`, `split_practices.py`, `precedent_materialize.py`,
+   `precedent_resolve.py`, `precedent_sync_views.py`, and
+   `precedent_vendor_engine.py` itself) that resolves universal + team +
+   individual + repo-local into one materialized tree and regenerates
+   `AGENTS.md`'s loader block from it. If this repo has
+   `tools/ENGINE_MANIFEST.json`, it was vendored with
+   [`tools/precedent_vendor_engine.py`](tools/precedent_vendor_engine.py)'s
+   `'consumer'` kind (§0 step 1, or the migration path
+   [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)
+   step 7 documents) — the same mechanism
+   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
+   vendored engine" section already documents for an individual/team
+   *source* set, extended to a four-source *consumer*'s larger file list.
+   From a sibling BestPractice clone:
+   ```
+   python3 tools/precedent_vendor_engine.py status  ../BestPractice   # drift? behind?
+   python3 tools/precedent_vendor_engine.py refresh ../BestPractice   # pull, re-vendor, re-stamp
+   ```
+   `refresh` reads `kind` back out of `ENGINE_MANIFEST.json` itself — no
+   `--kind` flag needed here, only at first `seed`. It pulls
+   `precedent-beta-v01` specifically (not this clone's configured default
+   branch — see
+   [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)),
+   and refuses to overwrite a hand-edited vendored file unless `--force` —
+   this engine carries zero local variance by design, so a local edit is a
+   signal to move the change upstream into BestPractice instead. After a
+   refresh, re-run `python3 tools/precedent_sync_views.py --repo . --check`
+   to confirm the freshly refreshed engine still produces the same
+   materialized tree and `AGENTS.md` (or, if the refresh changed loader
+   behavior, review the diff before committing). A repo installed before
+   this mechanism existed (a hand-copy with no `ENGINE_MANIFEST.json`) has
+   nothing to refresh from yet — vendor it for the first time the same way
+   §0 step 1 does, `--kind consumer`, from a sibling BestPractice clone
+   instead of BestPractice's own checkout.
 
 ## 3. (Optional) Give back an improvement — the export gate
 

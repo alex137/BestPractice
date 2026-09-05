@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, after old-system vocabulary was found lingering in WorkingWithAI a day past its own migration -->
+<!-- Last updated: 2026-09-05 (Buenos Aires) -- step 7's engine vendoring now uses precedent_vendor_engine.py's 'consumer' kind instead of a hand-copy, piloted against themorgan/HavrutaBrainstorm; before that, 2026-09-03 by a follow-up session, after old-system vocabulary was found lingering in WorkingWithAI a day past its own migration -->
 
 # Migrating a repo that already has BestPractice installed
 
@@ -207,14 +207,24 @@ the loader.
 
 7. **Rewrite the consuming repo's own instructions file** (`AGENTS.md` or
    equivalent) with the same `<!-- BEGIN GENERATED: precedent-loader -->` /
-   `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses, then
-   run `python3 tools/precedent_sync_views.py` (vendor it alongside
+   `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses. Before
+   running it, vendor `precedent_sync_views.py` itself alongside
    `precedent_resolve.py`, `precedent_materialize.py`, `build_views.py`,
    `precedent_show.py`, `precedent_paths.py`, `precedent_gate.py`, and
    `split_practices.py` — all together, at the consuming repo's own
    `tools/`, not nested under `process/upstream/tools/`, which stays
    reserved for the audit/sync tools that operate on the vendored
-   universal tree itself) to fill them in from the *real* resolved set —
+   universal tree itself — with
+   `python3 tools/precedent_vendor_engine.py seed <consuming repo> --kind consumer`,
+   run from a Precedent (BestPractice) clone, rather than copying those
+   eight files by hand: it also writes a tracked `tools/ENGINE_MANIFEST.json`
+   (the exact commit vendored, a sha256 per file) so a later Precedent
+   update can be picked up with `status`/`refresh` instead of repeating
+   this step from scratch — see
+   [INSTALL.md](../INSTALL.md)'s "Keep the vendored engine current
+   (consumer repos)" step under §2. Then run
+   `python3 tools/precedent_sync_views.py` to fill the markers in from the
+   *real* resolved set —
    universal, team, individual and repo-local, all four. **Don't hand-curate
    a subset and call it a stopgap**: that was only ever necessary because
    nothing connected the resolver's output to a generated view; now
