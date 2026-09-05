@@ -161,6 +161,64 @@ introducing a "still to build" commitment needs a `TODO.md` line (or a
 carry-forward-section edit) in the same commit that writes the amendment,
 not only when a later session notices the gap by accident, as this one did.
 
+### The RPP "very deep check" list, resolved (2026-09-05)
+
+A session holding
+[RepoPersonalPreferences](https://github.com/themorgan/RepoPersonalPreferences)
+(the private repo the list itself lives in — the blocker the bullet above
+named) answered the open redundancy question first, honestly rather than
+by habit: does `full-practice-audit` (built 2026-09-03, after the bullet
+above was written) already cover this need?
+
+**No — the two ask different questions.** `full-practice-audit` asks,
+practice by practice, a closed question against one document's own text:
+"is this specific Rule satisfied?" RPP's list asks something no
+per-practice sweep can answer no matter how many times it runs: does the
+repo's *own writing*, taken as a set, still hold together? A contradiction
+between two documents, a stale cross-reference, the same rule restated in
+three places, a heading that drifted to the wrong capitalization scheme —
+none of these is a violation of any single practice's Rule; each is a
+property of the documents together. Confirmed by reading RPP's own
+`deep-check` entry (`process/personal/README.md#deep-check`) against
+`full-practice-audit.md` side by side rather than assumed from the names.
+
+**Not redundant, so it was built**, following the exact pattern this
+document's own "generalized finding" argues for doing consistently:
+[practices/very-deep-check.md](../practices/very-deep-check.md) plus
+[tools/very_deep_check.py](../tools/very_deep_check.py) — an on-demand
+practice file and an enumeration-only engine, the same shape as
+`routing-audit`/`full-practice-audit`, never wired into a commit, push, or
+merge gate.
+
+**The enumeration turned up something the v28 amendment's own author could
+not have known.** The private-set migration that populated RPP's two
+successor repos (v27, "Phase 3 closed") landed *earlier the same day*
+(2026-09-01) as v28's "not yet inventoried here" line — and that migration
+had already carried RPP's exact list into
+[`precedent-team-maintainers`](https://github.com/themorgan/precedent-team-maintainers)
+as its own `deep-check` practice, generalized (RPP's vendored-`process/`-tree
+language dropped, since Precedent's private sets aren't vendored the way
+RPP's own tree was) but otherwise the same enumeration now written here.
+So the list was never actually missing during phases 5–6 — it just was
+never recognized as fulfilling this commitment, since nobody cross-checked
+the same day's two changes against each other, and it existed only as prose
+in one private team practice with no companion engine and no reach outside
+that one team's own set. `practices/very-deep-check.md` is the universal
+version: reachable by any repo running Precedent, not only Morgan and
+Alex's. Whether `precedent-team-maintainers`'s own `deep-check` should now
+`overrides:` this one, or stand as a separate team-level restatement of the
+same rule, is that team's own call to make — raised, not decided, here;
+not actioned in this pass since it needs that set's own approver sign-off
+([`precedent-team-maintainers`](https://github.com/themorgan/precedent-team-maintainers)'s
+`approvers.json`), not something to decide from BestPractice.
+
+`TODO.md` item 17 (the current position — item numbers shift as items are
+inserted and closed, so the item-14 reference two paragraphs above is this
+document's own now-stale cross-reference, left as an example rather than
+fixed, since fixing it is exactly what a `very-deep-check` run would catch
+and this document is not the deliverable that run was for) is closed
+accordingly.
+
 ## Part 2 — Pre-register and run a real evaluation of both new mechanisms
 
 Neither [routing-audit](../practices/routing-audit.md)'s rotating deep-read

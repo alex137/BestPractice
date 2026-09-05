@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 59 practice files (6 resident, 53 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 60 practice files (6 resident, 54 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -68,6 +68,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
 | [verify-decomposition](practices/verify-decomposition.md) | on-demand | reporting a computed total or a negative feasibility result |
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
+| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
 
 ## The engine
@@ -106,4 +107,5 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |
 | [tools/verify_harness.py](tools/verify_harness.py) | The verification harness — run before trusting any change here |
+| [tools/very_deep_check.py](tools/very_deep_check.py) | The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit |
 

@@ -480,6 +480,13 @@
       ],
       "why": "Not a place -- a whole-catalogue sweep is invoked explicitly by a person, not triggered by touching any one file. Reachability comes from its occasion clause.",
       "decided": "2026-09-03, full-practice-audit / routing-audit session"
+    },
+    "very-deep-check": {
+      "globs": [
+        "**"
+      ],
+      "why": "Not a place -- a whole-repo coherence review is invoked explicitly by a person, or after drift-inviting work, not triggered by touching any one file. Reachability comes from its occasion clause, the same as its full-practice-audit and routing-audit siblings.",
+      "decided": "2026-09-05, TODO.md item 17 session (RPP 'very deep check' enumerated and wired)"
     }
   },
   "gates": {
