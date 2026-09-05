@@ -4370,11 +4370,21 @@ def check_individual_source_bootstrap_self_heals():
         source_url = f'file://{source}'
 
         # --- case 1+2: reachable, cloned then pulled (idempotent) -----------
+        # `--remote-only false` makes this hermetic: main()'s own default
+        # (--remote-only true) no-ops the whole tool unless the AMBIENT
+        # CLAUDE_CODE_REMOTE env var happens to already be 'true' -- true in
+        # the Claude Code Remote session this was authored and verified in,
+        # never true on a plain GitHub Actions runner, so this fixture
+        # deterministically passed nothing and asserted on files that were
+        # never written the first time this ran in CI. Case 4 below already
+        # sets CLAUDE_CODE_REMOTE explicitly for the same reason, applied
+        # here to the tool's own direct invocations instead.
         clone, config = tmp / 'clone', tmp / 'config.json'
         rc, out = run(str(bootstrap_tool), '--level', 'individual',
                      '--name', 'harness-fixture-src', '--repo-url', source_url,
                      '--clone', str(clone), '--config', str(config),
-                     '--retries', '3', '--retry-delay', '0')
+                     '--retries', '3', '--retry-delay', '0',
+                     '--remote-only', 'false')
         cases.append(('a reachable source is cloned and the config written on '
                       'the first attempt',
                       rc == 0 and (clone / 'practices' / 'example.md').is_file()
@@ -4384,7 +4394,8 @@ def check_individual_source_bootstrap_self_heals():
         rc2, out2 = run(str(bootstrap_tool), '--level', 'individual',
                         '--name', 'harness-fixture-src', '--repo-url', source_url,
                         '--clone', str(clone), '--config', str(config),
-                        '--retries', '3', '--retry-delay', '0')
+                        '--retries', '3', '--retry-delay', '0',
+                        '--remote-only', 'false')
         cases.append(('running it again against an already-cloned source pulls '
                       'rather than re-cloning (idempotent)', rc2 == 0, out2))
 
@@ -4395,7 +4406,8 @@ def check_individual_source_bootstrap_self_heals():
                         '--repo-url', f'file://{tmp / "does-not-exist"}',
                         '--clone', str(tmp / 'clone-unreachable'),
                         '--config', str(tmp / 'config-unreachable.json'),
-                        '--retries', '3', '--retry-delay', '0')
+                        '--retries', '3', '--retry-delay', '0',
+                        '--remote-only', 'false')
         cases.append(('an unreachable source retries the stated number of '
                       'times, then exits 0 and writes no config',
                       rc3 == 0 and not (tmp / 'config-unreachable.json').exists()
