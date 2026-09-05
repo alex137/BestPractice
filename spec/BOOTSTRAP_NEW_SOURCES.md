@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-04 (Buenos Aires) by the session that closed the "I have nothing yet" onboarding gap -->
+<!-- Last updated: 2026-09-05 (Buenos Aires) by the session that closed the vendored-engine gap this document names below -->
 
 # Bootstrapping a Brand-New Individual or Team Set
 
@@ -33,6 +33,22 @@ assume a session has:
   a target directory, filling in the owner's name (and, for a team, its
   first approver's name and GitHub handle) wherever the skeleton names a
   placeholder.
+- **Vendors a real engine into the new set's own `tools/`** —
+  [`tools/precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s
+  `seed()`, called from `bootstrap()` itself, with no separate step to
+  remember. This is no longer optional or manual: every set this tool
+  produces gets `build_views.py`, `precedent_gate.py`, `precedent_paths.py`,
+  `precedent_show.py`, `split_practices.py`, a trimmed `routing_scope.json`,
+  and `precedent_vendor_engine.py` itself (so the vendoring mechanism can
+  update its own already-bootstrapped copies too), plus a
+  `tools/ENGINE_MANIFEST.json` recording which BestPractice commit it came
+  from and a sha256 per file. See "The vendored engine" below — this is new
+  as of this document's 2026-09-05 update; before it, the tool wrote only
+  practice content, config, approvers and the leak-blocklist, and every
+  engine copy that existed (`precedent-individual`,
+  `precedent-team-maintainers`) came from an undocumented, one-off
+  hand-copy that nothing could tell was stale (`precedent-team-tms`'s was
+  simply missing).
 - Refuses to write into a non-empty destination without `--force true`.
 - Prints — or, opted in with `--write-user-config true` /
   `--write-repo-config PATH`, writes — the exact wiring the next step
@@ -44,6 +60,69 @@ repository — `gh repo create`, or a few clicks on GitHub — needs
 credentials or a platform capability this tool can't assume any given
 session has, and guessing wrong there is worse than asking. That step
 stays explicit, below.
+
+## The vendored engine
+
+A brand-new individual or team set is a source repo, not a four-source
+consumer — it has no `process/upstream/` tree and no use for
+[`precedent_materialize.py`](../tools/precedent_materialize.py)/
+[`precedent_resolve.py`](../tools/precedent_resolve.py)/
+[`precedent_sync_views.py`](../tools/precedent_sync_views.py), which only
+a consumer resolving universal+team+individual+repo-local sources together
+needs. What it needs is just enough to run its own
+`AGENTS.md` loader block: the five files
+[`tools/precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s
+own docstring names as `ENGINE_FILES`, plus a routing-vocabulary fixture
+(`routing_scope.json`, trimmed to the closed gate vocabulary
+[`precedent_gate.py`](../tools/precedent_gate.py) needs — BestPractice's
+own copy also documents the routing reason for every one of *its* 60-odd
+practices, which has no meaning in a different catalogue).
+
+`precedent_vendor_engine.py` is itself one of the vendored files, on
+purpose: it travels with the engine it defines, so an improvement to the
+vendoring mechanism reaches an already-bootstrapped set the same way an
+improvement to [`build_views.py`](../tools/build_views.py) does. Once a
+set exists, refreshing it later needs a sibling clone of BestPractice (the
+same shape [`tools/checkin.py`](../tools/checkin.py) already uses for a
+consumer's check-in cycle) and one command:
+
+```
+python3 tools/precedent_vendor_engine.py status  ../BestPractice   # drift? behind?
+python3 tools/precedent_vendor_engine.py refresh ../BestPractice   # pull, re-vendor, re-stamp
+```
+
+`refresh` pulls BestPractice's `precedent-beta-v01` branch specifically —
+not whatever branch is configured as the clone's default — because that is
+where routine engine work lands until Alex's own, deliberate phase-7
+fold-in into `main` (see
+[`local/practices/merge-target-is-beta-branch.md`](../local/practices/merge-target-is-beta-branch.md)).
+It refuses to overwrite a vendored file that was hand-edited locally
+(detected by comparing the file's sha256 against what `ENGINE_MANIFEST.json`
+recorded) unless `--force` is passed — this engine is meant to carry zero
+local variance, so a hand-edit is a signal something needs to move
+upstream into BestPractice instead, not to be silently discarded.
+
+**Why this isn't `tools/checkin.py` extended, rather than a new tool**:
+`checkin.py` mirrors a consumer's entire `process/upstream/` tree,
+deleting anything the tree no longer has, in both directions. A source
+repo's `tools/` directory holds vendored engine files *alongside*
+non-vendored, repo-owned ones (`tools/checks/`, and
+`precedent-team-maintainers`' own `build_codeowners.py`) that a
+whole-directory mirror-and-delete would destroy, and the flow here is
+one-directional (a source has nothing of its own to check in upstream) —
+different enough on both axes that overloading `checkin.py` with a second
+manifest shape and a "named file set" mode would have cost more clarity
+than a small, purpose-built tool.
+
+**Not yet built: the four-source CONSUMER case.** This closes the gap for
+a *source* repo (an individual or team set). A real four-source consumer
+(universal + team + individual + repo-local, with `process/upstream/` and
+the full `precedent_materialize.py`/`precedent_resolve.py`/
+`precedent_sync_views.py` toolchain) has not been piloted with a vendored,
+refreshable engine of its own — [`INSTALL.md`](../INSTALL.md) already
+documents that install path, but extending it to vendor the engine the
+same disciplined way is separate, real, still-open follow-up work. Do not
+read "the source-repo case is solid" as "the consumer case is solid too."
 
 ## The procedure
 
@@ -124,10 +203,12 @@ per person), and it needs at least one approver at creation time.
   `examples/practice-set/` already shows) — the creation-pipeline tooling
   is a separate, still-open piece of work.
 - **Not rehearsed against a real, brand-new external adopter yet** — the
-  harness check (`check_bootstrap_source_produces_resolvable_set` in
-  `tools/verify_harness.py`) proves the tool's *output* resolves cleanly
-  against a synthetic consumer repo; it does not prove the full
-  human-in-the-loop procedure above reads well to someone who has never
-  seen Precedent before. Worth a real rehearsal the same way
+  harness checks (`check_bootstrap_source_produces_resolvable_set` proves
+  the tool's *content* output resolves cleanly against a synthetic consumer
+  repo; `check_bootstrap_source_engine_is_functional` proves the *engine*
+  half is real and working, not just present — both in
+  `tools/verify_harness.py`) prove the tool's output is sound; neither
+  proves the full human-in-the-loop procedure above reads well to someone
+  who has never seen Precedent before. Worth a real rehearsal the same way
   [spec/PHASE6_BRIEF.md](PHASE6_BRIEF.md) item 4 flags for the loader
   install path generally.

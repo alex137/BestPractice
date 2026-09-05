@@ -4195,6 +4195,123 @@ def check_bootstrap_source_produces_resolvable_set():
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 
 
+def check_bootstrap_source_engine_is_functional():
+    """spec/BOOTSTRAP_NEW_SOURCES.md's newer claim, tested rather than
+    trusted: precedent_bootstrap_source.py's output carries a real, working
+    engine (tools/precedent_vendor_engine.py's seed()), not just files
+    copied into place -- the same rigor check_materialize_bridges_loader()
+    already applies to materialize()'s output, and check_bootstrap_source_
+    produces_resolvable_set() above already applies to the practice content
+    half of bootstrap's output. This is the engine half.
+
+    Fixture: bootstrap one individual set, then run its OWN vendored copies
+    of build_views.py/precedent_gate.py/precedent_paths.py/precedent_show.py
+    IN PLACE (real subprocesses, cwd set to the bootstrapped dest, no --repo
+    -- exactly how a source repo's own AGENTS.md tells a session to invoke
+    them) against a second, fixture practice added after bootstrap, proving
+    each command produces real output naming that practice -- not merely
+    that the files exist and are byte-identical to something. Also asserts
+    ENGINE_MANIFEST.json's recorded hashes actually match what got written
+    (status() against this repo's own checkout must find zero drift right
+    after a fresh seed), which is the property tools/precedent_vendor_
+    engine.py's whole refresh-refusal mechanism depends on."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-bootstrap-engine-'))
+    cases = []
+    try:
+        bootstrap_tool = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        dest = tmp / 'engine-set'
+        r = subprocess.run([sys.executable, bootstrap_tool, '--level', 'individual',
+                            '--name', 'harness-engine-fixture', '--dest', str(dest)],
+                           capture_output=True, text=True)
+        cases.append(('bootstrapping succeeds', r.returncode == 0, r.stdout + r.stderr))
+
+        manifest_path = dest / 'tools' / 'ENGINE_MANIFEST.json'
+        engine_files = ['build_views.py', 'precedent_gate.py', 'precedent_paths.py',
+                        'precedent_show.py', 'split_practices.py',
+                        'precedent_vendor_engine.py', 'routing_scope.json']
+        cases.append(('every engine file is present',
+                      all((dest / 'tools' / f).is_file() for f in engine_files),
+                      str([f for f in engine_files if not (dest / 'tools' / f).is_file()])))
+        cases.append(('ENGINE_MANIFEST.json exists and names the source repo',
+                      manifest_path.is_file()
+                      and 'BestPractice' in (manifest_path.read_text(encoding='utf-8')), ''))
+
+        # -- the recorded sha256 for every file actually matches what's on
+        # disk -- the exact property refresh()'s drift check relies on --
+        import hashlib
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.is_file() else {}
+        mismatched = [f for f, h in manifest.get('sha256', {}).items()
+                     if hashlib.sha256((dest / 'tools' / f).read_bytes()).hexdigest() != h]
+        cases.append(('every recorded sha256 matches the file actually written',
+                      manifest.get('sha256') and not mismatched, str(mismatched)))
+
+        # -- status(), run from the bootstrapped set's OWN vendored copy of
+        # the tool, against this repo's real checkout, finds zero drift
+        # immediately after a fresh seed --
+        r = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
+                            'status', str(ROOT)], capture_output=True, text=True)
+        cases.append(('status() against a real BestPractice checkout finds no drift '
+                      'right after seeding', r.returncode == 0, r.stdout + r.stderr))
+
+        # -- add a second, fixture practice AFTER bootstrap (example-starter
+        # alone proves too little: its own occasion text could coincidentally
+        # match without the loader actually parsing frontmatter) --
+        (dest / 'practices' / 'engine-fixture-slug.md').write_text(
+            '---\nslug: engine-fixture-slug\ntitle: Fixture\ntier: on-demand\n'
+            'severity: default\napplies_to: ["fixture-only/**"]\n'
+            'occasion: "testing the bootstrapped engine is functional"\n'
+            'gates: []\nindex_clause: "engine-fixture-slug — a bootstrap-harness fixture"\n'
+            'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+            'overrides: null\nadded: 2026-09-05\n'
+            'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
+            '---\n## Rule\nA fixture-only rule, present in no other repo.\n\n'
+            '## Why\nx\n\n## Story\nx\n\n## Install\nx\n', encoding='utf-8')
+        (dest / 'AGENTS.md').write_text(
+            '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+
+        # build_views.py --agents-only, run IN PLACE (no --repo), cwd == dest
+        r = subprocess.run([sys.executable, 'tools/build_views.py', '--agents-only'],
+                           capture_output=True, text=True, cwd=str(dest))
+        agents_text = (dest / 'AGENTS.md').read_text(encoding='utf-8') if (dest / 'AGENTS.md').exists() else ''
+        cases.append(('the vendored build_views.py, run in place with no --repo, '
+                      'regenerates AGENTS.md naming the fixture practice',
+                      r.returncode == 0 and 'engine-fixture-slug' in agents_text,
+                      r.stdout + r.stderr))
+
+        # precedent_gate.py --list, run in place
+        r = subprocess.run([sys.executable, 'tools/precedent_gate.py', '--list'],
+                           capture_output=True, text=True, cwd=str(dest))
+        cases.append(('the vendored precedent_gate.py lists the real (trimmed) gate '
+                      'vocabulary', r.returncode == 0 and 'merge' in r.stdout
+                      and 'review' in r.stdout, r.stdout + r.stderr))
+
+        # precedent_paths.py, run in place, against a path the fixture's
+        # applies_to actually matches
+        r = subprocess.run([sys.executable, 'tools/precedent_paths.py', 'fixture-only/x.md'],
+                           capture_output=True, text=True, cwd=str(dest))
+        cases.append(('the vendored precedent_paths.py matches the fixture practice by '
+                      'its real applies_to glob', r.returncode == 0
+                      and 'engine-fixture-slug' in r.stdout, r.stdout + r.stderr))
+
+        # precedent_show.py, run in place
+        r = subprocess.run([sys.executable, 'tools/precedent_show.py', 'engine-fixture-slug'],
+                           capture_output=True, text=True, cwd=str(dest))
+        cases.append(('the vendored precedent_show.py returns the fixture practice\'s '
+                      'real Rule text', r.returncode == 0
+                      and 'present in no other repo' in r.stdout, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'bootstrap_source\'s output engine is real and functional, not just present '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
 def check_pretooluse_hook_fires():
     """The path-triggered channel's consumer-repo integration
     (spec/LOADER.md's status table, "not yet wired into a PreToolUse hook...
@@ -4325,6 +4442,7 @@ def main():
     check_detect_restated_fires()
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
+    check_bootstrap_source_engine_is_functional()
     check_pretooluse_hook_fires()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
