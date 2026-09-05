@@ -133,18 +133,27 @@ the upstream layer. Ordered by priority.
     [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
     "Sequencing" section for why. **Blocked on:** item 15, plus a real
     subject and a real person, neither of which exists yet.
-17. **Enumerate and wire the inherited RPP "very deep check" audit list as
-    an on-demand tool.** Named in
-    [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s v28 amendment,
-    deliberately deferred there ("when phase 5 or later actually needs
-    it") rather than dropped, but never tracked anywhere but that one
-    paragraph — the exact structural risk item 12's Part 1 answer found
-    routing-audit fell into, caught here before it repeated rather than
-    after. Full context:
-    [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s "Part 1,
-    answered" section. **Blocked on:** a session holding the private RPP
-    repo, to actually enumerate its list — cannot be done from here; also
-    worth a real decision, not just building, about whether
-    `full-practice-audit` (built 2026-09-03) has already made this
-    redundant now that it exists, rather than inventorying a fourth
-    mechanism out of habit.
+17. ~~**Enumerate and wire the inherited RPP "very deep check" audit list as
+    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
+    [RepoPersonalPreferences](https://github.com/themorgan/RepoPersonalPreferences)
+    answered the redundancy question first: `full-practice-audit` asks,
+    practice by practice, "is this Rule satisfied" — a closed question
+    against one document's own text — while RPP's list asks whether the
+    repo's *own writing*, taken as a set, still holds together
+    (contradictions, stale cross-references, repeated rules, formatting
+    drift, and the like), which no per-practice sweep can see. **Not
+    redundant**, so it was built:
+    [practices/very-deep-check.md](practices/very-deep-check.md) plus
+    [tools/very_deep_check.py](tools/very_deep_check.py), same pattern as
+    `routing-audit`/`full-practice-audit` (an on-demand practice file, an
+    enumeration-only engine, never wired into a gate). The enumeration also
+    found something nobody had connected: the same day's earlier phase-3
+    migration (v27) had already carried RPP's list into
+    `precedent-team-maintainers` as its own `deep-check` practice, hours
+    before v28's "not yet inventoried" was written — so the list was never
+    actually missing, only unrecognized as fulfilling this commitment, and
+    left with no companion engine and no reach outside that one private
+    team set. Full record, including what this means for
+    `precedent-team-maintainers`'s own `deep-check` (a team-level call, not
+    decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
+    "Part 1, answered" section.

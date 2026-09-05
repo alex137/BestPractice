@@ -15,3 +15,4 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
+| very deep check | [very-deep-check](practices/very-deep-check.md) |

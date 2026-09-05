@@ -332,6 +332,7 @@ TOOLS_DESCRIPTIONS = {
     'split_practices.py': "PRACTICES.md ↔ practices/ converter",
     'table_fmt.py': "One formatter per quantity kind — the engine",
     'verify_harness.py': "The verification harness — run before trusting any change here",
+    'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
 }
 
 
