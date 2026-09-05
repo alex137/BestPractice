@@ -100,6 +100,17 @@
       ],
       "gates_why": "Fires when a convention is violated, which is something a review notices."
     },
+    "cross-source-rollout": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, not a place -- what makes a change cross-source-relevant is its meaning, not which file it touched, so no glob identifies it. Routed by the `merge` gate instead.",
+      "decided": "2026-09-05, same session that added very-deep-check's source-presence and stale-branch additions",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "The rollout (or the blocked-on TODO standing in for it) has to happen before the thread ends, the same timing capture-gate and todo-is-a-handoff already use."
+    },
     "deliverables-look-like-output": {
       "globs": [
         "**/*.md"

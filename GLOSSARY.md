@@ -8,6 +8,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 |---|---|
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
+| cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | document reference | [doc-references-are-links](practices/doc-references-are-links.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
