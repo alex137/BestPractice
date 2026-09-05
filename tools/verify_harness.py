@@ -2929,6 +2929,24 @@ def check_precedent_check_fires():
         case('no-rewrite-for-warnings', _plant_rewrite, extra=('--turn-end',),
              setup=_publish_two)
 
+        # parallel-artifact-ledger -- the check reads real git history, but
+        # fresh() deliberately squashes each scratch copy's history into one
+        # new "baseline" commit for isolation, so that commit's own hash has
+        # to be in the ledger before "clean" means clean here.
+        def _ledger_setup(repo):
+            baseline_hash = git(repo, 'rev-parse', 'HEAD')
+            rewrite(repo, 'templates/harness/LEDGER.md',
+                   lambda t: t + f'\n<!-- harness-test baseline: {baseline_hash} -->\n')
+
+        def _plant_unledgered_harness_change(repo):
+            (repo / 'templates' / 'harness' / 'claude-code' / 'fixture.txt'
+             ).write_text('new\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'unledgered harness change')
+
+        case('parallel-artifact-ledger', _plant_unledgered_harness_change,
+             setup=_ledger_setup)
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
@@ -3067,6 +3085,68 @@ def check_routing_audit_coverage():
           'in both directions, and drops \'**\' as a non-signal (5 stated cases '
           'against real catalogue fixtures)',
           not problems, '; '.join(problems))
+
+
+def check_parallel_artifact_ledger_fires():
+    """precedent_check.py's parallel-artifact-ledger check (added 2026-09-05),
+    stated cases against a scratch git repo -- checkable-gets-checked applied
+    to the check the audit-judgment eval found missing (templates/harness/
+    LEDGER.md existed with no audit backing its own closing claim that "any
+    marked date without a complete ledger row fails").
+    """
+    import importlib.util, shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ledgercheck-'))
+    try:
+        member = tmp / 'templates' / 'harness' / 'claude-code'
+        member.mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q'], cwd=tmp, check=True)
+        subprocess.run(['git', 'config', 'user.email', 'harness@example.com'], cwd=tmp, check=True)
+        subprocess.run(['git', 'config', 'user.name', 'harness'], cwd=tmp, check=True)
+        (tmp / 'root.txt').write_text('root\n', encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=tmp, check=True)
+        subprocess.run(['git', 'commit', '-q', '-m', 'root'], cwd=tmp, check=True)
+        # A second, non-root commit -- the check deliberately excludes a
+        # repo's root commit (inception, not "a change"; see its own
+        # docstring), so the tested commit has to come after it.
+        (member / 'hooks.txt').write_text('v1\n', encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=tmp, check=True)
+        subprocess.run(['git', 'commit', '-q', '-m', 'add hook'], cwd=tmp, check=True)
+        member_commit = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=tmp, capture_output=True, text=True
+        ).stdout.strip()
+
+        ledger_dir = tmp / 'templates' / 'harness'
+        ledger_path = ledger_dir / 'LEDGER.md'
+
+        spec = importlib.util.spec_from_file_location(
+            '_pc_ledger', ROOT / 'tools' / 'precedent_check.py')
+        pc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pc)
+        pc.ROOT = tmp
+        pc._git = lambda *args, cwd=None: subprocess.run(
+            ['git', *args], cwd=str(cwd or tmp), capture_output=True, text=True)
+        fn = pc.CHECKS['parallel-artifact-ledger']['fn']
+
+        no_ledger = fn(None)
+        ledger_path.write_text('no commit hashes here\n', encoding='utf-8')
+        unreferenced = fn(None)
+        ledger_path.write_text(f'{member_commit}\n', encoding='utf-8')
+        referenced = fn(None)
+
+        cases = [
+            ("missing LEDGER.md is a finding", len(no_ledger) == 1),
+            ("a ledger with no reference to the commit is a finding",
+             len(unreferenced) == 1),
+            ("a ledger referencing the commit's hash clears the finding",
+             referenced == []),
+        ]
+        bad = [n for n, ok in cases if not ok]
+        check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
+              f"no ledger, ledger missing the commit, ledger referencing it)",
+              not bad, '; '.join(bad))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def check_gate_channel():
@@ -4100,6 +4180,7 @@ def main():
     check_precedent_check_fires()
     check_routing_scope(files)
     check_routing_audit_coverage()
+    check_parallel_artifact_ledger_fires()
     check_gate_channel()
     check_materialize_bridges_loader()
     check_sync_views_cross_source()

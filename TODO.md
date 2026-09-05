@@ -94,15 +94,22 @@ the upstream layer. Ordered by priority.
     [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s "Part 1,
     answered" section; the one adjacent gap it found is item 17 below.
     **Part 2 (pre-register and run a real evaluation of the two new audit
-    mechanisms before trusting their output) is pre-registered** —
+    mechanisms before trusting their output) is pre-registered and run
+    twice** —
     [evals/routing/PREDICTION_AUDIT_JUDGMENT.md](evals/routing/PREDICTION_AUDIT_JUDGMENT.md)
-    — **and run once**, a smaller single-session eval than the routing
-    eval's own multi-run discipline; see
-    [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s dated
-    2026-09-04 section for the result and its stated caveats. Left open:
-    the same document's own read that a single 6-case run is a first
-    signal, not a replacement for that fuller discipline, if the finding
-    turns out to matter enough to invest in later.
+    and
+    [_RUN2.md](evals/routing/PREDICTION_AUDIT_JUDGMENT_RUN2.md) — each a
+    smaller single-session eval than the routing eval's own multi-run
+    discipline; see [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s
+    dated 2026-09-04 and 2026-09-05 sections for both results (6/6 and 6/6
+    once run 2's own pre-registration error was corrected in the write-up)
+    and their stated caveats. Run 2 also found a real gap in run 1's own
+    `parallel-artifact-ledger` fix (a ledger with no audit backing it) —
+    fixed the same session, `tools/precedent_check.py`'s new
+    `parallel-artifact-ledger` check. Left open: both documents' own read
+    that two 6-case runs are a stronger signal than one but still not a
+    replacement for the routing eval's fuller multi-run discipline, if this
+    ever needs to be trusted at higher stakes than an on-demand backstop.
 13. **Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
     (and its check in [tools/precedent_check.py](tools/precedent_check.py),
     and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the

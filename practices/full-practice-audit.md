@@ -51,12 +51,13 @@ that is the primary control, not this practice. This audit is a knowingly
 unproven backstop for whatever enforcement has not yet reached — worth
 having for what it can still catch (a formatting or naming convention with
 no mechanical signature, missed by every other channel) — never a
-substitute for enforcement. **A first evaluation ran 2026-09-04**
-([spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md), "The
-audit-judgment result") and scored 6 of 6 (100%) on six seeded/known cases,
-validating the prediction that full-Rule, one-at-a-time, evidence-attached
-judgment escapes the review arm's 54% ceiling — but N=6 on a single run by
-a single judge is a first signal, not the review arm's own multi-run
+substitute for enforcement. **Two independent evaluations ran 2026-09-04
+and 2026-09-05** ([spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md),
+"The audit-judgment result" and "run 2") and scored 6 of 6 (100%) both
+times, on six seeded/known cases each with a different judge, validating
+the prediction that full-Rule, one-at-a-time, evidence-attached judgment
+escapes the review arm's 54% ceiling — but N=6 per run by a single judge
+each time is still a first signal, not the review arm's own multi-run
 discipline, so still not something to lean on routinely at higher stakes
 without the fuller evaluation
 [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) still names as

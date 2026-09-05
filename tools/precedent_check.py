@@ -971,6 +971,47 @@ def _routing_audit(ctx):
             for slug in state if slug not in active]
 
 
+_LEDGER_MEMBER_DIRS = ('templates/harness/claude-code',
+                       'templates/harness/codex', 'templates/harness/gemini-cli')
+
+
+@check('parallel-artifact-ledger', 'tree',
+       '`templates/harness/LEDGER.md` exists, and every commit that touched '
+       'a harness-adapter member (claude-code/, codex/, or gemini-cli/) has '
+       'its hash referenced somewhere in the ledger',
+       'whether a referenced row is actually CORRECT -- the right verdict '
+       'per member, not a rubber-stamped one -- only that a row exists for '
+       'every commit that changed a member, the "any marked date without a '
+       'complete ledger row fails" half of the practice, added 2026-09-05 '
+       'after a routing-audit run found the ledger itself had no audit.')
+def _parallel_artifact_ledger(ctx):
+    ledger_path = ROOT / 'templates' / 'harness' / 'LEDGER.md'
+    if not ledger_path.exists():
+        return [Finding('templates/harness/LEDGER.md',
+                        'does not exist -- parallel-artifact-ledger.md '
+                        'names a ledger table as this practice\'s Install')]
+    ledger_text = ledger_path.read_text(encoding='utf-8', errors='ignore')
+    # A repo's (or a test scratch copy's) root commit -- the tree coming
+    # into existence, zero parents -- is inception, not "a change to any
+    # member" the practice's Rule is about; exclude it, or every squashed-
+    # history scratch copy and this repo's own real "Initial import" commit
+    # would need a ledger row for simply existing.
+    roots = set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split())
+    findings = []
+    for member_dir in _LEDGER_MEMBER_DIRS:
+        out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
+        for full_hash in out:
+            if full_hash in roots:
+                continue
+            if full_hash[:7] not in ledger_text and full_hash not in ledger_text:
+                findings.append(Finding(
+                    'templates/harness/LEDGER.md',
+                    f'no row references {full_hash[:7]} ({member_dir}), a '
+                    f'commit that changed a member of the harness-adapter '
+                    f'family -- add a dated row with a per-member verdict'))
+    return findings
+
+
 # practice: merge-target-is-beta-branch
 @check('merge-target-is-beta-branch', 'tree',
        'while this repository is mid-restructure, origin/precedent-beta-v01 '

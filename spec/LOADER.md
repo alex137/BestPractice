@@ -121,11 +121,11 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | Practices in the catalogue | 59 |
 | Resident, loaded every session | 6 of 59 practices |
 | Resident block size | ≈312 tokens of a 2000-token hard cap |
-| `## Rule` share of the catalogue | 26% of the catalogue |
+| `## Rule` share of the catalogue | 25% of the catalogue |
 | Rules still over 150 words | 7 |
 | Carrying a `## Detail` | 21 |
 | Carrying a `## Story` | 26 |
-| Enforced by a check | 27 of 59 practices carry a `checked_by` |
+| Enforced by a check | 28 of 59 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py

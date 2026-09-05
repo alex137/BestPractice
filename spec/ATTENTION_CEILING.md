@@ -828,13 +828,70 @@ part of the scored result and not fixed by this session — recorded here as
 real audit output worth someone's attention, per this practice's own
 disclosure-over-silent-fix discipline, not as a fourth eval arm.
 
+## The audit-judgment result, run 2 (2026-09-05)
+
+Pre-registered as
+[evals/routing/PREDICTION_AUDIT_JUDGMENT_RUN2.md](../evals/routing/PREDICTION_AUDIT_JUDGMENT_RUN2.md):
+a second, independent run toward the multi-run discipline run 1 explicitly
+said it still needed — a different judge, three new seeded cases
+(`quote-discipline`, `verify-decomposition`, `readers-vocabulary`), and,
+notably, three of run 1's own real-world findings *after they were fixed*
+(`pr-template-honest-gates`, `section-order-by-frequency`,
+`parallel-artifact-ledger`), checked blind by a judge with no memory of
+making those fixes.
+
+**Raw result against the pre-registered ground truth: 5 of 6 (83%).** The
+three seeded violations were all found correctly. Two of the three "now
+fixed" controls were confirmed satisfied correctly
+(`pr-template-honest-gates`, `section-order-by-frequency`). The third,
+`parallel-artifact-ledger`, was flagged — against a ground truth that said
+it shouldn't be.
+
+**Investigated per this document's own standing rule (check the cause
+before counting a mismatch as a plain miss) — and the mismatch is real,
+but it is not the judge's error. It is the prediction document's.** The
+judge's stated reason: `templates/harness/LEDGER.md` existed and correctly
+recorded per-member verdicts, but the practice's own Rule requires more
+than the table — "a small **audit that fails any change date lacking a
+complete row**" — and no such audit existed yet. `LEDGER.md`'s own closing
+line at the time said so explicitly ("No mechanical audit wired yet"). The
+ground truth in `PREDICTION_AUDIT_JUDGMENT_RUN2.md` marked this case
+`should_flag: false` because a ledger table now existed; it should have
+been `true`, because the practice was still only half-satisfied. **The
+judge read the Rule correctly. The session that wrote the prediction
+document did not re-read it carefully enough before grading its own
+fix as complete.**
+
+**Corrected score: 6 of 6 (100%).** Consistent with run 1's 6/6, on
+different cases and a different judge — the first real inter-run
+consistency signal this line of work has, small as it still is. The
+`PREDICTION_AUDIT_JUDGMENT_RUN2.md` document itself is left exactly as
+originally committed, per this document's own no-tuning-after-seeing-
+the-result discipline — the correction lives here, in the results write-up,
+not by quietly editing the pre-registration to have said the right thing
+first. The missing audit itself was built the same session this result was
+scored (`tools/precedent_check.py`'s `parallel-artifact-ledger` check,
+`templates/harness/LEDGER.md` backfilled against it), which is the more
+useful outcome of the two possible reactions to this finding — fixing the
+real gap the judge (correctly) found, not arguing the judge down.
+
+**What this adds to run 1's reading.** N is still small (6+6=12 across two
+runs, not a real sample), but two independent runs landing at 100% once
+graded correctly is modestly stronger evidence than one — and the one
+"miss" this run produced was itself a genuine, useful finding rather than
+noise, which is a good property for this mechanism to have in practice:
+even a wrong pre-registered expectation didn't survive contact with an
+actual blind check.
+
 ## For the session that picks this up
 
 **A related but distinct result exists for a different question — the
 audit-judgment mechanism, not the review-arm lineage below**: see
-[The audit-judgment result](#the-audit-judgment-result-2026-09-04)
-above, 100% on a small (N=6), single-run, single-judge test. It does not
-change anything below, which is about the review-arm chain specifically.
+[The audit-judgment result](#the-audit-judgment-result-2026-09-04) and
+[run 2](#the-audit-judgment-result-run-2-2026-09-05) — 6/6 and 6/6
+(corrected) across two small (N=6), independent single-judge runs. It does
+not change anything below, which is about the review-arm chain
+specifically.
 
 **Three experiments in this line have now been run; do not re-run any of
 them to see if the number moves.** Review (one hop, clause only): 54%.

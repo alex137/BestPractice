@@ -88,9 +88,9 @@ retired or renamed practice would otherwise leave behind silently.
 2026-09-04) rather than only asserted correct. The rotating slice's
 judgment step shares its mechanism with
 [full-practice-audit](full-practice-audit.md)'s whole sweep, and shares
-that practice's first evaluation result — 6 of 6 (100%) on a small,
-single-run test, 2026-09-04, see
+that practice's evaluation results — 6 of 6 (100%) on each of two small,
+independent single-judge runs, 2026-09-04 and 2026-09-05, see
 [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md), "The
-audit-judgment result." On-demand only, invoked explicitly; not wired into
+audit-judgment result" and "run 2." On-demand only, invoked explicitly; not wired into
 a commit, push, or merge gate until a session validates it is worth the
 cost (see [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)).
