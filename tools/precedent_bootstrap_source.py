@@ -30,6 +30,12 @@ Usage:
       [--write-user-config true]     # merge the individual source into
                                       # ~/.config/precedent/config.json
                                       # (or $PRECEDENT_USER_CONFIG)
+      [--write-session-hook CONSUMING_PROJECT_PATH --repo-url URL]
+                                      # instantiate the retry-capable
+                                      # SessionStart hook (Claude Code
+                                      # remote/web) into that CONSUMING
+                                      # project's .claude/hooks/ -- see
+                                      # tools/precedent_source_bootstrap.py
 
   precedent_bootstrap_source.py --level team --name NAME --dest PATH \\
       --approver "Full Name:github-handle"[,"Second Name:handle2"...]
@@ -184,6 +190,36 @@ def write_user_config(dest, name, force=False):
     return config_path
 
 
+SESSION_HOOK_TEMPLATE = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+                         / 'individual-source-bootstrap.sh.template')
+SESSION_HOOK_DEST_REL = pathlib.Path('.claude') / 'hooks' / 'precedent-individual-bootstrap.sh'
+
+
+def write_session_hook(consuming_project, name, repo_url, force=False):
+    """Instantiate the canonical SessionStart hook
+    (templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
+    into a CONSUMING project -- not the individual set's own repo -- at
+    .claude/hooks/precedent-individual-bootstrap.sh, so an ephemeral session
+    there can resolve this person's individual set with zero manual steps.
+    See tools/precedent_source_bootstrap.py's module docstring for why this
+    hook retries rather than cloning once, and INSTALL.md step 9's
+    individual-source branch for where this fits in the install
+    conversation. Never touches a git remote (same limit as bootstrap()
+    itself) -- repo_url is supplied by the caller, typically right after
+    creating that remote per spec/BOOTSTRAP_NEW_SOURCES.md step 2."""
+    consuming_project = pathlib.Path(consuming_project).expanduser().resolve()
+    dest = consuming_project / SESSION_HOOK_DEST_REL
+    if dest.exists() and not force:
+        raise BootstrapRefused(
+            f"{dest} already exists -- pass --force true to overwrite it")
+    text = _substitute(SESSION_HOOK_TEMPLATE.read_text(encoding='utf-8'),
+                       {'SOURCE_NAME': name, 'SOURCE_REPO_URL': repo_url})
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text, encoding='utf-8')
+    dest.chmod(0o755)
+    return dest
+
+
 def write_repo_config(repo_config_dir, name, dest, force=False):
     """Merge the team source into PATH/precedent.json -- a shared,
     tracked file, per INSTALL.md step 9's 'if yes to a team source' shape.
@@ -257,6 +293,21 @@ def main():
                       f"(default {DEFAULT_USER_CONFIG}, or wherever "
                       f"${USER_CONFIG_ENV} points):")
                 print(json.dumps({'individual': {'name': name, 'path': str(dest_path)}}, indent=2))
+            session_hook_arg = args.get('--write-session-hook')
+            if session_hook_arg:
+                repo_url = args.get('--repo-url')
+                if not repo_url:
+                    raise BootstrapRefused(
+                        "--write-session-hook also needs --repo-url (the "
+                        "real git remote for this individual set, created "
+                        "per spec/BOOTSTRAP_NEW_SOURCES.md step 2) -- the "
+                        "hook has to name it, and this tool never guesses a "
+                        "remote on your behalf")
+                hook_path = write_session_hook(session_hook_arg, name, repo_url, force=force)
+                print(f"WROTE session-start hook: {hook_path} "
+                      f"(makes this individual set resolvable on an "
+                      f"ephemeral/hosted session with zero manual steps -- "
+                      f"see spec/BOOTSTRAP_NEW_SOURCES.md)")
         else:
             repo_config_arg = args.get('--write-repo-config')
             if repo_config_arg:

@@ -211,9 +211,9 @@ Two constraints from the plan's phase-3 row governed every decision:
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
 | Practices with `## Rule` over 150 words | 16 | 20 | **7** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
-| Words in `## Detail` | — | — | **2,253** |
+| Words in `## Detail` | — | — | **2,778** |
 
-Fifteen of the fifty-two practices carry a Detail. The resident block — the
+Sixteen of the fifty-two practices carry a Detail. The resident block — the
 text every session pays for, whatever it is doing — **halved**, which is the
 closest this catalogue has come to the plan's "nine tenths" claim and still
 short of it.
@@ -224,7 +224,12 @@ stay a stable record of what phase 3 delivered rather than drifting every
 time a later practice is added or an inherited one is deliberately rewritten
 (`CHANGES_TO_TELL_ALEX.md`). The "over 150 words" figure moved from 8 to 7
 on 2026-09-01, when `layered-practice-packs`' Rule was shortened as part of
-that rewrite.)*
+that rewrite. The "carries a Detail" figure moved from 15 to 16, and "Words
+in `## Detail`" from 2,253 to 2,778, on 2026-09-05, when `session-bootstrap`
+gained a real Detail — see `CHANGES_TO_TELL_ALEX.md`. Only the two figures
+`tools/catalogue_stats.py` prints an anchor for — the Rule-share-derived
+counts, not the raw word totals — are mechanically checked against this
+table; the word-count cells are updated by hand alongside them.)*
 
 *(These are the figures after the review pass described in
 [What a Reader Caught That No Check Did](#what-a-reader-caught-that-no-check-did)

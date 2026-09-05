@@ -4495,6 +4495,163 @@ def check_vendor_engine_consumer_case():
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 
 
+def check_individual_source_bootstrap_self_heals():
+    """practices/session-bootstrap.md's Detail, tested rather than trusted:
+    a privately-scoped individual source's SessionStart hook retries
+    instead of trying once (tools/precedent_source_bootstrap.py), and
+    tools/precedent_resolve.py's own load_config() treats a still-missing
+    individual config, on a remote session, as "try the hook once more"
+    rather than "no individual set". This is the two-part fix for the
+    incident practices/session-bootstrap.md's Story records: two
+    independent adopters' SessionStart hook lost its race against their
+    own session's add_repo calls, degraded on purpose (correctly), and
+    then never ran again (incorrectly) -- indistinguishable from home from
+    "this person genuinely has no individual set".
+
+    Fixture: a real local git repo served over file:// -- not a bare path;
+    this repo's own environment-gotchas.md already names why (`git clone
+    --depth 1 /some/path` is ignored; only a real transport gets real
+    clone semantics, and `file://` is what forces that locally). Six
+    stated cases, all fast: --retry-delay 0 proves the retry COUNT without
+    a real wall-clock wait."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-source-bootstrap-'))
+    cases = []
+    try:
+        bootstrap_tool = ROOT / 'tools' / 'precedent_source_bootstrap.py'
+        resolve_tool = ROOT / 'tools' / 'precedent_resolve.py'
+
+        def run(*args, env_extra=None):
+            env = dict(os.environ)
+            if env_extra is not None:
+                env.update(env_extra)
+            r = subprocess.run([sys.executable, *args], capture_output=True,
+                               text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        def git(cwd, *args):
+            subprocess.run(['git', '-C', str(cwd), *args], check=True,
+                           capture_output=True, text=True)
+
+        # --- a real source repo, with one fixture practice -------------------
+        source = tmp / 'source-repo'
+        source.mkdir()
+        git(source, 'init', '-q')
+        git(source, 'config', 'user.email', 'harness@example.com')
+        git(source, 'config', 'user.name', 'harness')
+        (source / 'practices').mkdir()
+        (source / 'practices' / 'example.md').write_text(
+            '---\nslug: harness-fixture\ntitle: Fixture\ntier: on-demand\n'
+            'severity: default\napplies_to: ["**"]\noccasion: "testing"\n'
+            'index_clause: "a harness fixture"\nchecked_by: null\n'
+            'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+            'added: null\napproved_by: "harness"\n---\n\n## Rule\nFixture.\n\n'
+            '## Detail\n\n## Why\n\n## Story\n\n## Install\n', encoding='utf-8')
+        git(source, 'add', '-A')
+        git(source, 'commit', '-qm', 'seed')
+        source_url = f'file://{source}'
+
+        # --- case 1+2: reachable, cloned then pulled (idempotent) -----------
+        clone, config = tmp / 'clone', tmp / 'config.json'
+        rc, out = run(str(bootstrap_tool), '--level', 'individual',
+                     '--name', 'harness-fixture-src', '--repo-url', source_url,
+                     '--clone', str(clone), '--config', str(config),
+                     '--retries', '3', '--retry-delay', '0')
+        cases.append(('a reachable source is cloned and the config written on '
+                      'the first attempt',
+                      rc == 0 and (clone / 'practices' / 'example.md').is_file()
+                      and json.loads(config.read_text()).get('individual', {}).get('name')
+                      == 'harness-fixture-src', out))
+
+        rc2, out2 = run(str(bootstrap_tool), '--level', 'individual',
+                        '--name', 'harness-fixture-src', '--repo-url', source_url,
+                        '--clone', str(clone), '--config', str(config),
+                        '--retries', '3', '--retry-delay', '0')
+        cases.append(('running it again against an already-cloned source pulls '
+                      'rather than re-cloning (idempotent)', rc2 == 0, out2))
+
+        # --- case 3: unreachable -- retries the stated number, then degrades,
+        # never fails, never writes a config -------------------------------
+        rc3, out3 = run(str(bootstrap_tool), '--level', 'individual',
+                        '--name', 'harness-fixture-unreachable',
+                        '--repo-url', f'file://{tmp / "does-not-exist"}',
+                        '--clone', str(tmp / 'clone-unreachable'),
+                        '--config', str(tmp / 'config-unreachable.json'),
+                        '--retries', '3', '--retry-delay', '0')
+        cases.append(('an unreachable source retries the stated number of '
+                      'times, then exits 0 and writes no config',
+                      rc3 == 0 and not (tmp / 'config-unreachable.json').exists()
+                      and 'after 3 attempt' in out3, out3))
+
+        # --- case 4: the resolver's own lazy self-heal, on a remote session -
+        consumer = tmp / 'consumer'
+        (consumer / '.claude' / 'hooks').mkdir(parents=True)
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}],
+        }), encoding='utf-8')
+        hook = consumer / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        hook.write_text(
+            '#!/bin/bash\nset -uo pipefail\n'
+            'if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then exit 0; fi\n'
+            f'python3 "{bootstrap_tool}" --level individual '
+            f'--name harness-fixture-src --repo-url "{source_url}" '
+            '--clone "$HOME/harness-fixture-src" '
+            '--config "$HOME/.config/precedent/config.json" '
+            '--retries 3 --retry-delay 0\n', encoding='utf-8')
+        hook.chmod(0o755)
+
+        home_remote = tmp / 'home-remote'
+        home_remote.mkdir()
+        rc4, out4 = run(str(resolve_tool), '--repo', str(consumer), '--json',
+                        env_extra={'HOME': str(home_remote),
+                                   'CLAUDE_CODE_REMOTE': 'true',
+                                   'PRECEDENT_USER_CONFIG':
+                                       str(home_remote / '.config' / 'precedent' / 'config.json')})
+        resolved4 = {}
+        try:
+            resolved4 = json.loads(out4)
+        except json.JSONDecodeError:
+            pass
+        cases.append(('on a remote session with the config absent, resolve '
+                      'self-heals via the hook and finds the individual '
+                      'source afterward',
+                      rc4 == 0 and any(p['slug'] == 'harness-fixture'
+                                       for p in resolved4.get('practices', [])), out4))
+
+        # --- case 5: the same absence, off a remote session, self-heals NOT -
+        home_local = tmp / 'home-local'
+        home_local.mkdir()
+        env_local = dict(os.environ)
+        env_local.pop('CLAUDE_CODE_REMOTE', None)
+        env_local['HOME'] = str(home_local)
+        env_local['PRECEDENT_USER_CONFIG'] = str(home_local / '.config' / 'precedent' / 'config.json')
+        r5 = subprocess.run([sys.executable, str(resolve_tool), '--repo', str(consumer), '--json'],
+                            capture_output=True, text=True, env=env_local)
+        resolved5 = {}
+        try:
+            resolved5 = json.loads(r5.stdout)
+        except json.JSONDecodeError:
+            pass
+        cases.append(('without CLAUDE_CODE_REMOTE, resolve does NOT invoke the '
+                      'hook -- a local machine with genuinely no individual '
+                      'set stays silent, not self-healed',
+                      r5.returncode == 0
+                      and not any(p['slug'] == 'harness-fixture'
+                                  for p in resolved5.get('practices', []))
+                      and not (home_local / '.config').exists(),
+                      r5.stdout + r5.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'individual source bootstrap retries, and the resolver self-heals '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
 def check_pretooluse_hook_fires():
     """The path-triggered channel's consumer-repo integration
     (spec/LOADER.md's status table, "not yet wired into a PreToolUse hook...
@@ -4627,6 +4784,7 @@ def main():
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
+    check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")

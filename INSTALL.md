@@ -204,19 +204,37 @@ it applies.
    team already have its own practices repo — shared conventions beyond
    what's generic enough for the public BestPractice? Does anyone here
    have their own personal one — facts specific to them, like a commit
-   identity or a personal shorthand? And if not — would setting one up now
-   be useful?"* Most projects have neither yet, and that's a complete,
-   valid answer on its own — this step exists so the option is actually
-   offered, not assumed away, and offering it costs nothing even when the
-   answer stays no.
-   - **If neither exists yet and they'd like one (or both) set up now:**
-     follow [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)
-     — it creates the repository (or hands the administrator the exact
+   identity or a personal shorthand?"* Most projects have neither yet, and
+   that's a complete, valid answer — but don't let it be the end of the
+   question. **This step's default follow-up is an active offer, not a
+   passive one:** if the answer to either half is no, the very next thing
+   this session says is *"Want me to set one up for you right now? It only
+   takes a minute and needs nothing from you but a name."* — not a
+   once-mentioned option left for the administrator to bring back up
+   later. Nobody using BestPractice should have to already know
+   `spec/BOOTSTRAP_NEW_SOURCES.md` exists to get offered it.
+   - **If yes, set one (or both) up now — same flow whether this is the
+     first ask or a "yes" to the active offer above:** follow
+     [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) — it
+     creates the repository (or hands the administrator the exact
      command/click-path where this session can't create one itself), runs
      `tools/precedent_bootstrap_source.py` to instantiate a real starter
      set in the right format, and wires the result in exactly as the two
-     "if yes" branches below describe. Do this before the two branches
-     below, since after it the answer to this step's question is yes.
+     "if yes, one already exists" branches below describe. Do this before
+     those two branches, since after it the answer to this step's
+     question is yes.
+   - **If a source already exists (this session's first ask, or a prior
+     session's), confirm this session can actually reach it — right now,
+     in this step, not by assumption.** Call `add_repo` (read access) for
+     it immediately, before moving on. A "yes, we have one" that this
+     session cannot read yet is not wired — it is a promise the *next*
+     step's hook will silently fail to keep. This is exactly the check
+     that would have caught the incident
+     [`practices/session-bootstrap.md`](practices/session-bootstrap.md)'s
+     Story records: an install (or migration) that assumed a named source
+     would resolve on some *future* session, purely because `add_repo` for
+     it was named as a standing instruction, rather than confirming this
+     session — the one doing the wiring — could reach it too.
    - **If yes to a team source:** add `precedent.json` at the project root
      (create it if this is the first source beyond universal) declaring it:
      ```json
@@ -272,19 +290,47 @@ it applies.
      exactly that reason. On an ephemeral or cloud coding environment where
      nothing under `$HOME` survives between sessions, that config has to be
      recreated every session — a `SessionStart` hook, committed to the
-     *project* (not the individual repo), that clones the person's set and
-     writes the config file automatically. **That clone still needs the
-     session to actually have git read access to the individual repo
-     first, and on a hosted agent platform that access is not automatic
-     just because the hook exists** — a session's git access is scoped per
-     session, and a shell hook has no way to grant itself more of it. No
-     token or secret closes this gap: it costs nothing but a behavioral
-     instruction, told to the agent itself (not the hook), to extend its
-     own session's access to that repo, unconditionally, before the hook
-     ever runs. See
+     *project* (not the individual repo). Write it with
+     `python3 tools/precedent_bootstrap_source.py --level individual
+     --name <the set's name> --dest <local clone path>
+     --write-session-hook <this project's path>
+     --repo-url <the individual repo's URL>` rather than by hand: it
+     instantiates
+     [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
+     at `.claude/hooks/precedent-individual-bootstrap.sh`, which delegates
+     to the vendored, retry-capable
+     [`tools/precedent_source_bootstrap.py`](tools/precedent_source_bootstrap.py)
+     rather than a one-off hand-written clone.
+
+     **That clone still needs the session to actually have git read access
+     to the individual repo first, and on a hosted agent platform that
+     access is not automatic just because the hook exists** — a session's
+     git access is scoped per session, and a shell hook has no way to
+     grant itself more of it. The consuming repo's own instructions file
+     still needs the standing instruction
+     [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     step 4 gives in full (`add_repo` for both sibling sources at the very
+     start of every session, unconditionally) — but **read the next
+     sentence even if you already know that instruction, because two
+     independent adopters had it in place and still hit the gap it was
+     supposed to close**: a
+     `SessionStart` hook runs before the agent's own first turn starts, so
+     telling the agent to call `add_repo` "before running any bootstrap
+     script" cannot make that tool call precede a hook the harness has
+     already started running — the instruction is necessary, not
+     sufficient, and both incidents are recorded in
+     [`practices/session-bootstrap.md`](practices/session-bootstrap.md)'s
+     Story. What actually closes the residual race now lives in the
+     engine rather than in prose: the hook above retries the clone with a
+     bound instead of trying once, and `tools/precedent_resolve.py`'s own
+     `load_config()` treats a still-missing individual config, on a remote
+     session, as "try the bootstrap hook once more" rather than "no
+     individual set." The `add_repo` instruction above is still required
+     — the retry has nothing to succeed *into* without real repo access —
+     it is just no longer asked to win the race by itself. See
      [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
      step 4 for the worked pattern, including the access gate and exactly
-     how to close it.
+     how it's closed now.
    - See [examples/practice-set/](examples/practice-set) for what an
      individual set's files actually look like, and
      [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
