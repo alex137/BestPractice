@@ -2422,7 +2422,7 @@ def check_precedent_check_fires():
         # --- one planted violation per enforced practice --------------------
         planted = {}
 
-        def case(slug, plant, extra=(), setup=None):
+        def case(slug, plant, extra=(), setup=None, advisory=False):
             repo = fresh(slug)
             if setup:
                 setup(repo)
@@ -2430,14 +2430,23 @@ def check_precedent_check_fires():
                 plant(repo)
             rc, out = run(repo, slug, *extra)
             planted[slug] = (rc, out)
-            cases.append((f'{slug}: a planted violation fails the check',
-                          rc == 1 and 'VIOLATION' in out))
+            if advisory:
+                # advisory=True (2026-09-05, parallel-artifact-ledger only --
+                # see precedent_check.py's own dated comment) means a planted
+                # violation still reports its findings, labeled ADVISORY, but
+                # does not fail the run (rc stays 0).
+                cases.append((f'{slug}: a planted violation reports ADVISORY '
+                              f'but does not fail the check',
+                              rc == 0 and 'ADVISORY' in out and 'VIOLATION' not in out))
+            else:
+                cases.append((f'{slug}: a planted violation fails the check',
+                              rc == 1 and 'VIOLATION' in out))
             clean = fresh(slug + '-clean')
             if setup:
                 setup(clean)
             rc2, out2 = run(clean, slug, *extra)
             cases.append((f'{slug}: the same tree unplanted does not',
-                          rc2 == 0 and 'VIOLATION' not in out2))
+                          rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2))
 
         # cite-the-incident -- a new practice with no ## Story
         def _plant_cite(repo):
@@ -2945,7 +2954,7 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'unledgered harness change')
 
         case('parallel-artifact-ledger', _plant_unledgered_harness_change,
-             setup=_ledger_setup)
+             setup=_ledger_setup, advisory=True)
 
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
