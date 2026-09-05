@@ -46,6 +46,23 @@ ledger kills: wrong granularity (headline vs mechanism), staleness (new
 changes inherit old verdicts), and unauditability (nothing can check what was
 never recorded).
 
+**2026-09-05, a second incident, in the check rather than the ledger:**
+this practice's own `checked_by` audit was wired into continuous
+integration (CI) the same day it was written and immediately found a real
+gap (a missing row, backfilled). Two more real, independently confirmed
+fixes followed. None of them resolved GitHub Actions still reporting a
+violation on content confirmed correct four independent ways (a GitHub
+API read of the pull request (PR)'s own live content, a full local
+reproduction, and two diagnostic commits proving the check itself
+completes normally without ever surfacing their own logging in that CI
+step's log). This check is **advisory-only as of 2026-09-05**
+(findings still print; they no longer fail the run) until that CI-only
+anomaly is root-caused — see [tools/precedent_check.py](../tools/precedent_check.py)'s
+own dated comment above `_parallel_artifact_ledger()` for the full
+account, and [TODO.md](../TODO.md) for the tracked follow-up and re-promotion
+condition. A session reading this practice should not expect its own
+`checked_by` audit to gate a merge right now.
+
 ## Install
 A ledger table (date | originating change | one verdict column
 per family member) plus a small audit keyed on dated change markers in
