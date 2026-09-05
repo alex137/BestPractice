@@ -293,6 +293,22 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   still there. Use `file:///some/path` to force a genuinely shallow local
   clone.
 
+- **A `scope: 'tree'` check in `tools/precedent_check.py` can silently
+  report a false *pass* on an under-fetched local clone, not just degrade
+  loudly like the two entries above.** `parallel-artifact-ledger` walks
+  `git log --no-merges -- <member-dir>` for each harness-adapter directory
+  and fails on any commit whose hash isn't in `templates/harness/LEDGER.md`.
+  2026-09-05: a local run reported `0 violated`, but GitHub Actions' own
+  checkout of the exact same commit reported a real violation (twice) —
+  `templates/harness/LEDGER.md` was missing a row for a commit from
+  five weeks before the ledger file existed. The local clone's history
+  simply didn't reach back far enough for `git log` to find that commit at
+  all, so the check had nothing to flag — an empty result read as "clean,"
+  not as "couldn't check." `git fetch --depth=1000 origin <branch>` (or
+  deeper — this check needs the *entire* history of the directories it
+  walks, not just enough for the current branch's own diff) before
+  trusting a clean local run of any `scope: 'tree'` check.
+
 - **The leak gate's vocabulary layer fails open unless you also set the git
   config.** `export PRECEDENT_LEAK_BLOCKLIST=<a path OUTSIDE this repo>` is
   half of it; without `git config precedent.requireVocabulary true` a shell
