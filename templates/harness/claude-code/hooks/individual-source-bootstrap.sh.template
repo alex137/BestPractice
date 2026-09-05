@@ -1,0 +1,44 @@
+#!/bin/bash
+# Claude Code adapter: SessionStart hook that makes a privately-scoped
+# individual practice source resolvable with zero manual steps on Claude
+# Code on the web/remote. Install to
+# .claude/hooks/precedent-individual-bootstrap.sh (see
+# spec/BOOTSTRAP_NEW_SOURCES.md and INSTALL.md step 9's individual-source
+# branch -- tools/precedent_bootstrap_source.py's --write-session-hook
+# instantiates this file for you, substituting the two variables below).
+#
+# All real logic lives in the vendored, harness-neutral
+# tools/precedent_source_bootstrap.py (practice: session-bootstrap;
+# practice: engine-plus-host-shims) -- keep this wrapper free of content,
+# the same discipline templates/harness/claude-code/hooks/session-start.sh
+# already uses for the general-purpose bootstrap, so an improvement to the
+# retry/self-heal mechanism reaches every adopter through the ordinary
+# process/upstream/ sync rather than a hand-edit repeated per repo.
+#
+# WHY THE ENGINE RETRIES INSTEAD OF CLONING ONCE. This hook needs the
+# session to already have git read access to a private repo, and that
+# access is granted per session by the AGENT calling `add_repo` as its own
+# first tool call -- a SessionStart hook runs before that turn starts. An
+# instruction telling the agent to call add_repo "first" cannot make that
+# tool call precede a hook the harness already started running. Two
+# independent adopters hit exactly this (a session-start hook racing its
+# own session's add_repo calls); see
+# tools/precedent_source_bootstrap.py's own docstring for the incident and
+# tools/precedent_resolve.py's self-heal for the second line of defense
+# (this hook not finishing before something asks for the individual source
+# is still handled, not just retried against).
+set -uo pipefail
+
+ENGINE="${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_bootstrap.py"
+if [ ! -f "$ENGINE" ]; then
+  # BestPractice checking itself, or a repo-root install with no
+  # process/upstream/ vendor tree of its own.
+  ENGINE="${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_bootstrap.py"
+fi
+
+exec python3 "$ENGINE" \
+  --level individual \
+  --name "{{SOURCE_NAME}}" \
+  --repo-url "{{SOURCE_REPO_URL}}" \
+  --clone "$HOME/{{SOURCE_NAME}}" \
+  --config "$HOME/.config/precedent/config.json"

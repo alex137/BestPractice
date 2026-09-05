@@ -164,6 +164,39 @@ the entry above names for enforcement, for a different mechanism.
 **What did not change.** Same as above — the Rule text of all six is
 untouched; only where and how often a session sees it changed.
 
+### `session-bootstrap` (BestPractice practice 13) — 2026-09-05
+
+**What changed.** `## Detail` and `## Story` were both empty in this
+practice since phase 1 (Story, like every practice's, was never
+populated at conversion; Detail simply had nothing to hold once added at
+phase 3). Both are now populated, for real: Detail states the specific,
+stronger case where a session-start hook depends on the session's own
+still-forming git access (a privately-scoped individual or team source
+whose clone needs `add_repo` access the agent grants itself, in its own
+turn, which a `SessionStart` hook — running before that turn starts —
+cannot wait for), and Story records the incident that surfaced it: two
+independent Precedent adopters' individual-source bootstrap hook lost
+that race, degraded on purpose, and then silently never re-ran. The fix
+(bounded retry in [`tools/precedent_source_bootstrap.py`](tools/precedent_source_bootstrap.py),
+a lazy self-heal in [`tools/precedent_resolve.py`](tools/precedent_resolve.py)'s
+`load_config()`) is new engine work this branch's own phase structure
+never covered, not a change to anything pre-fork.
+
+**What did not change.** `## Rule` — "environment setup... lives in a
+session-start hook... warning loudly on failure" — is untouched,
+byte-for-byte, and so is what `checked_by: `[`tools/precedent_check.py`](tools/precedent_check.py)'s
+`session-bootstrap` check actually enforces (still: a named setup command
+has a real hook running it). This is Detail elaborating a harder case of
+the same Rule, not a new decision. Logged here rather than left silent
+because it moves a phase-3 catalogue figure
+([`spec/PRACTICE_FORMAT.md`](spec/PRACTICE_FORMAT.md)'s "carries a
+Detail" count, 15 → 16) and because this file's own
+`_amended_and_logged` mechanism ([`tools/verify_harness.py`](tools/verify_harness.py))
+needs this slug named here to keep exempting it from the fidelity checks
+honestly —
+it already was, from the unrelated 2026-09-01 slug-link sweep below, but
+that entry doesn't disclose *this* change, so it needed its own.
+
 ## Cross-referenced only, not a behavior change
 
 **A scope note on the entry below, added 2026-09-03**: "no `checked_by`
