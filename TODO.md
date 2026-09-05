@@ -168,3 +168,19 @@ the upstream layer. Ordered by priority.
     `precedent-team-maintainers`'s own `deep-check` (a team-level call, not
     decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
     "Part 1, answered" section.
+18. **`parallel-artifact-ledger`'s root-commit exemption doesn't cover a
+    family's own inception commit.** Found 2026-09-05: `_parallel_artifact_ledger`
+    in [tools/precedent_check.py](tools/precedent_check.py) excludes the
+    *repository's* root commit (`git rev-list --max-parents=0`) from needing
+    a ledger row, but not the commit that first created a given family's
+    member directories — [`f2078d6`](https://github.com/alex137/BestPractice/commit/f2078d6ef32731e35d30e279c90d72a55e9b6268)
+    (created `templates/harness/{claude-code,codex,gemini-cli}/` from
+    scratch, 2026-07-20) went unflagged by every backfill pass until CI on
+    an unrelated PR caught it, because scope is `tree` — the check runs
+    against the whole repo regardless of what a given diff touches, so any
+    unfixed gap fails every PR's CI, not just one. Backfilled as a row in
+    [templates/harness/LEDGER.md](templates/harness/LEDGER.md) rather than
+    fixed here; consider extending the exemption itself, per-member-directory
+    (that directory's own first commit is exempt, the same reasoning
+    already applied repo-wide), so a future family's inception commit
+    doesn't need the same manual backfill.
