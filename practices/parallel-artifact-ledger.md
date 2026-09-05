@@ -7,7 +7,7 @@ applies_to:  ["templates/harness/**"]
 occasion:    "a change must propagate across several parallel artifacts"
 gates:       []
 index_clause: "ledger the transfer verdict per member, per change"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     ["parallel-artifact family"]
 status:      active
 supersedes:  []
@@ -52,3 +52,14 @@ per family member) plus a small audit keyed on dated change markers in
 whatever registry tracks the family — any marked date without a complete
 ledger row fails. The family definition itself lives at the top of the
 ledger, with the origin incident ([mistakes-become-rules](mistakes-become-rules.md)).
+
+This repo's own instance: [templates/harness/LEDGER.md](templates/harness/LEDGER.md)
+for the [claude-code/codex/gemini-cli harness adapter family](templates/harness/README.md);
+`tools/precedent_check.py`'s `parallel-artifact-ledger` check (found by
+`checked_by` above) walks `git log --no-merges` for each member directory
+(excluding the repository's own root commit, which is inception rather
+than a change) and fails if any commit's hash isn't referenced somewhere
+in the ledger. Checks only that a row exists for every commit that touched
+a member, not that the recorded verdict is correct — see
+[spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s "audit-judgment
+result" for the run whose blind judge named this gap in the first place.

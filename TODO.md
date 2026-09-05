@@ -94,15 +94,22 @@ the upstream layer. Ordered by priority.
     [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s "Part 1,
     answered" section; the one adjacent gap it found is item 17 below.
     **Part 2 (pre-register and run a real evaluation of the two new audit
-    mechanisms before trusting their output) is pre-registered** —
+    mechanisms before trusting their output) is pre-registered and run
+    twice** —
     [evals/routing/PREDICTION_AUDIT_JUDGMENT.md](evals/routing/PREDICTION_AUDIT_JUDGMENT.md)
-    — **and run once**, a smaller single-session eval than the routing
-    eval's own multi-run discipline; see
-    [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s dated
-    2026-09-04 section for the result and its stated caveats. Left open:
-    the same document's own read that a single 6-case run is a first
-    signal, not a replacement for that fuller discipline, if the finding
-    turns out to matter enough to invest in later.
+    and
+    [_RUN2.md](evals/routing/PREDICTION_AUDIT_JUDGMENT_RUN2.md) — each a
+    smaller single-session eval than the routing eval's own multi-run
+    discipline; see [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s
+    dated 2026-09-04 and 2026-09-05 sections for both results (6/6 and 6/6
+    once run 2's own pre-registration error was corrected in the write-up)
+    and their stated caveats. Run 2 also found a real gap in run 1's own
+    `parallel-artifact-ledger` fix (a ledger with no audit backing it) —
+    fixed the same session, `tools/precedent_check.py`'s new
+    `parallel-artifact-ledger` check. Left open: both documents' own read
+    that two 6-case runs are a stronger signal than one but still not a
+    replacement for the routing eval's fuller multi-run discipline, if this
+    ever needs to be trusted at higher stakes than an on-demand backstop.
 13. **Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
     (and its check in [tools/precedent_check.py](tools/precedent_check.py),
     and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the
@@ -120,19 +127,23 @@ the upstream layer. Ordered by priority.
     person and repo to run it against, and Morgan adding the GitHub
     collaborator role by hand (no tool in this repo's GitHub toolset
     creates a collaborator invite).
-15. **Build the team practice repo and reusable document-project template
-    for non-technical document work.**
-    [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)
-    is drafted but not executed. Unlike item 14, this one is not blocked on
-    a real person — creating the (empty) team repo and the template is
-    real, bounded, agent-doable work. **Blocked on:** Morgan naming the new
-    team repo and who goes in its `approvers.json` (Prerequisites items 1-2
-    in the plan) — the implementing session cannot invent those.
-16. **Run the document-project pilot once item 15 lands and Morgan has a
-    real first project.** Deliberately not planned yet — see
+15. ~~**Build the team practice repo and reusable document-project template
+    for non-technical document work.**~~ **Done (2026-09-05)** —
     [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
-    "Sequencing" section for why. **Blocked on:** item 15, plus a real
-    subject and a real person, neither of which exists yet.
+    Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per
+    [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) (empty of
+    real practices by design — Morgan named the repo, `approvers.json` seeds
+    Morgan as first approver) and pushed, and
+    [templates/nontechnical-document-project/](templates/nontechnical-document-project/)
+    added here. Step 3 (the plan's own boundary) deliberately not done — see
+    item 16.
+16. **Run the document-project pilot once Morgan has a real first
+    project.** Item 15 no longer blocks this — the template and team repo
+    are real. Deliberately not planned further than that: see
+    [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
+    "Sequencing" section for why a pilot project and person are not invented
+    ahead of a real one existing. **Blocked on:** a real subject and a real
+    person, neither of which exists yet.
 17. ~~**Enumerate and wire the inherited RPP "very deep check" audit list as
     an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
     [RepoPersonalPreferences](https://github.com/themorgan/RepoPersonalPreferences)
