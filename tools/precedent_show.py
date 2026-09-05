@@ -20,6 +20,10 @@ front-load the whole thing, Story included, defeating the split.
                                             spec/PRACTICE_FORMAT.md for why
                                             this repo's practice files carry
                                             five body sections)
+  precedent show SLUG [SLUG...] --repo DIR  read DIR's practices/ instead of
+                                            this repo's own -- defaults to
+                                            this script's own parent repo
+                                            when omitted
 
 Multiple slugs concatenate, each under its own "### slug" heading, so a
 caller loading several practices for one occasion gets one block back.
@@ -31,10 +35,20 @@ index entry should be loud, not a silent empty read.
 """
 import pathlib, re, sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+# Two different notions of "root" that must never be conflated: _ENGINE_DIR
+# is where THIS SCRIPT physically lives, and is the only thing sibling-module
+# imports (split_practices, below) may ever depend on -- wherever this file
+# is, split_practices.py is right there too. ROOT is which repo's CONTENT
+# (practices/) to read, which defaults to the engine's own parent directory
+# but is overridable with --repo (see main()) -- the fix for the exact trap
+# precedent_sync_views.py's own docstring already warns about: computing
+# ROOT from `__file__` breaks the moment this script is relocated or
+# vendored somewhere other than <repo>/tools/whatever.py.
+_ENGINE_DIR = pathlib.Path(__file__).resolve().parent
+ROOT = _ENGINE_DIR.parent  # unchanged default when --repo is omitted
 PRACTICES_DIR = ROOT / 'practices'
 
-sys.path.insert(0, str(ROOT / 'tools'))
+sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
 
 SECTION_FLAGS = {'--detail': 'detail', '--why': 'why', '--story': 'story',
@@ -54,6 +68,16 @@ SLUG_RE = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
 
 def main():
     args = sys.argv[1:]
+    repo = None
+    if '--repo' in args:
+        i = args.index('--repo')
+        if i + 1 >= len(args):
+            sys.exit("precedent show FAIL: --repo needs a value.")
+        repo = args[i + 1]
+        args = args[:i] + args[i + 2:]
+    root = pathlib.Path(repo).resolve() if repo else ROOT
+    practices_dir = root / 'practices'
+
     section = 'rule'
     for flag, sec in SECTION_FLAGS.items():
         if flag in args:
@@ -82,7 +106,7 @@ def main():
     out = []
     missing = []
     for slug in slugs:
-        path = PRACTICES_DIR / f'{slug}.md'
+        path = practices_dir / f'{slug}.md'
         if not path.exists():
             missing.append(slug)
             continue

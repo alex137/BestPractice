@@ -39,16 +39,35 @@ Run:
       # BestPractice itself" prose); a team or individual source repo
       # vendoring this same file for its own practices/ catalogue wants
       # the resident-block/occasion-index mechanism, not those two.
+  python3 tools/build_views.py --repo DIR [--agents-only] [--check]
+      # operate on DIR's practices/AGENTS.md/MAP.md/GLOSSARY.md instead of
+      # this repo's own -- --repo defaults to this script's own parent
+      # directory when omitted. The "## The engine" table inside MAP.md
+      # still always lists the tools sitting beside THIS SCRIPT, regardless
+      # of --repo: that table describes the engine's own code inventory,
+      # not the target repo's content, the same "sibling files travel with
+      # the script, not with --repo" rule sibling-module imports follow.
 """
 import collections, json, pathlib, re, sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+# _ENGINE_DIR (where this file itself lives) is only ever used for the
+# sibling-module import and the MAP.md "## The engine" listing below --
+# both describe the engine's own code, which travels with wherever this
+# script physically is, never with --repo. ROOT is which repo's CONTENT
+# (practices/, AGENTS.md, MAP.md, GLOSSARY.md) to read and (re)generate; it
+# defaults to the engine's own parent directory but is overridable with
+# --repo in main() -- see precedent_show.py for the fuller rationale, and
+# precedent_sync_views.py's own docstring for the trap this avoids
+# (computing ROOT from `__file__` alone breaks the moment this script is
+# relocated or vendored somewhere other than <repo>/tools/whatever.py).
+_ENGINE_DIR = pathlib.Path(__file__).resolve().parent
+ROOT = _ENGINE_DIR.parent  # unchanged default when --repo is omitted
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
 MAP_MD = ROOT / 'MAP.md'
 GLOSSARY_MD = ROOT / 'GLOSSARY.md'
 
-sys.path.insert(0, str(ROOT / 'tools'))
+sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
 
 BEGIN_MARKER = '<!-- BEGIN GENERATED: precedent-loader -->'
@@ -62,9 +81,10 @@ def _approx_tokens(text):
     return int(len(WORD_RE.findall(text)) * 1.3)
 
 
-def load_practices():
+def load_practices(practices_dir=None):
+    practices_dir = practices_dir if practices_dir is not None else PRACTICES_DIR
     out = []
-    for f in sorted(PRACTICES_DIR.glob('*.md')):
+    for f in sorted(practices_dir.glob('*.md')):
         fm, sections = sp._read_practice_file(f)
         out.append((fm, sections, f))
     return out
@@ -228,11 +248,12 @@ def build_loader_block(practices, source_levels=None):
     return '\n'.join(lines), token_count, len(resident)
 
 
-def render_agents_md(practices):
-    original = AGENTS_MD.read_text(encoding='utf-8')
+def render_agents_md(practices, agents_md=None):
+    agents_md = agents_md if agents_md is not None else AGENTS_MD
+    original = agents_md.read_text(encoding='utf-8')
     block, _tokens, _n = build_loader_block(practices)
     if BEGIN_MARKER not in original or END_MARKER not in original:
-        sys.exit("build_views FAIL: AGENTS.md has no "
+        sys.exit(f"build_views FAIL: {agents_md} has no "
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
     pre = original[:original.index(BEGIN_MARKER)]
     post = original[original.index(END_MARKER) + len(END_MARKER):]
@@ -275,7 +296,7 @@ def render_map_md(practices):
         "| Path | What it is |",
         "|---|---|",
     ]
-    for name in sorted(p.name for p in (ROOT / 'tools').glob('*.py')):
+    for name in sorted(p.name for p in _ENGINE_DIR.glob('*.py')):
         try:
             desc = TOOLS_DESCRIPTIONS[name]
         except KeyError:
@@ -369,7 +390,21 @@ def render_glossary_md(practices):
 
 
 def main():
-    check = '--check' in sys.argv
+    argv = sys.argv[1:]
+    repo = None
+    if '--repo' in argv:
+        i = argv.index('--repo')
+        if i + 1 >= len(argv):
+            sys.exit("build_views FAIL: --repo needs a value.")
+        repo = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
+    root = pathlib.Path(repo).resolve() if repo else ROOT
+    practices_dir = root / 'practices'
+    agents_md = root / 'AGENTS.md'
+    map_md = root / 'MAP.md'
+    glossary_md = root / 'GLOSSARY.md'
+
+    check = '--check' in argv
     # --agents-only: regenerate just AGENTS.md's loader block (resident
     # block, occasion index, standing instruction), skip MAP.md and
     # GLOSSARY.md. render_map_md()'s TOOLS_DESCRIPTIONS table and "this repo
@@ -380,14 +415,14 @@ def main():
     # just a hand-written README describing the practice list in prose)
     # wants only the loader-block mechanism, not BestPractice's own MAP/
     # GLOSSARY conventions.
-    agents_only = '--agents-only' in sys.argv
-    practices = load_practices()
+    agents_only = '--agents-only' in argv
+    practices = load_practices(practices_dir)
 
-    new_agents = render_agents_md(practices)
-    targets = [(AGENTS_MD, new_agents)]
+    new_agents = render_agents_md(practices, agents_md)
+    targets = [(agents_md, new_agents)]
     if not agents_only:
-        targets.append((MAP_MD, render_map_md(practices)))
-        targets.append((GLOSSARY_MD, render_glossary_md(practices)))
+        targets.append((map_md, render_map_md(practices)))
+        targets.append((glossary_md, render_glossary_md(practices)))
 
     if check:
         drift = []

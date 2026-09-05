@@ -3232,6 +3232,117 @@ def check_gate_channel():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_loader_tools_are_repo_relocatable():
+    """precedent_show.py, precedent_paths.py, precedent_gate.py and
+    build_views.py used to compute their working root as `pathlib.Path(
+    __file__).resolve().parents[1]` -- "whatever is two folders up from my
+    own file" -- which is only correct when the script sits at exactly
+    <repo>/tools/whatever.py. precedent_sync_views.py's own docstring
+    already named this trap for anyone tempted to run these from inside a
+    vendored process/upstream/tools/ mirror instead. Fixed to take --repo,
+    keeping two notions of "root" apart that the old code conflated:
+    where to find THIS SCRIPT's own sibling modules to import (tied to the
+    script's own file location, never to --repo) versus which repo's
+    content (practices/, AGENTS.md, ...) to actually operate on (--repo,
+    defaulting to today's behavior when omitted). Each half gets its own
+    case below, for every one of the four tools, rather than trusting that
+    fixing one half didn't quietly break the other: running the real,
+    in-place script from a cwd that is neither the repo root nor the
+    script's own directory (sibling imports must still resolve), and
+    running it with --repo pointed at a small fixture repo whose content
+    exists nowhere else (the named repo's content must actually be what
+    comes back, not a silent fallback to this repo's own)."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-relocation-'))
+    elsewhere = pathlib.Path(tempfile.mkdtemp(prefix='precedent-elsewhere-cwd-'))
+    cases = []
+    try:
+        fixture = tmp / 'fixture'
+        (fixture / 'practices').mkdir(parents=True)
+        (fixture / 'practices' / 'fixture-only-slug.md').write_text(
+            '---\nslug: fixture-only-slug\ntitle: Fixture\ntier: on-demand\n'
+            'severity: default\napplies_to: ["fixture-only/**"]\n'
+            'occasion: "testing --repo relocation"\ngates: ["merge"]\n'
+            'index_clause: "x"\nchecked_by: null\ndefines: []\nstatus: active\n'
+            'supersedes: []\noverrides: null\nadded: 2026-09-05\n'
+            'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
+            '---\n## Rule\nA fixture-only rule text, present in no other repo.\n\n'
+            '## Why\nx\n\n## Story\nx\n\n## Install\nx\n', encoding='utf-8')
+        (fixture / 'tools').mkdir(parents=True)
+        (fixture / 'tools' / 'routing_scope.json').write_text(
+            json.dumps({'_note': [], 'practices': {}, 'gates': {'merge': 'merging a branch'}}),
+            encoding='utf-8')
+        (fixture / 'AGENTS.md').write_text(
+            '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+
+        fixture_slug = 'fixture-only-slug'
+        real_slug = sorted(PRACTICES_DIR.glob('*.md'))[0].stem
+        original_agents_text = AGENTS_MD.read_text(encoding='utf-8')
+
+        def run(tool, *args, cwd=None):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / tool), *args],
+                               capture_output=True, text=True,
+                               cwd=str(cwd) if cwd else None)
+            return r.returncode, r.stdout + r.stderr
+
+        # --- a different cwd, no --repo: sibling imports must still resolve,
+        # and the unchanged default must still be THIS repo's own content --
+        rc, out = run('precedent_show.py', real_slug, cwd=elsewhere)
+        cases.append(("precedent_show.py from a different cwd, no --repo, resolves its "
+                      "sibling import and shows THIS repo's own practice",
+                      rc == 0 and f'### {real_slug}' in out, out[:200] if rc else ''))
+
+        rc, out = run('precedent_paths.py', '--matches-only', 'AGENTS.md', cwd=elsewhere)
+        cases.append(('precedent_paths.py from a different cwd, no --repo, resolves',
+                      rc == 0, out[:200] if rc else ''))
+
+        rc, out = run('precedent_gate.py', '--list', cwd=elsewhere)
+        cases.append(('precedent_gate.py from a different cwd, no --repo, resolves',
+                      rc == 0 and bool(out.strip()), out[:200] if rc else ''))
+
+        rc, out = run('build_views.py', '--check', '--agents-only', cwd=elsewhere)
+        cases.append(('build_views.py from a different cwd, no --repo, still checks '
+                      'THIS repo unchanged', rc == 0, out[:200] if rc else ''))
+
+        # --- --repo pointed at the fixture: each tool must read the NAMED
+        # repo's content, not silently fall back to this repo's own --------
+        rc, out = run('precedent_show.py', fixture_slug, '--repo', str(fixture))
+        cases.append(("precedent_show.py --repo reads the named repo's own practice",
+                      rc == 0 and 'fixture-only rule text' in out, out[:200]))
+
+        rc, out = run('precedent_show.py', real_slug, '--repo', str(fixture))
+        cases.append(("precedent_show.py --repo does NOT fall back to this repo's own practice",
+                      rc != 0, '' if rc != 0 else out[:200]))
+
+        rc, out = run('precedent_paths.py', '--repo', str(fixture), '--matches-only',
+                      'fixture-only/thing.txt')
+        cases.append(("precedent_paths.py --repo matches the named repo's own applies_to glob",
+                      rc == 0 and fixture_slug in out, out[:200]))
+
+        rc, out = run('precedent_gate.py', '--repo', str(fixture), 'merge')
+        cases.append(("precedent_gate.py --repo loads the named repo's own gate-registered practice",
+                      rc == 0 and fixture_slug in out, out[:200]))
+
+        rc, out = run('build_views.py', '--repo', str(fixture), '--agents-only')
+        fixture_agents_text = (fixture / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(("build_views.py --repo regenerates the named repo's own AGENTS.md",
+                      rc == 0 and fixture_slug in fixture_agents_text, out[:200]))
+        cases.append(("build_views.py --repo left THIS repo's own AGENTS.md untouched",
+                      AGENTS_MD.read_text(encoding='utf-8') == original_agents_text))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(elsewhere, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the four file-location-dependent loader tools take --repo '
+          f'(precedent_show.py, precedent_paths.py, precedent_gate.py, build_views.py; '
+          f'{len(cases)} stated cases: sibling imports resolve from a different cwd with '
+          f"no --repo, and --repo relocates content without touching this repo's own)",
+          not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_materialize_bridges_loader():
     """tools/precedent_materialize.py — the deep-check session's own answer
     to spec/PHASE5_BRIEF.md's named gap: precedent_resolve.py is the only
@@ -3343,13 +3454,39 @@ def check_materialize_bridges_loader():
                       "a resident block naming BOTH sources' practices, not just one",
                       materialized_ok and r.returncode == 0
                       and 'uni-fixture' in agents_text and 'team-fixture' in agents_text))
+
+        # --- the SAME scenario again, but run tools/build_views.py IN PLACE
+        # (no copy) with --repo pointed at the fixture, instead of copying
+        # the script into the fixture's own tools/ first. Before build_views
+        # accepted --repo, this was the only way to test it against content
+        # that isn't its own -- ROOT was always computed as two folders up
+        # from wherever the running copy physically sat, so a script that
+        # never moved could never be pointed elsewhere. This case is kept
+        # ALONGSIDE the copy-based case above, not in place of it: a
+        # consuming repo's own vendored copy (the documented, still-current
+        # INSTALL.md model) is the copy-based shape, and a future vendored
+        # engine invoked with --repo (this request's own stated motivation)
+        # is this one -- both invocation styles have to keep working.
+        (consumer / 'AGENTS.md').write_text(
+            '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        r2 = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                              '--repo', str(consumer), '--agents-only'],
+                             capture_output=True, text=True)
+        agents_text2 = (consumer / 'AGENTS.md').read_text(encoding='utf-8') \
+            if (consumer / 'AGENTS.md').exists() else ''
+        cases.append(("the real, un-relocated build_views.py run with --repo (no copy) "
+                      "produces a resident block naming BOTH sources' practices too",
+                      materialized_ok and r2.returncode == 0
+                      and 'uni-fixture' in agents_text2 and 'team-fixture' in agents_text2))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'precedent_materialize.py bridges the loader ({len(cases)} stated cases: '
           f'a checks/ collision refuses, an over-budget combined set refuses, a clean '
-          f"materialize feeds an unmodified build_views.py both sources' content)",
+          f"materialize feeds both a copied and an in-place --repo build_views.py "
+          f"both sources' content)",
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
@@ -4182,6 +4319,7 @@ def main():
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_gate_channel()
+    check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
     check_sync_views_cross_source()
     check_detect_restated_fires()

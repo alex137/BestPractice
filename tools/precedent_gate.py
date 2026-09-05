@@ -55,16 +55,28 @@ fires at a moment a commit does not record. No recall figure anywhere should
 be attributed to this channel.
 
 Run:
-  python3 tools/precedent_gate.py merge      # the Rules for that moment
-  python3 tools/precedent_gate.py --list     # gates, and what each one holds
+  python3 tools/precedent_gate.py merge          # the Rules for that moment
+  python3 tools/precedent_gate.py --list         # gates, and what each one holds
+  python3 tools/precedent_gate.py --repo DIR merge
+      # the Rules for that moment, from DIR's practices/ instead of this
+      # repo's own
 """
 import json, pathlib, sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'tools'))
+# _ENGINE_DIR (where this file itself lives) is only for the sibling-module
+# import and for routing_scope.json below -- both ship as one fixed unit
+# with the engine code, not with whichever repo's content --repo points at
+# (the closed gate vocabulary and which moments have a real invocation
+# point are a property of the engine, not of one repo's practice catalogue).
+# ROOT is which repo's practices/ to read, defaulting to the engine's own
+# parent directory but overridable with --repo in main() -- see
+# precedent_show.py for the fuller rationale.
+_ENGINE_DIR = pathlib.Path(__file__).resolve().parent
+ROOT = _ENGINE_DIR.parent  # unchanged default when --repo is omitted
+sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
 
-SCOPE = ROOT / 'tools' / 'routing_scope.json'
+SCOPE = _ENGINE_DIR / 'routing_scope.json'
 
 
 def gate_vocabulary():
@@ -73,9 +85,10 @@ def gate_vocabulary():
     return {k: v for k, v in d.get('gates', {}).items() if not k.startswith('_')}
 
 
-def practices_by_gate():
+def practices_by_gate(practices_dir=None):
+    practices_dir = practices_dir if practices_dir is not None else ROOT / 'practices'
     out = {g: [] for g in gate_vocabulary()}
-    for f in sorted((ROOT / 'practices').glob('*.md')):
+    for f in sorted(practices_dir.glob('*.md')):
         try:
             fm, _sections = sp._read_practice_file(f)
         except sp.PracticeFileError:
@@ -86,10 +99,21 @@ def practices_by_gate():
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    flags = {a for a in sys.argv[1:] if a.startswith('--')}
+    argv = sys.argv[1:]
+    repo = None
+    if '--repo' in argv:
+        i = argv.index('--repo')
+        if i + 1 >= len(argv):
+            sys.exit("precedent gate FAIL: --repo needs a value.")
+        repo = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
+    root = pathlib.Path(repo).resolve() if repo else ROOT
+    practices_dir = root / 'practices'
+
+    args = [a for a in argv if not a.startswith('--')]
+    flags = {a for a in argv if a.startswith('--')}
     vocab = gate_vocabulary()
-    by_gate = practices_by_gate()
+    by_gate = practices_by_gate(practices_dir)
 
     unknown = flags - {'--list'}
     if unknown:
@@ -124,7 +148,7 @@ def main():
                  f"loads nothing and looks like it worked.")
     print(f"# Practices for the {gate} gate — {vocab[gate]}\n")
     for slug in slugs:
-        fm, sections = sp._read_practice_file(ROOT / 'practices' / f'{slug}.md')
+        fm, sections = sp._read_practice_file(practices_dir / f'{slug}.md')
         print(f"### {slug}\n{sections.get('rule', '').strip()}\n")
     return 0
 

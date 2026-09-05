@@ -23,13 +23,24 @@ Run:
   python3 tools/precedent_paths.py --matches-only FILE [FILE...]
       -- print only "slug: file" pairs, no Rule text (used by
          behavioral_replay.py, which only needs to know what matched)
+  python3 tools/precedent_paths.py --repo DIR FILE [FILE...]
+      -- match against DIR's practices/ instead of this repo's own
 """
 import json, pathlib, re, sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+# _ENGINE_DIR (where this file itself lives) is only ever used for the
+# sibling-module import below -- never for --repo. ROOT is which repo's
+# CONTENT (practices/, and the root a given path is normalized against) to
+# operate on; it defaults to the engine's own parent directory but is
+# overridable with --repo in main() -- see precedent_show.py for the fuller
+# rationale, and precedent_sync_views.py's own docstring for the trap this
+# avoids (computing ROOT from `__file__` alone breaks the moment this script
+# is relocated or vendored somewhere other than <repo>/tools/whatever.py).
+_ENGINE_DIR = pathlib.Path(__file__).resolve().parent
+ROOT = _ENGINE_DIR.parent  # unchanged default when --repo is omitted
 PRACTICES_DIR = ROOT / 'practices'
 
-sys.path.insert(0, str(ROOT / 'tools'))
+sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
 
 
@@ -95,13 +106,17 @@ def _glob_regex(glob):
     return rx
 
 
-def normalize_path(path):
+def normalize_path(path, root_dir=None):
     """A glob is written relative to the repo root, so a path has to be too
     before it can be compared against one. A PreToolUse hook hands over
     absolute paths; a person types "./AGENTS.md" as often as "AGENTS.md".
-    All three spellings of one file must give one answer."""
+    All three spellings of one file must give one answer.
+
+    root_dir defaults to ROOT (this repo's own root) -- pass the --repo
+    target explicitly when normalizing against a different repo's tree."""
+    root_dir = root_dir if root_dir is not None else ROOT
     p = str(path).replace('\\', '/')
-    root = ROOT.as_posix().rstrip('/') + '/'
+    root = root_dir.as_posix().rstrip('/') + '/'
     if p.startswith(root):
         p = p[len(root):]
     elif p.startswith('/'):
@@ -135,8 +150,8 @@ def normalize_path(path):
     return p.lstrip('/')
 
 
-def path_matches(path, glob):
-    return _glob_regex(glob).match(normalize_path(path)) is not None
+def path_matches(path, glob, root_dir=None):
+    return _glob_regex(glob).match(normalize_path(path, root_dir)) is not None
 
 
 def _globs(fm_applies_to):
@@ -147,9 +162,10 @@ def _globs(fm_applies_to):
         return []
 
 
-def load_on_demand_practices():
+def load_on_demand_practices(practices_dir=None):
+    practices_dir = practices_dir if practices_dir is not None else PRACTICES_DIR
     out = []
-    for f in sorted(PRACTICES_DIR.glob('*.md')):
+    for f in sorted(practices_dir.glob('*.md')):
         try:
             fm, sections = sp._read_practice_file(f)
         except sp.PracticeFileError as e:
@@ -164,14 +180,14 @@ def load_on_demand_practices():
     return out
 
 
-def matches_for_paths(paths, practices=None):
+def matches_for_paths(paths, practices=None, root_dir=None):
     """-> list of (slug, path) for every (practice, path) pair where the
     path matches one of the practice's narrower-than-** applies_to globs."""
     practices = practices if practices is not None else load_on_demand_practices()
     hits = []
     for slug, globs, _rule in practices:
         for path in paths:
-            if any(path_matches(path, g) for g in globs):
+            if any(path_matches(path, g, root_dir) for g in globs):
                 hits.append((slug, path))
                 break
     return hits
@@ -179,6 +195,16 @@ def matches_for_paths(paths, practices=None):
 
 def main():
     args = sys.argv[1:]
+    repo = None
+    if '--repo' in args:
+        i = args.index('--repo')
+        if i + 1 >= len(args):
+            sys.exit("precedent paths FAIL: --repo needs a value.")
+        repo = args[i + 1]
+        args = args[:i] + args[i + 2:]
+    root = pathlib.Path(repo).resolve() if repo else ROOT
+    practices_dir = root / 'practices'
+
     matches_only = '--matches-only' in args
     # An unrecognized "--flag" used to be silently dropped and the run
     # continued, so a typo produced a confident answer to a different
@@ -191,8 +217,8 @@ def main():
     if not paths:
         sys.exit(__doc__)
 
-    practices = load_on_demand_practices()
-    hits = matches_for_paths(paths, practices)
+    practices = load_on_demand_practices(practices_dir)
+    hits = matches_for_paths(paths, practices, root)
     if not hits:
         if matches_only:
             return 0
