@@ -16,6 +16,15 @@ mechanizes, including the parts (creating the actual git remote) that stay a
 human/session step on purpose -- this tool never touches a git remote or
 any hosting API.
 
+It also vendors a real, tracked, refreshable engine into the new set's own
+tools/ -- see tools/precedent_vendor_engine.py's docstring. This closed a
+gap discovered only after precedent-individual, precedent-team-maintainers
+and precedent-team-tms already existed: nothing here had ever put an
+engine file in place before, so every one of them got its copy from an
+undocumented, one-off hand-copy instead (precedent-team-tms's turned out
+to be missing outright). New sets no longer hit that gap; the three
+existing ones were migrated onto the same mechanism separately.
+
 Usage:
   precedent_bootstrap_source.py --level individual --name NAME --dest PATH
       [--write-user-config true]     # merge the individual source into
@@ -40,6 +49,8 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_vendor_engine
 
 LEVELS = {'individual', 'team'}
 SKELETONS = {
@@ -142,6 +153,7 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
     if level == 'team':
         _seed_approvers_json(dest, approvers)
+    written += precedent_vendor_engine.seed(dest)
 
     return {'dest': dest, 'written': written}
 

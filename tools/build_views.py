@@ -347,6 +347,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_simulate.py': "One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log",
     'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
+    'precedent_vendor_engine.py': "Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or team set, and keeps it refreshable",
     'resplit_sections.py': "The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json",
     'routing_audit.py': "The routing audit — mechanical coverage check plus a rotating deep-read slice",
     'routing_eval.py': "Measures whether trigger-based loading actually beats carrying the whole catalogue",
