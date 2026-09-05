@@ -33,6 +33,20 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # Full history, not the actions/checkout default (fetch-depth: 1).
+          # precedent_check.py's parallel-artifact-ledger (scope 'tree') walks
+          # `git log --no-merges -- <member-dir>` across this repo's real
+          # history; on a depth-1 checkout that history isn't there to walk,
+          # and a check finding nothing to flag is indistinguishable from one
+          # that had nothing wrong to find -- see AGENTS.md's own
+          # "scope: 'tree' check... false pass on an under-fetched clone"
+          # gotcha, confirmed for real here: this workflow ran with no
+          # fetch-depth set (so depth 1) from the day it was added, and
+          # parallel-artifact-ledger was silently red on every push until
+          # this fix -- the check simply never had enough history to run
+          # for real, on `main` or any branch, until now.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
