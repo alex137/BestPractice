@@ -113,6 +113,12 @@ names it:
   stale "last updated" header.
 - Self-application -- a rule this repo asks of every project it's installed
   into that this repo doesn't yet follow itself.
+- Cross-source staleness -- a check, tool, or convention this repo changed
+  that an attached team or individual source's own tooling, vendored engine
+  copy, or written practice still assumes the old form of. Update the
+  source in the same pass (practice: cross-source-rollout) if it's
+  attached; if a blocked-on TODO for it already exists, confirm it's still
+  accurate rather than adding a second one.
 - Backlog drift -- a TODO.md (or equivalent open-items document) entry
   already done, no longer relevant, or never actually decided.
 - Anything else the read turns up -- if something is wrong and none of the

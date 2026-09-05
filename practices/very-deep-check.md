@@ -15,7 +15,8 @@ overrides:   null
 added:       null
 approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   declared team/individual source actually be in the session before the check
-  runs, and to add a stale-branch sweep across every repo the check touches"
+  runs, and to add a stale-branch sweep across every repo the check touches;
+  revised again same day, Morgan F, to add a cross-source-staleness check"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -119,6 +120,13 @@ bullet below names it:**
   stale "last updated" header.
 - **Self-application** — a rule this repo asks of every project it's
   installed into that this repo doesn't yet follow itself.
+- **Cross-source staleness** — a check, tool, or convention this repo
+  changed that an attached team or individual source's own tooling,
+  vendored engine copy, or written practice still assumes the old form of.
+  Update the source in the same pass (per
+  [cross-source-rollout](cross-source-rollout.md)) if it's attached; if a
+  `blocked-on` TODO for it already exists, confirm it's still accurate
+  rather than adding a second one.
 - **Backlog drift** — a `TODO.md` (or equivalent open-items document) entry
   already done, no longer relevant, or never actually decided.
 - **Anything else the read turns up** — if something is wrong and none of
@@ -203,6 +211,15 @@ and the session's own individual source — every one of them a branch whose
 PR had closed (several merged by direct push, with GitHub's own `merged`
 flag still `false` for that reason, confirming the Rule's note above is not
 a hypothetical either) with nobody ever going back to delete it.
+
+Revised again the same day, same conversation, to add the checklist's
+cross-source-staleness bullet: a change to how this repo itself checks,
+resolves, or merges is not finished at this repo's own commit if an
+attached team or individual source's own tooling or written conventions
+now assume the old form of it. The standing prevention side of that same
+gap is [cross-source-rollout](cross-source-rollout.md), raised in the same
+request — this bullet is its detection-side backstop, for whatever a
+session's own rollout at merge time still misses.
 
 ## Install
 [tools/very_deep_check.py](tools/very_deep_check.py) enumerates the scope

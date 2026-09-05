@@ -44,7 +44,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 60 practices)
+### Resident block (~312 of 2000 token budget, 6 of 61 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -77,6 +77,8 @@ command printed.
 ### Occasion index
 
 ```
+When a change here has implications for how an attached team, individual, or repo-local source should work:
+  cross-source-rollout — roll it out to attached sources now; else a blocked-on TODO
 When a change must propagate across several parallel artifacts:
   parallel-artifact-ledger — ledger the transfer verdict per member, per change
 When a computation books a transfer between two parties:
