@@ -172,7 +172,7 @@ the upstream layer. Ordered by priority.
     a source repo.** [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s
     "The vendored engine" section and
     [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
-    close this for an individual/team SOURCE set (bootstrap and three
+    close this for an individual/team source set (bootstrap and three
     existing sets migrated, 2026-09-05). A real four-source consumer
     (universal + team + individual + repo-local, `process/upstream/`, the
     full `precedent_materialize.py`/`precedent_resolve.py`/
