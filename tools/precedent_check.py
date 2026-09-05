@@ -1035,10 +1035,8 @@ def _parallel_artifact_ledger(ctx):
     roots = set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split())
     roots |= _shallow_boundary_commits()
     findings = []
-    per_dir_hashes = {}
     for member_dir in _LEDGER_MEMBER_DIRS:
         out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
-        per_dir_hashes[member_dir] = out
         for full_hash in out:
             if full_hash in roots:
                 continue
@@ -1048,58 +1046,6 @@ def _parallel_artifact_ledger(ctx):
                     f'no row references {full_hash[:7]} ({member_dir}), a '
                     f'commit that changed a member of the harness-adapter '
                     f'family -- add a dated row with a per-member verdict'))
-
-    if findings:
-        # TEMP DIAGNOSTIC take 2 -- remove after this CI run. This check has
-        # failed in GitHub Actions (git 2.55.0) on content confirmed correct
-        # four independent ways (byte-identical LEDGER.md via the GitHub
-        # API, at both the PR branch tip and the PR merge ref; a faithful
-        # local reproduction of CI's exact `git fetch` command against the
-        # same commit SHA; and a full, non-shallow local clone) while
-        # passing cleanly every time it's been run locally (git 2.43.0, the
-        # newest available in that environment).
-        #
-        # Take 1 printed this same block to stderr and it never showed up in
-        # the real (non-self-test) `python3 tools/precedent_check.py` step's
-        # log -- confirmed the pushed commit had the code (fetched via the
-        # GitHub API), confirmed the *self-test's* subprocess invocation of
-        # this exact script prints this exact block correctly (it goes
-        # through verify_harness.py's own subprocess.run(capture_output=True)
-        # and gets re-printed via ITS stdout), and confirmed locally (git
-        # 2.43.0, both `--only` and the full suite) that stderr prints
-        # interleave correctly relative to the stdout VIOLATION report. The
-        # one thing every working case has in common and the one non-working
-        # case doesn't: the output that reliably reached the log was always
-        # relayed through Python's own stdout somewhere upstream. Printing to
-        # stdout directly here instead, with an explicit flush, rather than
-        # trusting stderr capture on a step that exits well under a second
-        # after this runs.
-        import hashlib
-        lines = ['== TEMP DIAGNOSTIC take 2 (parallel-artifact-ledger) ==']
-        gv = _git('--version')
-        lines.append(f'git --version (from inside this process): {gv.stdout.strip()!r} '
-                     f'(stderr: {gv.stderr.strip()!r})')
-        for member_dir, hashes in per_dir_hashes.items():
-            lines.append(f'git log --no-merges --format=%H -- {member_dir}: '
-                         f'{len(hashes)} hash(es): {hashes}')
-        lines.append(f'roots (max-parents=0 | .git/shallow): {sorted(roots)}')
-        lines.append(f'ledger_path: {ledger_path} (exists: {ledger_path.exists()})')
-        lines.append(f'len(ledger_text): {len(ledger_text)}')
-        lines.append(f'sha256(ledger_text): '
-                     f'{hashlib.sha256(ledger_text.encode("utf-8")).hexdigest()}')
-        for full_hash in per_dir_hashes.get('templates/harness/claude-code', []):
-            short = full_hash[:7]
-            lines.append(f'  full_hash={full_hash!r} short={short!r} '
-                         f'ledger_text.find(short)={ledger_text.find(short)} '
-                         f'ledger_text.find(full_hash)={ledger_text.find(full_hash)}')
-        lines.append(f'ledger_text.find("f2078d6"): {ledger_text.find("f2078d6")}')
-        lines.append(f'repr(ledger_text[1030:1060]) (byte-offset window around the '
-                     f'row this repo\'s own checkout has it at): '
-                     f'{ledger_text[1030:1060]!r}')
-        lines.append('== END TEMP DIAGNOSTIC take 2 ==')
-        for line in lines:
-            print(line)
-        sys.stdout.flush()
 
     return findings
 
