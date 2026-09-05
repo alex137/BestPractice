@@ -1,0 +1,30 @@
+{
+  "_comment": "Restricted session config for a non-technical document-project contributor, per spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md Step 3 — the defense-in-depth layer, independent of the GitHub collaborator role. No push, no merge, no raw shell. If this platform's session/environment creation also exposes a permission_mode setting, set it there too and never to bypassPermissions -- that setting lives outside this file's own schema.",
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(git reset *)",
+      "Bash(git rebase *)",
+      "Bash(rm *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

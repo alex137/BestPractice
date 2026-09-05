@@ -120,19 +120,23 @@ the upstream layer. Ordered by priority.
     person and repo to run it against, and Morgan adding the GitHub
     collaborator role by hand (no tool in this repo's GitHub toolset
     creates a collaborator invite).
-15. **Build the team practice repo and reusable document-project template
-    for non-technical document work.**
-    [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)
-    is drafted but not executed. Unlike item 14, this one is not blocked on
-    a real person — creating the (empty) team repo and the template is
-    real, bounded, agent-doable work. **Blocked on:** Morgan naming the new
-    team repo and who goes in its `approvers.json` (Prerequisites items 1-2
-    in the plan) — the implementing session cannot invent those.
-16. **Run the document-project pilot once item 15 lands and Morgan has a
-    real first project.** Deliberately not planned yet — see
+15. ~~**Build the team practice repo and reusable document-project template
+    for non-technical document work.**~~ **Done (2026-09-05)** —
     [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
-    "Sequencing" section for why. **Blocked on:** item 15, plus a real
-    subject and a real person, neither of which exists yet.
+    Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per
+    [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) (empty of
+    real practices by design — Morgan named the repo, `approvers.json` seeds
+    Morgan as first approver) and pushed, and
+    [templates/nontechnical-document-project/](templates/nontechnical-document-project/)
+    added here. Step 3 (the plan's own boundary) deliberately not done — see
+    item 16.
+16. **Run the document-project pilot once Morgan has a real first
+    project.** Item 15 no longer blocks this — the template and team repo
+    are real. Deliberately not planned further than that: see
+    [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
+    "Sequencing" section for why a pilot project and person are not invented
+    ahead of a real one existing. **Blocked on:** a real subject and a real
+    person, neither of which exists yet.
 17. **Enumerate and wire the inherited RPP "very deep check" audit list as
     an on-demand tool.** Named in
     [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s v28 amendment,
