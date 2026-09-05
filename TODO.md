@@ -168,3 +168,18 @@ the upstream layer. Ordered by priority.
     `precedent-team-maintainers`'s own `deep-check` (a team-level call, not
     decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
     "Part 1, answered" section.
+18. **Vendor a refreshable engine into a real four-source consumer, not just
+    a source repo.** [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s
+    "The vendored engine" section and
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    close this for an individual/team SOURCE set (bootstrap and three
+    existing sets migrated, 2026-09-05). A real four-source consumer
+    (universal + team + individual + repo-local, `process/upstream/`, the
+    full `precedent_materialize.py`/`precedent_resolve.py`/
+    `precedent_sync_views.py` toolchain) has not been piloted with a
+    vendored, refreshable engine of its own — [INSTALL.md](INSTALL.md)
+    documents that install path, extending it the same disciplined way is
+    separate work, deliberately not folded into the source-repo fix.
+    **Out of scope for that session** — a different, larger case, named so
+    "the source-repo case is solid" is not mistaken for "the consumer case
+    is solid too."
