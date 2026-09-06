@@ -662,6 +662,13 @@ def refresh(clone, force=False, ref=None):
         if new_commit == manifest.get('source_commit') and not force:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
+            # Reported here too, and this is the case that matters MOST: a
+            # session re-running refresh and being told "nothing to do" is
+            # exactly the session that would otherwise conclude both halves
+            # are current. Missed on the first version of this notice, which
+            # only reported after a write -- so the second pass of a
+            # self-replacing refresh, and every later re-run, stayed silent.
+            _warn_catalogue_skew(dest, new_commit)
             return 0
 
         self_before = _sha256(HERE) if HERE.is_file() else None
