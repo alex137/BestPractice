@@ -598,6 +598,19 @@ def _warn_catalogue_skew(dest, engine_commit):
     was told about: engine code that cites a practice slug the vendored
     catalogue predates.
 
+    THE REMEDY THIS NOTICE NAMES IS DELIBERATELY NOT `checkin.py update`.
+    Its first version suggested exactly that, and the suggestion was worse
+    than silence: checkin.py's `_default_branch()` resolves
+    `refs/remotes/origin/HEAD` unconditionally, so on every consumer pinned
+    to `precedent-beta-v01` -- which is all of them, until the phase-7
+    fold-in -- following the advice mirrors `main` over the vendored tree
+    and DELETES the very practices this notice says are missing. Caught
+    2026-09-06 by the consumer session that read the notice, recognized the
+    trap, and did the manual mirror instead; spec/MIGRATING_EXISTING_INSTALLS.md's
+    "The default-branch gotcha" is the same finding from the other side.
+    Teaching checkin.py the pin is the real fix and a larger change; until
+    then this notice must not send anyone at it.
+
     Reached a real consumer on 2026-09-06. A refresh took the engine to a
     commit whose `precedent_resolve.py` cites `source-naming` three times,
     while `process/upstream/` still sat 5 commits back and had no
@@ -627,8 +640,9 @@ def _warn_catalogue_skew(dest, engine_commit):
           f"at {recorded[:12]}. Engine code can cite practices that "
           f"catalogue does not carry yet -- if a check reports a slug as "
           f"'not a real practice', this skew is why. Take the catalogue "
-          f"update too (INSTALL.md section 2), or run "
-          f"`python3 process/upstream/tools/checkin.py update <clone>`.")
+          f"update too -- INSTALL.md section 2, which for a repo pinned to "
+          f"a named branch means the manual mirror it describes, NOT "
+          f"`checkin.py update`.")
 
 
 def refresh(clone, force=False, ref=None):

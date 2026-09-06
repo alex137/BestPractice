@@ -599,11 +599,11 @@ deliberate procedure below.
    *source* set, extended to a four-source *consumer*'s larger file list.
    From a sibling BestPractice clone — **but check for
    `tools/ENGINE_MANIFEST.json` first: with no manifest, neither verb
-   below can run, and the last paragraph of this step is your entry
-   point, not these two lines:**
+   below can run, and this step's opening paragraph is your entry point,
+   not these two lines:**
    ```
    # Precondition: tools/ENGINE_MANIFEST.json exists (i.e. a prior seed).
-   # Without it, skip to this step's last paragraph and seed instead.
+   # Without it, go back to this step's first paragraph and seed instead.
    python3 tools/precedent_vendor_engine.py status  ../BestPractice   # drift? behind?
    python3 tools/precedent_vendor_engine.py refresh ../BestPractice   # pull, re-vendor, re-stamp
    ```
