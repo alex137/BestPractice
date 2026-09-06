@@ -23,7 +23,18 @@ pip install --quiet cmarkgfm markdown 2>/dev/null || \
 # than discovered by accident deep into unrelated work.
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
-  git fetch --quiet origin "$branch" 2>/dev/null || true
+  # A FAILED fetch must never read as "in sync". Without this, the compare
+  # below runs against a stale remote-tracking ref: local HEAD equals
+  # origin/$branch because BOTH are old, no branch is reported behind, and the
+  # session proceeds silently on a checkout that is arbitrarily far out of
+  # date. Seen 2026-09-06: a container came up on a 5-day-old shallow clone,
+  # 207 commits behind, and this hook said nothing -- the session's first
+  # conclusion was that files landed a week earlier did not exist. Same shape
+  # as the check suite's own "a skip is not a pass" rule, in the guard meant
+  # to enforce it.
+  if ! git fetch --quiet origin "$branch" 2>/dev/null; then
+    echo "WARN: could not fetch origin/$branch -- freshness NOT verified, and the comparison below (if any) is against a possibly stale remote-tracking ref. Re-run 'git fetch origin $branch' before trusting what you read here." >&2
+  fi
   if git rev-parse --verify -q "origin/$branch" >/dev/null 2>&1; then
     local_head="$(git rev-parse HEAD 2>/dev/null || true)"
     remote_head="$(git rev-parse "origin/$branch" 2>/dev/null || true)"

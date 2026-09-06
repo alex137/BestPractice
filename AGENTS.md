@@ -276,6 +276,33 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh) installs
   it, but only when `CLAUDE_CODE_REMOTE=true`; a local shell has to do it.
 
+- **A git helper that returns stdout and drops the exit code will hand you a
+  ref *name* where a commit hash belongs.** `git rev-parse <missing-ref>` exits
+  non-zero but *prints the ref you asked for* on stdout, so
+  `_git(...'rev-parse', ref) or <fallback>` never falls back: it binds the
+  truthy string `origin/precedent-beta-v01` and carries it forward as a hash.
+  Reached continuous integration on 2026-09-06 as `precedent-beta-v01 @ origin/prece has no
+  tools/build_views.py` — a 12-char truncation of a ref name. Use
+  `rev-parse --verify --quiet` (silent, exit 1) whenever a ref may be absent.
+  The same swallowed exit code hid a failing `git checkout` in a dirty tree
+  during the very session that fixed this, making a broken negative control
+  look like a passing test — so treat "the command reported nothing" as no
+  evidence at all.
+
+- **A stale container is indistinguishable from missing work, and the
+  freshness guard can be the thing that's lying.** On 2026-09-06 a session
+  started on a 5-day-old shallow clone, 207 commits behind
+  `precedent-beta-v01`, and concluded that
+  [tools/precedent_check.py](tools/precedent_check.py) and
+  [.github/workflows/deep-check.yml](.github/workflows/deep-check.yml) "did
+  not exist" — they had landed days earlier.
+  [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh) stayed
+  silent because its `git fetch` failed and it then compared the local commit
+  against an unrefreshed remote-tracking ref: both were equally old, so nothing looked
+  behind. Fixed to warn when the fetch itself fails. Before concluding that
+  anything is missing or unfinished, run `git fetch origin <branch>` and
+  `git rev-list --count HEAD..origin/<branch>`.
+
 - **This repo is normally cloned `--depth 1`, and several tools degrade
   rather than fail on that.** [tools/behavioral_replay.py](tools/behavioral_replay.py)
   divided by the replayable-commit count and took the whole harness down with
