@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, wiring the path-triggered channel into a PreToolUse hook (phase 6 consumer-repo integration) -->
+<!-- Last updated: 2026-09-06 (Buenos Aires) by the loader empty-channel session, recording why the generated block stays silent about channels a source does not fill -->
 
 # The Loader (Phase 2)
 
@@ -13,7 +13,7 @@ implementation note, not a restatement.
 |---|---|---|
 | Resident block | The generated block in [AGENTS.md](../AGENTS.md), between `<!-- BEGIN GENERATED: precedent-loader -->` / `<!-- END GENERATED -->` | Built. Regenerate with [tools/build_views.py](../tools/build_views.py); hand-editing fails [tools/verify_harness.py](../tools/verify_harness.py). |
 | Occasion index | Same generated block, grouped by `occasion` | Built, same mechanism. |
-| Standing instruction | Same generated block, one sentence | Built. |
+| Standing instruction | Same generated block, one sentence per live channel | Built. Assembled from the channels this source actually fills, not from the channels the engine has — see [Empty channels, and why the block stays silent about them](#empty-channels-and-why-the-block-stays-silent-about-them). |
 | Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) + [templates/harness/claude-code/hooks/precedent-paths.sh](../templates/harness/claude-code/hooks/precedent-paths.sh) | **Built and wired (2026-09-03)** — a `PreToolUse` hook, matching `Edit\|Write\|NotebookEdit`, is now templated in [templates/harness/claude-code/settings.json](../templates/harness/claude-code/settings.json); a fresh install of the Claude Code adapter gets it automatically, closing the consumer-repo-integration gap this row named. See [The PreToolUse hook, and what is confirmed versus assumed](#the-pretooluse-hook-and-what-is-confirmed-versus-assumed) below for what the harness actually proves. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost--the-numbers) below. |
 | Gate-triggered | [tools/precedent_gate.py](../tools/precedent_gate.py) | Built later than this document's other rows (see the file's own docstring for why and what it does and does not promise); this row was left saying "Not built" long after that landed. Caught and fixed by the 2026-09-04 gate audit — the same drift class this row itself is an instance of. |
 | Enforced (`checked_by`) | Already exists from phase 1 (8 of 52 practices carry one, naming 4 distinct scripts) | Unchanged by phase 2; phase 4 is "convert checkable practices to scripts." |
@@ -106,6 +106,54 @@ before this was built:
 
 Named plainly rather than smoothed over, per this document's own
 "measured, not assumed" standard elsewhere on this page.
+
+## Empty channels, and why the block stays silent about them
+
+Every section of the generated block is emitted only if this source fills the
+channel it describes. That was not true until 2026-09-06, and the way it broke
+is worth keeping.
+
+[`precedent-team-tms`](https://github.com/themorgan/precedent-team-tms) deleted
+its bootstrap placeholder, which left it with one resident practice and no
+on-demand ones. The block it generated still carried an occasion index —
+rendered as an empty ``` ``` box — and a standing instruction telling every
+session to consult that index and to run four `precedent_gate.py` commands.
+All four exit `FAIL` there, because no practice in that set registers a gate.
+Nothing was wrong with the practice file, the vocabulary, or the vendored
+engine's version: the three sections and the four gate names were emitted
+unconditionally, so the block described **the engine's channels rather than
+the ones the source actually fills**.
+
+The standing instruction is the one part of the block that tells a session
+what to *do*, which is what makes this more than cosmetic. A session that runs
+an advertised command and gets `FAIL` back learns that the block is
+decorative — and that lesson transfers to the parts of it that were true.
+
+What the generator does now:
+
+| If the source has… | The block gets… |
+|---|---|
+| no resident practice | no `## Resident block` heading (rather than a heading with nothing under it) |
+| no on-demand practice with an `occasion` | no `## Occasion index` (rather than an empty fenced block), and no sentence sending a session to it |
+| no on-demand practice at all | no `precedent_paths.py` sentence |
+| no practice registering a gate | no `precedent_gate.py` sentence |
+| a practice registering *some* gates | a `precedent_gate.py` sentence naming **only those gates**, in the vocabulary's own order |
+| no practices at all | one line saying so, rather than three empty headings |
+
+The gate list and the moment phrases beside it are both derived — the names
+from the practices that register them, the phrases from
+[tools/routing_scope.json](../tools/routing_scope.json)'s own descriptions.
+The sentence previously hardcoded all four moments as prose, which is exactly
+how it came to claim gates a source did not have.
+
+**This repo cannot test any of it against itself**, because its own catalogue
+fills every channel — which is why the defect survived in a vendored copy as
+long as it did. `check_loader_block_advertises_only_live_channels` in
+[tools/verify_harness.py](../tools/verify_harness.py) builds four fixture
+sources (resident-only, on-demand-only, empty, and one with a gated practice)
+and asserts both directions: an unfilled channel is never advertised, and a
+filled one always is. Each case was confirmed by reverting the fix and
+watching it fail.
 
 ## The catalogue as it stands
 
