@@ -403,6 +403,16 @@ which is the failure this repointing exists to end — write
     form: the constraint was always on committing the text, never on loading
     it. It loads but does not enforce; materializing the other sources' check
     scripts waits on the exemptions below.
+    **And `layered-practice-packs` now counts that channel (2026-09-06),**
+    which it did not at first: it reads AGENTS.md and nothing else, so the
+    practices loaded while the check still called them unreachable. Found by
+    testing the claim rather than assuming it, when a second session was
+    weighing publishing private practice text against leaving the team rules
+    unloaded — on the belief that the already-built untracked channel would
+    not satisfy this check. It is judged structurally (tool present, hook
+    invokes it, repo public), never by looking for the untracked file, which
+    is absent in CI and every fresh clone; three harness cases, with the
+    negative controls, hold both halves.
     **Blocked on:** a session that can resolve the private sources — see
     [`attach-private-sources`](TODO.md#attach-private-sources) for exactly
     what that takes. Until then the mechanism runs and correctly reports each

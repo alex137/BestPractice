@@ -800,7 +800,44 @@ def _practice_is_reachable(ctx):
     # called the practice reachable when nothing indexed it.
     named = set(re.findall(r'^\s+([a-z0-9][a-z0-9-]*) \u2014 ', instructions, re.M))
     named |= set(re.findall(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', instructions, re.M))
-    exempted, blocked_exemptions = [], []
+
+    # THE FIFTH CHANNEL, and why it is judged structurally rather than by
+    # looking for the file. In a repo declaring `visibility: public`, the
+    # tracked loader block deliberately omits the team and individual
+    # levels -- their text may not be committed -- and
+    # tools/precedent_session_practices.py renders exactly that complement
+    # into .precedent/SESSION_PRACTICES.md at session start, which
+    # AGENTS.md's standing instruction points at.
+    #
+    # Those practices ARE reachable, and this check said they were not,
+    # because _instructions_file() reads AGENTS.md and nothing else. Found
+    # 2026-09-06 by testing the claim rather than assuming it: a second
+    # session was weighing publishing private practice text against leaving
+    # 34 team rules unloaded, on the belief that the already-built untracked
+    # channel would not satisfy this check.
+    #
+    # Keyed off the MECHANISM being wired, not off the file existing: the
+    # file is untracked and regenerated per session, so it is absent in
+    # continuous integration and in every fresh clone. Testing for it would
+    # make this check report those practices unreachable in CI forever --
+    # the permanently-red-gate failure this module already refuses
+    # elsewhere. What is asserted is that the channel exists: the tool is
+    # present, the session-start hook invokes it, and the repo is public, so
+    # the tool carries exactly these levels.
+    session_channel_levels = ()
+    try:
+        import build_views as _bv
+        hook = ROOT / '.claude' / 'hooks' / 'session-start.sh'
+        wired = ((ROOT / 'tools' / 'precedent_session_practices.py').is_file()
+                 and hook.is_file()
+                 and 'precedent_session_practices' in hook.read_text(
+                     encoding='utf-8', errors='ignore'))
+        if wired and _bv.repo_is_public(ROOT):
+            session_channel_levels = _bv.PRIVATE_LEVELS
+    except Exception:                                        # noqa: BLE001
+        session_channel_levels = ()
+
+    exempted, blocked_exemptions, via_session = [], [], []
     for slug, (fm, s) in sorted(in_force.items()):
         if slug in not_binding:
             # `severity: blocking` may not be exempted -- the same rule the
@@ -814,6 +851,9 @@ def _practice_is_reachable(ctx):
             continue
         if slug in named:
             continue                       # resident block or occasion index
+        if s['level'] in session_channel_levels:
+            via_session.append(slug)       # .precedent/SESSION_PRACTICES.md
+            continue
         if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
             continue                       # fires at a named moment
         cb = (fm.get('checked_by') or 'null').strip('" ')
@@ -870,6 +910,11 @@ def _practice_is_reachable(ctx):
             f'-- a blocking practice is exactly the one a downstream repo may '
             f'not switch off. Remove the exemption, or take the matter up '
             f'with the source that set the severity.'))
+    if via_session:
+        print(f'  ({len(via_session)} practice(s) reach this session through '
+              f'.precedent/SESSION_PRACTICES.md, which carries the levels a '
+              f'public repo\'s tracked loader block may not: '
+              f'{", ".join(sorted(via_session))})')
     if exempted:
         print(f'  ({len(exempted)} practice(s) declared not-binding here, with '
               f'reasons, in precedent.json: {", ".join(sorted(exempted))})')

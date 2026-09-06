@@ -2906,6 +2906,60 @@ def check_session_practices_load_without_publishing():
                   '(team)' not in block_text.split('END GENERATED')[0]
                   and '(individual)' not in block_text.split('END GENERATED')[0]))
 
+    # AND THE REACHABILITY CHECK MUST KNOW IT. Loading them is half the job:
+    # if `layered-practice-packs` still reports them unreachable, the gap
+    # reads as open, and the next session weighs publishing private text or
+    # leaving the rules unloaded against a channel that already exists.
+    # Found 2026-09-06 exactly that way -- by testing the claim, not
+    # assuming it.
+    import tempfile as _tf, shutil as _sh, json as _js
+    import precedent_check as _pc
+    fx = pathlib.Path(_tf.mkdtemp(prefix='precedent-fifth-'))
+    try:
+        repo = fx / 'repo'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'tools').mkdir(parents=True)
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        tsrc = fx / 'team' / 'practices'
+        tsrc.mkdir(parents=True)
+        base = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
+        x = re.sub(r'^slug:(\s+)\S+$', r'slug:\g<1>team-unreachable', base, count=1, flags=re.M)
+        x = re.sub(r'^gates:.*$', 'gates:       []', x, count=1, flags=re.M)
+        x = re.sub(r'^checked_by:.*$', 'checked_by:  null', x, count=1, flags=re.M)
+        (tsrc / 'team-unreachable.md').write_text(x, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('# nothing names it\n', encoding='utf-8')
+        (repo / 'precedent.json').write_text(_js.dumps({
+            'format_version': 1, 'visibility': 'public',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
+                        {'level': 'team', 'name': 'precedent-team-maintainers',
+                         'path': str(fx / 'team')}]}), encoding='utf-8')
+        _sh.copy(ROOT / 'tools' / 'precedent_session_practices.py', repo / 'tools')
+        hook = repo / '.claude' / 'hooks' / 'session-start.sh'
+
+        def findings():
+            saved = _pc.ROOT
+            _pc.ROOT = repo
+            try:
+                return len(_pc._practice_is_reachable(None) or [])
+            finally:
+                _pc.ROOT = saved
+
+        hook.write_text('#!/bin/bash\n# no loader here\n', encoding='utf-8')
+        cases.append(('with the session channel NOT wired, a private-level '
+                      'practice is still reported unreachable -- the channel is '
+                      'never assumed', findings() == 1))
+        hook.write_text('#!/bin/bash\npython3 tools/precedent_session_practices.py\n',
+                        encoding='utf-8')
+        cases.append(('...and once the hook invokes it, the same practice counts '
+                      'as reachable, so the gap stops reading as open',
+                      findings() == 0))
+        (repo / 'tools' / 'precedent_session_practices.py').unlink()
+        cases.append(('...and removing the tool reopens it, even with the hook '
+                      'still calling it -- both halves are required',
+                      findings() == 1))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+
     bad = [n for n, ok in cases if not ok]
     check(f'the team and individual practices reach a session without reaching a '
           f'commit ({len(cases)} stated cases)', not bad, '; '.join(bad))
