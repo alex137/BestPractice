@@ -9,7 +9,8 @@
 > has not reached; it is rewritten in place as later phases land rather than
 > kept as a second, drifting copy.
 
-**New here?** Start with [What Is This](documentation/WHAT_IS_THIS.md) for
+**New here?** Start with [What this is (and why explore using
+Precedent)](documentation/WHAT_IS_THIS_AND_BENEFITS.md) for
 the pitch, then jump to the how-to guide for your situation:
 [technical](documentation/HOW_TO_USE_THIS_TECHNICAL.md) or
 [non-technical](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md).

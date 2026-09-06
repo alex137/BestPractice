@@ -10,7 +10,7 @@ with it looks like once it's installed, see
 if you're technical, or
 [documentation/HOW_TO_USE_THIS_NONTECHNICAL.md](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md)
 if you're not — and
-[documentation/WHAT_IS_THIS.md](documentation/WHAT_IS_THIS.md) if you
+[documentation/WHAT_IS_THIS_AND_BENEFITS.md](documentation/WHAT_IS_THIS_AND_BENEFITS.md) if you
 haven't decided to adopt it yet.
 
 You don't need to run the technical steps yourself to follow, or approve,
