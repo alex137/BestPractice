@@ -158,6 +158,7 @@ change SOURCE_BRANCH to 'main' in this one place, in the same PR.
 """
 import hashlib
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -244,6 +245,7 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
 KINDS = {'source': ENGINE_FILES, 'consumer': CONSUMER_ENGINE_FILES}
 DEFAULT_KIND = 'source'  # unchanged default -- see seed()'s docstring note
 MANIFEST_NAME = 'ENGINE_MANIFEST.json'
+_SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 
 
 def _sha256(path):
@@ -619,11 +621,35 @@ def refresh(clone, force=False, ref=None):
                   f"@ {new_commit[:12]} -- nothing to do.")
             return 0
 
+        self_before = _sha256(HERE) if HERE.is_file() else None
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
           f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {manifest.get('source_commit', '?')[:12]})")
+
+    # THE SECOND PASS, and why it is not optional. The file list for a kind
+    # lives in THIS module, and a refresh runs the copy that is already
+    # vendored -- the stale one. So the run that first brings a newly added
+    # engine file's name into the repo is also the run that cannot copy it:
+    # it works from the old list, writes the new tool, and stops one file
+    # short, silently. Seen twice in one day (2026-09-06): `kind` stayed
+    # absent from three sets' manifests for a whole cycle, and
+    # build_codeowners.py reached none of them. Re-running once, with the
+    # just-written tool, closes it. Guarded by an environment variable so
+    # the second pass cannot start a third.
+    if (self_before is not None and _sha256(HERE) != self_before
+            and not os.environ.get(_SECOND_PASS_ENV)):
+        print("precedent_vendor_engine refresh: this refresh replaced the "
+              "vendoring tool itself, so its own file list may have changed "
+              "-- running once more with the new copy.")
+        r = subprocess.run(
+            [sys.executable, str(HERE), 'refresh', str(clone), '--force']
+            + (['--from-ref', ref] if ref else []),
+            env={**os.environ, _SECOND_PASS_ENV: '1'})
+        if r.returncode != 0:
+            return r.returncode
+
     print("next: review the diff, run this repo's own light check, then commit.")
     return 0
 
