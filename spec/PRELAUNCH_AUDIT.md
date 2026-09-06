@@ -735,3 +735,76 @@ at itself — which is what made the table above measurable.
 negative controls. That matters more than the fix: these scripts are written by
 copying the last one, so a property nothing checks propagates by copy — which
 is precisely how one bad line reached fourteen files.
+
+## The judgment-only sweep, round two
+
+Continuing [TODO.md's `sweep-judgment-only-practices` item](../TODO.md#sweep-judgment-only-practices).
+Nineteen of the fifty-one judgment-only practices have now been judged with
+the closed question [practices/full-practice-audit.md](../practices/full-practice-audit.md)
+names — *does this apply; if so, is it satisfied, with the specific file* —
+against the actual state of all six repos.
+
+### Violations found and fixed
+
+- **`automation-issues`** — `workingwithai`'s `voice-guidelines-sync.yml` is a
+  scheduled unattended job with two blockers (a missing private-source token,
+  a missing Claude credential) and reported both on a CI annotation only.
+  Its sibling `bestpractice-upstream-sync.yml` has opened a tracked issue for
+  the same class of blocker since it was written; this workflow was created by
+  copying that one and the issue-reporting half was not carried across. Both
+  blockers now open or update an issue. **Nobody reads the Actions tab of a
+  job that is supposed to be quiet** — which is exactly the job whose silence
+  means something is wrong.
+- **`match-parsed-id-not-prefix`** — `verify_harness.py`'s own fixture helper
+  located candidate files with `glob(f'{slug}-*.md')`: the exact
+  prefix-matching bug this practice exists to stop, sitting inside the helper
+  that builds that practice's own regression case. The call site there had
+  been hand-narrowed to `'-2*.md'` to work around it, which is the workaround
+  that names the defect. It matches on each file's parsed slug now — **and the
+  case's two fixtures were reordered**, because a control run showed the old
+  prefix glob still passed: created short-then-long it returns the right file
+  by luck. Long-then-short, reverting the helper fails. The case existed and
+  proved nothing until this pass.
+
+### Clean, or not applicable, with the reason
+
+| Practice | Verdict |
+|---|---|
+| `bestpractice-sync` | Satisfied where it applies — both vendoring consumers run a scheduled sync workflow. Not applicable in Precedent's own repo, which vendors nothing. |
+| `pack-sync` | Not applicable. Both consumers resolve the team source as a **live sibling clone**, never vendored, so there is no vendored copy to drift. |
+| `drift-notice` | Satisfied — both consumers' `tools/bootstrap.sh` compares each vendored source's recorded commit against its head at session start. |
+| `fresh-check-escalation` | Satisfied — `checkin.py` prints a distinct `COULD NOT VERIFY` line for a clean failure rather than folding it into silence. |
+| `brainstorm-citations` | Not applicable — no brainstorm document in any of these repos. |
+| `content-directory`, `content-subdirs` | Not applicable. Both defer explicitly to a repo's established layout, and this one has `spec/`, `tools/`, `practices/`, `templates/`. |
+| `doc-recipe` | Not applicable — no recipe documents. |
+| `no-duplication` | Clean. No slug appears at two levels; the one cross-level relationship (`rule-links` over `doc-references-are-links`) is a declared `overrides:`, which the practice permits by name. |
+| `branch-links`, `rule-links`, `blank-blocklist`, `install`, `quiet-checks`, `registry-source-of-truth` | Judged clean in round one. |
+
+**Roughly thirty-two remain**, mostly moment-of-work practices with no
+standing repo state to sweep and editorial ones that need a reader rather
+than a script.
+
+### Two defects this round found that no practice pointed at
+
+Both surfaced from *doing* the sweep rather than from any rule in it, which is
+the argument for the sweep being a read of real state rather than a checklist.
+
+- **`checkin.py update <clone>` checked out and pulled inside the clone it was
+  handed.** Run from a consumer, it moved this session's Precedent checkout
+  off `precedent-beta-v01` onto `main`, mid-session, after its own guard had
+  already refused the operation. Fixed to read the source ref with `git
+  archive` — the guarantee `precedent_vendor_engine.py` already made
+  explicitly — and to mirror the branch the consumer's manifest records
+  instead of the clone's configured default, which would have reverted a
+  beta-vendored tree to `main` wholesale. Both are harness cases now, with
+  negative controls; the incident is in [AGENTS.md](../AGENTS.md)'s gotchas,
+  because the symptom (files vanishing from a tree you were just working in)
+  reads exactly like someone else deleting real work.
+- **An engine refresh could move past the catalogue it runs against, silently.**
+  `refresh` updates the engine only, by design. The cost was a skew nobody was
+  told about: engine code citing a practice slug the vendored catalogue
+  predates, surfacing later as a check calling a real practice "not a real
+  practice" in vendored code the consumer may not edit. `refresh` now reports
+  it — on the already-current path too, which is the case that matters most,
+  since "nothing to do" is what a session would otherwise read as "both halves
+  current."

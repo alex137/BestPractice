@@ -315,9 +315,14 @@ which is the failure this repointing exists to end — write
     sweep, partially done"): `fail-gracefully` produced seven real fixes and
     `durable-list-anchors` one; `branch-links`, `rule-links`,
     `blank-blocklist`, `install`, `quiet-checks` and
-    `registry-source-of-truth` came back clean. **Roughly 45 remain** —
-    mostly moment-of-work practices with no standing repo state to sweep,
-    and editorial ones that need a reader rather than a script. **Blocked
+    `registry-source-of-truth` came back clean. **Round two, same day**
+    (see that document's "The judgment-only sweep, round two"): nineteen of
+    fifty-one now judged; `automation-issues` and
+    `match-parsed-id-not-prefix` were both violated and are fixed, and eight
+    more came back clean or not-applicable with the reason recorded.
+    **Roughly thirty-two remain** — mostly moment-of-work practices with no
+    standing repo state to sweep, and editorial ones that need a reader
+    rather than a script. **Blocked
     on:** nothing but session budget — take them one
     at a time, with the closed question
     [practices/full-practice-audit.md](practices/full-practice-audit.md)
