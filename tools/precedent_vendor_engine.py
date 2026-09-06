@@ -668,7 +668,7 @@ def refresh(clone, force=False, ref=None):
             # are current. Missed on the first version of this notice, which
             # only reported after a write -- so the second pass of a
             # self-replacing refresh, and every later re-run, stayed silent.
-            _warn_catalogue_skew(ROOT, new_commit)
+            _warn_catalogue_skew(ROOT, new_commit)  # ROOT, not `dest` -- see below
             return 0
 
         self_before = _sha256(HERE) if HERE.is_file() else None
@@ -677,6 +677,13 @@ def refresh(clone, force=False, ref=None):
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
           f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {manifest.get('source_commit', '?')[:12]})")
+    # ROOT, not `dest`: refresh()'s local for the repo being refreshed is
+    # `dest_tools` (ROOT / 'tools'), and there has never been a `dest` here.
+    # Landed 2026-09-06 as a NameError that crashed EVERY refresh, after the
+    # files were already written and "refresh OK" already printed -- so the
+    # run looked half-successful and its exit code was the only tell. Fixed
+    # concurrently and identically by two sessions; the harness case for the
+    # already-current branch came from this one.
     _warn_catalogue_skew(ROOT, new_commit)
 
     # THE SECOND PASS, and why it is not optional. The file list for a kind

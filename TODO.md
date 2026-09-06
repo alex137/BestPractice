@@ -428,18 +428,13 @@ which is the failure this repointing exists to end — write
     that can reach the individual repo, since the instantiated hook names
     it and an untested session-start hook must not be committed blind.
 
-28. **A missing individual source is silent; a missing team source is
-    loud.** In `load_config`, a team source that fails to resolve is
-    reported through `missing` and printed. An individual source whose
-    user-level config is absent is simply never appended to `sources` —
-    no `missing` entry, no warning. The module docstring names exactly
-    this ambiguity ("config absent" ≠ "no individual set") and
-    `_self_heal_individual_source` addresses only the fresh-session-hook
-    half of it. After the self-heal has been tried and the config is
-    still absent, the resolver should say so, the way it does for a team
-    source. **Blocked on:** nothing — this is a small change to
-    `tools/precedent_resolve.py` plus a harness case. Not done here only
-    because it is a separate defect from the work in this thread.
+28. **Done 2026-09-06 — a missing individual source is no longer silent.**
+    Kept as a stub rather than deleted, so item 29 does not shift under
+    anyone who cited it. `tools/precedent_resolve.py` now diagnoses the
+    four states an unresolved individual source can be in and reports the
+    two that are genuinely *unknown* rather than *none*, on stderr and as
+    `individual_status` in `--json`;
+    [spec/SOURCES.md](spec/SOURCES.md) carries the row.
 
 29. **Audit the RepoPersonalPreferences migration for anything else lost.**
     RPP's 46 rules were split into the two private sets on 2026-09-01
