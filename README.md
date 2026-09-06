@@ -61,6 +61,8 @@ document can't:
 - **Authors keep the credit**, with the AI as co-author.
 - **Every session starts caught up**, summarizing what changed since that
   member last worked.
+- **Tracks who made what decision, why, and what incident sparked it** —
+  for every decision.
 
 Say *"what's waiting for me?"* and your assistant merges on your word.
 
