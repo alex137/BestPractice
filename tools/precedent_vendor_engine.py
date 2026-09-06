@@ -717,7 +717,34 @@ def refresh(clone, force=False, ref=None):
         # hadn't moved, because this short-circuit ran before --force ever got a
         # chance to matter. --force exists specifically to repair a hand-edited
         # file; "the upstream commit is unchanged" must not override that.
-        if new_commit == manifest.get('source_commit') and not force:
+        # An equal commit is not enough to call this current: the vendored
+        # FILE SET has to match this kind's list too. Without that second
+        # half, a repo whose engine predates a newly-added engine file could
+        # never acquire it -- and would be told it was current forever.
+        #
+        # THE TRAP, reproduced end to end 2026-09-06 across all three of this
+        # account's practice sets. `refresh` runs the VENDOREE's own copy of
+        # this tool, which carries the file list it was vendored with. A
+        # first run therefore writes the OLD set, replaces this file with the
+        # new one, and stamps the NEW commit into the manifest. A second run
+        # -- now executing the newer tool, which does know about the added
+        # file -- hit this short-circuit on the matching commit and reported
+        # "nothing to do", so the file never arrived and the manifest
+        # asserted current the whole time. build_codeowners.py joined the
+        # engine on 2026-09-06 for a stated reason (a team set with declared
+        # approvers and no way to enforce them); none of the three sets ever
+        # received it, and someone hand-copied it into one of them, which is
+        # what broke that repo's build_views.py. The hand-copy was a symptom.
+        # Refresh still takes two passes when the tool must replace itself
+        # first -- that is inherent to a self-updating tool -- but the second
+        # pass now converges instead of lying.
+        wanted_set = set(KINDS[kind]) | {'routing_scope.json'}
+        set_incomplete = sorted(
+            n for n in wanted_set
+            if n not in set(manifest.get('files', []))
+            or not (dest_tools / n).is_file())
+        if new_commit == manifest.get('source_commit') and not force \
+                and not set_incomplete:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
             # Reported here too, and this is the case that matters MOST: a
@@ -728,6 +755,12 @@ def refresh(clone, force=False, ref=None):
             # self-replacing refresh, and every later re-run, stayed silent.
             _warn_catalogue_skew(ROOT, new_commit)  # ROOT, not `dest` -- see below
             return 0
+
+        if set_incomplete and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but this "
+                  f"repo's vendored engine is missing {len(set_incomplete)} "
+                  f"file(s) this kind now includes "
+                  f"({', '.join(set_incomplete)}) -- refreshing anyway.")
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
