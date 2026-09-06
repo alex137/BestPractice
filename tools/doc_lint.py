@@ -72,7 +72,33 @@ def _git(args, cwd=None):
 ROOT = pathlib.Path(_git(['rev-parse', '--show-toplevel'], cwd=pathlib.Path(__file__).resolve().parent)
                     or pathlib.Path(__file__).resolve().parents[2])
 
+
+def _declared_base_branch(root):
+    """The branch this repo's work is measured against, as DECLARED in
+    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
+
+    Those are two different questions with usually the same answer, which is
+    why asking the wrong one survives so long. `origin/HEAD` answers "what
+    does GitHub show first"; callers here mean "what lineage does this work
+    belong to". They diverge the moment a repo pins its work to a branch
+    that is not the configured default -- BestPractice's own
+    `precedent-beta-v01` -- and then every inference is quietly wrong with
+    nothing failing. Returns None when undeclared or unreadable, so callers
+    fall back to the old inference rather than breaking (fail-gracefully).
+    Enforced by precedent_check.py's `declared-base-branch`.
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
 def default_branch():
+    declared = _declared_base_branch(ROOT)
+    if declared:
+        return declared
     head = _git(['symbolic-ref', 'refs/remotes/origin/HEAD'], cwd=ROOT)
     if head:
         return head.rsplit('/', 1)[-1]
@@ -763,6 +789,35 @@ def check_findability(docs):
     return out
 
 
+# A consuming repo mirrors this whole upstream tree at process/upstream/, and
+# every file in it belongs to upstream: the consumer may not edit it (the
+# mirror overwrites any change) and cannot fix what is wrong there. So a
+# finding inside it is real information and must never be the thing that
+# fails the consumer's own gate.
+#
+# 2026-09-06, exactly this: an engine refresh shipped the new skipped-heading
+# check into two consumers whose vendored copy of upstream's own AGENTS.md
+# still had the h1 -> h3 that upstream had already fixed five commits
+# earlier. Both repos' doc_lint went red on a heading in a file they are
+# forbidden to touch, with no action available except waiting for a catalogue
+# mirror that is deliberately on hold. Reported loudly, counted separately,
+# never fatal -- practice fail-gracefully: keep going, and tell the person.
+VENDORED_PREFIXES = ('process/upstream/',)
+
+
+def _is_vendored(rel):
+    return str(rel).startswith(VENDORED_PREFIXES)
+
+
+def _split_vendored(lines):
+    """-> (ours, theirs). A finding line starts '  <path>:<line>: ...'."""
+    ours, theirs = [], []
+    for line in lines:
+        (theirs if _is_vendored(line.strip().split(':', 1)[0]) else ours
+         ).append(line)
+    return ours, theirs
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
     flags = {a for a in sys.argv[1:] if a.startswith('-')}
@@ -926,8 +981,33 @@ def main():
     # heading levels fail too: the whole tracked tree had exactly one when the
     # check was written (in generated output, since fixed), so there is no
     # legacy backlog to grandfather and nothing to soften this to a warning.
-    if gate and (strike_lines or unsourced_lines or findability or residue_lines
-                 or broken_link_lines or skip_lines):
+    #
+    # Findings inside the vendored upstream tree are split out here rather
+    # than filtered at the scan: the consumer still SEES them (they are
+    # printed above, in full) and can report them upstream, but they cannot
+    # fail a gate in the one repo that has no way to act on them. See
+    # VENDORED_PREFIXES for the incident.
+    fatal = []
+    # EVERY fail-class group, listed exhaustively. The first version of this
+    # loop omitted skip_lines, which silently disarmed the skipped-heading
+    # check for the repo's own content too -- the finding still printed
+    # "FAIL" and the run still exited 0. Caught by the negative control that
+    # plants a real heading skip here; without that control it would have
+    # shipped as a passing gate that checks nothing.
+    for group in (strike_lines, unsourced_lines, residue_lines,
+                  broken_link_lines, skip_lines):
+        ours, theirs = _split_vendored(group)
+        fatal.extend(ours)
+        if theirs:
+            print(f"\n  NOTE: {len(theirs)} further finding(s) of this kind "
+                  f"are inside the vendored upstream tree "
+                  f"({', '.join(VENDORED_PREFIXES)}). They are upstream's to "
+                  f"fix and this repo may not edit them, so they do not fail "
+                  f"this gate -- report them upstream if they look real:")
+            print('\n'.join(theirs[:10]))
+            if len(theirs) > 10:
+                print(f"  … and {len(theirs) - 10} more")
+    if gate and (fatal or findability):
         return 1
     return 0
 

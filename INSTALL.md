@@ -749,7 +749,7 @@ open for the same round, merge the upstream check-in PR **first**, take
 any drift, record, and only then land the dependent PR — the reverse
 order records a hash the vendored tree doesn't match.
 
-## 5. the Manifest Schema (`Process/manifest.json`)
+## 5. The Manifest Schema (`process/manifest.json`)
 
 > **In plain terms.** The manifest is a receipt — a list of exactly what
 > was installed, where each piece landed in your project, and whether
@@ -810,7 +810,7 @@ order records a hash the vendored tree doesn't match.
   (local improvement pending export) · `local-only` (deliberately not
   exported; say why in `notes`).
 
-## 6. the Audit (`Tools/practice_audit.py`)
+## 6. The Audit (`tools/practice_audit.py`)
 
 > **In plain terms.** This is the automatic check that runs before
 > almost every step above. It looks for two things: private words that

@@ -2,7 +2,7 @@
 
 Precedent uses repository checks for rules that should not depend on a particular person or AI assistant remembering to run them.
 
-This is especially important when working through GitHub-connected ChatGPT. A normal ChatGPT conversation can read and update repository files, but it does not receive a local checkout or an interactive shell. GitHub Actions supplies the missing execution environment: ChatGPT prepares a branch, GitHub runs the checks, and the result appears on the pull request.
+This is especially important when working through GitHub-connected ChatGPT. A normal ChatGPT conversation can read and update repository files, but it does not receive a local checkout or an interactive shell *(as of 2026-08 — [MOBILE.md](MOBILE.md) tracks this capability and is the place to re-date it)*. GitHub Actions supplies the missing execution environment: ChatGPT prepares a branch, GitHub runs the checks, and the result appears on the pull request.
 
 ## Precedent's Own Workflows (This Repo, Not a Template)
 
@@ -122,7 +122,7 @@ Treat the workflow as an installed Precedent artifact. A typical manifest entry 
 
 ## Limits
 
-GitHub Actions closes the test-execution gap, but it does not make ordinary ChatGPT identical to a coding-agent workspace. ChatGPT still needs the session bootstrap described in the main README so it reads `AGENTS.md`, `MAP.md`, and the task-relevant instructions before working.
+GitHub Actions closes the test-execution gap, but it does not make ordinary ChatGPT identical to a coding-agent workspace *(as of 2026-08)*. ChatGPT still needs the session bootstrap described in the main README so it reads `AGENTS.md`, `MAP.md`, and the task-relevant instructions before working.
 
 The useful division of responsibility is:
 

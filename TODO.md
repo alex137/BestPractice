@@ -322,7 +322,15 @@ which is the failure this repointing exists to end — write
     more came back clean or not-applicable with the reason recorded.
     **Roughly thirty-two remain** — mostly moment-of-work practices with no
     standing repo state to sweep, and editorial ones that need a reader
-    rather than a script. **Blocked
+    rather than a script. **Round three, same day: the sweep is COMPLETE** —
+    all 51 judged (see that document's "The judgment-only sweep, round
+    three"). Four more violations fixed (`lead-with-what-it-is`,
+    `bold-key-phrases`, `volatile-rules-carry-dates`, and
+    `resolved-issue-note-updates`, that last one violated by the sweeping
+    session itself), and the remaining 28 came back clean or not-applicable
+    with the reason recorded so no later session re-derives them. The sweep
+    also turned up a defect no practice pointed at: `tools/title_case.py`
+    was corrupting inline code spans in committed headings. **Blocked
     on:** nothing but session budget — take them one
     at a time, with the closed question
     [practices/full-practice-audit.md](practices/full-practice-audit.md)
@@ -363,38 +371,32 @@ which is the failure this repointing exists to end — write
     is visible instead of silent. Two findings it surfaced are item 30
     below and the `code-cites-practice` fix that landed with this entry.
 
-25. <a id="unreachable-practices"></a>**Decide what happens to a practice that
-    is in force but does not bind the repo it reached.** Measured 2026-09-06:
-    of the 114 practices in force in this repo, **43 are reachable by no
-    loading channel at all** — not resident, not in the occasion index, no
-    gate, no runnable check. `layered-practice-packs`' new check in
-    [tools/precedent_check.py](tools/precedent_check.py) reports them on every
-    run, advisory, and
-    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md)'s "Rules in force that
-    nothing can load" has the measurement and the evidence. The reason it is
-    advisory rather than blocking is the finding itself: running all fifteen
-    source-supplied checks against this tree shows the answer is not "turn
-    them all on" — five pass, four report real findings worth fixing, and
-    **six report things this repo cannot act on because the practice is about
-    a different kind of repository** (a repo one person authors alone, or the
-    team set's own shipped content; `session-trailer` wants a trailer on every
-    commit in a history [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)
-    forbids rewriting). The system has no vocabulary for "in force at this
-    level, does not bind this repo," so silence is doing that job — which is
-    why a forgotten rule and a deliberately-inapplicable one look identical.
-    **Blocked on:** a design decision that is Morgan's, not a session's. Three
-    shapes to choose between: a per-practice `binds:` / `not_in_repos:` field
-    the resolver honors; a per-repo opt-out list in `precedent.json`; or
-    making this repo's generated views multi-source so the 34 team practices
-    load here and the misfits get retired or moved instead. Whichever is
-    picked, the advisory check is already the thing that will say when it is
-    done. A worked example of the cost, 2026-09-06: Morgan asked why
-    `documentation/` was not following a headline-capitalization rule he
-    believed existed. It may well exist in a private set; it could not
-    have fired either way, because this repo's generated views are
-    universal-only. The rule was landed at the universal level instead
-    ([practices/headline-capitalization.md](practices/headline-capitalization.md)),
-    which sidesteps the question for one rule without answering it.
+25. <a id="unreachable-practices"></a>**Populate `not_binding` for the practices in force here that do not
+    bind this repo.** **The design decision is made and the mechanism is
+    built (2026-09-06** —
+    [decisions/2026-09-06-precedent-binds-itself.md](decisions/2026-09-06-precedent-binds-itself.md)**).**
+    `precedent.json` now takes `not_binding: [{slug, reason}]`, honored by
+    `layered-practice-packs`' check: a reason is mandatory, a
+    `severity: blocking` practice cannot be exempted, a stale entry is
+    reported, and a malformed list fails loudly — all four asserted with
+    negative controls in `check_not_binding_cannot_be_abused`.
+    Shape 1 (a per-practice field) was rejected because whether a rule binds
+    is a property of the pair, not the rule; shape 3 (multi-source generated
+    views here) was rejected for this repo because it would publish private
+    team practice text into a public [AGENTS.md](AGENTS.md), and because its
+    own "the misfits get retired or moved" framing would repeat the
+    `deep-check` error of dropping a valid rule that simply does not apply
+    here.
+    **What is left is a measurement, not a decision:** of the 43 practices
+    reachable by nothing, the audit's table says roughly five should be wired
+    in as-is, four wired in and then fixed, and six declared not-binding —
+    but that table predates Morgan's 2026-09-06 ruling that `deep-check` is
+    NOT redundant, so it must be re-judged rather than copied. Writing
+    exemptions for practices whose text and severity cannot be read would be
+    asserting what cannot be verified.
+    **Blocked on:** a session that can resolve the private sources — see
+    [`attach-private-sources`](TODO.md#attach-private-sources) for exactly
+    what that takes.
 
 26. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
     holding all four repositories searched by purpose and by mechanism
@@ -539,6 +541,26 @@ which is the failure this repointing exists to end — write
     move. This is the incident that motivated
     [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md).
 
+34. <a id="attach-private-sources"></a>**Run one session rooted at each private set — this unblocks four other
+    items at once.** Established 2026-09-06 by trying it, rather than
+    assumed: all three private repos (`themorgan/precedent-team-maintainers`,
+    `themorgan/precedent-team-tms`, `themorgan/precedent-individual`) are
+    **reachable and pushable** by this account. The blocker is not access. It
+    is that `add_repo` refuses a cross-owner add — a session already holding
+    `alex137/*` cannot attach a `themorgan/*` repo ("cross-tier adds are not
+    supported in v1"). So the unblock is simply **a session whose initial
+    source is the private repo**. BestPractice itself is public, so that
+    session can `git clone https://github.com/alex137/BestPractice` directly;
+    no second `add_repo` is needed. In each such session:
+    `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`,
+    then `python3 tools/precedent_migrate_status.py --repo . --against ..`,
+    then `python3 tools/build_codeowners.py`, committed.
+    Unblocks [`convert-team-set-retired-statuses`](TODO.md#convert-team-set-retired-statuses),
+    [`build-codeowners-check-flag`](TODO.md#build-codeowners-check-flag)'s
+    rollout, [`unreachable-practices`](TODO.md#unreachable-practices)'s
+    measurement, and configuring the leak gate's vocabulary blocklist (which
+    belongs in `precedent-individual`).
+
 34. <a id="convert-team-set-retired-statuses"></a>**Convert
     `precedent-team-maintainers`' two `status: retired` practices to
     `status: deduplicated`.** `bestpractice-sync` (rule in force at
@@ -546,24 +568,45 @@ which is the failure this repointing exists to end — write
     deduplications recorded under the old vocabulary, and neither can meet
     retirement's evidence bar (`in_force_at: none` plus a Story line saying
     nobody wants the rule anywhere) because both rules are fully in force.
-    **This is time-sensitive in a way the other items are not:**
-    `verify_harness.py`'s new `check_status_contract` refuses them, so that
-    set goes red on its next vendored-engine refresh. Set
-    `status: deduplicated` and `in_force_at:` to the surviving slug in each.
+
+    **Correction, same day:** an earlier draft of this item said the set
+    would "go red on its next vendored-engine refresh." That was wrong, and
+    wrong in the direction that matters — `verify_harness.py` is **not** in
+    [`ENGINE_FILES`](tools/precedent_vendor_engine.py), so
+    `check_status_contract` never runs in a practice set at all. The set
+    does not go red; it goes **silent**, which is worse. The new engine
+    simply starts treating those two records as not in force — correct
+    either way — with nothing to say the vocabulary underneath them changed.
+
+    The migration is now mechanical:
+    [`tools/precedent_migrate_status.py`](tools/precedent_migrate_status.py)
+    (vendored, so it runs inside the set) reports both, auto-proposes
+    `bestpractice-sync` (same slug, active in `precedent-individual`), and
+    leaves `header-caps` UNDETERMINED because its successor is renamed —
+    `--set header-caps=headline-capitalization`. Run it report-only first.
     **Blocked on:** a session holding `themorgan/precedent-team-maintainers`.
 
-35. <a id="build-codeowners-check-flag"></a>**`build_codeowners.py --check` is not a check — it takes no such flag
-    and writes anyway.** The flag falls through `main()`, which
-    unconditionally rewrites `CODEOWNERS`. Worse, the generated header
-    stamps the current `HEAD` sha (`_source_sha()`) rather than a hash of
-    `approvers.json`'s own content, so regenerating produces a diff after
-    *every* commit whether or not approvers changed — a caller trying to
-    verify CODEOWNERS is current instead dirties the tree. This was a
-    private team-set tool until 2026-09-06 and is now part of the vendored
-    engine, so every source the bootstrap creates inherits it. Fix: a real
-    `--check` that compares and exits non-zero without writing, and stamp
-    from `approvers.json`'s content hash so an unchanged approver list
-    regenerates byte-identically.
+35. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
+    and writes anyway.**~~ **Done 2026-09-06.** Both defects fixed in
+    [tools/build_codeowners.py](tools/build_codeowners.py): a real `--check`
+    that compares and exits non-zero without writing (and an unknown flag is
+    now refused rather than falling through to the destructive path — that
+    fall-through was the bug, and doing the destructive thing on a typo is
+    how it stayed hidden), and the derived-file header now stamps a sha256 of
+    `approvers.json`'s own content instead of `git rev-parse HEAD`, so an
+    unchanged approver list regenerates byte-identically. Harness-tested with
+    10 stated cases, including negative controls, in
+    `check_codeowners_check_is_a_check`. BestPractice has no `approvers.json`
+    of its own, so the fixture supplies one — that absence is exactly why
+    this went unnoticed while the tool was private to one team set.
+    **Cross-source consequence, not yet rolled out
+    ([cross-source-rollout](practices/cross-source-rollout.md)):** the header
+    format changed, so the first regeneration in each team set produces a
+    one-time diff. Expected and correct — after it, `--check` is stable.
+    **Blocked on:** `themorgan/precedent-team-maintainers` and
+    `themorgan/precedent-team-tms` not attached this session. Each needs
+    `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`
+    then `python3 tools/build_codeowners.py`, committed.
 
 36. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
     None of the three private sets has a `precedent.json`, so each set's
@@ -577,3 +620,29 @@ which is the failure this repointing exists to end — write
     source repo eating its own cooking changes what binds a contributor to
     that set, so it needs Morgan's call before any work starts.
 
+37. <a id="relax-the-pinned-branch-hold"></a>**Relax the pinned-branch hold
+    once the fix has run through real sync cycles.**
+    [tools/checkin.py](tools/checkin.py)'s four commands — `fresh`,
+    `update`, `record`, `push` — now read `upstream.branch` from a consuming
+    repo's own `process/manifest.json` instead of resolving the remote's
+    default branch, and `record` no longer checks the source clone out from
+    under its caller. Seven cases in
+    [tools/verify_harness.py](tools/verify_harness.py) assert both
+    properties with negative controls. That closes the defect
+    [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+    "The default-branch gotcha" was written around, and
+    `_warn_catalogue_skew`'s docstring in
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    names the same fix. **Both still tell people to mirror by hand and to
+    keep the scheduled sync paused, deliberately** — Morgan's call
+    2026-09-06, on the asymmetry: what those documents guard against is an
+    *unattended* job overwriting a vendored tree, so relaxing them too early
+    costs a silent overnight wipe of a repo's practices while staying
+    cautious costs a stale paragraph. **Blocked on:** the fix surviving real
+    sync cycles rather than only its own tests, and then Morgan saying so.
+    What it needs then, in one change: put `checkin.py update` back as the
+    remedy `_warn_catalogue_skew` names, drop the hold paragraph from the
+    migration document, and un-pause the `schedule:` block in each
+    consumer's `bestpractice-upstream-sync.yml` — never one of the three
+    without the others, since a half-relaxed hold is what makes an
+    unattended job run against advice nobody re-read.

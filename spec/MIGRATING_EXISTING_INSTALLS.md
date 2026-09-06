@@ -48,10 +48,12 @@ the loader.
    `checkin.py update` / `record`, three-way-merged per manifest entry. If
    — as `WorkingWithAI` deliberately did, to beta-test this exact pattern —
    the repo is pinning a **named non-default branch** ahead of its merge,
-   read "The default-branch gotcha" below first: `checkin.py`'s automated
-   commands cannot track a named branch, so this step becomes a one-off
-   manual mirror instead, and the scheduled sync workflow must be paused
-   for the duration.
+   read "The default-branch gotcha" below first: this step is a one-off
+   manual mirror instead, and the scheduled sync workflow stays paused for
+   the duration. `checkin.py`'s commands *can* track a named branch as of
+   2026-09-06 — they read `upstream.branch` from the manifest now — but the
+   manual procedure is held in place deliberately while that fix settles,
+   for the reason that section gives.
 
 2. **Confirm the second tree's source has actually split**, and where each
    half landed, before touching anything local. Read that source's own
@@ -304,16 +306,40 @@ the loader.
 
 ## The default-branch gotcha
 
-`tools/checkin.py`'s `fresh`, `update`, and `record` commands all resolve
-the **remote's default branch** unconditionally
-(`_default_branch()` reads `refs/remotes/origin/HEAD`) — there is no
-parameter to say "track this named branch instead." A repo doing exactly
-what this document describes — beta-testing a not-yet-merged branch, as
-`WorkingWithAI` did against `precedent-beta-v01` — cannot use these
-commands for that branch: `fresh` will report "moved" every single session
+**Still follow the manual steps below.** What changed is *why*, and the
+distinction matters for how long they stay: this used to be a limitation of
+the tool, and is now a deliberate hold while the fix settles.
+
+**What it was.** `tools/checkin.py`'s `fresh`, `update`, `record` and
+`push` all resolved the **remote's default branch** unconditionally
+(`_default_branch()` reads `refs/remotes/origin/HEAD`) — there was no way
+to say "track this named branch instead." A repo doing exactly what this
+document describes — beta-testing a not-yet-merged branch, as
+`WorkingWithAI` did against `precedent-beta-v01` — could not use these
+commands for that branch: `fresh` reported "moved" every single session
 (comparing the pinned branch's commit against `main`'s HEAD, an unrelated
-lineage), and an unattended `update` run would try to merge `main`'s tree
-over the deliberately-pinned vendored copy.
+lineage), and an unattended `update` run would have merged `main`'s tree
+over the deliberately-pinned vendored copy — deleting content, not
+updating it.
+
+**What is true now, 2026-09-06.** All four commands read `upstream.branch`
+from the repo's own `process/manifest.json`, falling back to the clone's
+default only when no pin is recorded — the field this document already told
+you to add is now the field the code reads. `record` also stopped checking
+the source clone out from under its caller. Seven cases in
+[tools/verify_harness.py](../tools/verify_harness.py) assert both
+properties, each with a negative control.
+
+**Why the steps below have not changed anyway.** They exist to stop an
+*unattended* job overwriting a vendored tree, and the fix above is hours
+old at the time of writing. The two ways of being wrong are not the same
+size: relaxing this too early costs a silent overnight wipe of a repo's
+practices, and staying cautious costs a stale paragraph. Morgan's call —
+record that the pin works, keep the manual procedure, revisit once the fix
+has run through real sync cycles. Treat this as **not yet**, not as
+*cannot*, and do not flip it on your own: relaxing it is a decision with an
+owner, tracked as
+[TODO.md's `relax-the-pinned-branch-hold` item](../TODO.md#relax-the-pinned-branch-hold).
 
 **Handle it explicitly, don't let it surprise the next sync:**
 - Do the vendor as a one-off manual mirror (replace the tree wholesale from

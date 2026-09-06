@@ -183,6 +183,15 @@ ENGINE_FILES = [
     'precedent_paths.py',
     'precedent_show.py',
     'split_practices.py',
+    # Classifies practices carrying the OLD status vocabulary, where
+    # `retired` meant both "the copy here is redundant" and "nobody wants
+    # this rule anywhere" (2026-09-06). The legacy records are in the
+    # private sets, never in BestPractice's own catalogue, so a migration
+    # that only existed upstream could not reach the repos that need it.
+    # It is also the only compliance signal a SOURCE set has for this:
+    # verify_harness.py is deliberately not vendored, so
+    # check_status_contract never runs there.
+    'precedent_migrate_status.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -624,6 +633,42 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     return commit, tmp
 
 
+def _warn_legacy_status_records(dest):
+    """Say when this repo still holds practices written under the OLD status
+    vocabulary, at the moment the new one arrives.
+
+    A refresh is exactly when the vocabulary changes underneath a set, and
+    the set has no other way to find out: verify_harness.py is not vendored,
+    so check_status_contract never runs here. Without this the new engine
+    simply starts treating `retired` records differently -- correctly, but
+    silently -- and the one thing a legacy record cannot tell anyone is
+    whether its rule survives somewhere. Same principle build_views already
+    applies when it drops a practice from the generated views: the drop is
+    announced rather than silently skipped.
+
+    A notice, never a gate. Refreshing the engine must not fail because the
+    CATALOGUE needs a separate, human-decided migration -- that is the same
+    separation _warn_catalogue_skew exists to respect."""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_migrate_status as pms
+        records = pms.legacy_records(pathlib.Path(dest) / 'practices')
+    except Exception:                                        # noqa: BLE001
+        return                                               # never break a refresh
+    if not records:
+        return
+    slugs = ', '.join(fm.get('slug', f.stem) for f, fm, _s in records)
+    print(f"\nNOTICE: {len(records)} practice(s) here still carry the pre-2026-09-06 "
+          f"status vocabulary, where `retired` meant BOTH 'the copy here is "
+          f"redundant, the rule is in force elsewhere' AND 'nobody wants this "
+          f"rule anywhere': {slugs}.")
+    print("  The engine you just vendored treats them as not in force -- which is "
+          "correct either way -- but they carry no `in_force_at:`, so nothing can "
+          "say which kind they are, and precedent_show.py will decline to guess.")
+    print("  Classify them:  python3 tools/precedent_migrate_status.py "
+          "--repo . --against <sibling-source-dirs>")
+
+
 def _warn_catalogue_skew(dest, engine_commit):
     """Say when the engine just moved past the catalogue it runs against.
 
@@ -644,8 +689,24 @@ def _warn_catalogue_skew(dest, engine_commit):
     2026-09-06 by the consumer session that read the notice, recognized the
     trap, and did the manual mirror instead; spec/MIGRATING_EXISTING_INSTALLS.md's
     "The default-branch gotcha" is the same finding from the other side.
-    Teaching checkin.py the pin is the real fix and a larger change; until
-    then this notice must not send anyone at it.
+    UPDATE, later the same day: checkin.py HAS since been taught the pin.
+    All four of its commands -- `fresh`, `update`, `record`, `push` -- now
+    read `upstream.branch` from the consuming repo's own
+    `process/manifest.json` and fall back to the clone's default only when
+    no pin is recorded, and `record` no longer checks the clone out either.
+    Seven harness cases assert it, each with a negative control.
+
+    The remedy named below still points at the manual mirror anyway, and
+    that is a deliberate hold rather than an oversight. What these two
+    documents guard against is an UNATTENDED job overwriting a repo's
+    vendored tree; the fix that would let them relax is hours old at the
+    time of writing, and the two error directions are not symmetric --
+    telling people the automation is safe when it is not costs a silent
+    overnight wipe, while staying cautious costs a stale sentence. Morgan's
+    call, 2026-09-06: record that the pin works, keep the manual remedy,
+    and revisit once the fix has survived real sync cycles. So this is now
+    a "not yet", not a "cannot" -- do not read it as the latter and do not
+    quietly flip it either; that flip is a decision, and it has an owner.
 
     Reached a real consumer on 2026-09-06. A refresh took the engine to a
     commit whose `precedent_resolve.py` cites `source-naming` three times,
@@ -754,6 +815,7 @@ def refresh(clone, force=False, ref=None):
             # only reported after a write -- so the second pass of a
             # self-replacing refresh, and every later re-run, stayed silent.
             _warn_catalogue_skew(ROOT, new_commit)  # ROOT, not `dest` -- see below
+            _warn_legacy_status_records(ROOT)
             return 0
 
         if set_incomplete and new_commit == manifest.get('source_commit'):
@@ -776,6 +838,7 @@ def refresh(clone, force=False, ref=None):
     # concurrently and identically by two sessions; the harness case for the
     # already-current branch came from this one.
     _warn_catalogue_skew(ROOT, new_commit)
+    _warn_legacy_status_records(ROOT)
 
     # THE SECOND PASS, and why it is not optional. The file list for a kind
     # lives in THIS module, and a refresh runs the copy that is already

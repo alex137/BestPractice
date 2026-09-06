@@ -135,7 +135,42 @@ def _cap_hyphenated(token: str) -> str:
     return "-".join(_cap(part) for part in token.split("-"))
 
 
+# An inline code span is content, not prose: `tools/practice_audit.py` is a
+# path that either resolves or does not, and capitalizing it makes it wrong.
+# 2026-09-06, found by the judgment-only sweep: INSTALL.md's own section
+# headings had been rewritten to `Process/manifest.json` and
+# `Tools/practice_audit.py`, neither of which exists. The docstring above
+# already promised fenced blocks were safe; inline spans were not, and a
+# heading is exactly where a document names a file.
+CODE_SPAN = re.compile(r"`[^`]*`")
+
+
+def _protect_code_spans(text):
+    """-> (masked text, restore(fn)). Code spans become opaque tokens with no
+    letters, so no capitalization rule can reach inside them."""
+    spans = []
+
+    def take(m):
+        spans.append(m.group(0))
+        return f"\x00{len(spans) - 1}\x00"
+
+    masked = CODE_SPAN.sub(take, text)
+    def restore(s):
+        for i, original in enumerate(spans):
+            s = s.replace(f"\x00{i}\x00", original)
+        return s
+    return masked, restore
+
+
+# A heading that opens with an enumerator -- "5.", "1)", "iv." -- has its
+# first WORD after that marker, and headline style capitalizes the first
+# word. Without this, `## 5. the Manifest Schema` kept a lowercase "the",
+# because "5." counted as token zero and "the" was merely token one.
+ENUMERATOR = re.compile(r"^(\d+|[ivxlIVXL]+)[.)]$")
+
+
 def title_case(text: str) -> str:
+    text, restore = _protect_code_spans(text)
     tokens = text.split(" ")
     # Index of the last token that actually contains a letter — a trailing
     # "—" or "(cont.)" should not absorb the always-capitalize-the-last rule.
@@ -149,7 +184,8 @@ def title_case(text: str) -> str:
             out.append(token)
             continue
         after_break = i > 0 and tokens[i - 1].endswith(OPENS_PHRASE)
-        if i == 0 or i == last or after_break:
+        first_word = i == 0 or (i == 1 and ENUMERATOR.match(tokens[0] or ""))
+        if first_word or i == last or after_break:
             out.append(_cap_hyphenated(token))
         elif _core(token) in SMALL:
             out.append(_lower(token))
@@ -159,7 +195,7 @@ def title_case(text: str) -> str:
     # Restore any phrase whose own capitalization is the point.
     for phrase in KEEP_PHRASES:
         result = re.sub(re.escape(phrase), phrase, result, flags=re.IGNORECASE)
-    return result
+    return restore(result)
 
 
 def process(path: pathlib.Path, write: bool):

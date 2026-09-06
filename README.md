@@ -1,5 +1,12 @@
 # Precedent
 
+Precedent is a shared rulebook your team's AI assistants actually follow.
+You work by talking to an assistant — it does the editing — and as it works
+it notices how your team wants things done and writes those habits down as
+rules, so every later conversation follows them without anyone maintaining
+a policy document by hand. The rules, the documents, and the reasoning
+behind both live in your own GitHub repository.
+
 > **This branch is the Precedent restructuring of BestPractice.** If you have arrived
 > here wanting to *use* the practice engine on your own project, read
 > [ADOPTING.md](ADOPTING.md) — it is written for that, and assumes no

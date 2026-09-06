@@ -888,6 +888,14 @@ def check_leak_gate_fires():
         repo = tmp / 'repo'
         (repo / 'tools').mkdir(parents=True)
         shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
+        # The default blocklist is a REQUIRED companion of the gate, not an
+        # optional extra: load_default_blocklist() exits fatally without it,
+        # deliberately, because a missing default would silently restore the
+        # state where the vocabulary layer never runs. So anywhere the gate
+        # is installed, this file goes too -- found by these fixtures going
+        # red the moment the file was introduced, which is the guard working.
+        shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
+                    repo / 'tools' / 'leak-blocklist.default.txt')
         blocklist = tmp / 'blocklist.txt'          # OUTSIDE the repo, as required
         blocklist.write_text('zorbulon\n\\bproject[- ]nightjar\\b\n', encoding='utf-8')
 
@@ -2531,6 +2539,465 @@ def check_generated_views_regenerate():
           ok, detail)
 
 
+def check_legacy_status_migration():
+    """A practice written under the OLD status vocabulary can be classified,
+    and cannot be classified by guessing.
+
+    THE GAP THIS CLOSES. `status: retired` used to mean two different things
+    -- a redundant copy of a rule still fully in force elsewhere, and a rule
+    withdrawn everywhere -- and a legacy record does not say which. The
+    records are in the private practice sets; BestPractice's own catalogue
+    never had one, which is exactly why nothing here would otherwise
+    exercise this. So the fixtures below reproduce both real cases:
+
+      bestpractice-sync   the surviving copy has the SAME slug, in another
+                          source -- mechanically determinable.
+      header-caps         the surviving rule is `headline-capitalization`
+                          at universal -- a RENAMED successor, which nothing
+                          mechanical connects to it. Must come back
+                          UNDETERMINED rather than guessed.
+
+    The second is the one that matters. A migration willing to guess at a
+    renamed successor would re-introduce precisely the resemblance-based
+    reasoning the whole status rename removes."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_migrate_status as pms
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-legacy-'))
+    cases = []
+    try:
+        src = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
+
+        def make(root, slug, status='active', story=None, legacy=False):
+            d = tmp / root / 'practices'
+            d.mkdir(parents=True, exist_ok=True)
+            x = re.sub(r'^slug:(\s+)\S+$', rf'slug:\g<1>{slug}', src, count=1, flags=re.M)
+            x = re.sub(r'^status:(\s+)active$', rf'status:\g<1>{status}', x, count=1, flags=re.M)
+            if legacy:                       # the field did not exist yet
+                x = re.sub(r'^in_force_at: null\n', '', x, count=1, flags=re.M)
+            if story is not None:
+                x = re.sub(r'(?s)## Story\n.*?\n## Install',
+                           f'## Story\n{story}\n\n## Install', x, count=1)
+            (d / f'{slug}.md').write_text(x, encoding='utf-8')
+            return d / f'{slug}.md'
+
+        team_sync = make('team', 'bestpractice-sync', 'retired',
+                         'Moved to the individual set.', legacy=True)
+        team_caps = make('team', 'header-caps', 'retired',
+                         'The universal catalogue carries this now.', legacy=True)
+        make('individual', 'bestpractice-sync')
+        make('universal', 'headline-capitalization')
+        against = [str(tmp / 'individual'), str(tmp / 'universal')]
+
+        recs = pms.legacy_records(tmp / 'team' / 'practices')
+        cases.append(('a legacy record (non-active, no in_force_at) is found',
+                      {fm.get('slug') for _f, fm, _s in recs}
+                      == {'bestpractice-sync', 'header-caps'}))
+
+        live = pms.active_slugs(against)
+        cases.append(('only ACTIVE slugs count as a surviving copy',
+                      'bestpractice-sync' in live and 'headline-capitalization' in live))
+
+        # report-only must never write
+        before = team_sync.read_text(encoding='utf-8')
+        rc = pms.report(str(tmp / 'team'), against, {}, False)
+        cases.append(('report-only leaves every file untouched',
+                      team_sync.read_text(encoding='utf-8') == before))
+        cases.append(('report-only exits non-zero while legacy records remain',
+                      rc == 1))
+
+        # the renamed successor must NOT be guessed
+        rc = pms.report(str(tmp / 'team'), against, {}, True)
+        caps_after = team_caps.read_text(encoding='utf-8')
+        cases.append(('a RENAMED successor is left UNDETERMINED, not guessed -- '
+                      'guessing here is the resemblance reasoning the rename removes',
+                      'status:      retired' in caps_after
+                      and 'in_force_at' not in caps_after))
+        sync_after = team_sync.read_text(encoding='utf-8')
+        cases.append(('...while the same-slug case IS migrated, to deduplicated',
+                      'status:      deduplicated' in sync_after
+                      and 'in_force_at: bestpractice-sync' in sync_after))
+
+        # an explicitly named target that is not in force is refused
+        pms.report(str(tmp / 'team'), against, {'header-caps': 'no-such-slug'}, True)
+        cases.append(('an in_force_at: target that is not active anywhere is refused',
+                      'no-such-slug' not in team_caps.read_text(encoding='utf-8')))
+
+        # a real retirement needs a Story
+        make('team2', 'storyless', 'retired', '', legacy=True)
+        pms.report(str(tmp / 'team2'), against, {'storyless': 'none'}, True)
+        cases.append(('--set ...=none is refused without a ## Story saying why',
+                      'status:      retired' in
+                      (tmp / 'team2' / 'practices' / 'storyless.md').read_text(encoding='utf-8')
+                      and 'in_force_at' not in
+                      (tmp / 'team2' / 'practices' / 'storyless.md').read_text(encoding='utf-8')))
+
+        # the named target lands, and the result satisfies the contract
+        pms.report(str(tmp / 'team'), against,
+                   {'header-caps': 'headline-capitalization'}, True)
+        fm, sections = sp._read_practice_file(team_caps)
+        import build_views as _bv
+        cases.append(('an explicitly named successor migrates cleanly',
+                      _bv.practice_status(fm) == 'deduplicated'
+                      and _bv._json_str(fm.get('in_force_at', '')) == 'headline-capitalization'))
+        cases.append(('...and the migrated file satisfies the status contract',
+                      _bv.status_contract_violation(
+                          fm, sections, {'headline-capitalization'}.__contains__) is None))
+        cases.append(('the migration is idempotent -- a second run finds nothing',
+                      pms.report(str(tmp / 'team'), against, {}, False) == 0))
+
+        # the rewriter must not touch a body line that merely starts "status:"
+        body_trap = make('team3', 'body-trap', 'retired',
+                         'status: active is a line of prose here.', legacy=True)
+        pms.report(str(tmp / 'team3'), against, {'body-trap': 'engine'}, True)
+        after = body_trap.read_text(encoding='utf-8')
+        cases.append(('a body line beginning "status:" is not rewritten -- only '
+                      'the frontmatter block is touched',
+                      'status: active is a' in after
+                      and 'status:      deduplicated' in after))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'a legacy status record can be migrated, and a renamed successor '
+          f'is never guessed ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_default_blocklist_runs_the_vocabulary_layer():
+    """The vocabulary layer runs on every invocation, against a real list.
+
+    THE GAP THIS CLOSES (2026-09-06). The vocabulary layer was skipped
+    entirely whenever PRECEDENT_LEAK_BLOCKLIST was unset -- which is every
+    continuous-integration run and every fresh clone. So the code path that
+    loads patterns, compiles them and scans with them was exercised only by
+    this harness, never by an actual gate run, and the gate reported PARTIAL
+    forever. A mechanism that only ever runs in its own tests is one nobody
+    finds out is broken.
+
+    THE SPLIT THAT MAKES A COMMITTED LIST HONEST. The private blocklist
+    holds SECRET words, and one committed to a public repo publishes the
+    terms it exists to protect -- load_blocklist still refuses a private
+    list located inside this repository. The DEFAULT list holds only
+    publishable terms, so committing it costs nothing and it makes the layer
+    real. The two are merged, and the gate says which halves ran: a clean
+    scan against publishable terms is not evidence that no private word is
+    present, and that sentence had to survive the change or this would just
+    be the old silence with better wording."""
+    import base64 as _b64
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as lg
+
+    # Both probes are base64 in the source for the same reason the gate's own
+    # blocklist file is exempt from its own scan: this file IS scanned, so a
+    # literal here fails the gate on its own test fixture. Reproduced while
+    # writing it -- the derived-form probe below was a plain string and the
+    # gate correctly refused the tree, which is the check working.
+    word = _b64.b64decode('ZnVjaw==').decode()
+    derived_probe = _b64.b64decode('d2hhdCBhIGJ1bmNoIG9mIGFzc2hvbGVz').decode()
+    env_clean = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_LEAK_BLOCKLIST'}
+
+    def gate(*args, env=None, cwd=None):
+        return subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'), *args],
+                              capture_output=True, text=True, env=env or env_clean,
+                              cwd=str(cwd or ROOT))
+
+    pats, source, private_configured = lg.load_blocklist()
+    cases = [
+        ('the default blocklist is applied with no environment variable set',
+         len(pats) > 0 and not private_configured),
+        ('the banned word is caught by it',
+         any(p.search(f'a {word}ing line') for p in pats)),
+        ('...including derived forms', any(p.search(derived_probe) for p in pats)),
+        ('...without the Scunthorpe problem -- word boundaries, not substrings',
+         not any(p.search('Scunthorpe assessment bass classic') for p in pats)),
+    ]
+
+    r = gate()
+    cases.append(('a clean tree now reports OK rather than PARTIAL -- the layer '
+                  'ran, so "did not run" is no longer a reachable state',
+                  r.returncode == 0 and 'leak gate OK' in r.stdout
+                  and 'PARTIAL' not in r.stdout))
+    cases.append(('...while still saying the PRIVATE half did not run -- a clean '
+                  'scan against publishable terms is not evidence about private '
+                  'ones, and that had to survive the change',
+                  'private half' in r.stdout and 'PRECEDENT_LEAK_BLOCKLIST' in r.stdout))
+
+    cases.append(('the blocklist file is exempt from its own scan -- a list of '
+                  'banned words necessarily contains them, and scanning it would '
+                  'hard-fail the gate on its own list',
+                  not lg.is_texty('tools/leak-blocklist.default.txt')
+                  and lg.is_texty('tools/leak_gate.py')))
+
+    # It genuinely blocks a push, not merely matches in a unit test.
+    probe = ROOT / 'ZZ_leakprobe_fixture.md'
+    try:
+        probe.write_text(f'# Fixture\n\nThis {word}ing line must be caught.\n',
+                         encoding='utf-8')
+        r = gate()
+        cases.append(('a planted instance FAILS the whole gate, not just a regex',
+                      r.returncode == 1 and 'LEAK' in r.stdout))
+    finally:
+        probe.unlink(missing_ok=True)
+
+    # A private list is merged with the default, never replaces it.
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        priv = pathlib.Path(td) / 'private.txt'
+        priv.write_text('acme-corp-secret-codename\n', encoding='utf-8')
+        os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(priv)
+        try:
+            merged, src, configured = lg.load_blocklist()
+        finally:
+            os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        cases.append(('a private list is MERGED with the default, never replaces '
+                      'it -- configuring one must not silently drop the other',
+                      configured and len(merged) == len(pats) + 1
+                      and any(p.search('acme-corp-secret-codename') for p in merged)
+                      and any(p.search(f'{word}ing') for p in merged)))
+
+    # A private list inside the repo is still refused -- the guard that makes
+    # the whole split safe.
+    inside = ROOT / 'ZZ_inside_blocklist.txt'
+    try:
+        inside.write_text('secret-term\n', encoding='utf-8')
+        r = gate(env={**env_clean, 'PRECEDENT_LEAK_BLOCKLIST': str(inside)})
+        cases.append(('a PRIVATE blocklist located inside this repo is still '
+                      'refused -- the guard that makes a committed default safe '
+                      'is that only the default may live here',
+                      r.returncode == 1 and 'INSIDE' in (r.stdout + r.stderr)))
+    finally:
+        inside.unlink(missing_ok=True)
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'the default blocklist makes the vocabulary layer actually run, and '
+          f'the private half stays external ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_not_binding_cannot_be_abused():
+    """A repo can say "in force at its source, does not bind here" -- and
+    cannot use that to quietly switch a rule off.
+
+    THE GAP THIS CLOSES (TODO's `unreachable-practices`, opened by
+    spec/PRELAUNCH_AUDIT.md). 43 of 114 practices in force in this repo were
+    reachable by no loading channel. Running the source-supplied checks
+    against the tree showed the answer is not "turn them all on": some pass,
+    some report real findings, and some report things this repo cannot act
+    on because the practice is about a DIFFERENT KIND OF REPOSITORY. The
+    system had no vocabulary for that, so silence was doing the job, and a
+    forgotten rule and a deliberately-inapplicable one looked identical.
+
+    THE RISK, WHICH IS THE WHOLE REASON THIS CHECK EXISTS. An exemption list
+    is a mechanism for opting out of rules. Left unguarded it is strictly
+    worse than the silence it replaces, because it launders "I did not want
+    to" into a recorded decision. So the guards are the feature, and each is
+    asserted here with a negative control:
+
+      a reason is mandatory     an exemption nobody argued for is the same
+                                silence, with a config entry on top
+      blocking cannot be exempt the same rule the resolver already applies
+                                to precedence: a blocking practice is
+                                exactly the one no downstream repo may
+                                switch off
+      stale exemptions surface  one naming a slug nothing puts in force is
+                                a typo (and the rule it meant to exempt is
+                                still unexplained) or outlived its practice
+      malformed fails loudly    a list that silently ignores its own bad
+                                entries is a way to opt out by typo
+    """
+    import tempfile, shutil, json as _json
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as pr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-notbinding-'))
+    cases = []
+    try:
+        def cfg(obj):
+            (tmp / 'precedent.json').write_text(_json.dumps(obj), encoding='utf-8')
+
+        base = {"format_version": 1,
+                "sources": [{"level": "universal", "name": "u", "path": "."}]}
+
+        cfg(base)
+        cases.append(('a repo with no `not_binding` key reads as no exemptions',
+                      pr.load_not_binding(tmp) == {}))
+
+        cfg({**base, "not_binding": [
+            {"slug": "commit-author", "reason": "about a repo one person authors alone"}]})
+        cases.append(('a well-formed exemption is read, reason and all',
+                      pr.load_not_binding(tmp) ==
+                      {"commit-author": "about a repo one person authors alone"}))
+
+        def refuses(obj):
+            cfg(obj)
+            try:
+                pr.load_not_binding(tmp)
+                return False
+            except pr.NotBindingError:
+                return True
+            except Exception:
+                return False
+
+        cases.append(('an exemption with NO reason is refused -- the guard is '
+                      'that opting out is argued, never merely declared',
+                      refuses({**base, "not_binding": [{"slug": "x"}]})))
+        cases.append(('...and an empty/whitespace reason counts as none',
+                      refuses({**base, "not_binding": [{"slug": "x", "reason": "   "}]})))
+        cases.append(('an exemption with no slug is refused',
+                      refuses({**base, "not_binding": [{"reason": "because"}]})))
+        cases.append(('a `not_binding` that is not a list is refused',
+                      refuses({**base, "not_binding": {"x": "y"}})))
+        cases.append(('a non-object entry is refused',
+                      refuses({**base, "not_binding": ["commit-author"]})))
+
+        # Through the REAL check function, with its ROOT pointed at a
+        # fixture repo. Driven in-process rather than by subprocess because
+        # precedent_check.ROOT comes from `git rev-parse --show-toplevel`,
+        # not from an environment variable -- PRECEDENT_CHECK_ROOT steers the
+        # source-supplied check SCRIPTS, not this module.
+        import precedent_check as pc
+        reachable = pc._practice_is_reachable
+
+        def run_check(not_binding, severity='default', slug='fx-unreachable'):
+            repo = tmp / 'repo'
+            shutil.rmtree(repo, ignore_errors=True)
+            (repo / 'practices').mkdir(parents=True)
+            src = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
+            x = re.sub(r'^slug:(\s+)\S+$', rf'slug:\g<1>{slug}', src, count=1, flags=re.M)
+            x = re.sub(r'^severity:(\s+)\S+$', rf'severity:\g<1>{severity}', x, count=1, flags=re.M)
+            x = re.sub(r'^occasion:.*$', 'occasion:    null', x, count=1, flags=re.M)
+            x = re.sub(r'^gates:.*$', 'gates:       []', x, count=1, flags=re.M)
+            x = re.sub(r'^checked_by:.*$', 'checked_by:  null', x, count=1, flags=re.M)
+            (repo / 'practices' / f'{slug}.md').write_text(x, encoding='utf-8')
+            (repo / 'AGENTS.md').write_text('# nothing names it\n', encoding='utf-8')
+            # `name` is fixed by level (spec/SOURCE_NAMING.md) -- the resolver
+            # refuses anything else, which this fixture found the hard way.
+            (repo / 'precedent.json').write_text(_json.dumps(
+                {"format_version": 1,
+                 "sources": [{"level": "universal", "name": "precedent", "path": "."}],
+                 **({"not_binding": not_binding} if not_binding is not None else {})}),
+                encoding='utf-8')
+            saved = pc.ROOT
+            pc.ROOT = repo
+            try:
+                return ' | '.join(str(getattr(f, 'detail', f)) for f in (reachable(None) or []))
+            finally:
+                pc.ROOT = saved
+
+        out = run_check(None)
+        cases.append(('an unreachable practice IS reported when nothing exempts it',
+                      'fx-unreachable' in out))
+
+        out = run_check([{"slug": "fx-unreachable", "reason": "different kind of repo"}])
+        cases.append(('...and stops being reported once exempted, with a reason',
+                      'fx-unreachable' not in out))
+
+        out = run_check([{"slug": "fx-unreachable", "reason": "inconvenient"}],
+                        severity='blocking')
+        cases.append(('a `severity: blocking` practice CANNOT be exempted -- the '
+                      'one rule a downstream repo may never switch off',
+                      'blocking' in out and 'fx-unreachable' in out))
+
+        out = run_check([{"slug": "no-such-practice-anywhere", "reason": "x"},
+                         {"slug": "fx-unreachable", "reason": "different kind of repo"}])
+        cases.append(('a STALE exemption naming a slug nothing puts in force is '
+                      'reported -- a typo must not silently exempt nothing',
+                      'no-such-practice-anywhere' in out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'`not_binding` states what a repo is not bound by, and cannot be '
+          f'used to switch a rule off quietly ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
+def check_codeowners_check_is_a_check():
+    """`build_codeowners.py --check` verifies without writing, and its output
+    is a function of its source rather than of when it ran.
+
+    TWO DEFECTS, both found 2026-09-06 by a caller trying to VERIFY that
+    CODEOWNERS was current and instead dirtying the tree mid-PR:
+
+      1. `--check` was not a flag at all. main() ignored argv, so the flag
+         fell through and the tool WROTE -- a checker that answers "is this
+         current?" by making it current cannot return a wrong answer, and
+         cannot return a useful one. Same shape as verify-postcondition's
+         own rule one level up: the check reported success by causing the
+         state it was asked to confirm.
+      2. The header stamped `git rev-parse HEAD`, so regenerating produced a
+         diff after EVERY commit whether or not approvers changed. A derived
+         file must be a function of its SOURCE; stamped with the time it was
+         built, "is it current?" has no stable answer.
+
+    BestPractice has no approvers.json -- it is not a team set -- so none of
+    this is exercised by the tree, and that is exactly why it went unnoticed
+    while the tool was private to one team set. The fixture supplies one.
+    Now that build_codeowners.py is in ENGINE_FILES, every source set the
+    bootstrap creates inherits whichever behavior this has."""
+    import tempfile, shutil
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-codeowners-'))
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        shutil.copy(ROOT / 'tools' / 'build_codeowners.py', tmp / 'tools')
+        approvers = tmp / 'approvers.json'
+        codeowners = tmp / 'CODEOWNERS'
+        approvers.write_text(
+            '{"approvers": [{"name": "A", "github": "a"}, '
+            '{"name": "B", "github": "b"}]}', encoding='utf-8')
+
+        def run(*args):
+            return subprocess.run(
+                [sys.executable, str(tmp / 'tools' / 'build_codeowners.py'), *args],
+                capture_output=True, text=True)
+
+        r = run('--check')
+        cases.append(('--check on a missing CODEOWNERS fails', r.returncode == 1))
+        cases.append(('...and does NOT create it -- a checker that repairs is '
+                      'a builder, and the caller cannot tell the two apart '
+                      'afterwards', not codeowners.exists()))
+
+        cases.append(('a plain run writes it', run().returncode == 0 and codeowners.is_file()))
+        first = codeowners.read_bytes()
+        cases.append(('--check on a current file passes', run('--check').returncode == 0))
+        cases.append(('...having written nothing', codeowners.read_bytes() == first))
+
+        run()
+        cases.append(('regeneration is byte-identical when approvers.json is '
+                      'unchanged -- the HEAD-sha churn that made every check '
+                      'a false positive is gone', codeowners.read_bytes() == first))
+
+        codeowners.write_bytes(first + b'# hand edit\n')
+        cases.append(('a hand-edited CODEOWNERS is detected', run('--check').returncode == 1))
+
+        run()
+        approvers.write_text(
+            '{"approvers": [{"name": "A", "github": "a"}]}', encoding='utf-8')
+        cases.append(('a changed approver list is detected',
+                      run('--check').returncode == 1))
+
+        run()
+        stable = codeowners.read_bytes()
+        r = run('--chekc')
+        cases.append(('a MISSPELLED flag is refused, not silently treated as '
+                      '"no arguments" -- that fall-through is defect 1, and '
+                      'doing the destructive thing on a typo is how it hid',
+                      r.returncode != 0 and codeowners.read_bytes() == stable))
+
+        approvers.unlink()
+        cases.append(('an individual set (no approvers.json) exits 0 with a '
+                      'note rather than failing', run('--check').returncode == 0))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'build_codeowners --check verifies without writing, and its output '
+          f'depends on its source not its build time ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_status_contract():
     """A practice that is not `active` must say where its rule went.
 
@@ -3551,6 +4018,23 @@ def check_precedent_check_fires():
         case('parallel-artifact-ledger', _plant_unledgered_harness_change,
              setup=_ledger_setup)
 
+        # declared-base-branch -- plant the exact regression the check
+        # exists for: a resolver that infers the branch from origin/HEAD
+        # with no declared value read first. Removing the CALL while
+        # leaving the helper's body in place is deliberate; that is the
+        # shape that passed two earlier versions of this check, so it is
+        # the shape worth planting.
+        def _plant_unguarded_branch_inference(repo):
+            rewrite(repo, 'tools/doc_lint.py',
+                   lambda s: s.replace(
+                       "    declared = _declared_base_branch(ROOT)\n"
+                       "    if declared:\n"
+                       "        return declared\n", '', 1))
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'unguarded base-branch inference')
+
+        case('declared-base-branch', _plant_unguarded_branch_inference)
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
@@ -3779,6 +4263,107 @@ def check_parallel_artifact_ledger_fires():
               not bad, '; '.join(bad))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_loader_block_advertises_only_live_channels():
+    """A generated loader block must not name a channel this source does not fill.
+
+    2026-09-06, precedent-team-tms: that set deleted its bootstrap
+    placeholder, leaving one resident practice and no on-demand ones. Its
+    generated block still carried an occasion index rendering as an empty
+    ``` ``` box, and a standing instruction telling every session to
+    consult that index and to run four `precedent_gate.py` commands --
+    ALL FOUR of which exit FAIL there, because no practice in that set
+    registers a gate. The three sections and the four gate names were
+    emitted unconditionally, so the block described the ENGINE's channels
+    rather than the ones the SOURCE actually fills.
+
+    Why this is worse than cosmetic, and why it earns a check rather than
+    a careful reading: the standing instruction is the one part of the
+    block that tells a session what to DO. A session that runs a command
+    the block advertised and gets FAIL back learns that the block is
+    decorative, and that lesson applies to the parts that were true.
+
+    Fixture-driven on purpose. This repo's own catalogue fills every
+    channel, so nothing here can exercise the empty states -- which is
+    precisely why the defect survived in a vendored copy for as long as it
+    did. Each case was verified by reverting the fix and watching it fail.
+    """
+    import importlib.util, shutil, tempfile
+
+    def fixture(root, *, tier=None, gates='[]'):
+        (root / 'practices').mkdir(parents=True, exist_ok=True)
+        (root / 'tools').mkdir(parents=True, exist_ok=True)
+        (root / 'AGENTS.md').write_text(
+            '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        if tier is not None:
+            (root / 'practices' / 'only.md').write_text(
+                f'---\nslug: only\ntitle: Only\ntier: {tier}\nseverity: default\n'
+                f'applies_to: ["**"]\noccasion: "doing the only thing"\n'
+                f'gates: {gates}\nindex_clause: "the only clause"\nchecked_by: null\n'
+                f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+                f'added: 2026-09-06\napproved_by: "harness fixture"\n---\n'
+                f'## Rule\nThe only rule.\n\n## Why\nx\n\n## Story\n\n## Install\nx\n',
+                encoding='utf-8')
+        return root
+
+    def block_of(root):
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                            '--agents-only', '--repo', str(root)],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            return f'BUILD FAILED: {(r.stdout + r.stderr)[:200]}'
+        text = (root / 'AGENTS.md').read_text(encoding='utf-8')
+        return text.split('BEGIN GENERATED: precedent-loader -->', 1)[1] \
+                   .split('<!-- END GENERATED', 1)[0]
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-loader-empty-'))
+    cases = []
+    try:
+        # (1) resident-only: precedent-team-tms's exact shape.
+        b = block_of(fixture(tmp / 'resident_only', tier='resident'))
+        cases.append(('a resident-only source gets no empty occasion index',
+                      '## Occasion index' not in b, b.strip()[:160]))
+        cases.append(('a resident-only source is not told to run a gate command '
+                      'no practice registers',
+                      'precedent_gate.py' not in b, b.strip()[:160]))
+        cases.append(('a resident-only source is not told to consult an index '
+                      'that does not exist',
+                      'occasion index above' not in b, b.strip()[:160]))
+        cases.append(('a resident-only source still gets its resident block',
+                      '## Resident block' in b and 'The only rule.' in b, b.strip()[:160]))
+
+        # (2) on-demand-only: the mirror image, an empty resident heading.
+        b = block_of(fixture(tmp / 'ondemand_only', tier='on-demand'))
+        cases.append(('an on-demand-only source gets no empty resident block heading',
+                      '## Resident block' not in b, b.strip()[:160]))
+        cases.append(('an on-demand-only source still gets its occasion index',
+                      '## Occasion index' in b and 'the only clause' in b, b.strip()[:160]))
+
+        # (3) no practices at all: a freshly bootstrapped source.
+        b = block_of(fixture(tmp / 'empty'))
+        cases.append(('a source with no practices says so, rather than emitting '
+                      'three empty headings',
+                      'no practices in force' in b and '## Standing instruction' not in b,
+                      b.strip()[:160]))
+
+        # (4) a live gate IS advertised -- the negative control for the three
+        # "not advertised" cases above, which would all pass on a generator
+        # that simply never mentioned a gate.
+        b = block_of(fixture(tmp / 'gated', tier='on-demand', gates='["reply"]'))
+        cases.append(('a source WITH a gated practice is told to run that gate',
+                      'precedent_gate.py reply' in b, b.strip()[:160]))
+        cases.append(('and is told only about that gate, not the whole vocabulary',
+                      'merge|review' not in b and 'push' not in b, b.strip()[:160]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the generated loader block advertises only channels this source fills '
+          f'({len(cases)} stated cases over four fixture shapes)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_gate_channel():
@@ -6055,7 +6640,16 @@ def check_checkin_update_never_mutates_the_clone():
         g('checkout', '-qb', 'precedent-beta-v01')
         (src / 'marker.txt').write_text('from beta\n')
         g('add', '-A'); g('commit', '-qm', 'beta content')
-        g('checkout', '-q', 'main')          # default branch checked out
+        # The clone rests on a THIRD branch, deliberately. Left on `main` it
+        # cannot detect record()'s old `checkout <default-branch>`, because
+        # checking out the branch you are already on is a no-op -- the first
+        # version of this fixture sat on `main` and its negative control
+        # passed against the bug. Left on `precedent-beta-v01` it would miss
+        # update()'s checkout for the mirror image of the same reason. From
+        # `scratch`, a checkout of either one moves HEAD and is caught.
+        g('checkout', '-qb', 'scratch')
+        (src / 'marker.txt').write_text('scratch, not a branch anything tracks\n')
+        g('add', '-A'); g('commit', '-qm', 'scratch content')
 
         consumer = tmp / 'consumer'
         (consumer / 'process' / 'upstream').mkdir(parents=True)
@@ -6096,8 +6690,103 @@ def check_checkin_update_never_mutates_the_clone():
               (consumer / 'process' / 'upstream' / 'marker.txt'
                ).read_text() == 'from beta\n',
               out)
+
+        # record() and push() carried the SAME two bugs, and the first fix
+        # reached only update() -- found on the next pass by grepping for the
+        # other call sites rather than assuming one fix covered the family.
+        # record() is the one that also checked the clone out.
+        for sub in ('record', 'push'):
+            before2 = clone_state()
+            args = [sys.executable,
+                    str(consumer / 'process' / 'upstream' / 'tools' / 'checkin.py'),
+                    sub, str(src)]
+            if sub == 'record':
+                args += ['--note', 'harness fixture']
+            r2 = subprocess.run(args, capture_output=True, text=True,
+                                cwd=str(consumer))
+            after2 = clone_state()
+            check(f'checkin.py {sub} leaves the source clone\'s HEAD, branch '
+                  f'and working tree exactly as they were',
+                  before2 == after2,
+                  f'before={before2} after={after2}\n{r2.stdout}{r2.stderr}')
+            check(f'checkin.py {sub} resolves the branch the MANIFEST '
+                  f'records, not the clone\'s configured default',
+                  'main' not in (r2.stdout + r2.stderr).replace(
+                      'precedent-beta-v01', ''),
+                  r2.stdout + r2.stderr)
+
+        # `fresh` is the most-run of the family -- tools/bootstrap.sh calls it
+        # at every session start in every consumer -- and it reached the
+        # remote a different way, `ls-remote <repo> HEAD`, which resolves the
+        # remote's default branch. On a pinned consumer that compared the
+        # pinned branch's recorded commit against an unrelated lineage and
+        # printed "upstream has moved" every single session, forever.
+        # `main` here is deliberately AHEAD of the recorded beta commit, so a
+        # default-branch resolution cannot help but report movement.
+        r3 = subprocess.run(
+            [sys.executable,
+             str(consumer / 'process' / 'upstream' / 'tools' / 'checkin.py'),
+             'fresh'],
+            capture_output=True, text=True, cwd=str(consumer))
+        out3 = r3.stdout + r3.stderr
+        check('checkin.py fresh compares against the branch the MANIFEST '
+              'records, so a pinned install is not told "upstream has moved" '
+              'every session by an unrelated lineage',
+              'has moved' not in out3, out3)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_title_case_leaves_code_and_first_word_alone():
+    """Headline capitalization never reaches inside an inline code span, and
+    the first WORD after an enumerator is capitalized.
+
+    Both learned from real corruption, 2026-09-06. INSTALL.md's own section
+    headings had been rewritten by `tools/title_case.py --write` to
+    `Process/manifest.json` and `Tools/practice_audit.py` -- neither of which
+    exists, in a heading whose whole job is to name the file the section is
+    about. The tool's docstring already promised fenced code blocks were
+    safe; inline spans were not, and a heading is exactly where a document
+    names a path. The same run left `## 5. the Manifest Schema` lowercase,
+    because "5." counted as token zero and headline style capitalizes the
+    first word, not the first token.
+
+    A tool that rewrites committed prose in place needs its blast radius
+    asserted, not described: this is the check that would have caught both
+    before they reached the tree.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_title_case', ROOT / 'tools' / 'title_case.py')
+    try:
+        tc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tc)
+    except Exception as e:
+        not_applicable('title_case leaves code spans and first words alone',
+                       f'tools/title_case.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+
+    cases = [
+        # (input, must appear in output, why)
+        ("5. the Manifest Schema (`process/manifest.json`)",
+         "`process/manifest.json`", 'a path in a code span is untouched'),
+        ("6. the Audit (`tools/practice_audit.py`)",
+         "`tools/practice_audit.py`", 'a second path, different depth'),
+        ("5. the Manifest Schema (`process/manifest.json`)",
+         "5. The Manifest", 'the first word after an enumerator is capitalized'),
+        ("Working With `git rev-parse --verify` Safely",
+         "`git rev-parse --verify`", 'a command with flags is untouched'),
+        ("A Heading About `AGENTS.md` and `tools/doc_lint.py`",
+         "`tools/doc_lint.py`", 'two spans in one heading'),
+    ]
+    bad = []
+    for text, must, why in cases:
+        got = tc.title_case(text)
+        if must not in got:
+            bad.append(f'{why}: {text!r} -> {got!r} (wanted {must!r} in it)')
+    check(f'title_case leaves inline code spans and enumerated first words '
+          f'alone ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_tools_answer_help_without_writing():
@@ -7237,7 +7926,11 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_default_blocklist_runs_the_vocabulary_layer()
+    check_not_binding_cannot_be_abused()
+    check_codeowners_check_is_a_check()
     check_status_contract()
+    check_legacy_status_migration()
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
@@ -7246,6 +7939,7 @@ def main():
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_gate_channel()
+    check_loader_block_advertises_only_live_channels()
     check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
     check_show_flags_unreachable_materialized_source()
@@ -7266,6 +7960,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
     check_tools_answer_help_without_writing()
+    check_title_case_leaves_code_and_first_word_alone()
     check_checkin_update_never_mutates_the_clone()
     check_rendered_docs_are_current()
 

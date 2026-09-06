@@ -96,6 +96,7 @@ wrappers importing render() from here -- never as forks of the CSS/JS.
 Requires: pip install markdown.
 """
 
+import pathlib
 import html as html_mod  # noqa: F401  (kept for extensions that escape text)
 import re
 import sys
@@ -118,6 +119,29 @@ def find_root(start):
 ROOT = find_root(Path(__file__).resolve().parent)
 
 
+
+def _declared_base_branch(root):
+    """The branch this repo's work is measured against, as DECLARED in
+    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
+
+    Those are two different questions with usually the same answer, which is
+    why asking the wrong one survives so long. `origin/HEAD` answers "what
+    does GitHub show first"; callers here mean "what lineage does this work
+    belong to". They diverge the moment a repo pins its work to a branch
+    that is not the configured default -- BestPractice's own
+    `precedent-beta-v01` -- and then every inference is quietly wrong with
+    nothing failing. Returns None when undeclared or unreadable, so callers
+    fall back to the old inference rather than breaking (fail-gracefully).
+    Enforced by precedent_check.py's `declared-base-branch`.
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
 def _default_branch():
     """Same logic as doc_lint.py's default_branch(), duplicated rather than
     imported because this module is meant to be dropped into a host repo on
@@ -126,6 +150,9 @@ def _default_branch():
     relative link this module rewrites hardcoded '/blob/master/' -- silently
     a dead link on any repo (this one included) whose default branch is
     'main', which is the actual default on GitHub since 2020."""
+    declared = _declared_base_branch(ROOT)
+    if declared:
+        return declared
     r = subprocess.run(["git", "-C", str(ROOT), "symbolic-ref",
                        "refs/remotes/origin/HEAD"],
                        capture_output=True, text=True)

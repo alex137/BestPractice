@@ -468,6 +468,76 @@ def load_config(repo, user_config=None):
     return sources
 
 
+class NotBindingError(Exception):
+    """A `not_binding` declaration that is itself malformed. Raised rather
+    than tolerated: an exemption mechanism that silently ignores its own bad
+    entries is a way to opt out of a rule by typo."""
+
+
+def load_not_binding(repo, user_config=None):
+    """-> {slug: reason} for practices this repo declares are IN FORCE at
+    their source but do NOT bind this repository.
+
+    WHY THIS VOCABULARY EXISTS (2026-09-06, closing TODO's
+    `unreachable-practices`). Of 114 practices in force in Precedent's own
+    repo, 43 were reachable by no loading channel at all -- and running the
+    source-supplied checks against the tree showed the answer is not "turn
+    them all on": some pass, some report real findings, and some report
+    things this repo cannot act on because THE PRACTICE IS ABOUT A DIFFERENT
+    KIND OF REPOSITORY (one a single person authors alone, or a practice
+    set's own shipped content). The system had no way to say "in force at
+    this level, does not bind this repo", so silence was doing that job --
+    which is why a forgotten rule and a deliberately-inapplicable one looked
+    identical.
+
+    WHY IT IS DECLARED BY THE CONSUMING REPO, not by the practice. Whether a
+    rule binds is a property of the PAIR, not of the rule: `commit-author`
+    binds a repo one person authors alone and not one with many
+    contributors, and the practice cannot know which repos it will reach.
+    The repo knows why a rule does not bind it; the practice does not.
+
+    WHY EVERY ENTRY NEEDS A WRITTEN REASON. An exemption list is a way to
+    opt out of rules, so the guard has to be that opting out is *visible and
+    argued*, never merely declared. A reasonless entry is refused, a stale
+    entry (naming a slug nothing puts in force) is reported by the caller,
+    and `severity: blocking` cannot be exempted at all -- the same rule the
+    resolver already applies to precedence, for the same reason: a blocking
+    practice is precisely the one no downstream declaration may switch off.
+
+    This is NOT a way to silence a rule that is merely inconvenient. The
+    reason is read by people, and the audit that reads it is
+    practices/full-practice-audit.md."""
+    repo_root = pathlib.Path(repo).resolve()
+    out = {}
+    cfg_path = repo_root / REPO_CONFIG
+    if not cfg_path.exists():
+        return out
+    cfg = _read_json(cfg_path, 'the repository config')
+    raw = cfg.get('not_binding', [])
+    if not isinstance(raw, list):
+        raise NotBindingError(
+            f"{cfg_path}: `not_binding` must be a list of "
+            f"{{slug, reason}} objects, got {type(raw).__name__}.")
+    for entry in raw:
+        if not isinstance(entry, dict):
+            raise NotBindingError(
+                f"{cfg_path}: every `not_binding` entry must be an object "
+                f"with `slug` and `reason`, got {entry!r}.")
+        slug = entry.get('slug')
+        reason = (entry.get('reason') or '').strip()
+        if not slug:
+            raise NotBindingError(
+                f"{cfg_path}: a `not_binding` entry has no `slug`: {entry!r}.")
+        if not reason:
+            raise NotBindingError(
+                f"{cfg_path}: `not_binding` entry {slug!r} has no `reason`. "
+                f"An exemption without a stated reason is the same silence "
+                f"this mechanism exists to replace -- say why the rule does "
+                f"not bind this repository.")
+        out[slug] = reason
+    return out
+
+
 def load_source(source):
     """-> ({slug: practice}, missing_reason or None). A source directory holds
     its practices in practices/, the same layout Precedent itself uses."""
