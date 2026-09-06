@@ -7,7 +7,7 @@ For installing Precedent on a project in the first place, see
 [INSTALL.md](../INSTALL.md). This document is about using it once it's
 there.
 
-## All interaction happens through chat or voice with an assistant
+## All Interaction Happens Through Chat or Voice With an Assistant
 
 You don't edit the project's files directly, and running the practice
 tooling by hand isn't the normal way of working here. Connect the
@@ -24,7 +24,7 @@ in force before you say anything.
 happens mediated by the AI assistant the repo is attached to. The code
 and technical descriptions below exist only to clarify how it works.*
 
-## Four levels, each just another repo
+## Four Levels, Each Just Another Repo
 
 Before explaining how practices are created, it's useful to understand the
 different levels a practice can live at — every stage below names one.
@@ -69,7 +69,7 @@ python3 tools/precedent_bootstrap_source.py --level team \
 add `--write-session-hook <project path> --repo-url <URL>` to wire it into
 a hosted session automatically.)
 
-### Moving a practice between levels
+### Moving a Practice Between Levels
 
 A practice that already exists and is still wanted, just at the wrong
 level (a team habit that turns out to be one person's, or a personal habit
@@ -86,7 +86,7 @@ edit or a copy-and-delete (see [spec/MOVING_PRACTICES.md](../spec/MOVING_PRACTIC
    land first, so there's never a gap where nobody is bound by a rule
    everyone still wants.
 
-## Walkthrough: turning a habit into a practice
+## Walkthrough: Turning a Habit Into a Practice
 
 This is the pipeline underneath "your assistant notices and proposes a
 rule." Four stages, in order, and the commands your assistant actually
@@ -139,7 +139,7 @@ runs at each one:
    that draft to a branch and opening a pull request (PR) against
    Precedent, reviewed and merged by someone else.
 
-## How practices are approved
+## How Practices Are Approved
 
 Getting a practice to take effect always comes down to one question: *who
 has to say yes?*
@@ -159,7 +159,7 @@ has to say yes?*
   whoever proposed it. No single person, including whoever maintains the
   library, can land a universal practice alone.
 
-## How enforcement works
+## How Enforcement Works
 
 Some practices are Rules an assistant is expected to read and follow —
 loaded into context when the work at hand matches the practice's stated
@@ -200,7 +200,7 @@ tested check behind it — a slug has to already be a key in
 `tools/checks/check_<name>.py` and a passing
 `tools/checks/tests/test_<name>.sh` (team/individual) before it can land.
 
-### Retiring a practice nobody uses
+### Retiring a Practice Nobody Uses
 
 `python3 tools/precedent_retire.py --against <path>` is the periodic
 retirement report: anything never cited, never routed to, or whose check
@@ -208,7 +208,7 @@ never trips gets listed as a candidate for retirement. It only *proposes*
 — removing a practice still goes through that level's own approval, same
 as landing one.
 
-## Where to go next
+## Where to Go Next
 
 [INSTALL.md](../INSTALL.md) for wiring this into a project.
 [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) for the full design

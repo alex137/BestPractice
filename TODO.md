@@ -317,3 +317,25 @@ the upstream layer. Ordered by priority.
     [practices/full-practice-audit.md](practices/full-practice-audit.md)
     names, in a session with those repos attached. Full context:
     [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md).
+
+23. **Land a headline-capitalization practice — after checking the two
+    private sets for one that already exists.** Morgan asked whether this
+    repo has a practice requiring New York Times headline capitalization,
+    having noticed [documentation/](documentation/) was not following one.
+    It does not, in either source a session can resolve from this
+    repository: not in the universal catalogue, and not in
+    `bestpractice-local`. But [precedent.json](precedent.json) declares a
+    third source, `precedent-team-maintainers`, and Morgan's individual set
+    is deliberately not declared here at all — so two of the four levels
+    could not be searched, and a practice created without reading them
+    risks being a duplicate at the wrong level
+    ([search-by-purpose](practices/search-by-purpose.md)). The convention
+    itself is now mechanically enforceable —
+    [tools/title_case.py](tools/title_case.py), `--check` and `--write`,
+    already applied to every heading under `documentation/` — so what is
+    left is deciding the level, writing the practice file, and wiring the
+    tool in as its `checked_by`. **Blocked on:** a session with
+    `themorgan/precedent-team-maintainers` and `themorgan/precedent-individual`
+    attached. This session could not attach them — `add_repo` refuses a
+    cross-owner add once a session holds `alex137` repos, so it must be a
+    session started against those repos.

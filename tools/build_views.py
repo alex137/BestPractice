@@ -387,6 +387,7 @@ TOOLS_DESCRIPTIONS = {
     'routing_eval.py': "Measures whether trigger-based loading actually beats carrying the whole catalogue",
     'split_practices.py': "PRACTICES.md ↔ practices/ converter",
     'table_fmt.py': "One formatter per quantity kind — the engine",
+    'title_case.py': "Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix",
     'verify_harness.py': "The verification harness — run before trusting any change here",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
 }
