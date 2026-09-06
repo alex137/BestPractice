@@ -4138,6 +4138,46 @@ def check_materialize_bridges_loader():
                       "produces a resident block naming BOTH sources' practices too",
                       materialized_ok and r2.returncode == 0
                       and 'uni-fixture' in agents_text2 and 'team-fixture' in agents_text2))
+        # The GENERATED test driver. tools/checks/tests/run_all.sh is the one
+        # file this tool writes rather than copies: every source ships its own,
+        # so copying would force a winner, but `deep-check` requires the file to
+        # exist -- so before 2026-09-06 no consuming repo could satisfy that
+        # practice, and its far more useful half (each check has a test; no test
+        # outlives its check) never ran, because the check returns early on the
+        # missing file. Four properties, each with its own way of regressing.
+        run_all = consumer / 'tools' / 'checks' / 'tests' / 'run_all.sh'
+        run_all_text = run_all.read_text(encoding='utf-8') if run_all.is_file() else ''
+        cases.append(('the test driver is generated into the consumer even though '
+                      'no source file was copied for it',
+                      materialized_ok and run_all.is_file()))
+        # deep-check greps for this exact glob; a driver naming specific tests
+        # would pass a bare existence test while silently skipping new ones.
+        cases.append(('the generated driver globs test_*.sh rather than naming '
+                      'tests, so it runs whatever THIS repo materialized',
+                      'test_*.sh' in run_all_text))
+        # An unrecorded file is indistinguishable from a hand-dropped orphan to
+        # a consuming repo's own orphan detection, which reads MANIFEST.json.
+        manifest_path = consumer / 'MANIFEST.json'
+        recorded = []
+        if manifest_path.is_file():
+            recorded = [c for c in json.loads(
+                manifest_path.read_text(encoding='utf-8')).get('checks', [])
+                if c.get('path', '').endswith('tests/run_all.sh')]
+        cases.append(('the generated driver is recorded in MANIFEST.json, so a '
+                      "consumer's orphan detection does not read it as hand-dropped",
+                      len(recorded) == 1))
+        # A repo that materialized no tests leaves the glob unexpanded; without
+        # the guard the driver runs a file literally named test_*.sh and reports
+        # a failure that is really an empty set.
+        empty_dir = tmp / 'empty-driver'
+        empty_dir.mkdir(parents=True, exist_ok=True)
+        (empty_dir / 'run_all.sh').write_text(run_all_text or 'exit 1\n', encoding='utf-8')
+        r3 = subprocess.run(['bash', 'run_all.sh'], cwd=str(empty_dir),
+                            capture_output=True, text=True)
+        cases.append(('the generated driver exits 0 in a repo that materialized '
+                      'no tests, rather than failing on the unexpanded glob',
+                      bool(run_all_text) and r3.returncode == 0))
+
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -4145,7 +4185,9 @@ def check_materialize_bridges_loader():
     check(f'precedent_materialize.py bridges the loader ({len(cases)} stated cases: '
           f'a checks/ collision refuses, an over-budget combined set refuses, a clean '
           f"materialize feeds both a copied and an in-place --repo build_views.py "
-          f"both sources' content)",
+          f"both sources' content, and the test driver is generated rather than "
+          f'copied -- present, globbing, recorded in the manifest, and exiting 0 '
+          f'on an empty test set)',
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
