@@ -410,25 +410,24 @@ which is the failure this repointing exists to end — write
     add once a session holds `alex137` repos, and the GitHub read tools
     refuse the same repos, so it must be a session started against them.
 
-27. **BestPractice never instantiated the individual-source bootstrap hook
-    it ships to every other adopter.**
-    [tools/precedent_resolve.py](tools/precedent_resolve.py) self-heals a
-    missing individual source by re-invoking
-    `.claude/hooks/precedent-individual-bootstrap.sh` from inside the
-    agent's turn, after `add_repo` has run — the 2026-09-06 correction to
-    the session-bootstrap incident. That hook does not exist in this repo:
-    [.claude/hooks/](.claude/hooks/) has `session-start.sh`,
-    `precedent-paths.sh` and `stop-git-check.sh` and nothing else, so the
-    self-heal's second guard returns early and the individual set can
-    never resolve in a BestPractice session. The template is right there
-    at [templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template](templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
-    and [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)'s
-    `--write-session-hook` instantiates it. `verify_harness.py` already
-    tests that a *consuming* repo has this hook — the gap is that
-    BestPractice is treated as the publisher and never checked as a
-    consumer of its own install instructions. **Blocked on:** a session
-    that can reach the individual repo, since the instantiated hook names
-    it and an untested session-start hook must not be committed blind.
+27. **Done 2026-09-06 — the individual-source bootstrap hook is installed
+    here, and this repo is now checked as a consumer of its own install
+    instructions.** The item said this was blocked on a session that could
+    reach the individual repo, "since an untested session-start hook must
+    not be committed blind". That was the wrong blocker: what must never
+    happen is a hook that blocks session start, and *that* is testable
+    without any access at all — run it in an environment where its clone
+    cannot succeed and require exit 0. It does, and
+    [tools/verify_harness.py](tools/verify_harness.py) now asserts it,
+    alongside a case that this repo carries the hook at all. Writing it
+    needed a real fix first: `--write-session-hook` was reachable only
+    after `bootstrap()` created a whole individual set, so the "run it
+    again against an already-bootstrapped set" both
+    [INSTALL.md](INSTALL.md) and
+    [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)
+    documented could not be run — which is the real reason this repo had
+    no hook. `--dest` is now optional for hook-only writes, both documents
+    say so, and a harness case covers it.
 
 28. **Done 2026-09-06 — a missing individual source is no longer silent.**
     Kept as a stub rather than deleted, so item 29 does not shift under
@@ -477,3 +476,20 @@ which is the failure this repointing exists to end — write
     the one thing that tree is designed never to do. Do not fix it
     piecemeal from a consumer repo.
 
+31. **Sweep for other places BestPractice does not follow its own install
+    instructions.** Item 27's root cause was not the missing hook, it was
+    that every existing check builds a *fixture* consumer and asserts
+    things about it — nothing asserted the publisher does what it
+    publishes, so an install step this repo skipped stayed invisible until
+    someone went looking for a rule that never loaded. One instance is now
+    checked ([tools/verify_harness.py](tools/verify_harness.py)'s
+    self-consumer cases). The sweep is the rest: read
+    [INSTALL.md](INSTALL.md) and
+    [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) step by
+    step against this repo's actual tree, decide per step whether it
+    applies to the upstream at all (several genuinely do not — there is no
+    `process/upstream/` here by design), and add a case for each one that
+    does. **Blocked on:** nothing but its size and the per-step judgment
+    call about which steps apply to the publisher — deliberately not
+    folded into the thread that found the first instance, which would have
+    meant deciding all of them in passing.

@@ -221,6 +221,14 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     'doc_lint.py',
     'doc_sync.py',
     'routing_audit.py',
+    # headline-capitalization's check imports it. Added 2026-09-06, after a
+    # consumer that re-vendored the catalogue got the practice but not the
+    # module, and precedent_check.py reported the check as ERRORED
+    # ("ModuleNotFoundError: No module named 'title_case'") rather than
+    # passed or skipped -- honest, and useless. Same class as doc_lint.py
+    # above: a universal practice's own Install names a module, so every
+    # repo that resolves that practice needs it vendored alongside.
+    'title_case.py',
     # The individual-source SessionStart hook this repo ships as a
     # template (templates/harness/claude-code/hooks/
     # individual-source-bootstrap.sh.template) execs this file, and

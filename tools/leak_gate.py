@@ -95,6 +95,31 @@ FORBIDDEN_PATHS = [
      'carry private context (plan, Stage 2)'),
 ]
 
+# Exactly one path is exempt from FORBIDDEN_PATHS, by full path, and it is
+# not a loophole: it is the canonical SessionStart hook every consuming
+# project is TOLD to install, at a name tools/precedent_resolve.py fixes in
+# code (INDIVIDUAL_BOOTSTRAP_HOOK) and INSTALL.md publishes. Its basename
+# begins with 'precedent-individual', so the vendored-private-set rule above
+# matched it -- that rule means a DIRECTORY holding a private set's content
+# (its own comment says so), and it was matching a filename that merely
+# starts with the same text.
+#
+# 2026-09-06: this fired the moment BestPractice installed its own copy of
+# that hook, refusing a file the project's own instructions require. Exempting
+# the one known path, rather than loosening the pattern to require a trailing
+# '/', keeps the rule's full strength for every other name -- a file called
+# precedent-individual-notes.md is still refused.
+#
+# The hook contains no private practice content: it is a wrapper naming the
+# set's git remote, which this repository already publishes in a dozen spec
+# documents. Whether THAT wider disclosure is intended is a separate open
+# question (spec/PRELAUNCH_AUDIT.md raises it for themorgan/WorkingWithAI);
+# this exemption does not settle it and does not widen it.
+#
+# verify_harness.py asserts this string still equals precedent_resolve's own
+# constant, so the exemption cannot drift from where the engine looks.
+ALLOWED_PATHS = frozenset({'.claude/hooks/precedent-individual-bootstrap.sh'})
+
 # Content shapes that are private by construction, and safe to name here
 # because they are shapes rather than anyone's actual vocabulary.
 FORBIDDEN_CONTENT = [
@@ -308,7 +333,7 @@ def load_blocklist():
 def scan(units, blocklist):
     hits = []
     for display, rel, text in units:
-        if rel is not None:
+        if rel is not None and rel not in ALLOWED_PATHS:
             for pat, why in FORBIDDEN_PATHS:
                 if pat.search(rel):
                     hits.append((display, 0, why, rel))
