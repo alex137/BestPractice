@@ -86,6 +86,7 @@ CANDIDATE_DOCS = [
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import parse_check as pcheck  # noqa: E402
+import precedent_bootstrap_source as bootstrap_source  # noqa: E402
 
 CHECKLIST = """\
 What to look for -- a starting point, not a specification. Report anything
@@ -348,6 +349,26 @@ def main():
         print(f"{s['level']} source {s['name']!r} ({s['path']}):")
         print(f"  documents: {', '.join(s['docs']) if s['docs'] else '(none of the recognized names present)'}")
         print(f"  practices/: {s['practice_count']} file(s)\n")
+
+    # Source shape. bootstrap only ever ran for sources it CREATED; a
+    # source migrated into place from an older system never passed through
+    # it, and nothing afterwards asked whether it came out the right shape.
+    print("SOURCE SHAPE -- files each level's skeleton ships\n")
+    _shape_any = False
+    for _s in data['sources']:
+        _lvl, _path = _s.get('level'), _s.get('path')
+        if _lvl not in ('team', 'individual') or not _path:
+            continue
+        _shape_any = True
+        _missing = bootstrap_source.verify(_lvl, _path)
+        if _missing:
+            print(f"  {_s['name']} ({_lvl}): missing {', '.join(_missing)} "
+                  f"-- present in templates/practice-set-{_lvl}/")
+        else:
+            print(f"  {_s['name']} ({_lvl}): complete")
+    if not _shape_any:
+        print("  (no team or individual source resolved here)")
+    print()
 
     print(CHECKLIST)
 

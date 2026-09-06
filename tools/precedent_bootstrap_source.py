@@ -134,6 +134,46 @@ def _seed_approvers_json(dest, approvers):
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
 
 
+def verify(level, path):
+    """-> [str] files this level's skeleton ships that `path` does not have.
+
+    The tool that DEFINES a source's shape is the one that can say whether
+    a source still has it, so the definition is read straight off the
+    skeleton rather than restated in a list that would drift from it.
+
+    This exists because bootstrap only ever ran for sources created BY it.
+    A source that was migrated into place instead -- assembled by hand from
+    an older system -- never passed through here, and nothing afterwards
+    ever asked whether it came out the right shape. 2026-09-06:
+    `precedent-team-maintainers`, migrated rather than bootstrapped, had no
+    `leak-blocklist.txt` at all, while the team skeleton ships one and the
+    set bootstrapped by this tool has it. Nobody had noticed, because
+    nothing was looking.
+
+    Only files are checked, not their contents: an empty blocklist is a
+    deliberate state (`blank-blocklist`), an absent one is a gap."""
+    skeleton = SKELETONS.get(level)
+    if skeleton is None or not skeleton.is_dir():
+        return []
+    path = pathlib.Path(path)
+    missing = []
+    for src in sorted(skeleton.rglob('*')):
+        if not src.is_file():
+            continue
+        rel = src.relative_to(skeleton)
+        # practices/ holds the skeleton's own example, which a real source
+        # is expected to have deleted -- its presence is what
+        # example-starter tells the adopter to remove.
+        if rel.parts and rel.parts[0] == 'practices':
+            continue
+        for name in (rel.name, rel.name.replace('.template', '').replace('.sample', '')):
+            if (path / rel.parent / name).exists():
+                break
+        else:
+            missing.append(str(rel))
+    return missing
+
+
 def bootstrap(level, name, dest, approvers=None, force=False):
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
