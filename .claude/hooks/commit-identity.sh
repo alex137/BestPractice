@@ -21,21 +21,31 @@
 #   1. PRECEDENT_COMMIT_NAME / PRECEDENT_COMMIT_EMAIL / PRECEDENT_COMMIT_TZ
 #      -- an explicit override, for anyone whose situation none of the rest
 #      of this fits.
-#   2. The person's own INDIVIDUAL practice source, if one resolves:
+#   2. An identity.json in THIS repository's own root -- which means this
+#      repository IS somebody's individual practice source, and is declaring
+#      its owner. A source is then self-sufficient: it needs no user-level
+#      config pointing at itself to know whose it is.
+#   3. The person's own INDIVIDUAL practice source, if one resolves:
 #      $PRECEDENT_USER_CONFIG (or ~/.config/precedent/config.json) names its
 #      path, and an identity.json at the root of that source declares
 #      {"name", "email", "timezone"}. This is the architecturally right
 #      answer -- a person's individual set is exactly where person-specific
 #      facts belong, and a shared repo asking it is how the shared repo
 #      avoids knowing anything about any particular person.
-#   3. CCR_SESSION_ACCOUNT_EMAIL, when the harness provides the session
+#
+#      identity.json IS THE ONE PLACE those three values live, for everyone.
+#      Anything else that needs them -- a settings.json `env` block, a
+#      mechanical check asserting who a repo's commits are authored by --
+#      derives from it and is checked against it, rather than restating it
+#      (practice: registry-source-of-truth).
+#   4. CCR_SESSION_ACCOUNT_EMAIL, when the harness provides the session
 #      owner's address.
-#   4. The GitHub account this session is authenticated as
+#   5. The GitHub account this session is authenticated as
 #      (`https://api.github.com/user`), which is the literal answer to "the
 #      GitHub user using it". Falls back to that account's
 #      <id>+<login>@users.noreply.github.com when the profile email is
 #      private.
-#   5. An identity already configured locally, as long as it is not the
+#   6. An identity already configured locally, as long as it is not the
 #      container's own bot identity -- the one thing that is never a human.
 #
 # TIMEZONE, AND WHY IT IS THE ONLY THING GUESSED. Nothing in a GitHub
@@ -46,10 +56,13 @@
 # actually declared is enforced, because only then is a mismatch evidence
 # of anything.
 #
-# WHAT IS ENFORCED, EVERYWHERE, BY THE pre-commit HOOK THIS INSTALLS: that
-# the author is not the container's bot and is not empty. That one is safe
-# to refuse on in any repository, under any person, because it is never
-# what anybody meant.
+# WHAT THE pre-commit HOOK THIS INSTALLS REFUSES. Everywhere, under any
+# person: an author that is the container's bot, or empty. That one is
+# always safe, because it is never what anybody meant. Additionally, when
+# the identity came from a DECLARATION rather than an inference -- an
+# explicit override, or an identity.json -- the exact declared author and
+# the declared timezone. The line is the same in both halves: enforce what
+# somebody wrote down, never what this hook worked out for itself.
 #
 # FAILS GRACEFULLY: always exits 0. A SessionStart hook that can take a
 # session down over a git-config question is worse than the mistake it
@@ -65,6 +78,11 @@ ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
 name="" email="" zone="" source=""
+# Whether the identity came from something a PERSON DECLARED (an explicit
+# override, or an identity.json) rather than from something inferred about
+# the environment (the session account, the authenticated GitHub account, an
+# existing git config). Only a declaration is enforced -- see the header.
+declared=0
 
 _is_bot() {
   case "${1:-}" in
@@ -78,49 +96,73 @@ if [ -n "${PRECEDENT_COMMIT_EMAIL:-}" ]; then
   name="${PRECEDENT_COMMIT_NAME:-}"
   email="$PRECEDENT_COMMIT_EMAIL"
   source="PRECEDENT_COMMIT_* environment"
+  declared=1
 fi
 zone="${PRECEDENT_COMMIT_TZ:-}"
-[ -n "$zone" ] && zone_source="PRECEDENT_COMMIT_TZ"
 
-# --- 2. the individual practice source's own identity.json
-if [ -z "$email" ] || [ -z "$zone" ]; then
-  cfg="${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}"
-  if [ -f "$cfg" ] && command -v python3 >/dev/null 2>&1; then
-    resolved="$(python3 - "$cfg" <<'PY' 2>/dev/null || true
+# --- 2. this repository's OWN identity.json -- it is an individual source
+_read_identity_file() {
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "$1" <<'PY' 2>/dev/null
 import json, pathlib, sys
 try:
-    cfg = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-    path = (cfg.get('individual') or {}).get('path')
-    ident = json.loads((pathlib.Path(path) / 'identity.json').read_text(encoding='utf-8'))
+    ident = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
 except Exception:
-    raise SystemExit(0)
+    raise SystemExit(1)
 print(ident.get('name') or '')
 print(ident.get('email') or '')
 print(ident.get('timezone') or '')
 PY
+}
+
+_take_identity() {  # $1 = three lines, $2 = where it came from
+  local i_name i_email i_zone
+  i_name="$(printf '%s\n' "$1" | sed -n '1p')"
+  i_email="$(printf '%s\n' "$1" | sed -n '2p')"
+  i_zone="$(printf '%s\n' "$1" | sed -n '3p')"
+  if [ -z "$email" ] && [ -n "$i_email" ]; then
+    name="$i_name"; email="$i_email"; source="$2"; declared=1
+  fi
+  if [ -z "$zone" ] && [ -n "$i_zone" ]; then
+    zone="$i_zone"
+  fi
+}
+
+if [ -z "$email" ] || [ -z "$zone" ]; then
+  if [ -f "$ROOT/identity.json" ]; then
+    own="$(_read_identity_file "$ROOT/identity.json" || true)"
+    [ -n "$own" ] && _take_identity "$own" "this repository's own identity.json -- it is an individual practice source"
+  fi
+fi
+
+# --- 3. the individual practice source named by the user-level config
+if [ -z "$email" ] || [ -z "$zone" ]; then
+  cfg="${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}"
+  if [ -f "$cfg" ] && command -v python3 >/dev/null 2>&1; then
+    indiv="$(python3 - "$cfg" <<'PY' 2>/dev/null || true
+import json, pathlib, sys
+try:
+    cfg = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+except Exception:
+    raise SystemExit(0)
+print((cfg.get('individual') or {}).get('path') or '')
+PY
 )"
-    if [ -n "$resolved" ]; then
-      i_name="$(printf '%s\n' "$resolved" | sed -n '1p')"
-      i_email="$(printf '%s\n' "$resolved" | sed -n '2p')"
-      i_zone="$(printf '%s\n' "$resolved" | sed -n '3p')"
-      if [ -z "$email" ] && [ -n "$i_email" ]; then
-        name="$i_name"; email="$i_email"; source="the individual practice source's identity.json"
-      fi
-      if [ -z "$zone" ] && [ -n "$i_zone" ]; then
-        zone="$i_zone"; zone_source="the individual practice source's identity.json"
-      fi
+    if [ -n "$indiv" ] && [ -f "$indiv/identity.json" ]; then
+      resolved="$(_read_identity_file "$indiv/identity.json" || true)"
+      [ -n "$resolved" ] && _take_identity "$resolved" "the individual practice source's identity.json"
     fi
   fi
 fi
 
-# --- 3. the harness's own record of the session owner
+# --- 4. the harness's own record of the session owner
 if [ -z "$email" ] && [ -n "${CCR_SESSION_ACCOUNT_EMAIL:-}" ]; then
   email="$CCR_SESSION_ACCOUNT_EMAIL"
   name="${email%%@*}"
   source="the session account's own address"
 fi
 
-# --- 4. the GitHub account this session is authenticated as
+# --- 5. the GitHub account this session is authenticated as
 if [ -z "$email" ] && command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
   gh="$(curl -s --max-time 10 https://api.github.com/user 2>/dev/null | python3 -c '
 import json, sys
@@ -141,7 +183,7 @@ print(d.get("email") or f"{d.get(chr(105)+chr(100), 0)}+{login}@users.noreply.gi
   fi
 fi
 
-# --- 5. an identity already configured here, if it is not the bot's
+# --- 6. an identity already configured here, if it is not the bot's
 if [ -z "$email" ]; then
   have_name="$(git -C "$ROOT" config --get user.name 2>/dev/null || true)"
   have_email="$(git -C "$ROOT" config --get user.email 2>/dev/null || true)"
@@ -152,7 +194,6 @@ fi
 
 if [ -z "$zone" ]; then
   zone="$DEFAULT_TZ"
-  zone_source="default (nobody declared one)"
   zone_is_guess=1
 else
   zone_is_guess=0
@@ -168,7 +209,7 @@ if [ -n "$email" ]; then
     echo "NOTE: commit-identity: commits from this checkout will be authored as '${name:-$email}' <$email>, from $source." >&2
   fi
 else
-  echo "WARN: commit-identity: could not work out who is running this session, from any of the five sources this hook knows. Commits will use whatever git is already configured with -- and the pre-commit backstop will refuse them if that is the container's own bot identity. Set PRECEDENT_COMMIT_NAME/PRECEDENT_COMMIT_EMAIL to settle it." >&2
+  echo "WARN: commit-identity: could not work out who is running this session, from any of the six sources this hook knows. Commits will use whatever git is already configured with -- and the pre-commit backstop will refuse them if that is the container's own bot identity. Set PRECEDENT_COMMIT_NAME/PRECEDENT_COMMIT_EMAIL to settle it." >&2
 fi
 
 # ---- the pre-commit backstop
@@ -192,6 +233,11 @@ fi
 expected_offset=""
 if [ "$zone_is_guess" -eq 0 ]; then
   expected_offset="$(TZ="$zone" date +%z 2>/dev/null || true)"
+fi
+expected_name="" expected_email=""
+if [ "$declared" -eq 1 ]; then
+  expected_name="$name"
+  expected_email="$email"
 fi
 
 cat > "$target" <<HOOK
@@ -227,6 +273,19 @@ case "\$email" in
 esac
 if [ -z "\$email" ] || [ -z "\$name" ]; then
   echo "commit refused: the author name or email is empty." >&2
+  exit 1
+fi
+
+# Enforced only where somebody DECLARED an identity (an identity.json, or
+# an explicit override). Where this hook merely inferred one -- from the
+# authenticated GitHub account, say -- a different author is not evidence
+# of a mistake, so it passes.
+expected_name="$expected_name"
+expected_email="$expected_email"
+if [ -n "\$expected_email" ] && { [ "\$email" != "\$expected_email" ] || [ "\$name" != "\$expected_name" ]; }; then
+  echo "commit refused: author is '\$name' <\$email>, but the declared identity is '\$expected_name' <\$expected_email>." >&2
+  echo "  git config user.name '\$expected_name' && git config user.email '\$expected_email'" >&2
+  echo "  Deliberate override, for one commit: PRECEDENT_ALLOW_ANY_AUTHOR=1 git commit ..." >&2
   exit 1
 fi
 
