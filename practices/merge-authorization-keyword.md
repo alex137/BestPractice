@@ -38,6 +38,13 @@ usual light and deep checks. Appearing only as part of an ordinary
 sentence, or whose standalone status is genuinely unclear, does not
 count — ask instead of assuming.
 
+The push is not the postcondition — [verify-postcondition](verify-postcondition.md)
+is: after pushing, fetch the target branch and confirm local `HEAD` and
+`origin/precedent-beta-v01` resolve to the same commit, independently of
+what the push command printed, before treating "Go merge" as fulfilled.
+A push that silently rejected, or a target branch that moved again in the
+interval, both look identical to success unless this is actually checked.
+
 ## Why
 "Merge only when the user says so" ([merge-runbook](merge-runbook.md)'s authorization
 default) is the right default, but typed out in full every time it's
@@ -57,7 +64,13 @@ keyword was formally adopted, the second one making the intent explicit
 ("register it in the glossary... And then, Go Merge"). Formalized here,
 in the same change, rather than left as an inferred pattern — so the next
 session that sees the phrase already knows what it means instead of
-re-deriving it from context or asking.
+re-deriving it from context or asking. The same day, Morgan asked whether
+the keyword should also require confirming the push actually landed —
+prompted by nothing having gone wrong yet, just the observation that a
+push being reported as successful and the target branch actually holding
+that commit are two different things this repo had already been bitten by
+once (see `environment-gotchas`' stale-checkout entries). Added to Detail
+rather than left as something a session happens to remember to do.
 
 ## Install
 Pick a word (or short phrase) that reads naturally as a
