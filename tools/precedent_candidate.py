@@ -75,6 +75,8 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import split_practices as sp  # noqa: E402
 
 # spec/CANDIDATE_FORMAT.md#signals -- closed vocabulary, same discipline
 # precedent_gate.py already applies to its own `gates:` field. An unknown
@@ -202,60 +204,20 @@ def _nudge_if_already_approver(path, raised_by):
             f"or leave a record first.", file=sys.stderr)
 
 
-def _split_list_items(inner):
-    """Comma-split `inner` (the text between a list's `[` and `]`) without
-    breaking on a comma that falls inside a quoted item -- a glob or gate
-    name is unlikely to contain one, but a hand-edited or adversarial
-    candidate might (spec/CANDIDATE_FORMAT.md's own list fields are plain
-    strings, not enums, so nothing stops it)."""
-    items, buf, in_quotes = [], [], False
-    i = 0
-    while i < len(inner):
-        c = inner[i]
-        if c == '"' and (i == 0 or inner[i - 1] != '\\'):
-            in_quotes = not in_quotes
-            buf.append(c)
-        elif c == ',' and not in_quotes:
-            items.append(''.join(buf))
-            buf = []
-        else:
-            buf.append(c)
-        i += 1
-    items.append(''.join(buf))
-    return items
-
-
-def _unescape_scalar(v):
-    return v.replace('\\"', '"').replace('\\n', '\n')
-
-
 def _parse_frontmatter(text):
-    """Deliberately tolerant of the same narrow shape render_candidate()
-    produces -- this is a read path for files this tool itself wrote (or a
-    person hand-edited following spec/CANDIDATE_FORMAT.md), not a general
-    YAML parser. A malformed file fails loudly rather than silently
-    misreading, the same choice split_practices.py makes for practices."""
+    """Split a candidate file into (fields, body).
+
+    The field loop itself lives in split_practices.parse_frontmatter_fields
+    -- one reader for every `---`-fenced format here. This function owns
+    only what is specific to the candidate format: where the fence ends,
+    and that a missing fence is a CandidateError rather than a
+    PracticeFileError. `decode=True` because candidate readers want Python
+    values, which is the one real difference between the two formats."""
     if not text.startswith('---\n'):
         raise CandidateError('missing frontmatter (no leading "---")')
     end = text.index('\n---', 4)
-    fm_text, body = text[4:end], text[end + 4:]
-    fm = {}
-    for line in fm_text.splitlines():
-        if not line.strip():
-            continue
-        key, _, val = line.partition(':')
-        key, val = key.strip(), val.strip()
-        if val.startswith('[') and val.endswith(']'):
-            inner = val[1:-1].strip()
-            fm[key] = [] if not inner else [
-                _unescape_scalar(s.strip().strip('"')) for s in _split_list_items(inner)]
-        elif val == 'null':
-            fm[key] = None
-        elif val.startswith('"') and val.endswith('"'):
-            fm[key] = _unescape_scalar(val[1:-1])
-        else:
-            fm[key] = val
-    return fm, body.strip('\n')
+    return sp.parse_frontmatter_fields(text[4:end], decode=True), \
+        text[end + 4:].strip('\n')
 
 
 def split_candidate_sections(body):

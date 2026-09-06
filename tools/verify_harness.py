@@ -5287,6 +5287,63 @@ def check_rule_rewrite_detection():
           not bad)
 
 
+def check_yaml_files_are_valid():
+    """Every tracked YAML file parses, and every workflow names real scripts.
+
+    Nothing in this repo's deep check looked at YAML at all until
+    2026-09-06 -- not even at .github/workflows/deep-check.yml, the file
+    that RUNS the deep check in CI. A malformed workflow does not fail
+    loudly; GitHub skips it, so the gate simply stops running and every
+    push looks as green as it did the day before. That is the worst shape
+    a check can have, and it applied to the check-running check itself.
+
+    Consuming repos already had this through the team set's light_check
+    (invalid JSON/YAML in a changed file). The repo that publishes that
+    practice did not run it on itself.
+
+    The second half is the same class as vendored-engine-file-refs-resolve:
+    a workflow step that calls `python3 tools/x.py` where no such file
+    exists is a job that fails on every run, and nothing here would say so
+    until someone read a CI log."""
+    try:
+        import yaml
+    except ImportError:
+        not_applicable('every tracked YAML file parses',
+                       'PyYAML is not installed here, so nothing was parsed '
+                       '-- `pip install pyyaml` to run it')
+        return
+
+    tracked = subprocess.run(['git', '-C', str(ROOT), 'ls-files'],
+                             capture_output=True, text=True).stdout.split()
+    yml = [f for f in tracked
+           if f.endswith(('.yml', '.yaml', '.yml.template', '.yaml.template'))]
+    bad = []
+    for rel in yml:
+        try:
+            yaml.safe_load((ROOT / rel).read_text(encoding='utf-8'))
+        except Exception as e:
+            bad.append((rel, str(e).split('\n')[0]))
+    for rel, why in bad:
+        print(f"  {rel}: not valid YAML -- {why}")
+    check(f'every tracked YAML file parses ({len(yml)} file(s), templates '
+          f'included)', not bad)
+
+    # Scripts a workflow actually invokes, as opposed to mentions in prose.
+    RUN_SCRIPT = re.compile(r'python3?\s+((?:tools|process|deck)/[\w/.-]+\.py)')
+    missing = []
+    for rel in yml:
+        if '/workflows/' not in rel:
+            continue
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        for name in sorted(set(RUN_SCRIPT.findall(text))):
+            if not (ROOT / name).is_file():
+                missing.append((rel, name))
+    for rel, name in missing:
+        print(f"  {rel}: runs {name}, which does not exist")
+    check(f'every script a workflow runs exists ({len([f for f in yml if "/workflows/" in f])} '
+          f'workflow file(s))', not missing)
+
+
 def check_null_frontmatter_is_absent():
     """A `null` frontmatter field parses as absent, not as the string 'null'.
 
@@ -5345,6 +5402,27 @@ def check_null_frontmatter_is_absent():
     check('a non-null field is still returned as raw field text',
           fm.get('title') == '"Fixture"' and fm.get('status') == 'active',
           f'title={fm.get("title")!r} status={fm.get("status")!r}')
+
+    # ONE reader for both formats. They had their own copies until
+    # 2026-09-06 and had already drifted on exactly this: candidates
+    # decoded null to None, practices kept the string. Pinned by behaviour
+    # rather than by grepping for the import, so a re-forked copy that
+    # happens to agree today still has to keep agreeing.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_pc_cand', ROOT / 'tools' / 'precedent_candidate.py')
+    pcand = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pcand)
+    cand_fm, _body = pcand._parse_frontmatter(
+        '---\nslug: x\nproposed_checked_by: null\n---\nbody\n')
+    check('the candidate reader applies the same null policy as the '
+          'practice reader -- absent, not None, not the string',
+          'proposed_checked_by' not in cand_fm, str(cand_fm))
+    check('and it still decodes its own format: a quoted scalar and a list '
+          'come back as Python values',
+          pcand._parse_frontmatter(
+              '---\ntitle: "A, B"\nproposed_gates: ["merge", "push"]\n---\nx\n'
+          )[0] == {'title': 'A, B', 'proposed_gates': ['merge', 'push']})
 
     # The end-to-end symptom, not just the parser: the command that broke.
     r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'split_practices.py'),
@@ -6149,6 +6227,7 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
+    check_yaml_files_are_valid()
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
     check_link_anchors_resolve()

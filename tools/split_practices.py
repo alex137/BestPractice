@@ -341,6 +341,79 @@ def cmd_split(force=False):
 FM_FIELD_RE = re.compile(r'^([a-z_]+):\s*(.*)$')
 
 
+def parse_frontmatter_fields(fm_text, decode=False):
+    """The one frontmatter field reader, for every `---`-fenced format here.
+
+    Two formats use it -- practice files (spec/PRACTICE_FORMAT.md) and
+    candidate files (spec/CANDIDATE_FORMAT.md) -- and until 2026-09-06 each
+    had its own copy of this loop. They had already drifted on the thing
+    that matters most: candidates decoded `null` to None and practices kept
+    the literal string `'null'`, which is truthy, is not None, and is not
+    int-parseable, so every `is None` guard written against a practice's
+    nullable fields was dead code. That is not a difference either format
+    intended; it is what two copies of one loop do over time.
+
+    ONE null policy now, for both: a null field is ABSENT. `k not in fm`
+    and `fm.get(k) is None` both work, and a caller supplying its own
+    default (`fm.get('checked_by', 'null')`) still gets it -- which
+    precedent_retire.py depends on, since `not in ('null', '')` would read
+    a stored None as a real value.
+
+    `decode` is the one genuine difference between the two formats, kept
+    explicit rather than duplicated. Practice readers want RAW field text:
+    ~39 call sites across the engine compare against `'[]'`, strip quotes,
+    or run the value through build_views._json_str, and that convention is
+    documented in spec/PRACTICE_FORMAT.md. Candidate readers want Python
+    values. Converting the engine to decoded values is a real change worth
+    making on its own, not folded into a parser merge."""
+    fm = {}
+    for line in fm_text.splitlines():
+        if not line.strip():
+            continue
+        m = FM_FIELD_RE.match(line)
+        if not m:
+            continue
+        key, val = m.group(1), m.group(2).strip()
+        if val == 'null':
+            continue                      # absent, in both formats
+        if not decode:
+            fm[key] = m.group(2)
+            continue
+        if val.startswith('[') and val.endswith(']'):
+            inner = val[1:-1].strip()
+            fm[key] = [] if not inner else [
+                _unescape_scalar(x.strip().strip('"'))
+                for x in _split_list_items(inner)]
+        elif val.startswith('"') and val.endswith('"'):
+            fm[key] = _unescape_scalar(val[1:-1])
+        else:
+            fm[key] = val
+    return fm
+
+
+def _split_list_items(inner):
+    """Split a `[...]` body on commas that are not inside a quoted string."""
+    items, buf, in_str, esc = [], [], False, False
+    for ch in inner:
+        if esc:
+            buf.append(ch); esc = False; continue
+        if ch == '\\':
+            buf.append(ch); esc = True; continue
+        if ch == '"':
+            in_str = not in_str
+        if ch == ',' and not in_str:
+            items.append(''.join(buf)); buf = []
+            continue
+        buf.append(ch)
+    if buf:
+        items.append(''.join(buf))
+    return [i for i in (x.strip() for x in items) if i]
+
+
+def _unescape_scalar(v):
+    return v.replace('\\"', '"').replace('\\n', '\n')
+
+
 class PracticeFileError(ValueError):
     """A practices/*.md file that cannot be parsed. Named and raised rather
     than asserted: `assert` produces a bare AssertionError that does not
@@ -372,39 +445,8 @@ def _parse_practice_text(text, path='<text>'):
             f"{path}: frontmatter is never closed -- no '---' line after the "
             f"opening fence (see spec/PRACTICE_FORMAT.md).")
     fm_text, body = text[4:end], text[end + 5:]
-    fm = {}
-    for line in fm_text.splitlines():
-        m = FM_FIELD_RE.match(line)
-        if m:
-            # `null` means the field is ABSENT, so absent is how it is
-            # stored. Every value here is raw field text, so a null field
-            # used to arrive as the literal string 'null' -- which is
-            # truthy, is not None, and is not int-parseable. Every
-            # `if x is None` and `if 'x' not in fm` guard written against
-            # these fields was therefore dead code that had never once
-            # run, because every practice inherited from PRACTICES.md
-            # carries a real value in all four nullable fields.
-            #
-            # The first freshly-minted practice exposed it (2026-09-06):
-            # `int('null')` took the whole harness down, and a fidelity
-            # check demanded a PRACTICES.md ancestor that cannot exist by
-            # definition. Both were one-line guards that looked correct
-            # and had simply never been reached. This matters most for
-            # exactly the repos that have no inherited practices at all --
-            # a new install, or a migration whose practices are all
-            # locally authored, where EVERY practice takes these paths.
-            #
-            # Dropping the key rather than storing None deliberately: every
-            # caller that supplies its own default (`fm.get('checked_by',
-            # 'null')`) keeps behaving exactly as before, including
-            # precedent_retire.py, whose `checked_by not in ('null', '')`
-            # would read None as a real value. Callers with no default get
-            # None, which is what they were already testing for.
-            # precedent_candidate.py's own parser has always normalized
-            # null this way; this makes the two agree.
-            if m.group(2).strip() == 'null':
-                continue
-            fm[m.group(1)] = m.group(2)
+    fm = parse_frontmatter_fields(fm_text)          # raw values; null omitted
+
     sections = {}
     cur = None
     buf = []
