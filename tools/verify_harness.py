@@ -5186,6 +5186,117 @@ def check_rule_rewrite_detection():
           not bad)
 
 
+def check_materialized_links_are_placed():
+    """A practice's relative links are repointed for where the file lands.
+
+    Practice files ship. A practice's links are written relative to its own
+    directory in its own repository, and copied verbatim into a consuming
+    repo they point at nothing -- `../tools/very_deep_check.py` and
+    `../spec/ATTENTION_CEILING.md` are real in Precedent and absent from
+    every repo that installs it. Every consuming repo was shipping ~60
+    practice files with dead internal links, and
+    precedent-team-maintainers' own light check had already had to exempt
+    materialized practices/ from its broken-link scan to stay green.
+
+    Four behaviours, and the last two are why this is not a blanket
+    rewrite: a link that already resolves where it lands must be left
+    exactly as it is, and a link this cannot place confidently must be
+    left alone rather than mangled -- the output is a copy of somebody
+    else's content."""
+    import shutil, tempfile, importlib.util
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-matlinks-'))
+    cases = []
+    try:
+        spec = importlib.util.spec_from_file_location(
+            '_pm_links', ROOT / 'tools' / 'precedent_materialize.py')
+        pm = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pm)
+
+        # An "upstream" source repo with a real remote and a real commit,
+        # so the rewrite has something honest to point at.
+        upstream = tmp / 'upstream'
+        (upstream / 'practices').mkdir(parents=True)
+        (upstream / 'spec').mkdir()
+        (upstream / 'tools').mkdir()
+        (upstream / 'spec' / 'THING.md').write_text('x\n', encoding='utf-8')
+        (upstream / 'tools' / 'engine.py').write_text('x\n', encoding='utf-8')
+        (upstream / 'practices' / 'sibling.md').write_text('x\n', encoding='utf-8')
+        src = upstream / 'practices' / 'p.md'
+        src.write_text(
+            'See [spec/THING.md](../spec/THING.md) and [engine](../tools/engine.py).\n'
+            'Sibling: [sibling](sibling.md). External: [x](https://example.com/a).\n'
+            'Missing at the source: [gone](../spec/GONE.md).\n', encoding='utf-8')
+        for argv in (['init', '-q'], ['config', 'user.email', 'h@e'],
+                     ['config', 'user.name', 'h'],
+                     ['remote', 'add', 'origin', 'https://github.com/acme/upstream.git'],
+                     ['add', '-A'], ['commit', '-qm', 'seed']):
+            subprocess.run(['git', '-C', str(upstream), *argv], capture_output=True)
+        commit = subprocess.run(['git', '-C', str(upstream), 'rev-parse', 'HEAD'],
+                                capture_output=True, text=True).stdout.strip()
+
+        consumer = tmp / 'consumer'
+        (consumer / 'practices').mkdir(parents=True)
+        (consumer / 'tools').mkdir()
+        (consumer / 'tools' / 'engine.py').write_text('x\n', encoding='utf-8')
+        out = pm._rewrite_links(src.read_bytes(), str(src), consumer,
+                                sibling_slugs={'sibling'}).decode('utf-8')
+
+        cases.append(('a target in another repository becomes a commit URL — '
+                      'the branch could be deleted, the commit cannot',
+                      f'https://github.com/acme/upstream/blob/{commit}/spec/THING.md'
+                      in out, out))
+        cases.append(('a sibling practice link is left exactly as it is — '
+                      'recognised from the slug set this run is writing, not '
+                      'from what happens to be on disk yet',
+                      '](sibling.md)' in out, out))
+        cases.append(('an external URL is left alone',
+                      '](https://example.com/a)' in out, out))
+        cases.append(('a link that already resolves where it LANDS is left '
+                      'relative — the consumer has its own tools/engine.py, '
+                      'so an absolute URL would send the reader to the wrong '
+                      'copy', '](../tools/engine.py)' in out, out))
+        cases.append(("a link already broken at the source is left alone, not "
+                      "invented", '](../spec/GONE.md)' in out, out))
+
+        # The repo-local direction: same family, opposite sign. A practice at
+        # local/practices/x.md writing `../tools/` means local/tools/, which
+        # is NOT what that link means once the file sits at practices/x.md.
+        (consumer / 'local' / 'practices').mkdir(parents=True)
+        (consumer / 'local' / 'tools').mkdir()
+        (consumer / 'local' / 'tools' / 'own.py').write_text('x\n', encoding='utf-8')
+        lsrc = consumer / 'local' / 'practices' / 'l.md'
+        lsrc.write_text('Ours: [own](../tools/own.py).\n', encoding='utf-8')
+        lout = pm._rewrite_links(lsrc.read_bytes(), str(lsrc), consumer).decode('utf-8')
+        cases.append(('a repo-local source\'s link is recomputed as a relative '
+                      'path from the new location, not turned into a URL — the '
+                      'file is right there in the same repo',
+                      '](../local/tools/own.py)' in lout, lout))
+
+        # No remote, no rewrite: never guess a URL.
+        noremote = tmp / 'noremote'
+        (noremote / 'practices').mkdir(parents=True)
+        (noremote / 'spec').mkdir()
+        (noremote / 'spec' / 'THING.md').write_text('x\n', encoding='utf-8')
+        nsrc = noremote / 'practices' / 'p.md'
+        nsrc.write_text('See [t](../spec/THING.md).\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(noremote), 'init', '-q'], capture_output=True)
+        nout = pm._rewrite_links(nsrc.read_bytes(), str(nsrc), consumer).decode('utf-8')
+        cases.append(('a source with no usable remote leaves its links alone '
+                      'rather than writing a URL it had to guess',
+                      '](../spec/THING.md)' in nout, nout))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a materialized practice\'s links are placed for where the file '
+          f'lands ({len(cases)} stated cases: another repo becomes a commit '
+          f'URL; a sibling, an external URL, a link that already resolves, '
+          f'and a link broken at the source are all left alone; a repo-local '
+          f'source is recomputed relative; no remote means no rewrite)',
+          not bad, '; '.join(f"{n} -- {d[:160]}" for n, d in bad))
+
+
 def check_source_supplied_checks_run():
     """A `checked_by: tools/checks/check_x.py` claim actually RUNS.
 
@@ -5695,6 +5806,7 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
+    check_materialized_links_are_placed()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()

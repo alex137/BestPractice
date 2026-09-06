@@ -287,22 +287,26 @@ the upstream layer. Ordered by priority.
     the gate and path channels, alongside the pre-existing
     `precedent_show.py` cases) — all 12 pass.
 
-21. **A materialized practice's relative links are dead in the consuming
-    repo.** Fixed at the source on 2026-09-06 (a practice file's
-    `../tools/x.py` resolves in *this* repo), but
-    [tools/precedent_materialize.py](tools/precedent_materialize.py) copies
-    practice bytes verbatim — so a consumer's own
-    `practices/very-deep-check.md` links `../tools/very_deep_check.py` and
-    `../spec/ATTENTION_CEILING.md`, neither of which exists there. Every
-    consuming repo therefore ships ~60 practice files with dead internal
-    links. The durable fix is to rewrite non-sibling relative links to
-    absolute upstream URLs at materialize time. **Blocked on:** it makes a
-    materialized file differ byte-for-byte from its source, which is
-    exactly what `precedent-team-maintainers`' own materialized-tree audit
-    checks — that audit has to change in the same pass, so this needs both
-    repos attached. Its `check_light_check.py` already exempts
-    materialized `practices/` from its broken-link scan for this reason,
-    which is a workaround rather than a fix.
+21. ~~**A materialized practice's relative links are dead in the consuming
+    repo.**~~ **Done (2026-09-06.)** Every consuming repo was shipping ≈60
+    practice files whose internal links resolved to nothing:
+    [tools/precedent_materialize.py](tools/precedent_materialize.py) copied
+    practice bytes verbatim, so `../tools/very_deep_check.py` and
+    `../spec/ATTENTION_CEILING.md` — real paths here — pointed at nothing
+    there. It now repoints each link for where the file actually lands: a
+    commit URL into the source repository (the commit, not a branch, since
+    the tree is a snapshot and a branch can be deleted), or a recomputed
+    relative path when the target is inside the consuming repo. A sibling
+    practice citation, an external URL, a link that already resolves where
+    it lands, and a link already broken at the source are each left exactly
+    as they are. Verified against a real four-source install: **0 broken
+    links**, 39 distinct sibling citations all still resolving. The
+    `blocked-on` this item carried turned out to be wrong — nothing
+    compared a materialized practice's bytes to its source; that
+    byte-identity audit is about check scripts. `precedent-team-maintainers`'
+    own light check has dropped the exemption it needed to stay green, and
+    its test case for that path now requires a finding instead of silence.
+
 22. **Sweep the team and individual sets' judgment-only practices.**
     [tools/full_practice_audit.py](tools/full_practice_audit.py) reports 49
     judgment-only practices across the three sources. The 2026-09-06

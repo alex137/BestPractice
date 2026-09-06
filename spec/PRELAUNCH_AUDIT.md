@@ -210,19 +210,25 @@ run prompted on every single run.
 
 ### Real work, scoped
 
-3. **A materialized practice's relative links are dead in the consuming
-   repo.** Fixed at the source (`../tools/x.py` resolves in *this* repo),
-   but `precedent_materialize.py` copies practice bytes verbatim, so a
-   consumer's `practices/very-deep-check.md` links `../tools/very_deep_check.py`
-   and `../spec/ATTENTION_CEILING.md`, neither of which exists there. The
-   durable fix is to rewrite non-sibling relative links to absolute
-   upstream URLs at materialize time. Not done here because it makes a
-   materialized file differ byte-for-byte from its source, which is
-   precisely what `precedent-team-maintainers`' own materialized-tree
-   audit checks — that audit would need to change in the same pass.
-   `check_light_check.py` already exempts materialized `practices/` from
-   its broken-link scan for this exact reason, which is a workaround, not
-   a fix.
+3. ~~**A materialized practice's relative links are dead in the consuming
+   repo.**~~ **Done, later the same day.** Worth recording how: this item
+   was queued as blocked on a byte-identity audit that would have to change
+   in the same pass — and when the next session (this one) went to do it,
+   that blocker did not exist. Nothing compares a materialized practice's
+   bytes to its source; the byte-identity audit is about *check scripts*.
+   The blocker was an assumption written down as a fact, which is exactly
+   what a `blocked-on` line is supposed to prevent. **Check a stated
+   blocker before believing it**, including one this project wrote itself.
+
+   The fix: `precedent_materialize.py` repoints each link for where the
+   file lands — a commit URL into the source repository, or a recomputed
+   relative path when the target is inside the consuming repo — leaving a
+   sibling citation, an external URL, a link that already resolves, and a
+   link already broken at the source alone. Verified against a real
+   four-source install: 0 broken links, 39 distinct sibling citations still
+   resolving. `precedent-team-maintainers`' light check dropped the
+   exemption it needed to stay green, and its test for that path now
+   requires a finding instead of silence.
 4. **The team set's 39 judgment-only practices were not swept.** The full
    practice audit reports 49 judgment-only practices across three sources.
    This session judged the universal slice's highest-yield ones

@@ -40,6 +40,9 @@ resident set, or a checks/ filename collision.
 """
 import datetime
 import hashlib
+import os
+import re
+import subprocess
 import json
 import pathlib
 import shutil
@@ -89,6 +92,143 @@ def _self_referential_sources(sources, out_dir):
     or not today's resolved set happens to collide."""
     out_dir = pathlib.Path(out_dir).resolve()
     return [s for s in sources if pathlib.Path(s['path']).resolve() == out_dir]
+
+
+# --------------------------------------------------------------------------
+# Link rewriting
+# --------------------------------------------------------------------------
+#
+# A practice file's relative links are written relative to ITS OWN
+# directory in ITS OWN repository. Copied verbatim into a consuming repo's
+# practices/, they point at nothing: `../tools/very_deep_check.py` and
+# `../spec/ATTENTION_CEILING.md` are real paths in Precedent and absent
+# from every repo that installs it. So every consuming repo was shipping
+# ~60 practice files whose internal links 404 -- and the practice files are
+# the product. precedent-team-maintainers' own light check had already had
+# to exempt materialized practices/ from its broken-link scan to stay
+# green, which is the workaround this replaces.
+#
+# Two cases, decided by where the target actually lands:
+#
+#   inside the consuming repo   -- a repo-local source, whose files are
+#                                  right there. Recompute the relative path
+#                                  from the new location. (This half is a
+#                                  bug in the same family and the opposite
+#                                  direction: a repo-local practice at
+#                                  local/practices/x.md writing `../tools/`
+#                                  means local/tools/, which is NOT what
+#                                  the same link means once the file is at
+#                                  practices/x.md.)
+#   anywhere else               -- another repository. Only an absolute URL
+#                                  can reach it, so link the source repo's
+#                                  own web view at the branch the source
+#                                  checkout is actually on.
+#
+# A sibling practice link (`[some-slug](some-slug.md)`, the catalogue's own
+# citation form) already resolves in the materialized tree and is left
+# exactly as it is -- checked by resolution, not by pattern, so nothing has
+# to stay in sync with the citation convention.
+_LINK_RE = re.compile(r'(\]\()([^)\s]+?)(\))')
+
+
+def _remote_web_base(repo_root):
+    """`https://host/owner/repo/blob/<commit>` for a source checkout, or
+    None when that cannot be established (no git, no `origin`, an unborn
+    HEAD). None means "leave the links alone": a wrong URL is worse than a
+    relative path that at least says what it was reaching for.
+
+    THE COMMIT, NOT THE BRANCH. A materialized tree is a snapshot -- the
+    manifest beside it says so -- and a commit URL matches that exactly:
+    it shows the content the snapshot was taken from, and it cannot rot,
+    because GitHub keeps a blob reachable by SHA long after any branch
+    pointing at it is deleted. The first version of this used the source
+    checkout's current branch and promptly wrote a feature branch nobody
+    else would ever have into every link of every materialized practice.
+    A default-branch URL is no better here: the content a consumer just
+    resolved may only exist on a release branch, and would 404 on the
+    default one."""
+    def git(*args):
+        r = subprocess.run(['git', '-C', str(repo_root), *args],
+                           capture_output=True, text=True)
+        return r.stdout.strip() if r.returncode == 0 else ''
+
+    url = git('remote', 'get-url', 'origin')
+    # --verify --quiet: a plain `rev-parse HEAD` prints "HEAD" back on an
+    # unborn HEAD, and that string would be carried straight into every
+    # URL (this repo's own gotchas section records the same trap costing a
+    # continuous-integration run).
+    commit = git('rev-parse', '--verify', '--quiet', 'HEAD')
+    if not url or not commit:
+        return None
+    url = re.sub(r'^git@([^:]+):', r'https://\1/', url)
+    url = re.sub(r'\.git$', '', url).rstrip('/')
+    if not url.startswith('http'):
+        return None
+    return f'{url}/blob/{commit}'
+
+
+def _rewrite_links(data, source_file, out_dir, sibling_slugs=()):
+    """Repoint one practice file's relative links for its new home.
+
+    Returns the rewritten bytes. Any link this cannot place confidently is
+    left untouched -- the output is a copy of somebody's content, and
+    silently mangling it would be a worse failure than the dead link this
+    fixes.
+
+    `sibling_slugs` is every slug THIS materialize run is writing, and it
+    has to be passed rather than discovered on disk: practices are written
+    in slug order, so at the moment an early one is rewritten a later
+    sibling it cites does not exist yet. Checking the filesystem alone made
+    a sibling citation survive or get turned into a URL depending on
+    alphabetical order, which is the kind of bug that looks like it works
+    until somebody adds a practice."""
+    try:
+        text = data.decode('utf-8')
+    except UnicodeDecodeError:
+        return data
+    src_dir = pathlib.Path(source_file).resolve().parent
+    dest_dir = (pathlib.Path(out_dir) / 'practices').resolve()
+    out_root = pathlib.Path(out_dir).resolve()
+    web_base = None
+    web_root = None
+
+    def sub(m):
+        nonlocal web_base, web_root
+        open_paren, target, close = m.groups()
+        if target.startswith(('http://', 'https://', 'mailto:', '#')):
+            return m.group(0)
+        bare, _, anchor = target.partition('#')
+        if not bare:
+            return m.group(0)
+        if bare[:-3] in sibling_slugs and bare.endswith('.md') and '/' not in bare:
+            return m.group(0)            # a sibling this run is also writing
+        if (dest_dir / bare).exists():
+            return m.group(0)            # already resolves where it lands
+        resolved = (src_dir / bare).resolve()
+        if not resolved.exists():
+            return m.group(0)            # broken at the source; not ours to invent
+        if resolved.is_relative_to(out_root):
+            new = os.path.relpath(resolved, dest_dir)
+        else:
+            if web_root is None:
+                web_root = _git_toplevel(src_dir) or False
+                web_base = _remote_web_base(web_root) if web_root else None
+            if not web_base:
+                return m.group(0)
+            try:
+                rel = resolved.relative_to(web_root)
+            except ValueError:
+                return m.group(0)
+            new = f'{web_base}/{rel.as_posix()}'
+        return f'{open_paren}{new}{("#" + anchor) if anchor else ""}{close}'
+
+    return _LINK_RE.sub(sub, text).encode('utf-8')
+
+
+def _git_toplevel(start):
+    r = subprocess.run(['git', '-C', str(start), 'rev-parse', '--show-toplevel'],
+                       capture_output=True, text=True)
+    return pathlib.Path(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
 
 
 def _plan_checks(sources, res=None):
@@ -219,12 +359,23 @@ def materialize(sources, res, out_dir):
     practices_dir.mkdir(parents=True)
 
     written = []
+    all_slugs = set(practice_plan)
     for slug, (practice, data) in sorted(practice_plan.items()):
         dest = practices_dir / f'{slug}.md'
-        dest.write_bytes(data)
+        # Rewritten, not copied: a practice's relative links are written
+        # relative to its own repository and point at nothing here. See
+        # _rewrite_links. The recorded hash is of what was WRITTEN, so the
+        # manifest still describes the file that exists; `source_sha256_16`
+        # keeps the untouched original's hash beside it, so a later
+        # comparison can tell a rewrite from a drift.
+        placed = _rewrite_links(data, practice['file'], out_dir,
+                                sibling_slugs=all_slugs)
+        dest.write_bytes(placed)
         written.append({'slug': slug, 'level': practice['level'],
                          'source': practice['source'],
-                         'sha256_16': hashlib.sha256(data).hexdigest()[:16]})
+                         'sha256_16': hashlib.sha256(placed).hexdigest()[:16],
+                         'source_sha256_16': hashlib.sha256(data).hexdigest()[:16],
+                         'links_rewritten': placed != data})
 
     checks_written = []
     for rel_label, filename, source_name, data in checks_plan:
