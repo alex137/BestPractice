@@ -622,13 +622,21 @@ which is the failure this repointing exists to end — write
     `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`,
     then `python3 tools/precedent_migrate_status.py --repo . --against ..`,
     then `python3 tools/build_codeowners.py`, committed.
+    **What the refresh now carries, named rather than left to "it'll pick it
+    up" (2026-09-06):** [tools/doc_lint.py](tools/doc_lint.py)'s check 6 gained
+    two fixes each source's own vendored copy is currently without — a
+    `decisions/` directory is record-class, and a link to a dated decision
+    record is an allowed reference in a deliverable. Any set that keeps
+    decision records under dated names is failing its own light check on them
+    until it refreshes. Nothing else is required of the sets: the change is in
+    the vendored engine, not in anything they author.
     Unblocks [`convert-team-set-retired-statuses`](TODO.md#convert-team-set-retired-statuses),
     [`build-codeowners-check-flag`](TODO.md#build-codeowners-check-flag)'s
     rollout, [`unreachable-practices`](TODO.md#unreachable-practices)'s
     measurement, and configuring the leak gate's vocabulary blocklist (which
     belongs in `precedent-individual`).
 
-34. <a id="convert-team-set-retired-statuses"></a>**Convert
+35. <a id="convert-team-set-retired-statuses"></a>*(was item 34 — two items carried that number until 2026-09-06.)* **Convert
     `precedent-team-maintainers`' two `status: retired` practices to
     `status: deduplicated`.** `bestpractice-sync` (rule in force at
     individual) and `header-caps` (rule in force at universal) are both
@@ -653,7 +661,7 @@ which is the failure this repointing exists to end — write
     `--set header-caps=headline-capitalization`. Run it report-only first.
     **Blocked on:** a session holding `themorgan/precedent-team-maintainers`.
 
-35. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
+36. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
     and writes anyway.**~~ **Done 2026-09-06.** Both defects fixed in
     [tools/build_codeowners.py](tools/build_codeowners.py): a real `--check`
     that compares and exits non-zero without writing (and an unknown flag is
@@ -675,7 +683,7 @@ which is the failure this repointing exists to end — write
     `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`
     then `python3 tools/build_codeowners.py`, committed.
 
-36. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
+37. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
     None of the three private sets has a `precedent.json`, so each set's
     `build_views.py` renders its own catalogue alone — and a universal
     practice cannot reach the set that dropped its own copy in favour of it.
@@ -687,7 +695,7 @@ which is the failure this repointing exists to end — write
     source repo eating its own cooking changes what binds a contributor to
     that set, so it needs Morgan's call before any work starts.
 
-37. <a id="relax-the-pinned-branch-hold"></a>**Relax the pinned-branch hold
+38. <a id="relax-the-pinned-branch-hold"></a>**Relax the pinned-branch hold
     once the fix has run through real sync cycles.**
     [tools/checkin.py](tools/checkin.py)'s four commands — `fresh`,
     `update`, `record`, `push` — now read `upstream.branch` from a consuming

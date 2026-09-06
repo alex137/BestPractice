@@ -578,6 +578,34 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   in this section that says "the session-start hook does this" as *not*
   done when you arrived here as a sibling.
 
+- **The three private practice sets cannot be attached from a session
+  rooted in this repo, and it is a session-shape rule, not a permissions
+  problem — so do not go hunting for the permission.** As of 2026-09-06,
+  asked to attach `themorgan/precedent-team-maintainers`,
+  `themorgan/precedent-individual` and `themorgan/precedent-team-tms` while
+  working in `alex137/BestPractice`, `add_repo` refuses outright:
+  *"cross-tier adds are not supported in v1: requested
+  themorgan/precedent-team-maintainers but session already has repos from
+  owner(s) [alex137]"*. Everything about the surrounding evidence argues the
+  other way and is misleading: `list_repos` returns all three, private, with
+  `can_push: true` for this account, so access genuinely exists — it is the
+  *session's* composition that is refused, not the account's rights. The
+  obvious fallback fails too, differently enough to look like a second
+  problem: a plain `git ls-remote https://github.com/themorgan/...` answers
+  *"could not read Username for 'https://github.com': terminal prompts
+  disabled"*, because this session's git credentials cover `alex137/*` only.
+  Nothing done from inside such a session closes this. The remedy is a
+  session whose **initial source** is the private repo
+  ([TODO.md](TODO.md)'s `attach-private-sources` item, which also lists what
+  to run once there); BestPractice is public, so that session clones it
+  directly with no second `add_repo`. The failure this entry prevents is
+  spending the attempt at all: the fact was already recorded in
+  [TODO.md](TODO.md), [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) and
+  [decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md),
+  and a session on 2026-09-06 rediscovered it by trying both calls anyway,
+  because this section — the one place written to stop rediscovery — did not
+  carry it.
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
