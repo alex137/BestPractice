@@ -443,6 +443,13 @@
       "why": "Session setup lives in hooks and bootstrap scripts. The tightest locus in this pass.",
       "decided": "phase 4 routing pass"
     },
+    "source-naming": {
+      "globs": [
+        "precedent.json"
+      ],
+      "why": "Declaring a source IS editing precedent.json, so the path identifies the practice's distinguishing condition rather than merely a necessary one. The Rule's other half -- say the convention before anyone picks a name -- is a conversational moment with no file at all, and no gate reaches it either; the occasion index carries that half, which is why the occasion names importing and creating a repository, not only declaring one.",
+      "decided": "2026-09-06, the session that landed the practice"
+    },
     "tabular-shared-renderer": {
       "globs": [
         "**"

@@ -250,10 +250,19 @@ it applies.
      {
        "sources": [
          {"level": "universal", "name": "precedent", "path": "process/upstream"},
-         {"level": "team", "name": "<their repo's name>", "path": "../<their repo's name>"}
+         {"level": "team", "name": "precedent-team-<slug>", "path": "../precedent-team-<slug>"}
        ]
      }
      ```
+     **Names are fixed by level, not chosen** — `precedent` for the
+     universal set, `precedent-individual` for a person's own,
+     `precedent-team-<slug>` for a team's, `local` for a repo-local one.
+     Say that out loud before anyone creates or renames a repository here,
+     rather than correcting a name afterwards: renaming a set breaks every
+     vendored reference to it, and
+     [`tools/precedent_resolve.py`](tools/precedent_resolve.py) refuses a
+     source declared under any other shape. See
+     [`practices/source-naming.md`](practices/source-naming.md).
      A team source is **resolved live from a sibling checkout, never
      vendored** — it already has its own repo and its own maintainers, so
      copying it in would just be a second, driftable copy. `path` is

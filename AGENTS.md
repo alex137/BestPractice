@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 62 practices)
+### Resident block (~312 of 2000 token budget, 6 of 63 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -133,6 +133,8 @@ When exporting a tool across a repo boundary:
   engine-plus-host-shims — one vendored engine, thin host shims, never a fork
 When finishing a substantial work-product, before the merge-time capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
+When importing, creating, or declaring a repository that holds practices:
+  source-naming — names are fixed by level; say the convention before anyone picks a name
 When merging a branch:
   capture-gate — capture the follow-on work in the thread that created the need
 When merging a branch that improved a generic practice:
@@ -226,7 +228,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
 | The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
 | The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |
-| How a practice-set source is named (proposed convention and enforcement — not built) | [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md) |
+| How a practice-set source is named — the convention, what refuses vs. warns, and what a session must say before anyone picks a name | [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md), rule at [practices/source-naming.md](practices/source-naming.md) |
 | The phase-4 enforced channel: what is checked, and what each check is blind to | [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md) |
 | The phase-5 creation pipeline: what got built stage by stage, what's deferred, what phase 6 inherits | [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md) |
 | The phase-5 candidate file format (Stage 2) and why universal candidates are GitHub Issues, not files | [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md) |

@@ -16,5 +16,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
+| practice-set source | [source-naming](practices/source-naming.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |

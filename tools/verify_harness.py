@@ -1217,7 +1217,7 @@ def check_source_precedence():
                          'path': str(universal)},
                         {'level': 'team', 'name': 'precedent-team-fixture',
                          'path': str(team)},
-                        {'level': 'repo-local', 'name': 'a-project-local',
+                        {'level': 'repo-local', 'name': 'local',
                          'path': 'local'}]}), encoding='utf-8')
         user_cfg = tmp / 'user.json'
         user_cfg.write_text(json.dumps({
@@ -1427,7 +1427,7 @@ def check_source_precedence():
             (spelling / 'local' / 'practices').mkdir(parents=True)
             (spelling / 'precedent.json').write_text(json.dumps({
                 'format_version': 1,
-                'sources': [{'level': 'repo-local', 'name': 'spelled-differently',
+                'sources': [{'level': 'repo-local', 'name': 'local',
                              'path': slug_variant}]}), encoding='utf-8')
             r_sp = subprocess.run(
                 [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -1461,14 +1461,14 @@ def check_source_precedence():
         # plan's own rule is that the resolver fails loudly here.
         two_teams = tmp / 'two-teams'
         (two_teams).mkdir()
-        t_a, t_b = tmp / 'team-a', tmp / 'team-b'
+        t_a, t_b = tmp / 'precedent-team-a', tmp / 'precedent-team-b'
         practice(t_a, 'shared', level_note='Team A version.')
         practice(t_b, 'shared', level_note='Team B version.')
         practice(t_b, 'b-only', level_note='Only in B.')
         (two_teams / 'precedent.json').write_text(json.dumps({
             'format_version': 1,
-            'sources': [{'level': 'team', 'name': 'team-a', 'path': str(t_a)},
-                        {'level': 'team', 'name': 'team-b', 'path': str(t_b)}]}),
+            'sources': [{'level': 'team', 'name': 'precedent-team-a', 'path': str(t_a)},
+                        {'level': 'team', 'name': 'precedent-team-b', 'path': str(t_b)}]}),
             encoding='utf-8')
         r_two = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -1546,7 +1546,7 @@ def check_cross_source_resident_budget():
             'format_version': 1,
             'sources': [{'level': 'universal', 'name': 'precedent',
                          'path': str(ROOT)},
-                        {'level': 'team', 'name': 'fixture-team',
+                        {'level': 'team', 'name': 'precedent-team-fixture',
                          'path': str(team)}]}), encoding='utf-8')
         rc2, out2, err2 = _run([sys.executable, str(ROOT / 'tools' /
                                 'precedent_resolve.py'), '--repo', str(consumer),
@@ -2262,7 +2262,7 @@ def check_example_set():
     try:
         cfg = tmp / 'user.json'
         cfg.write_text(json.dumps({'format_version': 1, 'individual': {
-            'name': 'an-example-personal-set', 'path': str(EXAMPLE_SET)}}),
+            'name': 'precedent-individual', 'path': str(EXAMPLE_SET)}}),
             encoding='utf-8')
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -2664,6 +2664,14 @@ def check_precedent_check_fires():
 
         # orientation-map
         case('orientation-map', lambda repo: (repo / 'MAP.md').unlink())
+
+        # source-naming -- a source named freehand instead of by its level.
+        # `bestpractice-local` is the real name this repo's own repo-local
+        # source carried before the convention was fixed, so the planted case
+        # is the exact drift the practice exists to stop, not an invented one.
+        case('source-naming',
+             lambda repo: rewrite(repo, 'precedent.json', lambda t: t.replace(
+                 '"name": "local"', '"name": "bestpractice-local"')))
 
         # quick-index -- the table removed from the instructions
         def _plant_qi(repo):
@@ -3665,8 +3673,8 @@ def check_materialize_bridges_loader():
         consumer = tmp / 'consumer'
         (consumer).mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'universal', 'name': 'uni', 'path': str(uni)},
-                        {'level': 'team', 'name': 'team', 'path': str(team)}]
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+                        {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)}]
         }), encoding='utf-8')
 
         materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
@@ -3853,11 +3861,11 @@ def check_show_flags_unreachable_materialized_source():
         consumer = tmp / 'consumer'
         (consumer).mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'universal', 'name': 'uni-src', 'path': str(uni)}]
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)}]
         }), encoding='utf-8')
         user_config = tmp / 'user-config.json'
         user_config.write_text(json.dumps({
-            'individual': {'name': 'indiv-src', 'path': str(indiv)},
+            'individual': {'name': 'precedent-individual', 'path': str(indiv)},
         }), encoding='utf-8')
 
         materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
@@ -4005,13 +4013,13 @@ def check_sync_views_cross_source():
                         occasion='doing local things')
 
         (consumer / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'universal', 'name': 'uni', 'path': str(universal)},
-                        {'level': 'team', 'name': 'team', 'path': str(team)},
-                        {'level': 'repo-local', 'name': 'self', 'path': 'local'}]
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(universal)},
+                        {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)},
+                        {'level': 'repo-local', 'name': 'local', 'path': 'local'}]
         }), encoding='utf-8')
         user_cfg = tmp / 'user.json'
         user_cfg.write_text(json.dumps({
-            'individual': {'name': 'ind', 'path': str(individual)}}), encoding='utf-8')
+            'individual': {'name': 'precedent-individual', 'path': str(individual)}}), encoding='utf-8')
         (consumer / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
             '<!-- END GENERATED -->\n', encoding='utf-8')
@@ -4075,7 +4083,7 @@ def check_sync_views_cross_source():
         write_practice(selfref / 'practices' / 'local-only.md', 'local-only',
                         'A self-referential universal rule.')
         (selfref / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'universal', 'name': 'self', 'path': '.'}]
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'}]
         }), encoding='utf-8')
         (selfref / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
@@ -4103,14 +4111,14 @@ def check_sync_views_cross_source():
         # lowest-precedence-loses-and-must-not-be-destroyed shape with
         # universal (still below team) standing in for it.
         selfref2 = tmp / 'selfref2'
-        other = tmp / 'other-team'
+        other = tmp / 'precedent-team-other'
         write_practice(selfref2 / 'practices' / 'shared.md', 'shared',
                         'HAND-AUTHORED -- MUST SURVIVE.')
         write_practice(other / 'practices' / 'shared.md', 'shared',
                         'TEAM VERSION.')
         (selfref2 / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'team', 'name': 'other-team', 'path': str(other)},
-                        {'level': 'universal', 'name': 'self', 'path': '.'}]
+            'sources': [{'level': 'team', 'name': 'precedent-team-other', 'path': str(other)},
+                        {'level': 'universal', 'name': 'precedent', 'path': '.'}]
         }), encoding='utf-8')
         (selfref2 / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
@@ -4528,7 +4536,7 @@ def check_creation_pipeline_fires():
         # a listed approver. A listed approver's own say-so already lands a
         # team practice directly (precedent_land.py), so --as-issue and the
         # nudge below are both about authority, never about git access.
-        team_repo = tmp / 'fixture-team'
+        team_repo = tmp / 'precedent-team-fixture'
         (team_repo / 'candidates').mkdir(parents=True)
         (team_repo / 'approvers.json').write_text(
             json.dumps({'approvers': [{'name': 'Approved Person', 'github': 'approved-gh'}]}),
@@ -4692,18 +4700,18 @@ def check_bootstrap_source_produces_resolvable_set():
         team_dest = tmp / 'team-set'
 
         rc, out = pyrun(bootstrap_tool, '--level', 'individual',
-                        '--name', 'harness-fixture-individual', '--dest', str(indiv_dest))
+                        '--name', 'precedent-individual', '--dest', str(indiv_dest))
         cases.append(('bootstrapping an individual set succeeds and writes its files',
                       rc == 0 and (indiv_dest / 'practices' / 'example-starter.md').is_file()
                       and (indiv_dest / 'config.json.sample').is_file(), out))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
-                        '--name', 'harness-fixture-team', '--dest', str(team_dest))
+                        '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest))
         cases.append(('bootstrapping a team set without --approver is refused',
                       rc == 1 and 'approver' in out, out))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
-                        '--name', 'harness-fixture-team', '--dest', str(team_dest),
+                        '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest),
                         '--approver', 'Harness Approver:harness-approver-gh')
         approvers_json = team_dest / 'approvers.json'
         cases.append(('bootstrapping a team set succeeds and seeds approvers.json',
@@ -4715,7 +4723,7 @@ def check_bootstrap_source_produces_resolvable_set():
         (non_empty / 'something.txt').parent.mkdir(parents=True)
         (non_empty / 'something.txt').write_text('pre-existing', encoding='utf-8')
         rc, out = pyrun(bootstrap_tool, '--level', 'individual',
-                        '--name', 'harness-fixture-refused', '--dest', str(non_empty))
+                        '--name', 'precedent-individual', '--dest', str(non_empty))
         cases.append(('bootstrapping into a non-empty destination is refused without --force',
                       rc == 1 and 'not empty' in out, out))
 
@@ -4725,12 +4733,12 @@ def check_bootstrap_source_produces_resolvable_set():
             'format_version': 1,
             'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
-                {'level': 'team', 'name': 'harness-fixture-team', 'path': str(team_dest)},
+                {'level': 'team', 'name': 'precedent-team-harness-fixture', 'path': str(team_dest)},
             ],
         }), encoding='utf-8')
         user_config = tmp / 'user-config.json'
         user_config.write_text(json.dumps({
-            'individual': {'name': 'harness-fixture-individual', 'path': str(indiv_dest)},
+            'individual': {'name': 'precedent-individual', 'path': str(indiv_dest)},
         }), encoding='utf-8')
 
         rc, out = pyrun(str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -4786,7 +4794,7 @@ def check_bootstrap_source_engine_is_functional():
         bootstrap_tool = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         dest = tmp / 'engine-set'
         r = subprocess.run([sys.executable, bootstrap_tool, '--level', 'individual',
-                            '--name', 'harness-engine-fixture', '--dest', str(dest)],
+                            '--name', 'precedent-individual', '--dest', str(dest)],
                            capture_output=True, text=True)
         cases.append(('bootstrapping succeeds', r.returncode == 0, r.stdout + r.stderr))
 
@@ -4995,7 +5003,7 @@ def check_vendor_engine_consumer_case():
     cases = []
     try:
         consumer = tmp / 'consumer'
-        team_dir = tmp / 'fixture-team'
+        team_dir = tmp / 'precedent-team-consumer-fixture'
         consumer.mkdir()
 
         _write_fixture_practice(team_dir / 'practices' / 'consumer-fixture-team.md',
@@ -5009,8 +5017,8 @@ def check_vendor_engine_consumer_case():
             'format_version': 1,
             'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
-                {'level': 'team', 'name': 'consumer-fixture-team', 'path': str(team_dir)},
-                {'level': 'repo-local', 'name': 'consumer-harness-local', 'path': 'local'},
+                {'level': 'team', 'name': 'precedent-team-consumer-fixture', 'path': str(team_dir)},
+                {'level': 'repo-local', 'name': 'local', 'path': 'local'},
             ],
         }), encoding='utf-8')
         (consumer / 'AGENTS.md').write_text(
@@ -5924,7 +5932,7 @@ def check_individual_source_bootstrap_self_heals():
         # here to the tool's own direct invocations instead.
         clone, config = tmp / 'clone', tmp / 'config.json'
         rc, out = run(str(bootstrap_tool), '--level', 'individual',
-                     '--name', 'harness-fixture-src', '--repo-url', source_url,
+                     '--name', 'precedent-individual', '--repo-url', source_url,
                      '--clone', str(clone), '--config', str(config),
                      '--retries', '3', '--retry-delay', '0',
                      '--remote-only', 'false')
@@ -5932,10 +5940,10 @@ def check_individual_source_bootstrap_self_heals():
                       'the first attempt',
                       rc == 0 and (clone / 'practices' / 'example.md').is_file()
                       and json.loads(config.read_text()).get('individual', {}).get('name')
-                      == 'harness-fixture-src', out))
+                      == 'precedent-individual', out))
 
         rc2, out2 = run(str(bootstrap_tool), '--level', 'individual',
-                        '--name', 'harness-fixture-src', '--repo-url', source_url,
+                        '--name', 'precedent-individual', '--repo-url', source_url,
                         '--clone', str(clone), '--config', str(config),
                         '--retries', '3', '--retry-delay', '0',
                         '--remote-only', 'false')
@@ -5945,7 +5953,7 @@ def check_individual_source_bootstrap_self_heals():
         # --- case 3: unreachable -- retries the stated number, then degrades,
         # never fails, never writes a config -------------------------------
         rc3, out3 = run(str(bootstrap_tool), '--level', 'individual',
-                        '--name', 'harness-fixture-unreachable',
+                        '--name', 'precedent-individual',
                         '--repo-url', f'file://{tmp / "does-not-exist"}',
                         '--clone', str(tmp / 'clone-unreachable'),
                         '--config', str(tmp / 'config-unreachable.json'),
@@ -5964,7 +5972,7 @@ def check_individual_source_bootstrap_self_heals():
         # default > 1 would silently reintroduce the exact wasted latency
         # this correction removed, on every cold session, for zero benefit.
         rc6, out6 = run(str(bootstrap_tool), '--level', 'individual',
-                        '--name', 'harness-fixture-unreachable-default',
+                        '--name', 'precedent-individual',
                         '--repo-url', f'file://{tmp / "does-not-exist"}',
                         '--clone', str(tmp / 'clone-unreachable-default'),
                         '--config', str(tmp / 'config-unreachable-default.json'),
@@ -5984,8 +5992,8 @@ def check_individual_source_bootstrap_self_heals():
             '#!/bin/bash\nset -uo pipefail\n'
             'if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then exit 0; fi\n'
             f'python3 "{bootstrap_tool}" --level individual '
-            f'--name harness-fixture-src --repo-url "{source_url}" '
-            '--clone "$HOME/harness-fixture-src" '
+            f'--name precedent-individual --repo-url "{source_url}" '
+            '--clone "$HOME/precedent-individual" '
             '--config "$HOME/.config/precedent/config.json" '
             '--retries 3 --retry-delay 0\n', encoding='utf-8')
         hook.chmod(0o755)

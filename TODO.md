@@ -317,3 +317,19 @@ the upstream layer. Ordered by priority.
     [practices/full-practice-audit.md](practices/full-practice-audit.md)
     names, in a session with those repos attached. Full context:
     [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md).
+
+23. **Check the consumer repos' own source names against the convention.**
+    [practices/source-naming.md](practices/source-naming.md) makes a
+    source's name a refusal in
+    [tools/precedent_resolve.py](tools/precedent_resolve.py), not a
+    recommendation, so a consumer repo whose `precedent.json` names a source
+    any other way stops resolving the moment it refreshes its vendored
+    engine. Every source attached to the session that landed this —
+    `precedent-individual`, `precedent-team-maintainers`,
+    `precedent-team-tms` — already conforms, and none of them declares a
+    `precedent.json` of its own. `themorgan/HavrutaBrainstorm` does declare
+    one and was not attached. **Blocked on:** a session with that repository
+    attached. What it needs: read its `precedent.json`, and if a source name
+    does not match its level's shape, fix the name in the same change that
+    refreshes its vendored engine — never one without the other.
+
