@@ -19,8 +19,13 @@ if command -v jq >/dev/null 2>&1; then
   [[ "$stop_hook_active" == "true" ]] && exit 0
 fi
 
-# Not a git repo — nothing to check at all.
+# Not a git repo, or a git repo with no remote at all (e.g. a scratch clone,
+# or a fixture) — nothing to push, so nothing this hook can usefully say.
+# Without the second guard the unpushed-commits check below compares against
+# a remote-tracking ref that cannot exist and holds the turn open forever;
+# a consuming repo had already added it locally, which is how it was found.
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+[[ -n "$(git remote 2>/dev/null)" ]] || exit 0
 
 # The REPLY gate (`disclose-landing`, `reply-links-files`, `repo-is-memory`,
 # `verify-postcondition`) — the gate-triggered channel's other real
