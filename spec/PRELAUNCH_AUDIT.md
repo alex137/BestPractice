@@ -877,3 +877,141 @@ needs its blast radius asserted, not described.**
 | `nonblocking-questions`, `push-back`, `small-calls`, `affordance-is-shared` | Satisfied by this session's own conduct: work continued while a question was open, the counter-case was made before the more permissive option was recommended against, the one stop was a genuinely reserved-category call, and each mechanism built here recorded who else it serves. |
 | `permutation-frontier-column`, `name-both-sides-of-ledger`, `build-buy-decompose`, `check-source-architecture`, `variant-re-derives`, `verify-decomposition`, `quote-discipline`, `outward-summary-discipline`, `rule-scope-ask`, `new-rule-placement` | Not applicable. Moment-of-work practices with no standing repo state: no sweep table, no two-party ledger, no build/buy question, no variant, no computed total in flight, no figure quoted from an outside source, no outward document making a quantitative claim, no rule of ambiguous scope proposed. |
 | `list-restraint`, `proportional-emphasis`, `trim-prose`, `section-order-by-frequency` | Editorial judgments with no mechanical signature. `section-order-by-frequency` keeps the earlier verdict: `INSTALL.md`'s 1, 0, 2 ordering explains itself in the document. |
+
+## The loader block now renders every declared source — except a private one in a public repo
+
+Part A of [TODO.md's `unreachable-practices` item](../TODO.md#unreachable-practices),
+done 2026-09-06 at Morgan's direction. **The engine change landed; here it is
+deliberately switched off, and the reason is the more useful half of this
+entry.**
+
+### What was actually wrong
+
+Not a missing instruction *in* [AGENTS.md](../AGENTS.md) — `AGENTS.md` is the
+output. The chain ran: [precedent.json](../precedent.json) declared three
+sources (**correct**), [tools/precedent_resolve.py](../tools/precedent_resolve.py)
+found all of them (**correct**), and [tools/build_views.py](../tools/build_views.py)
+rendered the loader block from this repo's own `practices/` alone. So **65 of
+65 universal practices reached the block, 0 of 41 team, 0 of 11 individual,
+and 0 of 1 repo-local.** The config said they were in force; the one artifact
+a session reads listed none of them.
+
+The declaration was right and the rendering was incomplete — one layer above
+the file anyone would naturally go and edit, and unfixable by editing it,
+since the block is overwritten on every regeneration.
+
+### Why it could not just use the consumer path
+
+A consuming repo gets multi-source through
+[tools/precedent_sync_views.py](../tools/precedent_sync_views.py), which
+materializes every source into one `practices/` tree and leaves a
+`MANIFEST.json` behind. Precedent itself cannot: its `practices/` **is** the
+universal source (`path: "."`), and
+[tools/precedent_materialize.py](../tools/precedent_materialize.py) refuses a
+self-referential source by name, since its output directory would be that
+source's only copy. So the sources are resolved **in memory** — same resolver,
+same precedence, nothing written to disk.
+
+### The constraint that decides the shape: this repo is public
+
+The block is a **tracked file**. In a world-readable repository, whatever it
+contains is published, permanently. Universal and repo-local sources are
+already public — one is this repo, the other lives in its own tree. **Team and
+individual sets are private repositories whose practice text has never been
+published**, so rendering their clauses into `AGENTS.md` is publication by a
+different door. [tools/precedent_resolve.py](../tools/precedent_resolve.py)
+already refuses to let a shared repo *declare* an individual source, because
+naming it "leaks its existence and location"; this is the same disclosure.
+
+[decisions/2026-09-06-precedent-binds-itself.md](../decisions/2026-09-06-precedent-binds-itself.md)
+section 2 rejected multi-source generated views **here** on exactly that
+ground, and built `not_binding` instead. That record and this work were done
+the same day in parallel sessions, and reconciling them is what this entry
+settles: they are not competing answers.
+
+- **The multi-source loader block is the right behaviour in any repo that
+  declares more than one source and cannot materialize them.** That is the
+  engine change.
+- **`not_binding` is the right mechanism for this repo**, because the reason
+  a rule goes unloaded here is not that the rendering is wrong.
+
+**Correction, made after the rollout rather than before it.** The first
+version of this entry said consumers were where the miss actually bit. They
+were not. A consuming repo merges its sources through
+[tools/precedent_sync_views.py](../tools/precedent_sync_views.py) and
+materialize into one `practices/` tree *before* `build_views.py` sees it, so
+every consumer's block was already fully multi-source — checked directly
+against two of them, whose blocks carried their team and individual practices
+before any of this landed and were unchanged by the refresh apart from one
+wording fix. **The gap was Precedent's own repository and nowhere else**,
+precisely because it is the one repo that cannot materialize. The claim was
+written from the mechanism rather than from a measurement, which is the
+failure this whole audit exists to catch; it is corrected here rather than
+quietly dropped.
+
+**What is still open here is neither of those.** Thirty-four team practices
+genuinely bind this repository and cannot reach its published block — so
+`not_binding` would be a false statement about them, and publishing them is a
+one-way door. That question is Morgan's, and it is named in the TODO item
+rather than answered by a session picking one.
+
+### Two guards that came with the engine change
+
+- **A public repo renders no private-level source into its tracked block.**
+  A repo says which it is with `"visibility": "public"` in
+  [precedent.json](../precedent.json); absent the field nothing is excluded,
+  which is the right default, because the repos that most need the
+  multi-source block are the private consumers. Asserted in
+  [tools/verify_harness.py](../tools/verify_harness.py), because a regression
+  here publishes a private set silently.
+- **An unreachable declared source makes the block NOT VERIFIABLE, not
+  stale.** A team source is a sibling clone and an individual source resolves
+  through a private user-level config; neither exists in a bare continuous-integration
+  checkout, and the committed block was built where they did. Regenerating
+  without them and calling the difference "drift" would fail every run on
+  evidence the environment could not have — which is exactly what the
+  harness's own fixtures reported the moment this went multi-source.
+  `--check` now says so and exits 0; a **write** refuses outright, since
+  writing a block from an incomplete source set would silently drop every
+  practice the missing sources contribute.
+
+### What moved, in this repo
+
+| | before | after |
+|---|---|---|
+| universal in the block | 65 of 65 | 65 of 65 |
+| repo-local in the block | **0 of 1** | **1 of 1** — `merge-target-is-beta-branch`, this repo's sharpest temporary rule, was reachable by no channel |
+| team in the block | 0 of 41 | 0 of 41 — now *by design*, and stated |
+| individual in the block | 0 of 11 | 0 of 11 — now *by design*, and stated |
+| practices reachable by no channel | 35 | 34, all team-level |
+| resident block | 6 practices, ≈312 tokens | unchanged |
+
+Measured with the team set as a sibling clone; the individual set did not
+resolve in this environment, so its count is carried from the earlier run and
+is not re-verified here.
+
+`MAP.md` and `GLOSSARY.md` stay single-source in **every** repo, public or
+not: they document the catalogue a repo publishes, not the rules it happens to
+follow.
+
+### What the intermediate state showed, before the privacy guard widened
+
+Rendering the team set into this repo's block was built and measured first,
+and the figures are worth keeping because they say what the engine does in a
+private consumer: team went **0 of 41 → 38 of 41** (two retired, one
+overridden), the resident block went from 6 practices to 9 (≈312 → ≈560 of
+the 2,000 budget), and the whole block went ≈2,650 → ≈4,330 tokens.
+**≈+1,700 tokens per session** is the real cost of a fully-loaded
+multi-source block, accepted at Morgan's direction and left for a later pass
+to reduce.
+
+### Two bugs in the new check, both found by running it
+
+The reachability check matched slugs with a pattern requiring a hyphen, so the
+single-word slug `install` could never be found and was reported unreachable
+forever — while loosening the pattern would have matched the ordinary English
+word "install" anywhere in the file and called it reachable with nothing
+indexing it. It now reads the two shapes the block actually uses. And the
+individual practices a public repo deliberately excludes were being reported
+as gaps every run; permanent findings nobody can act on is how an advisory
+becomes wallpaper, so they are counted and named rather than listed.

@@ -3445,6 +3445,22 @@ def check_precedent_check_fires():
         def fresh(name):
             repo = tmp / name
             shutil.copytree(pristine, repo, symlinks=True)
+            # NO sibling sources are copied beside the fixture, deliberately.
+            # build_views.py went multi-source on 2026-09-06 and the first
+            # version of this fixture DID copy them, so that the regeneration
+            # case exercised the real path instead of a degraded one. That
+            # became wrong the same day, when the privacy guard widened: this
+            # repo declares `visibility: public`, so private-level sources are
+            # dropped from the block BEFORE resolution and their absence
+            # cannot make it unverifiable. Copying them back in only gave
+            # layered-practice-packs' baseline the real repo's 34 unreachable
+            # team practices to report -- an open architectural question (see
+            # TODO.md#unreachable-practices), not a defect a fixture planted,
+            # and it made every planted case below prove nothing. A fixture
+            # for a PRIVATE consumer's multi-source block would need them; the
+            # coverage for that lives in
+            # check_loader_block_covers_every_declared_source(), which runs
+            # against the real tree with its real sources.
             return repo
 
         def run(repo, slug, *extra):
@@ -6887,6 +6903,103 @@ def check_title_case_leaves_code_and_first_word_alone():
           f'alone ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_loader_block_covers_every_declared_source():
+    """The loader block renders every PUBLISHABLE source `precedent.json`
+    declares -- and never a private one in a public repo.
+
+    Measured here 2026-09-06, before the fix: 65 of 65 universal practices
+    reached this repo's block, 0 of 41 team, 0 of 11 individual. The config
+    declared all three, the resolver agreed, and the one artifact a session
+    actually reads listed only the first. A rule nothing can load is not in
+    force; it is filed. That is what the first half asserts, and it is the
+    whole rule in a private consumer repo -- which is every repo that
+    vendors this engine.
+
+    The second half is the privacy boundary, and it is the reason this is a
+    check rather than a setting somebody remembers.
+    `precedent_resolve.py` already refuses to let a shared repo DECLARE an
+    individual source, because naming it leaks its existence and location.
+    Rendering a private source's practices into a tracked, published file is
+    the same disclosure arriving by another route -- so a repo marked
+    `"visibility": "public"` must never carry team- or individual-level
+    content in its block, and a regression there publishes a private set
+    silently and permanently. This repo is that public case; see
+    decisions/2026-09-06-precedent-binds-itself.md section 2, which rejected
+    multi-source generated views here on exactly this ground.
+    """
+    import json as _json
+    config = ROOT / 'precedent.json'
+    if not config.is_file():
+        not_applicable('the loader block covers every declared source',
+                       'this repo declares no precedent.json')
+        return
+    try:
+        import precedent_resolve as pr
+        declared = pr.load_config(ROOT)
+        cfg = _json.loads(config.read_text(encoding='utf-8'))
+    except Exception as e:
+        not_applicable('the loader block covers every declared source',
+                       f'sources did not resolve here ({e}) -- not a pass')
+        return
+
+    agents = ROOT / 'AGENTS.md'
+    if not agents.is_file():
+        not_applicable('the loader block covers every declared source',
+                       'this repo has no AGENTS.md')
+        return
+    name = 'AGENTS.md'
+    instructions = agents.read_text(encoding='utf-8')
+    a, b = '<!-- BEGIN GENERATED', '<!-- END GENERATED'
+    if a not in instructions or b not in instructions:
+        not_applicable('the loader block covers every declared source',
+                       'AGENTS.md carries no generated loader block')
+        return
+    # Only the GENERATED block counts. A slug mentioned in hand-written prose
+    # is not the loader pointing a session at it.
+    block = instructions[instructions.index(a):instructions.index(b)]
+    # Slugs the loader ACTUALLY indexes, read from the two shapes the
+    # generated block uses -- an occasion-index line ("  slug — clause") and
+    # a resident entry ("**slug.** ..."). Matching bare words in prose
+    # instead was wrong both ways: it required a hyphen, so a single-word
+    # slug like `install` could never be found and was reported unreachable
+    # forever; and loosening the pattern to allow single words would have
+    # matched the ordinary English word "install" anywhere in the file and
+    # called the practice reachable when nothing indexed it.
+    named = set(re.findall(r'^\s+([a-z0-9][a-z0-9-]*) \u2014 ', block, re.M))
+    named |= set(re.findall(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', block, re.M))
+
+    public = cfg.get('visibility') == 'public'
+    missing, leaked = [], []
+    for s in declared:
+        d = pathlib.Path(s['path']) / 'practices'
+        if not d.is_dir():
+            continue                       # unreachable here; not evidence
+        active = []
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sec = sp._read_practice_file(f)
+            except Exception:
+                continue
+            if (fm.get('status') or 'active').strip('" ') == 'active':
+                active.append(fm.get('slug', f.stem))
+        if not active:
+            continue
+        present = [a for a in active if a in named]
+        if public and s['level'] in ('team', 'individual'):
+            leaked += present
+        elif not present:
+            missing.append(f"{s['level']}/{s['name']} ({len(active)} active "
+                           f"practices, none in {name})")
+
+    check('the loader block renders every publishable source '
+          'precedent.json declares', not missing, '; '.join(missing))
+    if public:
+        check('no private-source practice reaches a public repo\'s tracked '
+              'loader block',
+              not leaked,
+              f'{len(leaked)} leaked: {", ".join(sorted(leaked)[:6])}')
+
+
 def check_tools_answer_help_without_writing():
     """`--help` is safe and informative on every tool in tools/.
 
@@ -8059,6 +8172,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
     check_tools_answer_help_without_writing()
+    check_loader_block_covers_every_declared_source()
     check_title_case_leaves_code_and_first_word_alone()
     check_checkin_update_never_mutates_the_clone()
     check_rendered_docs_are_current()
