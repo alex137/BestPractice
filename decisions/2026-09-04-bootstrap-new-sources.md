@@ -1,40 +1,44 @@
 ---
-date:        2026-09-04
-question:    A brand-new adopter with no individual or team practice repo
-             yet has nowhere to start -- `SETUP.md` step 2 and
-             `INSTALL.md` step 9 both ask "do you already have one?" and
-             treat "no" as a complete, final answer. Should closing this
-             wait for `spec/PHASE6_BRIEF.md` item 2 (wiring the full
-             candidate/proposal pipeline into an installed repo), should
-             the fix also attempt to create the actual GitHub repository,
-             and should the generalized procedure live inside
-             `spec/PRIVATE_SETS_BRIEF.md` or as its own document?
-decision:    Ship a narrower fix now, independent of item 2: two real,
-             forkable skeletons (`templates/practice-set-individual/`,
-             `templates/practice-set-team/` -- the latter carrying this
-             repo's first `approvers.json.template`), a new
-             `tools/precedent_bootstrap_source.py` that instantiates
-             either one and prints or writes the exact next-step config,
-             harness-tested against a real resolve
-             (`check_bootstrap_source_produces_resolvable_set`), a real
-             branch in `SETUP.md`/`INSTALL.md` step 9 for "no, but I'd
-             like one," and the generalized procedure as its own new
-             document, `spec/BOOTSTRAP_NEW_SOURCES.md`, explicitly
-             distinguished from `spec/PRIVATE_SETS_BRIEF.md`'s bespoke,
-             historical account. The tool never touches a git remote or
-             any hosting API -- creating the actual repository stays a
-             human/session step, by design.
-alternatives: ["Wait for spec/PHASE6_BRIEF.md item 2 to land and fold
-               repo-bootstrapping into that same pass, on the theory that
-               both are about consumer-repo onboarding",
-               "Have the tool also create the GitHub repository itself
-               via an API call, rather than stopping at the local
-               working tree",
-               "Document the procedure in prose only (extend
-               spec/PRIVATE_SETS_BRIEF.md or ADOPTING.md), without
-               building a tool, on the theory that examples/practice-set/
-               already shows the shape closely enough to copy by hand"]
-decided_by:  Morgan
+date: '2026-09-04'
+question: |
+  A brand-new adopter with no individual or team practice repo
+  yet has nowhere to start -- `SETUP.md` step 2 and
+  `INSTALL.md` step 9 both ask "do you already have one?" and
+  treat "no" as a complete, final answer. Should closing this
+  wait for `spec/PHASE6_BRIEF.md` item 2 (wiring the full
+  candidate/proposal pipeline into an installed repo), should
+  the fix also attempt to create the actual GitHub repository,
+  and should the generalized procedure live inside
+  `spec/PRIVATE_SETS_BRIEF.md` or as its own document?
+decision: |
+  Ship a narrower fix now, independent of item 2: two real,
+  forkable skeletons (`templates/practice-set-individual/`,
+  `templates/practice-set-team/` -- the latter carrying this
+  repo's first `approvers.json.template`), a new
+  `tools/precedent_bootstrap_source.py` that instantiates
+  either one and prints or writes the exact next-step config,
+  harness-tested against a real resolve
+  (`check_bootstrap_source_produces_resolvable_set`), a real
+  branch in `SETUP.md`/`INSTALL.md` step 9 for "no, but I'd
+  like one," and the generalized procedure as its own new
+  document, `spec/BOOTSTRAP_NEW_SOURCES.md`, explicitly
+  distinguished from `spec/PRIVATE_SETS_BRIEF.md`'s bespoke,
+  historical account. The tool never touches a git remote or
+  any hosting API -- creating the actual repository stays a
+  human/session step, by design.
+alternatives: |
+  ["Wait for spec/PHASE6_BRIEF.md item 2 to land and fold
+  repo-bootstrapping into that same pass, on the theory that
+  both are about consumer-repo onboarding",
+  "Have the tool also create the GitHub repository itself
+  via an API call, rather than stopping at the local
+  working tree",
+  "Document the procedure in prose only (extend
+  spec/PRIVATE_SETS_BRIEF.md or ADOPTING.md), without
+  building a tool, on the theory that examples/practice-set/
+  already shows the shape closely enough to copy by hand"]
+decided_by: Morgan
+...
 ---
 
 ## Why this was asked

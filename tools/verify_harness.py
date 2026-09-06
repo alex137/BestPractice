@@ -5275,26 +5275,40 @@ def check_frontmatter_is_real_yaml():
     try:
         import yaml
     except ImportError:
-        not_applicable("every practice file's frontmatter parses with a real "
-                        "YAML library",
+        not_applicable('every --- fence holds valid YAML',
                         'PyYAML is not installed here, so nothing was parsed '
                         '-- `pip install pyyaml` to run it')
         return
+    # Every tracked markdown file that OPENS with a --- fence, not only
+    # practices/. A consuming repo vendors this whole tree and runs its own
+    # YAML-based checks over all of it; four decisions/ records were
+    # unparseable for a different reason than the practices were -- values
+    # continued across lines with no block-scalar indicator -- and turned a
+    # consumer's own commit gate red on vendored upstream content.
     bad = []
-    for d in (ROOT / 'practices', ROOT / 'local' / 'practices'):
-        for f in sorted(d.glob('*.md')) if d.is_dir() else []:
-            m = re.match(r'---\n(.*?)\n---\n', f.read_text(encoding='utf-8'), re.S)
-            if not m:
-                bad.append((f.name, 'no frontmatter fence'))
-                continue
-            try:
-                yaml.safe_load(m.group(1))
-            except Exception as e:
-                bad.append((f.name, str(e).split('\n')[0]))
+    tracked = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '*.md'],
+                             capture_output=True, text=True).stdout.split()
+    for rel in tracked:
+        f = ROOT / rel
+        try:
+            text = f.read_text(encoding='utf-8')
+        except OSError:
+            continue
+        if not text.startswith('---\n'):
+            continue                      # no frontmatter claimed, none checked
+        m = re.match(r'---\n(.*?)\n---\n', text, re.S)
+        if not m:
+            bad.append((rel, 'opens a --- fence that is never closed'))
+            continue
+        try:
+            yaml.safe_load(m.group(1))
+        except Exception as e:
+            bad.append((rel, str(e).split('\n')[0]))
     for n, why in bad:
         print(f"  {n}: frontmatter is not valid YAML -- {why}")
-    check("every practice file's frontmatter parses with a real YAML "
-          "library, not only with this repo's own reader", not bad)
+    check(f"every tracked markdown file that opens a --- fence has "
+          f"frontmatter a real YAML library accepts, not only this repo's "
+          f"own reader ({len(tracked)} file(s) scanned)", not bad)
 
 
 def check_link_anchors_resolve():

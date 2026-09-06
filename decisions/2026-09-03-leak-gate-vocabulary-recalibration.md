@@ -1,24 +1,28 @@
 ---
-date:        2026-09-03
-question:    Switching the leak gate's vocabulary layer on for real against
-             precedent-individual's current tree found 36 hits (not the 45
-             first reported — that count reflected an earlier state), all
-             on three patterns: `morgan@westegg\.com`, `\bwestegg\.com\b`,
-             and `\bMorgan\s+F\b`. Are these a miscalibrated blocklist, or
-             has it just never run clean?
-decision:    Narrowed. All 36 hits collided with this branch's own
-             by-design identity content — the `commit-author`/
-             `buenos-aires-dates` practices' own Rule text quoting the
-             actual values, `check_commit_author.py`'s hardcoded expected
-             constants, and `approved_by:` frontmatter on every practice
-             file — not real leaks. Removed those three patterns from the
-             blocklist. `\bmorganfriedman\b` and `\b6497032\b` stay
-             blocked: zero observed collisions, no evidence to loosen them.
-alternatives: ["Leave all patterns blocked and add per-file exemptions for
-               the colliding practice files instead", "Treat the 36 hits as
-               a sign the gate needs a broader by-design-content carve-out
-               mechanism rather than pattern-by-pattern removal"]
-decided_by:  Morgan
+date: '2026-09-03'
+question: |
+  Switching the leak gate's vocabulary layer on for real against
+  precedent-individual's current tree found 36 hits (not the 45
+  first reported — that count reflected an earlier state), all
+  on three patterns: `morgan@westegg\.com`, `\bwestegg\.com\b`,
+  and `\bMorgan\s+F\b`. Are these a miscalibrated blocklist, or
+  has it just never run clean?
+decision: |
+  Narrowed. All 36 hits collided with this branch's own
+  by-design identity content — the `commit-author`/
+  `buenos-aires-dates` practices' own Rule text quoting the
+  actual values, `check_commit_author.py`'s hardcoded expected
+  constants, and `approved_by:` frontmatter on every practice
+  file — not real leaks. Removed those three patterns from the
+  blocklist. `\bmorganfriedman\b` and `\b6497032\b` stay
+  blocked: zero observed collisions, no evidence to loosen them.
+alternatives: |
+  ["Leave all patterns blocked and add per-file exemptions for
+  the colliding practice files instead", "Treat the 36 hits as
+  a sign the gate needs a broader by-design-content carve-out
+  mechanism rather than pattern-by-pattern removal"]
+decided_by: Morgan
+...
 ---
 
 ## Why this needed a decision rather than a quiet fix

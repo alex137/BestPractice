@@ -1,32 +1,36 @@
 ---
-date:        2026-09-03
-question:    When a repo installs BestPractice clean, or an existing install
-             is migrated, does anything proactively tell the installer or
-             members that the assistant can turn a spoken instruction into a
-             durable project rule and where it goes? And separately: should
-             `SETUP.md`/`GETTING_STARTED.md` describe the full three-level
-             candidate/promotion/approval pipeline (Stages 1-5), or only the
-             capture-gate mechanism a fresh install actually gets today?
-decision:    No, nothing disclosed this before now -- confirmed by grepping
-             PRACTICE_ENGINE_PLAN.md for both filenames and finding zero
-             hits. Closed for the mechanism that is real today: `SETUP.md`
-             step 7 and templates/GETTING_STARTED.md now tell the installer
-             and members, in plain language, that saying "always X" / "never
-             Y" / "from now on" gets noticed and offered back as a project
-             rule captured into the instructions file. Deliberately does NOT
-             describe the individual/team/universal pipeline, because that
-             pipeline is not part of what `SETUP.md` vendors into a consumer
-             repo yet -- disclosing it now would overclaim a capability the
-             installed repo doesn't have.
-alternatives: ["Describe the full three-level pipeline now, on the theory
-               that it exists in BestPractice's own repo and Morgan's
-               private sets, so the docs should describe the target state",
-               "Do nothing until Phase 6 actually vendors the loader into a
-               consumer repo, and disclose everything in one pass then",
-               "Only fix `SETUP.md` (the installer-facing doc), leave
-               GETTING_STARTED.md (member-facing) unchanged since members
-               don't drive installs"]
-decided_by:  Morgan
+date: '2026-09-03'
+question: |
+  When a repo installs BestPractice clean, or an existing install
+  is migrated, does anything proactively tell the installer or
+  members that the assistant can turn a spoken instruction into a
+  durable project rule and where it goes? And separately: should
+  `SETUP.md`/`GETTING_STARTED.md` describe the full three-level
+  candidate/promotion/approval pipeline (Stages 1-5), or only the
+  capture-gate mechanism a fresh install actually gets today?
+decision: |
+  No, nothing disclosed this before now -- confirmed by grepping
+  PRACTICE_ENGINE_PLAN.md for both filenames and finding zero
+  hits. Closed for the mechanism that is real today: `SETUP.md`
+  step 7 and templates/GETTING_STARTED.md now tell the installer
+  and members, in plain language, that saying "always X" / "never
+  Y" / "from now on" gets noticed and offered back as a project
+  rule captured into the instructions file. Deliberately does NOT
+  describe the individual/team/universal pipeline, because that
+  pipeline is not part of what `SETUP.md` vendors into a consumer
+  repo yet -- disclosing it now would overclaim a capability the
+  installed repo doesn't have.
+alternatives: |
+  ["Describe the full three-level pipeline now, on the theory
+  that it exists in BestPractice's own repo and Morgan's
+  private sets, so the docs should describe the target state",
+  "Do nothing until Phase 6 actually vendors the loader into a
+  consumer repo, and disclose everything in one pass then",
+  "Only fix `SETUP.md` (the installer-facing doc), leave
+  GETTING_STARTED.md (member-facing) unchanged since members
+  don't drive installs"]
+decided_by: Morgan
+...
 ---
 
 ## Why this was asked
