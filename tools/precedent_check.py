@@ -826,8 +826,19 @@ def _engine_plus_host_shims(ctx):
         lines = [l for l in lines if len(l) > 12 and not l.startswith('#')]
         return {tuple(lines[i:i + RUN]) for i in range(len(lines) - RUN + 1)}
 
+    # templates/ is excluded from the corpus, not exempted from the finding:
+    # a file under it is SUPPOSED to be copied into the host repo -- that is
+    # what a template is, and INSTALL.md instructs it. Matching a template
+    # therefore proves the host followed the install, and reporting it as a
+    # fork tells a correctly-installed repo to undo its own installation.
+    # 2026-09-06: a consuming repo's `.claude/hooks/stop-git-check.sh` was
+    # flagged for matching `templates/harness/claude-code/hooks/stop-git-check.sh`,
+    # which is the file it is required to be a copy of.
+    templates_dir = vendored / 'templates'
     upstream = {}
     for p in sorted(vendored.rglob('*')):
+        if templates_dir in p.parents:
+            continue
         if p.is_file() and p.suffix in ('.py', '.sh'):
             for r in runs(p):
                 upstream.setdefault(r, str(p.relative_to(ROOT)))
