@@ -888,6 +888,14 @@ def check_leak_gate_fires():
         repo = tmp / 'repo'
         (repo / 'tools').mkdir(parents=True)
         shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
+        # The default blocklist is a REQUIRED companion of the gate, not an
+        # optional extra: load_default_blocklist() exits fatally without it,
+        # deliberately, because a missing default would silently restore the
+        # state where the vocabulary layer never runs. So anywhere the gate
+        # is installed, this file goes too -- found by these fixtures going
+        # red the moment the file was introduced, which is the guard working.
+        shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
+                    repo / 'tools' / 'leak-blocklist.default.txt')
         blocklist = tmp / 'blocklist.txt'          # OUTSIDE the repo, as required
         blocklist.write_text('zorbulon\n\\bproject[- ]nightjar\\b\n', encoding='utf-8')
 
@@ -2656,65 +2664,115 @@ def check_legacy_status_migration():
           f'is never guessed ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
-def check_profanity_is_structural_not_vocabulary():
-    """Profanity is caught by the always-on structural layer, and the
-    vocabulary layer still reports honestly that it did not run.
+def check_default_blocklist_runs_the_vocabulary_layer():
+    """The vocabulary layer runs on every invocation, against a real list.
 
-    Asked for 2026-09-06: put a word on a blocklist by default so the gate
-    passes and the layer gets exercised. Half right. Exercising it is worth
-    doing; making it PASS that way is not -- the vocabulary layer catches
-    PRIVATE words and its whole design is that the list cannot live in the
-    repo it protects. A publishable word placed there would turn PARTIAL
-    into a green PASS while no private-term scan had run, which is this
-    repo's own documented failure (silence about an unrun check reading as
-    a clean result). So the rule lands in the structural layer, where a
-    committed pattern is honest, and PARTIAL stays PARTIAL.
+    THE GAP THIS CLOSES (2026-09-06). The vocabulary layer was skipped
+    entirely whenever PRECEDENT_LEAK_BLOCKLIST was unset -- which is every
+    continuous-integration run and every fresh clone. So the code path that
+    loads patterns, compiles them and scans with them was exercised only by
+    this harness, never by an actual gate run, and the gate reported PARTIAL
+    forever. A mechanism that only ever runs in its own tests is one nobody
+    finds out is broken.
 
-    The base64 encoding is not squeamishness: leak_gate.py is itself
-    scanned by the tree scan, so a plain literal would match its own source
-    and hard-fail every clean run -- the identical trap the home-directory
-    rule already carries a comment about."""
+    THE SPLIT THAT MAKES A COMMITTED LIST HONEST. The private blocklist
+    holds SECRET words, and one committed to a public repo publishes the
+    terms it exists to protect -- load_blocklist still refuses a private
+    list located inside this repository. The DEFAULT list holds only
+    publishable terms, so committing it costs nothing and it makes the layer
+    real. The two are merged, and the gate says which halves ran: a clean
+    scan against publishable terms is not evidence that no private word is
+    present, and that sentence had to survive the change or this would just
+    be the old silence with better wording."""
+    import base64 as _b64
     sys.path.insert(0, str(ROOT / 'tools'))
     import leak_gate as lg
-    import base64 as _b64
 
+    # Both probes are base64 in the source for the same reason the gate's own
+    # blocklist file is exempt from its own scan: this file IS scanned, so a
+    # literal here fails the gate on its own test fixture. Reproduced while
+    # writing it -- the derived-form probe below was a plain string and the
+    # gate correctly refused the tree, which is the check working.
     word = _b64.b64decode('ZnVjaw==').decode()
-    planted = f"# A document\n\nThis {word}ing line should trip the gate.\n"
-    innocuous = ("# A document\n\nOrdinary prose about Scunthorpe, classic "
-                 "assessment, and a bass player.\n")
+    derived_probe = _b64.b64decode('d2hhdCBhIGJ1bmNoIG9mIGFzc2hvbGVz').decode()
+    env_clean = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_LEAK_BLOCKLIST'}
 
-    def hits(text):
-        return [why for pat, why in lg.FORBIDDEN_CONTENT if pat.search(text)]
+    def gate(*args, env=None, cwd=None):
+        return subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'), *args],
+                              capture_output=True, text=True, env=env or env_clean,
+                              cwd=str(cwd or ROOT))
 
+    pats, source, private_configured = lg.load_blocklist()
     cases = [
-        ('the profanity rule fires on a planted instance',
-         any('profanity' in w for w in hits(planted))),
-        ('...and does not fire on innocuous prose that merely contains the '
-         'letters (the Scunthorpe problem) -- word boundaries, not substrings',
-         not any('profanity' in w for w in hits(innocuous))),
-        ('leak_gate.py does not trip its own rule -- the encoded terms keep '
-         'the contiguous word out of this gate\'s own bytes, the trap the '
-         'home-directory rule already cost a red gate on a clean tree once',
-         not any('profanity' in w for w in
-                 hits((ROOT / 'tools' / 'leak_gate.py').read_text(encoding='utf-8')))),
-        ('the whole tracked tree is clean against it',
-         subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py')],
-                        capture_output=True, text=True).returncode == 0),
+        ('the default blocklist is applied with no environment variable set',
+         len(pats) > 0 and not private_configured),
+        ('the banned word is caught by it',
+         any(p.search(f'a {word}ing line') for p in pats)),
+        ('...including derived forms', any(p.search(derived_probe) for p in pats)),
+        ('...without the Scunthorpe problem -- word boundaries, not substrings',
+         not any(p.search('Scunthorpe assessment bass classic') for p in pats)),
     ]
 
-    # And the honesty property this must not have broken.
-    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py')],
-                       capture_output=True, text=True,
-                       env={k: v for k, v in os.environ.items()
-                            if k != 'PRECEDENT_LEAK_BLOCKLIST'})
-    cases.append(('with no blocklist configured the gate still says PARTIAL, '
-                  'not PASS -- adding a publishable word to the STRUCTURAL '
-                  'layer must not make the VOCABULARY layer look like it ran',
-                  'PARTIAL' in r.stdout + r.stderr))
+    r = gate()
+    cases.append(('a clean tree now reports OK rather than PARTIAL -- the layer '
+                  'ran, so "did not run" is no longer a reachable state',
+                  r.returncode == 0 and 'leak gate OK' in r.stdout
+                  and 'PARTIAL' not in r.stdout))
+    cases.append(('...while still saying the PRIVATE half did not run -- a clean '
+                  'scan against publishable terms is not evidence about private '
+                  'ones, and that had to survive the change',
+                  'private half' in r.stdout and 'PRECEDENT_LEAK_BLOCKLIST' in r.stdout))
+
+    cases.append(('the blocklist file is exempt from its own scan -- a list of '
+                  'banned words necessarily contains them, and scanning it would '
+                  'hard-fail the gate on its own list',
+                  not lg.is_texty('tools/leak-blocklist.default.txt')
+                  and lg.is_texty('tools/leak_gate.py')))
+
+    # It genuinely blocks a push, not merely matches in a unit test.
+    probe = ROOT / 'ZZ_leakprobe_fixture.md'
+    try:
+        probe.write_text(f'# Fixture\n\nThis {word}ing line must be caught.\n',
+                         encoding='utf-8')
+        r = gate()
+        cases.append(('a planted instance FAILS the whole gate, not just a regex',
+                      r.returncode == 1 and 'LEAK' in r.stdout))
+    finally:
+        probe.unlink(missing_ok=True)
+
+    # A private list is merged with the default, never replaces it.
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        priv = pathlib.Path(td) / 'private.txt'
+        priv.write_text('acme-corp-secret-codename\n', encoding='utf-8')
+        os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(priv)
+        try:
+            merged, src, configured = lg.load_blocklist()
+        finally:
+            os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        cases.append(('a private list is MERGED with the default, never replaces '
+                      'it -- configuring one must not silently drop the other',
+                      configured and len(merged) == len(pats) + 1
+                      and any(p.search('acme-corp-secret-codename') for p in merged)
+                      and any(p.search(f'{word}ing') for p in merged)))
+
+    # A private list inside the repo is still refused -- the guard that makes
+    # the whole split safe.
+    inside = ROOT / 'ZZ_inside_blocklist.txt'
+    try:
+        inside.write_text('secret-term\n', encoding='utf-8')
+        r = gate(env={**env_clean, 'PRECEDENT_LEAK_BLOCKLIST': str(inside)})
+        cases.append(('a PRIVATE blocklist located inside this repo is still '
+                      'refused -- the guard that makes a committed default safe '
+                      'is that only the default may live here',
+                      r.returncode == 1 and 'INSIDE' in (r.stdout + r.stderr)))
+    finally:
+        inside.unlink(missing_ok=True)
 
     bad = [n for n, ok in cases if not ok]
-    check(f'profanity is a structural rule, and the vocabulary layer still '
-          f'reports honestly ({len(cases)} stated cases)', not bad, '; '.join(bad))
+    check(f'the default blocklist makes the vocabulary layer actually run, and '
+          f'the private half stays external ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
 
 
 def check_not_binding_cannot_be_abused():
@@ -7753,7 +7811,7 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
-    check_profanity_is_structural_not_vocabulary()
+    check_default_blocklist_runs_the_vocabulary_layer()
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
     check_status_contract()

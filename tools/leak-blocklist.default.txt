@@ -1,0 +1,39 @@
+# The DEFAULT leak-gate blocklist: terms that are unsafe to publish and safe
+# to name. Committed, applied on every run, in CI included.
+#
+# WHY THIS FILE CAN EXIST WHEN THE PRIVATE ONE CANNOT. The private blocklist
+# holds SECRET words -- client names, code words, internal identifiers -- and
+# a list of those committed to a public repo publishes the very terms it
+# exists to protect, which is why load_blocklist() refuses one located inside
+# this repository. Nothing here is a secret. These are words that simply must
+# not appear in a repository whose documents are read by people outside the
+# project, so writing them down costs nothing and checking them costs nothing.
+#
+# Its second job is that it makes the vocabulary layer RUN, on every commit
+# and in CI, against a real list. Before this file the layer was skipped
+# entirely whenever PRECEDENT_LEAK_BLOCKLIST was unset -- so the code path
+# that loads patterns, compiles them and scans with them was exercised only
+# by the test suite, never by an actual run. A mechanism that only ever runs
+# in its own tests is one nobody finds out is broken.
+#
+# It does NOT replace the private list. Private vocabulary is still external,
+# still named by PRECEDENT_LEAK_BLOCKLIST, and `git config
+# precedent.requireVocabulary true` still makes its absence fatal for a clone
+# that needs it. This file covers the publishable half only, and the gate
+# says which halves ran.
+#
+# One line per pattern; a regex, matched case-insensitively; `#` comments and
+# blank lines ignored. This file is the one path the tree scan skips -- a
+# list of banned words necessarily contains them, and without that skip the
+# gate would hard-fail on its own blocklist (the same self-match trap
+# leak_gate.py's home-directory rule already carries a comment about).
+
+# Profanity. This repository's documents are outward-facing -- README.md,
+# SETUP.md, templates/GETTING_STARTED.md and documentation/ are read by
+# people who are not developers and did not opt into it.
+\bfuck(?:s|ing|ed|er|ers)?\b
+\bshit(?:s|ting|ted|ty)?\b
+\bcunts?\b
+\bbitch(?:es|ing)?\b
+\bassholes?\b
+\bmotherfuck(?:er|ers|ing)\b

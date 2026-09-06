@@ -23,21 +23,36 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   These patterns are safe to publish because they describe SHAPES, not
   anyone's actual vocabulary.
 
-  VOCABULARY (an external blocklist, local only). The real leak gate
-  catches private words -- client names, code words, internal identifiers.
-  **That list cannot live in the repo it protects.** A blocklist of secret
-  terms, committed to a public repo, publishes the secrets it exists to
-  guard. This is the same reason (practice: scrub-gate) keeps the
-  blocklist in the private dependent repo and scans the public vendored
-  tree from there, and it generalizes unchanged.
+  VOCABULARY, in two halves. This layer catches WORDS rather than shapes.
 
-  So the blocklist is named by PRECEDENT_LEAK_BLOCKLIST (a path outside
-  this repo, e.g. in the individual set). When it is set, its patterns are
-  applied and a hit is fatal. When it is NOT set, this gate says so
-  loudly rather than reporting a clean pass it did not earn -- silence
-  about an unrun check is exactly the failure mode the plan's evidence
-  table names ("checkin.py fresh is silent on failure, so unreachable
-  reads as 'current'").
+    The DEFAULT half (tools/leak-blocklist.default.txt) is committed and
+    always applied -- terms that are unsafe to publish and safe to name,
+    profanity first among them, in a repo whose documents are read by
+    people outside the project. Nothing there is a secret, so committing it
+    costs nothing.
+
+    Its second job is the important one: it makes this layer actually RUN.
+    Until 2026-09-06 the whole layer was skipped whenever
+    PRECEDENT_LEAK_BLOCKLIST was unset -- every CI run, every fresh clone --
+    so the code that loads, compiles and scans with patterns was exercised
+    only by the harness, and the gate reported PARTIAL forever. A mechanism
+    that runs only in its own tests is one nobody finds out is broken.
+
+    The PRIVATE half catches private words -- client names, code words,
+    internal identifiers -- and **that list cannot live in the repo it
+    protects.** A blocklist of secret terms, committed to a public repo,
+    publishes the secrets it exists to guard, and load_blocklist() refuses
+    one located inside this repository for exactly that reason. This is the
+    same reason (practice: scrub-gate) keeps the blocklist in the private
+    dependent repo and scans the public vendored tree from there.
+
+    It is named by PRECEDENT_LEAK_BLOCKLIST (a path outside this repo, e.g.
+    in the individual set), and is MERGED with the default, never a
+    replacement for it. When it is not set the gate still reports OK -- the
+    layer did run -- but says plainly that only the publishable half was
+    checked. That sentence is not decoration: a clean scan against
+    publishable terms is not evidence that no private word is present, and
+    dropping it would leave the old silence with better wording.
 
   Once you HAVE a list, an unrun vocabulary layer must not exit 0 like a
   pass. `git config precedent.requireVocabulary true` in your clone (or
@@ -45,8 +60,8 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   losing the variable in a new shell fails the push instead of quietly
   downgrading it to the structural half.
 
-CI runs the structural layer only, because CI has no access to a private
-blocklist. That is a real limit, stated rather than papered over: CI is
+CI runs the structural layer and the DEFAULT vocabulary half; it cannot run
+the private half, having no access to a private list. That is a real limit, stated rather than papered over: CI is
 the backstop that cannot be bypassed, the local hook is the one that knows
 the words. Neither alone is the whole gate.
 
@@ -68,10 +83,16 @@ Run:
 Exit: 0 clean, 1 on any hit, on a misconfigured blocklist, or on an unrun
 vocabulary layer this clone declared it needs.
 """
-import base64, os, pathlib, re, subprocess, sys
+import os, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BLOCKLIST_ENV = 'PRECEDENT_LEAK_BLOCKLIST'
+
+# The committed, publishable half of the vocabulary layer. See the header of
+# the file itself for why this one may live inside the repo when the private
+# one may not, and why its existence is what makes the vocabulary layer
+# actually RUN rather than be skipped whenever no private list is configured.
+DEFAULT_BLOCKLIST = pathlib.Path(__file__).resolve().parent / 'leak-blocklist.default.txt'
 
 # Paths that must never exist in Precedent. Levels are repositories, not
 # directories (the plan's "Source -- Who a Practice Belongs To"), so a
@@ -153,41 +174,6 @@ FORBIDDEN_CONTENT = [
                r'\s*(#.*)?$', re.M | re.I),
      'a practice claiming a non-universal source'),
 ]
-
-# --- profanity, a STRUCTURAL rule and deliberately not a vocabulary one ----
-#
-# Asked for 2026-09-06: "can we put a word on a blocklist by default, so the
-# gate passes and we also test it out?" Half of that is right and half is not,
-# and the split is worth recording rather than quietly picking one.
-#
-# NOT a vocabulary-layer entry. That layer catches PRIVATE words -- client
-# names, code words, internal identifiers -- and its whole design is that the
-# list cannot live in the repo it protects, because a blocklist of secret
-# terms committed to a public repo publishes the secrets. Putting a
-# publishable word there to turn PARTIAL into a green PASS would make the
-# gate report a clean vocabulary scan it did not run, which is this repo's
-# own documented failure mode (checkin.py `fresh` silent on failure, so
-# unreachable read as "current"). PARTIAL stays PARTIAL until a real private
-# blocklist is configured.
-#
-# But profanity IS a real defect in a public, outward-facing repository, and
-# it is safe to publish the rule that catches it -- which is exactly what
-# makes it a STRUCTURAL rule, alongside the email and home-directory shapes.
-# So it lands here, where it can be committed honestly, instead of there,
-# where it would launder an unrun check into a pass.
-#
-# BASE64, and not because anyone is squeamish. This file is itself scanned by
-# the tree scan below, so a rule written as a plain literal matches its own
-# source and hard-fails every clean run -- the identical trap the
-# home-directory rule above already carries a comment about, which cost a
-# red gate on a clean tree once. Encoding the terms means the contiguous word
-# never appears in this file's own bytes.
-_PROFANITY = base64.b64decode('ZnVjayxzaGl0LGN1bnQsYml0Y2gsYXNzaG9sZSxtb3RoZXJmdWNrZXI=').decode().split(',')
-FORBIDDEN_CONTENT.append(
-    (re.compile(r'\b(?:' + '|'.join(_PROFANITY) + r')(?:s|es|ing|ed)?\b', re.I),
-     'profanity, in a repository whose documents are read by people outside '
-     'the project (structural rule, not a private-vocabulary one -- see the '
-     'comment above FORBIDDEN_CONTENT for why the two layers are separate)'))
 
 SKIP_DIRS = {'.git', '__pycache__', 'node_modules', '.venv'}
 TEXT_SUFFIXES = {'.md', '.py', '.json', '.txt', '.sh', '.yml', '.yaml', '.html',
@@ -304,17 +290,81 @@ def _blob(spec):
         return None
 
 
+# The default blocklist necessarily CONTAINS the words it bans, so scanning
+# it would hard-fail the gate on its own list -- the same self-match trap the
+# home-directory content rule above already carries a comment about, and the
+# reason the profanity terms were briefly base64-encoded instead. One fixed,
+# committed path, skipped by name.
+#
+# This is NOT the `!path` exemption _parse_blocklist refuses. That one is
+# caller-supplied and arbitrary, and exempting an arbitrary path from a leak
+# scan is how a leak gets out. This is the single file whose entire purpose
+# is to hold these strings, it is reviewed like any other committed file,
+# and it may hold only publishable terms by its own header -- a private term
+# put here would be published by the commit itself, long before any scan.
+SCAN_EXEMPT = {'tools/leak-blocklist.default.txt'}
+
+
 def is_texty(rel):
     p = pathlib.Path(rel)
+    if p.as_posix() in SCAN_EXEMPT:
+        return False
     return p.suffix.lower() in TEXT_SUFFIXES and not any(d in p.parts for d in SKIP_DIRS)
 
 
+def _parse_blocklist(path, allow_inside_repo=False):
+    """Compile one blocklist file to patterns. Shared by both halves so the
+    default list and a private one cannot drift in how they are read."""
+    pats = []
+    for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if line.startswith('!'):
+            sys.exit(f"leak gate FAIL: {path}:{i} starts with '!'. Path "
+                     f"exemptions are a practice_audit.py scrub feature and "
+                     f"are deliberately NOT honoured here -- exempting a path "
+                     f"from a leak scan is how a leak gets out. Remove the "
+                     f"line, or keep the two files separate if the scrub "
+                     f"genuinely needs the exemption.")
+        try:
+            pats.append(re.compile(line, re.I))
+        except re.error as e:
+            sys.exit(f"leak gate FAIL: {path}:{i} is not a valid regex ({e}): {line}")
+    return pats
+
+
+def load_default_blocklist():
+    """The committed, publishable patterns -- always applied.
+
+    A missing or empty default file is FATAL, not a silent downgrade. This
+    file is the reason the vocabulary layer runs at all on an ordinary
+    clone, so losing it would silently restore the exact state it was added
+    to remove: a layer that never runs outside its own tests."""
+    if not DEFAULT_BLOCKLIST.is_file():
+        sys.exit(f"leak gate FAIL: the default blocklist {DEFAULT_BLOCKLIST} is "
+                 f"missing. It is committed and always applied; without it the "
+                 f"vocabulary layer silently stops running on every clone that "
+                 f"has no private list.")
+    pats = _parse_blocklist(DEFAULT_BLOCKLIST)
+    if not pats:
+        sys.exit(f"leak gate FAIL: the default blocklist {DEFAULT_BLOCKLIST} has no "
+                 f"patterns. An empty list reports as a vocabulary-layer pass while "
+                 f"checking nothing.")
+    return pats
+
+
 def load_blocklist():
-    """-> (patterns, source_description, configured). See the module docstring
-    for why this list lives outside the repo."""
+    """-> (patterns, source_description, private_configured).
+
+    Always includes the committed default patterns; adds the private list
+    when PRECEDENT_LEAK_BLOCKLIST names one. The third value reports whether
+    the PRIVATE half was configured, which is what --require-vocabulary and
+    the reporting below key off -- the default half is never in question."""
+    default_pats = load_default_blocklist()
     raw = os.environ.get(BLOCKLIST_ENV, '').strip()
     if not raw:
-        return [], None, False
+        return default_pats, f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)} pattern(s))', False
     path = pathlib.Path(raw).expanduser()
     if not path.exists():
         sys.exit(f"leak gate FAIL: {BLOCKLIST_ENV} points at {path}, which does not "
@@ -331,38 +381,19 @@ def load_blocklist():
                  f"of private terms committed to a public repo publishes the terms it "
                  f"exists to protect. Keep it in the private set "
                  f"(see practice: scrub-gate) and point {BLOCKLIST_ENV} at it there.")
-    pats = []
-    for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
-        # practice_audit.py's scrub reads the same file format and honours a
-        # leading `!` as a path exemption. This gate deliberately does NOT,
-        # and says so rather than compiling it: `!foo/` is a perfectly valid
-        # regex, so it would silently become a pattern matching a literal
-        # "!foo/" and nothing else -- a line the author believes is doing
-        # something, doing nothing. Refused rather than honoured because
-        # exempting a path from a LEAK scan is how a leak gets out: the
-        # scrub audits a vendored tree that is already public, this gate
-        # stands between a private term and publication.
-        if line.startswith('!'):
-            sys.exit(f"leak gate FAIL: {path}:{i} starts with '!'. Path "
-                     f"exemptions are a practice_audit.py scrub feature and "
-                     f"are deliberately NOT honoured here -- exempting a path "
-                     f"from a leak scan is how a leak gets out. Remove the "
-                     f"line, or keep the two files separate if the scrub "
-                     f"genuinely needs the exemption.")
-        try:
-            pats.append(re.compile(line, re.I))
-        except re.error as e:
-            sys.exit(f"leak gate FAIL: {path}:{i} is not a valid regex ({e}): {line}")
+    # practice_audit.py's scrub reads the same file format and honours a
+    # leading `!` as a path exemption. This gate deliberately does NOT --
+    # see _parse_blocklist, which refuses it for both halves.
+    pats = _parse_blocklist(path)
     if not pats:
         sys.exit(f"leak gate FAIL: the blocklist at {path} contains no patterns. A "
                  f"configured-but-empty blocklist reports as a vocabulary-layer PASS "
                  f"while checking nothing, which is the one outcome this gate must "
                  f"never produce. Add at least one term, or unset {BLOCKLIST_ENV} "
-                 f"deliberately and accept the PARTIAL result.")
-    return pats, str(path), True
+                 f"deliberately and rely on the default list alone.")
+    return (default_pats + pats,
+            f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)}) + {path} ({len(pats)})',
+            True)
 
 
 def scan(units, blocklist):
@@ -444,19 +475,23 @@ def main():
               f"and it cannot be taken back.")
         return 1
 
+    # The vocabulary layer ALWAYS runs now -- the committed default list is
+    # applied on every invocation, so "the layer did not run" is no longer a
+    # reachable state and is no longer reported as one. What is still worth
+    # saying is which HALVES ran: a clean scan against publishable terms is
+    # not evidence that no PRIVATE word is present, and that sentence has to
+    # survive the change or this is just the old silence with better wording.
+    print(f"leak gate OK: {len(units)} unit(s) in {scope} clean against "
+          f"{len(FORBIDDEN_PATHS)} path rule(s), {len(FORBIDDEN_CONTENT)} content "
+          f"rule(s) and {len(blocklist)} blocklist pattern(s) from {source}.")
     if configured:
-        print(f"leak gate OK: {len(units)} unit(s) in {scope} clean against "
-              f"{len(FORBIDDEN_PATHS)} path rule(s), {len(FORBIDDEN_CONTENT)} content "
-              f"rule(s) and {len(blocklist)} blocklist pattern(s) from {source}.")
         return 0
 
-    print(f"leak gate PARTIAL: {len(units)} unit(s) in {scope} clean against the "
-          f"{len(FORBIDDEN_PATHS)} path and {len(FORBIDDEN_CONTENT)} content rules "
-          f"-- the STRUCTURAL layer only.")
-    print(f"  The vocabulary layer did not run: {BLOCKLIST_ENV} is unset, so no "
-          f"private-term blocklist was applied. This is expected in CI, which has "
-          f"no access to a private list. It is reported rather than passed over "
-          f"silently: a clean structural scan is not evidence that no private word "
+    print(f"  Note: the private half of the vocabulary layer did not run "
+          f"({BLOCKLIST_ENV} is unset), so publishable terms were checked and "
+          f"private ones were not. Expected in CI, which has no access to a "
+          f"private list. Said out loud rather than left to inference: a clean "
+          f"scan against the default list is not evidence that no private word "
           f"is present.")
     if require_vocab:
         print(f"\nleak gate FAIL: this clone has declared that it HAS a private-term "
