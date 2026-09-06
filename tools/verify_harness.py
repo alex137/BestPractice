@@ -2656,6 +2656,91 @@ def check_legacy_status_migration():
           f'is never guessed ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_codeowners_check_is_a_check():
+    """`build_codeowners.py --check` verifies without writing, and its output
+    is a function of its source rather than of when it ran.
+
+    TWO DEFECTS, both found 2026-09-06 by a caller trying to VERIFY that
+    CODEOWNERS was current and instead dirtying the tree mid-PR:
+
+      1. `--check` was not a flag at all. main() ignored argv, so the flag
+         fell through and the tool WROTE -- a checker that answers "is this
+         current?" by making it current cannot return a wrong answer, and
+         cannot return a useful one. Same shape as verify-postcondition's
+         own rule one level up: the check reported success by causing the
+         state it was asked to confirm.
+      2. The header stamped `git rev-parse HEAD`, so regenerating produced a
+         diff after EVERY commit whether or not approvers changed. A derived
+         file must be a function of its SOURCE; stamped with the time it was
+         built, "is it current?" has no stable answer.
+
+    BestPractice has no approvers.json -- it is not a team set -- so none of
+    this is exercised by the tree, and that is exactly why it went unnoticed
+    while the tool was private to one team set. The fixture supplies one.
+    Now that build_codeowners.py is in ENGINE_FILES, every source set the
+    bootstrap creates inherits whichever behavior this has."""
+    import tempfile, shutil
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-codeowners-'))
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        shutil.copy(ROOT / 'tools' / 'build_codeowners.py', tmp / 'tools')
+        approvers = tmp / 'approvers.json'
+        codeowners = tmp / 'CODEOWNERS'
+        approvers.write_text(
+            '{"approvers": [{"name": "A", "github": "a"}, '
+            '{"name": "B", "github": "b"}]}', encoding='utf-8')
+
+        def run(*args):
+            return subprocess.run(
+                [sys.executable, str(tmp / 'tools' / 'build_codeowners.py'), *args],
+                capture_output=True, text=True)
+
+        r = run('--check')
+        cases.append(('--check on a missing CODEOWNERS fails', r.returncode == 1))
+        cases.append(('...and does NOT create it -- a checker that repairs is '
+                      'a builder, and the caller cannot tell the two apart '
+                      'afterwards', not codeowners.exists()))
+
+        cases.append(('a plain run writes it', run().returncode == 0 and codeowners.is_file()))
+        first = codeowners.read_bytes()
+        cases.append(('--check on a current file passes', run('--check').returncode == 0))
+        cases.append(('...having written nothing', codeowners.read_bytes() == first))
+
+        run()
+        cases.append(('regeneration is byte-identical when approvers.json is '
+                      'unchanged -- the HEAD-sha churn that made every check '
+                      'a false positive is gone', codeowners.read_bytes() == first))
+
+        codeowners.write_bytes(first + b'# hand edit\n')
+        cases.append(('a hand-edited CODEOWNERS is detected', run('--check').returncode == 1))
+
+        run()
+        approvers.write_text(
+            '{"approvers": [{"name": "A", "github": "a"}]}', encoding='utf-8')
+        cases.append(('a changed approver list is detected',
+                      run('--check').returncode == 1))
+
+        run()
+        stable = codeowners.read_bytes()
+        r = run('--chekc')
+        cases.append(('a MISSPELLED flag is refused, not silently treated as '
+                      '"no arguments" -- that fall-through is defect 1, and '
+                      'doing the destructive thing on a typo is how it hid',
+                      r.returncode != 0 and codeowners.read_bytes() == stable))
+
+        approvers.unlink()
+        cases.append(('an individual set (no approvers.json) exits 0 with a '
+                      'note rather than failing', run('--check').returncode == 0))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'build_codeowners --check verifies without writing, and its output '
+          f'depends on its source not its build time ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_status_contract():
     """A practice that is not `active` must say where its rule went.
 
@@ -7400,6 +7485,7 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_codeowners_check_is_a_check()
     check_status_contract()
     check_legacy_status_migration()
     check_retired_practices_leave_the_views()

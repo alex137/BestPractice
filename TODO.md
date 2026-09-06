@@ -564,18 +564,27 @@ which is the failure this repointing exists to end — write
     `--set header-caps=headline-capitalization`. Run it report-only first.
     **Blocked on:** a session holding `themorgan/precedent-team-maintainers`.
 
-35. <a id="build-codeowners-check-flag"></a>**`build_codeowners.py --check` is not a check — it takes no such flag
-    and writes anyway.** The flag falls through `main()`, which
-    unconditionally rewrites `CODEOWNERS`. Worse, the generated header
-    stamps the current `HEAD` sha (`_source_sha()`) rather than a hash of
-    `approvers.json`'s own content, so regenerating produces a diff after
-    *every* commit whether or not approvers changed — a caller trying to
-    verify CODEOWNERS is current instead dirties the tree. This was a
-    private team-set tool until 2026-09-06 and is now part of the vendored
-    engine, so every source the bootstrap creates inherits it. Fix: a real
-    `--check` that compares and exits non-zero without writing, and stamp
-    from `approvers.json`'s content hash so an unchanged approver list
-    regenerates byte-identically.
+35. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
+    and writes anyway.**~~ **Done 2026-09-06.** Both defects fixed in
+    [tools/build_codeowners.py](tools/build_codeowners.py): a real `--check`
+    that compares and exits non-zero without writing (and an unknown flag is
+    now refused rather than falling through to the destructive path — that
+    fall-through was the bug, and doing the destructive thing on a typo is
+    how it stayed hidden), and the derived-file header now stamps a sha256 of
+    `approvers.json`'s own content instead of `git rev-parse HEAD`, so an
+    unchanged approver list regenerates byte-identically. Harness-tested with
+    10 stated cases, including negative controls, in
+    `check_codeowners_check_is_a_check`. BestPractice has no `approvers.json`
+    of its own, so the fixture supplies one — that absence is exactly why
+    this went unnoticed while the tool was private to one team set.
+    **Cross-source consequence, not yet rolled out
+    ([cross-source-rollout](practices/cross-source-rollout.md)):** the header
+    format changed, so the first regeneration in each team set produces a
+    one-time diff. Expected and correct — after it, `--check` is stable.
+    **Blocked on:** `themorgan/precedent-team-maintainers` and
+    `themorgan/precedent-team-tms` not attached this session. Each needs
+    `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`
+    then `python3 tools/build_codeowners.py`, committed.
 
 36. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
     None of the three private sets has a `precedent.json`, so each set's

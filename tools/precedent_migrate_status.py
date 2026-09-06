@@ -60,6 +60,13 @@ Usage:
 Exit 0 when nothing is left to migrate; 1 while any legacy record remains,
 so this doubles as the compliance check a source set otherwise has no way to
 run (verify_harness.py is not vendored).
+
+`--apply` writes one file at a time, so an interrupted run leaves a PARTIAL
+migration. That is deliberate rather than all-or-nothing: each rewrite is
+independent, and re-running simply continues with whatever is still
+unmigrated -- a half-applied run is recoverable by running again, and every
+record it already converted is correct. Check `git status` after an
+interrupted run rather than assuming nothing was written.
 """
 import pathlib
 import re
