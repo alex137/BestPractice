@@ -167,7 +167,13 @@ def _remote_web_base(repo_root):
     return f'{url}/blob/{commit}'
 
 
-def _rewrite_links(data, source_file, out_dir, sibling_slugs=()):
+# Directories materialize() owns: it deletes and rewrites both on every
+# run, so what is sitting in them right now is last run's output, never
+# evidence about this one.
+_MANAGED_DIRS = ('practices/', 'tools/checks/')
+
+
+def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=()):
     """Repoint one practice file's relative links for its new home.
 
     Returns the rewritten bytes. Any link this cannot place confidently is
@@ -181,7 +187,20 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=()):
     sibling it cites does not exist yet. Checking the filesystem alone made
     a sibling citation survive or get turned into a URL depending on
     alphabetical order, which is the kind of bug that looks like it works
-    until somebody adds a practice."""
+    until somebody adds a practice.
+
+    `planned_out` is every path this run will write, relative to out_dir,
+    and it is the same argument for a wider case. A practice that cites
+    its own check script -- `../tools/checks/check_x.py`, the single most
+    common cross-reference a practice makes -- was asking the filesystem,
+    and the answer was always no: materialize() empties tools/checks/
+    before it writes practices/ and only fills it afterwards. So the link
+    got "placed" as an absolute URL into the source repository, which for
+    a team or individual source is a PRIVATE repository, replacing a
+    relative link that would have worked perfectly once the run finished.
+    Observed in a real four-source consumer, 2026-09-06. Asking the plan
+    instead of the disk also makes a dry run and a real run agree by
+    construction, which is what drift() needs to be trustworthy."""
     try:
         text = data.decode('utf-8')
     except UnicodeDecodeError:
@@ -202,10 +221,27 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=()):
             return m.group(0)
         if bare[:-3] in sibling_slugs and bare.endswith('.md') and '/' not in bare:
             return m.group(0)            # a sibling this run is also writing
-        if (dest_dir / bare).exists():
+        cand = dest_dir / bare
+        try:
+            rel_out = cand.resolve().relative_to(out_root).as_posix()
+        except ValueError:
+            rel_out = None               # points outside the consuming repo
+        if rel_out is not None and rel_out in planned_out:
+            return m.group(0)            # this run writes exactly that file
+        if cand.exists() and not (rel_out or '').startswith(_MANAGED_DIRS):
             return m.group(0)            # already resolves where it lands
         resolved = (src_dir / bare).resolve()
-        if not resolved.exists():
+        try:
+            src_rel_out = resolved.relative_to(out_root).as_posix()
+        except ValueError:
+            src_rel_out = None
+        # "Broken at the source" has to ask the plan too, for the same
+        # reason: a repo-local source's own practice citing its own check
+        # script resolves into tools/checks/, which this run emptied a
+        # moment ago. On disk that reads as a broken link nobody should
+        # touch, so the citation was left pointing one directory too far
+        # up -- correct from local/practices/, dead from practices/.
+        if not resolved.exists() and src_rel_out not in planned_out:
             return m.group(0)            # broken at the source; not ours to invent
         if resolved.is_relative_to(out_root):
             new = os.path.relpath(resolved, dest_dir)
@@ -366,6 +402,9 @@ def materialize(sources, res, out_dir, dry_run=False):
 
     written = []
     all_slugs = set(practice_plan)
+    planned_out = {f'practices/{slug}.md' for slug in practice_plan}
+    planned_out.update(f'tools/{rel_label}/{filename}'
+                       for rel_label, filename, _src, _data in checks_plan)
     for slug, (practice, data) in sorted(practice_plan.items()):
         dest = practices_dir / f'{slug}.md'
         # Rewritten, not copied: a practice's relative links are written
@@ -375,7 +414,8 @@ def materialize(sources, res, out_dir, dry_run=False):
         # keeps the untouched original's hash beside it, so a later
         # comparison can tell a rewrite from a drift.
         placed = _rewrite_links(data, practice['file'], out_dir,
-                                sibling_slugs=all_slugs)
+                                sibling_slugs=all_slugs,
+                                planned_out=planned_out)
         if not dry_run:
             dest.write_bytes(placed)
         written.append({'slug': slug, 'level': practice['level'],

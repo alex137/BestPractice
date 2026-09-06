@@ -3925,7 +3925,7 @@ def check_show_flags_unreachable_materialized_source():
           f'materialized slug whose declared source is not reachable this session '
           f'({len(cases)} stated cases)',
           not bad,
-          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
 def check_sync_views_cross_source():
@@ -4721,7 +4721,7 @@ def check_bootstrap_source_produces_resolvable_set():
     check(f'bootstrap_source produces a resolvable individual and team set '
           f'({len(cases)} stated cases)',
           not bad,
-          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
 def check_bootstrap_source_engine_is_functional():
@@ -4915,7 +4915,7 @@ def check_bootstrap_source_engine_is_functional():
     check(f'bootstrap_source\'s output engine is real and functional, not just present '
           f'({len(cases)} stated cases)',
           not bad,
-          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
 def _write_fixture_practice(path, slug, applies_to, rule_text):
@@ -5186,7 +5186,7 @@ def check_vendor_engine_consumer_case():
     check(f'the vendored engine\'s "consumer" kind is real and functional against a real '
           f'four-source pipeline, not just present ({len(cases)} stated cases)',
           not bad,
-          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
 def check_rule_rewrite_detection():
@@ -5562,7 +5562,7 @@ def check_source_supplied_checks_run():
     check(f'source-supplied checks actually run ({len(cases)} stated cases: '
           f'all four exit statuses, both routes into a repo, and the slug '
           f'taken from the claiming practice)',
-          not bad, '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+          not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
 def check_individual_source_bootstrap_self_heals():
@@ -5765,7 +5765,7 @@ def check_individual_source_bootstrap_self_heals():
           f'defaults to one attempt and still honors an explicit retry count '
           f'({len(cases)} stated cases)',
           not bad,
-          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
 def check_pretooluse_hook_fires():
