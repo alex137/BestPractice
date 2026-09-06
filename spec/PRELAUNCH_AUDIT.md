@@ -604,3 +604,35 @@ document in `doc_html.py`'s own registry into a scratch directory and
 compares, ignoring only the build stamp, which is the one line that
 legitimately differs every run. Its negative control is the render as it
 was committed before this pass: reported stale.
+
+### What only a consuming repo could show
+
+Three findings that this repo's own green could not have produced, found by
+taking the refreshed engine into `havrutabrainstorm` and `workingwithai`
+rather than stopping at a clean local run:
+
+- **`--help` that runs the tool passed every property the new check
+  asserted.** `build_views.py`, `build_codeowners.py` and
+  `practice_audit.py` ignored the flag entirely and ran their normal job,
+  exiting 0 with output. `build_views.py`'s normal job is regenerating
+  `MAP.md`, `GLOSSARY.md` and `AGENTS.md`'s block — so `--help` silently
+  rewrote all three, and because they are already current here, even the
+  "writes nothing" property held: an identical rewrite is invisible to a
+  hash. In a consuming repo, whose views can be drifted, the same command
+  would have rewritten them. The check now compares the output against the
+  tool's own module docstring, so running the tool can no longer pass as
+  answering.
+- **A vendored `doc_sync.py` carries upstream's `PAIRS`.** It names
+  documents the consumer does not have and scripts it never vendored. That
+  used to crash; after the graceful-failure fix it reported four findings a
+  consumer could only clear by editing a vendored file. Now: *none* of the
+  registered documents existing is an unconfigured copy, reported NOT
+  APPLICABLE with the remedy, while *some* missing stays a genuinely stale
+  registry. The orphan-sentinel scan also stops walking `process/upstream/`,
+  whose generated blocks belong to the upstream's registry.
+- **Sixteen dead links in the two practice-set skeleton READMEs**, invisible
+  here because `doc_lint` gates on changed files and nobody had touched
+  those READMEs since the links were written. A consuming repo's light check
+  walks the whole vendored tree and reported all sixteen — an upstream
+  defect surfaced to the one reader who cannot fix it. Both are the first
+  document an adopter of a new set reads.
