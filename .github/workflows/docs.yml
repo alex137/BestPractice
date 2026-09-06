@@ -35,7 +35,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Markdown parser
-        run: python -m pip install cmarkgfm
+        run: python -m pip install cmarkgfm markdown
 
       - name: Lint changed Markdown
         run: python3 tools/doc_lint.py
