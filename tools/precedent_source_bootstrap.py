@@ -4,23 +4,44 @@ privately-scoped individual practice source resolvable on an ephemeral,
 hosted session (INSTALL.md step 9's individual-source branch;
 spec/BOOTSTRAP_NEW_SOURCES.md).
 
-THE INCIDENT THIS CLOSES. Two independent adopters hit the same failure
-within a day of each other: a `SessionStart` hook clones the person's
-individual-set repo and writes `~/.config/precedent/config.json` — but that
-clone needs the session to already have git read access to a private repo,
-and on this harness that access is granted by the AGENT calling `add_repo`
-as its own first tool call, in its own turn. A `SessionStart` hook runs
-before that turn starts. INSTALL.md used to say a *behavioral instruction*
-("tell the agent to call add_repo first") closed this gap; both incidents
-are direct evidence it does not, for the case where the hook has already
-started by the time the agent's own turn begins. No token or secret closes
-this either — the fix is that the clone attempt tolerates the race instead
-of losing it once and giving up (Option B: bounded retry, this file), and
-that anything reading the config it writes tolerates the hook still not
-having finished by treating "config absent" as "try once more", not "no
-individual set" (Option A: tools/precedent_resolve.py's own lazy self-heal,
-which shells out to the project's session-start hook — the hook this file
-backs — rather than reimplementing this file's logic a second time).
+THE INCIDENT THIS CLOSES, AND A CORRECTION ON HOW (2026-09-06). Two
+independent adopters hit the same failure within a day of each other: a
+`SessionStart` hook clones the person's individual-set repo and writes
+`~/.config/precedent/config.json` — but that clone needs the session to
+already have git read access to a private repo, and on this harness that
+access is granted by the AGENT calling `add_repo` as its own first tool
+call, in its own turn. A `SessionStart` hook runs *entirely to completion*
+before that turn starts (Claude Code's own docs for this hook: synchronous
+mode "guarantees dependencies are installed before your session starts" —
+a strict ordering, not a race with variable odds). INSTALL.md used to say
+a *behavioral instruction* ("tell the agent to call add_repo first") closed
+this gap; both incidents are direct evidence it does not.
+
+**This file originally shipped with a bounded retry in the hook itself
+("Option B") as half the fix. A follow-up testing session proved that
+wrong, structurally, not just unlucky: every retry attempt this file makes
+runs *inside* the `SessionStart` hook's own execution, which by
+construction finishes before the agent's turn — and therefore before
+`add_repo` — can start even once. There is no point during this file's
+own retry loop where `add_repo` access could possibly have appeared, on a
+genuinely fresh session, no matter the attempt count or delay.** Retrying
+here is not a partial mitigation of the incident; it is inert for it,
+full stop, and previously cost every cold session real latency (up to
+~12 seconds) for zero benefit on the exact path it was meant to help.
+
+**The only thing that actually closes the gap is
+`tools/precedent_resolve.py`'s own lazy self-heal ("Option A"):** it
+re-invokes this same hook lazily, on demand, the first time anything
+performs a live resolve and finds the config still absent — and because
+that call happens *inside* the agent's own turn, always after `add_repo`
+has already run (per the standing session-start instruction), the
+re-invoked hook now has the access it needed and succeeds on its first
+attempt. `DEFAULT_RETRIES` below reflects this: it defaults to a single
+attempt, because a retry loop earns no credit here. `--retries`/
+`--retry-delay` remain real, working options — not because they help with
+`add_repo`, but as ordinary defensive engineering against a genuinely
+transient git/network hiccup unrelated to this specific race, for a
+caller who wants that and knows why.
 
 WHY THIS IS A SEPARATE, VENDORED, HARNESS-NEUTRAL TOOL AND NOT INLINE SHELL
 (practice: engine-plus-host-shims). The actual clone-or-pull-then-write-
@@ -28,11 +49,12 @@ config mechanism is domain-neutral: every adopter's version of it differs
 only in the repo URL and two paths. Before this file existed, every adopter
 hand-wrote their own copy of that mechanism directly in a shell hook script
 (spec/MIGRATING_EXISTING_INSTALLS.md step 4's "worked pattern"), which is
-exactly how the missing retry went unnoticed in more than one place at
+exactly how a missing fix (first the retry that didn't exist, then the
+retry that couldn't have worked) went unnoticed in more than one place at
 once: a bug in hand-copied shell has to be found and fixed once per
-adopter. Vendoring the mechanism here means the retry (or any future fix
-to it) reaches every adopter through their ordinary `process/upstream/`
-sync, and the per-adopter shell hook
+adopter. Vendoring the mechanism here means a fix reaches every adopter
+through their ordinary `process/upstream/` sync, and the per-adopter shell
+hook
 (templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
 shrinks to naming its own repo URL and two paths, then delegating.
 
@@ -65,7 +87,15 @@ LEVELS = {'individual'}  # a team source resolves via a sibling checkout, not
                           # item 18, "the identical gap" spec/BOOTSTRAP_NEW_SOURCES.md
                           # already names for that case.
 
-DEFAULT_RETRIES = 6
+# A single attempt by default -- see the module docstring's 2026-09-06
+# correction. A retry loop here cannot help the incident this file was
+# built for (every attempt runs before the agent's turn, and therefore
+# `add_repo`, can start), so defaulting to more than one attempt would
+# just add latency on the exact path where it can never pay off. Raised
+# explicitly via --retries/--retry-delay, it is still real, working
+# defensive engineering against an unrelated, genuinely transient
+# git/network failure -- a caller who wants that opts in knowing why.
+DEFAULT_RETRIES = 1
 DEFAULT_RETRY_DELAY = 2.0
 
 
@@ -107,10 +137,12 @@ def _try_sync(repo_url, clone_path):
 def ensure_source(level, name, repo_url, clone_path, config_path,
                    retries=DEFAULT_RETRIES, retry_delay=DEFAULT_RETRY_DELAY,
                    sleep=time.sleep):
-    """The mechanism, callable in-process (tools/precedent_resolve.py's own
-    self-heal uses this directly rather than shelling back out to a second
-    copy of itself) as well as from main() below. `sleep` is injectable so
-    a test can prove the retry count without a real wall-clock wait.
+    """The mechanism, callable in-process as well as from main() below.
+    (tools/precedent_resolve.py's own self-heal does NOT call this
+    in-process -- it shells out to the project's session-start hook, the
+    hook this file backs, so a project that customized its hook still gets
+    the customized behavior on self-heal too.) `sleep` is injectable so a
+    test can prove the retry count without a real wall-clock wait.
 
     -> (True, None) on success; (False, last_output) once every retry is
     spent. Never raises for an ordinary sync failure — a source this

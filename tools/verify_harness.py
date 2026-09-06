@@ -4313,24 +4313,41 @@ def check_bootstrap_source_engine_is_functional():
 
 
 def check_individual_source_bootstrap_self_heals():
-    """practices/session-bootstrap.md's Detail, tested rather than trusted:
-    a privately-scoped individual source's SessionStart hook retries
-    instead of trying once (tools/precedent_source_bootstrap.py), and
+    """practices/session-bootstrap.md's Detail, tested rather than trusted
+    -- and corrected 2026-09-06 after this check's own first version
+    proved a false claim clean.
+
     tools/precedent_resolve.py's own load_config() treats a still-missing
     individual config, on a remote session, as "try the hook once more"
-    rather than "no individual set". This is the two-part fix for the
-    incident practices/session-bootstrap.md's Story records: two
-    independent adopters' SessionStart hook lost its race against their
-    own session's add_repo calls, degraded on purpose (correctly), and
-    then never ran again (incorrectly) -- indistinguishable from home from
-    "this person genuinely has no individual set".
+    rather than "no individual set" -- this is the ENTIRE fix for the
+    incident practices/session-bootstrap.md's Story records (two
+    independent adopters' SessionStart hook running to completion before
+    the agent's own turn, and therefore its add_repo call, could start).
+    A first version of this check also asserted that
+    tools/precedent_source_bootstrap.py retrying "instead of trying once"
+    was a second, contributing half. That was tested here only by calling
+    the tool directly against synthetic fixtures -- never inside a real
+    SessionStart hook on a genuinely fresh Claude Code Web session, which
+    is the one environment where the claim was actually false: a
+    SessionStart hook's execution window and the agent's own first turn
+    never overlap in time, so no retry count or delay inside the hook can
+    ever observe add_repo access appearing. A follow-up testing session
+    ran that real test and disproved it directly. This check's own
+    passing runs never caught that, and could not have: it proves the
+    tool's CODE does what the code says (retries N times, degrades
+    gracefully), which was never in question -- it cannot prove the
+    premise about the outside world (whether a retry, in that specific
+    execution context, has anything to retry into) the retry was written
+    against. Case 6 below locks in the correction: the tool now defaults
+    to a single attempt, precisely because a default of more than one
+    bought nothing for the case it was sized for.
 
     Fixture: a real local git repo served over file:// -- not a bare path;
     this repo's own environment-gotchas.md already names why (`git clone
     --depth 1 /some/path` is ignored; only a real transport gets real
     clone semantics, and `file://` is what forces that locally). Six
-    stated cases, all fast: --retry-delay 0 proves the retry COUNT without
-    a real wall-clock wait."""
+    stated cases, all fast: --retry-delay 0 proves an explicitly-requested
+    retry count without a real wall-clock wait."""
     import shutil, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-source-bootstrap-'))
@@ -4413,6 +4430,22 @@ def check_individual_source_bootstrap_self_heals():
                       rc3 == 0 and not (tmp / 'config-unreachable.json').exists()
                       and 'after 3 attempt' in out3, out3))
 
+        # --- case 6 (2026-09-06 correction): the DEFAULT is a single
+        # attempt, with no --retries/--retry-delay given at all -- locks in
+        # the corrected understanding that a multi-attempt default bought
+        # nothing for the SessionStart-hook case it was originally sized
+        # for (see this function's own docstring). A regression back to a
+        # default > 1 would silently reintroduce the exact wasted latency
+        # this correction removed, on every cold session, for zero benefit.
+        rc6, out6 = run(str(bootstrap_tool), '--level', 'individual',
+                        '--name', 'harness-fixture-unreachable-default',
+                        '--repo-url', f'file://{tmp / "does-not-exist"}',
+                        '--clone', str(tmp / 'clone-unreachable-default'),
+                        '--config', str(tmp / 'config-unreachable-default.json'),
+                        '--remote-only', 'false')
+        cases.append(('with no --retries given, the tool defaults to exactly '
+                      'one attempt', rc6 == 0 and 'after 1 attempt' in out6, out6))
+
         # --- case 4: the resolver's own lazy self-heal, on a remote session -
         consumer = tmp / 'consumer'
         (consumer / '.claude' / 'hooks').mkdir(parents=True)
@@ -4475,7 +4508,8 @@ def check_individual_source_bootstrap_self_heals():
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'individual source bootstrap retries, and the resolver self-heals '
+    check(f'the resolver self-heals (the actual fix); the bootstrap tool '
+          f'defaults to one attempt and still honors an explicit retry count '
           f'({len(cases)} stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))

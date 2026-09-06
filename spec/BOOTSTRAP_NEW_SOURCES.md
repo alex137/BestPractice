@@ -158,18 +158,23 @@ read "the source-repo case is solid" as "the consumer case is solid too."
    again against an already-bootstrapped set). This instantiates
    [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
    into the *consuming* project's `.claude/hooks/precedent-individual-bootstrap.sh`,
-   delegating to the retry-capable
+   delegating to
    [`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py) —
    see that file's own module docstring, and
    [`practices/session-bootstrap.md`](../practices/session-bootstrap.md)'s
-   Story, for why a single-shot clone attempt here isn't enough: this
-   hook's own repo-read access is granted by the agent's own `add_repo`
-   call, made in the agent's own turn, and a `SessionStart` hook runs
-   *before* that turn starts — so the consuming project's instructions file
+   Story, for why this hook's own attempt, by itself, structurally cannot
+   succeed on a fresh session: its repo-read access is granted by the
+   agent's own `add_repo` call, made in the agent's own turn, and a
+   `SessionStart` hook runs *entirely to completion* before that turn
+   starts — not a race the hook might win with enough tries, an ordering
+   it cannot win even once. So the consuming project's instructions file
    still needs the standing `add_repo`-at-session-start instruction
    ([INSTALL.md step 9](../INSTALL.md#9-ask-about-team-and-individual-practice-sources),
    [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)
-   step 4) alongside this hook, not instead of it.
+   step 4) alongside this hook — what actually saves the session is
+   `tools/precedent_resolve.py`'s own lazy self-heal re-invoking this same
+   hook later, from inside the agent's own turn, after that instruction has
+   already run.
 6. Fill in `leak-blocklist.txt` with the person's own private terms, then
    `export PRECEDENT_LEAK_BLOCKLIST=<path>` and
    `git config precedent.requireVocabulary true` in every shared project

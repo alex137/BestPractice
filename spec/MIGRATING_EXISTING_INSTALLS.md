@@ -151,30 +151,45 @@ the loader.
    independent adopters proved it, 2026-09-05.** This step used to claim
    the `add_repo` instruction above was "the one behavioral fix that
    closes [the gate] for both sources at once." It is not: a
-   `SessionStart` hook runs before the agent's own first turn starts, so
-   an instruction telling the agent to call `add_repo` "before running
+   `SessionStart` hook runs *entirely to completion* before the agent's
+   own first turn starts — a strict ordering, not a race with variable
+   odds (Claude Code's own docs for this hook: synchronous mode
+   "guarantees dependencies are installed before your session starts") —
+   so an instruction telling the agent to call `add_repo` "before running
    any bootstrap script" cannot make that tool call precede a hook the
-   harness has already started running — the hook simply loses the race
-   before the agent gets a chance to act. Both `HavrutaBrainstorm` and (by
-   report) a second, independent repo hit exactly this: the individual
-   source silently wasn't resolving because its bootstrap hook had
-   already run and failed before `add_repo` completed, and nothing said
-   so — it read as "no individual set," not "not yet." **The real fix
-   ships in the engine now**, closing this at the mechanism level rather
-   than relying on instruction-following to win a race it structurally
-   cannot: [`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py)
-   retries the clone with a bound instead of trying once (the hook usually
-   wins the race on its own now), and
+   harness has already started running, at any retry count or delay. Both
+   `HavrutaBrainstorm` and (by report) a second, independent repo hit
+   exactly this: the individual source silently wasn't resolving because
+   its bootstrap hook had already run and failed before `add_repo`
+   completed, and nothing said so — it read as "no individual set," not
+   "not yet."
+
+   **The real fix ships in the engine, and — corrected 2026-09-06 — only
+   one of its two originally-claimed halves actually does anything.**
    [`tools/precedent_resolve.py`](../tools/precedent_resolve.py)'s own
    `load_config()` treats "the individual config is absent, and this is a
    remote session" as "try the bootstrap hook once more" rather than "no
-   individual set" — so even a hook that still lost its race gets a second
-   chance the next time anything actually asks for the individual source.
-   See [`practices/session-bootstrap.md`](../practices/session-bootstrap.md)'s
-   Story for the incident in full, and `tools/precedent_source_bootstrap.py`'s
-   own module docstring for the mechanism. The `add_repo` instruction above
-   stays required — the self-heal has nothing to retry *into* without it —
-   it is just no longer asked to close the gate by itself.
+   individual set" — and because that re-invocation runs from inside the
+   agent's own turn, always after `add_repo`, it succeeds where the
+   original hook invocation structurally could not. This is the entire
+   fix. A first version of this paragraph also credited
+   [`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py)
+   retrying the clone "instead of trying once (the hook usually wins the
+   race on its own now)" — a follow-up testing session proved that false
+   by direct test: every retry the hook itself makes runs before the
+   agent's turn, and therefore `add_repo`, can start, on a genuinely fresh
+   session, without exception. It is not a partial mitigation; it is
+   inert for this specific gap, and previously cost every cold session
+   real, wasted latency. Corrected the same day: that tool now defaults
+   to a single attempt (retrying stays available, opt-in, for an
+   unrelated genuine transient-network case — never claimed as a fix for
+   this one). See
+   [`practices/session-bootstrap.md`](../practices/session-bootstrap.md)'s
+   Story for the incident, and this correction, in full. The `add_repo`
+   instruction above stays required — the self-heal has nothing to
+   retry *into* without it — it is just closed by a hook running again
+   *after* that instruction has taken effect, never by one trying harder
+   *before* it has.
 
 5. **Retire the old vendored pack tree**, but salvage anything in it that
    was never really *pack content* — a generic utility script the pack
