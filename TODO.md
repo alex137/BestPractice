@@ -354,6 +354,17 @@ which is the failure this repointing exists to end — write
     change, whose ask was scoped to BestPractice's `precedent-beta-v01`
     alone. Any session with `precedent-team-maintainers` attached and a
     mandate to touch it can close this.
+    **Narrowed 2026-09-06:** the `overrides:` half is already ruled out —
+    [practices/very-deep-check.md](practices/very-deep-check.md)'s Story
+    records Morgan's ruling that the team's `deep-check` and this practice
+    are unrelated rules, so there is nothing to override, and the team's
+    routine per-commit check keeps happening. The same date,
+    [practices/two-check-levels.md](practices/two-check-levels.md) drew the
+    general line this rests on: what gates a commit, push or merge is one of
+    the two named levels, while a rare audit a person asks for by name is a
+    separate mechanism. So the open call is only whether the team's
+    `deep-check` should adopt anything from the four passes — not whether it
+    should be replaced by them.
 
 24. <a id="consumer-source-names"></a>~~**Check the consumer repos' own source names against the convention.**~~
     **Done (2026-09-06.)** `themorgan/HavrutaBrainstorm` — the one consumer
@@ -702,3 +713,34 @@ which is the failure this repointing exists to end — write
     consumer's `bestpractice-upstream-sync.yml` — never one of the three
     without the others, since a half-relaxed hold is what makes an
     unattended job run against advice nobody re-read.
+
+- **Wire the clone-free engine-freshness check into the path a person's own
+  session actually takes.** `python3 tools/precedent_vendor_engine.py fresh`
+  already answers "is this vendored engine behind upstream?" with a single
+  `git ls-remote` and no clone — it has since the vendoring mechanism
+  landed, and it works: run in a stale set on 2026-09-06 it named the exact
+  commit gap. **Nothing calls it.** The only mentions anywhere are in the
+  tool's own docstring, which is why two sets could sit two hundred commits
+  behind with nobody told. Three channels now exist that did not
+  (2026-09-06): the scheduled workflow every source template ships, the
+  bootstrap warning when the seeding checkout is itself behind, and
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  run from a session working here. All three are periodic or incidental.
+  The channel that would catch it *every* time is the source set's own
+  `bootstrap/session-start.sh` — the hook that already runs in every
+  consuming project to clone or update the set — calling `fresh` right after
+  it updates the clone, where a person is present to read the notice.
+  **Blocked on:** that hook lives in each private source repo
+  (`precedent-individual/bootstrap/session-start.sh`), not here, and
+  `templates/practice-set-*/` ships no equivalent for a new adopter to
+  inherit. Doing it properly means generalizing that hook into the two
+  templates first, so the fix reaches every set rather than only the two
+  that already exist.
+
+- **Backfill the engine-refresh workflow into source sets bootstrapped
+  before it existed.** `templates/practice-set-{individual,team}/.github/
+  workflows/engine-refresh.yml` reaches every set created from 2026-09-06
+  on. Sets created before that date have no scheduled freshness channel at
+  all and need the file added by hand. **Blocked on:** nothing here — this
+  is a one-line copy per set, but it has to happen *in* each set's own
+  private repo, so it cannot be done from this repo's own branch.

@@ -668,7 +668,12 @@ RECORD_NAME_RE = re.compile(
     r"(_diligence|_record|_decision|_notes|_index|_ledger|README|TODO|MAP|"
     r"GLOSSARY|AGENTS|CLAUDE|PRACTICES|INSTALL|SETUP|METHOD|GIT|MOBILE)",
     re.I)
-RECORD_DIR_RE = re.compile(r"(^|/)(process|archive|sent|templates|deck|practices|spec)(/|$)")
+# `decisions` is here for the same reason `practices` and `spec` are: a dated
+# decision record IS the apparatus this check routes things into, so linting
+# one as a deliverable flags it for containing exactly its own subject matter.
+# (practice: deliverables-look-like-output)
+RECORD_DIR_RE = re.compile(
+    r"(^|/)(process|archive|sent|templates|deck|practices|spec|decisions)(/|$)")
 RESIDUE_PATTERNS = [
     (re.compile(r"\[verify\b", re.I),
      "verify-later flag -- verify now, or record the externally-blocked "
@@ -711,8 +716,14 @@ def check_residue(path):
     # thing_decision.md, thing_notes.md, thing_index.md or thing_ledger.md
     # was falsely flagged as residue and failed the gate, since none of
     # those four matched this narrower, separately-maintained pattern.
-    link_re = re.compile(r"\]\([^)]*_(record|diligence|decision|notes|index"
-                         r"|ledger)\.md\)", re.I)
+    # The second alternative covers a repo whose decision records live in a
+    # `decisions/` directory under dated names (`2026-09-06-some-slug.md`)
+    # rather than under a `_decision.md` suffix -- the shape Precedent itself
+    # uses. Without it, a deliverable that correctly links its decision record
+    # instead of restating the decision fails this gate for doing the right
+    # thing. (practice: deliverables-look-like-output)
+    link_re = re.compile(r"\]\([^)]*(?:_(?:record|diligence|decision|notes"
+                         r"|index|ledger)\.md|decisions/[^)]*\.md)\)", re.I)
     for i, line in iter_prose_lines(path):
         if link_re.search(line):
             continue        # the one allowed reference: a link to the record

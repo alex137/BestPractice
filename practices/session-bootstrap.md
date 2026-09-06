@@ -144,6 +144,34 @@ production — the harness proves the code does what the code says: it
 cannot prove the premise about the outside world the code was written
 against was true.
 
+**A start-up guard whose subject is the checkout itself must repair, not
+report — because the guard is delivered by the very thing it guards.** The
+ordinary bootstrap entry installs a package or initializes a submodule, and
+warning on failure is the right shape: the session can act on the warning.
+A *freshness* check is not that shape. It ships inside the checkout, so a
+container stale enough to need it is stale enough to be missing it, and the
+instructions file that documents the problem arrives equally stale — the
+session is told nothing, by a guard that is present in the repository and
+absent from the disk. Verified here 2026-09-06: a session came up 366
+commits behind on a six-day-old container, the hardened freshness block ran,
+and it could not help, because that container predated the block. Warning is
+also too late even when it does fire: the harness hands the session its
+instructions file before the session can act on any warning. So the check
+fast-forwards a clean, strictly-behind checkout itself and says what it did,
+which makes the harness re-read the instruction files.
+**Confine the repair to the unambiguous case.** Clean tree, strictly behind,
+pure fast-forward. Diverged, no-shared-history, and dirty-tree states warn
+and change nothing: a hook that discards work is worse than any stale
+checkout, and the distinction is not cosmetic — the previous warn-only
+version printed `git checkout -B <branch> origin/<branch>` for a *diverged*
+branch as well as a behind one, advice that silently destroys the local
+commits, because it never separated "behind" from "behind and ahead".
+**And gate only what genuinely needs gating**: the freshness check here sat
+behind the same `CLAUDE_CODE_REMOTE=true` test as the `pip install`, so it
+never ran on a local machine at all. The reason to gate a package install —
+do not touch a developer's own environment — does not extend to reading and
+repairing git state.
+
 ## Install
 [templates/bootstrap.sh](../templates/bootstrap.sh) →
 `tools/bootstrap.sh` (harness-neutral; all real setup lives here), wired in

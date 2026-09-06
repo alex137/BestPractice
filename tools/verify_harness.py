@@ -4572,6 +4572,100 @@ def check_loader_block_advertises_only_live_channels():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_source_sets_can_learn_they_are_stale():
+    """A vendored source set must have some way to find out its engine is old.
+
+    2026-09-06: `precedent-individual` and `precedent-team-tms` both sat at
+    ef8b5d09 while this branch moved more than two hundred commits past it,
+    and both were generating a loader block with a defect fixed upstream
+    days earlier. Nothing was broken -- there was simply no channel through
+    which "your copy is behind" could reach anyone. It surfaced because a
+    session happened to have a clone attached and happened to run a check by
+    hand.
+
+    A CONSUMER repo never had this problem: it vendors process/upstream/ and
+    its bootstrap runs a freshness check at session start. The asymmetry was
+    the defect, and these cases assert the three channels that close it, so
+    that removing any one of them fails here rather than going quiet for
+    another two hundred commits.
+    """
+    cases = []
+
+    # 1. Every source template ships the scheduled workflow. A set created
+    #    tomorrow gets the channel without anyone remembering to add it.
+    for level in ('individual', 'team'):
+        wf = ROOT / 'templates' / f'practice-set-{level}' / '.github' / 'workflows' / 'engine-refresh.yml'
+        text = wf.read_text(encoding='utf-8') if wf.is_file() else ''
+        cases.append((f'the {level} source template ships an engine-refresh workflow',
+                      bool(text), str(wf.relative_to(ROOT))))
+        # It must actually refresh AND regenerate: an engine bump whose views
+        # were not re-run leaves the set failing its own build_views --check.
+        cases.append((f"the {level} workflow regenerates views, not just the engine",
+                      'precedent_vendor_engine.py refresh' in text and 'build_views.py' in text,
+                      ''))
+        # The GitHub setting it needs is off by default, and a workflow that
+        # cannot open a PR must say so rather than pass quietly.
+        cases.append((f'the {level} workflow discloses the GitHub setting it needs',
+                      'create and approve pull requests' in text, ''))
+
+    # 2. The bootstrap tool warns when the clone it is seeding FROM is behind.
+    bs = (ROOT / 'tools' / 'precedent_bootstrap_source.py').read_text(encoding='utf-8')
+    cases.append(('bootstrap warns when seeding from a stale checkout',
+                  '_warn_if_clone_is_stale' in bs and '_warn_if_clone_is_stale()' in bs, ''))
+
+    # 3. A session working HERE is told about stale attached sources.
+    tool = ROOT / 'tools' / 'precedent_refresh_sources.py'
+    cases.append(('precedent_refresh_sources.py exists', tool.is_file(), ''))
+    hook = (ROOT / '.claude' / 'hooks' / 'session-start.sh').read_text(encoding='utf-8')
+    cases.append(('the session-start hook runs it',
+                  'precedent_refresh_sources.py' in hook, ''))
+
+    if tool.is_file():
+        # Both directions, against real fixtures: a set recording this
+        # checkout's own tip is current; one recording anything else is not.
+        # Without the "current" case, a detector that called everything stale
+        # would pass.
+        import shutil, tempfile
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('_prs', tool)
+        prs = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(prs)
+        tip, _ref = prs.head_commit()
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-staleness-'))
+        try:
+            def fake_set(name, commit):
+                d = tmp / name
+                (d / 'tools').mkdir(parents=True)
+                (d / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                    json.dumps({'format_version': 1, 'kind': 'source',
+                                'source_commit': commit}), encoding='utf-8')
+                return d
+            if tip:
+                current = fake_set('current-set', tip)
+                stale = fake_set('stale-set', '0' * 40)
+                _t, _r, found = prs.survey([str(current), str(stale)])
+                by = {e['repo'].name: e for e in found}
+                cases.append(('a set recording this tip reports as current',
+                              by.get('current-set', {}).get('stale') is False,
+                              str(by.get('current-set'))))
+                cases.append(('a set recording an older commit reports as STALE',
+                              by.get('stale-set', {}).get('stale') is True,
+                              str(by.get('stale-set'))))
+            else:
+                cases.append(('the staleness fixtures could run (needs '
+                              f'origin/{prs.SOURCE_BRANCH} fetched)', False,
+                              'branch not resolvable in this clone'))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a vendored source set can learn its engine is stale '
+          f'({len(cases)} stated cases: template workflow, bootstrap warning, '
+          f'attached-source detector)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_gate_channel():
     """The gate channel, as stated cases against the real registry.
 
@@ -8244,6 +8338,7 @@ def main():
     check_parallel_artifact_ledger_fires()
     check_gate_channel()
     check_loader_block_advertises_only_live_channels()
+    check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
     check_show_flags_unreachable_materialized_source()

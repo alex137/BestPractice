@@ -8,7 +8,7 @@ occasion:    "naming what \"run the checks\" means in a repo"
 gates:       []
 index_clause: "name a fast check and a full check; say which gates what"
 checked_by:  "tools/precedent_check.py"
-defines:     []
+defines:     ["light check", "deep check"]
 status:      active
 in_force_at: null
 supersedes:  []
@@ -53,4 +53,14 @@ actually runs, and reference the names (not just the script paths) in the
 merge runbook ([merge-runbook](merge-runbook.md)) and in any CI wiring ([convention-to-audit](convention-to-audit.md)). A repo that
 adds its own extra fast checks (secret-shaped strings, conflict markers,
 JSON/YAML syntax) folds them into the "light" name rather than inventing a
-third level — two named levels is the right number for almost every repo.
+third gate — two named gate levels is the right number for almost every repo.
+
+**A rare, on-request audit is not a third level, and does not count against
+that.** The test is whether a session has to run it to land work. Something
+that gates a commit, a push, or a merge is one of these two levels and must
+fold into one of the two names; something a person asks for by name, that no
+gate ever waits on, is a separate mechanism and gets its own name — this
+repo's own [very-deep-check](very-deep-check.md) is exactly that, and is
+named separately for exactly that reason. What this rule forbids is a third
+*gate*, because that is what puts a session in the position of guessing which
+checks it must run before it can commit.

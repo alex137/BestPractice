@@ -29,6 +29,7 @@ adopting repository restates them. Change them here and everywhere follows.
 import json
 import pathlib
 import re
+import subprocess
 import sys
 
 # EVERY document is outward-facing unless it is named here. Stated as an
@@ -46,8 +47,9 @@ import sys
 # session reads to work here. None of it is published to anyone, and heading
 # style in it is never to be "fixed".
 INTERNAL_DIRS = (
-    ".claude", ".github", "candidates", "decisions", "deck", "evals",
-    "examples", "local", "practices", "process", "spec", "templates", "tools",
+    ".claude", ".github", ".precedent", "candidates", "decisions", "deck",
+    "evals", "examples", "local", "practices", "process", "spec", "templates",
+    "tools",
 )
 
 # A repository's root holds BOTH kinds, which is why directories alone cannot
@@ -77,17 +79,44 @@ def is_outward(rel_path):
     return True
 
 
+def _ignored(base, rels):
+    """The subset of `rels` that git ignores, in one call.
+
+    A GITIGNORED markdown file is never outward-facing, for the same reason
+    the generated files in INTERNAL_FILES are not: nobody outside reads it,
+    and rewriting a heading in it is undone by whatever regenerates it. The
+    directory list above cannot be the only guard, because it has to be
+    edited every time something starts writing a new one -- which is exactly
+    how this was found. 2026-09-06: tools/precedent_session_practices.py
+    began writing .precedent/SESSION_PRACTICES.md at session start, and the
+    next `title_case.py --check` failed the deep check on four headings in a
+    generated, untracked, deliberately-private file. Fails open rather
+    than crashing: no git, no repo, no exclusions, and the directory list
+    still applies.
+    """
+    if not rels:
+        return set()
+    try:
+        r = subprocess.run(['git', 'check-ignore', '--stdin'],
+                           cwd=str(base), capture_output=True, text=True,
+                           input='\n'.join(str(x) for x in rels))
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return {line.strip() for line in r.stdout.splitlines() if line.strip()}
+
+
 def outward_files(root=None):
     """Every outward-facing markdown file in the repo."""
     base = pathlib.Path(root) if root is not None else pathlib.Path(".")
-    out = []
+    candidates = []
     for f in sorted(base.rglob("*.md")):
         rel = f.relative_to(base)
         if rel.parts and rel.parts[0] == ".git":
             continue
         if is_outward(rel):
-            out.append(f)
-    return out
+            candidates.append((f, rel))
+    ignored = _ignored(base, [rel for _f, rel in candidates])
+    return [f for f, rel in candidates if str(rel) not in ignored]
 
 
 # The standard New York Times list of words that stay lowercase inside a
