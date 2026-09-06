@@ -18,8 +18,8 @@ the pitch, then jump to the how-to guide for your situation:
 
 BestPractice is one working expression of a broader philosophy about how
 people and AI should work together, developed in
-**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)** (private for
-now — it will be made public soon). Read that repo for the theory.
+**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. Read that
+repo for the theory.
 
 In short: it's an alternative to Google Docs, built on three ideas:
 
