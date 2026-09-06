@@ -5321,6 +5321,34 @@ def check_vendor_engine_consumer_case():
         manifest_path.write_text(manifest_backup, encoding='utf-8')
         own.unlink()
 
+        # -- refresh converges on a repo whose engine predates an added file.
+        # The commit matches; only the FILE SET is short. Before this, the
+        # commit alone decided, so such a repo was told "already current"
+        # forever and could never acquire the file -- reproduced across all
+        # three of this account's practice sets on 2026-09-06, and the reason
+        # one of them had a hand-copied build_codeowners.py in the first place.
+        older = json.loads(manifest_path.read_text(encoding='utf-8'))
+        older['files'] = [f for f in older['files'] if f != 'build_codeowners.py']
+        older.get('sha256', {}).pop('build_codeowners.py', None)
+        manifest_path.write_text(json.dumps(older, indent=2), encoding='utf-8')
+        (consumer / 'tools' / 'build_codeowners.py').unlink()
+        head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True).stdout.strip()
+        r_conv = subprocess.run(
+            [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+             'refresh', str(ROOT), '--from-ref', head],
+            capture_output=True, text=True, cwd=str(consumer))
+        out_conv = r_conv.stdout + r_conv.stderr
+        restored = json.loads(manifest_path.read_text(encoding='utf-8'))
+        cases.append(('refresh writes an engine file the manifest is missing even '
+                      'when the recorded commit already matches',
+                      (consumer / 'tools' / 'build_codeowners.py').is_file()
+                      and 'build_codeowners.py' in restored.get('files', []),
+                      out_conv[:500]))
+        cases.append(('and says why it refreshed rather than claiming nothing to do',
+                      'missing' in out_conv and 'nothing to do' not in out_conv,
+                      out_conv[:500]))
+
         import hashlib
         mismatched = [f for f, h in manifest.get('sha256', {}).items()
                      if hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
