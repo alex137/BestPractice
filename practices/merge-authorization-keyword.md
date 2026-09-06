@@ -8,7 +8,7 @@ occasion:    "the user gives a standing merge instruction"
 gates:       ["merge"]
 index_clause: "one fixed word means \"merge as agreed\"; document it exactly"
 checked_by:  null
-defines:     []
+defines:     ["go merge"]
 status:      active
 supersedes:  []
 overrides:   null
@@ -29,6 +29,14 @@ sentence, or its standalone status is genuinely unclear — as *not*
 authorization: ask, rather than assume.
 
 ## Detail
+This repo's adopted phrase is **"Go merge"** (case-insensitive). Standing
+alone — its own line, or set off by a preceding sentence-ending
+punctuation mark — it authorizes committing whatever change the thread
+just agreed on and pushing it to `precedent-beta-v01` (this repo's normal
+merge target; see the TEMPORARY note at the top of `AGENTS.md`), after the
+usual light and deep checks. Appearing only as part of an ordinary
+sentence, or whose standalone status is genuinely unclear, does not
+count — ask instead of assuming.
 
 ## Why
 "Merge only when the user says so" ([merge-runbook](merge-runbook.md)'s authorization
@@ -44,6 +52,12 @@ ordinary language that happens to contain the same word for an unrelated
 reason.
 
 ## Story
+Morgan closed two consecutive messages with "Go merge" before this
+keyword was formally adopted, the second one making the intent explicit
+("register it in the glossary... And then, Go Merge"). Formalized here,
+in the same change, rather than left as an inferred pattern — so the next
+session that sees the phrase already knows what it means instead of
+re-deriving it from context or asking.
 
 ## Install
 Pick a word (or short phrase) that reads naturally as a

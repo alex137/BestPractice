@@ -25,7 +25,9 @@ sides keeps both sides' additions (renumbering the side not yet referenced
 elsewhere); **generated outputs are never hand-merged** (the side matching
 the committed manifest wins; unshipped builds are deleted and rebuilt). The
 audits ([convention-to-audit](convention-to-audit.md)) must pass before the merge commits — the audit, not
-re-inspection, is what makes fast mechanical resolution safe.
+re-inspection, is what makes fast mechanical resolution safe. Authorization
+to actually run this runbook is the user saying so; this repo's standing
+shorthand for that is documented in [merge-authorization-keyword](merge-authorization-keyword.md).
 
 ## Detail
 
