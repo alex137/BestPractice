@@ -283,6 +283,44 @@ def _git_toplevel(start):
     return pathlib.Path(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
 
 
+# The test driver this tool generates rather than copies -- see _plan_checks'
+# docstring for why. Recorded in MANIFEST.json like every other materialized
+# file, under a source name no real source can collide with: a consuming
+# repo's own orphan detection reads that manifest to tell a legitimately
+# materialized file from a hand-dropped one, and an unrecorded file would
+# read as hand-dropped.
+#
+# Deliberately NOT carrying a `practice:` citation, though this code exists to
+# satisfy one: the deep-check rule that requires the driver is a TEAM-level
+# practice, and this repo's catalogue is the universal one, so the slug does
+# not resolve here and code-cites-practice correctly reads the citation as a
+# dangling reference. The citation form has no way to say "a practice from a
+# source this repo does not carry", so the reason is given in prose instead.
+RUN_ALL_NAME = 'run_all.sh'
+GENERATED_SOURCE = '(generated)'
+RUN_ALL_SCRIPT = """#!/bin/bash
+# GENERATED FILE -- do not hand-edit. Written by tools/precedent_materialize.py
+# on every sync; any edit here is overwritten without warning.
+#
+# Runs every materialized check's two-direction test. The glob is the point:
+# this driver runs whatever tests this repo actually materialized, which is
+# why it is generated here rather than copied from any one practice source.
+set -uo pipefail
+cd "$(dirname "$0")"
+status=0
+for t in test_*.sh; do
+  # A repo that materialized no tests leaves the glob unexpanded; without
+  # this the driver would try to run a file literally named test_*.sh and
+  # report a failure that is really an empty set.
+  [ -e "$t" ] || continue
+  echo "--- $t ---"
+  if ! bash "$t"; then
+    status=1
+  fi
+done
+exit $status
+"""
+
 def _plan_checks(sources, res=None):
     """Read every source's per-check tools/checks/check_*.py and
     tools/checks/tests/test_*.sh INTO MEMORY, refusing a same-name
@@ -307,7 +345,25 @@ def _plan_checks(sources, res=None):
     real run of this tool, both private sets carry one) is a per-repo test
     DRIVER, not a per-check test a `checked_by` claim could ever name --
     merging it would be a false collision over a file nothing actually
-    needs merged. Skipped explicitly and reported, never silently."""
+    needs merged. Skipped explicitly and reported, never silently.
+
+    The driver is GENERATED instead, at the end of this function. Skipping
+    the sources' copies is right; leaving the consumer without one was not.
+    The `deep-check` practice requires tools/checks/tests/run_all.sh to
+    exist -- so before 2026-09-06 that practice was unsatisfiable in every
+    consuming repo, and its far more useful half (does each check_*.py have
+    a test? is any test left behind after its check was deleted?) never ran
+    at all, because the check returns early on the missing file. Supplying
+    it by hand does not work either: tools/checks/ is this function's own
+    output, wiped on every sync, and routing the file through a repo-local
+    source hits this same filename rule.
+
+    Generating rather than copying is not a workaround, it is the more
+    honest description. The driver carries no source-specific content --
+    it globs test_*.sh in its own directory, so it must run whatever THIS
+    repo materialized, which is a property of the output, not of any one
+    source. That is also why the collision disappears: a generated file is
+    claimed by nobody, so there is no winner to pick."""
     owner_of = {}   # 'rel_label/filename' -> source name that already claimed it
     plan, skipped, orphaned = [], [], []
     claimed_names = None
@@ -357,6 +413,8 @@ def _plan_checks(sources, res=None):
     if orphaned:
         print(f"precedent_materialize: no practice in force here claims these, "
               f"not vendored: " + ', '.join(orphaned), file=sys.stderr)
+    plan.append(('checks/tests', RUN_ALL_NAME, GENERATED_SOURCE,
+                 RUN_ALL_SCRIPT.encode('utf-8')))
     return plan
 
 
