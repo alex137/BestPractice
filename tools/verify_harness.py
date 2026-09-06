@@ -4265,6 +4265,107 @@ def check_parallel_artifact_ledger_fires():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_loader_block_advertises_only_live_channels():
+    """A generated loader block must not name a channel this source does not fill.
+
+    2026-09-06, precedent-team-tms: that set deleted its bootstrap
+    placeholder, leaving one resident practice and no on-demand ones. Its
+    generated block still carried an occasion index rendering as an empty
+    ``` ``` box, and a standing instruction telling every session to
+    consult that index and to run four `precedent_gate.py` commands --
+    ALL FOUR of which exit FAIL there, because no practice in that set
+    registers a gate. The three sections and the four gate names were
+    emitted unconditionally, so the block described the ENGINE's channels
+    rather than the ones the SOURCE actually fills.
+
+    Why this is worse than cosmetic, and why it earns a check rather than
+    a careful reading: the standing instruction is the one part of the
+    block that tells a session what to DO. A session that runs a command
+    the block advertised and gets FAIL back learns that the block is
+    decorative, and that lesson applies to the parts that were true.
+
+    Fixture-driven on purpose. This repo's own catalogue fills every
+    channel, so nothing here can exercise the empty states -- which is
+    precisely why the defect survived in a vendored copy for as long as it
+    did. Each case was verified by reverting the fix and watching it fail.
+    """
+    import importlib.util, shutil, tempfile
+
+    def fixture(root, *, tier=None, gates='[]'):
+        (root / 'practices').mkdir(parents=True, exist_ok=True)
+        (root / 'tools').mkdir(parents=True, exist_ok=True)
+        (root / 'AGENTS.md').write_text(
+            '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        if tier is not None:
+            (root / 'practices' / 'only.md').write_text(
+                f'---\nslug: only\ntitle: Only\ntier: {tier}\nseverity: default\n'
+                f'applies_to: ["**"]\noccasion: "doing the only thing"\n'
+                f'gates: {gates}\nindex_clause: "the only clause"\nchecked_by: null\n'
+                f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+                f'added: 2026-09-06\napproved_by: "harness fixture"\n---\n'
+                f'## Rule\nThe only rule.\n\n## Why\nx\n\n## Story\n\n## Install\nx\n',
+                encoding='utf-8')
+        return root
+
+    def block_of(root):
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+                            '--agents-only', '--repo', str(root)],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            return f'BUILD FAILED: {(r.stdout + r.stderr)[:200]}'
+        text = (root / 'AGENTS.md').read_text(encoding='utf-8')
+        return text.split('BEGIN GENERATED: precedent-loader -->', 1)[1] \
+                   .split('<!-- END GENERATED', 1)[0]
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-loader-empty-'))
+    cases = []
+    try:
+        # (1) resident-only: precedent-team-tms's exact shape.
+        b = block_of(fixture(tmp / 'resident_only', tier='resident'))
+        cases.append(('a resident-only source gets no empty occasion index',
+                      '## Occasion index' not in b, b.strip()[:160]))
+        cases.append(('a resident-only source is not told to run a gate command '
+                      'no practice registers',
+                      'precedent_gate.py' not in b, b.strip()[:160]))
+        cases.append(('a resident-only source is not told to consult an index '
+                      'that does not exist',
+                      'occasion index above' not in b, b.strip()[:160]))
+        cases.append(('a resident-only source still gets its resident block',
+                      '## Resident block' in b and 'The only rule.' in b, b.strip()[:160]))
+
+        # (2) on-demand-only: the mirror image, an empty resident heading.
+        b = block_of(fixture(tmp / 'ondemand_only', tier='on-demand'))
+        cases.append(('an on-demand-only source gets no empty resident block heading',
+                      '## Resident block' not in b, b.strip()[:160]))
+        cases.append(('an on-demand-only source still gets its occasion index',
+                      '## Occasion index' in b and 'the only clause' in b, b.strip()[:160]))
+
+        # (3) no practices at all: a freshly bootstrapped source.
+        b = block_of(fixture(tmp / 'empty'))
+        cases.append(('a source with no practices says so, rather than emitting '
+                      'three empty headings',
+                      'no practices in force' in b and '## Standing instruction' not in b,
+                      b.strip()[:160]))
+
+        # (4) a live gate IS advertised -- the negative control for the three
+        # "not advertised" cases above, which would all pass on a generator
+        # that simply never mentioned a gate.
+        b = block_of(fixture(tmp / 'gated', tier='on-demand', gates='["reply"]'))
+        cases.append(('a source WITH a gated practice is told to run that gate',
+                      'precedent_gate.py reply' in b, b.strip()[:160]))
+        cases.append(('and is told only about that gate, not the whole vocabulary',
+                      'merge|review' not in b and 'push' not in b, b.strip()[:160]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the generated loader block advertises only channels this source fills '
+          f'({len(cases)} stated cases over four fixture shapes)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_gate_channel():
     """The gate channel, as stated cases against the real registry.
 
@@ -7824,6 +7925,7 @@ def main():
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_gate_channel()
+    check_loader_block_advertises_only_live_channels()
     check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
     check_show_flags_unreachable_materialized_source()

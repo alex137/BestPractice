@@ -333,6 +333,66 @@ def _occasion_clause(rule_text, max_len=90):
     return clause
 
 
+# practice: cite-the-incident -- 2026-09-06, precedent-team-tms. That set
+# deleted its bootstrap placeholder, leaving one resident practice and no
+# on-demand ones, and the block it generated told every session to consult
+# an occasion index that rendered as an empty ``` ``` box and to run four
+# `precedent_gate.py` commands, ALL FOUR of which exit with FAIL there
+# because no practice in that set registers a gate. Reproduced against
+# fixtures in all three shapes (resident-only, on-demand-only, and a set
+# with no practices at all): the three sections and the four gate names
+# were emitted unconditionally, so the block described the engine's
+# channels rather than the ones this source actually fills. A standing
+# instruction that names a command which fails is worse than no standing
+# instruction, because it teaches the session that the block is decorative.
+def _live_gates(practices):
+    """Gate names to advertise: in the engine's own closed vocabulary AND
+    holding at least one in-force practice in THIS source.
+
+    Both halves are load-bearing. The vocabulary is what
+    precedent_gate.py will accept at all (it lives beside the engine, not
+    under --repo, deliberately -- see that script's own SCOPE comment), and
+    a practice naming a gate outside it is refused as unknown. Having a
+    practice registered is what makes the gate print anything: an empty
+    gate is refused by name, on purpose, so advertising one guarantees a
+    failing command."""
+    scope = _ENGINE_DIR / 'routing_scope.json'
+    if not scope.is_file():
+        # Same graceful degradation as precedent_gate.gate_vocabulary(): a
+        # partial vendor can leave this file out, and that must not take
+        # the whole view build down. With no vocabulary readable, advertise
+        # nothing rather than guess -- an omitted sentence costs a session
+        # one channel; a wrong one costs it a failing command.
+        return []
+    try:
+        vocab = json.loads(scope.read_text(encoding='utf-8')).get('gates', {})
+    except (ValueError, OSError):
+        return []
+    live = set()
+    for fm, _sections, _f in practices:
+        for g in json.loads(fm.get('gates', '[]') or '[]'):
+            if g in vocab and not g.startswith('_'):
+                live.add(g)
+    # Vocabulary order, not sorted(): routing_scope.json lists the gates
+    # along the arc of a piece of work (merge, review, push, reply), and
+    # JSON object order survives the parse. Sorting alphabetically is just
+    # as deterministic and throws that away for nothing.
+    return [g for g in vocab if g in live]
+
+
+def _gate_moment(vocab_description):
+    """The short moment phrase for one gate, taken from the vocabulary's
+    own description rather than hand-written here. The descriptions carry a
+    qualifier after a comma or an em-dash ("reviewing work, or a review
+    finding a defect"; "before pushing -- the pre-push hook") that reads as
+    a run-on inside a comma-joined list, so the phrase stops at whichever
+    comes first. Derived, not hardcoded: the sentence this feeds used to
+    name all four moments as fixed prose, which is exactly how it came to
+    claim gates the source did not have."""
+    phrase = re.split(r' — |, ', vocab_description, maxsplit=1)[0]
+    return phrase.strip()
+
+
 def build_loader_block(practices, source_levels=None):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
@@ -387,28 +447,57 @@ def build_loader_block(practices, source_levels=None):
                                         for fm, _s in resident)
         count_detail += ' (' + ', '.join(f"{by_level[l]} {l}" for l in
                                           sorted(by_level) if by_level[l]) + ')'
-    lines.append(f"## Resident block (~{token_count} of {RESIDENT_BUDGET_TOKENS} token budget, "
-                 f"{count_detail})")
-    lines.append('')
-    lines.append(resident_text)
-    lines.append('')
-    lines.append("## Occasion index")
-    lines.append('')
-    lines.append("```")
-    lines.append(index_text)
-    lines.append("```")
-    lines.append('')
-    lines.append("## Standing instruction")
-    lines.append('')
-    lines.append("Before starting work of a kind named in the occasion index above, run "
-                 "`python3 tools/precedent_show.py SLUG` for each listed slug to load its "
-                 "Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints "
-                 "any on-demand practice whose `applies_to` matches it, without needing the "
-                 "index at all. At a named moment — merging, reviewing, pushing, ending a "
-                 "turn — run `python3 tools/precedent_gate.py merge|review|push|reply`: "
-                 "some practices fire at a moment rather than in a file, and no path glob "
-                 "reaches those.")
-    lines.append('')
+    # Every section below is emitted ONLY if this source actually fills the
+    # channel it describes. See _live_gates' own note for the incident: a
+    # block that names an empty channel sends the session to a command that
+    # fails, and the honest rendering of "this source has nothing here" is
+    # silence, not an empty heading.
+    if resident:
+        lines.append(f"## Resident block (~{token_count} of {RESIDENT_BUDGET_TOKENS} token budget, "
+                     f"{count_detail})")
+        lines.append('')
+        lines.append(resident_text)
+        lines.append('')
+    if index_text:
+        lines.append("## Occasion index")
+        lines.append('')
+        lines.append("```")
+        lines.append(index_text)
+        lines.append("```")
+        lines.append('')
+
+    instruction = []
+    if index_text:
+        instruction.append(
+            "Before starting work of a kind named in the occasion index above, run "
+            "`python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule.")
+    if on_demand:
+        instruction.append(
+            "When editing a file, `python3 tools/precedent_paths.py FILE` prints any "
+            "on-demand practice whose `applies_to` matches it, without needing the index "
+            "at all.")
+    live_gates = _live_gates(practices)
+    if live_gates:
+        scope = _ENGINE_DIR / 'routing_scope.json'
+        vocab = json.loads(scope.read_text(encoding='utf-8')).get('gates', {})
+        moments = ', '.join(_gate_moment(vocab[g]) for g in live_gates)
+        instruction.append(
+            f"At a named moment — {moments} — run "
+            f"`python3 tools/precedent_gate.py {'|'.join(live_gates)}`: some practices "
+            f"fire at a moment rather than in a file, and no path glob reaches those.")
+    if instruction:
+        lines.append("## Standing instruction")
+        lines.append('')
+        lines.append(' '.join(instruction))
+        lines.append('')
+
+    if not resident and not index_text and not instruction:
+        # Not an empty block: a bootstrapped source with no practices yet is
+        # a normal state, and saying so beats leaving a reader to work out
+        # whether the generator failed.
+        lines.append("This source has no practices in force, so nothing loads from it. "
+                     "Add one under `practices/` and regenerate this block.")
+        lines.append('')
     lines.append(END_MARKER)
     return '\n'.join(lines), token_count, len(resident)
 
