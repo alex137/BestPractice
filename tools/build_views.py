@@ -327,6 +327,27 @@ def render_agents_md(practices, agents_md=None, source_levels=None):
     return pre + block + post
 
 
+
+def _upstream_doc_pointer():
+    """The " see X for the format and Y for the design" tail of MAP.md's
+    catalogue line -- only when those documents actually exist here.
+
+    This ran unconditionally and named two of BestPractice's OWN documents,
+    which no vendoree has. Nothing noticed while only BestPractice generated
+    a MAP.md; the moment an engine refresh brought this generator to three
+    practice sets (2026-09-06), each one generated a map with two broken
+    relative links, and each one's own light check reported them -- findings
+    against a file the repo did not write, naming files it is not supposed
+    to have. A generator shared across repositories cannot assume the
+    generating repo's own prose."""
+    tail = []
+    if (ROOT / 'spec' / 'PRACTICE_FORMAT.md').is_file():
+        tail.append("[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format")
+    if (ROOT / 'PRACTICE_ENGINE_PLAN.md').is_file():
+        tail.append("[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design")
+    return (" See " + " and ".join(tail) + ".") if tail else ""
+
+
 def render_map_md(practices):
     by_tier = collections.Counter(fm.get('tier') for fm, _s, _f in practices)
     lines = [
@@ -345,8 +366,7 @@ def render_map_md(practices):
         '',
         f"`practices/` holds {len(practices)} practice files "
         f"({by_tier.get('resident', 0)} resident, {by_tier.get('on-demand', 0)} on-demand). "
-        "One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for "
-        "the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.",
+        "One file per practice." + _upstream_doc_pointer(),
         '',
         "| Practice | Tier | Occasion / scope |",
         "|---|---|---|",
