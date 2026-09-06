@@ -3031,6 +3031,39 @@ def check_precedent_check_fires():
                  '# practice: this-slug-does-not-exist\nprint("x")\n',
                  encoding='utf-8'))
 
+        # code-cites-practice -- the SAME planted citation, in a repo that
+        # carries tools/ENGINE_MANIFEST.json naming that file, must NOT
+        # fire: in a consuming repo the citation is upstream's, in vendored
+        # code, naming a practice the consumer's own catalogue has not
+        # caught up to yet. Both directions are stated, because an exemption
+        # nobody has watched NOT fire is indistinguishable from one that
+        # silently swallows the real case it was carved out of.
+        skew_repo = fresh('code-cites-practice-skew')
+        (skew_repo / 'tools' / 'cite_fixture.py').write_text(
+            '# practice: this-slug-does-not-exist\nprint("x")\n',
+            encoding='utf-8')
+        (skew_repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'format_version': 1, 'kind': 'consumer',
+                        'files': ['cite_fixture.py']}), encoding='utf-8')
+        rc_skew, out_skew = run(skew_repo, 'code-cites-practice')
+        cases.append(('code-cites-practice: a stale citation inside a VENDORED '
+                      'engine file (named in ENGINE_MANIFEST.json) does not '
+                      'fire -- it is upstream\'s citation, unfixable here',
+                      rc_skew == 0 and 'VIOLATION' not in out_skew))
+
+        skew_off = fresh('code-cites-practice-skew-off')
+        (skew_off / 'tools' / 'cite_fixture.py').write_text(
+            '# practice: this-slug-does-not-exist\nprint("x")\n',
+            encoding='utf-8')
+        (skew_off / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'format_version': 1, 'kind': 'consumer',
+                        'files': ['some_other_file.py']}), encoding='utf-8')
+        rc_off, out_off = run(skew_off, 'code-cites-practice')
+        cases.append(('code-cites-practice: the exemption is per-FILE -- a '
+                      'manifest that does not name this file leaves the '
+                      'citation checked',
+                      rc_off == 1 and 'VIOLATION' in out_off))
+
         # code-cites-practice -- a real slug, but retired: the code should
         # have been updated or removed along with the practice, not left
         # citing a rule that no longer applies
