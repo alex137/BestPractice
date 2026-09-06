@@ -41,7 +41,23 @@ project_dir="${CLAUDE_PROJECT_DIR:-.}"
 script="$project_dir/tools/precedent_paths.py"
 [[ -f "$script" ]] || exit 0
 
-rules="$(python3 "$script" "$path" 2>/dev/null || true)"
+# Per-session memory of which practices have already been surfaced in full.
+# Measured on the upstream repo (2026-09-06): an edit to any markdown file
+# matches ten on-demand practices and prints ~1,000 words of Rule text, so a
+# session editing thirty markdown files was handed the same ~1,000 words
+# thirty times -- roughly forty thousand tokens of exact duplication, by a
+# mechanism whose whole purpose is to spend context carefully. With this
+# file, the first match prints the Rule and every later one prints the slug
+# and its one-line clause. Keyed by session id so a new session starts
+# fresh; in $TMPDIR because it is scratch, and losing it only means a Rule
+# is shown twice.
+session="$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)"
+seen_args=()
+if [[ -n "$session" ]]; then
+  seen_args=(--seen-file "${TMPDIR:-/tmp}/precedent-paths-seen-${session}.txt")
+fi
+
+rules="$(python3 "$script" "${seen_args[@]}" "$path" 2>/dev/null || true)"
 no_match="(no on-demand practice's applies_to matches the given path(s))"
 [[ -n "$rules" && "$rules" != "$no_match" ]] || exit 0
 

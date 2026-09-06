@@ -47,8 +47,21 @@ the upstream layer. Ordered by priority.
 7. **Define what happens when a consumer repo imports multiple `team`
    sources that disagree.** See PRACTICE_ENGINE_PLAN.md's `## Deferred`
    section (added 2026-09-03, alongside that session's precedence reorder)
-   for the detail — not duplicated here. Not needed today; revisit when a
-   real multi-team-import case appears.
+   for the detail — not duplicated here. **Half-closed 2026-09-06**: the
+   *silent* case is gone. Two team-level sources claiming one slug used to
+   resolve to whichever `precedent.json` listed second, reported only as an
+   ordinary `overridden:` notice on stderr — indistinguishable from a
+   legitimate higher-level override, and decided by config file order.
+   [tools/precedent_resolve.py](tools/precedent_resolve.py) now fails
+   loudly there, which is what PRACTICE_ENGINE_PLAN.md said it did all
+   along ("the resolver fails loudly if two same-level practices claim one
+   slug"). Two team sources that do NOT collide still resolve together,
+   with a harness case each way. What is still open is the *design*
+   question the plan defers: whether a consumer should be able to express a
+   preference between two teams at all, rather than being told to rename
+   one. Revisit when a real multi-team-import case appears — a second team
+   set now exists (`precedent-team-tms`, 2026-09-05), so that is closer
+   than it was.
 8. **Reduce GitHub dependency when ready.** The layer itself is plain git
    + markdown + Python; GitHub specifics are the worked examples (PRs,
    Actions, Issues, branch rulesets). When priorities allow, document
@@ -63,9 +76,12 @@ the upstream layer. Ordered by priority.
    [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md).
 10. **`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
     in [PRACTICE_ENGINE_PLAN.md's Deferred section](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet),
-    correctly not built yet. **Blocked on:** a real second team's private
-    set existing to test `for_team:`'s conflict rule against — revisit the
-    moment one does, don't re-derive the judgment from scratch.
+    correctly not built yet. **No longer blocked** (noted 2026-09-06): the
+    stated blocker was "a real second team's private set existing to test
+    `for_team:`'s conflict rule against", and `precedent-team-tms` has
+    existed since 2026-09-05. It is now an ordinary open item — build it
+    when it is worth building, and don't re-derive the design judgment,
+    which is already made.
 11. **Confirm `additionalContext` actually reaches the model, not just the
     transcript.** The new `PreToolUse` hook
     ([templates/harness/claude-code/hooks/precedent-paths.sh](templates/harness/claude-code/hooks/precedent-paths.sh),
@@ -111,12 +127,17 @@ the upstream layer. Ordered by priority.
     replacement for the routing eval's fuller multi-run discipline, if this
     ever needs to be trusted at higher stakes than an on-demand backstop.
 13. **Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
-    (and its check in [tools/precedent_check.py](tools/precedent_check.py),
+    (and its check at
+    [local/tools/checks/check_merge_target_is_beta_branch.py](local/tools/checks/check_merge_target_is_beta_branch.py),
     and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the
     moment Alex reviews and merges `precedent-beta-v01` into `main` for
-    real.** Delete the practice file, remove the
-    `merge-target-is-beta-branch` check function, and remove the
-    [AGENTS.md](AGENTS.md) pointer, all in that same PR. **Blocked on:** Alex's review
+    real.** Delete the practice file, delete the check script, and remove
+    the [AGENTS.md](AGENTS.md) pointer, all in that same PR. (The check
+    moved out of [tools/precedent_check.py](tools/precedent_check.py) on
+    2026-09-06 — it is vendored into every consuming repo, and a check
+    about THIS repo's own beta branch has no business running in
+    somebody else's. Retiring it is now deleting two files, not editing
+    the shared engine.) **Blocked on:** Alex's review
     and approval of `precedent-beta-v01` for the real phase-7 merge into
     `main` — not something to anticipate or do early.
 14. **Run the non-technical-contributor access plan for real.**
@@ -168,8 +189,8 @@ the upstream layer. Ordered by priority.
     `precedent-team-maintainers`'s own `deep-check` (a team-level call, not
     decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
     "Part 1, answered" section.
-18. **`parallel-artifact-ledger`'s root-commit exemption doesn't cover a
-    family's own inception commit.** Found 2026-09-05: `_parallel_artifact_ledger`
+18. ~~**`parallel-artifact-ledger`'s root-commit exemption doesn't cover a
+    family's own inception commit.**~~ Found 2026-09-05: `_parallel_artifact_ledger`
     in [tools/precedent_check.py](tools/precedent_check.py) excludes the
     *repository's* root commit (`git rev-list --max-parents=0`) from needing
     a ledger row, but not the commit that first created a given family's
@@ -180,10 +201,14 @@ the upstream layer. Ordered by priority.
     against the whole repo regardless of what a given diff touches, so any
     unfixed gap fails every PR's CI, not just one. Backfilled as a row in
     [templates/harness/LEDGER.md](templates/harness/LEDGER.md) rather than
-    fixed here; consider extending the exemption itself, per-member-directory
-    (that directory's own first commit is exempt, the same reasoning
-    already applied repo-wide), so a future family's inception commit
-    doesn't need the same manual backfill.
+    fixed then. **Done (2026-09-06)** — the exemption is per-member-directory
+    now: each family member's own first commit is exempt, the same reasoning
+    already applied repo-wide, so a future family's inception commit needs no
+    manual backfill. `f2078d6`'s hand-written row stays (a real record of a
+    real decision, and deleting it would only make the ledger less complete);
+    the harness case that proves the check fires gained a fourth stated case
+    for the exemption, and a planted removal of a genuine later change still
+    fails, so the exemption did not widen into a hole.
 19. ~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows
     its diagnostic output — a GitHub Actions log-capture anomaly, currently
     working around it by making the check advisory-only.**~~ **Done

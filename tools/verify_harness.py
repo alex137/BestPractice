@@ -1446,6 +1446,45 @@ def check_source_precedence():
         cases.append(('--strict makes a missing source fatal',
                       run('--strict')[0] == 1))
 
+        # --- two sources at the SAME level claiming one slug -------------
+        # Nothing orders them, so the winner would be whichever the config
+        # lists second. Until 2026-09-06 that is exactly what happened, and
+        # it was reported as an ordinary `overridden:` notice on stderr --
+        # indistinguishable from a legitimate higher-level override. The
+        # plan's own rule is that the resolver fails loudly here.
+        two_teams = tmp / 'two-teams'
+        (two_teams).mkdir()
+        t_a, t_b = tmp / 'team-a', tmp / 'team-b'
+        practice(t_a, 'shared', level_note='Team A version.')
+        practice(t_b, 'shared', level_note='Team B version.')
+        practice(t_b, 'b-only', level_note='Only in B.')
+        (two_teams / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'team', 'name': 'team-a', 'path': str(t_a)},
+                        {'level': 'team', 'name': 'team-b', 'path': str(t_b)}]}),
+            encoding='utf-8')
+        r_two = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+             '--repo', str(two_teams)], capture_output=True, text=True)
+        out_two = r_two.stdout + r_two.stderr
+        cases.append(('two team-level sources defining one slug is a loud '
+                      'failure, not a silent last-one-wins',
+                      r_two.returncode == 1 and 'shared' in out_two
+                      and 'same level' in out_two))
+
+        # ...and two team sources that DON'T collide still resolve fine --
+        # the rule must not have turned "more than one team source" into an
+        # error by itself.
+        (t_a / 'practices' / 'shared.md').unlink()
+        practice(t_a, 'a-only', level_note='Only in A.')
+        r_ok = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+             '--repo', str(two_teams), '--json'], capture_output=True, text=True)
+        slugs_ok = ({p['slug'] for p in json.loads(r_ok.stdout).get('practices', [])}
+                    if r_ok.returncode == 0 else set())
+        cases.append(('two non-colliding team sources still resolve together',
+                      r_ok.returncode == 0 and {'a-only', 'b-only', 'shared'} <= slugs_ok))
+
         ok = all(passed for _, passed in cases)
         for name, passed in cases:
             if not passed:
@@ -3238,12 +3277,21 @@ def check_parallel_artifact_ledger_fires():
         (tmp / 'root.txt').write_text('root\n', encoding='utf-8')
         subprocess.run(['git', 'add', '-A'], cwd=tmp, check=True)
         subprocess.run(['git', 'commit', '-q', '-m', 'root'], cwd=tmp, check=True)
-        # A second, non-root commit -- the check deliberately excludes a
-        # repo's root commit (inception, not "a change"; see its own
-        # docstring), so the tested commit has to come after it.
+        # Two more commits, because the check excludes two kinds of
+        # inception: the repo's own root commit, and the commit that
+        # FIRST created a given member directory (TODO.md item 18 --
+        # a family coming into existence has nothing for its other
+        # members to have transferred from). So the commit under test has
+        # to be the third: a real later CHANGE to an existing member.
         (member / 'hooks.txt').write_text('v1\n', encoding='utf-8')
         subprocess.run(['git', 'add', '-A'], cwd=tmp, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'add hook'], cwd=tmp, check=True)
+        subprocess.run(['git', 'commit', '-q', '-m', 'create the family'], cwd=tmp, check=True)
+        inception_commit = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=tmp, capture_output=True, text=True
+        ).stdout.strip()
+        (member / 'hooks.txt').write_text('v2\n', encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=tmp, check=True)
+        subprocess.run(['git', 'commit', '-q', '-m', 'change a member'], cwd=tmp, check=True)
         member_commit = subprocess.run(
             ['git', 'rev-parse', 'HEAD'], cwd=tmp, capture_output=True, text=True
         ).stdout.strip()
@@ -3266,8 +3314,19 @@ def check_parallel_artifact_ledger_fires():
         ledger_path.write_text(f'{member_commit}\n', encoding='utf-8')
         referenced = fn(None)
 
+        # A ledger naming ONLY the later change: the inception commit must
+        # not be demanded. Before this exemption, f2078d6 -- the commit
+        # that created all three real harness adapters, five weeks before
+        # the ledger file existed -- failed every pull request's CI until
+        # somebody hand-wrote a row saying "no transfer verdict
+        # applicable".
+        inception_exempt = [f for f in referenced
+                            if inception_commit[:7] in str(f)]
+
         cases = [
             ("missing LEDGER.md is a finding", len(no_ledger) == 1),
+            ("a member directory's own inception commit needs no row",
+             not inception_exempt),
             ("a ledger with no reference to the commit is a finding",
              len(unreferenced) == 1),
             ("a ledger referencing the commit's hash clears the finding",
@@ -3275,7 +3334,8 @@ def check_parallel_artifact_ledger_fires():
         ]
         bad = [n for n, ok in cases if not ok]
         check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
-              f"no ledger, ledger missing the commit, ledger referencing it)",
+              f"no ledger, ledger missing the commit, ledger referencing it, "
+              f"a family's own inception commit needing no row)",
               not bad, '; '.join(bad))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -5432,6 +5492,44 @@ def check_pretooluse_hook_fires():
     cases.append(('malformed stdin does not crash the hook or its shell', rc == 0 and out == ''))
 
     rc, out = run_hook(json.dumps({'tool_name': 'Bash'}))
+    # --- the per-session seen file: the same Rules must not be re-injected
+    # on every edit. Measured before this existed: ten practices and ~1,000
+    # words of Rule text on EVERY markdown edit, identical every time.
+    import tempfile as _tf
+    _seen = pathlib.Path(_tf.mkdtemp(prefix='precedent-seen-')) / 'seen.txt'
+    _paths = str(ROOT / 'tools' / 'precedent_paths.py')
+
+    def _paths_run(*extra):
+        r = subprocess.run([sys.executable, _paths, *extra, 'README.md'],
+                           capture_output=True, text=True, cwd=str(ROOT))
+        return r.returncode, r.stdout
+
+    rc_a, out_a = _paths_run('--seen-file', str(_seen))
+    rc_b, out_b = _paths_run('--seen-file', str(_seen))
+    cases.append(('the first match with a --seen-file prints full Rules',
+                  rc_a == 0 and len(out_a.split()) > 200))
+    cases.append(('the second prints a short reminder instead, naming every '
+                  'practice and how to get its full Rule back',
+                  rc_b == 0 and len(out_b.split()) < len(out_a.split()) / 3
+                  and 'Already loaded this session' in out_b
+                  and 'precedent_show.py' in out_b))
+    seen_slugs = {l.strip() for l in _seen.read_text().splitlines() if l.strip()}
+    cases.append(('every practice shown in full is recorded, so the reminder '
+                  'covers exactly what was already sent',
+                  seen_slugs and all(f'### {s}' in out_a for s in seen_slugs)))
+    r_c = subprocess.run([sys.executable, _paths, '--seen-file', str(_seen),
+                          'tools/x.py'], capture_output=True, text=True, cwd=str(ROOT))
+    cases.append(("a practice that has NOT been shown yet still arrives in "
+                  "full, so the optimization cannot swallow a new match",
+                  r_c.returncode == 0 and '### code-cites-practice' in r_c.stdout))
+    rc_d, out_d = _paths_run('--seen-file', str(_seen.parent / 'nope' / 'x.txt'))
+    cases.append(('an unreadable or missing seen file means "nothing seen '
+                  'yet", never an error -- this is a context optimization, '
+                  'not a correctness mechanism',
+                  rc_d == 0 and len(out_d.split()) > 200))
+    import shutil as _sh
+    _sh.rmtree(_seen.parent, ignore_errors=True)
+
     cases.append(('a tool call with no tool_input at all (matcher scopes this out '
                   'in settings.json, but the wrapper itself must not assume that) '
                   'prints nothing', rc == 0 and out == ''))
@@ -5439,7 +5537,9 @@ def check_pretooluse_hook_fires():
     bad = [(n, '') for n, ok in cases if not ok]
     check(f'PreToolUse hook fires ({len(cases)} stated cases: Edit file_path, '
           f'a no-match path, NotebookEdit notebook_path fallback, malformed '
-          f'stdin, a tool call with no tool_input, and no permission verdict)',
+          f'stdin, a tool call with no tool_input, no permission verdict, and a '
+          f'per-session seen file that stops the same Rules being re-injected '
+          f'on every edit without swallowing a new match)',
           not bad, '; '.join(n for n, _ in bad))
 
 

@@ -375,6 +375,28 @@ def resolve(sources):
                         del resolved[ov]
 
             if prior_own is not None and not _is_blocking(prior_own):
+                # Two DIFFERENT sources at the SAME level claiming one slug
+                # is not a precedence question -- there is no precedence
+                # between them to fall back on, so the winner would be
+                # whichever the config happens to list second. The plan
+                # says this fails loudly ("the resolver fails loudly if two
+                # same-level practices claim one slug"), and until
+                # 2026-09-06 it did not: two team sources with a shared
+                # slug resolved silently to the later one, reported only as
+                # an `overridden:` notice on stderr that reads exactly like
+                # a legitimate higher-level override. load_source() already
+                # refuses this WITHIN one source; this is the same rule
+                # across sources at one level.
+                if prior_own['level'] == practice['level']:
+                    raise ResolveError(
+                        f"{practice['source']} and {prior_own['source']} are "
+                        f"both {practice['level']}-level sources and both "
+                        f"define the practice {slug!r} "
+                        f"({practice['file']} and {prior_own['file']}). Slugs "
+                        f"are identities; nothing orders two sources at the "
+                        f"same level, so there is no answer to which one "
+                        f"wins -- rename one of them, retire one, or move "
+                        f"one to a different level.")
                 shadowed.append({'slug': slug, 'shadowed': prior_own, 'by': practice})
             resolved[slug] = practice
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
