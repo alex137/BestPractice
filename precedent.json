@@ -1,5 +1,25 @@
 {
   "format_version": 1,
+  "base_branch": "precedent-beta-v01",
+  "_base_branch_comment": [
+    "The branch this repo's own work is measured against: what",
+    "'changed files' is relative to, what counts as already-published",
+    "history, and what branch generated links should point at.",
+    "",
+    "This is NOT the same question as 'what is the configured default",
+    "branch', even though the two usually have the same answer. They",
+    "diverge the moment a repo pins its work to a branch that is not",
+    "the default -- which is exactly what this repo does while",
+    "precedent-beta-v01 is unmerged. Tools that resolved",
+    "refs/remotes/origin/HEAD were asking the first question while",
+    "meaning the second, and were silently wrong here for weeks.",
+    "",
+    "Set this to 'main' at the phase-7 fold-in, in the same PR that",
+    "merges precedent-beta-v01. A consumer repo with no pin should",
+    "declare its own default here rather than omit the key: an absent",
+    "value falls back to origin/HEAD, which is the behaviour this",
+    "exists to stop relying on."
+  ],
   "_comment": [
     "The practice sources in force in this repository. Precedent is its own",
     "consumer: the universal set it publishes is the set it runs on.",

@@ -115,18 +115,18 @@ table.narrow { font-size: 0.9rem; }
 <!-- Last updated: 2026-09-03 (Buenos Aires) by the phase-6 pre-fork audit session -->
 
 <h1>Pre-Fork Catalogue Audit</h1>
-<div class="renderstamp">Built 2026-09-06 16:07 UTC</div>
+<div class="renderstamp">Built 2026-09-06 21:43 UTC</div>
 <p>One row per practice inherited from pre-fork BestPractice (the original 52,
 numbered <code>PRACTICES.md</code> catalogue, plus Alex's practice 53 added on <code>main</code>
 after the fork point), verdict against this plan's architecture: does it
 still mean and do the same thing, or did something about how it works
 change under Precedent. Named as required before phase 6 starts migrating a
-consumer repo by <a href="https://github.com/alex137/BestPractice/blob/main/PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward">What phase 5 should carry forward</a>
-and restated as still not done by <a href="https://github.com/alex137/BestPractice/blob/main/spec/PHASE5_DEEPCHECK.md">spec/PHASE5_DEEPCHECK.md</a>;
+consumer repo by <a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward">What phase 5 should carry forward</a>
+and restated as still not done by <a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PHASE5_DEEPCHECK.md">spec/PHASE5_DEEPCHECK.md</a>;
 built here, closing that gap.</p>
 <p><strong>A sortable render of the table below</strong> (multi-column sort, per-column
-filters, per <a href="https://github.com/alex137/BestPractice/blob/main/practices/tabular-shared-renderer.md">tabular-shared-renderer</a>)
-ships alongside this source: <a href="https://github.com/alex137/BestPractice/blob/main/spec/PREFORK_AUDIT.html">PREFORK_AUDIT.html</a> —
+filters, per <a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/tabular-shared-renderer.md">tabular-shared-renderer</a>)
+ships alongside this source: <a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PREFORK_AUDIT.html">PREFORK_AUDIT.html</a> —
 rebuild with <code>python3 tools/doc_html.py</code> after editing the table.</p>
 <p><strong>Practices native to Precedent</strong> (no <code>source_practice_number:</code> —
 <code>disclose-landing</code>, <code>checkable-gets-checked</code>, <code>code-cites-practice</code>, and any
@@ -145,371 +145,371 @@ nothing pre-fork to compare them against.</p>
 </thead>
 <tbody>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/repo-is-memory.md">repo-is-memory</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/repo-is-memory.md">repo-is-memory</a></td>
 <td>1</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Promoted on-demand → resident (always loaded)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/orientation-map.md">orientation-map</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/orientation-map.md">orientation-map</a></td>
 <td>2</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Promoted resident + gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/quick-index.md">quick-index</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/quick-index.md">quick-index</a></td>
 <td>3</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Promoted resident + gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/environment-gotchas.md">environment-gotchas</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/environment-gotchas.md">environment-gotchas</a></td>
 <td>4</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Promoted resident + gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/cite-the-incident.md">cite-the-incident</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/cite-the-incident.md">cite-the-incident</a></td>
 <td>5</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Scope narrowed to <code>practices/**</code>, gained <code>gates: ["review"]</code> and a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/convention-to-audit.md">convention-to-audit</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/convention-to-audit.md">convention-to-audit</a></td>
 <td>6</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/registry-source-of-truth.md">registry-source-of-truth</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/registry-source-of-truth.md">registry-source-of-truth</a></td>
 <td>7</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/generated-artifact-provenance.md">generated-artifact-provenance</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/generated-artifact-provenance.md">generated-artifact-provenance</a></td>
 <td>8</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/merge-runbook.md">merge-runbook</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/merge-runbook.md">merge-runbook</a></td>
 <td>9</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/capture-gate.md">capture-gate</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/capture-gate.md">capture-gate</a></td>
 <td>10</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/doc-references-are-links.md">doc-references-are-links</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/doc-references-are-links.md">doc-references-are-links</a></td>
 <td>11</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td><code>checked_by</code> re-pointed from <code>tools/doc_lint.py</code> to <code>tools/precedent_check.py</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/reply-links-files.md">reply-links-files</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/reply-links-files.md">reply-links-files</a></td>
 <td>12</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Promoted resident, gained <code>gates: ["reply"]</code> (<code>checked_by</code> stays <code>null</code>)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/session-bootstrap.md">session-bootstrap</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/session-bootstrap.md">session-bootstrap</a></td>
 <td>13</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/practice-export-loop.md">practice-export-loop</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/practice-export-loop.md">practice-export-loop</a></td>
 <td>14</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code> — Rule/Why/Story stay byte-for-byte unchanged (a separate 2026-09-01 consideration already logged)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/scrub-gate.md">scrub-gate</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/scrub-gate.md">scrub-gate</a></td>
 <td>15</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/volatile-rules-carry-dates.md">volatile-rules-carry-dates</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/volatile-rules-carry-dates.md">volatile-rules-carry-dates</a></td>
 <td>16</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/acronyms-glossary.md">acronyms-glossary</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/acronyms-glossary.md">acronyms-glossary</a></td>
 <td>17</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/no-version-suffix.md">no-version-suffix</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/no-version-suffix.md">no-version-suffix</a></td>
 <td>18</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/computed-numbers-in-scripts.md">computed-numbers-in-scripts</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/computed-numbers-in-scripts.md">computed-numbers-in-scripts</a></td>
 <td>19</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/mistakes-become-rules.md">mistakes-become-rules</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/mistakes-become-rules.md">mistakes-become-rules</a></td>
 <td>20</td>
 <td>active-as-is</td>
 <td>—</td>
 <td><code>checked_by</code> genuinely still <code>null</code> — a deliberate, considered no (proportionality guard resists automation)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/second-pass-capture.md">second-pass-capture</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/second-pass-capture.md">second-pass-capture</a></td>
 <td>21</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/parallel-artifact-ledger.md">parallel-artifact-ledger</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/parallel-artifact-ledger.md">parallel-artifact-ledger</a></td>
 <td>22</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Routing-scope glob narrowed only; <code>checked_by</code> stays <code>null</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/layered-practice-packs.md">layered-practice-packs</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/layered-practice-packs.md">layered-practice-packs</a></td>
 <td>23</td>
 <td>rewritten</td>
 <td><strong>already logged</strong></td>
 <td>Two dated <code>CHANGES_TO_TELL_ALEX.md</code> entries already cover this</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/quote-discipline.md">quote-discipline</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/quote-discipline.md">quote-discipline</a></td>
 <td>24</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Untouched beyond mechanical index-clause authoring</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/outward-summary-discipline.md">outward-summary-discipline</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/outward-summary-discipline.md">outward-summary-discipline</a></td>
 <td>25</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/docs-are-current-state.md">docs-are-current-state</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/docs-are-current-state.md">docs-are-current-state</a></td>
 <td>26</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/label-describes-content.md">label-describes-content</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/label-describes-content.md">label-describes-content</a></td>
 <td>27</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/frame-from-audience-question.md">frame-from-audience-question</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/frame-from-audience-question.md">frame-from-audience-question</a></td>
 <td>28</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/variant-re-derives.md">variant-re-derives</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/variant-re-derives.md">variant-re-derives</a></td>
 <td>29</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/scripts-assert-properties.md">scripts-assert-properties</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/scripts-assert-properties.md">scripts-assert-properties</a></td>
 <td>30</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/no-rewrite-for-warnings.md">no-rewrite-for-warnings</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/no-rewrite-for-warnings.md">no-rewrite-for-warnings</a></td>
 <td>31</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/verify-postcondition.md">verify-postcondition</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/verify-postcondition.md">verify-postcondition</a></td>
 <td>32</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Promoted resident + gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/docs-track-models.md">docs-track-models</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/docs-track-models.md">docs-track-models</a></td>
 <td>33</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/readers-vocabulary.md">readers-vocabulary</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/readers-vocabulary.md">readers-vocabulary</a></td>
 <td>34</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/build-buy-decompose.md">build-buy-decompose</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/build-buy-decompose.md">build-buy-decompose</a></td>
 <td>35</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/section-order-by-frequency.md">section-order-by-frequency</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/section-order-by-frequency.md">section-order-by-frequency</a></td>
 <td>36</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Untouched beyond mechanical index-clause authoring</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/github-setup-disclosed.md">github-setup-disclosed</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/github-setup-disclosed.md">github-setup-disclosed</a></td>
 <td>37</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Scope narrowed to <code>.github/**</code>, gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/lead-with-what-it-is.md">lead-with-what-it-is</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/lead-with-what-it-is.md">lead-with-what-it-is</a></td>
 <td>38</td>
 <td>active-as-is</td>
 <td>—</td>
 <td><code>applies_to</code> widened (+<code>SETUP.md</code>, +<code>GETTING_STARTED.md</code>) — a scope correction, not a Rule/enforcement change</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/pr-template-honest-gates.md">pr-template-honest-gates</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/pr-template-honest-gates.md">pr-template-honest-gates</a></td>
 <td>39</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Untouched beyond mechanical index-clause authoring</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/check-source-architecture.md">check-source-architecture</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/check-source-architecture.md">check-source-architecture</a></td>
 <td>40</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/search-by-purpose.md">search-by-purpose</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/search-by-purpose.md">search-by-purpose</a></td>
 <td>41</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code>; <code>occasion</code> wording also rewritten (a routing-trigger fix, not a Rule change)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/verify-decomposition.md">verify-decomposition</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/verify-decomposition.md">verify-decomposition</a></td>
 <td>42</td>
 <td>active-as-is</td>
 <td>—</td>
 <td><code>occasion</code> wording rewritten (minor routing fix); citation-link logged</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/affordance-is-shared.md">affordance-is-shared</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/affordance-is-shared.md">affordance-is-shared</a></td>
 <td>43</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only (one of the four fixed wrong-citation cases, already logged)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/two-check-levels.md">two-check-levels</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/two-check-levels.md">two-check-levels</a></td>
 <td>44</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/merge-authorization-keyword.md">merge-authorization-keyword</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/merge-authorization-keyword.md">merge-authorization-keyword</a></td>
 <td>45</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/tabular-shared-renderer.md">tabular-shared-renderer</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/tabular-shared-renderer.md">tabular-shared-renderer</a></td>
 <td>46</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only (one of the four fixed wrong-citation cases, already logged)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/permutation-frontier-column.md">permutation-frontier-column</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/permutation-frontier-column.md">permutation-frontier-column</a></td>
 <td>47</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only (one of the four fixed wrong-citation cases, already logged)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/index-remembers-past.md">index-remembers-past</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/index-remembers-past.md">index-remembers-past</a></td>
 <td>48</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/deliverables-look-like-output.md">deliverables-look-like-output</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/deliverables-look-like-output.md">deliverables-look-like-output</a></td>
 <td>49</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code></td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/engine-plus-host-shims.md">engine-plus-host-shims</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/engine-plus-host-shims.md">engine-plus-host-shims</a></td>
 <td>50</td>
 <td>rewritten</td>
 <td>yes (below)</td>
 <td>Gained a real <code>checked_by</code>; today's <code>PreToolUse</code>-hook work is a new <em>application</em> of the pattern, not a change to this file (already logged separately)</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/one-formatter-per-quantity.md">one-formatter-per-quantity</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/one-formatter-per-quantity.md">one-formatter-per-quantity</a></td>
 <td>51</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Citation-link only</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/name-both-sides-of-ledger.md">name-both-sides-of-ledger</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/name-both-sides-of-ledger.md">name-both-sides-of-ledger</a></td>
 <td>52</td>
 <td>active-as-is</td>
 <td>—</td>
 <td>Untouched beyond mechanical index-clause authoring</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alex137/BestPractice/blob/main/practices/todo-is-a-handoff.md">todo-is-a-handoff</a></td>
+<td><a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/todo-is-a-handoff.md">todo-is-a-handoff</a></td>
 <td>53</td>
 <td>active-as-is</td>
 <td>—</td>
@@ -520,7 +520,7 @@ nothing pre-fork to compare them against.</p>
 <h2>Two systemic gaps this audit found, bigger than any one row</h2>
 <p>Neither is a single-practice miss — both are a whole <em>mechanism</em> that
 landed across many inherited practices at once without ever being logged
-as its own event in <a href="https://github.com/alex137/BestPractice/blob/main/CHANGES_TO_TELL_ALEX.md">CHANGES_TO_TELL_ALEX.md</a>,
+as its own event in <a href="https://github.com/alex137/BestPractice/blob/precedent-beta-v01/CHANGES_TO_TELL_ALEX.md">CHANGES_TO_TELL_ALEX.md</a>,
 whose own scope statement says plainly: "changes what its <code>checked_by</code>
 actually enforces goes here." Both are now logged there
 (2026-09-03), in full, rather than only summarized here.</p>

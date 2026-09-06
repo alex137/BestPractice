@@ -3960,6 +3960,23 @@ def check_precedent_check_fires():
         case('parallel-artifact-ledger', _plant_unledgered_harness_change,
              setup=_ledger_setup)
 
+        # declared-base-branch -- plant the exact regression the check
+        # exists for: a resolver that infers the branch from origin/HEAD
+        # with no declared value read first. Removing the CALL while
+        # leaving the helper's body in place is deliberate; that is the
+        # shape that passed two earlier versions of this check, so it is
+        # the shape worth planting.
+        def _plant_unguarded_branch_inference(repo):
+            rewrite(repo, 'tools/doc_lint.py',
+                   lambda s: s.replace(
+                       "    declared = _declared_base_branch(ROOT)\n"
+                       "    if declared:\n"
+                       "        return declared\n", '', 1))
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'unguarded base-branch inference')
+
+        case('declared-base-branch', _plant_unguarded_branch_inference)
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(

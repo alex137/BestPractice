@@ -94,7 +94,35 @@ def tracked(root):
     return r.stdout.split() if r.returncode == 0 else []
 
 
+
+def _declared_base_branch(root):
+    """The branch this repo's work is measured against, as DECLARED in
+    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
+
+    Those are two different questions with usually the same answer, which is
+    why asking the wrong one survives so long. `origin/HEAD` answers "what
+    does GitHub show first"; callers here mean "what lineage does this work
+    belong to". They diverge the moment a repo pins its work to a branch
+    that is not the configured default -- BestPractice's own
+    `precedent-beta-v01` -- and then every inference is quietly wrong with
+    nothing failing. Returns None when undeclared or unreadable, so callers
+    fall back to the old inference rather than breaking (fail-gracefully).
+    Enforced by precedent_check.py's `declared-base-branch`.
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
 def _base_ref(root):
+    declared = _declared_base_branch(root)
+    if declared and subprocess.run(
+            ['git', '-C', str(root), 'rev-parse', '--verify', '--quiet',
+             f'origin/{declared}'], capture_output=True).returncode == 0:
+        return f'origin/{declared}'
     head = subprocess.run(
         ['git', '-C', str(root), 'symbolic-ref', 'refs/remotes/origin/HEAD'],
         capture_output=True, text=True)

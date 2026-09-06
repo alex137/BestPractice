@@ -129,6 +129,29 @@ def _run_git(repo_dir, *args):
     return r.returncode, r.stdout.strip(), r.stderr.strip()
 
 
+
+def _declared_base_branch(repo_dir):
+    """The branch a repo DECLARES its work is measured against, in its own
+    precedent.json `base_branch` -- not inferred from `origin/HEAD`.
+
+    Those are two different questions with usually the same answer, which is
+    why asking the wrong one survives so long. `origin/HEAD` answers "what
+    does GitHub show first"; callers here mean "what lineage does this work
+    belong to". They diverge the moment a repo pins its work to a branch
+    that is not the configured default -- this repo's own
+    `precedent-beta-v01` -- and then every inference is quietly wrong with
+    nothing failing. Returns None when undeclared or unreadable, so callers
+    fall back to the old inference rather than breaking (fail-gracefully).
+    Enforced by precedent_check.py's `declared-base-branch`.
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(repo_dir) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
 def _default_remote_branch(repo_dir):
     """-> the short branch name origin/HEAD points at ('main', typically),
     or None if it can't be determined. `refs/remotes/origin/HEAD` is not set
@@ -168,7 +191,12 @@ def scan_branches(repo_dir, target=None, exclude=()):
     if not (repo_dir / '.git').is_dir():
         return None
     default_branch = _default_remote_branch(repo_dir)
-    target = target or default_branch
+    # The DECLARED base branch wins over the inferred default: a repo whose
+    # work is pinned away from its default (this repo, while
+    # precedent-beta-v01 is unmerged) would otherwise have every branch
+    # measured against a lineage its work never touched.
+    declared = _declared_base_branch(repo_dir)
+    target = target or declared or default_branch
     if not target:
         return None
     # A repo whose integration branch isn't its default (this repo's own
@@ -176,7 +204,7 @@ def scan_branches(repo_dir, target=None, exclude=()):
     # (main) sitting around -- never report it as a deletion candidate just
     # because it happens not to be an ancestor of the *other* protected
     # branch.
-    protected = {target, default_branch} - {None}
+    protected = {target, default_branch, declared} - {None}
     target_ref = f'origin/{target}'
     rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', target_ref)
     if rc != 0:

@@ -329,6 +329,26 @@ def _stamp_synced_from(commit):
                     encoding='utf-8')
 
 
+def _declared_base_branch(root):
+    """The branch a repo DECLARES its work is measured against, in its own
+    precedent.json `base_branch` -- not inferred from `origin/HEAD`.
+
+    Those are two different questions with usually the same answer, which is
+    why asking the wrong one survives so long. `origin/HEAD` answers "what
+    does GitHub show first"; callers mean "what lineage does this work
+    belong to". Returns None when undeclared or unreadable, so callers fall
+    back to the old inference rather than breaking (fail-gracefully).
+    Enforced by precedent_check.py's `declared-base-branch`.
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
+
 def _default_branch(clone):
     return (_git(clone, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD').rsplit('/', 1)[-1]
             or 'main')
@@ -539,8 +559,22 @@ def _carry_check(clone, accept_loss):
     if not base:
         return
     _dep_git('fetch', 'origin')
-    dep_branch = (_dep_git('symbolic-ref', '--short', 'refs/remotes/origin/HEAD').strip()
-                  .rsplit('/', 1)[-1] or 'master')
+    # The DEPENDENT repo's own declared base branch first. Inferring it was
+    # wrong twice over. `origin/HEAD` is unset on a great many clones --
+    # every repo attached mid-session gets a --depth 1 --single-branch clone
+    # without it, reproduced on a real consumer 2026-09-06 -- and the
+    # fallback then named `origin/master`, a ref GitHub has not created by
+    # default since 2020 and which does not exist in any consumer here. With
+    # neither resolving, `ls-tree origin/master` errors, `names` comes back
+    # EMPTY, and this loop inspects nothing and returns clean: a silent pass
+    # from the one guard standing between a check-in cycle and the 2026-08-19
+    # data loss this function's own docstring describes. A declared value
+    # cannot go missing this way, and the inference fallback now at least
+    # names a branch that exists.
+    dep_branch = (_declared_base_branch(ROOT)
+                  or _dep_git('symbolic-ref', '--short',
+                              'refs/remotes/origin/HEAD').strip().rsplit('/', 1)[-1]
+                  or 'main')
     prefix = UPSTREAM.relative_to(ROOT).as_posix()
     names = _dep_git('ls-tree', '-r', '--name-only', f'origin/{dep_branch}', prefix).split()
     landed_all = None
