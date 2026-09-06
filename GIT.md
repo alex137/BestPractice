@@ -1,6 +1,6 @@
-# Git, minimally, for this way of working
+# Git, Minimally, for This Way of Working
 
-## Why GitHub at all?
+## Why GitHub at All?
 
 A normal chat thread is useful but temporary. Important context may be
 buried in an old conversation, known to only one person, or missing from
@@ -25,7 +25,7 @@ deliberately. The layer itself is plain git, markdown, and Python, so
 equivalents on other hosts such as Gitea can be added later — see
 [TODO.md](TODO.md).
 
-## The eight ideas
+## The Eight Ideas
 
 You don't need to know git deeply to use [Precedent](README.md); you
 need eight ideas. (Throughout: a "repo" is short for repository — the
@@ -93,7 +93,7 @@ project's shared folder on GitHub; a "session" is one AI conversation; a
   **select both repos when you create the session** — you generally can't
   add write access mid-session.
 
-## Knowing your work actually landed
+## Knowing Your Work Actually Landed
 
 A published operation reports on *itself*, not on your intention, and the
 reports are easy to misread in the same direction twice. Three checks cost

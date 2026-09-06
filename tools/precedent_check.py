@@ -1278,8 +1278,11 @@ def _heading_outline(ctx):
 def _headline_capitalization(ctx):
     sys.path.insert(0, str(ROOT / 'tools'))
     import title_case
+    # title_case.is_outward() is the one definition of "outward-facing"
+    # -- everything except its INTERNAL_DIRS/INTERNAL_FILES. This gate
+    # asks it rather than carrying a second copy of the boundary.
     scope = [f for f in ctx.changed
-             if f.startswith('documentation/') and f.endswith('.md')
+             if f.endswith('.md') and title_case.is_outward(f)
              and (ROOT / f).exists()]
     if not scope:
         raise NotApplicable('no changed outward-facing document is in scope')

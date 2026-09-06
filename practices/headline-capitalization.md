@@ -3,7 +3,7 @@ slug:        headline-capitalization
 title:       "Outward-facing headings use one headline capitalization, defined once"
 tier:        on-demand
 severity:    default
-applies_to:  ["documentation/**/*.md"]
+applies_to:  ["**/*.md"]
 occasion:    "writing or editing a heading in an outward-facing document"
 gates:       []
 index_clause: "outward-facing headings are New York Times headline case, applied by tool"
@@ -48,9 +48,28 @@ document or person restates them:
   the tool's `KEEP_PHRASES`. *The Why* is a noun phrase — the reasoning
   behind a decision — not an article plus a word.
 
-Scope is a repository's outward-facing documents, `documentation/` here.
-It is deliberately not every markdown file: a practice file's heading, a
-spec's, or this one's, is working text, and sentence case is right there.
+**Scope is stated as an exclusion, not a list of directories.** Every
+document is in scope unless it is named internal in
+[tools/title_case.py](../tools/title_case.py)'s `INTERNAL_DIRS` /
+`INTERNAL_FILES` — the project managing itself: practice files, the engine,
+specs, briefs, decision records, evaluation fixtures, uninstantiated
+templates, and the instructions, index and catalogue documents a session
+reads to work here.
+
+Written the other way round it decays. This practice shipped covering
+`documentation/` alone; `content/` and `book*/` had to be added the same
+day, and the next outward directory somebody creates would have been missed
+in the same silence. An exclusion fails the safe way round: an unclassified
+directory is treated as published, and the worst case is a heading
+capitalized that did not need to be.
+
+A repository's root holds both kinds, so directories alone cannot settle
+it — `README.md` and `SETUP.md` are the first things an outsider reads,
+while `PRACTICES.md` and `PRACTICE_ENGINE_PLAN.md` sit beside them and are
+pure internal machinery. The internal root documents are therefore named
+individually, and three of them (`AGENTS.md`, `MAP.md`, `GLOSSARY.md`) are
+generated as well, so a rewritten heading there would be undone by the next
+build and fail its byte-identical check in between.
 
 ## Why
 Headline capitalization is the kind of rule everyone agrees with and nobody

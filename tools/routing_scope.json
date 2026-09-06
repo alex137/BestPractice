@@ -198,9 +198,9 @@
     },
     "headline-capitalization": {
       "globs": [
-        "documentation/**/*.md"
+        "**/*.md"
       ],
-      "why": "Narrow on purpose. The practice covers OUTWARD-FACING documents only -- a practice file's heading, a spec's, or a brief's is working text, and sentence case is right there. `documentation/` is where this repo keeps the documents written for people outside the project, so it is the whole scope and the glob can say so exactly. An adopting repo points this at its own outward-facing directory; the capitalization rules themselves do not move, since they live in tools/title_case.py.",
+      "why": "`**` because the scope is an EXCLUSION, and a glob cannot express one. Every document is outward-facing unless tools/title_case.py names it internal (INTERNAL_DIRS/INTERNAL_FILES), which is the one definition both the gate and this practice read. Written as an allowlist it decayed within a day -- the practice shipped covering `documentation/` alone and `content/` and `book*/` had to be added the same afternoon, so an unclassified new directory would have been missed silently. This way the path-trigger fires a little wider than the gate enforces, which is the harmless direction: the reader is reminded on a practice file and the check then says it is out of scope. Morgan settled the boundary 2026-09-06: capitalization is for what outsiders read, and internal working files are never to be 'fixed'.",
       "decided": "2026-09-06, when the practice was added"
     },
     "index-remembers-past": {

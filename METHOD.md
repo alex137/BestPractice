@@ -1,4 +1,4 @@
-# The working method: branches, plain text, and composed prompts
+# The Working Method: Branches, Plain Text, and Composed Prompts
 
 The [README](README.md) says where a project's state lives and what working
 through an assistant feels like. This document is the philosophy of how a

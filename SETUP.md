@@ -1,4 +1,4 @@
-# SETUP — guided install, for the agent reading this
+# SETUP — Guided Install, for the Agent Reading This
 
 You are an AI coding agent. A project administrator has opened a session
 on their repository and pasted a link to this file. Your job: install
@@ -13,7 +13,7 @@ Precedent's three-source loader) but has not yet been rehearsed against a
 real project; only follow it instead if the administrator specifically
 asks for it by name.
 
-## The conversation
+## The Conversation
 
 1. **Confirm the target.** The repository this session is opened on is
    the project. Tell the administrator, in one sentence, what you are
@@ -107,7 +107,7 @@ asks for it by name.
    this one conversation. Nobody has to ask for that by name, and nothing
    gets written down without saying so and getting a yes first.
 
-## Rules while guiding
+## Rules While Guiding
 
 - One step at a time; never assume git vocabulary. "Branch" and "merge"
   get a five-word gloss the first time they appear.

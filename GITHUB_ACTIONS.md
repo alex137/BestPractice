@@ -1,10 +1,10 @@
-# GitHub Actions checks
+# GitHub Actions Checks
 
 Precedent uses repository checks for rules that should not depend on a particular person or AI assistant remembering to run them.
 
 This is especially important when working through GitHub-connected ChatGPT. A normal ChatGPT conversation can read and update repository files, but it does not receive a local checkout or an interactive shell. GitHub Actions supplies the missing execution environment: ChatGPT prepares a branch, GitHub runs the checks, and the result appears on the pull request.
 
-## Precedent's own workflows (this repo, not a template)
+## Precedent's Own Workflows (This Repo, Not a Template)
 
 Three workflows run on this repo itself, in [.github/workflows/](.github/workflows/):
 
@@ -43,7 +43,7 @@ Three workflows run on this repo itself, in [.github/workflows/](.github/workflo
   `check_all_workflows_disclosed` for the tree-wide check added in
   response, which does catch this going forward.)
 
-## What the Markdown check does
+## What the Markdown Check Does
 
 The supplied workflow:
 
@@ -55,7 +55,7 @@ The supplied workflow:
 
 The linter determines which Markdown files changed relative to the repository's default branch. A full-history checkout is therefore required.
 
-## Install in a dependent repository
+## Install in a Dependent Repository
 
 During Precedent installation, copy:
 
@@ -88,7 +88,7 @@ GitHub Actions is normally available automatically, but an organization or repos
 
 The first pull request that introduces a workflow may be subject to GitHub's normal approval or security controls, especially for contributions from forks.
 
-## Make the check required
+## Make the Check Required
 
 Once the workflow has run successfully at least once, add its **Markdown lint** job to the default branch's ruleset or branch-protection required checks.
 
@@ -96,7 +96,7 @@ That changes the rule from advice into enforcement: a pull request cannot merge 
 
 Repository rules vary by account and organization. Use the repository's current **Settings → Rules** or branch-protection controls and select the status check produced by this workflow.
 
-## Updating an installed repository
+## Updating an Installed Repository
 
 When Precedent updates the workflow template:
 

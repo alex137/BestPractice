@@ -1,4 +1,4 @@
-# How to install Precedent for you and your team
+# How to Install Precedent for You and Your Team
 
 Instructions for wiring Precedent into a *dependent repo*, keeping it
 current, and flowing improvements back. Read [PRACTICES.md](PRACTICES.md)
@@ -46,7 +46,7 @@ without ever going through `process/upstream/`, should use §0 instead —
 covered after §1, since it is the rarer path; see §0's own note for when
 it applies.
 
-## 1. Install into a dependent repo
+## 1. Install Into a Dependent Repo
 
 > **In plain terms.** This is the one-time setup. An assistant copies
 > Precedent's files into your project, then rewrites a handful of
@@ -401,7 +401,7 @@ appended to the baseline `.gitignore` instantiated above from
 <generated-md-glob> binary   # stop git text-merging generated files
 ```
 
-## 0. Installing directly onto the Precedent loader (new, 2026-09-03 — read the caveat before using)
+## 0. Installing Directly Onto the Precedent Loader (New, 2026-09-03 — Read the Caveat Before Using)
 
 > **In plain terms.** This is an alternative to §1 above, for a project
 > that has never installed BestPractice before and wants to start on
@@ -512,7 +512,7 @@ cover, by design and not oversight:
   mechanism until it is wired in: an ordinary pull request against the
   vendored source's own upstream repo.
 
-## 2. Take an upstream update
+## 2. Take an Upstream Update
 
 *Knowing* an update exists is automated: the session-start bootstrap runs
 `checkin.py fresh` (one `ls-remote`, notice-only). *Taking* it is the
@@ -620,7 +620,7 @@ deliberate procedure below.
    materialized tree and `AGENTS.md` (or, if the refresh changed loader
    behavior, review the diff before committing).
 
-## 3. (Optional) Give back an improvement — the export gate
+## 3. (Optional) Give Back an Improvement — The Export Gate
 
 > **In plain terms.** This whole section, and §4 after it, are entirely
 > **optional** — nothing about using Precedent requires your project to
@@ -664,7 +664,7 @@ If yes, in the **same branch**:
    manifest entry to `"diverged"` — the audit will keep reminding until the
    export happens or the baseline is deliberately updated.
 
-## 4. (Optional) Periodic check-in — propose your improvements upstream
+## 4. (Optional) Periodic Check-In — Propose Your Improvements Upstream
 
 > **In plain terms.** Like §3, this whole section is **optional** — skip
 > it if your project would rather keep its improvements to itself. For
@@ -742,7 +742,7 @@ open for the same round, merge the upstream check-in PR **first**, take
 any drift, record, and only then land the dependent PR — the reverse
 order records a hash the vendored tree doesn't match.
 
-## 5. The manifest schema (`process/manifest.json`)
+## 5. the Manifest Schema (`Process/manifest.json`)
 
 > **In plain terms.** The manifest is a receipt — a list of exactly what
 > was installed, where each piece landed in your project, and whether
@@ -803,7 +803,7 @@ order records a hash the vendored tree doesn't match.
   (local improvement pending export) · `local-only` (deliberately not
   exported; say why in `notes`).
 
-## 6. The audit (`tools/practice_audit.py`)
+## 6. the Audit (`Tools/practice_audit.py`)
 
 > **In plain terms.** This is the automatic check that runs before
 > almost every step above. It looks for two things: private words that
@@ -832,7 +832,7 @@ Checks, in order — any FAIL exits non-zero:
 3. **Integrity:** manifest paths exist; `section_marker`s found (warn);
    `local-only` entries have notes.
 
-## 7. Practice packs (domain layers)
+## 7. Practice Packs (Domain Layers)
 
 > **In plain terms.** Some rules are too specific to your industry or
 > workflow to belong in the public Precedent project, but too general
@@ -873,7 +873,7 @@ public upstream but too general to be one repo's local rules. Mechanics:
    and check-in (§4) all apply per pack, against the pack's own tree,
    manifest, and (eventual) upstream repo.
 
-## For approvers: your checklist
+## For Approvers: Your Checklist
 
 Everything above is written for the assistant doing the work. Stripped
 down to just the moments a non-technical approver actually needs to act
