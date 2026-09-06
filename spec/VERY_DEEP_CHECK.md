@@ -25,7 +25,7 @@ findings themselves live in the commits that fixed them and in
 | Pass | Status | Date | Notes |
 |---|---|---|---|
 | 1 — adopter installs | not started | — | fresh install, migration, empty neighbourhood, permissions |
-| 2 — mechanisms | not started | — | the twelve questions |
+| 2 — mechanisms | not started | — | the thirteen questions |
 | 3 — coherence read | not started | — | drift, links, keywords, cost |
 | 4 — catalogue and housekeeping | not started | — | full practice audit, backlog, stale branches |
 
@@ -40,6 +40,6 @@ done while one is open.
 | — | — | no very deep check has been run against the four-pass definition yet |
 
 The 2026-09-06 [pre-launch audit](PRELAUNCH_AUDIT.md) is the closest thing to
-a prior run, and is where pass 1's method and all twelve of pass 2's
+a prior run, and is where pass 1's method and all but one of pass 2's
 questions come from — it was not run under this practice, and its own
 still-open list is a separate document, kept there rather than copied here.

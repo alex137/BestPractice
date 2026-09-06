@@ -21,7 +21,9 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   restructured 2026-09-06, Morgan F, into four ordered passes — adopter
   installs first, then whether the mechanisms tell the truth, then the
   coherence read, then catalogue and housekeeping — with the run made
-  resumable across sessions"
+  resumable across sessions; extended same day, Morgan F, with a
+  duplicate-implementation question in pass 2 and an explicit
+  mechanical-before-human order of operations"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -95,6 +97,27 @@ install, or follow, whether or not a bullet below names it. If a finding
 recurs and nothing here names it, add a bullet so the next run looks for it
 deliberately.
 
+**Order of operations — mechanical before human, every time.** Judgment
+spent on something a script already catches is judgment wasted, and a tree
+already failing its own gates makes every later finding ambiguous: you
+cannot tell a drift this run introduced from one that was there before. So:
+
+1. **Freshen the checkout, and every source's.** `git fetch` and confirm
+   local `HEAD` matches origin before reading anything — a stale clone reads
+   exactly like missing work.
+2. **Run the deep check suite as it stands** — the five gates
+   [AGENTS.md](../AGENTS.md) names ([two-check-levels](two-check-levels.md))
+   — and fix what it reports, before this check reads a line. `0 failed` and
+   `0 violated` is the starting line, not the finish.
+3. **Run [tools/very_deep_check.py](../tools/very_deep_check.py)** for the
+   enumeration, the machine-readable parse, the source-shape check, and the
+   branch scan. A missing declared source stops the run here.
+4. **Then the passes, 1 through 4**, each ending with the suite from step 2
+   re-run — the fixes a pass makes break links of their own.
+
+The same rule holds inside a pass: where a mechanical check covers part of a
+bullet, run it first and read only what it cannot see.
+
 ### Pass 1 — Can a new adopter get to a working install?
 The highest-cost failures are here, because they strand someone outside this
 session who cannot see what is wrong. Reading the install documents finds
@@ -134,9 +157,11 @@ method"). Build the fixtures.
   automatic") — this practice is not standing to run them either.
 
 ### Pass 2 — Do the mechanisms report what they claim to?
-Every mechanical check, gate, and tool, one at a time. Each question below
-found a real defect in the 2026-09-06 pre-launch audit, and none of them is
-visible from a check's own output — a broken check reports confidently.
+Every mechanical check, gate, and tool, one at a time. Every question below
+found a real defect here — all but one in the 2026-09-06 pre-launch audit,
+and the duplicate-implementation question in this practice's own machinery —
+and none of them is visible from a check's own output: a broken check reports
+confidently.
 
 1. **Does it scan only what this repo can act on?** Bucket every finding:
    *this repo wrote it* versus *this repo received it* (a vendored upstream
@@ -182,33 +207,53 @@ visible from a check's own output — a broken check reports confidently.
    and retired-term list: test each term against a plausible compound.
    *(Found: retired term `pack_sync` matching `voice_pack_sync.py`, a live
    tool — nothing could satisfy the finding but renaming a real file.)*
-8. **Does anything use alphabetical order to pick a winner?** Where two
-   candidates could satisfy a lookup — two directories, two copies of a file,
-   two sources for a slug — find what breaks the tie. If it is `sorted()`, it
+8. **Are there two of anything that should be one?** Two scripts doing the
+   same job, two implementations of one rule, a helper copied instead of
+   imported, a constant list maintained in two files, a check and a gate
+   testing the same property. Copies do not stay identical: one gets fixed
+   and the other goes on being wrong, and the stale one is as likely as not
+   to be the one actually running. Search by what code *does*, not by what
+   it is called ([search-by-purpose](search-by-purpose.md) is the same
+   search) — a duplicate that shared a name would have been noticed
+   already. For each, name which copy is canonical and delete or re-point
+   the other. Vendoring is the deliberate exception: the engine is copied
+   into consuming repos on purpose, so the question there is whether every
+   copy came from
+   [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
+   with a recorded commit, never whether a copy exists. *(Found: this
+   practice's own checklist, living both in the Detail section below and as
+   a `CHECKLIST` string literal inside
+   [tools/very_deep_check.py](../tools/very_deep_check.py), with nothing
+   keeping the two in step — the tool printed the copy, so a session would
+   have worked the stale list without ever seeing the current one.)*
+9. **Does anything use alphabetical order to pick a winner?** Often the
+   previous question's duplicate, one layer on: where two candidates could
+   satisfy a lookup — two directories, two copies of a file, two sources for
+   a slug — find what breaks the tie. If it is `sorted()`, it
    is an accident that will pick differently the next time a name changes.
    *(Found twice: a check script present in both its source and its
    materialized location, needing different `ROOT` depths, with the wrong one
    winning every time — two checks confidently reporting that files in plain
    view did not exist.)*
-9. **Does a rule forbid the only mechanism the project ships for it?** For
-   each rule, ask how a correctly-installed repo satisfies it, then check
-   that the sanctioned tool actually produces that state. *(Found: a rule
-   against duplicated engine code, in a project whose own vendoring tool
-   makes exactly those copies — every correct install permanently in
-   violation.)*
-10. **Read each enforced practice's check against its own Rule.** The full
+10. **Does a rule forbid the only mechanism the project ships for it?** For
+    each rule, ask how a correctly-installed repo satisfies it, then check
+    that the sanctioned tool actually produces that state. *(Found: a rule
+    against duplicated engine code, in a project whose own vendoring tool
+    makes exactly those copies — every correct install permanently in
+    violation.)*
+11. **Read each enforced practice's check against its own Rule.** The full
     practice audit prints an enforced practice as a single line, on the
     reasoning that its check either fired or it did not — and questions 1-9
     are precisely the ways that reasoning fails. This is the only pass that
     ever looks at those checks, so look: does the check test what the Rule
     says, all of what it says, and nothing the Rule does not ask for?
-11. **Is each "known exception" still true?** Reproduce every documented
+12. **Is each "known exception" still true?** Reproduce every documented
     gotcha, known-issue note, and "this currently fails because" claim. These
     are written once and re-tested never, and a stale one is worse than none:
     it teaches the next session to skip a check that now works. *(Found: a
     gotcha describing a `ROOT` bug fixed weeks earlier, still telling
     sessions to work around it.)*
-12. **What does a session inherit that a person configured by hand?** List
+13. **What does a session inherit that a person configured by hand?** List
     every `git config`, environment variable, user-level config file, and
     sibling clone this session or a recent one set up or relied on. Each is
     something the next session will not have; anything load-bearing belongs
@@ -277,7 +322,8 @@ Last because none of it strands an adopter, and none of it is cheap.
 - **The full catalogue, every practice.** Run
   [tools/full_practice_audit.py](../tools/full_practice_audit.py) across every
   source in force. That tool deliberately prints enforced practices as one
-  line each; pass 2 item 10 is where those get their real read, so the two
+  line each; pass 2's *read each enforced practice's check against its own
+  Rule* is where those get their real read, so the two
   together are what "every single practice was looked at" actually means.
 - **Backlog drift.** Read [TODO.md](../TODO.md) (and each source's equivalent)
   end to end: entries already done, no longer relevant, or never actually
@@ -400,7 +446,7 @@ cross-source-staleness bullet, whose standing prevention side is
 Restructured 2026-09-06, on Morgan's direct request, into the four ordered
 passes above. Two things drove it. The first was the pre-launch audit of the
 same date ([spec/PRELAUNCH_AUDIT.md](../spec/PRELAUNCH_AUDIT.md)): every one
-of pass 2's twelve questions is a defect that audit actually found, and not
+of pass 2's questions but one is a defect that audit actually found, and not
 one of them was reachable from the drift checklist this practice carried at
 the time — the check was looking only at prose while the mechanisms
 underneath it were reporting confidently and wrongly. The second was that
@@ -411,6 +457,28 @@ a standing step. The run being explicitly splittable across sessions came
 from the same request, for the obvious reason: what this practice now asks
 for is more than one session's work, and a check nobody finishes is a check
 that silently becomes its first pass.
+
+Extended the same day, same request, with two things the restructure had
+left implicit. Morgan asked whether the check looks for duplicate code —
+two parts doing the same job redundantly — and it did not: the old
+checklist's "needless repetition" is about a *rule* restated in prose, and
+the two places code duplication appeared were incidental (a tie-break
+between two copies of a file; a rule forbidding the copies the vendoring
+tool makes). It is a mechanism property, not a writing one — a duplicate
+does not stay identical, and the copy that goes on being wrong is as likely
+as not the one that runs — so it belongs in pass 2, immediately before the
+tie-break question it generalizes, rather than appended to pass 3's list.
+The restructure had produced an instance of it in the same commit: this
+practice's own checklist existed both here and as a `CHECKLIST` literal in
+[tools/very_deep_check.py](../tools/very_deep_check.py), and the tool
+printed the copy. The order of operations came from the same message: the
+passes were ordered, but nothing said to run the cheap mechanical gates
+before spending judgment, which is how a session ends up hand-reading for
+something `doc_lint` reports in a second — and, worse, cannot tell drift
+this run introduced from drift that was already there. Two positional
+cross-references ("pass 2 item 10") were replaced with names in the same
+pass, since citing a list position as if it were a name is a defect pass 3
+tells the reader to report.
 
 ## Install
 [tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope
@@ -434,7 +502,8 @@ reach (`checkable-gets-checked`): a missing declared team or individual
 source is a hard, non-zero-exit failure by default (pass
 `--allow-missing-sources` only when proceeding without it is actually
 intended); every tracked JSON and YAML file is parsed with a real parser
-(pass 2 item 6), and a file that does not parse stops the run, since the tool
+(pass 2's format-claims question), and a file that does not parse stops the
+run, since the tool
 reads `precedent.json` to enumerate its own scope; each team and individual
 source is checked against the shape its bootstrap skeleton ships, catching a
 source migrated into place that never passed through bootstrap; and the
