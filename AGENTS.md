@@ -354,6 +354,31 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   clone-URL capitalization half is *not* automated — nothing local knows
   the canonical spelling — so that stays a manual `git remote set-url`.
 
+- **A tool handed a clone as a *source* can still check that clone out from
+  under you.** `process/upstream/tools/checkin.py update <bestpractice-clone>`,
+  run from a consuming repo, opened with `git checkout <default-branch>` and
+  `git pull` **inside the clone you passed it**. On 2026-09-06 that silently
+  moved a session's BestPractice checkout off `precedent-beta-v01` onto
+  `main`, mid-session — and the command had already FAILED its own guard by
+  then, so the mutation was pure collateral. The session noticed only because
+  `templates/practice-set-*/` and thirty tools had vanished from a tree it had
+  just been working in, and briefly read that as another session having deleted
+  real work. `git status` was clean and `git log` looked sane, because nothing
+  was damaged: it was simply a different branch. **If files you were just
+  using disappear, check `git rev-parse --abbrev-ref HEAD` before concluding
+  anything was lost** — and on a dirty tree the checkout would have failed and
+  left the pull half-applied instead, which is worse. Fixed forward the same
+  day: `update()` now reads the source ref with `git archive` (no checkout, no
+  pull, no HEAD movement — the guarantee
+  [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py) already
+  made explicitly), and mirrors the branch the consumer's own
+  `process/manifest.json` records rather than the clone's configured default —
+  every consumer tracks `precedent-beta-v01` while `main` is still the
+  default, so the old code would have mirrored `main` over a beta-vendored
+  tree, a wholesale revert dressed as an update. Both properties are asserted
+  in [tools/verify_harness.py](tools/verify_harness.py) with negative
+  controls.
+
 - **A stale container is indistinguishable from missing work, and the
   freshness guard can be the thing that's lying.** On 2026-09-06 a session
   started on a 5-day-old shallow clone, 207 commits behind

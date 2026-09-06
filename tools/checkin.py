@@ -109,6 +109,20 @@ def _git(clone, *args):
                           capture_output=True, text=True).stdout.strip()
 
 
+def _rev_parse_quiet(clone, ref):
+    """-> the commit hash for `ref`, or None. Never the ref's own name.
+
+    `git rev-parse <missing-ref>` exits non-zero but ECHOES THE REF ON
+    STDOUT, so the plain `_git(...)` above hands back the string
+    'origin/precedent-beta-v01' where a hash belongs -- AGENTS.md's gotchas
+    section, which has this reaching CI once already. --verify --quiet is
+    silent and exits 1.
+    """
+    r = subprocess.run(['git', '-C', str(clone), 'rev-parse', '--verify',
+                        '--quiet', ref], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
 # Directories that exist in BestPractice and have no business in a dependent
 # repo. `evals/` is this project's own routing-quality measurement corpus --
 # the fixtures behind spec/LOADER.md's recall and precision figures. It answers
@@ -189,7 +203,19 @@ def _diff(clone):
 
 
 def _manifest():
-    return json.loads(MANIFEST.read_text(encoding='utf-8'))
+    # Graceful degradation, not a crash: every caller wants "what does this
+    # install record", and a repo with no manifest has a real answer to that
+    # -- nothing -- rather than a FileNotFoundError raised from three frames
+    # down. A malformed one is different and still fails loudly, because
+    # silently treating unreadable JSON as an empty install would let a
+    # mirror clobber a tree it could not read the provenance of.
+    if not MANIFEST.is_file():
+        return {}
+    try:
+        return json.loads(MANIFEST.read_text(encoding='utf-8'))
+    except ValueError as e:
+        sys.exit(f"checkin FAIL: {MANIFEST} is not valid JSON ({e}). Fix it "
+                 f"before running anything that mirrors files.")
 
 
 def _clone_or_die(arg):
@@ -287,12 +313,73 @@ def _default_branch(clone):
             or 'main')
 
 
+def _tree_at(clone, ref, into):
+    """Extract `clone`'s tree at `ref` into `into`, without touching `clone`.
+
+    `git archive` reads objects and writes a tar; it never moves HEAD, never
+    changes a branch, and never touches a working tree. update() used to
+    reach its source the other way -- `git checkout <branch>` followed by
+    `git pull` INSIDE the caller's clone -- which is a mutation of a
+    repository the caller passed only as a SOURCE.
+
+    2026-09-06, found by being on the receiving end of it: a session running
+    `checkin.py update <bestpractice-clone>` from a consumer repo had its
+    BestPractice checkout silently moved off `precedent-beta-v01` onto
+    `main`, mid-session, and only noticed because a file it expected was
+    suddenly missing. The command had already FAILED its own guard by then,
+    so the mutation was pure collateral. On a dirty tree the checkout would
+    have failed instead and left the pull half-applied.
+
+    Its sibling precedent_vendor_engine.py makes exactly the opposite
+    guarantee in as many words -- "it reads blobs, it never checks the clone
+    out" -- and verify_harness.py asserts it. This one now does the same.
+    """
+    tar = subprocess.run(['git', '-C', str(clone), 'archive', ref],
+                         capture_output=True)
+    if tar.returncode != 0:
+        sys.exit(f"checkin FAIL: cannot read {ref!r} in {clone} "
+                 f"({tar.stderr.decode('utf-8', 'replace').strip()}). Fetch it "
+                 f"there first -- this tool will not check the clone out.")
+    tarfile.open(fileobj=io.BytesIO(tar.stdout)).extractall(into)
+    return pathlib.Path(into)
+
+
+def _tracked_branch(clone):
+    """The branch this install actually tracks, which is NOT always the
+    clone's default branch.
+
+    The manifest records `upstream.branch` precisely because the two can
+    differ -- every consumer of BestPractice tracks `precedent-beta-v01`
+    today while `main` is still the configured default. update() read
+    `_default_branch(clone)` and would have mirrored `main` over a tree
+    vendored from the beta branch: a silent, wholesale revert dressed as an
+    update. Same assumption AGENTS.md's own standing rule warns about in the
+    merge direction -- never assume `main` just because it is the default.
+    """
+    recorded = (_manifest().get('upstream', {}) or {}).get('branch')
+    return recorded or _default_branch(clone)
+
+
 def update(clone, force=False):
-    """INSTALL.md §2 step 5: mirror the clone's freshly pulled default branch
-    into the vendored tree, refusing to clobber unexported local work."""
-    branch = _default_branch(clone)
-    _git(clone, 'checkout', branch)
-    _git(clone, 'pull', 'origin', branch)
+    """INSTALL.md §2 step 5: mirror the clone's tree at the branch this
+    install tracks into the vendored tree, refusing to clobber unexported
+    local work. Reads the clone; never checks it out, pulls in it, or moves
+    its HEAD."""
+    branch = _tracked_branch(clone)
+    # Fetch updates remote-tracking refs only -- it does not touch the
+    # clone's working tree, HEAD, or any local branch.
+    fetched = subprocess.run(['git', '-C', str(clone), 'fetch', 'origin', branch],
+                             capture_output=True, text=True)
+    if fetched.returncode != 0:
+        print(f"NOTICE: could not fetch origin/{branch} in {clone} "
+              f"({fetched.stderr.strip()}) -- mirroring whatever that clone "
+              f"already has for {branch}, which may be behind.")
+    src_ref = _rev_parse_quiet(clone, f'origin/{branch}') or \
+        _rev_parse_quiet(clone, branch)
+    if not src_ref:
+        sys.exit(f"checkin FAIL: {clone} has no {branch} or origin/{branch} to "
+                 f"mirror from. This install records upstream.branch = "
+                 f"{branch!r}; fetch that branch in the clone first.")
     if not force:
         recorded = _manifest().get('upstream', {}).get('commit')
         if not recorded:
@@ -316,20 +403,26 @@ def update(clone, force=False):
             sys.exit("checkin FAIL: vendored tree differs from the recorded upstream commit — "
                      "that is unexported work the mirror would clobber. Export it first "
                      "(INSTALL.md §3/§4) or pass --force to overwrite.")
-    vendored_only, differing, clone_only = _diff(clone)
-    if not (vendored_only or differing or clone_only):
-        _stamp_synced_from(_git(clone, 'rev-parse', 'HEAD'))
-        print(f"checkin update: vendored tree already identical to clone {branch} — nothing to do.")
-        return 0
-    for p in vendored_only:
-        (UPSTREAM / p).unlink()
-    for p in differing + clone_only:
-        (UPSTREAM / p).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(clone / p, UPSTREAM / p)
-    _stamp_synced_from(_git(clone, 'rev-parse', 'HEAD'))
-    print(f"checkin update OK: mirrored {len(differing) + len(clone_only)} file(s), "
-          f"deleted {len(vendored_only)} from the vendored tree (clone {branch} @ "
-          f"{_git(clone, 'rev-parse', 'HEAD')[:12]})")
+    # Mirrored from the SOURCE REF's tree, extracted to a scratch directory --
+    # not from the clone's working tree, which this tool no longer moves and
+    # which may sit on some entirely different branch.
+    with tempfile.TemporaryDirectory() as srcdir:
+        src = _tree_at(clone, src_ref, srcdir)
+        vendored_only, differing, src_only = _diff(src)
+        if not (vendored_only or differing or src_only):
+            _stamp_synced_from(src_ref)
+            print(f"checkin update: vendored tree already identical to "
+                  f"{branch} @ {src_ref[:12]} — nothing to do.")
+            return 0
+        for p in vendored_only:
+            (UPSTREAM / p).unlink()
+        for p in differing + src_only:
+            (UPSTREAM / p).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src / p, UPSTREAM / p)
+    _stamp_synced_from(src_ref)
+    print(f"checkin update OK: mirrored {len(differing) + len(src_only)} file(s), "
+          f"deleted {len(vendored_only)} from the vendored tree ({branch} @ "
+          f"{src_ref[:12]})")
     print("next: propagate template changes into instantiated files (INSTALL.md §2),")
     print("      update manifest entries, then run:  checkin.py record " + str(clone))
     return 0

@@ -5541,6 +5541,91 @@ def _looks_like_help(tool, out):
     return False
 
 
+def check_checkin_update_never_mutates_the_clone():
+    """`checkin.py update <clone>` reads the clone; it never moves its HEAD.
+
+    Its sibling precedent_vendor_engine.py makes that guarantee explicitly
+    and is asserted on it here. checkin.py made no such promise and broke it:
+    update() opened with `git checkout <default-branch>` and `git pull`
+    INSIDE the caller's clone -- a repository passed only as a SOURCE.
+
+    2026-09-06, found by being on the receiving end. A session running the
+    command from a consumer repo had its BestPractice checkout silently
+    moved off precedent-beta-v01 onto main, mid-session; it noticed only
+    because a directory it expected had vanished from the working tree. The
+    command had already FAILED its own guard by then, so the mutation was
+    pure collateral -- and on a dirty tree the checkout would have failed
+    and left the pull half-applied instead.
+
+    Two properties, since the same call site carried two bugs: the clone is
+    untouched, and the branch mirrored is the one the MANIFEST records, not
+    the clone's configured default. Every consumer tracks
+    precedent-beta-v01 today while main is still the default, so reading the
+    default would have mirrored main over a tree vendored from the beta
+    branch -- a wholesale revert dressed as an update.
+    """
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='checkin-update-'))
+    try:
+        # A source clone with two branches, whose default is NOT the branch
+        # the fixture consumer tracks -- the exact shape that made the second
+        # bug invisible.
+        src = tmp / 'source'
+        src.mkdir()
+        g = lambda *a: subprocess.run(['git', '-C', str(src), *a],
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        (src / 'marker.txt').write_text('from main\n')
+        g('add', '-A'); g('commit', '-qm', 'main content')
+        g('checkout', '-qb', 'precedent-beta-v01')
+        (src / 'marker.txt').write_text('from beta\n')
+        g('add', '-A'); g('commit', '-qm', 'beta content')
+        g('checkout', '-q', 'main')          # default branch checked out
+
+        consumer = tmp / 'consumer'
+        (consumer / 'process' / 'upstream').mkdir(parents=True)
+        (consumer / 'process' / 'upstream' / 'marker.txt').write_text('from beta\n')
+        beta = g('rev-parse', 'precedent-beta-v01').stdout.strip()
+        (consumer / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': str(src), 'vendored_at': 'process/upstream',
+                         'branch': 'precedent-beta-v01', 'commit': beta},
+            'entries': []}) + '\n')
+        # The real vendored layout: checkin.py derives ROOT from its own
+        # location as HERE.parents[3], so it has to sit at
+        # process/upstream/tools/ or it resolves the manifest somewhere else
+        # entirely.
+        (consumer / 'process' / 'upstream' / 'tools').mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / 'tools' / 'checkin.py',
+                     consumer / 'process' / 'upstream' / 'tools' / 'checkin.py')
+
+        def clone_state():
+            return tuple(g(*a).stdout.strip() for a in (
+                ('rev-parse', 'HEAD'), ('rev-parse', '--abbrev-ref', 'HEAD'),
+                ('status', '--porcelain')))
+
+        before = clone_state()
+        r = subprocess.run(
+            [sys.executable,
+             str(consumer / 'process' / 'upstream' / 'tools' / 'checkin.py'),
+             'update', str(src)],
+            capture_output=True, text=True, cwd=str(consumer))
+        after = clone_state()
+        out = r.stdout + r.stderr
+
+        check('checkin.py update leaves the source clone\'s HEAD, branch and '
+              'working tree exactly as they were',
+              before == after, f'before={before} after={after}\n{out}')
+        check('checkin.py update mirrors the branch the MANIFEST records, '
+              'not the clone\'s configured default',
+              'precedent-beta-v01' in out and
+              (consumer / 'process' / 'upstream' / 'marker.txt'
+               ).read_text() == 'from beta\n',
+              out)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_tools_answer_help_without_writing():
     """`--help` is safe and informative on every tool in tools/.
 
@@ -6595,6 +6680,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
     check_tools_answer_help_without_writing()
+    check_checkin_update_never_mutates_the_clone()
     check_rendered_docs_are_current()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
