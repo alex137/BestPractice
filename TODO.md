@@ -324,7 +324,7 @@ which is the failure this repointing exists to end — write
     names, in a session with those repos attached. Full context:
     [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md).
 
-23. **Roll the very deep check's four-pass restructure out to
+23. <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
     `precedent-team-maintainers`' own `deep-check`.**
     [practices/very-deep-check.md](practices/very-deep-check.md) was
     restructured 2026-09-06 from one drift checklist into four ordered
