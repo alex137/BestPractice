@@ -12,21 +12,27 @@
 # practice: engine-plus-host-shims) -- keep this wrapper free of content,
 # the same discipline templates/harness/claude-code/hooks/session-start.sh
 # already uses for the general-purpose bootstrap, so an improvement to the
-# retry/self-heal mechanism reaches every adopter through the ordinary
+# self-heal mechanism reaches every adopter through the ordinary
 # process/upstream/ sync rather than a hand-edit repeated per repo.
 #
-# WHY THE ENGINE RETRIES INSTEAD OF CLONING ONCE. This hook needs the
-# session to already have git read access to a private repo, and that
-# access is granted per session by the AGENT calling `add_repo` as its own
-# first tool call -- a SessionStart hook runs before that turn starts. An
-# instruction telling the agent to call add_repo "first" cannot make that
-# tool call precede a hook the harness already started running. Two
-# independent adopters hit exactly this (a session-start hook racing its
-# own session's add_repo calls); see
-# tools/precedent_source_bootstrap.py's own docstring for the incident and
-# tools/precedent_resolve.py's self-heal for the second line of defense
-# (this hook not finishing before something asks for the individual source
-# is still handled, not just retried against).
+# WHY A RETRY LOOP IN *THIS HOOK* CANNOT CLOSE THE ACCESS GAP (corrected
+# 2026-09-06 -- an earlier version of this file claimed it could). This
+# hook needs the session to already have git read access to a private
+# repo, and that access is granted per session by the AGENT calling
+# `add_repo` as its own first tool call, in its own turn. A `SessionStart`
+# hook runs *entirely to completion* before that turn starts -- Claude
+# Code's own docs for this hook: synchronous mode "guarantees dependencies
+# are installed before your session starts". That is a strict ordering,
+# not a race with variable odds: on a genuinely fresh session, EVERY
+# attempt this hook could make, at any retry count or delay, runs before
+# `add_repo` can have been called even once. Retrying here was tried and
+# proven inert by direct test, not merely unhelpful in theory -- see
+# tools/precedent_source_bootstrap.py's own docstring for the full
+# incident and correction. What actually closes the gap is
+# tools/precedent_resolve.py's lazy self-heal: it re-invokes this same
+# hook later, from inside the agent's own turn, after `add_repo` has
+# actually run -- at which point this hook's own single attempt succeeds
+# normally.
 set -uo pipefail
 
 ENGINE="${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_bootstrap.py"
