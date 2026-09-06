@@ -1374,9 +1374,23 @@ def _parallel_artifact_ledger(ctx):
     roots |= _shallow_boundary_commits()
     findings = []
     for member_dir in _LEDGER_MEMBER_DIRS:
+        # `git log` is newest-first, so the LAST entry is this member
+        # directory's own first commit -- the one that created it. A family
+        # coming into existence is inception, not "a change to a member"
+        # the practice's Rule is about: there is nothing for the other
+        # members to have transferred from, because none of them existed
+        # either. Exempted for the same reason the repository's own root
+        # commit already is, one level down. Before this, f2078d6 -- the
+        # 2026-07-20 commit that created all three harness adapters from
+        # scratch, five weeks before the ledger file existed -- went
+        # unflagged by every backfill pass until CI on an unrelated pull
+        # request caught it, and had to be written into the ledger by hand
+        # as a row saying, in effect, "no transfer verdict applicable".
+        # (TODO.md item 18.)
         out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
+        inception = {out[-1]} if out else set()
         for full_hash in out:
-            if full_hash in roots:
+            if full_hash in roots or full_hash in inception:
                 continue
             if full_hash[:7] not in ledger_text and full_hash not in ledger_text:
                 findings.append(Finding(
