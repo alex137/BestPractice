@@ -473,6 +473,34 @@ def _local_drift(dest_tools, manifest):
     return drifted
 
 
+def _untracked_engine_files(dest_tools, manifest):
+    """Engine files present on disk that the manifest does not record -- a
+    hand-copy dropped in beside a properly vendored engine.
+
+    _local_drift() above walks the manifest and asks "is each recorded file
+    still what we wrote?" That direction is blind to a file nobody recorded,
+    and the blind spot is not hypothetical. 2026-09-06, in
+    precedent-team-maintainers: its engine was a faithful, internally
+    consistent vendoring of one upstream commit -- seven files, every hash
+    matching -- and beside it sat a hand-copied `build_codeowners.py` from a
+    LATER upstream commit. build_views.py scans `tools/*.py` and requires a
+    description for each, so the newer stray broke the older engine outright:
+    `build_views.py` failed, and that repo could not regenerate its own
+    AGENTS.md at all. Every mechanism reported healthy -- `status` compared
+    only recorded files and saw no drift -- because the one file causing it
+    was invisible to all of them.
+
+    Deliberately keyed on the engine's OWN file lists rather than on "any
+    .py we did not vendor": a repo's own tools/ legitimately holds its own
+    scripts, and flagging those would make this noise. A name that appears
+    in ENGINE_FILES or CONSUMER_ENGINE_FILES but not in this repo's manifest
+    is the precise signature of a hand-drop -- and `refresh` is its fix,
+    since vendoring the file properly is exactly what records it."""
+    recorded = set(manifest.get('files', []))
+    known = set(ENGINE_FILES) | set(CONSUMER_ENGINE_FILES)
+    return sorted(n for n in (known - recorded) if (dest_tools / n).is_file())
+
+
 def _clone_or_die(arg):
     clone = pathlib.Path(arg).resolve()
     if not (clone / '.git').exists():
@@ -487,6 +515,14 @@ def status(clone):
     drift = _local_drift(dest_tools, manifest)
     for name, why in drift:
         print(f"  LOCAL DRIFT: {name} -- {why}")
+    untracked = _untracked_engine_files(dest_tools, manifest)
+    for name in untracked:
+        print(f"  UNTRACKED ENGINE FILE: {name} is an engine file this "
+              f"manifest does not record -- a hand-copy dropped in beside "
+              f"the vendored engine. It can be from a different upstream "
+              f"commit than the rest, which is how a correctly vendored "
+              f"engine ends up unable to run at all. `refresh` vendors it "
+              f"properly and records it.")
 
     # _rev, not _git: plain rev-parse of a missing ref prints the REF NAME, so
     # this used to bind clone_head='origin/precedent-beta-v01' -- truthy, and
@@ -504,13 +540,13 @@ def status(clone):
               f"whether this vendored engine is current is UNKNOWN -- this is not "
               f"'confirmed current'. Fetch that branch in the clone, or point at a "
               f"clone of {SOURCE_REPO}.")
-        return 1 if drift else 0
+        return 1 if (drift or untracked) else 0
     print(f"clone origin/{SOURCE_BRANCH}: {clone_head}"
           + ("  (== recorded)" if clone_head == recorded else "  (!= recorded)"))
     if clone_head != recorded:
         print(f"NOTICE: BestPractice's {SOURCE_BRANCH} has moved since this engine was "
               f"last vendored -- run `refresh` to pick it up.")
-    return 1 if drift else 0
+    return 1 if (drift or untracked) else 0
 
 
 def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):

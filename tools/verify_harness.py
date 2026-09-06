@@ -5266,6 +5266,52 @@ def check_vendor_engine_consumer_case():
         cases.append(("ENGINE_MANIFEST.json records kind: consumer",
                       manifest.get('kind') == 'consumer', str(manifest.get('kind'))))
 
+        # -- an engine file hand-dropped beside a correctly vendored engine
+        # is reported, not silently carried. Both directions, because the
+        # real incident (precedent-team-maintainers, 2026-09-06) looked
+        # HEALTHY to every mechanism that existed: the manifest's own files
+        # all matched, so drift detection saw nothing, while the stray file
+        # -- from a later upstream commit -- broke build_views.py outright.
+        def _vendor_status(repo):
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'precedent_vendor_engine.py'),
+                 'status', str(ROOT)],
+                capture_output=True, text=True, cwd=str(repo))
+            return r.returncode, r.stdout + r.stderr
+
+        rc_clean, out_clean = _vendor_status(consumer)
+        cases.append(('a freshly seeded engine reports no untracked engine file',
+                      'UNTRACKED ENGINE FILE' not in out_clean, out_clean[:400]))
+
+        # The faithful shape of the real incident: the file sits on disk
+        # while the manifest -- written at an EARLIER upstream commit, before
+        # that file joined the engine -- does not record it. Planting it by
+        # dropping the manifest entry rather than by adding a file is what
+        # makes this the real case: every remaining recorded file still
+        # matches, so drift detection stays silent, exactly as it did.
+        manifest_backup = manifest_path.read_text(encoding='utf-8')
+        older = json.loads(manifest_backup)
+        older['files'] = [f for f in older['files'] if f != 'build_codeowners.py']
+        older.get('sha256', {}).pop('build_codeowners.py', None)
+        manifest_path.write_text(json.dumps(older, indent=2), encoding='utf-8')
+        rc_stray, out_stray = _vendor_status(consumer)
+        cases.append(('an engine file present on disk but absent from the manifest '
+                      'is reported, and exits non-zero',
+                      rc_stray == 1 and 'UNTRACKED ENGINE FILE' in out_stray
+                      and 'build_codeowners.py' in out_stray, out_stray[:400]))
+
+        # a file that is NOT an engine file is the repo's own business
+        own = consumer / 'tools' / 'the_repos_own_script.py'
+        own.write_text('# this repo wrote this itself\n', encoding='utf-8')
+        rc_own, out_own = _vendor_status(consumer)
+        cases.append(("a repo's own non-engine script in tools/ is not reported",
+                      'the_repos_own_script.py' not in out_own, out_own[:400]))
+        cases.append(('drift detection stayed silent on the same tree -- which is '
+                      'why the untracked check had to exist separately',
+                      'LOCAL DRIFT' not in out_stray, out_stray[:400]))
+        manifest_path.write_text(manifest_backup, encoding='utf-8')
+        own.unlink()
+
         import hashlib
         mismatched = [f for f, h in manifest.get('sha256', {}).items()
                      if hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
