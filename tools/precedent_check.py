@@ -493,21 +493,36 @@ def _generated_artifact_provenance(ctx):
     if not builder.exists():
         raise NotApplicable('tools/build_views.py is absent, so nothing here '
                             'declares which artifacts are generated')
+    # Which of the two this repo actually GENERATES, read off the files
+    # themselves. build_views.py can write all three views, but a
+    # consuming repo runs it as `--agents-only` on purpose: MAP.md and
+    # GLOSSARY.md "assume THIS repo's layout" (build_views.py's own
+    # docstring, and INSTALL.md section 0's caveat, which says so in
+    # as many words), so a consumer hand-authors them from
+    # templates/MAP.md.template. Before this distinction, that documented,
+    # intended state was a VIOLATION in every consuming repo -- both files
+    # reported "carries no stamp" and then `build_views.py --check`
+    # reported them as drifted, for a repo that never generated them and
+    # never should. A file with no stamp is not a stale generated file;
+    # it is a hand-authored one, and orientation-map already requires
+    # MAP.md to exist and say something.
+    generated_here = []
     for name in GENERATED_VIEWS:
         p = ROOT / name
-        if not p.exists():
-            out.append(Finding(name, 'declared generated but missing'))
-            continue
-        head = p.read_text(encoding='utf-8', errors='ignore')[:1200]
+        head = p.read_text(encoding='utf-8', errors='ignore')[:1200] \
+            if p.exists() else ''
         if 'build_views.py' not in head:
-            out.append(Finding(name, 'carries no stamp naming the script that '
-                                     'builds it, so a reader cannot tell it '
-                                     'is generated'))
+            continue
+        generated_here.append(name)
         if not re.search(r'do not (hand-)?edit|never hand-edit|generated',
                          head, re.I):
-            out.append(Finding(name, 'does not say it is generated'))
-    r = subprocess.run([sys.executable, str(builder), '--check'],
-                       cwd=str(ROOT), capture_output=True, text=True)
+            out.append(Finding(name, 'names build_views.py but does not say '
+                                     'it is generated, so a reader cannot '
+                                     'tell whether editing it is safe'))
+    argv = [sys.executable, str(builder), '--check']
+    if not generated_here:
+        argv.append('--agents-only')
+    r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
     if r.returncode != 0:
         out.append(Finding('', 'a generated view is stale or hand-edited: '
                                + (r.stdout + r.stderr).strip().splitlines()[-1]
@@ -603,6 +618,15 @@ def _environment_gotchas(ctx):
     rest = text[m.end():]
     end = re.search(r'^#{1,4}\s', rest, re.M)
     section = rest[:end.start()] if end else rest
+    # Strip HTML comments before splitting into entries. The old code
+    # dropped only an entry that STARTED with `<!--`, which is not the
+    # same thing: a multi-line comment holding a bulleted list -- exactly
+    # what templates/AGENTS.md.loader.template uses to park the
+    # placeholders an adopter fills in as they hit them -- had each of its
+    # bullets parsed as a real gotcha entry and failed for having no
+    # story. A comment is guidance to the person editing the file, not
+    # content the file asserts.
+    section = re.sub(r'<!--.*?-->', '', section, flags=re.S)
     entries, cur = [], []
     for line in section.splitlines():
         if re.match(r'^\s*[-*]\s+', line):
@@ -726,6 +750,24 @@ _ENGINE_REF_RE = re.compile(
     r"""_ENGINE_DIR\s*/\s*['"]([\w.-]+)['"]|ROOT\s*/\s*['"]tools['"]\s*/\s*['"]([\w.-]+)['"]"""
 )
 
+# Companions whose ABSENCE is a normal state, not a vendoring gap. Each
+# entry carries the reason, because an exemption whose justification lives
+# somewhere else is how a real gap gets waved through later. Keep this
+# short: the default answer to "this file isn't here" is to vendor it.
+_ENGINE_REF_ABSENT_OK = {
+    # split_practices.py's `split` subcommand, and nothing else, reads it:
+    # the one-time conversion of BestPractice's own PRACTICES.md into
+    # per-practice files. No consuming repo ever runs that, and
+    # load_metadata() is called on demand with a graceful failure, never at
+    # import — see its own docstring, which exists because a missing copy
+    # used to take precedent_show.py down at import time.
+    'practice_metadata.json',
+    # routing_audit.py WRITES this on its first run. Absent means "no
+    # routing audit has been run in this repo yet", which is the correct
+    # state of a fresh install, not a file somebody forgot to copy.
+    'routing_audit_state.json',
+}
+
 
 # cite-the-incident, 2026-09-06: themorgan/WorkingWithAI followed
 # spec/MIGRATING_EXISTING_INSTALLS.md step 7 exactly as written and ended up
@@ -756,6 +798,8 @@ def _vendored_engine_file_refs_resolve(ctx):
         text = p.read_text(encoding='utf-8', errors='ignore')
         for m in _ENGINE_REF_RE.finditer(text):
             name = m.group(1) or m.group(2)
+            if name in _ENGINE_REF_ABSENT_OK:
+                continue
             if not (tools_dir / name).exists():
                 findings.append(Finding(
                     f'tools/{p.name}',
@@ -1266,6 +1310,21 @@ def _shallow_boundary_commits():
        'Enforcing; the 2026-09-05 advisory downgrade was lifted 2026-09-06 '
        'once the CI substitution above was root-caused.')
 def _parallel_artifact_ledger(ctx):
+    # The practice is generic -- ANY family of parallel artifacts -- but
+    # this check knows exactly one family: this repo's own harness
+    # adapters. A repo without those directories has no family for this
+    # check to walk, which is not the same fact as "a ledger is missing":
+    # every consuming repo reported a VIOLATION demanding a ledger for a
+    # directory it does not have and should not have. Finding that repo's
+    # OWN parallel-artifact families is not something a static check can
+    # do, so it says so rather than guessing.
+    if not any((ROOT / d).is_dir() for d in _LEDGER_MEMBER_DIRS):
+        raise NotApplicable(
+            'this repo has none of the harness-adapter directories this '
+            'check knows how to walk (' + ', '.join(_LEDGER_MEMBER_DIRS) +
+            '), so there is no parallel-artifact family here for it to '
+            'ledger. A family of its own still needs one -- that half is '
+            'a review judgment, not something this check can find')
     ledger_path = ROOT / 'templates' / 'harness' / 'LEDGER.md'
     if not ledger_path.exists():
         return [Finding('templates/harness/LEDGER.md',
@@ -1318,7 +1377,26 @@ def _search_by_purpose(ctx):
 
 
 def _run(script, *args):
-    r = subprocess.run([sys.executable, str(ROOT / script), *args],
+    """Run one of this repo's own audit scripts, refusing loudly if it is
+    not here.
+
+    A missing script is NOT a clean run. Python exits 2 with "can't open
+    file" on stderr, which carries no `FAIL:`, no `SCRUB:` and no `NOT
+    APPLICABLE` -- so every caller below filtered zero lines out of it and
+    returned no findings, i.e. PASS. Three enforced practices
+    (scrub-gate, practice-export-loop, scripts-assert-properties) reported
+    a clean pass in every consuming repo, because the tools they run are
+    not in the vendored engine and nothing noticed. That is precisely the
+    "a scan with an empty input set printing OK" failure this module's own
+    docstring says it exists to prevent, and this module was doing it."""
+    path = ROOT / script
+    if not path.exists():
+        raise NotApplicable(
+            f'{script} is not in this repo, so this check has nothing to '
+            f'run. It is not part of the vendored engine '
+            f'(precedent_vendor_engine.py\'s CONSUMER_ENGINE_FILES) -- copy '
+            f'it from Precedent if this repo needs the practice enforced')
+    r = subprocess.run([sys.executable, str(path), *args],
                        cwd=str(ROOT), capture_output=True, text=True)
     return r.returncode, (r.stdout + r.stderr)
 

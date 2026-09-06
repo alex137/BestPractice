@@ -3958,6 +3958,32 @@ def check_sync_views_cross_source():
                       and 'MUST SURVIVE' in
                           (selfref2 / 'practices' / 'shared.md').read_text(encoding='utf-8'),
                       r_self2.stdout + r_self2.stderr))
+        # --- the OTHER writer of the same block must agree with this one ---
+        # Both commands are documented for a consuming repo: session start
+        # runs precedent_sync_views.py, and generated-artifact-provenance
+        # runs `build_views.py --check` on every precedent_check.py. They
+        # rendered different header lines for the same catalogue ("6 of 61
+        # practices (6 universal)" vs "6 of 61 practices"), because only
+        # sync_views passed source_levels -- a permanent, unresolvable
+        # "hand-edited or stale" report in every consuming repo, whichever
+        # ran last. build_views.py now reads the levels back out of
+        # MANIFEST.json, so the two agree by construction.
+        bv_tool = str(ROOT / 'tools' / 'build_views.py')
+        subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
+                       capture_output=True, text=True)
+        r_agree = subprocess.run([sys.executable, bv_tool, '--repo', str(consumer),
+                                  '--agents-only', '--check'],
+                                 capture_output=True, text=True)
+        cases.append(('build_views.py --check agrees with the block '
+                      'precedent_sync_views.py just wrote (one loader block, '
+                      'two documented writers)',
+                      r_agree.returncode == 0, r_agree.stdout + r_agree.stderr))
+        before_agents = (consumer / 'AGENTS.md').read_text(encoding='utf-8')
+        subprocess.run([sys.executable, bv_tool, '--repo', str(consumer),
+                        '--agents-only'], capture_output=True, text=True)
+        cases.append(('and running build_views.py for real changes nothing',
+                      (consumer / 'AGENTS.md').read_text(encoding='utf-8')
+                      == before_agents))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -3967,7 +3993,8 @@ def check_sync_views_cross_source():
           f'sources shown, correct level-of-resident counting, occasion '
           f'index reaches on-demand practices, --check both directions, a '
           f'self-referential source is refused rather than crashed or '
-          f'silently overwritten, alone or shadowed)',
+          f'silently overwritten, alone or shadowed, and build_views.py '
+          f'--check agrees with what this tool wrote)',
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
@@ -4825,9 +4852,33 @@ def check_vendor_engine_consumer_case():
         cases.append(("precedent_vendor_engine.py's SOURCE_BRANCH is readable, so this "
                       "fixture cannot drift from it", m is not None, ''))
         source_branch = m.group(1) if m else 'precedent-beta-v01'
-        subprocess.run(['git', '-C', str(upstream), 'update-ref',
-                        f'refs/heads/{source_branch}', 'HEAD'],
-                       capture_output=True, text=True)
+        # Repoint the clone's `origin` at ITSELF first. _source_tools_at
+        # runs `git fetch origin <SOURCE_BRANCH>` before it resolves
+        # anything, so with origin still pointing at this checkout that
+        # fetch overwrites the ref set below with whatever commit THIS
+        # checkout's local precedent-beta-v01 happens to sit at -- and the
+        # fixture silently tested that commit instead of the tree under
+        # test. It failed on any working tree ahead of that branch, with a
+        # message about a missing tools/precedent_vendor_engine.py that had
+        # nothing to do with the property being tested. Self-origin keeps
+        # both resolution paths real while making the fetch a no-op.
+        subprocess.run(['git', '-C', str(upstream), 'remote', 'set-url',
+                        'origin', str(upstream)], capture_output=True, text=True)
+        # BOTH refs, deliberately. `git clone` copies this checkout's own
+        # refs/heads/* into the clone's refs/remotes/origin/*, and
+        # _source_tools_at prefers origin/<SOURCE_BRANCH> over a local
+        # branch of that name -- so setting only the local ref left the
+        # clone vendoring from whatever commit THIS checkout's local
+        # precedent-beta-v01 happens to sit at, not from the tree under
+        # test. That made the case below fail on any working tree ahead of
+        # (or behind) that branch, with a message about a missing
+        # tools/precedent_vendor_engine.py that had nothing to do with the
+        # property being tested. Both refs point at the clone's HEAD, so
+        # this fixture tests THIS tree whichever resolution path wins.
+        for ref in (f'refs/heads/{source_branch}',
+                    f'refs/remotes/origin/{source_branch}'):
+            subprocess.run(['git', '-C', str(upstream), 'update-ref', ref, 'HEAD'],
+                           capture_output=True, text=True)
         r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
                             'refresh', str(upstream)], capture_output=True, text=True)
         cases.append(('refresh() without --force refuses a hand-edited vendored file',
@@ -4924,6 +4975,7 @@ def check_vendor_engine_consumer_case():
                            capture_output=True, text=True, cwd=str(consumer))
         cases.append(('a second, unchanged sync passes --check cleanly (idempotent)',
                       r.returncode == 0, r.stdout + r.stderr))
+
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -5305,8 +5357,16 @@ def check_pretooluse_hook_fires():
     cases.append(('an Edit on a tools/** path surfaces code-cites-practice\'s '
                   'Rule as additionalContext, never denying the edit',
                   rc == 0 and hso.get('hookEventName') == 'PreToolUse'
-                  and hso.get('permissionDecision') == 'allow'
                   and 'code-cites-practice' in hso.get('additionalContext', '')))
+    # The hook carries CONTEXT and no permission verdict. It used to emit
+    # `permissionDecision: "allow"`, which on the reading where that field
+    # settles the decision meant every install of this adapter silently
+    # auto-approved every Edit/Write/NotebookEdit whose path matched any
+    # practice -- which is most of them. Asserted so the field cannot come
+    # back as a copy-paste from another hook's example.
+    cases.append(('and carries no permissionDecision: a practice loader '
+                  'does not decide whether an edit is allowed',
+                  'permissionDecision' not in hso))
 
     rc, out = run_hook(json.dumps({'tool_name': 'Write',
                                     'tool_input': {'file_path': 'random/unrelated/thing.xyz'}}))
@@ -5333,7 +5393,7 @@ def check_pretooluse_hook_fires():
     bad = [(n, '') for n, ok in cases if not ok]
     check(f'PreToolUse hook fires ({len(cases)} stated cases: Edit file_path, '
           f'a no-match path, NotebookEdit notebook_path fallback, malformed '
-          f'stdin, a tool call with no tool_input)',
+          f'stdin, a tool call with no tool_input, and no permission verdict)',
           not bad, '; '.join(n for n, _ in bad))
 
 

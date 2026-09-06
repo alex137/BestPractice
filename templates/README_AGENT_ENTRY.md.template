@@ -4,7 +4,7 @@
      that opens the file's source. Only the Getting-Started line is
      visible to humans.
 
-     The project comes first (practice 38): if the README already has an
+     The project comes first (practice `lead-with-what-it-is`): if the README already has an
      opening that describes the project, insert only this block near the
      top — don't touch that opening. If the repo has no README yet, write
      a short project-specific opening ABOVE this block first — what the

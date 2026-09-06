@@ -1,6 +1,6 @@
 # Repo TODO — open analyses, verifications, and decisions
 
-<!-- Template: instantiate per BestPractice INSTALL.md §1 (practice 1).
+<!-- Template: instantiate per BestPractice INSTALL.md §1 (practice `repo-is-memory`).
      The typed convention below is the load-bearing part: the type says WHO
      can act on an item (an agent at the desk, a human decision, hardware). -->
 
@@ -11,7 +11,7 @@ agent-doable from the desk; **verify** = source-check before external use;
 Prune when done; large completed items get a one-line "done → doc" entry, then
 drop off next cycle.
 
-**A TODO is a handoff, not a parking lot** (practice 53): an item enters this
+**A TODO is a handoff, not a parking lot** (practice `todo-is-a-handoff`): an item enters this
 list only with a stated reason it isn't being done now — *blocked-on* a named
 input (decision-owner named), or *out-of-scope* for the session writing it
 (then the item carries the context a cold session needs: why, approach,

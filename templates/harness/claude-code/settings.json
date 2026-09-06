@@ -1,5 +1,5 @@
 {
-  "_comment": "Claude Code adapter: install to .claude/settings.json (practice 13). Wires the SessionStart hook (which execs tools/bootstrap.sh), a PreToolUse hook that surfaces the path-triggered loading channel's matched practice Rules before an Edit/Write/NotebookEdit proceeds, a Stop hook that blocks ending a turn with uncommitted/untracked/unpushed work, and allowlists the routine safe commands sessions run constantly, so work doesn't stall on permission prompts. Add your repo's own audit/build commands.",
+  "_comment": "Claude Code adapter: install to .claude/settings.json (practice `session-bootstrap`). Wires the SessionStart hook (which execs tools/bootstrap.sh), a PreToolUse hook that surfaces the path-triggered loading channel's matched practice Rules before an Edit/Write/NotebookEdit proceeds, a Stop hook that blocks ending a turn with uncommitted/untracked/unpushed work, and allowlists the routine safe commands sessions run constantly, so work doesn't stall on permission prompts. Add your repo's own audit/build commands. The Precedent loader commands are listed BOTH bare and with arguments: Claude Code matches `Bash(cmd *)` against an invocation that actually has arguments, so a bare `python3 tools/doc_lint.py` -- the exact form the merge runbook and AGENTS.md's own light check tell every session to run -- prompted on every single run until both forms were listed.",
   "permissions": {
     "allow": [
       "Bash(grep *)",
@@ -17,9 +17,27 @@
       "Bash(git push -u origin *)",
       "Bash(git check-ignore *)",
       "Bash(git check-attr *)",
+      "Bash(python3 tools/precedent_show.py)",
+      "Bash(python3 tools/precedent_show.py *)",
+      "Bash(python3 tools/precedent_paths.py)",
+      "Bash(python3 tools/precedent_paths.py *)",
+      "Bash(python3 tools/precedent_gate.py)",
+      "Bash(python3 tools/precedent_gate.py *)",
+      "Bash(python3 tools/precedent_check.py)",
+      "Bash(python3 tools/precedent_check.py *)",
+      "Bash(python3 tools/precedent_sync_views.py)",
+      "Bash(python3 tools/precedent_sync_views.py *)",
+      "Bash(python3 tools/routing_audit.py)",
+      "Bash(python3 tools/routing_audit.py *)",
+      "Bash(python3 tools/doc_lint.py)",
+      "Bash(python3 tools/doc_lint.py *)",
+      "Bash(python3 tools/doc_sync.py)",
+      "Bash(python3 tools/doc_sync.py *)",
+      "Bash(python3 process/upstream/tools/doc_lint.py)",
       "Bash(python3 process/upstream/tools/doc_lint.py *)",
       "Bash(python3 process/upstream/tools/practice_audit.py)",
-      "Bash(python3 process/upstream/tools/practice_audit.py *)"
+      "Bash(python3 process/upstream/tools/practice_audit.py *)",
+      "Bash(bash tools/bootstrap.sh)"
     ]
   },
   "hooks": {

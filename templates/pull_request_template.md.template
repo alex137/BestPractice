@@ -8,7 +8,7 @@
      PR — never check a box, or write N/A across every field, just to make
      the form look complete. A checklist filled in mechanically looks like
      verification and isn't; that defeats the entire point of having one
-     (practice 39 in PRACTICES.md). -->
+     (practice `pr-template-honest-gates` in PRACTICES.md). -->
 
 ## What changed
 

@@ -248,10 +248,41 @@ def build_loader_block(practices, source_levels=None):
     return '\n'.join(lines), token_count, len(resident)
 
 
-def render_agents_md(practices, agents_md=None):
+def source_levels_from_manifest(root):
+    """{slug: level} read back out of a consuming repo's MANIFEST.json, or
+    None where there is no such file.
+
+    WHY THIS EXISTS. precedent_sync_views.py renders the loader block with
+    `source_levels=` (it has the resolution in hand), and this tool's own
+    main() rendered it WITHOUT -- so the two wrote different header lines
+    for the same catalogue ("6 of 61 practices (6 universal)" vs "6 of 61
+    practices"). In a consuming repo, where both are documented commands,
+    that is a permanent unresolvable flip-flop: session start runs
+    precedent_sync_views.py, then `build_views.py --check` -- which
+    generated-artifact-provenance runs on every precedent_check.py --
+    reports the block as hand-edited or stale, forever, whichever ran
+    last. MANIFEST.json is precedent_materialize.py's own record of which
+    source produced each practice, so reading it here makes the two
+    renderers agree by construction rather than by both remembering to
+    pass the same argument. Absent in a single-source repo (Precedent
+    itself), where there are no levels to break down and the header is
+    unchanged."""
+    manifest = root / 'MANIFEST.json'
+    if not manifest.is_file():
+        return None
+    try:
+        data = json.loads(manifest.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, OSError):
+        return None
+    levels = {e['slug']: e['level'] for e in data.get('practices', [])
+              if 'slug' in e and 'level' in e}
+    return levels or None
+
+
+def render_agents_md(practices, agents_md=None, source_levels=None):
     agents_md = agents_md if agents_md is not None else AGENTS_MD
     original = agents_md.read_text(encoding='utf-8')
-    block, _tokens, _n = build_loader_block(practices)
+    block, _tokens, _n = build_loader_block(practices, source_levels=source_levels)
     if BEGIN_MARKER not in original or END_MARKER not in original:
         sys.exit(f"build_views FAIL: {agents_md} has no "
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
@@ -420,7 +451,8 @@ def main():
     agents_only = '--agents-only' in argv
     practices = load_practices(practices_dir)
 
-    new_agents = render_agents_md(practices, agents_md)
+    levels = source_levels_from_manifest(root)
+    new_agents = render_agents_md(practices, agents_md, source_levels=levels)
     targets = [(agents_md, new_agents)]
     if not agents_only:
         targets.append((map_md, render_map_md(practices)))
@@ -442,7 +474,8 @@ def main():
 
     for path, new_text in targets:
         path.write_text(new_text, encoding='utf-8')
-    _block, tokens, n_resident = build_loader_block(practices)
+    _block, tokens, n_resident = build_loader_block(
+        practices, source_levels=source_levels_from_manifest(root))
     wrote = ', '.join(p.name for p, _t in targets)
     print(f"build_views OK: wrote {wrote} (loader block regenerated, resident "
           f"{n_resident}/{len(practices)} practices, ~{tokens} tokens)")

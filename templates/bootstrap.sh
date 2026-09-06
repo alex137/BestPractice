@@ -1,8 +1,8 @@
 #!/bin/bash
-# Bootstrap template (practice 13) — environment setup as code, harness-neutral.
+# Bootstrap template (practice `session-bootstrap`) — environment setup as code, harness-neutral.
 #
 # Install to tools/bootstrap.sh in the dependent repo. Every entry here should
-# exist because its absence cost a real session (practice 4): record the story
+# exist because its absence cost a real session (practice `environment-gotchas`): record the story
 # in the instructions file's gotchas section, and encode the fix here so it
 # applies itself. Keep it idempotent, fast when cached, and loud (a WARN,
 # never a silent failure) when something can't install.
@@ -59,9 +59,41 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   fi
 fi
 
-# BestPractice upstream freshness notice (see PRACTICES.md practice 13):
-# detection is automated -- one ls-remote against the public upstream,
-# silent when current or offline; TAKING the update stays deliberate
-# (INSTALL.md sec.2) because installs are adaptive and unattended mirrors
-# are the mechanism class that loses content.
-python3 process/upstream/tools/checkin.py fresh 2>/dev/null || true
+# Is the loader block current with every practice source this repo
+# declares? A consuming repo's AGENTS.md generated block is built from
+# precedent.json's sources; any of them can move between sessions (a team
+# set is a live sibling clone, not a vendored copy), and a session that
+# reads a stale block follows rules nobody has any more -- or misses ones
+# everybody does. --check never writes: it reports, and this never fails
+# the session.
+if [ -f tools/precedent_sync_views.py ] && [ -f precedent.json ]; then
+  if ! python3 tools/precedent_sync_views.py --check >/dev/null 2>&1; then
+    echo "WARN: AGENTS.md's generated loader block is out of date with precedent.json's sources. Fix: python3 tools/precedent_sync_views.py, review the diff, commit." >&2
+  fi
+fi
+
+# BestPractice upstream freshness notice, for a repo on the CLASSIC
+# process/upstream/ vendoring layout (INSTALL.md section 1). Detection is
+# automated -- one ls-remote against the public upstream, silent when
+# current or offline; TAKING the update stays deliberate (INSTALL.md
+# section 2) because installs are adaptive and unattended mirrors are the
+# mechanism class that loses content.
+#
+# GUARDED, not silenced. This line used to be an unconditional
+# `python3 process/upstream/tools/checkin.py fresh 2>/dev/null || true`,
+# which in a Precedent-loader install (no process/upstream/ at all) failed
+# on every session start and said nothing -- so a whole class of install
+# got no freshness check and no notice that it had none. Silence has to
+# mean "checked and current", never "there was nothing to run": that is
+# the same trap the checkout-freshness block above exists for.
+#
+# The Precedent-loader layout has no equivalent to run here: its engine
+# freshness check (`python3 tools/precedent_vendor_engine.py status
+# <bestpractice-clone>`) needs a local clone of the upstream repo to
+# compare against, which a fresh session has no reason to have. That one
+# stays a deliberate step -- INSTALL.md section 2, "Keep the vendored
+# engine current (consumer repos)".
+if [ -f process/upstream/tools/checkin.py ]; then
+  python3 process/upstream/tools/checkin.py fresh || \
+    echo "WARN: upstream freshness check failed - not verified" >&2
+fi
