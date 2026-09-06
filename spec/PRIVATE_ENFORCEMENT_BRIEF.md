@@ -6,7 +6,7 @@
 `themorgan/precedent-individual` or `themorgan/precedent-team-maintainers`,
 or against Precedent with one or both of them also attached.** It was
 originally written for exactly one of those sessions at a time — see
-[Why this cannot run from Precedent](#why-this-cannot-run-from-precedent)
+[Why this could not run from Precedent](#why-this-could-not-run-from-precedent-original-reasoning-relaxed-2026-09-01)
 for that original reasoning — but as of 2026-09-01 that isolation is
 relaxed for active development; see
 [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md).

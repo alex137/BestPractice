@@ -178,7 +178,7 @@ case documented above.
    starts — not a race the hook might win with enough tries, an ordering
    it cannot win even once. So the consuming project's instructions file
    still needs the standing `add_repo`-at-session-start instruction
-   ([INSTALL.md step 9](../INSTALL.md#9-ask-about-team-and-individual-practice-sources),
+   ([INSTALL.md step 9](../INSTALL.md#1-install-into-a-dependent-repo),
    [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)
    step 4) alongside this hook — what actually saves the session is
    `tools/precedent_resolve.py`'s own lazy self-heal re-invoking this same
@@ -215,7 +215,7 @@ per person), and it needs at least one approver at creation time.
    (this one *is* meant to be shared — everyone on the project reads it):
    either pass `--write-repo-config <project root>` on the bootstrap
    command, or add the printed `"sources"` entry by hand, per
-   [INSTALL.md step 9](../INSTALL.md#9-ask-about-team-and-individual-practice-sources).
+   [INSTALL.md step 9](../INSTALL.md#1-install-into-a-dependent-repo).
 6. On a hosted/ephemeral session where nothing under the project's git
    checkout persists between sessions, wire the sibling-checkout access
    the same way [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s

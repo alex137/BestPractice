@@ -191,6 +191,26 @@ run prompted on every single run.
    every vendored `ENGINE_MANIFEST.json`'s `source_repo`, every absolute
    link in the private sets) and is not part of this.
 
+   **The rule, stated mechanically** (Morgan, 2026-09-06, narrowing the
+   four bullets above into something a session can check rather than
+   judge): rename the product **in prose only**. Nothing inside link
+   syntax changes — not a link target, not a URL, not a path, not a
+   filename, not an anchor — until the repository is officially renamed.
+   The four bullets say *why* each exception exists; this says where the
+   line is, and it is the same line every time: if the text is a thing a
+   reader clicks or a machine resolves, it names the repository as it is
+   today, not as it will be called.
+
+   The rename commit was audited against that rule after the fact and
+   already met it: of its 26 files, zero link targets, zero URLs, zero
+   code spans, zero filenames and zero anchors changed. The one thing
+   worth naming because it looks like an exception and is not:
+   [templates/github-actions/doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)'s
+   workflow `name:` became "Precedent documentation checks". That is a
+   display label. A repository's branch-protection rules key off the
+   **job** name, which is still `Markdown lint`, so no adopter's required
+   check changes identity.
+
 2. **`themorgan/Precedent`** (private, created 2026-08-31, last pushed the
    same day) is an abandoned early fork. The restructuring it was for is
    what `precedent-beta-v01` in this repository now holds, and nothing
@@ -229,7 +249,29 @@ run prompted on every single run.
    resolving. `precedent-team-maintainers`' light check dropped the
    exemption it needed to stay green, and its test for that path now
    requires a finding instead of silence.
-4. **The team set's 39 judgment-only practices were not swept.** The full
+4. ~~**Nine links pointed at headings that no longer exist.**~~ **Done.**
+   Found by asking whether the rename above had touched anything inside
+   link syntax; it had not, but the scan turned up a defect a level down.
+   [doc_lint.py](../tools/doc_lint.py)'s link check verified that a
+   target's *file* existed and skipped its `#fragment` entirely, on a
+   docstring's claim that an anchor "is not something this can check
+   without rendering the document". It is: GitHub's slug rule is
+   mechanical. Nine anchors were dead — six headings simply reworded since
+   the link was written, two naming an `INSTALL.md` section 9 that does
+   not exist (step 9 is a list item inside §1, and a list item has no
+   anchor), one amended in place.
+
+   This is the quiet half of the broken-link class, and worse than the
+   404 half: a dead anchor still loads the right document, just at the
+   top, so no reader ever reports it. The check now resolves fragments
+   against the target's real headings. Two things it gets right that a
+   naive version would not, both pinned in the harness: a dash set off by
+   spaces yields a **double** hyphen (`cost — the numbers` is
+   `#cost--the-numbers`, because the dash is deleted and both its spaces
+   survive), and a document written in a heading style the parser does not
+   read reports "cannot tell" rather than "the anchor is missing". All
+   nine are fixed; the whole tree resolves. practice: `convention-to-audit`.
+5. **The team set's 39 judgment-only practices were not swept.** The full
    practice audit reports 49 judgment-only practices across three sources.
    This session judged the universal slice's highest-yield ones
    (`lead-with-what-it-is`, `section-order-by-frequency`,
@@ -238,12 +280,12 @@ run prompted on every single run.
    The team and individual slices are untouched — a session with those
    repos attached should take them next, one at a time, with the closed
    question the practice's own Rule names.
-5. **TODO.md item 11 still needs a live session**: whether
+6. **TODO.md item 11 still needs a live session**: whether
    `additionalContext` reaches the model or only the transcript. The test
    plan is written; it needs a real Claude Code session with the adapter
    installed. Now cheaper to run than it was: this repo installs the hook
    itself as of today, so the next session here is the test.
-6. **The design half of TODO.md item 7**: whether a consuming repo should
+7. **The design half of TODO.md item 7**: whether a consuming repo should
    be able to express a preference between two team sources at all, rather
    than being told to rename one. The silent-failure half is closed; the
    design question is untouched, and a second team set now exists to test

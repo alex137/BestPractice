@@ -77,7 +77,7 @@ What the finding does kill is the belief that more routing will fix this.
 **Tested below and falsified — kept here as the argument that was tested,
 not as current guidance.** See
 [The review-arm result](#the-review-arm-result-2026-08-31) for the verdict
-and the [supporting moves](#the-supporting-moves-whatever-the-experiment-says)
+and the [supporting moves](#the-supporting-moves-now-the-primary-recommendation)
 for what to do instead.
 
 **Move the decision point from before the work to after it.**

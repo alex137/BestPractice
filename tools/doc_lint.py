@@ -29,9 +29,12 @@ behavior that GitHub silently neutered):
   4. BROKEN RELATIVE LINK (error). A relative markdown link whose target does
      not exist, resolved from the linking FILE's own directory (not the repo
      root — the mistake that produced 96 of them here, in files one level
-     down). Skips fenced blocks, code spans, URLs and bare anchors; skips
-     templates/ and deck/, whose links deliberately name a tree that is not
-     this repo's.
+     down). A target carrying a `#fragment` is checked twice: the file must
+     exist, and the fragment must match a heading in it -- GitHub's own slug
+     rule, so `## Cost — the numbers` is `#cost--the-numbers`, two hyphens,
+     because the dash is deleted and both of its spaces survive. Skips fenced
+     blocks, code spans and URLs; skips templates/ and deck/, whose links
+     deliberately name a tree that is not this repo's.
 
   5. HTML ANCHOR WITH target= (warning). GitHub's sanitizer strips target=
      (and most other attributes) from raw HTML anchors in rendered markdown,
@@ -171,13 +174,76 @@ CODE_SPAN_RE = re.compile(r'`[^`]*`')
 LINK_CHECK_EXEMPT_DIRS = ('templates/', 'deck/')
 
 
+# Anchors. A link's fragment is as breakable as its path and breaks more
+# quietly: editing a heading silently invalidates every link into it, and the
+# reader lands at the top of the right document instead of at a 404, so
+# nobody reports it. Nine were dead here when this was written (2026-09-06),
+# one of them pointing at an INSTALL.md section number that no longer exists
+# and six at headings that had simply been reworded since. practice:
+# convention-to-audit.
+#
+# GitHub's rule (github-slugger): lowercase, drop every character that is not
+# alphanumeric, hyphen, underscore or space, then spaces to hyphens, then
+# `-1`, `-2` for repeats. Note what that does to a dash set off by spaces --
+# the dash goes, its two spaces stay, and the anchor gets a DOUBLE hyphen.
+HEADING_RE = re.compile(r'#{1,6}\s+(.*)')
+HTML_ANCHOR_ID_RE = re.compile(r'<a\s[^>]*(?:name|id)\s*=\s*"([^"]+)"', re.I)
+SETEXT_RE = re.compile(r'^(?:=+|-{2,})\s*$')
+_INLINE_MD = [(re.compile(r'`([^`]*)`'), r'\1'),
+              (re.compile(r'\[([^\]]*)\]\([^)]*\)'), r'\1'),
+              (re.compile(r'\*\*([^*]*)\*\*'), r'\1'),
+              (re.compile(r'\*([^*]*)\*'), r'\1'),
+              (re.compile(r'__([^_]*)__'), r'\1'),
+              (re.compile(r'<[^>]+>'), '')]
+_anchor_cache = {}
+
+
+def heading_slug(text):
+    """GitHub's anchor for one heading's raw markdown text."""
+    for rx, rep in _INLINE_MD:
+        text = rx.sub(rep, text)
+    return re.sub(r'[^\w\- ]', '', text.strip().lower()).replace(' ', '-')
+
+
+def document_anchors(path):
+    """The set of anchors `path` offers, or None if that cannot be known.
+
+    None rather than an empty set for a document using setext headings
+    (`Title` over `=====`), which this does not parse: an unknown anchor set
+    must not read as "the anchor is missing". Nothing in this repo uses
+    them, so the guard costs nothing and stops the check inventing failures
+    in a document written a way it does not understand."""
+    key = str(path)
+    if key in _anchor_cache:
+        return _anchor_cache[key]
+    out, seen, incode, prev = set(), {}, False, ''
+    for line in path.read_text(encoding='utf-8', errors='ignore').splitlines():
+        if line.lstrip().startswith(('```', '~~~')):
+            incode, prev = not incode, ''
+            continue
+        if incode:
+            continue
+        if prev.strip() and SETEXT_RE.match(line):
+            out = None
+            break
+        m = HEADING_RE.match(line)
+        if m:
+            a = heading_slug(m.group(1))
+            n = seen.get(a, 0)
+            seen[a] = n + 1
+            out.add(a if n == 0 else f'{a}-{n}')
+        out.update(x.lower() for x in HTML_ANCHOR_ID_RE.findall(line))
+        prev = line
+    _anchor_cache[key] = out
+    return out
+
+
 def check_broken_links(path):
-    """[(lineno, target)] relative links in `path` that resolve to nothing.
+    """[(lineno, target, why)] links in `path` that land nowhere.
 
     Skips fenced blocks and inline code spans (a link written inside
-    backticks is a value being documented, not a reference), absolute
-    URLs, mailto:, and pure `#anchor` targets -- an anchor's existence is
-    not something this can check without rendering the document."""
+    backticks is a value being documented, not a reference), absolute URLs
+    and mailto:. A bare `#anchor` is resolved against this file itself."""
     rel = str(path).replace('\\', '/')
     if rel.startswith(LINK_CHECK_EXEMPT_DIRS):
         return []
@@ -191,13 +257,26 @@ def check_broken_links(path):
             continue
         clean = CODE_SPAN_RE.sub(lambda m: ' ' * len(m.group(0)), line)
         for _label, target in LINK_RE.findall(clean):
-            if target.startswith(('http://', 'https://', 'mailto:', '#')):
+            if target.startswith(('http://', 'https://', 'mailto:')):
                 continue
-            bare = target.split('#')[0]
-            if not bare:
+            bare, _, frag = target.partition('#')
+            dest = p if not bare else (p.parent / bare)
+            if bare and not dest.exists():
+                out.append((i, target, 'no such file'))
                 continue
-            if not (p.parent / bare).exists():
-                out.append((i, target))
+            if not frag or dest.suffix.lower() != '.md':
+                continue
+            # An anchor into a tree that is not this repo's is as
+            # unresolvable-on-purpose as a path into one.
+            try:
+                drel = str(dest.resolve().relative_to(ROOT.resolve()))
+            except ValueError:
+                continue
+            if drel.replace('\\', '/').startswith(LINK_CHECK_EXEMPT_DIRS):
+                continue
+            have = document_anchors(dest)
+            if have is not None and frag.lower() not in have:
+                out.append((i, target, f'no heading makes #{frag} in {drel}'))
     return out
 
 
@@ -697,8 +776,8 @@ def main():
             continue
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
-        for i, target in check_broken_links(f):
-            broken_link_lines.append(f"  {f}:{i}: -> {target}")
+        for i, target, why in check_broken_links(f):
+            broken_link_lines.append(f"  {f}:{i}: -> {target}  ({why})")
         s, u, g, t, nf = check_file(f, fix=fix, known=known)
         total_fixed += nf
         for i, txt in s:
@@ -774,9 +853,10 @@ def main():
 
     if broken_link_lines:
         print(f"\nBROKEN RELATIVE LINKS — {len(broken_link_lines)} link(s) "
-              f"resolve to nothing ({'FAIL' if gate else 'backlog report'}; a "
+              f"land nowhere ({'FAIL' if gate else 'backlog report'}; a "
               "reference that 404s is not a reference — check the path is "
-              "relative to THIS file's directory, not the repo root):")
+              "relative to THIS file's directory, not the repo root, and "
+              "that a #fragment still matches a heading):")
         print('\n'.join(broken_link_lines[:40]))
         if len(broken_link_lines) > 40:
             print(f"  … and {len(broken_link_lines) - 40} more")

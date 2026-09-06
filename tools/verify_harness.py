@@ -1777,19 +1777,22 @@ def check_doc_lint_fires():
         (tmp / 'tools' / 'real.py').write_text('x\n', encoding='utf-8')
         (tmp / 'practices').mkdir(exist_ok=True)
         (tmp / 'practices' / 'p.md').write_text(
+            "# Top\n"
             "Root-relative from a subdirectory: [a](tools/real.py).\n"
             "Correct: [b](../tools/real.py).\n"
             "In a code span, a value not a reference: `[c](tools/gone.py)`.\n"
             "```\n[d](tools/gone.py)\n```\n"
             "External: [e](https://example.com/x) and anchor [f](#top).\n",
             encoding='utf-8')
+        dl._anchor_cache.clear()
         broken = dl.check_broken_links('practices/p.md')
         cases.append(('a root-relative link from a subdirectory is caught '
-                      'as broken', broken == [(1, 'tools/real.py')]))
+                      'as broken',
+                      broken == [(2, 'tools/real.py', 'no such file')]))
         cases.append(('a correct ../ link, a link inside a code span, a link '
                       'inside a fenced block, an external URL and a bare '
-                      'anchor are all left alone',
-                      [t for _i, t in broken] == ['tools/real.py']))
+                      'anchor that resolves are all left alone',
+                      [t for _i, t, _w in broken] == ['tools/real.py']))
 
         (tmp / 'templates').mkdir(exist_ok=True)
         (tmp / 'templates' / 'README.md').write_text(
@@ -5186,6 +5189,84 @@ def check_rule_rewrite_detection():
           not bad)
 
 
+def check_link_anchors_resolve():
+    """A link's #fragment is checked against the target's real headings.
+
+    An anchor breaks more quietly than a path: edit a heading and every
+    link into it silently lands at the top of the right document instead of
+    at a 404, so no reader ever reports it. Nine were dead in this repo
+    when the check was written (2026-09-06) -- six headings simply reworded
+    since, two pointing at an `INSTALL.md` section number that no longer
+    exists, one at a heading amended in place.
+
+    The slug rule is GitHub's, and the case that catches a naive
+    implementation is a dash set off by spaces: the dash is deleted and
+    BOTH its spaces survive as hyphens, so `cost — the numbers` is
+    `cost--the-numbers`. Getting that wrong invents a failure on a heading
+    that is perfectly fine. The setext case is pinned in the other
+    direction: a heading style this does not parse must read as "cannot
+    tell", never as "the anchor is missing"."""
+    import importlib.util, tempfile
+    spec = importlib.util.spec_from_file_location(
+        '_dl_anchor', ROOT / 'tools' / 'doc_lint.py')
+    dl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dl)
+
+    slugs = [
+        ('a plain heading', 'The supporting moves', 'the-supporting-moves'),
+        ('a spaced dash leaves both its spaces',
+         'What it cost — the numbers', 'what-it-cost--the-numbers'),
+        ('punctuation is dropped, not replaced',
+         'Precedence, and the one case', 'precedence-and-the-one-case'),
+        ('a parenthetical keeps its words',
+         'Why this could not run (original reasoning, relaxed 2026-09-01)',
+         'why-this-could-not-run-original-reasoning-relaxed-2026-09-01'),
+        ('inline code and links contribute their text only',
+         'Run `tools/x.py` per [the plan](PLAN.md)',
+         'run-toolsxpy-per-the-plan'),
+    ]
+    bad = [n for n, h, want in slugs if dl.heading_slug(h) != want]
+    for n in bad:
+        h, want = next((h, w) for nm, h, w in slugs if nm == n)
+        print(f"  anchor slug wrong for {n}: {dl.heading_slug(h)!r} != {want!r}")
+    check(f'doc_lint computes GitHub\'s heading anchors ({len(slugs)} stated '
+          f'cases, including the spaced dash that yields a double hyphen)',
+          not bad)
+
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        (d / 'target.md').write_text(
+            '# Top\n\n## What it cost — the numbers\n\n## Dup\n\n## Dup\n')
+        (d / 'src.md').write_text(
+            '# Src\n\n'
+            '[ok](target.md#what-it-cost--the-numbers)\n'
+            '[ok2](target.md#dup-1)\n'
+            '[ok-self](#src)\n'
+            '[dead](target.md#what-it-cost-the-numbers)\n'
+            '[dead-self](#no-such-thing)\n')
+        (d / 'setext.md').write_text('Underlined Title\n================\n')
+        (d / 'into-setext.md').write_text(
+            '# S\n\n[unknowable](setext.md#underlined-title)\n')
+        old_root = dl.ROOT
+        try:
+            dl.ROOT = d
+            dl._anchor_cache.clear()
+            found = {t for _i, t, _w in dl.check_broken_links('src.md')}
+            unknowable = dl.check_broken_links('into-setext.md')
+        finally:
+            dl.ROOT = old_root
+            dl._anchor_cache.clear()
+
+    check('a live anchor, a de-duplicated one (`#dup-1`) and a same-file '
+          'anchor all resolve; a reworded one and a missing same-file one '
+          'are both caught',
+          found == {'target.md#what-it-cost-the-numbers', '#no-such-thing'},
+          f'flagged {sorted(found)}')
+    check('an anchor into a setext-headed document reads as "cannot tell", '
+          'not as a missing anchor', not unknowable,
+          f'flagged {unknowable}')
+
+
 def check_materialized_links_are_placed():
     """A practice's relative links are repointed for where the file lands.
 
@@ -5806,6 +5887,7 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
+    check_link_anchors_resolve()
     check_materialized_links_are_placed()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()

@@ -173,7 +173,7 @@ the budget is refused.
 
 **What's still needed, and can only happen from a session against the real
 private sets** (never from here — see
-[Why this cannot run from Precedent](../spec/PRIVATE_ENFORCEMENT_BRIEF.md#why-this-cannot-run-from-precedent)
+[Why this could not run from Precedent](../spec/PRIVATE_ENFORCEMENT_BRIEF.md#why-this-could-not-run-from-precedent-original-reasoning-relaxed-2026-09-01)
 for the same two structural reasons): run
 `python3 tools/precedent_resolve.py --repo <a consumer repo>` with a real
 `precedent.json` naming `precedent-team-maintainers` and a user config

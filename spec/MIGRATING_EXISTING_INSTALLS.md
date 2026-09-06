@@ -30,12 +30,12 @@ A repo whose `process/manifest.json` records an `upstream.repo` pointing at
 BestPractice, **and** which has some second vendored tree for
 domain/team/personal rules that did not come from BestPractice itself (a
 "personal pack," a compliance pack, anything installed under
-[layered-practice-packs](../PRACTICES.md#23-a-layered-set-of-practice-packs-generic-domain-repo-local)'s
+[layered-practice-packs](../PRACTICES.md#23-layered-practice-packs-a-domain-layer-between-generic-and-repo-local)'s
 old pack mechanism) — where that second tree's *source* repo has since
 split, or is splitting, into Precedent-shaped team/individual sets. If the
 second tree's source repo has no plans to split, there's nothing to
 migrate: the pack mechanism, described in
-[layered-practice-packs](../PRACTICES.md#23-a-layered-set-of-practice-packs-generic-domain-repo-local)'s
+[layered-practice-packs](../PRACTICES.md#23-layered-practice-packs-a-domain-layer-between-generic-and-repo-local)'s
 own Install section, is still supported for a repo that hasn't migrated to
 the loader.
 

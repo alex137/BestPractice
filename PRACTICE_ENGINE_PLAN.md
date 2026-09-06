@@ -1905,7 +1905,7 @@ matching the rest of this document's own current-state discipline
   point of the field, one practice per scope. Two sharing a slug where the
   scopes *overlap* (including one narrower and one `null`/wide-open) is a
   conflict the resolver refuses loudly, the same way
-  [source precedence](#precedence-and-the-one-case-where-the-individual-does-not-win)
+  [source precedence](#precedence-and-the-one-case-precedence-alone-does-not-decide)
   already refuses an ambiguous `overrides:` rather than picking one
   arbitrarily — a resolver that silently picked the first match on disk
   would make "which one applies here" depend on filesystem iteration
