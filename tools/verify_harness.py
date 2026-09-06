@@ -3039,6 +3039,13 @@ def check_precedent_check_fires():
             '_pc', ROOT / 'tools' / 'precedent_check.py')
         pc = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(pc)
+        # The registry is only complete after the source-supplied check
+        # scripts register themselves -- precedent_check.main() does this
+        # before it reads CHECKS, and so must anything auditing CHECKS.
+        # Without it a practice whose checked_by names a tools/checks/
+        # script would look unregistered here (and its check would look
+        # untested), which is the opposite of the truth.
+        pc.register_materialized_checks()
         untested = sorted(set(pc.CHECKS) - set(planted))
         cases.append(('every registered check has a planted case here',
                       not untested, f'untested: {untested}' if untested else ''))
@@ -3446,12 +3453,13 @@ def check_materialize_bridges_loader():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-materialize-'))
 
-    def write_practice(path, slug, rule, tier='on-demand', occasion='x'):
+    def write_practice(path, slug, rule, tier='on-demand', occasion='x',
+                       checked_by='null'):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             f'---\nslug: {slug}\ntitle: Fixture\ntier: {tier}\n'
             f'severity: default\napplies_to: ["**"]\noccasion: "{occasion}"\n'
-            f'gates: []\nindex_clause: "x"\nchecked_by: null\ndefines: []\n'
+            f'gates: []\nindex_clause: "x"\nchecked_by: {checked_by}\ndefines: []\n'
             f'status: active\nsupersedes: []\noverrides: null\n'
             f'added: 2026-09-02\napproved_by: "harness, 2026-09-02"\n'
             f'source_practice_number: null\n---\n## Rule\n{rule}\n\n'
@@ -3464,13 +3472,28 @@ def check_materialize_bridges_loader():
     cases = []
     try:
         uni, team = tmp / 'universal', tmp / 'team'
+        # Both fixture practices CLAIM the same check filename, which is
+        # what makes the collision below a real one: since 2026-09-06
+        # materialize only vendors a script some resolved practice's
+        # `checked_by` names, so an unclaimed pair would simply be dropped
+        # and never collide.
         write_practice(uni / 'practices' / 'uni-fixture.md', 'uni-fixture',
-                        'A universal fixture Rule.', tier='resident')
+                        'A universal fixture Rule.', tier='resident',
+                        checked_by='"tools/checks/check_shared_name.py"')
         write_practice(team / 'practices' / 'team-fixture.md', 'team-fixture',
-                        'A team fixture Rule.', tier='resident')
+                        'A team fixture Rule.', tier='resident',
+                        checked_by='"tools/checks/check_shared_name.py"')
         write_check(uni / 'tools' / 'checks' / 'check_shared_name.py')
         write_check(team / 'tools' / 'checks' / 'check_shared_name.py')
-        write_check(uni / 'tools' / 'checks' / 'tests' / 'test_uni_fixture.sh',
+        write_check(uni / 'tools' / 'checks' / 'tests' / 'test_shared_name.sh',
+                    body='fixture\n')
+        # Claimed by nothing: a script whose practice was retired, or lost
+        # its slug to a higher-precedence source. Must not be vendored --
+        # precedent-team-maintainers' retired `deep-check` shipped exactly
+        # this into a consuming repo, where it registered under its own
+        # filename and reported "not in force" forever.
+        write_check(uni / 'tools' / 'checks' / 'check_orphan.py')
+        write_check(uni / 'tools' / 'checks' / 'tests' / 'test_orphan.sh',
                     body='fixture\n')
 
         consumer = tmp / 'consumer'
@@ -3527,6 +3550,17 @@ def check_materialize_bridges_loader():
         cases.append(('every MANIFEST.json practices[]/checks[] path resolves to a '
                       'real file on disk', manifest_paths_ok, manifest_paths_detail))
 
+        cases.append(("a check script no resolved practice's checked_by names "
+                      "is not vendored, and neither is its test",
+                      materialized_ok
+                      and not (consumer / 'tools' / 'checks' / 'check_orphan.py').exists()
+                      and not (consumer / 'tools' / 'checks' / 'tests' / 'test_orphan.sh').exists()))
+        cases.append(('a claimed check script and its test ARE vendored',
+                      materialized_ok
+                      and (consumer / 'tools' / 'checks' / 'check_shared_name.py').exists()
+                      and (consumer / 'tools' / 'checks' / 'tests' / 'test_shared_name.sh').exists()))
+
+        (consumer / 'tools').mkdir(parents=True, exist_ok=True)
         for f in ('build_views.py', 'split_practices.py'):
             shutil.copyfile(ROOT / 'tools' / f, consumer / 'tools' / f)
         (consumer / 'AGENTS.md').write_text(
@@ -4900,6 +4934,129 @@ def check_vendor_engine_consumer_case():
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 
 
+def check_source_supplied_checks_run():
+    """A `checked_by: tools/checks/check_x.py` claim actually RUNS.
+
+    Before precedent_check.register_materialized_checks() existed, nothing
+    anywhere invoked those scripts. precedent_materialize.py copied them
+    into a consuming repo, precedent_land.py refused to land a team or
+    individual practice without one, and spec/PRIVATE_ENFORCEMENT_BRIEF.md
+    told a private set how to write one -- and then a consuming repo held
+    fourteen real, tested check scripts (nine in precedent-team-maintainers,
+    five in precedent-individual, as of 2026-09-06) that no command ever
+    ran. The enforced channel was live for the universal catalogue and
+    hollow for exactly the sources an adopting team writes for itself.
+
+    Proves all four of the contract's exit statuses, and both routes a
+    script reaches a repo by (materialized into tools/checks/, and a
+    repo-local source's own local/tools/checks/ read in place)."""
+    import shutil, tempfile, importlib.util
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-srcchecks-'))
+    cases = []
+    try:
+        repo = tmp / 'repo'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'tools' / 'checks').mkdir(parents=True)
+        (repo / 'local' / 'tools' / 'checks').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'precedent_check.py', repo / 'tools')
+        shutil.copy(ROOT / 'tools' / 'split_practices.py', repo / 'tools')
+        shutil.copy(ROOT / 'tools' / 'doc_lint.py', repo / 'tools')
+        (repo / 'AGENTS.md').write_text('# fixture\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True)
+
+        def practice(slug, checked_by):
+            (repo / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug:        {slug}\ntitle:       {slug}\n'
+                f'tier:        on-demand\nseverity:    default\n'
+                f'applies_to:  ["**"]\noccasion:    "fixture"\ngates:       []\n'
+                f'index_clause: "{slug} — fixture"\n'
+                f'checked_by:  "{checked_by}"\ndefines:     []\nstatus:      active\n'
+                f'supersedes:  []\noverrides:   null\nadded:       2026-09-06\n'
+                f'approved_by: "harness"\nsource_practice_number: null\n---\n'
+                f'## Rule\nThe Rule text of {slug}, which the runner must print.\n\n'
+                f'## Why\nx\n\n## Story\nx\n\n## Install\nx\n', encoding='utf-8')
+
+        def script(path, body):
+            path.write_text('#!/usr/bin/env python3\nimport sys\n' + body,
+                            encoding='utf-8')
+
+        practice('fx-clean', 'tools/checks/check_fx_clean.py')
+        practice('fx-violated', 'tools/checks/check_fx_violated.py')
+        practice('fx-skipped', 'tools/checks/check_fx_skipped.py')
+        practice('fx-broken', 'tools/checks/check_fx_broken.py')
+        script(repo / 'tools' / 'checks' / 'check_fx_clean.py', 'sys.exit(0)\n')
+        script(repo / 'tools' / 'checks' / 'check_fx_violated.py',
+               'print("VIOLATION: fx-violated")\nprint("  a planted finding")\n'
+               'print("")\nprint("the rule:")\nprint("  a stale copy of the Rule")\n'
+               'sys.exit(1)\n')
+        script(repo / 'tools' / 'checks' / 'check_fx_skipped.py',
+               'print("SKIPPED: fx-skipped: no network here")\nsys.exit(2)\n')
+        script(repo / 'tools' / 'checks' / 'check_fx_broken.py',
+               'print("boom")\nsys.exit(3)\n')
+
+        # the repo-local route: a source that cannot materialize into itself
+        (repo / 'local' / 'practices').mkdir(parents=True)
+        (repo / 'local' / 'practices' / 'fx-local.md').write_text(
+            (repo / 'practices' / 'fx-clean.md').read_text(encoding='utf-8')
+            .replace('fx-clean', 'fx-local')
+            .replace('check_fx_clean.py', 'check_fx_local.py'), encoding='utf-8')
+        script(repo / 'local' / 'tools' / 'checks' / 'check_fx_local.py',
+               'print("VIOLATION: fx-local")\nprint("  the repo-local finding")\n'
+               'sys.exit(1)\n')
+
+        def run(slug):
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                                '--only', slug], cwd=repo,
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run('fx-clean')
+        cases.append(('exit 0 with no output is a PASS', rc == 0 and 'PASS' not in out
+                      and 'VIOLATION' not in out, out))
+        rc, out = run('fx-violated')
+        cases.append(('exit 1 is a VIOLATION carrying the script\'s finding',
+                      rc == 1 and 'VIOLATION  fx-violated' in out
+                      and 'a planted finding' in out, out))
+        cases.append(("the runner prints the practice's own Rule, not the "
+                      "script's stale copy of it",
+                      'which the runner must print' in out
+                      and 'a stale copy of the Rule' not in out, out))
+        rc, out = run('fx-skipped')
+        cases.append(('exit 2 is SKIPPED with the reason, never a pass',
+                      rc == 0 and 'SKIPPED' in out and 'no network here' in out
+                      and 'PASS' not in out, out))
+        rc, out = run('fx-broken')
+        cases.append(("any other exit status is the script's own bug: ERROR, "
+                      "which is neither a pass nor a violation",
+                      rc == 1 and 'ERROR' in out and 'exited 3' in out
+                      and 'VIOLATION' not in out, out))
+        rc, out = run('fx-local')
+        cases.append(("a repo-local source's own local/tools/checks/ script "
+                      "runs in place, for a repo that cannot materialize "
+                      "into itself",
+                      rc == 1 and 'the repo-local finding' in out, out))
+
+        spec = importlib.util.spec_from_file_location(
+            '_pc_fx', repo / 'tools' / 'precedent_check.py')
+        pc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pc)
+        before = set(pc.CHECKS)
+        pc.register_materialized_checks()
+        added = set(pc.CHECKS) - before
+        cases.append(('the slug comes from the practice that CLAIMS the '
+                      'script, not from the filename',
+                      {'fx-clean', 'fx-violated', 'fx-skipped', 'fx-broken',
+                       'fx-local'} <= added, str(sorted(added))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'source-supplied checks actually run ({len(cases)} stated cases: '
+          f'all four exit statuses, both routes into a repo, and the slug '
+          f'taken from the claiming practice)',
+          not bad, '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
 def check_individual_source_bootstrap_self_heals():
     """practices/session-bootstrap.md's Detail, tested rather than trusted
     -- and corrected 2026-09-06 after this check's own first version
@@ -5236,6 +5393,7 @@ def main():
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
+    check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
 

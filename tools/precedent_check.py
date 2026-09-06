@@ -181,24 +181,47 @@ def register_materialized_checks():
     # directory is one a source materializes rather than one the engine
     # ships — a hardcoded reference to it would be a false violation on
     # every repo that has no per-source check scripts at all.
-    checks_dir = (ROOT / 'tools').joinpath('checks')
-    if not checks_dir.is_dir():
+    # Two directories, because a source's check script reaches this repo by
+    # two different routes:
+    #
+    #   tools/checks/       -- what precedent_materialize.py WROTE here, from
+    #                          every source this repo resolves. The normal
+    #                          case, in any consuming repo.
+    #   local/tools/checks/ -- a repo-local source's own scripts, read in
+    #                          place. A repo that IS one of its own sources
+    #                          (Precedent itself: `path: "."`) cannot
+    #                          materialize into itself -- materialize()
+    #                          refuses that by name, since its output
+    #                          directory would be the source's only copy --
+    #                          so nothing ever copies these to tools/checks/.
+    #
+    # Built a segment at a time, deliberately: the literal spelling
+    # `ROOT / 'tools' / '<name>'` is exactly what the
+    # vendored-engine-file-refs-resolve check scans for, and these are
+    # directories a source supplies rather than ones the engine ships -- a
+    # hardcoded reference would be a false violation on every repo with no
+    # per-source check scripts at all.
+    checks_dirs = [(ROOT / 'tools').joinpath('checks'),
+                   (ROOT / 'local').joinpath('tools', 'checks')]
+    checks_dirs = [d for d in checks_dirs if d.is_dir()]
+    if not checks_dirs:
         return
     claimed = {}
-    for f in sorted((ROOT / 'practices').glob('*.md')):
-        try:
-            fm, _sections = sp._read_practice_file(f)
-        except sp.PracticeFileError:
-            continue
-        cb = (fm.get('checked_by') or '').strip().strip('"').strip("'")
-        if cb.startswith('tools/checks/'):
-            claimed[pathlib.PurePath(cb).name] = fm.get('slug', f.stem)
+    for d in ((ROOT / 'practices'), (ROOT / 'local' / 'practices')):
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sections = sp._read_practice_file(f)
+            except sp.PracticeFileError:
+                continue
+            cb = (fm.get('checked_by') or '').strip().strip('"').strip("'")
+            if cb.endswith('.py') and '/checks/' in cb:
+                claimed[pathlib.PurePath(cb).name] = fm.get('slug', f.stem)
 
-    for script in sorted(checks_dir.glob('check_*.py')):
+    for script in sorted(s for d in checks_dirs for s in d.glob('check_*.py')):
         slug = claimed.get(script.name, script.stem)
         if slug in CHECKS:          # a built-in check already owns this slug
             continue
-        rel = f'tools/checks/{script.name}'
+        rel = str(script.relative_to(ROOT)).replace('\\', '/')
 
         def _run_script(ctx, _script=script, _rel=rel):
             r = subprocess.run([sys.executable, str(_script)],
@@ -212,13 +235,26 @@ def register_materialized_checks():
                 raise RuntimeError(
                     f'{_rel} exited {r.returncode} (expected 0 clean, 1 '
                     f'violated, or 2 could-not-run): {out or "no output"}')
-            return [Finding(_rel, line.strip())
-                    for line in out.splitlines() if line.strip()]
+            # Keep the script's findings and drop its own header and its
+            # own copy of the Rule: the runner prints the Rule for every
+            # check here, through one code path, so letting the script's
+            # copy through too would print it twice and let the two
+            # spellings drift.
+            lines = []
+            for line in out.splitlines():
+                if line.strip().rstrip(':').lower() == 'the rule':
+                    break
+                if line.strip().startswith('VIOLATION:'):
+                    continue
+                if line.strip():
+                    lines.append(line.strip())
+            return [Finding(_rel, '\n    '.join(lines) or 'reported a violation '
+                                                          'with no detail')]
 
         CHECKS[slug] = dict(
             slug=slug, scope='tree', fn=_run_script,
-            what=f'whatever {rel} checks — a check script this repo '
-                 f'materialized from one of its declared practice sources',
+            what=f'whatever {rel} checks — a check script supplied by one '
+                 f'of this repo\'s own practice sources',
             blind_to=f"anything {rel} does not look at; its own limits are "
                      f"documented in its docstring, not here",
             advisory=False, practice_backed=True)
@@ -1262,44 +1298,6 @@ def _parallel_artifact_ledger(ctx):
                     f'family -- add a dated row with a per-member verdict'))
 
     return findings
-
-
-# practice: merge-target-is-beta-branch
-@check('merge-target-is-beta-branch', 'tree',
-       'while this repository is mid-restructure, origin/precedent-beta-v01 '
-       'is not an ancestor of origin/main -- i.e. main has not absorbed '
-       'the restructuring work via a merge',
-       'a PR opened with the wrong base BEFORE it merges -- this only '
-       'catches the state after a bad merge already landed on main, not '
-       'before. It also cannot run at all without both origin/main and '
-       'origin/precedent-beta-v01 fetched locally (SKIPPED, not PASS, in '
-       'that case).')
-def _merge_target_is_beta_branch(ctx):
-    def rev_parse(ref):
-        r = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref],
-                           cwd=ROOT, capture_output=True, text=True)
-        return r.stdout.strip() if r.returncode == 0 else None
-
-    main = rev_parse('origin/main')
-    beta = rev_parse('origin/precedent-beta-v01')
-    if not main or not beta:
-        raise NotApplicable(
-            'origin/main and origin/precedent-beta-v01 must both be '
-            'fetched locally to compare them -- run `git fetch origin '
-            'main precedent-beta-v01` first')
-    is_ancestor = subprocess.run(
-        ['git', 'merge-base', '--is-ancestor', beta, main], cwd=ROOT
-    ).returncode == 0
-    if is_ancestor:
-        return [Finding('main',
-                        f'contains origin/precedent-beta-v01 ({beta[:8]}) as '
-                        f'an ancestor -- the restructuring work has been '
-                        f'merged into main. Expected ONLY once Alex has '
-                        f'reviewed and merged precedent-beta-v01 into main '
-                        f'for real (in which case retire this practice in '
-                        f'the same PR); otherwise this is the PR #89 '
-                        f'mistake happening again.')]
-    return []
 
 
 @check('search-by-purpose', 'change',

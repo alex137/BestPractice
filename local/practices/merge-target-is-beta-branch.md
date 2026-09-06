@@ -7,7 +7,7 @@ applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
 gates:       ["merge"]
 index_clause: "Alex approves only major main merges; precedent-beta-v01 is unrestricted"
-checked_by:  "tools/precedent_check.py"
+checked_by:  "tools/checks/check_merge_target_is_beta_branch.py"
 defines:     []
 status:      active
 supersedes:  []

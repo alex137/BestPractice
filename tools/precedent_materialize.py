@@ -91,13 +91,24 @@ def _self_referential_sources(sources, out_dir):
     return [s for s in sources if pathlib.Path(s['path']).resolve() == out_dir]
 
 
-def _plan_checks(sources):
+def _plan_checks(sources, res=None):
     """Read every source's per-check tools/checks/check_*.py and
     tools/checks/tests/test_*.sh INTO MEMORY, refusing a same-name
     collision across different sources rather than letting the last one
     silently win. Returns a write plan (rel_label, filename, source_name,
     bytes) and does not touch the filesystem at all -- see materialize()
     for why reading has to fully finish before anything is deleted.
+
+    `res` is the resolution this materialize is writing. When given, a
+    check script no resolved practice CLAIMS via `checked_by` is left
+    behind rather than copied: a script whose practice is retired, or
+    lost a slug to a higher-precedence source, has nothing left to
+    enforce here. Found on the first real run against
+    precedent-team-maintainers, whose `deep-check` practice is retired --
+    its `check_deep_check.py` was still copied into the consuming repo,
+    where it registered under its own filename (no practice to name it),
+    reported "not in force", and counted as an unexplained file against
+    the consuming repo's own materialized-tree audit.
 
     Deliberately narrower than 'every file in tools/checks/': a source's
     own tools/checks/tests/run_all.sh (found colliding on the very first
@@ -106,7 +117,16 @@ def _plan_checks(sources):
     merging it would be a false collision over a file nothing actually
     needs merged. Skipped explicitly and reported, never silently."""
     owner_of = {}   # 'rel_label/filename' -> source name that already claimed it
-    plan, skipped = [], []
+    plan, skipped, orphaned = [], [], []
+    claimed_names = None
+    if res is not None:
+        claimed_names = set()
+        for practice in res['practices'].values():
+            cb = (practice.get('fm', {}).get('checked_by') or '').strip().strip('"').strip("'")
+            if cb.endswith('.py') and '/checks/' in cb:
+                stem = pathlib.PurePath(cb).stem
+                claimed_names.add(f'{stem}.py')
+                claimed_names.add(f'{stem.replace("check_", "test_", 1)}.sh')
 
     def claim(src_file, rel_label, source_name):
         key = f'{rel_label}/{src_file.name}'
@@ -124,20 +144,27 @@ def _plan_checks(sources):
         if not src_checks.is_dir():
             continue
         for f in sorted(src_checks.glob('*.py')):
-            if f.name.startswith('check_'):
-                claim(f, 'checks', s['name'])
-            else:
+            if not f.name.startswith('check_'):
                 skipped.append(f'tools/checks/{f.name} ({s["name"]})')
+            elif claimed_names is not None and f.name not in claimed_names:
+                orphaned.append(f'tools/checks/{f.name} ({s["name"]})')
+            else:
+                claim(f, 'checks', s['name'])
         src_tests = src_checks / 'tests'
         if src_tests.is_dir():
             for f in sorted(src_tests.glob('*.sh')):
-                if f.name.startswith('test_'):
-                    claim(f, 'checks/tests', s['name'])
-                else:
+                if not f.name.startswith('test_'):
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
+                elif claimed_names is not None and f.name not in claimed_names:
+                    orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
+                else:
+                    claim(f, 'checks/tests', s['name'])
     if skipped:
         print(f"precedent_materialize: not a per-check file, not vendored: "
               + ', '.join(skipped), file=sys.stderr)
+    if orphaned:
+        print(f"precedent_materialize: no practice in force here claims these, "
+              f"not vendored: " + ', '.join(orphaned), file=sys.stderr)
     return plan
 
 
@@ -183,7 +210,7 @@ def materialize(sources, res, out_dir):
 
     practice_plan = {slug: (practice, pathlib.Path(practice['file']).read_bytes())
                       for slug, practice in res['practices'].items()}
-    checks_plan = _plan_checks(sources)   # raises MaterializeError before any write
+    checks_plan = _plan_checks(sources, res)   # raises MaterializeError before any write
 
     if practices_dir.exists():
         shutil.rmtree(practices_dir)
