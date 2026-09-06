@@ -5048,6 +5048,21 @@ def check_bootstrap_source_engine_is_functional():
                       f'before={before}\nafter={after}\n{r.stdout}{r.stderr}'))
         cases.append(('refresh() against a real BestPractice checkout succeeds',
                       r.returncode == 0, r.stdout + r.stderr))
+
+        # The ALREADY-CURRENT path -- no --force, nothing to write, an early
+        # return. It had no case of its own, and that is how the identical
+        # NameError (`_warn_catalogue_skew(dest, ...)`, where refresh's local
+        # is dest_tools) shipped TWICE on 2026-09-06: once on the write path
+        # and, a commit later, again on this one. Both printed their success
+        # line before raising, so only an exit code ever showed it. A branch
+        # with no case is a branch that gets a crash added to it.
+        r2 = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
+                             'refresh', str(ROOT), '--from-ref', 'HEAD'],
+                            capture_output=True, text=True)
+        cases.append(('refresh() on the already-current path returns cleanly '
+                      'rather than raising after its own success message',
+                      r2.returncode == 0 and 'Traceback' not in (r2.stdout + r2.stderr),
+                      r2.stdout + r2.stderr))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -6424,6 +6439,70 @@ def check_individual_source_bootstrap_self_heals():
                                   for p in resolved5.get('practices', []))
                       and not (home_local / '.config').exists(),
                       r5.stdout + r5.stderr))
+
+        # --- cases 6-8: "no individual set" vs "could not find out" --------
+        # The silence these close: before 2026-09-06 an undeclared individual
+        # source was appended to nothing, so it reached neither `sources` nor
+        # `missing`, and a hosted session that had no way to look printed the
+        # same confident summary as a laptop that genuinely has none.
+        # run() returns stdout + stderr concatenated, and the whole point of
+        # this fix is that these runs now PRINT a notice on stderr -- so the
+        # JSON is a prefix of the captured text, not the whole of it.
+        def _json_prefix(text):
+            try:
+                return json.JSONDecoder().raw_decode(text.lstrip())[0]
+            except (json.JSONDecodeError, ValueError):
+                return {}
+
+        cases.append(('a resolved individual source reports no '
+                      'individual_status finding -- its fate belongs in '
+                      '`missing` like any other declared source',
+                      (_json_prefix(out4) or {}).get('individual_status') is None,
+                      out4))
+
+        nohook = tmp / 'consumer-nohook'
+        nohook.mkdir()
+        (nohook / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}],
+        }), encoding='utf-8')
+        home6 = tmp / 'home-nohook'
+        home6.mkdir()
+        rc6b, out6b = run(str(resolve_tool), '--repo', str(nohook), '--json',
+                          env_extra={'HOME': str(home6),
+                                     'CLAUDE_CODE_REMOTE': 'true',
+                                     'PRECEDENT_USER_CONFIG':
+                                         str(home6 / 'config.json')})
+        st6 = (_json_prefix(out6b) or {}).get('individual_status') or {}
+        cases.append(('on a remote session whose project ships no bootstrap '
+                      'hook, resolve reports that it could NOT determine '
+                      'whether an individual set exists, rather than implying '
+                      'there is none',
+                      st6.get('certain') is False
+                      and st6.get('code') == 'no-bootstrap-hook', out6b))
+
+        r7 = subprocess.run([sys.executable, str(resolve_tool), '--repo',
+                             str(nohook), '--json'],
+                            capture_output=True, text=True, env=env_local)
+        st7 = (_json_prefix(r7.stdout) or {}).get('individual_status') or {}
+        cases.append(('off a remote session, an absent user config IS a '
+                      'definite "no individual practices" -- $HOME is the '
+                      "person's own machine, so there is nothing to find out",
+                      st7.get('certain') is True
+                      and st7.get('code') == 'no-config-file',
+                      r7.stdout + r7.stderr))
+
+        declares_none = home6 / 'declares-none.json'
+        declares_none.write_text('{"individual": null}', encoding='utf-8')
+        rc8, out8 = run(str(resolve_tool), '--repo', str(nohook), '--json',
+                        env_extra={'HOME': str(home6),
+                                   'CLAUDE_CODE_REMOTE': 'true',
+                                   'PRECEDENT_USER_CONFIG': str(declares_none)})
+        st8 = (_json_prefix(out8) or {}).get('individual_status') or {}
+        cases.append(('a user config that exists and declares no individual '
+                      'source is a definite answer, even on a remote session',
+                      st8.get('certain') is True
+                      and st8.get('code') == 'config-declares-none', out8))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
