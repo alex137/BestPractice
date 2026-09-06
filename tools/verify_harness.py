@@ -5015,6 +5015,21 @@ def check_bootstrap_source_engine_is_functional():
                       f'before={before}\nafter={after}\n{r.stdout}{r.stderr}'))
         cases.append(('refresh() against a real BestPractice checkout succeeds',
                       r.returncode == 0, r.stdout + r.stderr))
+
+        # The ALREADY-CURRENT path -- no --force, nothing to write, an early
+        # return. It had no case of its own, and that is how the identical
+        # NameError (`_warn_catalogue_skew(dest, ...)`, where refresh's local
+        # is dest_tools) shipped TWICE on 2026-09-06: once on the write path
+        # and, a commit later, again on this one. Both printed their success
+        # line before raising, so only an exit code ever showed it. A branch
+        # with no case is a branch that gets a crash added to it.
+        r2 = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
+                             'refresh', str(ROOT), '--from-ref', 'HEAD'],
+                            capture_output=True, text=True)
+        cases.append(('refresh() on the already-current path returns cleanly '
+                      'rather than raising after its own success message',
+                      r2.returncode == 0 and 'Traceback' not in (r2.stdout + r2.stderr),
+                      r2.stdout + r2.stderr))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

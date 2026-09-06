@@ -668,7 +668,7 @@ def refresh(clone, force=False, ref=None):
             # are current. Missed on the first version of this notice, which
             # only reported after a write -- so the second pass of a
             # self-replacing refresh, and every later re-run, stayed silent.
-            _warn_catalogue_skew(dest, new_commit)
+            _warn_catalogue_skew(ROOT, new_commit)  # ROOT, not `dest` -- see below
             return 0
 
         self_before = _sha256(HERE) if HERE.is_file() else None
