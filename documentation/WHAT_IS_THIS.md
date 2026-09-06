@@ -87,12 +87,6 @@ Everything here is open source and built on top of GitHub, a platform you
 already control your own data in. There's no proprietary format and no
 company that can shut down and take your project's memory with it.
 
-## Fully open source
-
-Every part of BestPractice — the engine, the practices, the review flow —
-is open source. Inspect it, fork it, or contribute back; nothing about how
-it works is hidden from you.
-
 ## Learn more
 
 The philosophy behind all of this lives in
