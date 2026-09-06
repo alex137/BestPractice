@@ -77,6 +77,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | Path | What it is |
 |---|---|
 | [tools/behavioral_replay.py](tools/behavioral_replay.py) | Measures the path-triggered loader against this repo's own commit history |
+| [tools/build_codeowners.py](tools/build_codeowners.py) | A team practice set's CODEOWNERS, generated from its own approvers.json |
 | [tools/build_views.py](tools/build_views.py) | This file, GLOSSARY.md, and AGENTS.md's loader block — generated views |
 | [tools/catalogue_stats.py](tools/catalogue_stats.py) | The figures about the catalogue that other documents cite, computed rather than hand-typed |
 | [tools/checkin.py](tools/checkin.py) | Drives the periodic check-in (INSTALL.md §4) mechanically |

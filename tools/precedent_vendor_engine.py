@@ -118,7 +118,7 @@ Four subcommands:
                                   clone's current tools/ (upstream moved?).
                                   Exit 1 if either differs.
 
-  refresh <bestpractice-clone> [--force]
+  refresh <bestpractice-clone> [--force] [--from-ref REF]
                                   Same kind auto-detection as status. Pulls
                                   the clone's SOURCE_BRANCH (see below —
                                   NOT the clone's configured default
@@ -172,6 +172,12 @@ SOURCE_BRANCH = 'precedent-beta-v01'  # see docstring: NOT the configured defaul
 
 ENGINE_FILES = [
     'build_views.py',
+    # A team set's approvers.json -> CODEOWNERS generator. In the engine
+    # rather than in one team set's own tools/ because that is where it
+    # was, and the consequence was a second team set with declared
+    # approvers and no way to enforce them (2026-09-06). No-ops in an
+    # individual set, which has no approvers.json and needs none.
+    'build_codeowners.py',
     'precedent_gate.py',
     'precedent_paths.py',
     'precedent_show.py',
@@ -350,6 +356,15 @@ def _rev(repo_dir, ref):
     return r.stdout.strip() if r.returncode == 0 else ''
 
 
+def _blob_exists(repo_dir, commit, rel):
+    """Does `rel` exist at `commit` in `repo_dir`? Used by seed() to tell
+    "this engine file is new and not committed yet" from "this checkout is
+    broken", which are the same `git show` failure otherwise."""
+    r = subprocess.run(['git', '-C', str(repo_dir), 'cat-file', '-e',
+                        f'{commit}:{rel}'], capture_output=True)
+    return r.returncode == 0
+
+
 def _head_commit(repo_dir):
     # _rev, not _git: a failed `rev-parse HEAD` prints 'HEAD' back, which is
     # truthy, so seed()'s `_head_commit(ROOT) or 'unknown'` silently recorded
@@ -387,14 +402,30 @@ def seed(dest, kind=DEFAULT_KIND):
     # generated-artifact-provenance). An uncommitted change is also not
     # something an adopter should be shipped: it is, by definition, not
     # yet part of the engine.
-    if commit == 'unknown':
-        # No commit to read from (an unborn HEAD, or not a git checkout at
-        # all). The working tree is the only thing there is; the manifest
-        # already records 'unknown' rather than claiming a hash.
-        return _write_engine_files(dest / 'tools', ENGINE_DIR, commit, kind)
+    wanted = KINDS[kind] + ['routing_scope.json']
+    missing_at_head = [n for n in wanted
+                       if commit != 'unknown'
+                       and not _blob_exists(ROOT, commit, f'tools/{n}')]
+    if commit == 'unknown' or missing_at_head:
+        # Either there is no commit to read from (an unborn HEAD, or not a
+        # git checkout), or a file this kind needs does not exist at HEAD
+        # yet -- the ordinary state while an engine file is being ADDED.
+        # Vendor the working tree, and mark the recorded commit `+dirty` so
+        # the manifest never claims bytes came from a commit they did not:
+        # status() and refresh() both compare against source_commit, and a
+        # `+dirty` value can never equal a real hash, so they correctly
+        # report the copy as not-current until a clean re-seed.
+        if missing_at_head:
+            print(f"precedent_vendor_engine seed: NOTE -- "
+                  f"{', '.join(missing_at_head)} is not in {commit[:12]} yet, "
+                  f"so this seeds from the WORKING TREE and records "
+                  f"{commit[:12]}+dirty. Commit and re-seed for a clean "
+                  f"provenance record.", file=sys.stderr)
+        stamp = commit if commit == 'unknown' else f'{commit}+dirty'
+        return _write_engine_files(dest / 'tools', ENGINE_DIR, stamp, kind)
     _c, engine_dir = _source_tools_at(ROOT, kind=kind, ref=commit, fetch=False)
     try:
-        dirty = [n for n in KINDS[kind] + ['routing_scope.json']
+        dirty = [n for n in wanted
                  if (ENGINE_DIR / n).is_file()
                  and (ENGINE_DIR / n).read_bytes() != (engine_dir / n).read_bytes()]
         if dirty:
@@ -547,7 +578,19 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     return commit, tmp
 
 
-def refresh(clone, force=False):
+def refresh(clone, force=False, ref=None):
+    """`ref`, when given, names the exact commit or ref inside `clone` to
+    vendor from, instead of resolving SOURCE_BRANCH there.
+
+    Two callers need it. A verification fixture must vendor from the tree
+    it is testing, not from whatever `origin/precedent-beta-v01` happens
+    to hold -- without that, adding a file to the engine turns the harness
+    red until the addition is published, and a stale local branch in a
+    contributor's checkout produces a failure message about a missing
+    engine file that has nothing to do with the property under test (both
+    reproduced, 2026-09-06). And a person can legitimately want to vendor
+    a specific commit -- pinning to a known-good one, or picking up a fix
+    before it lands on the branch."""
     dest_tools = ROOT / 'tools'
     manifest = _load_manifest(dest_tools)
     kind = manifest.get('kind', DEFAULT_KIND)  # older manifests predate 'kind' -- 'source'
@@ -562,7 +605,8 @@ def refresh(clone, force=False):
                      "edit. Move the edit upstream into BestPractice instead (this engine has "
                      "no local variance by design), or pass --force to overwrite anyway.")
 
-    new_commit, engine_dir = _source_tools_at(clone, kind)
+    new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
+                                              fetch=ref is None)
     try:
         # `and not force`: found reproduced while testing this against the consumer
         # kind -- without it, `refresh --force` on a repo with a hand-edited
@@ -646,7 +690,26 @@ def main():
     clone = _clone_or_die(args[1])
     if args[0] == 'status':
         return status(clone)
-    return refresh(clone, force='--force' in args)
+    rest = args[2:]
+    ref = None
+    if '--from-ref' in rest:
+        i = rest.index('--from-ref')
+        if i + 1 >= len(rest):
+            sys.exit("precedent_vendor_engine FAIL: --from-ref needs a value "
+                     "(a commit or ref inside the clone).")
+        ref = rest[i + 1]
+        rest = rest[:i] + rest[i + 2:]
+    unknown = [a for a in rest if a != '--force']
+    if unknown:
+        sys.exit(f"precedent_vendor_engine FAIL: unknown argument(s) to "
+                 f"refresh: {', '.join(unknown)}.")
+    if ref is not None:
+        resolved = _rev(clone, ref)
+        if not resolved:
+            sys.exit(f"precedent_vendor_engine FAIL: --from-ref {ref!r} does "
+                     f"not resolve in {clone}.")
+        ref = resolved
+    return refresh(clone, force='--force' in args, ref=ref)
 
 
 if __name__ == '__main__':

@@ -67,8 +67,9 @@ because a later PR superseded it — but that call needs the branch's PR
 history, which an offline git check has no access to; see Install for why
 that half stays a session step rather than a second mechanical check. Either
 way, apply the branch-cleanup method an individual practice set may already
-give a session for its own commits (Morgan's own, as one example, names
-this in [`next-steps-after-commit`](https://github.com/themorgan/precedent-individual/blob/main/practices/next-steps-after-commit.md)) —
+give a session for its own commits (one real individual set names this in
+its own `next-steps-after-commit` practice; the repo is private, so this
+names the practice rather than linking a page most readers cannot open) —
 identify by who opened or drove the PR (the invoking person's own GitHub
 login, never a branch someone else created), skip the repo's default branch
 and its protected integration branch, and report each remaining one with a
@@ -182,9 +183,9 @@ found `routing-audit` fell into, and logged there as `TODO.md` item 17.
 
 Enumerating it turned up something the v28 amendment's own author could not
 have known: earlier that same day, the phase-3 private-set migration
-(v27) had already carried this exact list into
-[`precedent-team-maintainers`](https://github.com/themorgan/precedent-team-maintainers)
-as its own `deep-check` practice, generalized (RPP's own vendored-tree
+(v27) had already carried this exact list into the maintainers' own team
+set (private, so named rather than linked) as its own `deep-check`
+practice, generalized (RPP's own vendored-tree
 language dropped, since Precedent's private sets aren't vendored the way
 RPP's `process/` tree was) but otherwise the same enumeration as here. So
 the list was never actually missing — it just wasn't recognized as the

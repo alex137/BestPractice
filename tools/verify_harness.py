@@ -740,6 +740,11 @@ def check_no_bare_numeric_citations(files):
     check('no bare numeric citations in body text (slugs are the official reference form)', ok)
 
 
+GITHUB_REPO_URL_RE = re.compile(
+    r'https?://(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)')
+UPSTREAM_OWNER_REPO = 'alex137/BestPractice'
+
+
 def check_slug_link_integrity(files):
     """The slug-link counterpart of check_citation_integrity: every
     [slug](slug.md)-shaped cross-reference in a practice's body text must
@@ -765,6 +770,40 @@ def check_slug_link_integrity(files):
                 print(f"  AGENTS.md: links to 'practices/{m.group(1)}.md', "
                       f"which is not a known practice slug")
     check('slug-link citation integrity (every [slug](slug.md) cross-reference resolves)', ok)
+
+
+def check_practices_link_only_reachable_repos(files):
+    """No practice file links a GitHub repository other than this one.
+
+    practices/ is what ships. Every consuming repo materializes these files
+    verbatim, and the people who read them are strangers to this project's
+    other repositories -- so a link to one of them is a 404 for the reader
+    and, worse, an advertisement of a private repository's existence and
+    path from a public document.
+
+    Found 2026-09-06: practices/very-deep-check.md linked
+    `themorgan/precedent-individual` and `themorgan/precedent-team-maintainers`
+    -- both private -- as illustrative examples, in a universal practice
+    every adopter gets. Naming the practice instead of linking the page
+    says the same thing and costs the reader nothing.
+
+    Deliberately narrow to `practices/`. spec/ and decisions/ are this
+    project's own internal record, read by people who do have access, and
+    a link there is correct."""
+    ok = True
+    for _stem, (_fm, _sections, f) in sorted(files.items()):
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        for m in GITHUB_REPO_URL_RE.finditer(text):
+            owner_repo = f'{m.group(1)}/{m.group(2)}'
+            if owner_repo.lower() == UPSTREAM_OWNER_REPO.lower():
+                continue
+            ok = False
+            print(f"  {f.name}: links {owner_repo}, a repository the reader "
+                  f"of a shipped practice has no reason to be able to open "
+                  f"-- name it instead of linking it")
+    check('practice files link no repository but this one (they ship verbatim '
+          'into every consuming repo, and are read by strangers to this '
+          "project's other repositories)", ok)
 
 
 def check_leak_gate():
@@ -4695,8 +4734,15 @@ def check_bootstrap_source_engine_is_functional():
                                       ['status', '--porcelain']))
 
         before = root_state()
+        # --from-ref HEAD: vendor the tree under test, not whatever
+        # origin/precedent-beta-v01 holds. Without it, adding a file to
+        # ENGINE_FILES turns this case red until the addition is published,
+        # and a contributor's stale local branch fails it with a message
+        # about a missing engine file that has nothing to do with the
+        # property this case actually asserts.
         r = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
-                            'refresh', str(ROOT), '--force'], capture_output=True, text=True)
+                            'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+                           capture_output=True, text=True)
         after = root_state()
         cases.append(('refresh() against a real BestPractice checkout leaves its HEAD, '
                       'branch and working tree exactly as they were -- it reads blobs, '
@@ -5419,6 +5465,7 @@ def main():
     check_citation_integrity(files)
     check_no_bare_numeric_citations(files)
     check_slug_link_integrity(files)
+    check_practices_link_only_reachable_repos(files)
     check_leak_gate()
     check_leak_gate_fires()
     check_practice_audit_fires()

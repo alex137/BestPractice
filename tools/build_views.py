@@ -354,6 +354,7 @@ def render_map_md(practices):
 TOOLS_DESCRIPTIONS = {
     'behavioral_replay.py': "Measures the path-triggered loader against this repo's own commit history",
     'build_views.py': "This file, GLOSSARY.md, and AGENTS.md's loader block — generated views",
+    'build_codeowners.py': "A team practice set's CODEOWNERS, generated from its own approvers.json",
     'catalogue_stats.py': "The figures about the catalogue that other documents cite, computed rather than hand-typed",
     'checkin.py': "Drives the periodic check-in (INSTALL.md §4) mechanically",
     'doc_html.py': "The one sortable-table HTML renderer for repo documents",
