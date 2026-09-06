@@ -116,7 +116,16 @@ entire purpose is to spend context carefully.
 
 - The acronym check reported 101 unglossed acronyms, nearly all ALL-CAPS
   filename stems (`LEDGER.md`) or ordinary words written in caps for
-  emphasis (`ONLY`, `BEGIN`, `BOTH`). Down to 5 real ones.
+  emphasis (`ONLY`, `BEGIN`, `BOTH`). Three causes were structural and
+  fixed as such; the fourth was first patched by hand-adding forty English
+  words to the stoplist, which is not a fix — it is a list that grows
+  forever and is wrong the first time somebody shouts a word nobody
+  thought of. Replaced with the discriminator that was in the corpus all
+  along: an initialism has no ordinary lowercase form, a shouted word is
+  one the same repository writes in lowercase constantly. `NOT` appears 22
+  times in caps here and 1,899 in lowercase; `RPP` is 45 and 0. Down to 6,
+  all real, with no wordlist — and a consuming repo learns its **own**
+  vocabulary, which a list written here never could.
 - `cite-the-incident` treated a repointed link inside a Rule as a
   *rewritten Rule* and demanded a `## Story` for four inherited practices
   whose prose had not changed by a word — clearable only by inventing an
@@ -152,25 +161,52 @@ run prompted on every single run.
 
 ## Still open — start here
 
-### Needs a decision, not a session
+### Decided, 2026-09-06
 
-1. **What is the product called, in public?** The outward documents
-   disagree: [ADOPTING.md](../ADOPTING.md) is entirely "Precedent";
-   [documentation/WHAT_IS_THIS.md](../documentation/WHAT_IS_THIS.md) — the
-   pitch — says "BestPractice" six times and "Precedent" zero;
-   [documentation/INSTALL.md](../documentation/INSTALL.md) is titled
-   "Installing BestPractice"; [README.md](../README.md)'s heading is
-   "BestPractice". Defensible as a transition state (the rename lands with
-   the phase-7 merge), but a reader arriving at the pitch and then the
-   adoption guide meets two product names. Left alone deliberately: it is
-   Alex's and Morgan's call whether the public name changes now, at phase
-   7, or not at all.
+1. **The product is called Precedent, in the documents people read.**
+   Morgan's call, made during this audit. Renamed across
+   [README.md](../README.md), all four [documentation/](../documentation/)
+   guides, [SETUP.md](../SETUP.md), [INSTALL.md](../INSTALL.md),
+   [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md), [MOBILE.md](../MOBILE.md),
+   [GIT.md](../GIT.md), and every template an adopter instantiates.
+
+   **What a later rename pass must not touch**, because each of these
+   means something the rename would falsify:
+
+   - `alex137/BestPractice` and `../BestPractice` — the repository's actual
+     name, and the path to a clone of it.
+   - `approved_by: "BestPractice (pre-fork)"` on 53 practice files. That
+     records who approved the practice and when.
+   - Sentences that mean the pre-fork system specifically ("a repo that
+     already vendored BestPractice the old way", "its original
+     BestPractice number").
+   - The historical record: `spec/` briefs, `decisions/`,
+     [CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md),
+     [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md),
+     [PRACTICES.md](../PRACTICES.md), `evals/`. These describe what
+     happened, under the name it happened under.
+
+   The repository itself is still `alex137/BestPractice`. Renaming it is a
+   separate act with its own consequences (every existing clone's remote,
+   every vendored `ENGINE_MANIFEST.json`'s `source_repo`, every absolute
+   link in the private sets) and is not part of this.
+
 2. **`themorgan/Precedent`** (private, created 2026-08-31, last pushed the
    same day) is an abandoned early fork. The restructuring it was for is
    what `precedent-beta-v01` in this repository now holds, and nothing
-   anywhere references the fork. Worth deleting so it cannot be mistaken
-   for the real thing later — a repository deletion, so a person's call,
-   not a session's.
+   anywhere references the fork. Morgan is deleting it by hand.
+
+   **On reusing the name afterwards**: GitHub frees a repository name the
+   moment the repository is deleted, and the same account can create or
+   rename a repository to that name again — nothing reserves it (*as of
+   2026-09; GitHub does not publish a hold period for this, so confirm on
+   the day rather than trusting this line*). Two things to know that
+   matter more than the name: a fork of a **public** repository is public
+   and cannot be flipped to private, so a private copy of
+   `alex137/BestPractice` has to be a new repository pushed from a clone,
+   not a fork; and GitHub allows one fork per account per upstream, so if
+   a fork is what is wanted, the name has to be set on the fork itself
+   (the fork dialog offers a name field) or changed by renaming afterwards.
 
 ### Real work, scoped
 
