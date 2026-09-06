@@ -23,6 +23,26 @@
 #       against (fail-gracefully, same contract as
 #       the adapter's session-start.sh).
 #
+#   freshness-guard.sh user-prompt [BASE]
+#       A UserPromptSubmit hook, for the case neither of the others reach:
+#       a session left open across a break. SessionStart fires once, at the
+#       start; pre-write fires once, at the first write -- so a tab that has
+#       been open for hours, and already made its first edit, is never
+#       rechecked no matter how far origin moves underneath it.
+#       This mode runs the session-start checks again, THROTTLED: it does
+#       nothing at all unless the last check is older than the interval
+#       (default 600s, `git config precedent.freshness.intervalSeconds` to
+#       change). Nothing polls and nothing runs in the background -- the
+#       hook only exists while a prompt is being submitted, and "idle" is
+#       computed there and then by subtracting the stamp file's mtime from
+#       now. Measured cost of the skipped path: ~8ms, almost all of it bash
+#       starting up, no network, no output, so nothing enters the model's
+#       context. The one prompt that pays the ~500ms fetch is the first one
+#       back after a break -- exactly the prompt whose checkout might be
+#       stale. ALWAYS exits 0: a UserPromptSubmit hook that exits non-zero
+#       blocks the message, and losing what someone just typed over a
+#       freshness question is far worse than the staleness.
+#
 #   freshness-guard.sh pre-write [BASE]
 #       A PreToolUse hook. Runs its checks ONCE per session -- the first
 #       tool call -- and then gets out of the way for the rest of it. On a
@@ -143,6 +163,34 @@ _contains_base() {
 
 _behind_base_count() {
   _git rev-list --count "HEAD..origin/$1" 2>/dev/null || printf '?'
+}
+
+# The whole idle test: one stat and a subtraction, no network, no daemon.
+# Returns 0 when a check is due. Stamps on the way through, so a burst of
+# prompts costs one check between them rather than one each.
+_throttle_due() {
+  local stamp interval age now
+  interval="$(_git config --get precedent.freshness.intervalSeconds 2>/dev/null || true)"
+  case "$interval" in ''|*[!0-9]*) interval=600 ;; esac
+  [ "$interval" = "0" ] && return 0
+  # --absolute-git-dir, not --git-dir: the latter answers RELATIVE to the
+  # repo ("`.git`"), while this hook's own working directory is wherever the
+  # harness launched it. The first version used --git-dir, so the stamp
+  # resolved against the wrong directory, every write failed, and the
+  # throttle silently never engaged -- it re-checked on every single prompt
+  # while printing a path error. Caught by the throttle test below, not by
+  # reading it.
+  local gd
+  gd="$(_git rev-parse --absolute-git-dir 2>/dev/null || true)"
+  [ -n "$gd" ] || return 0
+  stamp="$gd/precedent-last-freshness-check"
+  now="$(date +%s)"
+  if [ -f "$stamp" ]; then
+    age=$(( now - $(stat -c %Y "$stamp" 2>/dev/null || echo 0) ))
+    [ "$age" -lt "$interval" ] && return 1
+  fi
+  : > "$stamp" 2>/dev/null || true
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -320,11 +368,23 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   exit 0
 }
 
+# Deliberately delegates to mode_session_start instead of restating its
+# checks: this file already had two copies of "is this checkout current"
+# living beside a third in .claude/hooks/session-start.sh, and a fourth
+# would drift from the others the first time any one of them was fixed.
+# The throttle is the only thing this mode adds.
+mode_user_prompt() {
+  _in_git || exit 0
+  _throttle_due || exit 0
+  mode_session_start
+}
+
 case "$MODE" in
   session-start) mode_session_start ;;
+  user-prompt)   mode_user_prompt ;;
   pre-write)     mode_pre_write ;;
   *)
-    echo "usage: freshness-guard.sh <session-start|pre-write> [base-branch]" >&2
+    echo "usage: freshness-guard.sh <session-start|user-prompt|pre-write> [base-branch]" >&2
     exit 0
     ;;
 esac

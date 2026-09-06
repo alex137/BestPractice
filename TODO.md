@@ -722,6 +722,31 @@ which is the failure this repointing exists to end — write
     without the others, since a half-relaxed hold is what makes an
     unattended job run against advice nobody re-read.
 
+39. <a id="background-freshness-fetch"></a>**Consider making the freshness check's fetch asynchronous.**
+    [.claude/hooks/freshness-guard.sh](.claude/hooks/freshness-guard.sh)'s
+    `user-prompt` mode is throttled rather than backgrounded: it skips
+    entirely inside its interval (measured ≈17ms, no network, no output) and
+    pays one fetch when the interval has passed. Measured 2026-09-06 in a
+    cloud container: any remote check costs ≈500ms and `git ls-remote` is
+    **not** cheaper than a no-op `git fetch` (≈600ms vs ≈500ms — both are one
+    network round trip; neither transfers objects when current), so the only
+    lever is asking less often, which is what the throttle does. The
+    alternative considered and deliberately deferred: fire the fetch
+    detached, return immediately, and act on the *previous* fetch via the
+    ≈5ms local comparison — ≈0ms added latency at the cost of freshness
+    lagging by one message. **Blocked on:** nothing external, but it was not
+    worth the complexity at the measured numbers — with the throttle the
+    ≈500ms lands so rarely that backgrounding buys little. It also rests on
+    an unverified assumption that a process detached from a hook survives the
+    hook returning rather than being reaped with it, which needs a real test
+    (this repo has already been burned once by a mechanism verified only
+    against synthetic fixtures — see
+    [practices/session-bootstrap.md](practices/session-bootstrap.md)'s
+    Detail). Revisit if the throttle's interval ever has to drop low enough
+    that the fetch becomes noticeable. Full reasoning, including the
+    measurements and the two rejected alternatives:
+    [this thread](https://claude.ai/code/session_01NQCKsA4otmeujdrbCGrqR3).
+
 - **Wire the clone-free engine-freshness check into the path a person's own
   session actually takes.** `python3 tools/precedent_vendor_engine.py fresh`
   already answers "is this vendored engine behind upstream?" with a single

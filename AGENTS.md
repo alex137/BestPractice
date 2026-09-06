@@ -406,11 +406,30 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   no gotchas section at all, so every entry here — including this one — was
   invisible to it. Warning was never going to be enough, because by the time
   a session could act on a warning the harness has already handed it a stale
-  instructions file. The hook therefore now **repairs**: on a clean tree that
+  instructions file. The guard therefore **repairs**: on a clean tree that
   is strictly behind, it fast-forwards and says so, which makes the harness
   re-read the instruction files. Diverged, no-shared-history, and dirty-tree
   states still only warn — a hook that discards work is worse than any stale
-  checkout. Two further fixes fell out of testing it: the freshness block was
+  checkout. **That logic lives in
+  [.claude/hooks/freshness-guard.sh](.claude/hooks/freshness-guard.sh), and
+  only there** — it briefly also sat inline in
+  [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh), where the
+  two ran back to back at every startup, fetching twice and racing to
+  fast-forward the same branch; the inline copy is gone rather than kept in
+  sync by hand. The guard is wired three times, because one firing point
+  cannot cover the others: `SessionStart` (once, at the start),
+  `PreToolUse` (once, before the session's first write) and
+  `UserPromptSubmit` (the long-open-tab case — a tab open for hours that has
+  already made its first edit is otherwise never rechecked). The
+  `UserPromptSubmit` mode is throttled on a stamp file's mtime, so it costs
+  ≈17ms and prints nothing inside its interval (default 600s,
+  `git config precedent.freshness.intervalSeconds`); nothing polls and
+  nothing runs between prompts. Its first version built the stamp path from
+  `git rev-parse --git-dir`, which answers *relative* to the repo, so every
+  write landed in the wrong directory, the throttle never engaged, and it
+  re-checked on every prompt while printing a path error — use
+  `--absolute-git-dir` for any path a hook will use from an unknown working
+  directory. Two further fixes fell out of testing it: the freshness block was
   gated behind `CLAUDE_CODE_REMOTE=true` along with the `pip install`, so on a
   local machine it **never ran at all** (verified: total silence on all six
   test cases, including a failed fetch); and the old remedy it printed —
