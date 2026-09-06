@@ -298,7 +298,7 @@ it applies.
      instantiates
      [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
      at `.claude/hooks/precedent-individual-bootstrap.sh`, which delegates
-     to the vendored, retry-capable
+     to the vendored
      [`tools/precedent_source_bootstrap.py`](tools/precedent_source_bootstrap.py)
      rather than a one-off hand-written clone.
 
@@ -314,20 +314,27 @@ it applies.
      sentence even if you already know that instruction, because two
      independent adopters had it in place and still hit the gap it was
      supposed to close**: a
-     `SessionStart` hook runs before the agent's own first turn starts, so
-     telling the agent to call `add_repo` "before running any bootstrap
-     script" cannot make that tool call precede a hook the harness has
-     already started running — the instruction is necessary, not
-     sufficient, and both incidents are recorded in
+     `SessionStart` hook runs *entirely to completion* before the agent's
+     own first turn starts — this is a strict ordering, not a race with
+     variable odds (Claude Code's own docs for this hook: synchronous
+     mode "guarantees dependencies are installed before your session
+     starts") — so telling the agent to call `add_repo` "before running
+     any bootstrap script" cannot make that tool call precede a hook the
+     harness has already started running, at any retry count or delay.
+     **An earlier version of this paragraph claimed a retry loop inside
+     the hook closed the gap; a follow-up testing session proved that
+     false by direct test, not just unconvincing in theory** — see
      [`practices/session-bootstrap.md`](practices/session-bootstrap.md)'s
-     Story. What actually closes the residual race now lives in the
-     engine rather than in prose: the hook above retries the clone with a
-     bound instead of trying once, and `tools/precedent_resolve.py`'s own
-     `load_config()` treats a still-missing individual config, on a remote
-     session, as "try the bootstrap hook once more" rather than "no
-     individual set." The `add_repo` instruction above is still required
-     — the retry has nothing to succeed *into* without real repo access —
-     it is just no longer asked to win the race by itself. See
+     Story for both incidents and this correction. What actually closes
+     it: `tools/precedent_resolve.py`'s own `load_config()` treats a
+     still-missing individual config, on a remote session, as "try the
+     bootstrap hook once more" rather than "no individual set" — and
+     because that re-invocation happens from inside the agent's own turn,
+     after `add_repo` has already run, it succeeds where the original hook
+     invocation structurally could not. The `add_repo` instruction above
+     is still required — the self-heal has nothing to succeed *into*
+     without real repo access — it just isn't, and never was, helped by
+     retrying earlier. See
      [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
      step 4 for the worked pattern, including the access gate and exactly
      how it's closed now.

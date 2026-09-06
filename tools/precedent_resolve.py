@@ -87,32 +87,29 @@ DEFAULT_USER_CONFIG = pathlib.Path.home() / '.config' / 'precedent' / 'config.js
 # resolving a config that might be exactly what's missing.
 INDIVIDUAL_BOOTSTRAP_HOOK = '.claude/hooks/precedent-individual-bootstrap.sh'
 
-# Deliberately smaller than precedent_source_bootstrap.py's own CLI
-# defaults (6 retries / 2s): the hook itself is the first line of defense
-# and can afford to spend ~12s once at session start. This is the second
-# line, invoked lazily from inside an ordinary resolve -- every extra
-# second here is latency added to a session that just asked "what
-# practices are in force", not to a one-time session-start cost.
-SELF_HEAL_RETRIES = 2
-SELF_HEAL_RETRY_DELAY = 1.0
-
-
 def _self_heal_individual_source(repo_root):
     """practice: session-bootstrap -- "config absent" and "no individual
     set" are not the same fact, and treating them as the same fact is
     exactly the bug two independent adopters hit (see
     tools/precedent_source_bootstrap.py's module docstring for the
-    incident). If a hook that would populate the user config exists in
-    this project, in a session that could plausibly still be racing its
-    own `add_repo` calls, try it once, synchronously, before concluding
-    the individual source isn't available.
+    incident, and its 2026-09-06 correction for why THIS function -- not
+    a retry loop inside the hook itself -- is the thing that actually
+    closes it). A `SessionStart` hook runs entirely to completion before
+    the agent's own turn starts, so on a genuinely fresh session it is
+    GUARANTEED to run before `add_repo` can have been called even once --
+    not a race it might win, one it structurally cannot. By the time
+    anything calls this function, though, the agent's own turn (and its
+    `add_repo` call, per the standing session-start instruction) has
+    already happened -- so a single re-invocation of the project's hook,
+    here, now has the access it needed the first time and should succeed
+    on this one attempt.
 
     Deliberately narrow: only fires when (a) CLAUDE_CODE_REMOTE=true --
-    the race this exists for is specific to a hosted session's per-session
-    git access, never a local machine's persistent $HOME -- and (b) the
-    project actually ships the conventional hook. Never raises: a self-heal
-    attempt that itself fails is exactly the "missing source" case this
-    function was trying to avoid misreporting, not a new failure mode."""
+    this is specific to a hosted session's per-session git access, never a
+    local machine's persistent $HOME -- and (b) the project actually ships
+    the conventional hook. Never raises: a self-heal attempt that itself
+    fails is exactly the "missing source" case this function was trying to
+    avoid misreporting, not a new failure mode."""
     if os.environ.get('CLAUDE_CODE_REMOTE') != 'true':
         return
     hook = repo_root / INDIVIDUAL_BOOTSTRAP_HOOK
@@ -255,10 +252,12 @@ def load_config(repo, user_config=None):
     user_cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
         os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
     if not user_cfg_path.exists():
-        # practice: session-bootstrap -- a hook that hasn't run yet (lost its
-        # race against this session's own `add_repo` calls) looks identical,
-        # from here, to "this person has no individual set". Try once to
-        # close that gap before reporting the latter.
+        # practice: session-bootstrap -- a hook that ran too early to have
+        # this session's own `add_repo` access yet (guaranteed on a fresh
+        # session, not just possible) looks identical, from here, to "this
+        # person has no individual set". Try once, now that the agent's own
+        # turn (and its add_repo call) has actually happened, before
+        # reporting the latter.
         _self_heal_individual_source(repo_root)
     if user_cfg_path.exists():
         cfg = _read_json(user_cfg_path, 'the user config')

@@ -175,12 +175,23 @@ still-forming git access (a privately-scoped individual or team source
 whose clone needs `add_repo` access the agent grants itself, in its own
 turn, which a `SessionStart` hook — running before that turn starts —
 cannot wait for), and Story records the incident that surfaced it: two
-independent Precedent adopters' individual-source bootstrap hook lost
-that race, degraded on purpose, and then silently never re-ran. The fix
-(bounded retry in [`tools/precedent_source_bootstrap.py`](tools/precedent_source_bootstrap.py),
-a lazy self-heal in [`tools/precedent_resolve.py`](tools/precedent_resolve.py)'s
-`load_config()`) is new engine work this branch's own phase structure
-never covered, not a change to anything pre-fork.
+independent Precedent adopters' individual-source bootstrap hook ran
+before the agent's own `add_repo` call could possibly have fired, degraded
+on purpose, and then silently never re-ran. **The fix, and a same-day
+correction to it (2026-09-06):** the first fix shipped a bounded retry in
+[`tools/precedent_source_bootstrap.py`](tools/precedent_source_bootstrap.py)
+alongside a lazy self-heal in
+[`tools/precedent_resolve.py`](tools/precedent_resolve.py)'s
+`load_config()`, framed as two contributing halves. A follow-up testing
+session proved the retry half inert by direct test: a `SessionStart` hook
+runs entirely to completion before the agent's own turn starts, so no
+retry count or delay inside the hook can ever observe `add_repo` access
+appearing — only the lazy self-heal, which runs later from inside the
+agent's own turn, actually closes the gap. Corrected the same day: the
+tool now defaults to a single attempt, and every document (this one
+included) that stated the retry as a real, contributing fix has been
+rewritten. New engine work this branch's own phase structure never
+covered either way, not a change to anything pre-fork.
 
 **What did not change.** `## Rule` — "environment setup... lives in a
 session-start hook... warning loudly on failure" — is untouched,

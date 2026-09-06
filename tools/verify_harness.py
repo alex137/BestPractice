@@ -3499,6 +3499,131 @@ def check_materialize_bridges_loader():
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_show_flags_unreachable_materialized_source():
+    """practices/verify-postcondition.md, applied to the READ side of the
+    gap practices/session-bootstrap.md's Story records on the write side.
+    A materialized practices/<slug>.md (tools/precedent_materialize.py's
+    output, in a consumer repo resolving universal/team/individual/
+    repo-local together) is whatever was on disk at the last successful
+    materialize() run -- precedent_show.py reading it back proves nothing
+    about whether the source that produced it is reachable THIS session.
+    Before this, a session could get a clean, confident-looking Rule
+    printout from a source that had silently dropped off, with nothing to
+    tell that apart from a source genuinely still live -- exactly the
+    false-confidence case the self-heal fix (tools/precedent_resolve.py)
+    makes MORE likely to occur unnoticed, not less: a source can now fail
+    to resolve in one particular session while a materialized tree from an
+    earlier, working session still reads back clean.
+
+    Six stated cases: a real individual source materialized and read while
+    reachable (silent, no note); the same slug read again after that
+    source's directory is removed (the note fires, naming the level and
+    the materialize timestamp); a universal-sourced slug in the SAME
+    materialized tree, whose source never leaves (stays silent throughout
+    -- the check is source-specific, not a blanket flag on every slug once
+    anything is missing); restoring the source and re-reading (silent
+    again -- not sticky, re-checked every call); a plain SOURCE repo (this
+    one) with no MANIFEST.json at all (never adds a note, regardless of
+    slug); and multiple slugs in one call sourced differently (each gets
+    its own independent verdict, matching precedent_show.py's own
+    per-slug concatenation)."""
+    import shutil, subprocess, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-show-reachability-'))
+    cases = []
+    try:
+        def write_practice(path, slug, rule):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+                f'severity: default\napplies_to: ["**"]\noccasion: "testing"\n'
+                f'index_clause: "a harness fixture"\nchecked_by: null\n'
+                f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+                f'added: null\napproved_by: "harness"\n---\n\n## Rule\n{rule}\n\n'
+                f'## Detail\n\n## Why\n\n## Story\n\n## Install\n', encoding='utf-8')
+
+        indiv = tmp / 'indiv-source'
+        write_practice(indiv / 'practices' / 'show-fixture-individual.md',
+                       'show-fixture-individual', 'The individual fixture Rule.')
+        uni = tmp / 'uni-source'
+        write_practice(uni / 'practices' / 'show-fixture-universal.md',
+                       'show-fixture-universal', 'The universal fixture Rule.')
+
+        consumer = tmp / 'consumer'
+        (consumer).mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'uni-src', 'path': str(uni)}]
+        }), encoding='utf-8')
+        user_config = tmp / 'user-config.json'
+        user_config.write_text(json.dumps({
+            'individual': {'name': 'indiv-src', 'path': str(indiv)},
+        }), encoding='utf-8')
+
+        materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
+        show_tool = str(ROOT / 'tools' / 'precedent_show.py')
+
+        def materialize():
+            r = subprocess.run([sys.executable, materialize_tool, '--out', str(consumer),
+                               '--repo', str(consumer), '--user-config', str(user_config)],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        def show(*slugs):
+            r = subprocess.run([sys.executable, show_tool, *slugs, '--repo', str(consumer)],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = materialize()
+        cases.append(('the two-source fixture materializes cleanly', rc == 0, out))
+
+        rc, out = show('show-fixture-individual')
+        cases.append(('reachable: an individual-sourced slug shows no note',
+                      rc == 0 and 'NOT reachable' not in out
+                      and 'The individual fixture Rule.' in out, out))
+
+        rc, out = show('show-fixture-universal')
+        cases.append(('a universal-sourced slug in the same materialized tree '
+                      'shows no note either', rc == 0 and 'NOT reachable' not in out, out))
+
+        shutil.move(str(indiv), str(tmp / 'indiv-source-hidden'))
+        rc, out = show('show-fixture-individual')
+        cases.append(('unreachable: the same individual-sourced slug now carries '
+                      'a note naming its level',
+                      rc == 0 and 'NOT reachable this session' in out
+                      and '(source: individual,' in out, out))
+
+        rc, out = show('show-fixture-universal')
+        cases.append(('the universal-sourced slug is unaffected by the '
+                      'individual source going missing -- the check is per-slug, '
+                      'not a blanket flag', rc == 0 and 'NOT reachable' not in out, out))
+
+        rc, out = show('show-fixture-individual', 'show-fixture-universal')
+        cases.append(('mixed in one call: each slug gets its own independent '
+                      'verdict', rc == 0 and out.count('NOT reachable') == 1
+                      and '### show-fixture-individual' in out
+                      and '### show-fixture-universal' in out, out))
+
+        shutil.move(str(tmp / 'indiv-source-hidden'), str(indiv))
+        rc, out = show('show-fixture-individual')
+        cases.append(('restored: the note is re-checked every call, not sticky',
+                      rc == 0 and 'NOT reachable' not in out, out))
+
+        # A plain SOURCE repo (no MANIFEST.json at all) never adds a note,
+        # for any slug -- this repo's own tree is exactly that fixture.
+        r = subprocess.run([sys.executable, show_tool, 'environment-gotchas'],
+                           capture_output=True, text=True, cwd=str(ROOT))
+        cases.append(('a plain source repo with no MANIFEST.json never adds a note',
+                      r.returncode == 0 and 'NOT reachable' not in r.stdout, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'precedent_show.py flags a materialized slug whose declared source is not '
+          f'reachable this session ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
 def check_sync_views_cross_source():
     """tools/precedent_sync_views.py -- the one-command glue over
     precedent_materialize.py + build_views.py --agents-only that a
@@ -4496,24 +4621,41 @@ def check_vendor_engine_consumer_case():
 
 
 def check_individual_source_bootstrap_self_heals():
-    """practices/session-bootstrap.md's Detail, tested rather than trusted:
-    a privately-scoped individual source's SessionStart hook retries
-    instead of trying once (tools/precedent_source_bootstrap.py), and
+    """practices/session-bootstrap.md's Detail, tested rather than trusted
+    -- and corrected 2026-09-06 after this check's own first version
+    proved a false claim clean.
+
     tools/precedent_resolve.py's own load_config() treats a still-missing
     individual config, on a remote session, as "try the hook once more"
-    rather than "no individual set". This is the two-part fix for the
-    incident practices/session-bootstrap.md's Story records: two
-    independent adopters' SessionStart hook lost its race against their
-    own session's add_repo calls, degraded on purpose (correctly), and
-    then never ran again (incorrectly) -- indistinguishable from home from
-    "this person genuinely has no individual set".
+    rather than "no individual set" -- this is the ENTIRE fix for the
+    incident practices/session-bootstrap.md's Story records (two
+    independent adopters' SessionStart hook running to completion before
+    the agent's own turn, and therefore its add_repo call, could start).
+    A first version of this check also asserted that
+    tools/precedent_source_bootstrap.py retrying "instead of trying once"
+    was a second, contributing half. That was tested here only by calling
+    the tool directly against synthetic fixtures -- never inside a real
+    SessionStart hook on a genuinely fresh Claude Code Web session, which
+    is the one environment where the claim was actually false: a
+    SessionStart hook's execution window and the agent's own first turn
+    never overlap in time, so no retry count or delay inside the hook can
+    ever observe add_repo access appearing. A follow-up testing session
+    ran that real test and disproved it directly. This check's own
+    passing runs never caught that, and could not have: it proves the
+    tool's CODE does what the code says (retries N times, degrades
+    gracefully), which was never in question -- it cannot prove the
+    premise about the outside world (whether a retry, in that specific
+    execution context, has anything to retry into) the retry was written
+    against. Case 6 below locks in the correction: the tool now defaults
+    to a single attempt, precisely because a default of more than one
+    bought nothing for the case it was sized for.
 
     Fixture: a real local git repo served over file:// -- not a bare path;
     this repo's own environment-gotchas.md already names why (`git clone
     --depth 1 /some/path` is ignored; only a real transport gets real
     clone semantics, and `file://` is what forces that locally). Six
-    stated cases, all fast: --retry-delay 0 proves the retry COUNT without
-    a real wall-clock wait."""
+    stated cases, all fast: --retry-delay 0 proves an explicitly-requested
+    retry count without a real wall-clock wait."""
     import shutil, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-source-bootstrap-'))
@@ -4596,6 +4738,22 @@ def check_individual_source_bootstrap_self_heals():
                       rc3 == 0 and not (tmp / 'config-unreachable.json').exists()
                       and 'after 3 attempt' in out3, out3))
 
+        # --- case 6 (2026-09-06 correction): the DEFAULT is a single
+        # attempt, with no --retries/--retry-delay given at all -- locks in
+        # the corrected understanding that a multi-attempt default bought
+        # nothing for the SessionStart-hook case it was originally sized
+        # for (see this function's own docstring). A regression back to a
+        # default > 1 would silently reintroduce the exact wasted latency
+        # this correction removed, on every cold session, for zero benefit.
+        rc6, out6 = run(str(bootstrap_tool), '--level', 'individual',
+                        '--name', 'harness-fixture-unreachable-default',
+                        '--repo-url', f'file://{tmp / "does-not-exist"}',
+                        '--clone', str(tmp / 'clone-unreachable-default'),
+                        '--config', str(tmp / 'config-unreachable-default.json'),
+                        '--remote-only', 'false')
+        cases.append(('with no --retries given, the tool defaults to exactly '
+                      'one attempt', rc6 == 0 and 'after 1 attempt' in out6, out6))
+
         # --- case 4: the resolver's own lazy self-heal, on a remote session -
         consumer = tmp / 'consumer'
         (consumer / '.claude' / 'hooks').mkdir(parents=True)
@@ -4658,7 +4816,8 @@ def check_individual_source_bootstrap_self_heals():
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'individual source bootstrap retries, and the resolver self-heals '
+    check(f'the resolver self-heals (the actual fix); the bootstrap tool '
+          f'defaults to one attempt and still honors an explicit retry count '
           f'({len(cases)} stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
@@ -4790,6 +4949,7 @@ def main():
     check_gate_channel()
     check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
+    check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
