@@ -1201,8 +1201,27 @@ def _doc_lint():
     return doc_lint
 
 
+# A consuming repo vendors this repo's whole tree at process/upstream/ and is
+# forbidden to hand-edit it -- it must stay byte-identical to what the mirror
+# last wrote, so a finding there is not actionable where it is reported. Every
+# change-scope document check below runs on `ctx.changed`, and a re-vendor
+# marks the entire vendored tree as changed: a consumer that pulled 167
+# commits of upstream got acronyms-glossary, header-caps and no-stale-counts
+# firing on UPSTREAM's own prose, none of which it may touch (2026-09-06).
+# migration-scrubs-vocabulary already excluded this path for exactly this
+# reason; centralizing it here so the same exemption reaches every check that
+# walks changed markdown, rather than being re-derived per check.
+# practice: scrub-gate (the vendored tree's own gate is practice_audit.py)
+VENDORED_PREFIXES = ('process/upstream/',)
+
+
+def _is_vendored(path):
+    return path.startswith(VENDORED_PREFIXES)
+
+
 def _md_in_scope(ctx):
-    return [f for f in ctx.changed if f.endswith('.md') and (ROOT / f).exists()]
+    return [f for f in ctx.changed
+            if f.endswith('.md') and not _is_vendored(f) and (ROOT / f).exists()]
 
 
 @check('doc-references-are-links', 'change',
