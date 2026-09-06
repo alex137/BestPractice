@@ -1729,6 +1729,34 @@ def check_doc_lint_fires():
         # were standing, unfixable warnings (LEDGER.md, SETUP.md's own
         # heading); the second one could only be cleared by the one person
         # who cannot clear it, the person editing that file.
+        # --- the corpus rule: an initialism has no ordinary lowercase form,
+        # a shouted word does. Decided from the repo's own prose, not from a
+        # hand-maintained English wordlist -- a first pass at the
+        # 101-warning problem added about forty such words by hand, which is
+        # a list that grows forever and is wrong the first time somebody
+        # shouts a word nobody thought of.
+        (tmp / 'corpus_a.md').write_text(
+            "We only do this before the end. only, before, end, only, before.\n"
+            "The zqx index is never written in lowercase anywhere.\n".replace('zqx', 'ZZZ'),
+            encoding='utf-8')
+        (tmp / 'corpus_b.md').write_text(
+            "You must ONLY do this BEFORE the END, per the ZQX index.\n",
+            encoding='utf-8')
+        dl._corpus_cache = None
+        dl.corpus_word_forms()
+        cases.append(('the corpus classifies a shouted English word as a word '
+                      '(it appears in lowercase in the same corpus)',
+                      all(dl.looks_like_a_word(w) for w in ('ONLY', 'BEFORE', 'END'))))
+        cases.append(('and classifies a real initialism as an acronym (no '
+                      'lowercase form anywhere in the corpus)',
+                      not dl.looks_like_a_word('ZQX')))
+        _s, _u, corpus_flagged, *_ = dl.check_file('corpus_b.md', fix=False, known=set())
+        flagged = {tok for _i, tok in corpus_flagged}
+        cases.append(('so the scan flags the initialism and leaves the shouted '
+                      'words alone, with no wordlist involved',
+                      'ZQX' in flagged and not ({'ONLY', 'BEFORE', 'END'} & flagged)))
+        dl._corpus_cache = None
+
         (tmp / 'stems.md').write_text(
             "The ledger is [templates/harness/LEDGER.md](../t/LEDGER.md).\n",
             encoding='utf-8')
@@ -1783,7 +1811,9 @@ def check_doc_lint_fires():
           f'*_decision.md link is not residue, a real verify-later flag is '
           f'still caught, a glossed acronym stays clean on reuse while an '
           f'unglossed one is still caught, a filename stem and a document '
-          f'naming itself are not acronyms, and a broken relative link is '
+          f'naming itself are not acronyms, the corpus rule tells a shouted '
+          f'English word from a real initialism with no wordlist, and a '
+          f'broken relative link is '
           f'caught while a correct one, a code span, a fenced block, a URL, '
           f'an anchor and templates/ are not)', ok)
 

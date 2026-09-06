@@ -116,17 +116,16 @@ ACRONYM_STOP = {
     'USA','US','UK','EU','UN','USD','ROI','IRR','NPV','CAGR','CEO','CTO',
     'MJ','MW','MN','GW','KW','KWH','WH','NM','KM','MM','CM','HZ','KHZ','MHZ','GHZ','DB',
     'DBM','PSI','HP','KG','LB','KT','KN','GB','MB','TB','AC','DC','NE','NW','SSE','SSW',
-    # Ordinary English words this repo writes in caps for emphasis. The
-    # regex cannot tell "shout this word" from "expand this initialism",
-    # and every one of these was a standing, unfixable warning: there is
-    # no expansion of ONLY, and adding it to a glossary of coined terms
-    # would be worse than the warning. Reported as 101 unglossed
-    # acronyms on this repo, of which these and ALL-CAPS filename stems
-    # (see FILENAME_STEM_RE) were the great majority.
-    'ON','OFF','BEGIN','END','BEFORE','AFTER','ONLY','BOTH','EACH','EVERY','NEVER',
-    'ALWAYS','FAIL','PASS','SKIP','GATE','PATH','NAME','DATE','TIME','ACTIVE','CAPS',
-    'LAYOUT','MUST','SHOULD','THIS','THAT','THEN','WITH','FROM','INTO','ANY','NONE',
-    'REAL','SAME','READ','WRITE','RUN','ADD','USE','SET','NOT','WAS','ARE','CAN',
+    # NOTE on what does NOT belong here: ordinary English words this repo
+    # happens to write in caps for emphasis (ONLY, BEGIN, BOTH, FAIL...).
+    # A first pass at the 101-warning problem added about forty of them by
+    # hand, which is a list that grows forever and is wrong the first time
+    # somebody shouts a word nobody thought of. `looks_like_a_word()`
+    # decides that from the repo's own corpus instead -- see its docstring.
+    # This set is only for tokens the corpus CANNOT settle: units, and
+    # acronyms so widely known that expanding them is noise rather than
+    # clarity.
+    #
     # Universally known in a software repository; expanding them on first
     # use in every document is noise, not clarity.
     'PR','PRS','CI','CD','VCS','UTC','YAML','TOML','DOM','JS','TS','LLM','LLMS',
@@ -202,6 +201,65 @@ def check_broken_links(path):
     return out
 
 
+# The corpus rule. An initialism has no ordinary lowercase form -- nobody
+# writes "ci" or "rpp" mid-sentence -- while a word being SHOUTED for
+# emphasis is a word the same repository writes in lowercase constantly.
+# That difference is measurable from the repository's own prose, and it is
+# what actually separates the two classes; a hand-maintained list of
+# English words is a proxy for it that grows forever and is wrong the first
+# time somebody shouts a word nobody thought of.
+#
+# Measured on this repo, 2026-09-06: NOT appears 22 times in caps and 1,899
+# in lowercase; ONLY 4 and 689; LOADER 38 and 181. Against that, RPP is 45
+# and 0, CI 30 and 0, LLM 11 and 0, VCS 8 and 0. There is no overlap worth
+# arguing about, which is why a plain ratio is enough and a dictionary is
+# not needed.
+LOWERCASE_WORD_RE = re.compile(r'\b([a-z]{2,8})\b')
+# Above this share of lowercase uses, the token is a word being shouted.
+# 0.4 rather than 0.5 because the caps count is inflated by headings and
+# filename stems, which are the same token doing a different job.
+WORD_FORM_RATIO = 0.4
+_corpus_cache = None
+
+
+def corpus_word_forms():
+    """{TOKEN: lowercase_share} over this repo's own tracked markdown.
+
+    Built once per process, lazily -- it costs ≈0.1s over ≈150 files here,
+    and only the acronym check needs it. Fails to an empty map rather than
+    raising: with no corpus the check simply falls back to the stoplist,
+    which is the behaviour it had before this existed."""
+    global _corpus_cache
+    if _corpus_cache is not None:
+        return _corpus_cache
+    lower, caps = {}, {}
+    try:
+        listed = _git(['ls-files', '*.md'], cwd=ROOT).splitlines()
+        paths = [ROOT / f for f in listed] or list(ROOT.rglob('*.md'))
+    except Exception:
+        paths = []
+    for f in paths:
+        try:
+            text = f.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        for w in LOWERCASE_WORD_RE.findall(text):
+            lower[w] = lower.get(w, 0) + 1
+        for w in ACRONYM_RE.findall(text):
+            caps[w] = caps.get(w, 0) + 1
+    _corpus_cache = {tok: lower.get(tok.lower(), 0)
+                     / (lower.get(tok.lower(), 0) + n)
+                     for tok, n in caps.items() if n}
+    return _corpus_cache
+
+
+def looks_like_a_word(tok):
+    """True when this repository's own prose writes `tok` in lowercase far
+    more often than in caps -- i.e. it is an English word being shouted,
+    not an initialism. See corpus_word_forms() for the measurement."""
+    return corpus_word_forms().get(tok, 0.0) >= WORD_FORM_RATIO
+
+
 def scan_unglossed(text, known, path=None):
     """[(lineno, TOKEN)] — every ALL-CAPS token in `text` that is not a
     known acronym, not glossed inline as `LONG FORM (TOK)`, not a filename
@@ -238,6 +296,11 @@ def scan_unglossed(text, known, path=None):
                 # A document naming itself in its own title (SETUP.md's
                 # "# SETUP — guided install"). Not an acronym, and the one
                 # person who cannot fix it is the person editing that file.
+                continue
+            if looks_like_a_word(tok):
+                # An English word this repo shouts for emphasis, not an
+                # initialism. Decided from the corpus, not a wordlist --
+                # see looks_like_a_word().
                 continue
             if FILENAME_STEM_RE.match(clean, m.end()):
                 # An ALL-CAPS filename stem is a file reference, not an
