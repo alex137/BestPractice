@@ -1,5 +1,8 @@
 {
-  "_comment": "Claude Code adapter: install to .claude/settings.json (practice `session-bootstrap`). Wires the SessionStart hook (which execs tools/bootstrap.sh), a PreToolUse hook that surfaces the path-triggered loading channel's matched practice Rules before an Edit/Write/NotebookEdit proceeds, a Stop hook that blocks ending a turn with uncommitted/untracked/unpushed work, and allowlists the routine safe commands sessions run constantly, so work doesn't stall on permission prompts. Add your repo's own audit/build commands. The Precedent loader commands are listed BOTH bare and with arguments: Claude Code matches `Bash(cmd *)` against an invocation that actually has arguments, so a bare `python3 tools/doc_lint.py` -- the exact form the merge runbook and AGENTS.md's own light check tell every session to run -- prompted on every single run until both forms were listed.",
+  "_comment": "Claude Code adapter: install to .claude/settings.json (practice `session-bootstrap`). Wires the SessionStart hook (which execs tools/bootstrap.sh), a PreToolUse hook that surfaces the path-triggered loading channel's matched practice Rules before an Edit/Write/NotebookEdit proceeds, a Stop hook that blocks ending a turn with uncommitted/untracked/unpushed work, and allowlists the routine safe commands sessions run constantly, so work doesn't stall on permission prompts. Add your repo's own audit/build commands. The Precedent loader commands are listed BOTH bare and with arguments: Claude Code matches `Bash(cmd *)` against an invocation that actually has arguments, so a bare `python3 tools/doc_lint.py` -- the exact form the merge runbook and AGENTS.md's own light check tell every session to run -- prompted on every single run until both forms were listed. ALSO WIRED, since 2026-09-06: freshness-guard.sh twice (a SessionStart pass that fetches and fast-forwards when that is provably lossless, and a PreToolUse gate that refuses the session's first tool call on a checkout it cannot vouch for), and commit-identity.sh, which resolves whoever is running the session and installs a pre-commit hook refusing a commit authored by the container's own bot account. REPLACE THE BASE BRANCH ARGUMENT (`main` below) with this repo's real base branch -- it is passed explicitly because asking git for the default branch gets it wrong in at least one real repo. The PreToolUse matcher for the guard includes Bash on purpose: an agent editing files through cat/sed/python3 never touches Edit or Write at all. The env block's TZ is a stated DEFAULT for people who have declared no timezone anywhere; a person whose individual practice source declares one gets that instead, enforced by the pre-commit hook.",
+  "env": {
+    "TZ": "America/New_York"
+  },
   "permissions": {
     "allow": [
       "Bash(grep *)",
@@ -47,6 +50,14 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh session-start main"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity.sh"
           }
         ]
       }
@@ -58,6 +69,15 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-paths.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh pre-write main"
           }
         ]
       }

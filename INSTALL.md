@@ -152,7 +152,14 @@ it applies.
      one-line import of `AGENTS.md`), `harness/claude-code/settings.json` →
      `.claude/settings.json`, `harness/claude-code/hooks/session-start.sh` →
      `.claude/hooks/session-start.sh`, `harness/claude-code/hooks/stop-git-check.sh`
-     → `.claude/hooks/stop-git-check.sh`. Codex reads `AGENTS.md` natively.
+     → `.claude/hooks/stop-git-check.sh`, and — since 2026-09-06 —
+     `harness/claude-code/hooks/freshness-guard.sh` and
+     `harness/claude-code/hooks/commit-identity.sh` → `.claude/hooks/`, which
+     keep a session off a stale checkout and keep a commit's author a person
+     rather than the container's own agent account. **Replace the base-branch
+     argument in the two `freshness-guard.sh` commands** with this repo's real
+     base branch; it is passed explicitly because detecting it gets this repo
+     itself wrong. Codex reads `AGENTS.md` natively.
      Multiple adapters can be installed side by side.
    - `tools/doc_lint.py` → run it from `process/upstream/tools/` in place,
      or copy to the repo's tools dir if it needs local adaptation.

@@ -123,6 +123,76 @@ def _copy_skeleton(skeleton_dir, dest, mapping):
     return written
 
 
+HARNESS_HOOKS = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+# The two session hooks every new source gets, and the ONE thing about a
+# source's shape that is not read off the skeleton directory. They live in
+# the harness adapter, not in either skeleton, because a skeleton would
+# need its own copy of each per level and the copies would drift; and
+# because _copy_skeleton() writes text files with default permissions,
+# while a hook that is not executable is a hook that silently never runs.
+SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh')
+
+
+def _install_session_hooks(dest, base_branch='main'):
+    """Give a new source the two hooks that keep its own sessions honest:
+    freshness-guard.sh (never work on, or write to, a stale checkout) and
+    commit-identity.sh (commits are authored by the person running the
+    session, not the container's own bot account).
+
+    Neither hook names a person. commit-identity.sh resolves whoever is
+    actually running the session -- see its own header for the order it
+    tries, and why the timezone is the only thing it is ever willing to
+    guess at."""
+    hooks_dir = dest / '.claude' / 'hooks'
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for name in SESSION_HOOKS:
+        out = hooks_dir / name
+        out.write_text((HARNESS_HOOKS / name).read_text(encoding='utf-8'),
+                       encoding='utf-8')
+        out.chmod(0o755)
+        written.append(out)
+
+    settings = dest / '.claude' / 'settings.json'
+    if not settings.exists():
+        payload = {
+            '_comment': [
+                "Written by tools/precedent_bootstrap_source.py. The base branch is",
+                "passed to freshness-guard.sh explicitly, as its second argument, and",
+                "is not detected: at least one real repo's configured default branch is",
+                "not the branch its work sits on top of. Change it here if this source's",
+                "is not `main`.",
+                "",
+                "The PreToolUse matcher includes Bash deliberately -- an agent editing",
+                "files through cat/sed/python3 never touches Edit or Write at all.",
+                "",
+                "No env identity is set here: a source repo may have more than one",
+                "person committing to it, and commit-identity.sh resolves each of them",
+                "at session start instead of anybody being named in a tracked file.",
+            ],
+            'hooks': {
+                'SessionStart': [{
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh session-start ' + base_branch},
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity.sh'},
+                    ],
+                }],
+                'PreToolUse': [{
+                    'matcher': 'Edit|Write|NotebookEdit|Bash',
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh pre-write ' + base_branch},
+                    ],
+                }],
+            },
+        }
+        settings.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+        written.append(settings)
+    return written
+
+
 def _seed_approvers_json(dest, approvers):
     """approvers.json is written by _copy_skeleton with only the FIRST
     approver substituted into the template's single entry (placeholder
@@ -183,6 +253,11 @@ def verify(level, path):
                 break
         else:
             missing.append(str(rel))
+    for name in SESSION_HOOKS:
+        if not (path / '.claude' / 'hooks' / name).exists():
+            missing.append(str(pathlib.Path('.claude') / 'hooks' / name))
+    if not (path / '.claude' / 'settings.json').exists():
+        missing.append(str(pathlib.Path('.claude') / 'settings.json'))
     return missing + _malformed(level, path)
 
 
@@ -333,6 +408,7 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
     if level == 'team':
         _seed_approvers_json(dest, approvers)
+    written += _install_session_hooks(dest)
     written += precedent_vendor_engine.seed(dest)
 
     return {'dest': dest, 'written': written}
