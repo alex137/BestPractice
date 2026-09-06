@@ -46,11 +46,20 @@ library of proven, general practices for working effectively together,
 distilled from real teams' experience, alongside whatever rules your own
 team adds.
 
-## Practices, created automatically
+## Practices, created automatically, confirmed by people
 
-Say "always do X" or "never do Y" once, in conversation, and it becomes a
-rule your assistant follows from then on — no separate document to write,
+Say "always do X" or "never do Y" once, in conversation, and your assistant
+drafts it as a rule automatically — but it only takes effect once a person
+confirms it first, whether that's you approving your own habit on the spot
+or a teammate signing off on a shared one. No separate document to write,
 no meeting to schedule.
+
+## Practices at different levels of sharing
+
+A rule can stay just yours, apply to your whole team, or join the public
+library everyone using BestPractice starts from — you choose which, and a
+rule that starts narrow can move to a wider level later if it turns out to
+matter beyond where it began.
 
 ## Works with any document type
 
