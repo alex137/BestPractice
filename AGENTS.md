@@ -383,19 +383,43 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   in [tools/verify_harness.py](tools/verify_harness.py) with negative
   controls.
 
-- **A stale container is indistinguishable from missing work, and the
-  freshness guard can be the thing that's lying.** On 2026-09-06 a session
-  started on a 5-day-old shallow clone, 207 commits behind
-  `precedent-beta-v01`, and concluded that
-  [tools/precedent_check.py](tools/precedent_check.py) and
+- **A stale container is indistinguishable from missing work; the freshness
+  guard can be the thing that's lying; and the guard cannot save the very
+  containers that most need it.** Three incidents, each one level deeper than
+  the last. 2026-09-01: a session's local branch shared ZERO commits with
+  origin, 51 merged commits invisible. 2026-09-06: a session started on a
+  5-day-old shallow clone, 207 commits behind `precedent-beta-v01`, and
+  concluded that [tools/precedent_check.py](tools/precedent_check.py) and
   [.github/workflows/deep-check.yml](.github/workflows/deep-check.yml) "did
-  not exist" — they had landed days earlier.
+  not exist" — they had landed days earlier;
   [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh) stayed
   silent because its `git fetch` failed and it then compared the local commit
-  against an unrefreshed remote-tracking ref: both were equally old, so nothing looked
-  behind. Fixed to warn when the fetch itself fails. Before concluding that
-  anything is missing or unfinished, run `git fetch origin <branch>` and
-  `git rev-list --count HEAD..origin/<branch>`.
+  against an unrefreshed remote-tracking ref: both were equally old, so
+  nothing looked behind. Fixed then to warn when the fetch itself fails.
+  **2026-09-06, the one that ended warning as a strategy:** a session came up
+  366 commits behind, and the hardened freshness block *did run and could not
+  help* — the container's copy of the hook was built 2026-08-31 and predated
+  the block by six days. **A guard shipped inside the checkout it guards is
+  missing from precisely the containers stale enough to need it.** The
+  documentation failed identically: the AGENTS.md that session was handed had
+  no gotchas section at all, so every entry here — including this one — was
+  invisible to it. Warning was never going to be enough, because by the time
+  a session could act on a warning the harness has already handed it a stale
+  instructions file. The hook therefore now **repairs**: on a clean tree that
+  is strictly behind, it fast-forwards and says so, which makes the harness
+  re-read the instruction files. Diverged, no-shared-history, and dirty-tree
+  states still only warn — a hook that discards work is worse than any stale
+  checkout. Two further fixes fell out of testing it: the freshness block was
+  gated behind `CLAUDE_CODE_REMOTE=true` along with the `pip install`, so on a
+  local machine it **never ran at all** (verified: total silence on all six
+  test cases, including a failed fetch); and the old remedy it printed —
+  `git checkout -B <branch> origin/<branch>` — was printed for a *diverged*
+  branch too, where following it silently discards the local commits, because
+  the check never distinguished "behind" from "behind and ahead". Before
+  concluding that anything is missing or unfinished, still run
+  `git fetch origin <branch>` and `git rev-list --count HEAD..origin/<branch>`
+  yourself: the hook does not run for a repo attached mid-session (see the
+  `add_repo` entry below).
 
 - **This repo is normally cloned `--depth 1`, and several tools degrade
   rather than fail on that.** [tools/behavioral_replay.py](tools/behavioral_replay.py)
