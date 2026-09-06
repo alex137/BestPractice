@@ -834,10 +834,16 @@ def _engine_plus_host_shims(ctx):
     # 2026-09-06: a consuming repo's `.claude/hooks/stop-git-check.sh` was
     # flagged for matching `templates/harness/claude-code/hooks/stop-git-check.sh`,
     # which is the file it is required to be a copy of.
-    templates_dir = vendored / 'templates'
+    # `.claude/` is excluded for the same reason one step removed: the
+    # upstream repo's own harness config is its own INSTANTIATION of those
+    # same templates -- it dogfoods them -- so a host that installed the
+    # template correctly matches that copy too, and excluding only
+    # templates/ just moves the false finding rather than removing it.
+    # Neither directory holds engine mechanism a host could shim.
+    not_engine = (vendored / 'templates', vendored / '.claude')
     upstream = {}
     for p in sorted(vendored.rglob('*')):
-        if templates_dir in p.parents:
+        if any(d in p.parents for d in not_engine):
             continue
         if p.is_file() and p.suffix in ('.py', '.sh'):
             for r in runs(p):
