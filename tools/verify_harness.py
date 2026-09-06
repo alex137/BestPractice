@@ -2584,6 +2584,16 @@ def check_precedent_check_fires():
         def run(repo, slug, *extra):
             env = dict(os.environ)
             env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            # The fixture must not resolve whoever's individual set happens
+            # to be configured on this machine. It is found by ABSOLUTE path
+            # from a user-level config, so unlike the team source (a relative
+            # sibling that a temp-dir fixture cannot reach) it follows the
+            # fixture anywhere -- and layered-practice-packs' baseline then
+            # reports that developer's private practices, making the planted
+            # case prove nothing. Pointed at a file that does not exist, so
+            # the resolver takes its documented "this person has no
+            # individual set" path rather than a half-configured one.
+            env['PRECEDENT_USER_CONFIG'] = str(repo / '.no-user-config.json')
             r = subprocess.run(
                 [sys.executable, str(repo / 'tools' / 'precedent_check.py'),
                  '--only', slug, *extra],
@@ -2620,7 +2630,10 @@ def check_precedent_check_fires():
                 # the only one that ever did, is enforcing again), so this
                 # branch is dormant rather than dead -- kept so downgrading a
                 # check stays a one-word change with test support already
-                # there, not a silent loss of coverage.
+                # there, not a silent loss of coverage. (Live again since
+                # 2026-09-06: layered-practice-packs' reachability check is
+                # advisory, because closing its findings is an architectural
+                # decision a check cannot make -- see its own registration.)
                 cases.append((f'{slug}: a planted violation reports ADVISORY '
                               f'but does not fail the check',
                               rc == 0 and 'ADVISORY' in out and 'VIOLATION' not in out))
@@ -2665,6 +2678,15 @@ def check_precedent_check_fires():
         # orientation-map
         case('orientation-map', lambda repo: (repo / 'MAP.md').unlink())
 
+        # headline-capitalization -- an outward-facing heading knocked back
+        # into sentence case. "Learn More" is the plant because it is the one
+        # heading every documentation/ file ends with, so this stays valid
+        # however the pages themselves are reorganized.
+        def _plant_headline(repo):
+            rewrite(repo, 'documentation/WHAT_IS_THIS_AND_BENEFITS.md',
+                    lambda t: t.replace('## Learn More', '## Learn more', 1))
+        case('headline-capitalization', _plant_headline)
+
         # source-naming -- a source named freehand instead of by its level.
         # `bestpractice-local` is the real name this repo's own repo-local
         # source carried before the convention was fixed, so the planted case
@@ -2672,6 +2694,20 @@ def check_precedent_check_fires():
         case('source-naming',
              lambda repo: rewrite(repo, 'precedent.json', lambda t: t.replace(
                  '"name": "local"', '"name": "bestpractice-local"')))
+
+        # layered-practice-packs -- a practice left in force with nothing
+        # able to load it. Planted by deleting one judgment-only practice's
+        # line from the instructions' occasion index while leaving the
+        # practice itself active: it is still in force, and now no channel
+        # reaches it. That is the real shape (a source declared in
+        # precedent.json whose practices never reach the generated views),
+        # reproduced with only the universal source, which is the one a
+        # fixture can resolve.
+        def _plant_unreachable(repo):
+            rewrite(repo, 'AGENTS.md', lambda t: re.sub(
+                r'\nWhen quoting or compressing someone else.s figures:\n'
+                r'  quote-discipline[^\n]*\n', '\n', t))
+        case('layered-practice-packs', _plant_unreachable, advisory=True)
 
         # quick-index -- the table removed from the instructions
         def _plant_qi(repo):
@@ -4368,7 +4404,23 @@ def check_creation_pipeline_fires():
             rc, out = pyrun(*args)
             if rc != 0:
                 raise RuntimeError(f"fixture candidate creation failed: {out}")
-            found = sorted((repo / 'candidates').glob(f'{slug}-*.md'))
+            # practice: match-parsed-id-not-prefix -- `glob(f'{slug}-*.md')`
+            # also matches every LONGER slug sharing this one's prefix, so
+            # this helper could hand back a different candidate entirely.
+            # It is the exact bug the prefix case below tests for, in the
+            # helper that builds that case's fixtures; the call site there
+            # had already been hand-narrowed to 'prefix-2*.md' to work
+            # around it, which is the workaround that names the defect.
+            # Matched on each file's own parsed slug instead.
+            found = []
+            for f in sorted((repo / 'candidates').glob('*.md')):
+                fm, _sections = sp._read_practice_file(f)
+                if (fm.get('slug') or '').strip('" ') == slug:
+                    found.append(f)
+            if not found:
+                raise RuntimeError(
+                    f"fixture candidate for slug {slug!r} was created but no "
+                    f"candidates/*.md parses back to that slug")
             return found[-1]
 
         # --- criterion 1: recurrence or real cost ---------------------------
@@ -4537,10 +4589,23 @@ def check_creation_pipeline_fires():
         # Deep-check regression case: counting file_count via glob(f'{slug}-*.md')
         # let a candidate named e.g. 'foo-bar' inflate 'foo''s recurrence count,
         # since 'foo-bar-<date>.md' also matches the glob 'foo-*.md'.
-        make_candidate('pipeline-fixture-prefix', recurrence=1)
+        # The short slug's own file, kept from its own creation. This line
+        # used to be a hand-narrowed `glob('pipeline-fixture-prefix-2*.md')`
+        # -- a workaround for make_candidate() globbing by prefix and handing
+        # back the LONGER candidate created just below. The helper matches on
+        # each file's parsed slug now, so no narrowing is needed and the test
+        # no longer contains a private instance of the bug it tests for.
+        # ORDER MATTERS, and is the negative control. The LONGER slug is
+        # created first, so a prefix glob (`glob(f'{slug}-*.md')`, sorted,
+        # last) hands back 'pipeline-fixture-prefix-longer-<date>.md' when
+        # asked for the short slug -- 'l' sorts after the date's '2'. Created
+        # the other way round, the old prefix-matching helper returns the
+        # right file by luck and this case proves nothing. Reordered
+        # 2026-09-06, after a control run showed exactly that: reverting the
+        # helper to the prefix glob still passed.
         make_candidate('pipeline-fixture-prefix-longer', recurrence=1,
                         **{'cost-if-once': 'unrelated candidate, shares a slug prefix'})
-        f_prefix = sorted((repo / 'candidates').glob('pipeline-fixture-prefix-2*.md'))[0]
+        f_prefix = make_candidate('pipeline-fixture-prefix', recurrence=1)
         rc, out = pyrun(promote_tool, '--file', str(f_prefix), '--level', 'individual')
         cases.append(("a differently-slugged candidate sharing a name prefix "
                       "('foo-bar' alongside 'foo') never inflates the shorter "

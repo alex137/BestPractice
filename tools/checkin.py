@@ -109,19 +109,57 @@ def _git(clone, *args):
                           capture_output=True, text=True).stdout.strip()
 
 
-# Directories that exist in BestPractice and have no business in a
-# dependent repo. `evals/` is this project's own routing-quality measurement
-# corpus -- 557 of the 784 files a consumer was vendoring, 2.5 MB, and
-# nothing a consumer runs reads any of it (checked across both real
-# consumers, 2026-09-06: the only mention outside the vendored tree is a
-# comment in precedent_check.py). Every session in every consuming repo was
-# cloning, scanning and scrubbing it for nothing.
+# Directories that exist in BestPractice and have no business in a dependent
+# repo. `evals/` is this project's own routing-quality measurement corpus --
+# the fixtures behind spec/LOADER.md's recall and precision figures. It answers
+# a question about BUILDING Precedent, not about using it, and nothing a
+# consumer runs reads any of it (checked across both real consumers,
+# 2026-09-06: the only mention outside the vendored tree is a comment in
+# precedent_check.py). Every session in every consuming repo was cloning,
+# scanning and scrubbing it for nothing.
+#
+# NOTE, because this reads like a deletion and is not: nothing here removes a
+# PRACTICE. Practices live in practices/ and every one of them still vendors.
+# This excludes measurement fixtures only.
+#
+# The share it accounts for is measured, never typed: `python3
+# tools/checkin.py not-vendored` prints it against the tree in front of you.
+# An earlier version of this comment froze the figures inline and they were
+# stale within a day, which is the same rot that practice
+# `computed-numbers-in-scripts` exists to stop -- in prose it is a gate, and in
+# a code comment nothing checks it at all, so the honest form is a command the
+# reader can run.
 #
 # Excluded from the comparison, so an existing consumer that already has the
 # directory simply stops being told it drifted; deleting the stale copy is
 # the consumer's own next re-vendor, not something this tool reaches in and
 # does.
 NOT_VENDORED = frozenset({'evals'})
+
+
+def not_vendored_share(base=None):
+    """-> (excluded_files, total_files, excluded_bytes) for the tree at `base`.
+
+    Measures rather than recites. `_files()` already applies the exclusion, so
+    this counts both ways over the same walk it uses, and the two can never
+    disagree.
+    """
+    base = pathlib.Path(base or ROOT)
+    total = excluded = 0
+    excluded_bytes = 0
+    for p in base.rglob('*'):
+        if not p.is_file() or '.git' in p.parts or '__pycache__' in p.parts:
+            continue
+        if p.suffix in ('.pyc', '.pyo'):
+            continue
+        total += 1
+        if any(part in NOT_VENDORED for part in p.parts):
+            excluded += 1
+            try:
+                excluded_bytes += p.stat().st_size
+            except OSError:
+                pass                          # a race or a broken link: not fatal
+    return excluded, total, excluded_bytes
 
 
 def _files(base):
@@ -458,6 +496,34 @@ def main():
     args = sys.argv[1:]
     if args and args[0] == 'fresh':
         return fresh()
+    if args and args[0] == 'not-vendored':
+        # Measures the NOT_VENDORED share against the tree in front of you,
+        # so no document or comment has to freeze the numbers. Reports which
+        # tree it measured, because the answer differs between this repo and
+        # a consumer's process/upstream/ copy.
+        base = pathlib.Path(args[1]) if len(args) > 1 else (
+            UPSTREAM if UPSTREAM.is_dir() else ROOT)
+        excluded, total, nbytes = not_vendored_share(base)
+        if not total:
+            print(f"checkin not-vendored: nothing to measure under {base} -- "
+                  f"no files found, so this figure is not zero, it is unknown")
+            return 1
+        names = ', '.join(sorted(NOT_VENDORED)) or '(nothing excluded)'
+        print(f"tree measured:  {base}")
+        print(f"excluded dirs:  {names}")
+        # Bytes, explicitly labelled: `du` reports DISK BLOCKS, and 557 small
+        # files round up to roughly four times their real size at a 4K block.
+        # A session quoting "2.4 MB" from `du` next to "557 files" from here
+        # is quoting two different quantities as if they were one -- practice
+        # `one-formatter-per-quantity`, learned the same day this was written.
+        print(f"excluded files: {excluded} of {total} "
+              f"({excluded / total * 100:.0f}%), "
+              f"{nbytes / 1e6:.1f} MB of content "
+              f"(byte sum, not `du` disk usage -- `du` counts 4K blocks and "
+              f"reports several times this for many small files)")
+        print("practices/ is never excluded -- this is measurement fixtures, "
+              "not rules.")
+        return 0
     if len(args) < 2 or args[0] not in ('status', 'update', 'push', 'record'):
         sys.exit(__doc__)
     clone = _clone_or_die(args[1])

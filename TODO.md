@@ -355,10 +355,113 @@ which is the failure this repointing exists to end — write
     `precedent_check.py` reported `source-naming` as SKIPPED with its
     reason rather than passing falsely — the enforcement arrives with the
     engine, the explanation with the catalogue, and the gap between them
-    is visible instead of silent. Two findings it surfaced are item 25
+    is visible instead of silent. Two findings it surfaced are item 30
     below and the `code-cites-practice` fix that landed with this entry.
 
-25. **Upstream-only registries ride along in vendored engine files.**
+25. <a id="unreachable-practices"></a>**Decide what happens to a practice that
+    is in force but does not bind the repo it reached.** Measured 2026-09-06:
+    of the 114 practices in force in this repo, **43 are reachable by no
+    loading channel at all** — not resident, not in the occasion index, no
+    gate, no runnable check. `layered-practice-packs`' new check in
+    [tools/precedent_check.py](tools/precedent_check.py) reports them on every
+    run, advisory, and
+    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md)'s "Rules in force that
+    nothing can load" has the measurement and the evidence. The reason it is
+    advisory rather than blocking is the finding itself: running all fifteen
+    source-supplied checks against this tree shows the answer is not "turn
+    them all on" — five pass, four report real findings worth fixing, and
+    **six report things this repo cannot act on because the practice is about
+    a different kind of repository** (a repo one person authors alone, or the
+    team set's own shipped content; `session-trailer` wants a trailer on every
+    commit in a history [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)
+    forbids rewriting). The system has no vocabulary for "in force at this
+    level, does not bind this repo," so silence is doing that job — which is
+    why a forgotten rule and a deliberately-inapplicable one look identical.
+    **Blocked on:** a design decision that is Morgan's, not a session's. Three
+    shapes to choose between: a per-practice `binds:` / `not_in_repos:` field
+    the resolver honors; a per-repo opt-out list in `precedent.json`; or
+    making this repo's generated views multi-source so the 34 team practices
+    load here and the misfits get retired or moved instead. Whichever is
+    picked, the advisory check is already the thing that will say when it is
+    done. A worked example of the cost, 2026-09-06: Morgan asked why
+    `documentation/` was not following a headline-capitalization rule he
+    believed existed. It may well exist in a private set; it could not
+    have fired either way, because this repo's generated views are
+    universal-only. The rule was landed at the universal level instead
+    ([practices/headline-capitalization.md](practices/headline-capitalization.md)),
+    which sidesteps the question for one rule without answering it.
+
+26. **Check the two private sets for a duplicate headline-capitalization
+    rule, and delete it there.** The practice now lives at the universal
+    level — [practices/headline-capitalization.md](practices/headline-capitalization.md),
+    with its rules defined once in
+    [tools/title_case.py](tools/title_case.py). Morgan believes a rule for
+    this already existed in `precedent-team-maintainers` or in his
+    individual set, and asked that it live in exactly one place. Landing
+    it here was the half that could be done from a BestPractice session;
+    the other half — read whichever private set holds it, confirm the
+    universal wording covers what it said, and remove it there — cannot.
+    Per [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) this is the
+    correct order (a rule is never absent from both homes at once), but
+    the removal is not optional: until it happens the rule is duplicated
+    across two levels, which is what Morgan asked to avoid.
+    **Blocked on:** a session that can read `themorgan/precedent-team-maintainers`
+    and `themorgan/precedent-individual`. `add_repo` refuses a cross-owner
+    add once a session holds `alex137` repos, and the GitHub read tools
+    refuse the same repos, so it must be a session started against them.
+
+27. **BestPractice never instantiated the individual-source bootstrap hook
+    it ships to every other adopter.**
+    [tools/precedent_resolve.py](tools/precedent_resolve.py) self-heals a
+    missing individual source by re-invoking
+    `.claude/hooks/precedent-individual-bootstrap.sh` from inside the
+    agent's turn, after `add_repo` has run — the 2026-09-06 correction to
+    the session-bootstrap incident. That hook does not exist in this repo:
+    [.claude/hooks/](.claude/hooks/) has `session-start.sh`,
+    `precedent-paths.sh` and `stop-git-check.sh` and nothing else, so the
+    self-heal's second guard returns early and the individual set can
+    never resolve in a BestPractice session. The template is right there
+    at [templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template](templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
+    and [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)'s
+    `--write-session-hook` instantiates it. `verify_harness.py` already
+    tests that a *consuming* repo has this hook — the gap is that
+    BestPractice is treated as the publisher and never checked as a
+    consumer of its own install instructions. **Blocked on:** a session
+    that can reach the individual repo, since the instantiated hook names
+    it and an untested session-start hook must not be committed blind.
+
+28. **A missing individual source is silent; a missing team source is
+    loud.** In `load_config`, a team source that fails to resolve is
+    reported through `missing` and printed. An individual source whose
+    user-level config is absent is simply never appended to `sources` —
+    no `missing` entry, no warning. The module docstring names exactly
+    this ambiguity ("config absent" ≠ "no individual set") and
+    `_self_heal_individual_source` addresses only the fresh-session-hook
+    half of it. After the self-heal has been tried and the config is
+    still absent, the resolver should say so, the way it does for a team
+    source. **Blocked on:** nothing — this is a small change to
+    `tools/precedent_resolve.py` plus a harness case. Not done here only
+    because it is a separate defect from the work in this thread.
+
+29. **Audit the RepoPersonalPreferences migration for anything else lost.**
+    RPP's 46 rules were split into the two private sets on 2026-09-01
+    (closing phase 3 — [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)
+    is the procedure). No per-rule ledger of that split exists anywhere in
+    this repository: nothing here records which of the 46 landed where, so
+    "did anything get dropped" cannot be answered from BestPractice at
+    all — the very gap
+    [practices/parallel-artifact-ledger.md](practices/parallel-artifact-ledger.md)
+    exists to close, applied to a migration instead of a parallel artifact
+    family. If a ledger was written, it is in one of the private repos.
+    The check itself is mechanical once the repos are in one session: list
+    RPP's 46 rule identifiers, list every practice in
+    `precedent-team-maintainers` and `precedent-individual`, and diff —
+    anything in the first list with no descendant in the second two either
+    moved to universal, was deliberately retired, or was lost, and each of
+    those three is a different answer. **Blocked on:** a session that can
+    read `themorgan/RepoPersonalPreferences` plus both private sets.
+
+30. **Upstream-only registries ride along in vendored engine files.**
     [tools/doc_sync.py](tools/doc_sync.py)'s `PAIRS` hardcodes
     `spec/LOADER.md` and `spec/ENFORCEMENT.md`;
     [tools/model_audit.py](tools/model_audit.py)'s `INSTRUMENTED` names
@@ -378,3 +481,4 @@ which is the failure this repointing exists to end — write
     wrong makes every consumer's copy diverge from upstream's, which is
     the one thing that tree is designed never to do. Do not fix it
     piecemeal from a consumer repo.
+

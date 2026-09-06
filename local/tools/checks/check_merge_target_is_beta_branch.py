@@ -30,13 +30,20 @@ nothing when clean; exit 1 and print the finding plus the Rule when
 violated; exit 2 when the check cannot run at all -- reported as SKIPPED,
 never as a pass.
 """
+import os
 import pathlib
 import subprocess
 import sys
 
 # local/tools/checks/<this file> -> the repo root, four levels up.
-ROOT = pathlib.Path(__file__).resolve().parents[3]
-PRACTICE_FILE = ROOT / 'local' / 'practices' / 'merge-target-is-beta-branch.md'
+# TWO different questions, which used to share one name -- see the same split
+# in the team and individual sets' checks. SOURCE_ROOT is the practice set this
+# script ships in (here, `local/`'s parent: this repo, since a repo-local
+# source lives inside the repo it serves); ROOT is what gets audited.
+# PRECEDENT_CHECK_ROOT overrides the latter only.
+SOURCE_ROOT = pathlib.Path(__file__).resolve().parents[3]
+ROOT = pathlib.Path(os.environ.get('PRECEDENT_CHECK_ROOT') or SOURCE_ROOT)
+PRACTICE_FILE = SOURCE_ROOT / 'local' / 'practices' / 'merge-target-is-beta-branch.md'
 
 
 class NotApplicable(Exception):

@@ -14,7 +14,7 @@ The assistant does the actual work — you never touch a technical tool
 yourself, and your account is deliberately set up so nothing you do can
 break the project, even by accident.
 
-## Personal, team, and universal — and moving between them
+## Personal, Team, and Universal — And Moving Between Them
 
 Before explaining how an idea becomes an official rule, it's useful to
 understand the different places a rule can live. Think of it as three
@@ -46,7 +46,7 @@ moment where it's tracked in two places at once. A rule never moves on its
 own; it always needs the same kind of yes at its new home that it needed
 the first time.
 
-## A worked example, start to finish
+## A Worked Example, Start to Finish
 
 Say you're drafting client emails, and you notice something:
 
@@ -75,7 +75,7 @@ Say you're drafting client emails, and you notice something:
    project — yours, a teammate's, in a session next month — already knows
    the rule and follows it without being told again.
 
-## What if it should apply to everyone using this system, anywhere?
+## What if It Should Apply to Everyone Using This System, Anywhere?
 
 Same first three steps. The difference is who has to say yes: instead of
 one of your team's approvers, it goes up for a real, visible, public
@@ -88,7 +88,7 @@ Either way: nothing you suggest is ever adopted without a real yes from
 whoever it actually affects, and nothing you say is ever quietly
 forgotten. An idea nobody has acted on yet stays on record, not lost.
 
-## What you can't do (on purpose)
+## What You Can't Do (on Purpose)
 
 Your access is deliberately limited so nothing you do can break the
 project or publish something by accident — you can comment and propose,
@@ -96,9 +96,9 @@ but you can't push changes live or approve them yourself. This isn't
 about trust in you personally; it just means a mistake, including the
 assistant's, stops at a wall instead of reaching anyone else.
 
-## Learn more
+## Learn More
 
-[What this is (and why explore using
+[What This Is (and Why Explore Using
 Precedent)](WHAT_IS_THIS_AND_BENEFITS.md) for the bigger picture.
 [INSTALL.md](../INSTALL.md) if the project isn't set up yet. If you ever
 want the fuller technical version of this page:
