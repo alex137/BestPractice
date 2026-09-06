@@ -130,35 +130,54 @@ exemptions for practices whose text and severity cannot be read would be
 asserting what cannot be verified. The mechanism is built and tested; the
 population is a measurement, and it is named in the TODO item.
 
-## 3. Why the leak gate still says PARTIAL
+## 3. The leak gate now reports OK, and the vocabulary layer actually runs
 
-The suggestion was to put a publishable word on a default blocklist so the
-gate passes and the layer gets exercised. Exercising it is worth doing.
-Making it *pass* that way is not.
+The original ask was: put a word on a blocklist by default, so the mechanism
+gets tested and the permanent partial result goes away. **The first answer
+here was too rigid.** It put profanity in the *structural* content rules and
+kept the vocabulary layer reporting a partial result, on the reasoning that a
+committed blocklist publishes the secrets it exists to guard.
 
-The vocabulary layer catches **private** words — client names, code words,
-internal identifiers — and its entire design is that the list cannot live in
-the repo it protects, because a blocklist of secret terms committed to a
-public repo publishes the secrets. A publishable word placed there would turn
-a partial result into a green pass while no private-term scan had run: a confident
-all-clear from a check that did not happen, which is the failure mode this
-project's own evidence table already names.
+That reasoning is correct about a **private** blocklist and irrelevant to a
+**publishable** one, and conflating the two threw away the better design. The
+vocabulary layer now has two halves:
 
-But profanity **is** a real defect in a repository whose documents are read
-by people outside the project, and the pattern that catches it is safe to
-publish. That makes it a **structural** rule, alongside the email-address and
-home-directory shapes — so it lands there, where a committed pattern is
-honest, and the vocabulary layer goes on reporting truthfully that it did not
-run.
+- **Default** — [tools/leak-blocklist.default.txt](../tools/leak-blocklist.default.txt),
+  committed, always applied. Profanity, in a repository whose documents are
+  read by people outside the project. Nothing in it is a secret, so
+  committing it costs nothing.
+- **Private** — still external, still named by `PRECEDENT_LEAK_BLOCKLIST`,
+  still refused by `load_blocklist()` if it is located inside this
+  repository, and **merged** with the default rather than replacing it.
 
-One implementation note, because the trap is documented and was nearly hit
-again: the terms are base64-encoded in the source, since
-[tools/leak_gate.py](../tools/leak_gate.py) is itself scanned by its own tree
-scan and a plain literal would match its own source and fail every clean run.
-The home-directory rule above it carries a comment about the identical bug.
+**The default half's real job is that it makes the layer run.** Until this
+change the whole vocabulary layer was skipped whenever the environment
+variable was unset — every continuous-integration run, every fresh clone — so
+the code that loads, compiles and scans with patterns was exercised only by
+the harness. A mechanism that runs only in its own tests is one nobody finds
+out is broken. That is also why the original ask was right: exercising it was
+the point.
 
-**To actually switch the vocabulary layer on**, the blocklist belongs in
-`precedent-individual` (private), pointed at by `PRECEDENT_LEAK_BLOCKLIST`,
-with `git config precedent.requireVocabulary true` so a shell that loses the
-variable fails the push instead of silently downgrading to the structural
-half.
+So `leak gate PARTIAL` is gone, because "the layer did not run" is no longer a
+reachable state. What survives is one accurate line saying the **private**
+half did not run, so publishable terms were checked and private ones were not
+— because a clean scan against the default list is genuinely not evidence
+about private words, and dropping that sentence would leave the old silence
+with better wording.
+
+Two implementation notes, both found by the gate catching its own tree:
+
+- The default blocklist file is the one path the tree scan skips. A list of
+  banned words necessarily contains them, so scanning it would hard-fail the
+  gate on its own list. This is **not** the arbitrary `!path` exemption
+  `_parse_blocklist` refuses: it is a single fixed committed file whose whole
+  purpose is to hold those strings, and a private term placed there would be
+  published by the commit itself long before any scan.
+- The harness's own probe strings are base64-encoded in the source, because
+  `verify_harness.py` is scanned too. The first version used a plain literal
+  and the gate correctly refused the tree — the check working, on its author.
+
+**To switch the private half on**, the blocklist belongs in
+`precedent-individual`, pointed at by `PRECEDENT_LEAK_BLOCKLIST`, with
+`git config precedent.requireVocabulary true` so a shell that loses the
+variable fails the push instead of silently dropping to the default half.
