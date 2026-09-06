@@ -808,3 +808,72 @@ the argument for the sweep being a read of real state rather than a checklist.
   it — on the already-current path too, which is the case that matters most,
   since "nothing to do" is what a session would otherwise read as "both halves
   current."
+
+## The judgment-only sweep, round three — the catalogue is now swept
+
+All 51 judgment-only practices have been judged with the closed question
+[practices/full-practice-audit.md](../practices/full-practice-audit.md)
+names, against the real state of all six repos. This round took the
+remaining 32.
+
+### Violations found and fixed
+
+- **`lead-with-what-it-is`** — [README.md](../README.md), the repository's own
+  entry document, opened with a block quote about *the branch state and the
+  restructuring process*. A reader learned how the project is maintained
+  before learning what it is; "what Precedent is" appeared only as a link,
+  eleven lines down. It now opens with a plain-language paragraph saying what
+  Precedent does, before any maintenance bookkeeping.
+- **`bold-key-phrases`** — [documentation/WHAT_IS_THIS_AND_BENEFITS.md](../documentation/WHAT_IS_THIS_AND_BENEFITS.md)
+  carried **0.1 bold spans per 100 words** against 0.8–1.9 in every other
+  outward-facing document, and it is the pitch page: the single most
+  skim-driven thing here, aimed at people outside the project. Seventeen key
+  phrases now carry the emphasis, roughly one spine point per section.
+- **`volatile-rules-carry-dates`** — [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)
+  contained **no date anywhere**, while its entire framing rests on two
+  claims about what a GitHub-connected ChatGPT conversation can and cannot do.
+  Both now carry *as of 2026-08* and point at [MOBILE.md](../MOBILE.md), which
+  tracks that capability and is where it gets re-dated.
+- **`resolved-issue-note-updates`** — violated by this session, hours earlier.
+  [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s
+  step 1 still said `checkin.py`'s commands *cannot* track a named branch,
+  pointing at a section this session had already rewritten to say the
+  opposite. Fixing the section and leaving its own pointer stale is exactly
+  what this practice forbids.
+
+### The defect the sweep found that no practice pointed at
+
+**`tools/title_case.py --write` had corrupted committed content**, and would
+have gone on doing it. Its docstring promised fenced code blocks were safe;
+**inline code spans were not** — and a heading is precisely where a document
+names a file. [INSTALL.md](../INSTALL.md)'s own section headings had been
+rewritten to `` `Process/manifest.json` `` and `` `Tools/practice_audit.py` ``,
+neither of which exists. The negative control showed the reach was wider than
+the two paths found: `` `git rev-parse --verify` `` becomes
+`` `Git Rev-Parse --Verify` ``, so any command in any heading was exposed.
+
+A second bug in the same run left `## 5. the Manifest Schema` lowercase,
+because `5.` counted as token zero and headline style capitalizes the first
+*word*, not the first token.
+
+Both fixed, the corrupted paths restored by hand — the corrected tool
+correctly will not touch them, so it could not undo its own damage — and
+`check_title_case_leaves_code_and_first_word_alone` now asserts five cases
+with a control for each bug. **A tool that rewrites committed prose in place
+needs its blast radius asserted, not described.**
+
+### Clean, or not applicable, with the reason
+
+| Practice | Verdict |
+|---|---|
+| `llm-neutral` | Not applicable. Nothing here calls a model API — no completion call in any tool or workflow. The consumers' sync workflows invoke Claude Code *as an agent*, which is a product invocation with no provider-neutral equivalent, not a swappable model endpoint. |
+| `frame-from-audience-question` | Satisfied, visibly: all three `documentation/` files open by stating the reader's question outright, and [ADOPTING.md](../ADOPTING.md) frames by audience in prose. |
+| `one-formatter-per-quantity` | Clean. [tools/table_fmt.py](../tools/table_fmt.py) is the declared module, and every generated table in a document comes from exactly one emitter — which `doc_sync`'s `PAIRS` structurally enforces. |
+| `tabular-shared-renderer` | Clean. The one multi-column sortable table ([spec/PREFORK_AUDIT.md](PREFORK_AUDIT.md), 5×53) ships its render. `templates/harness/LEDGER.md` is an append-only record read in chronological order, not a comparison matrix. |
+| `sensitive-characterization-scrub` | Clean. Two lines name a person near a negative word; one credits Morgan's framing as the correction, the other describes a commit. Nothing anyone would wince at. |
+| `readers-vocabulary` | Clean. One unglossed term ("gate") across five outward documents, in a sentence that explains it. |
+| `pr-template-honest-gates`, `full-practice-audit`, `very-deep-check` | Satisfied — template present with its gates; both audit engines exist, run, and answer `--help`. |
+| `list-item-parity` | Clean. Worst spread is a 3-item list at 2.4× (5–12 words) — inside "approximately the same length". |
+| `nonblocking-questions`, `push-back`, `small-calls`, `affordance-is-shared` | Satisfied by this session's own conduct: work continued while a question was open, the counter-case was made before the more permissive option was recommended against, the one stop was a genuinely reserved-category call, and each mechanism built here recorded who else it serves. |
+| `permutation-frontier-column`, `name-both-sides-of-ledger`, `build-buy-decompose`, `check-source-architecture`, `variant-re-derives`, `verify-decomposition`, `quote-discipline`, `outward-summary-discipline`, `rule-scope-ask`, `new-rule-placement` | Not applicable. Moment-of-work practices with no standing repo state: no sweep table, no two-party ledger, no build/buy question, no variant, no computed total in flight, no figure quoted from an outside source, no outward document making a quantitative claim, no rule of ambiguous scope proposed. |
+| `list-restraint`, `proportional-emphasis`, `trim-prose`, `section-order-by-frequency` | Editorial judgments with no mechanical signature. `section-order-by-frequency` keeps the earlier verdict: `INSTALL.md`'s 1, 0, 2 ordering explains itself in the document. |

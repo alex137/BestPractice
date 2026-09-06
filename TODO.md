@@ -322,7 +322,15 @@ which is the failure this repointing exists to end — write
     more came back clean or not-applicable with the reason recorded.
     **Roughly thirty-two remain** — mostly moment-of-work practices with no
     standing repo state to sweep, and editorial ones that need a reader
-    rather than a script. **Blocked
+    rather than a script. **Round three, same day: the sweep is COMPLETE** —
+    all 51 judged (see that document's "The judgment-only sweep, round
+    three"). Four more violations fixed (`lead-with-what-it-is`,
+    `bold-key-phrases`, `volatile-rules-carry-dates`, and
+    `resolved-issue-note-updates`, that last one violated by the sweeping
+    session itself), and the remaining 28 came back clean or not-applicable
+    with the reason recorded so no later session re-derives them. The sweep
+    also turned up a defect no practice pointed at: `tools/title_case.py`
+    was corrupting inline code spans in committed headings. **Blocked
     on:** nothing but session budget — take them one
     at a time, with the closed question
     [practices/full-practice-audit.md](practices/full-practice-audit.md)

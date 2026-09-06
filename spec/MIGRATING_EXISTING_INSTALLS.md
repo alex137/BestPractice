@@ -48,10 +48,12 @@ the loader.
    `checkin.py update` / `record`, three-way-merged per manifest entry. If
    — as `WorkingWithAI` deliberately did, to beta-test this exact pattern —
    the repo is pinning a **named non-default branch** ahead of its merge,
-   read "The default-branch gotcha" below first: `checkin.py`'s automated
-   commands cannot track a named branch, so this step becomes a one-off
-   manual mirror instead, and the scheduled sync workflow must be paused
-   for the duration.
+   read "The default-branch gotcha" below first: this step is a one-off
+   manual mirror instead, and the scheduled sync workflow stays paused for
+   the duration. `checkin.py`'s commands *can* track a named branch as of
+   2026-09-06 — they read `upstream.branch` from the manifest now — but the
+   manual procedure is held in place deliberately while that fix settles,
+   for the reason that section gives.
 
 2. **Confirm the second tree's source has actually split**, and where each
    half landed, before touching anything local. Read that source's own

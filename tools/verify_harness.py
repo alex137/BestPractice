@@ -6348,6 +6348,58 @@ def check_checkin_update_never_mutates_the_clone():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_title_case_leaves_code_and_first_word_alone():
+    """Headline capitalization never reaches inside an inline code span, and
+    the first WORD after an enumerator is capitalized.
+
+    Both learned from real corruption, 2026-09-06. INSTALL.md's own section
+    headings had been rewritten by `tools/title_case.py --write` to
+    `Process/manifest.json` and `Tools/practice_audit.py` -- neither of which
+    exists, in a heading whose whole job is to name the file the section is
+    about. The tool's docstring already promised fenced code blocks were
+    safe; inline spans were not, and a heading is exactly where a document
+    names a path. The same run left `## 5. the Manifest Schema` lowercase,
+    because "5." counted as token zero and headline style capitalizes the
+    first word, not the first token.
+
+    A tool that rewrites committed prose in place needs its blast radius
+    asserted, not described: this is the check that would have caught both
+    before they reached the tree.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_title_case', ROOT / 'tools' / 'title_case.py')
+    try:
+        tc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tc)
+    except Exception as e:
+        not_applicable('title_case leaves code spans and first words alone',
+                       f'tools/title_case.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+
+    cases = [
+        # (input, must appear in output, why)
+        ("5. the Manifest Schema (`process/manifest.json`)",
+         "`process/manifest.json`", 'a path in a code span is untouched'),
+        ("6. the Audit (`tools/practice_audit.py`)",
+         "`tools/practice_audit.py`", 'a second path, different depth'),
+        ("5. the Manifest Schema (`process/manifest.json`)",
+         "5. The Manifest", 'the first word after an enumerator is capitalized'),
+        ("Working With `git rev-parse --verify` Safely",
+         "`git rev-parse --verify`", 'a command with flags is untouched'),
+        ("A Heading About `AGENTS.md` and `tools/doc_lint.py`",
+         "`tools/doc_lint.py`", 'two spans in one heading'),
+    ]
+    bad = []
+    for text, must, why in cases:
+        got = tc.title_case(text)
+        if must not in got:
+            bad.append(f'{why}: {text!r} -> {got!r} (wanted {must!r} in it)')
+    check(f'title_case leaves inline code spans and enumerated first words '
+          f'alone ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_tools_answer_help_without_writing():
     """`--help` is safe and informative on every tool in tools/.
 
@@ -7516,6 +7568,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
     check_tools_answer_help_without_writing()
+    check_title_case_leaves_code_and_first_word_alone()
     check_checkin_update_never_mutates_the_clone()
     check_rendered_docs_are_current()
 
