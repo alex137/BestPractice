@@ -98,7 +98,8 @@ assistant's, stops at a wall instead of reaching anyone else.
 
 ## Learn more
 
-[What Is This](WHAT_IS_THIS.md) for the bigger picture.
+[What this is (and why explore using
+Precedent)](WHAT_IS_THIS_AND_BENEFITS.md) for the bigger picture.
 [INSTALL.md](../INSTALL.md) if the project isn't set up yet. If you ever
 want the fuller technical version of this page:
 [HOW_TO_USE_THIS_TECHNICAL.md](HOW_TO_USE_THIS_TECHNICAL.md).

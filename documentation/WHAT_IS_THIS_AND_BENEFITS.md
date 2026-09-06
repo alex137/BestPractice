@@ -1,4 +1,4 @@
-# What Is This?
+# What this is (and why explore using Precedent)
 
 *The question this document answers:* **What is Precedent, and why
 would a team want it?**
@@ -63,11 +63,10 @@ team adds.
 
 ## Practices, created automatically, confirmed by people
 
-Say "always do X" or "never do Y" once, in conversation, and your assistant
-drafts it as a rule automatically — but it only takes effect once a person
-confirms it first, whether that's you approving your own habit on the spot
-or a teammate signing off on a shared one. No separate document to write,
-no meeting to schedule.
+Not only does it codify general best practices to use, but it creates new
+practices based on your instructions. Each new one only takes effect once a
+person confirms it first, though — whether that's you approving your own
+habit on the spot or a teammate signing off on a shared one.
 
 ## Practices at different levels of sharing
 
@@ -75,12 +74,6 @@ A rule can stay just yours, apply to your whole team, or join the public
 library everyone using Precedent starts from — you choose which, and a
 rule that starts narrow can move to a wider level later if it turns out to
 matter beyond where it began.
-
-## Works with any document type
-
-Not just prose — specs, code, contracts, meeting notes, decks, anything
-your team produces in text. The same practices, review flow, and record
-apply across all of it.
 
 ## You approve everything, at whatever level of granularity you want
 
@@ -96,6 +89,12 @@ Not just what was decided, but why — and a link back to the exact
 conversation or issue that produced it. Months later, nobody has to guess
 why a rule exists or dig through chat logs to find out.
 
+## Works with any document type
+
+Not just prose — specs, code, contracts, meeting notes, decks, anything
+your team produces in text. The same practices, review flow, and record
+apply across all of it.
+
 ## Open source, on GitHub — no vendor lock-in
 
 Everything here is open source and built on top of GitHub, a platform you
@@ -108,4 +107,5 @@ The philosophy behind all of this lives in
 [WorkingWithAI](https://github.com/themorgan/WorkingWithAI). For how to
 actually use Precedent: [a technical
 how-to](HOW_TO_USE_THIS_TECHNICAL.md) or [a non-technical
-how-to](HOW_TO_USE_THIS_NONTECHNICAL.md).
+how-to](HOW_TO_USE_THIS_NONTECHNICAL.md) — or explore [this
+repo](https://github.com/alex137/BestPractice).
