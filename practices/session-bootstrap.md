@@ -66,6 +66,24 @@ riding on it, cannot make an agent's own tool call precede a hook the
 harness already started running. Only re-running the hook *after* that
 tool call, not more times *before* it, closes the gap.
 
+**Continuation, 2026-09-06: the same follow-up testing pass found the
+matching gap on the *read* side.** The self-heal above means a source can
+now resolve successfully in one session and still fail to resolve in a
+later one (a genuinely unreachable individual repo, say) — and
+`tools/precedent_show.py`, in a consumer repo where `practices/` is a
+`tools/precedent_materialize.py`-produced snapshot, had no way to tell a
+caller "resolved fresh, source confirmed live" from "reading old
+materialized bytes, source status unknown this session." A clean Rule
+printout read as proof the source was working, when it only proved a
+past materialize run had once worked. Fixed the same way as the write
+side — checking the state actually wanted, not the read that succeeded
+([verify-postcondition](verify-postcondition.md)) — by having `precedent_show.py` probe
+whether a materialized slug's own declared source is still reachable and
+say so when it isn't, rather than silently reading whatever is on disk.
+See `tools/precedent_show.py`'s own module docstring for the mechanism
+and its deliberate limits (a cheap directory probe, not a full re-resolve
+or a content-drift check).
+
 ## Why
 The gotchas of [environment-gotchas](environment-gotchas.md), applied: writing the fix down is good;
 having it apply itself is better. The hook is where "install the one package

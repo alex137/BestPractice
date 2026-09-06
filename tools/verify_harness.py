@@ -3490,6 +3490,131 @@ def check_materialize_bridges_loader():
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_show_flags_unreachable_materialized_source():
+    """practices/verify-postcondition.md, applied to the READ side of the
+    gap practices/session-bootstrap.md's Story records on the write side.
+    A materialized practices/<slug>.md (tools/precedent_materialize.py's
+    output, in a consumer repo resolving universal/team/individual/
+    repo-local together) is whatever was on disk at the last successful
+    materialize() run -- precedent_show.py reading it back proves nothing
+    about whether the source that produced it is reachable THIS session.
+    Before this, a session could get a clean, confident-looking Rule
+    printout from a source that had silently dropped off, with nothing to
+    tell that apart from a source genuinely still live -- exactly the
+    false-confidence case the self-heal fix (tools/precedent_resolve.py)
+    makes MORE likely to occur unnoticed, not less: a source can now fail
+    to resolve in one particular session while a materialized tree from an
+    earlier, working session still reads back clean.
+
+    Six stated cases: a real individual source materialized and read while
+    reachable (silent, no note); the same slug read again after that
+    source's directory is removed (the note fires, naming the level and
+    the materialize timestamp); a universal-sourced slug in the SAME
+    materialized tree, whose source never leaves (stays silent throughout
+    -- the check is source-specific, not a blanket flag on every slug once
+    anything is missing); restoring the source and re-reading (silent
+    again -- not sticky, re-checked every call); a plain SOURCE repo (this
+    one) with no MANIFEST.json at all (never adds a note, regardless of
+    slug); and multiple slugs in one call sourced differently (each gets
+    its own independent verdict, matching precedent_show.py's own
+    per-slug concatenation)."""
+    import shutil, subprocess, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-show-reachability-'))
+    cases = []
+    try:
+        def write_practice(path, slug, rule):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+                f'severity: default\napplies_to: ["**"]\noccasion: "testing"\n'
+                f'index_clause: "a harness fixture"\nchecked_by: null\n'
+                f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+                f'added: null\napproved_by: "harness"\n---\n\n## Rule\n{rule}\n\n'
+                f'## Detail\n\n## Why\n\n## Story\n\n## Install\n', encoding='utf-8')
+
+        indiv = tmp / 'indiv-source'
+        write_practice(indiv / 'practices' / 'show-fixture-individual.md',
+                       'show-fixture-individual', 'The individual fixture Rule.')
+        uni = tmp / 'uni-source'
+        write_practice(uni / 'practices' / 'show-fixture-universal.md',
+                       'show-fixture-universal', 'The universal fixture Rule.')
+
+        consumer = tmp / 'consumer'
+        (consumer).mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'uni-src', 'path': str(uni)}]
+        }), encoding='utf-8')
+        user_config = tmp / 'user-config.json'
+        user_config.write_text(json.dumps({
+            'individual': {'name': 'indiv-src', 'path': str(indiv)},
+        }), encoding='utf-8')
+
+        materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
+        show_tool = str(ROOT / 'tools' / 'precedent_show.py')
+
+        def materialize():
+            r = subprocess.run([sys.executable, materialize_tool, '--out', str(consumer),
+                               '--repo', str(consumer), '--user-config', str(user_config)],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        def show(*slugs):
+            r = subprocess.run([sys.executable, show_tool, *slugs, '--repo', str(consumer)],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = materialize()
+        cases.append(('the two-source fixture materializes cleanly', rc == 0, out))
+
+        rc, out = show('show-fixture-individual')
+        cases.append(('reachable: an individual-sourced slug shows no note',
+                      rc == 0 and 'NOT reachable' not in out
+                      and 'The individual fixture Rule.' in out, out))
+
+        rc, out = show('show-fixture-universal')
+        cases.append(('a universal-sourced slug in the same materialized tree '
+                      'shows no note either', rc == 0 and 'NOT reachable' not in out, out))
+
+        shutil.move(str(indiv), str(tmp / 'indiv-source-hidden'))
+        rc, out = show('show-fixture-individual')
+        cases.append(('unreachable: the same individual-sourced slug now carries '
+                      'a note naming its level',
+                      rc == 0 and 'NOT reachable this session' in out
+                      and '(source: individual,' in out, out))
+
+        rc, out = show('show-fixture-universal')
+        cases.append(('the universal-sourced slug is unaffected by the '
+                      'individual source going missing -- the check is per-slug, '
+                      'not a blanket flag', rc == 0 and 'NOT reachable' not in out, out))
+
+        rc, out = show('show-fixture-individual', 'show-fixture-universal')
+        cases.append(('mixed in one call: each slug gets its own independent '
+                      'verdict', rc == 0 and out.count('NOT reachable') == 1
+                      and '### show-fixture-individual' in out
+                      and '### show-fixture-universal' in out, out))
+
+        shutil.move(str(tmp / 'indiv-source-hidden'), str(indiv))
+        rc, out = show('show-fixture-individual')
+        cases.append(('restored: the note is re-checked every call, not sticky',
+                      rc == 0 and 'NOT reachable' not in out, out))
+
+        # A plain SOURCE repo (no MANIFEST.json at all) never adds a note,
+        # for any slug -- this repo's own tree is exactly that fixture.
+        r = subprocess.run([sys.executable, show_tool, 'environment-gotchas'],
+                           capture_output=True, text=True, cwd=str(ROOT))
+        cases.append(('a plain source repo with no MANIFEST.json never adds a note',
+                      r.returncode == 0 and 'NOT reachable' not in r.stdout, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'precedent_show.py flags a materialized slug whose declared source is not '
+          f'reachable this session ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
 def check_sync_views_cross_source():
     """tools/precedent_sync_views.py -- the one-command glue over
     precedent_materialize.py + build_views.py --agents-only that a
@@ -4641,6 +4766,7 @@ def main():
     check_gate_channel()
     check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
+    check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
