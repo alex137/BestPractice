@@ -929,13 +929,25 @@ ground, and built `not_binding` instead. That record and this work were done
 the same day in parallel sessions, and reconciling them is what this entry
 settles: they are not competing answers.
 
-- **The multi-source loader block is the right behaviour in a private
-  consumer repo** — which is every repo that vendors this engine, and where
-  the miss actually bit: a repo resolving, materializing and *checking* its
-  team's rules while the one artifact a session reads listed none of them.
-  That is what the engine change delivers.
+- **The multi-source loader block is the right behaviour in any repo that
+  declares more than one source and cannot materialize them.** That is the
+  engine change.
 - **`not_binding` is the right mechanism for this repo**, because the reason
   a rule goes unloaded here is not that the rendering is wrong.
+
+**Correction, made after the rollout rather than before it.** The first
+version of this entry said consumers were where the miss actually bit. They
+were not. A consuming repo merges its sources through
+[tools/precedent_sync_views.py](../tools/precedent_sync_views.py) and
+materialize into one `practices/` tree *before* `build_views.py` sees it, so
+every consumer's block was already fully multi-source — checked directly
+against two of them, whose blocks carried their team and individual practices
+before any of this landed and were unchanged by the refresh apart from one
+wording fix. **The gap was Precedent's own repository and nowhere else**,
+precisely because it is the one repo that cannot materialize. The claim was
+written from the mechanism rather than from a measurement, which is the
+failure this whole audit exists to catch; it is corrected here rather than
+quietly dropped.
 
 **What is still open here is neither of those.** Thirty-four team practices
 genuinely bind this repository and cannot reach its published block — so

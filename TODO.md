@@ -401,10 +401,11 @@ which is the failure this repointing exists to end — write
     **The engine half landed too, 2026-09-06 (was "Part A").**
     [tools/build_views.py](tools/build_views.py) now renders the loader block
     from every source `precedent.json` declares, not the repo's own
-    `practices/` alone — because in a **private consumer repo** that is
-    simply correct, and consumers are where the miss actually bit: a repo
-    vendoring a team set had its team's rules resolve, materialize and
-    check, while the one artifact a session reads listed none of them.
+    `practices/` alone — correct in any repo that declares more than one
+    source and cannot merge them first. **That turned out to be this repo
+    and no other:** a consuming repo materializes every source into one
+    `practices/` tree before `build_views.py` sees it, so its block was
+    already multi-source (verified against two of them after the rollout).
     It is deliberately **off here**, by the `visibility: public` guard
     below: this repo is world-readable, so rendering a private team set's
     Rule clauses into a tracked [AGENTS.md](AGENTS.md) would publish them
