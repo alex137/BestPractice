@@ -86,7 +86,7 @@ enforced independently of the GitHub role above:
   set to `bypassPermissions`, and exclude `git push`, `git merge`, and any
   raw shell tool from the allowlist — see [`.claude/settings.json`](.claude/settings.json)
   in this repo, which already does this; contrast with
-  [`templates/harness/claude-code/settings.json`](../templates/harness/claude-code/settings.json)'s
+  [`templates/harness/claude-code/settings.json`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/claude-code/settings.json)'s
   stock allowlist, which includes `git push -u origin *` by default —
   theirs should not.
 - **Persona instruction, no git/GitHub jargon, no mechanical-rule talk:**
@@ -100,13 +100,13 @@ enforced independently of the GitHub role above:
 practice idea in plain language, Claude:
 
 1. Restates it back to them in their own words to confirm before acting.
-2. Drafts a candidate with [`tools/precedent_candidate.py`](../tools/precedent_candidate.py).
+2. Drafts a candidate with [`tools/precedent_candidate.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_candidate.py).
    **Because a non-technical contributor is never a listed approver
    (`precedent-team-tms`'s `approvers.json`), this defaults to
    `precedent_candidate.py --as-issue true` against `precedent-team-tms`** —
    a quiet `candidates/*.md` file accomplishes nothing when nobody with
    landing authority is watching it, per
-   [`spec/CANDIDATE_FORMAT.md`](../spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
+   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
    rule for team candidates raised by a non-approver. Use a plain individual
    candidate file instead only if the idea is explicitly just the
    contributor's own working style, not something to share with the team.

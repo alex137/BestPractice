@@ -241,49 +241,42 @@ the loader.
 7. **Rewrite the consuming repo's own instructions file** (`AGENTS.md` or
    equivalent) with the same `<!-- BEGIN GENERATED: precedent-loader -->` /
    `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses. Before
-   running it, vendor `precedent_sync_views.py` itself alongside
-   `precedent_resolve.py`, `precedent_materialize.py`, `build_views.py`,
-   `precedent_show.py`, `precedent_paths.py`, `precedent_gate.py`, and
-   `split_practices.py` — all together, at the consuming repo's own
-   `tools/`, not nested under `process/upstream/tools/`, which stays
-   reserved for the audit/sync tools that operate on the vendored
-   universal tree itself — with
+   running it, vendor the whole engine at the consuming repo's own `tools/`
+   — not nested under `process/upstream/tools/`, which stays reserved for
+   the audit/sync tools that operate on the vendored universal tree itself
+   — with
    `python3 tools/precedent_vendor_engine.py seed <consuming repo> --kind consumer`,
-   run from a Precedent (BestPractice) clone, rather than copying those
-   eight files by hand: it also writes a tracked `tools/ENGINE_MANIFEST.json`
-   (the exact commit vendored, a sha256 per file) so a later Precedent
-   update can be picked up with `status`/`refresh` instead of repeating
-   this step from scratch — see
-   [INSTALL.md](../INSTALL.md)'s "Keep the vendored engine current
+   run from a Precedent (BestPractice) clone, rather than copying files by
+   hand. It writes a tracked `tools/ENGINE_MANIFEST.json` (the exact commit
+   vendored, a sha256 per file) so a later Precedent update can be picked
+   up with `status`/`refresh` instead of repeating this step from scratch —
+   see [INSTALL.md](../INSTALL.md)'s "Keep the vendored engine current
    (consumer repos)" step under §2. Then run
    `python3 tools/precedent_sync_views.py` to fill the markers in from the
-   *real* resolved set —
-   universal, team, individual and repo-local, all four. **Don't hand-curate
-   a subset and call it a stopgap**: that was only ever necessary because
-   nothing connected the resolver's output to a generated view; now
-   something does, so there's nothing to approximate by hand. The
-   temptation to inline the team/individual catalogues the way the old
-   pack was inlined in full still applies just as much as it always did —
-   resist it; the generated block *is* the non-duplicated form.
+   *real* resolved set — universal, team, individual and repo-local, all
+   four. **Don't hand-curate a subset and call it a stopgap**: that was only
+   ever necessary because nothing connected the resolver's output to a
+   generated view; now something does, so there's nothing to approximate by
+   hand. The temptation to inline the team/individual catalogues the way the
+   old pack was inlined in full still applies just as much as it always did
+   — resist it; the generated block *is* the non-duplicated form.
 
-   **Also vendor `tools/precedent_check.py` — separately, by hand — before
-   calling this step done.** `precedent_vendor_engine.py --kind consumer`
-   covers the nine engine files above plus `routing_scope.json`, but it
-   deliberately does NOT vendor `precedent_check.py`: that file is a
-   separate enforcement channel (`checked_by`, not the loader), out of
-   this tool's scope by design, not an oversight — see its own module
-   docstring. A migration that stops at the vendor-engine step ends up
-   with a fully working loader and **no enforced-checks tool at all**:
-   `precedent_gate.py` hard-crashes (`FileNotFoundError`) without
-   `routing_scope.json` sitting next to it (already covered above), and
-   `precedent_check.py --list`/any real run simply doesn't exist without
-   its own copy. Confirmed real, not hypothetical: `themorgan/WorkingWithAI`
-   followed this exact step as written (2026-09-06) and ended up missing
-   `tools/precedent_check.py` for exactly this reason — copy
-   `process/upstream/tools/precedent_check.py` to the consuming repo's own
-   `tools/precedent_check.py` in the same pass, and verify it with a real
-   run (`python3 tools/precedent_check.py --list`, then a plain invocation)
-   before moving on, the same bar step 8 already sets for the loader.
+   **`tools/precedent_check.py` no longer needs a separate hand-copy**
+   (changed 2026-09-06). It used to: the vendoring tool covered the loader
+   engine only, on the reasoning that `checked_by` enforcement is a
+   different channel — so a migration that ran the vendor step and stopped
+   ended up with a working loader and **no enforced-checks tool at all**.
+   Confirmed real, not hypothetical: `themorgan/WorkingWithAI` followed
+   this step exactly as it was then written (2026-09-06) and ended up
+   without `tools/precedent_check.py` for precisely that reason. It is in
+   `CONSUMER_ENGINE_FILES` now, along with the three audit tools several
+   universal practices' checks call by name (`doc_lint.py`, `doc_sync.py`,
+   `routing_audit.py`) and the individual-source bootstrap
+   (`precedent_source_bootstrap.py`), each of which was silently absent for
+   the same reason. Still verify with a real run — `python3
+   tools/precedent_check.py --list`, then a plain invocation — before
+   moving on: the vendoring manifest proves the bytes arrived, not that
+   they run here.
 
 8. **Validate for real**, not against a fixture: `python3
    tools/precedent_sync_views.py --repo .` from the consuming repo, with
@@ -496,9 +489,20 @@ loudly (`FileNotFoundError` on the missing `routing_scope.json`, in this
 case not the cause but caught the same way), while a missing
 `precedent_check.py` just means the enforced channel doesn't exist —
 nothing errors, there is simply nothing there to catch anything. Fixed
-two ways, same session: step 7 above now names `precedent_check.py`
-explicitly as a required, separate hand-copy; and (tracked as
-`alex137/BestPractice` [TODO.md](../TODO.md)) a mechanical check now
-scans every vendored engine file for hardcoded `ROOT / 'tools' / '<name>'`
-paths and flags any that don't exist locally — the same class of gap this
-one was, caught structurally instead of by a downstream crash.
+two ways the same session: step 7 named `precedent_check.py` explicitly as
+a required, separate hand-copy; and (tracked in [TODO.md](../TODO.md)) a
+mechanical check now scans every vendored engine file for hardcoded
+`ROOT / 'tools' / '<name>'` paths and flags any that don't exist locally —
+the same class of gap this one was, caught structurally instead of by a
+downstream crash.
+
+**Fixed a third way on 2026-09-06, which is the one that actually closes
+it**: `precedent_check.py` is in `CONSUMER_ENGINE_FILES`, so the vendoring
+step brings it. A required hand-copy documented in prose is a step a
+migration can skip, which is what this incident was; the point of the
+vendoring tool is that nothing about the engine depends on remembering.
+The same pass found three more files in the same position — `doc_lint.py`,
+`doc_sync.py` and `routing_audit.py`, each named by a universal practice's
+own check — plus `precedent_source_bootstrap.py`, which the
+individual-source session hook execs and whose absence was swallowed
+silently at both call sites.

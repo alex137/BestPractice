@@ -38,7 +38,7 @@ and the audit flags any later change to content whose status claims it is
 frozen.
 
 ## Install
-`process/manifest.json` (see [INSTALL.md](INSTALL.md)) is itself
+`process/manifest.json` (see [INSTALL.md](../INSTALL.md)) is itself
 a registry of this kind, with baseline hashes checked by
-[tools/practice_audit.py](tools/practice_audit.py). Build your own registries
+[tools/practice_audit.py](../tools/practice_audit.py). Build your own registries
 the same shape: entries + status + hash, one owner, one audit.

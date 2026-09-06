@@ -397,18 +397,26 @@ not this section.
    `precedent/universal/practices/`), and the loader engine itself.
    **Don't hand-copy the engine files** — from the Precedent clone, run
    `python3 tools/precedent_vendor_engine.py seed <this repo's path> --kind consumer`
-   to write `precedent_resolve.py`, `precedent_materialize.py`,
-   `precedent_sync_views.py`, `build_views.py`, `precedent_show.py`,
-   `precedent_paths.py`, `precedent_gate.py`, `split_practices.py`, and the
-   vendoring tool itself into this repo's own `tools/`, plus a trimmed
-   `routing_scope.json` and a tracked `tools/ENGINE_MANIFEST.json`
-   recording the exact commit and a sha256 per file — see "Keep the
-   vendored engine current (consumer repos)" under §2 for what that buys
-   over a hand-copy, and how to refresh it later. Separately, copy
-   `precedent_check.py` by hand (`checked_by: "tools/precedent_check.py"`
-   claims are hollow without it) — it belongs to phase 4's enforced-checks
-   channel, not this loader engine, so `precedent_vendor_engine.py` does
-   not vendor it.
+   to write the engine into this repo's own `tools/`: the loader
+   (`build_views.py`, `precedent_show.py`, `precedent_paths.py`,
+   `precedent_gate.py`, `split_practices.py`), the multi-source resolver
+   (`precedent_resolve.py`, `precedent_materialize.py`,
+   `precedent_sync_views.py`), the enforced channel (`precedent_check.py`,
+   plus `doc_lint.py`, `doc_sync.py` and `routing_audit.py`, which several
+   universal practices' checks call by name), the individual-source
+   bootstrap (`precedent_source_bootstrap.py`), and the vendoring tool
+   itself — plus a trimmed `routing_scope.json` and a tracked
+   `tools/ENGINE_MANIFEST.json` recording the exact commit and a sha256 per
+   file. See "Keep the vendored engine current (consumer repos)" under §2
+   for what that buys over a hand-copy, and how to refresh it later.
+   **Nothing here is hand-copied any more.** `precedent_check.py` used to
+   be, on the reasoning that the enforced channel is not the loader engine
+   — which left the one file whose absence makes every
+   `checked_by: "tools/precedent_check.py"` claim hollow as the only
+   untracked copy in the tree, with no manifest and no way to tell stale
+   from current. Vendoring it from BestPractice's own commit
+   (2026-09-06) is what made a fresh install's first `precedent_check.py`
+   run come back clean.
 2. **Write `precedent.json`** at the repo root, naming the universal
    source (`level: "universal"`, `path` pointing at step 1's vendored
    copy) and, if the administrator answered yes to the team/individual

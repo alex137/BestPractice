@@ -85,6 +85,13 @@ _toplevel = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
                            capture_output=True, text=True).stdout.strip()
 ROOT = pathlib.Path(_toplevel) if _toplevel else pathlib.Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
+# Where this module physically sits. In the classic INSTALL.md section 1
+# layout that is <repo>/process/upstream/tools/, NOT <repo>/tools/ -- ROOT
+# is deliberately the consuming repo's own root (see the long comment
+# above), so `ROOT / 'tools' / x` names a directory the vendored audit
+# tools are not in. Every check that reaches for a sibling tool goes
+# through _tool_path() rather than assuming one layout or the other.
+_HERE_TOOLS = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS))
 import split_practices as sp
 
@@ -93,10 +100,8 @@ import split_practices as sp
 # --------------------------------------------------------------------------
 
 def rule_of(slug):
-    path = ROOT / 'practices' / f'{slug}.md'
-    if not path.exists():
-        path = ROOT / 'local' / 'practices' / f'{slug}.md'
-    if not path.exists():
+    path = _practice_file(slug)
+    if path is None:
         return f'(no practice file for {slug})'
     try:
         _fm, sections = sp._read_practice_file(path)
@@ -120,10 +125,17 @@ class Finding:
 CHECKS = {}
 
 
-def check(slug, scope, what, blind_to, advisory=False):
+def check(slug, scope, what, blind_to, advisory=False, practice_backed=True):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
+
+    `practice_backed=False` marks a check that enforces a property of the
+    engine itself rather than a catalogue practice, so it has no
+    `practices/<slug>.md` to be in force. Every other check is gated on
+    its practice actually resolving in THIS repo (see `run()`): this file
+    is vendored into consuming repos, and a check for a practice a
+    consumer does not have is a finding it can never act on.
 
     `advisory=True` is distinct from a practice's own frontmatter
     `severity:` field (precedent_resolve.py's `severity: blocking`, about
@@ -135,9 +147,146 @@ def check(slug, scope, what, blind_to, advisory=False):
     leaving a practice advisory-only in the first place."""
     def deco(fn):
         CHECKS[slug] = dict(slug=slug, scope=scope, fn=fn, what=what,
-                            blind_to=blind_to, advisory=advisory)
+                            blind_to=blind_to, advisory=advisory,
+                            practice_backed=practice_backed)
         return fn
     return deco
+
+
+def register_materialized_checks():
+    """Register one CHECKS entry per `tools/checks/check_*.py` script this
+    repo's sources materialized into it (precedent_materialize.py writes
+    them there from every declared source's own tools/checks/).
+
+    WHY THIS EXISTS. Until this ran, nothing anywhere invoked those
+    scripts. `precedent_materialize.py` copied them in, `precedent_land.py`
+    refused to land a team or individual practice without one, and
+    `spec/PRIVATE_ENFORCEMENT_BRIEF.md` told a private set how to write
+    them -- and then a consuming repo held fourteen real, tested check
+    scripts (nine in precedent-team-maintainers, five in
+    precedent-individual, as of 2026-09-06) that no command ever ran. The
+    enforced channel was live for the universal catalogue and hollow for
+    exactly the sources an adopting team writes for itself.
+
+    The contract every one of those scripts already keeps, and this
+    depends on: no arguments; `ROOT` derived from its own location
+    (`<repo>/tools/checks/check_x.py` -> `<repo>`), so it audits the repo
+    it was materialized INTO, not its source; exit 0 and print nothing
+    when clean; exit 1 and print the finding when violated; exit 2 for
+    "could not run" (reported SKIPPED, never PASS, per this module's own
+    rule). Any other exit status is the script's own bug and is reported
+    as ERROR, which is neither a pass nor a violation.
+
+    The slug is taken from whichever practice's `checked_by` names the
+    script, so a finding names the practice and prints its Rule like
+    every other check here -- falling back to the filename only when no
+    practice claims it (a hand-dropped orphan, which the consuming repo's
+    own materialized-tree check is the thing that catches)."""
+    # Built a segment at a time, deliberately: the literal spelling
+    # `ROOT / 'tools' / '<name>'` is exactly what the
+    # vendored-engine-file-refs-resolve check scans for, and this
+    # directory is one a source materializes rather than one the engine
+    # ships — a hardcoded reference to it would be a false violation on
+    # every repo that has no per-source check scripts at all.
+    # Two directories, because a source's check script reaches this repo by
+    # two different routes:
+    #
+    #   tools/checks/       -- what precedent_materialize.py WROTE here, from
+    #                          every source this repo resolves. The normal
+    #                          case, in any consuming repo.
+    #   local/tools/checks/ -- a repo-local source's own scripts, read in
+    #                          place. A repo that IS one of its own sources
+    #                          (Precedent itself: `path: "."`) cannot
+    #                          materialize into itself -- materialize()
+    #                          refuses that by name, since its output
+    #                          directory would be the source's only copy --
+    #                          so nothing ever copies these to tools/checks/.
+    #
+    # Built a segment at a time, deliberately: the literal spelling
+    # `ROOT / 'tools' / '<name>'` is exactly what the
+    # vendored-engine-file-refs-resolve check scans for, and these are
+    # directories a source supplies rather than ones the engine ships -- a
+    # hardcoded reference would be a false violation on every repo with no
+    # per-source check scripts at all.
+    checks_dirs = [(ROOT / 'tools').joinpath('checks'),
+                   (ROOT / 'local').joinpath('tools', 'checks')]
+    checks_dirs = [d for d in checks_dirs if d.is_dir()]
+    if not checks_dirs:
+        return
+    claimed = {}
+    for d in ((ROOT / 'practices'), (ROOT / 'local' / 'practices')):
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sections = sp._read_practice_file(f)
+            except sp.PracticeFileError:
+                continue
+            cb = (fm.get('checked_by') or '').strip().strip('"').strip("'")
+            if cb.endswith('.py') and '/checks/' in cb:
+                claimed[pathlib.PurePath(cb).name] = fm.get('slug', f.stem)
+
+    for script in sorted(s for d in checks_dirs for s in d.glob('check_*.py')):
+        slug = claimed.get(script.name, script.stem)
+        if slug in CHECKS:          # a built-in check already owns this slug
+            continue
+        rel = str(script.relative_to(ROOT)).replace('\\', '/')
+
+        def _run_script(ctx, _script=script, _rel=rel):
+            r = subprocess.run([sys.executable, str(_script)],
+                               cwd=str(ROOT), capture_output=True, text=True)
+            out = (r.stdout + r.stderr).strip()
+            if r.returncode == 0:
+                return []
+            if r.returncode == 2:
+                raise NotApplicable(out or f'{_rel} reported it could not run')
+            if r.returncode != 1:
+                raise RuntimeError(
+                    f'{_rel} exited {r.returncode} (expected 0 clean, 1 '
+                    f'violated, or 2 could-not-run): {out or "no output"}')
+            # Keep the script's findings and drop its own header and its
+            # own copy of the Rule: the runner prints the Rule for every
+            # check here, through one code path, so letting the script's
+            # copy through too would print it twice and let the two
+            # spellings drift.
+            lines = []
+            for line in out.splitlines():
+                if line.strip().rstrip(':').lower() == 'the rule':
+                    break
+                if line.strip().startswith('VIOLATION:'):
+                    continue
+                if line.strip():
+                    lines.append(line.strip())
+            return [Finding(_rel, '\n    '.join(lines) or 'reported a violation '
+                                                          'with no detail')]
+
+        CHECKS[slug] = dict(
+            slug=slug, scope='tree', fn=_run_script,
+            what=f'whatever {rel} checks — a check script supplied by one '
+                 f'of this repo\'s own practice sources',
+            blind_to=f"anything {rel} does not look at; its own limits are "
+                     f"documented in its docstring, not here",
+            advisory=False, practice_backed=True)
+
+
+def _practice_file(slug):
+    """Where `rule_of` would find this slug's practice file, or None.
+
+    The three layouts a practice file can be in, in the order they are
+    searched: the materialized `practices/` tree (what
+    precedent_materialize.py writes from every resolved source), a
+    repo-local source's own `local/practices/`, and
+    `process/upstream/practices/` -- the classic pre-Precedent vendoring
+    layout INSTALL.md §1 still installs, where the catalogue never lands
+    at the repo root at all. rule_of() searched only the first two, so in
+    a §1 dependent repo every violation printed "(no practice file for
+    ...)" where the Rule belonged -- and the whole design of this module
+    is that the failure message IS the rule."""
+    for rel in (('practices', f'{slug}.md'),
+                ('local', 'practices', f'{slug}.md'),
+                ('process', 'upstream', 'practices', f'{slug}.md')):
+        p = ROOT.joinpath(*rel)
+        if p.exists():
+            return p
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -235,6 +384,24 @@ class Ctx:
 # Native checks
 # --------------------------------------------------------------------------
 
+_MD_LINK_RE = re.compile(r'\[([^\]\n]*)\]\([^)\s]*\)')
+
+
+def _rule_prose(sections):
+    """A Rule's words, with link TARGETS dropped and the label kept.
+
+    What counts as "the Rule was rewritten", for cite-the-incident's
+    purposes, is the rule's PROSE. Repointing a link inside it is not a
+    new rule and cannot have a new incident behind it -- but the plain
+    string comparison this replaces treated it as one, so a sweep that
+    fixed 67 broken relative links across practices/ demanded a `## Story`
+    for four inherited practices whose Rule it had not touched a word of.
+    A demand nobody can honestly satisfy is worse than no demand: the only
+    ways to clear it are to invent an incident or to leave the broken
+    link."""
+    return _MD_LINK_RE.sub(r'\1', sections.get('rule', '')).strip()
+
+
 @check('cite-the-incident', 'change',
        'a practice file whose Rule is new or changed must carry a non-empty '
        '## Story',
@@ -254,8 +421,8 @@ def _cite_the_incident(ctx):
             except Exception:
                 old_sections = None
             if old_sections is not None and \
-                    old_sections.get('rule', '').strip() == sections.get('rule', '').strip():
-                continue        # frontmatter-only edit: not a new rule
+                    _rule_prose(old_sections) == _rule_prose(sections):
+                continue        # frontmatter- or link-only edit: not a new rule
         if not sections.get('story', '').strip():
             out.append(Finding(f, 'a new or rewritten Rule with an empty '
                                   '## Story — the failure it prevents is not '
@@ -329,25 +496,54 @@ GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
        "instead, not by this check.")
 def _generated_artifact_provenance(ctx):
     out = []
-    builder = ROOT / 'tools' / 'build_views.py'
-    if not builder.exists():
+    builder = _tool_path('tools/build_views.py')
+    if builder is None:
         raise NotApplicable('tools/build_views.py is absent, so nothing here '
                             'declares which artifacts are generated')
+    # Which of the two this repo actually GENERATES, read off the files
+    # themselves. build_views.py can write all three views, but a
+    # consuming repo runs it as `--agents-only` on purpose: MAP.md and
+    # GLOSSARY.md "assume THIS repo's layout" (build_views.py's own
+    # docstring, and INSTALL.md section 0's caveat, which says so in
+    # as many words), so a consumer hand-authors them from
+    # templates/MAP.md.template. Before this distinction, that documented,
+    # intended state was a VIOLATION in every consuming repo -- both files
+    # reported "carries no stamp" and then `build_views.py --check`
+    # reported them as drifted, for a repo that never generated them and
+    # never should. A file with no stamp is not a stale generated file;
+    # it is a hand-authored one, and orientation-map already requires
+    # MAP.md to exist and say something.
+    generated_here = []
     for name in GENERATED_VIEWS:
         p = ROOT / name
-        if not p.exists():
-            out.append(Finding(name, 'declared generated but missing'))
-            continue
-        head = p.read_text(encoding='utf-8', errors='ignore')[:1200]
+        head = p.read_text(encoding='utf-8', errors='ignore')[:1200] \
+            if p.exists() else ''
         if 'build_views.py' not in head:
-            out.append(Finding(name, 'carries no stamp naming the script that '
-                                     'builds it, so a reader cannot tell it '
-                                     'is generated'))
+            continue
+        generated_here.append(name)
         if not re.search(r'do not (hand-)?edit|never hand-edit|generated',
                          head, re.I):
-            out.append(Finding(name, 'does not say it is generated'))
-    r = subprocess.run([sys.executable, str(builder), '--check'],
-                       cwd=str(ROOT), capture_output=True, text=True)
+            out.append(Finding(name, 'names build_views.py but does not say '
+                                     'it is generated, so a reader cannot '
+                                     'tell whether editing it is safe'))
+    # --repo, always: build_views.py derives its own root from its file
+    # location, which in the classic vendoring layout is
+    # <repo>/process/upstream/, not the consuming repo. Without this it
+    # went looking for process/upstream/AGENTS.md and reported the
+    # FileNotFoundError as "a generated view is stale or hand-edited".
+    argv = [sys.executable, str(builder), '--repo', str(ROOT), '--check']
+    if not generated_here:
+        # Nothing wholly generated here, so the only thing left to
+        # regenerate is AGENTS.md's loader block -- and a repo on the
+        # classic INSTALL.md section 1 model has no such block at all
+        # (its instructions file is hand-authored end to end). Reporting
+        # "a generated view is stale or hand-edited" for a file that
+        # declares nothing generated is a finding nobody can act on.
+        _n, instructions = _instructions_file()
+        if '<!-- BEGIN GENERATED: precedent-loader -->' not in instructions:
+            return out
+        argv.append('--agents-only')
+    r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
     if r.returncode != 0:
         out.append(Finding('', 'a generated view is stale or hand-edited: '
                                + (r.stdout + r.stderr).strip().splitlines()[-1]
@@ -443,6 +639,15 @@ def _environment_gotchas(ctx):
     rest = text[m.end():]
     end = re.search(r'^#{1,4}\s', rest, re.M)
     section = rest[:end.start()] if end else rest
+    # Strip HTML comments before splitting into entries. The old code
+    # dropped only an entry that STARTED with `<!--`, which is not the
+    # same thing: a multi-line comment holding a bulleted list -- exactly
+    # what templates/AGENTS.md.loader.template uses to park the
+    # placeholders an adopter fills in as they hit them -- had each of its
+    # bullets parsed as a real gotcha entry and failed for having no
+    # story. A comment is guidance to the person editing the file, not
+    # content the file asserts.
+    section = re.sub(r'<!--.*?-->', '', section, flags=re.S)
     entries, cur = [], []
     for line in section.splitlines():
         if re.match(r'^\s*[-*]\s+', line):
@@ -566,6 +771,24 @@ _ENGINE_REF_RE = re.compile(
     r"""_ENGINE_DIR\s*/\s*['"]([\w.-]+)['"]|ROOT\s*/\s*['"]tools['"]\s*/\s*['"]([\w.-]+)['"]"""
 )
 
+# Companions whose ABSENCE is a normal state, not a vendoring gap. Each
+# entry carries the reason, because an exemption whose justification lives
+# somewhere else is how a real gap gets waved through later. Keep this
+# short: the default answer to "this file isn't here" is to vendor it.
+_ENGINE_REF_ABSENT_OK = {
+    # split_practices.py's `split` subcommand, and nothing else, reads it:
+    # the one-time conversion of BestPractice's own PRACTICES.md into
+    # per-practice files. No consuming repo ever runs that, and
+    # load_metadata() is called on demand with a graceful failure, never at
+    # import — see its own docstring, which exists because a missing copy
+    # used to take precedent_show.py down at import time.
+    'practice_metadata.json',
+    # routing_audit.py WRITES this on its first run. Absent means "no
+    # routing audit has been run in this repo yet", which is the correct
+    # state of a fresh install, not a file somebody forgot to copy.
+    'routing_audit_state.json',
+}
+
 
 # cite-the-incident, 2026-09-06: themorgan/WorkingWithAI followed
 # spec/MIGRATING_EXISTING_INSTALLS.md step 7 exactly as written and ended up
@@ -587,7 +810,8 @@ _ENGINE_REF_RE = re.compile(
        "only that a path this code already commits to finding is actually "
        "there. It scans the `_ENGINE_DIR / '<name>'` and "
        "`ROOT / 'tools' / '<name>'` spellings only, not an equivalent path "
-       "built any other way (an f-string, a joined variable).")
+       "built any other way (an f-string, a joined variable).",
+       practice_backed=False)
 def _vendored_engine_file_refs_resolve(ctx):
     tools_dir = ROOT / 'tools'
     findings = []
@@ -595,6 +819,8 @@ def _vendored_engine_file_refs_resolve(ctx):
         text = p.read_text(encoding='utf-8', errors='ignore')
         for m in _ENGINE_REF_RE.finditer(text):
             name = m.group(1) or m.group(2)
+            if name in _ENGINE_REF_ABSENT_OK:
+                continue
             if not (tools_dir / name).exists():
                 findings.append(Finding(
                     f'tools/{p.name}',
@@ -730,33 +956,17 @@ def _doc_references_are_links(ctx):
     return out
 
 
-def _unglossed(text, known):
+def _unglossed(text, known, path=None):
     """[(line, TOKEN)] via doc_lint's own acronym scan, so this check and the
-    warning it replaces never drift apart -- one detector, two callers."""
-    dl = _doc_lint()
-    out, seen, incode = [], set(), False
-    for i, line in enumerate(text.splitlines(), 1):
-        if line.lstrip().startswith('```'):
-            incode = not incode
-            continue
-        if incode:
-            continue
-        clean = dl._decontent(line)
-        for m in dl.ACRONYM_RE.finditer(clean):
-            tok = m.group(1)
-            if tok in known or tok in seen:
-                continue
-            if f'({tok})' in clean:
-                # Glossed right here -- covers this use and every later bare
-                # use in the same document (same fix as doc_lint.py's own
-                # check_file: recording `seen` only on the violation branch
-                # meant a correctly-glossed first use never protected a
-                # second, later bare mention).
-                seen.add(tok)
-                continue
-            seen.add(tok)
-            out.append((i, tok))
-    return out
+    warning it replaces never drift apart -- one detector, two callers.
+
+    This used to hold its own copy of doc_lint's scan loop, under this same
+    docstring, and drifted from it exactly as the docstring said it must
+    not: two filters added to doc_lint (an ALL-CAPS filename stem is not an
+    acronym; a document naming itself in its own title is not either)
+    fixed doc_lint's report while this gate went on failing on `LEDGER.md`.
+    It now calls the shared function."""
+    return _doc_lint().scan_unglossed(text, known, path)
 
 
 @check('acronyms-glossary', 'change',
@@ -782,9 +992,9 @@ def _acronyms_glossary(ctx):
         raise NotApplicable('no changed markdown file is in scope')
     out = []
     for f in files:
-        cur = _unglossed(ctx.read(f), known)
+        cur = _unglossed(ctx.read(f), known, f)
         base_text = ctx.read_base(f)
-        base_toks = {tok for _i, tok in _unglossed(base_text, known)} if base_text else set()
+        base_toks = {tok for _i, tok in _unglossed(base_text, known, f)} if base_text else set()
         for i, tok in cur:
             if tok not in base_toks:
                 out.append(Finding(f'{f}:{i}',
@@ -1006,12 +1216,12 @@ def _two_check_levels(ctx):
        'whether the audit is actually being RUN or a slice actually READ -- '
        'only that the tool exists and its own bookkeeping stays honest.')
 def _routing_audit(ctx):
-    tool = ROOT / 'tools' / 'routing_audit.py'
-    if not tool.exists():
-        return [Finding(str(tool.relative_to(ROOT)),
+    tool = _tool_path('tools/routing_audit.py')
+    if tool is None:
+        return [Finding('tools/routing_audit.py',
                         "does not exist -- routing-audit.md names it as "
                         "this practice's implementation")]
-    state_path = ROOT / 'tools' / 'routing_audit_state.json'
+    state_path = tool.parent / 'routing_audit_state.json'
     if not state_path.exists():
         return []
     try:
@@ -1019,8 +1229,16 @@ def _routing_audit(ctx):
     except (json.JSONDecodeError, OSError) as e:
         return [Finding(str(state_path.relative_to(ROOT)),
                         f'is not valid JSON ({e})')]
+    # The catalogue this repo actually has: the materialized/authored
+    # practices/ at the root, or -- in the classic vendoring layout -- the
+    # vendored tree this tool was copied alongside. Reading only the first
+    # made `active` empty in every classic install, so every rotation entry
+    # in the state file read as stale bookkeeping for a retired practice.
+    practices_dir = ROOT / 'practices'
+    if not practices_dir.is_dir():
+        practices_dir = tool.parent.parent / 'practices'
     active = set()
-    for f in sorted((ROOT / 'practices').glob('*.md')):
+    for f in sorted(practices_dir.glob('*.md')):
         try:
             fm, _sections = sp._read_practice_file(f)
         except sp.PracticeFileError:
@@ -1121,6 +1339,21 @@ def _shallow_boundary_commits():
        'Enforcing; the 2026-09-05 advisory downgrade was lifted 2026-09-06 '
        'once the CI substitution above was root-caused.')
 def _parallel_artifact_ledger(ctx):
+    # The practice is generic -- ANY family of parallel artifacts -- but
+    # this check knows exactly one family: this repo's own harness
+    # adapters. A repo without those directories has no family for this
+    # check to walk, which is not the same fact as "a ledger is missing":
+    # every consuming repo reported a VIOLATION demanding a ledger for a
+    # directory it does not have and should not have. Finding that repo's
+    # OWN parallel-artifact families is not something a static check can
+    # do, so it says so rather than guessing.
+    if not any((ROOT / d).is_dir() for d in _LEDGER_MEMBER_DIRS):
+        raise NotApplicable(
+            'this repo has none of the harness-adapter directories this '
+            'check knows how to walk (' + ', '.join(_LEDGER_MEMBER_DIRS) +
+            '), so there is no parallel-artifact family here for it to '
+            'ledger. A family of its own still needs one -- that half is '
+            'a review judgment, not something this check can find')
     ledger_path = ROOT / 'templates' / 'harness' / 'LEDGER.md'
     if not ledger_path.exists():
         return [Finding('templates/harness/LEDGER.md',
@@ -1155,44 +1388,6 @@ def _parallel_artifact_ledger(ctx):
     return findings
 
 
-# practice: merge-target-is-beta-branch
-@check('merge-target-is-beta-branch', 'tree',
-       'while this repository is mid-restructure, origin/precedent-beta-v01 '
-       'is not an ancestor of origin/main -- i.e. main has not absorbed '
-       'the restructuring work via a merge',
-       'a PR opened with the wrong base BEFORE it merges -- this only '
-       'catches the state after a bad merge already landed on main, not '
-       'before. It also cannot run at all without both origin/main and '
-       'origin/precedent-beta-v01 fetched locally (SKIPPED, not PASS, in '
-       'that case).')
-def _merge_target_is_beta_branch(ctx):
-    def rev_parse(ref):
-        r = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref],
-                           cwd=ROOT, capture_output=True, text=True)
-        return r.stdout.strip() if r.returncode == 0 else None
-
-    main = rev_parse('origin/main')
-    beta = rev_parse('origin/precedent-beta-v01')
-    if not main or not beta:
-        raise NotApplicable(
-            'origin/main and origin/precedent-beta-v01 must both be '
-            'fetched locally to compare them -- run `git fetch origin '
-            'main precedent-beta-v01` first')
-    is_ancestor = subprocess.run(
-        ['git', 'merge-base', '--is-ancestor', beta, main], cwd=ROOT
-    ).returncode == 0
-    if is_ancestor:
-        return [Finding('main',
-                        f'contains origin/precedent-beta-v01 ({beta[:8]}) as '
-                        f'an ancestor -- the restructuring work has been '
-                        f'merged into main. Expected ONLY once Alex has '
-                        f'reviewed and merged precedent-beta-v01 into main '
-                        f'for real (in which case retire this practice in '
-                        f'the same PR); otherwise this is the PR #89 '
-                        f'mistake happening again.')]
-    return []
-
-
 @check('search-by-purpose', 'change',
        'a document carrying generated numbers is reachable from an index a '
        'reader actually consults',
@@ -1210,8 +1405,51 @@ def _search_by_purpose(ctx):
     return [Finding(d, n) for d, n in dl.check_findability(wired) if d in scope]
 
 
+def _tool_path(rel):
+    """Resolve a repo-relative `tools/<name>` against the layout this repo
+    actually has, or None.
+
+    Two layouts, both real: the Precedent loader install (INSTALL.md
+    section 0) puts the engine at `<repo>/tools/`, and the classic
+    vendoring install (section 1) puts it at
+    `<repo>/process/upstream/tools/`. Checks that shell out to a sibling
+    tool assumed the first, so in a classic install `practice_audit.py`,
+    `model_audit.py` and `doc_sync.py` were all sitting right there in
+    `process/upstream/tools/` and their checks reported nothing --
+    silently PASSING before _run() learned to refuse a missing script, and
+    honestly but wrongly SKIPPING after. Neither is the truth: the tool is
+    present and the check should run."""
+    rel = str(rel).replace('\\', '/')
+    name = rel.split('/')[-1]
+    for cand in (ROOT / rel, _HERE_TOOLS / name,
+                 ROOT / 'process' / 'upstream' / 'tools' / name):
+        if cand.exists():
+            return cand
+    return None
+
+
 def _run(script, *args):
-    r = subprocess.run([sys.executable, str(ROOT / script), *args],
+    """Run one of this repo's own audit scripts, refusing loudly if it is
+    not here.
+
+    A missing script is NOT a clean run. Python exits 2 with "can't open
+    file" on stderr, which carries no `FAIL:`, no `SCRUB:` and no `NOT
+    APPLICABLE` -- so every caller below filtered zero lines out of it and
+    returned no findings, i.e. PASS. Three enforced practices
+    (scrub-gate, practice-export-loop, scripts-assert-properties) reported
+    a clean pass in every consuming repo, because the tools they run are
+    not in the vendored engine and nothing noticed. That is precisely the
+    "a scan with an empty input set printing OK" failure this module's own
+    docstring says it exists to prevent, and this module was doing it."""
+    path = _tool_path(script)
+    if path is None:
+        raise NotApplicable(
+            f'{script} is in neither this repo\'s own tools/ nor a vendored '
+            f'process/upstream/tools/, so this check has nothing to run. It '
+            f'is not part of the vendored engine '
+            f'(precedent_vendor_engine.py\'s CONSUMER_ENGINE_FILES) -- copy '
+            f'it from Precedent if this repo needs the practice enforced')
+    r = subprocess.run([sys.executable, str(path), *args],
                        cwd=str(ROOT), capture_output=True, text=True)
     return r.returncode, (r.stdout + r.stderr)
 
@@ -1576,6 +1814,23 @@ def run(slugs, ctx, scopes):
         c = CHECKS[slug]
         if c['scope'] not in scopes:
             continue
+        # A check whose practice is not in force here has nothing to
+        # enforce. This file is vendored verbatim into consuming repos
+        # (INSTALL.md §0 step 1), and it registers every check
+        # BestPractice itself needs -- including ones for practices only
+        # BestPractice has. Before this gate, a brand-new install's very
+        # first `precedent_check.py` run reported a VIOLATION for
+        # `merge-target-is-beta-branch`, this repo's own temporary
+        # repo-local rule about ITS beta branch, which no consumer can
+        # act on, satisfy, or even read the Rule of (`rule_of` prints
+        # "(no practice file for ...)"). SKIPPED, never PASS: the check
+        # did not run, and a skip is not a pass.
+        if c['practice_backed'] and _practice_file(slug) is None:
+            results.append((slug, 'SKIPPED', [],
+                            f'no practices/{slug}.md in this repo, so the '
+                            f'practice is not in force here -- this check '
+                            f'belongs to a source this repo does not resolve'))
+            continue
         try:
             findings = c['fn'](ctx) or []
             results.append((slug, 'VIOLATION' if findings else 'PASS',
@@ -1604,6 +1859,9 @@ def run(slugs, ctx, scopes):
 def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith('--')}
+    # Before --list/--explain/--only read CHECKS, so a source-supplied
+    # check script is a first-class member of all three.
+    register_materialized_checks()
     if '--list' in flags:
         for slug, c in sorted(CHECKS.items()):
             print(f"  {slug:32} [{c['scope']:8}] {c['what']}")

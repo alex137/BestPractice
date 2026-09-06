@@ -19,7 +19,7 @@ side**, so different agents can work the same repo under the same contract.
 (bootstrap always runs); adapters without one rely on the agent following the
 instructions file — a *soft* guarantee. The audits partially compensate: a
 skipped convention still fails loudly when the audit runs at commit/merge
-time. This is why practice 6 (conventions become scripts) is the load-bearing
+time. This is why practice `convention-to-audit` (conventions become scripts) is the load-bearing
 practice in a multi-agent repo.
 
 Using a harness not listed here? The recipe is four questions: (1) what

@@ -30,6 +30,6 @@ committed answer instead of a fresh investigation.
 ## Story
 
 ## Install
-[templates/MAP.md.template](templates/MAP.md.template). Keep the
+[templates/MAP.md.template](../templates/MAP.md.template). Keep the
 deliverable→backing-docs index current: any thread that adds a document adds
 its row.

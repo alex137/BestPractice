@@ -45,13 +45,28 @@ rules="$(python3 "$script" "$path" 2>/dev/null || true)"
 no_match="(no on-demand practice's applies_to matches the given path(s))"
 [[ -n "$rules" && "$rules" != "$no_match" ]] || exit 0
 
+# NO `permissionDecision` FIELD, deliberately (2026-09-06). This hook's
+# whole job is to put the matching practice Rules in front of the model
+# before it edits a file; deciding whether the edit is allowed is not its
+# business and never was. It used to emit
+# `"permissionDecision": "allow"` alongside the context, which in Claude
+# Code's PreToolUse contract is a permission verdict, not a formality --
+# on the reading where it settles the decision, every install of this
+# adapter silently auto-approved every Edit, Write and NotebookEdit whose
+# path matched any practice, which is most of them. Omitting the field
+# injects exactly the same context and leaves the permission flow alone,
+# so it is correct under either reading of the contract and costs nothing.
+# It matters most for the case this repo already designs for: a
+# non-technical contributor on a deliberately narrow permission set (see
+# templates/nontechnical-document-project/AGENTS.md), where a practice
+# loader quietly widening what may be written is the opposite of what was
+# asked for.
 python3 - "$rules" <<'PYEOF'
 import json, sys
 
 print(json.dumps({
     "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
-        "permissionDecision": "allow",
         "additionalContext": sys.argv[1],
     }
 }))

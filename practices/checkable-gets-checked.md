@@ -70,9 +70,9 @@ No check exists for this practice itself, and probably can't: whether a
 mechanical check is genuinely impossible for another practice is a
 judgment call, the same class the proportionality guard in
 `mistakes-become-rules` already names as resistant to automation. It
-fires at the `review` gate instead — [tools/precedent_gate.py](tools/precedent_gate.py)
+fires at the `review` gate instead — [tools/precedent_gate.py](../tools/precedent_gate.py)
 review — so a session reviewing a newly written practice is handed this
-Rule at exactly the moment it matters. [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md)'s
+Rule at exactly the moment it matters. [spec/ENFORCEMENT.md](../spec/ENFORCEMENT.md)'s
 "What phase 5 inherits" section already named the shape of this gap
 before this practice existed: "the creation pipeline should ask for a
 check, not a `checked_by`... a promotion step that accepts a string has

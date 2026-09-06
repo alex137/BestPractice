@@ -65,7 +65,7 @@ stated `blocked-on`/`out-of-scope` reason is a plausible candidate
 (`checkable-gets-checked` applies), left `checked_by: null` here rather than
 wired in without testing, since this file is a straight conversion of
 Alex's addition to `main` (merged after this branch's fork point — see
-[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md); this file's own
+[CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md); this file's own
 `source_practice_number` above records its original BestPractice number)
 and not new authorship going through the creation pipeline's own review. Revisit when phase 5's
 enforcement work reaches the backlog.

@@ -68,7 +68,7 @@ the three verdicts. Do it after the framing check of [frame-from-audience-questi
 reframing changes who the reader is.
 
 The natural audit extension ([convention-to-audit](convention-to-audit.md)) is a per-repo list of known insider
-terms, checked by [tools/doc_lint.py](tools/doc_lint.py) against documents
+terms, checked by [tools/doc_lint.py](../tools/doc_lint.py) against documents
 marked outward-facing — the same machinery as the scrub blocklist of
 [scrub-gate](scrub-gate.md), aimed at comprehension instead of confidentiality. Keep it
 **warning-level**: a glossed term is a legitimate pass, and only a human can

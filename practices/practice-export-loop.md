@@ -39,10 +39,10 @@ check-ins.
 ## Story
 
 ## Install
-[INSTALL.md](INSTALL.md) is the full playbook;
-[tools/practice_audit.py](tools/practice_audit.py) audits the manifest
+[INSTALL.md](../INSTALL.md) is the full playbook;
+[tools/practice_audit.py](../tools/practice_audit.py) audits the manifest
 (drift between installed files and their recorded baselines) on every run.
-[tools/checkin.py](tools/checkin.py) drives the cross-repo mechanics, and
+[tools/checkin.py](../tools/checkin.py) drives the cross-repo mechanics, and
 **both directions of its mirror destroy work, so both are guarded**:
 `update` refuses to overwrite unexported local changes, and `push` refuses
 when the vendored tree is behind upstream — it deletes files it does not

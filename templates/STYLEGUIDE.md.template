@@ -78,6 +78,6 @@ here: <e.g., "never use the corporate stock-photo handshake image">.
 ## Source
 
 <If a formal brand guideline exists, name it here for provenance — title,
-owner, date last reviewed (practice 16) — without attaching or vendoring
+owner, date last reviewed (practice `volatile-rules-carry-dates`) — without attaching or vendoring
 the document itself: "Acme Corp Brand Guidelines v3, design team,
 verified 2026-08-16.">

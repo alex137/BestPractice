@@ -2,17 +2,17 @@
 
 <!-- Template: instantiate per BestPractice INSTALL.md §1 as AGENTS.md — the
      harness-neutral instructions file (read natively by several agent CLIs;
-     other harnesses get a pointer file via templates/harness/, see practice 13).
+     other harnesses get a pointer file via templates/harness/, see practice `session-bootstrap`).
      Replace <angle-bracket> placeholders with this repo's real content; keep
      the section structure. Every rule you add should cite the incident that
-     motivated it (practice 5). -->
+     motivated it (practice `cite-the-incident`). -->
 
 **Orientation: read `MAP.md` first** — the repository map. It covers the key
 deliverables and indexes which documents back each part of each one.
 
 ## Where things are (quick index — check here BEFORE searching the repo)
 
-<!-- Add a row whenever a session is observed hunting for something (practice 3). -->
+<!-- Add a row whenever a session is observed hunting for something (practice `quick-index`). -->
 
 | Looking for… | Go to |
 |---|---|
@@ -24,18 +24,57 @@ deliverables and indexes which documents back each part of each one.
 
 ## <Deliverable build workflow>
 
-<!-- The canonical builder(s), the registry that drives them (practice 7), and
-     the audits that gate them (practice 6). State the single source of truth
+<!-- The canonical builder(s), the registry that drives them (practice `registry-source-of-truth`), and
+     the audits that gate them (practice `convention-to-audit`). State the single source of truth
      explicitly and what wins when documents disagree with it. -->
 
-### Build-environment gotchas — do NOT rediscover these
-
-<!-- Every expensive environment discovery, WITH its story (practice 4).
-     Mirror the fixes into the bootstrap script (practice 13) so they apply
-     themselves; if your harness has no session hook, keep the next line: -->
+### Session start
 
 - At session start, run `bash tools/bootstrap.sh` before other work (harnesses
   with a hook mechanism run it automatically — see `templates/harness/`).
+
+### Two check levels
+
+<!-- practice `two-check-levels`. Rename the two levels if your team prefers
+     other words, but name them somewhere fixed and say which gates what —
+     the point is that "run the check" resolves to one thing without a
+     session re-deriving it. Add your own repo's audits to the deep check. -->
+
+- **Light check** — `python3 process/upstream/tools/doc_lint.py` on the markdown you touched.
+  Fast, run before every commit without thinking about it. Gates a commit.
+- **Deep check** — the full suite: `python3 process/upstream/tools/precedent_check.py`,
+  `python3 process/upstream/tools/practice_audit.py`, and `<your own audits>`.
+  Gates a push and a merge.
+
+### Build-environment gotchas — do NOT rediscover these
+
+<!-- Every expensive environment discovery, WITH its story (practice
+     `environment-gotchas`) — what failed and what it cost, not just the fix,
+     because a fix on its own is a fact the next session cannot judge and
+     re-derives the moment it looks wrong. Mirror the fixes into the
+     bootstrap script (practice `session-bootstrap`) so they apply
+     themselves. Add yours below the inherited entry; replace nothing.
+
+     Placeholders to fill in as you hit them, kept in this comment rather
+     than as live bullets so an install that has not hit one yet is not
+     carrying an empty gotcha:
+       - <package/tool that must be installed, what failed without it, how
+         long it cost>
+       - <tool that does not work here; what to use instead> -->
+
+- **A session's checkout can be stale enough to look complete while missing
+  real, merged work — with no error.** `git status` reports "up to date with
+  origin" by comparing against whatever the remote-tracking ref happened to
+  be at the last fetch, so a container that came up on an old clone reports
+  clean and current while being dozens of commits behind. This has bitten
+  the upstream project twice for real: once with a local branch that shared
+  *zero* commits with origin (a whole phase of work invisible), and once
+  with a 5-day-old shallow clone where a session concluded that files
+  landing a week earlier "did not exist". Before concluding anything is
+  missing or unfinished: `git fetch origin <branch>` and
+  `git rev-list --count HEAD..origin/<branch>`. `tools/bootstrap.sh` warns
+  about this at session start, including when the fetch itself fails —
+  silence there has to mean "checked and current", never "not checked".
 
 <!-- INSTALL.md §1 step 9: if the administrator answered yes to a team
      and/or individual practice source, add the bullet below (drop whichever
@@ -65,8 +104,6 @@ deliverables and indexes which documents back each part of each one.
   that a person only ever attaches the one repo they're actually working
   in; reaching for the others is this session's own job, every time.
 
-- <package/tool that must be installed, what failed without it, how long it cost>
-- <tool that does not work here; what to use instead>
 
 ## Git / workflow
 
@@ -80,16 +117,16 @@ deliverables and indexes which documents back each part of each one.
 Conflicts in shared files are EXPECTED. The fast, safe path:
 
 0. **Capture gate — before the merge, in the thread that did the work**
-   (practice 10): did this thread's work imply anything that must be
+   (practice `capture-gate`): did this thread's work imply anything that must be
    captured — a document update, a registry entry, a decision record? Fold
    it now; the thread that built the rationale is the one that knows what to
    record. Also run the parking-lot grep: `grep -rl "<your staging
    markers>" <docs-root>/` and fold anything ready.
-   **0b. Export gate** (practice 14): did this thread improve a *generic*
+   **0b. Export gate** (practice `practice-export-loop`): did this thread improve a *generic*
    practice? Fold the abstracted form into `process/upstream/` now, per
    `process/upstream/INSTALL.md` §3, and run the scrub audit.
 1. Fetch and merge the default branch locally.
-2. Resolve by fixed per-file-class rules (practice 9):
+2. Resolve by fixed per-file-class rules (practice `merge-runbook`):
    - Registries: **union** of both sides — never drop an entry or a status.
    - Logs / index files: **append-only — keep both sides' additions.**
    - Same content file edited on both sides: keep both sides' text;
@@ -110,20 +147,20 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 ## Conventions
 
 - **Sections are ordered by the reader's frequency, not the writer's**
-  (practice 36): a document walking through instructions or rules in
+  (practice `section-order-by-frequency`): a document walking through instructions or rules in
   multiple sections puts common, everyday content first and rare edge
   cases / migration scenarios / "if the world changes" contingencies last —
   unless the subject matter itself dictates a different order. Ask: would
   most readers have to scroll past this section to reach the one they
   opened the document for?
-- **PR descriptions come from the diff, not the template** (practice 39):
+- **PR descriptions come from the diff, not the template** (practice `pr-template-honest-gates`):
   when opening a PR, write "What changed" / "Why" / "Files touched" from
   what actually happened on this branch. Check a `## Gates` box only when
   it is actually true for this change — an unchecked box, or a "not
   applicable" note, is normal and expected. Never check every box, or fill
   every field with N/A, just to make the form look complete; that looks
   like verification and isn't.
-- **Doc references are links** (practice 11): in-repo docs reference other
+- **Doc references are links** (practice `doc-references-are-links`): in-repo docs reference other
   repo files as relative markdown links, never bare backticked names. New
   text always links; a thread touching a document fixes the references in
   the parts it touches.
@@ -134,7 +171,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   `python3 process/upstream/tools/doc_lint.py`
   checks these conventions on files changed vs the default branch; run it on
   what you touch before committing.
-- **Volatile rules carry their dates** (practice 16): a rule that depends
+- **Volatile rules carry their dates** (practice `volatile-rules-carry-dates`): a rule that depends
   on the outside world (an external platform, someone else's algorithm, a
   tool quirk) carries *as of / verified `<date>`* inline, and a session
   that re-confirms it updates the date. The date is the contributor's
@@ -145,7 +182,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   name the model they were verified on (a model upgrade = re-verify); a
   durable rule records its tenure and exceptions (*in effect since X; N
   exceptions, each under Y*) — its survival record is its authority.
-- **Outward-facing documents use the reader's words** (practice 34): in a
+- **Outward-facing documents use the reader's words** (practice `readers-vocabulary`): in a
   README, product page, pitch, or onboarding guide, every term that names a
   category is either already the reader's word, replaced with a plain
   equivalent, or glossed inline on first use — never left to a glossary the
@@ -153,7 +190,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   read, so run this as a separate pass after drafting, not while writing.
   Rule of thumb: if a term can be replaced by a plain description of five
   words or fewer, it is jargon.
-- **Reply convention** (practice 12): every reply that created or modified
+- **Reply convention** (practice `reply-links-files`): every reply that created or modified
   files ends with a "Files touched" list — branch link + post-merge link +
   one-line description per file — so the reader can open the work from the
   chat. When a touched file is an HTML render or a picture and the harness
@@ -207,7 +244,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
      evidence: when a member pushes back in review, reverts a change, or
      objects in conversation, that session appends a one-line entry —
      what this member wants flagged, citing the incident that showed it
-     (practice 5). Members may seed entries directly, but the list grows
+     (practice `cite-the-incident`). Members may seed entries directly, but the list grows
      mainly by observation.
 
   (For path-based ownership, GitHub's CODEOWNERS enforces review

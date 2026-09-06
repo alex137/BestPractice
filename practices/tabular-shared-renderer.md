@@ -27,7 +27,7 @@ edit.
 
 **The load-bearing half is singularity.** All table behavior — CSS, JS, sort
 semantics, numeric-aware sort keys — lives in **one** shared renderer with a
-registry of the documents it renders ([tools/doc_html.py](tools/doc_html.py)
+registry of the documents it renders ([tools/doc_html.py](../tools/doc_html.py)
 is the reference implementation). A functionality change is made there and
 only there, and the no-argument invocation rebuilds every registered render,
 so the change manifests in every table at once.
@@ -58,7 +58,7 @@ document wanted this practice.
 
 ## Install
 **The behavior contract.** This is what the reference implementation
-([tools/doc_html.py](tools/doc_html.py)) delivers on every table, and what
+([tools/doc_html.py](../tools/doc_html.py)) delivers on every table, and what
 any reimplementation on another stack must match — it is the spec a reader
 of this practice is entitled to assume when a repo says
 "[tabular-shared-renderer](tabular-shared-renderer.md) render":
