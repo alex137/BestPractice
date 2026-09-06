@@ -81,12 +81,48 @@ def _approx_tokens(text):
     return int(len(WORD_RE.findall(text)) * 1.3)
 
 
-def load_practices(practices_dir=None):
+# A practice that is not active is still resolvable BY SLUG -- so a
+# `supersedes:` reference points somewhere real -- but it is not in force, and
+# nothing that presents the catalogue as current may show it. Defined here,
+# in the lower-level module, and imported by precedent_resolve as
+# bv.IN_FORCE_STATUS, so the loader and the resolver cannot disagree about
+# what "in force" means. (precedent_resolve imports this module, never the
+# other way round -- putting the constant there would be a cycle.)
+IN_FORCE_STATUS = 'active'
+
+
+def load_practices(practices_dir=None, in_force_only=True):
+    """Every practice file in the directory, minus the ones not in force.
+
+    WHY THE FILTER EXISTS (2026-09-06). This function read every *.md and
+    returned it, and this module never looked at `status:` anywhere -- so a
+    retired practice went on being emitted into the AGENTS.md loader block,
+    MAP.md and GLOSSARY.md exactly like an active one. Retirement was
+    cosmetic for the one channel that decides what a session actually loads.
+
+    Invisible in BestPractice, whose own catalogue has no retired practice.
+    Found 2026-09-06 in a private team set with three of them -- all three
+    were listed in the AGENTS.md its own README calls "what a session
+    actually loads", months after retirement, including one retired that
+    same day. precedent_resolve.py had this right all along and prints
+    `not in force: <slug> ... is status: retired`; the generated views did
+    not, so the two channels disagreed and only the quieter one was read.
+
+    A dropped practice is announced rather than silently skipped -- a
+    retirement that vanishes without a word is the same silence in a
+    smaller place."""
     practices_dir = practices_dir if practices_dir is not None else PRACTICES_DIR
-    out = []
+    out, dropped = [], []
     for f in sorted(practices_dir.glob('*.md')):
         fm, sections = sp._read_practice_file(f)
+        status = _json_str(fm.get('status', IN_FORCE_STATUS)) or IN_FORCE_STATUS
+        if in_force_only and status != IN_FORCE_STATUS:
+            dropped.append((fm.get('slug', f.stem), status))
+            continue
         out.append((fm, sections, f))
+    for slug, status in dropped:
+        print(f"build_views: {slug} is status: {status}, so it is not in "
+              f"force and is left out of the generated views.", file=sys.stderr)
     return out
 
 

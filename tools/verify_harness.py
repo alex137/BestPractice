@@ -2531,6 +2531,73 @@ def check_generated_views_regenerate():
           ok, detail)
 
 
+def check_retired_practices_leave_the_views():
+    """A practice that is not in force must not be in the loader block.
+
+    build_views.py never read `status:` at all -- not in load_practices, not
+    in the loader-block build, nowhere -- so a retired practice went on being
+    emitted into AGENTS.md, MAP.md and GLOSSARY.md exactly like an active
+    one. precedent_resolve.py had it right and printed `not in force`; the
+    two channels disagreed, and the one a session actually loads was the
+    wrong one.
+
+    BestPractice's own catalogue has no retired practice, which is precisely
+    why nothing here caught it: found 2026-09-06 in a private team set whose
+    generated AGENTS.md listed all three of its retired practices, one of
+    them retired that same day. So this case supplies a retired practice of
+    its own rather than relying on the tree having one."""
+    import tempfile, shutil
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-retired-'))
+    try:
+        (tmp / 'practices').mkdir()
+        src = ROOT / 'practices'
+        active = (src / 'repo-is-memory.md').read_text(encoding='utf-8')
+        (tmp / 'practices' / 'repo-is-memory.md').write_text(active, encoding='utf-8')
+        retired = (src / 'verify-postcondition.md').read_text(encoding='utf-8')
+        retired = re.sub(r'^status:(\s+)active$', r'status:\1retired', retired,
+                         count=1, flags=re.M)
+        if 'status:      retired' not in retired and 'status: retired' not in retired:
+            raise RuntimeError('fixture did not actually become retired')
+        (tmp / 'practices' / 'verify-postcondition.md').write_text(retired, encoding='utf-8')
+        (tmp / 'AGENTS.md').write_text(
+            '<!-- BEGIN GENERATED: precedent-loader -->\n<!-- END GENERATED -->\n',
+            encoding='utf-8')
+
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+             '--repo', str(tmp), '--agents-only'],
+            capture_output=True, text=True)
+        rendered = (tmp / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('a retired practice is absent from the generated loader '
+                      'block -- retirement is not cosmetic',
+                      r.returncode == 0 and 'verify-postcondition' not in rendered,
+                      r.stdout + r.stderr + '\n---\n' + rendered))
+        cases.append(('an active practice in the same directory is still '
+                      'emitted -- the filter drops the retired one, not the '
+                      'catalogue', 'repo-is-memory' in rendered, rendered))
+        cases.append(('the drop is announced, not silent -- a retirement that '
+                      'vanishes without a word is the same failure one size '
+                      'down',
+                      'verify-postcondition' in r.stderr and 'retired' in r.stderr,
+                      r.stdout + r.stderr))
+
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as _bv
+        import precedent_resolve as _pr
+        cases.append(('the loader and the resolver share one definition of '
+                      '"in force", so they cannot drift apart again',
+                      _pr.IN_FORCE_STATUS is _bv.IN_FORCE_STATUS,
+                      f'{_pr.IN_FORCE_STATUS!r} vs {_bv.IN_FORCE_STATUS!r}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a retired practice leaves the generated views ({len(cases)} '
+          f'stated cases)', not bad,
+          '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_resident_subset(files):
     # Phase 1's always-loaded set was every practice, unconditionally (no
     # tier existed yet). The post-migration resident set must be a STRICT
@@ -6850,6 +6917,7 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
     check_precedent_check_fires()

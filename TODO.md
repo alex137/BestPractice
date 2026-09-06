@@ -396,24 +396,26 @@ which is the failure this repointing exists to end — write
     ([practices/headline-capitalization.md](practices/headline-capitalization.md)),
     which sidesteps the question for one rule without answering it.
 
-26. **Check the two private sets for a duplicate headline-capitalization
-    rule, and delete it there.** The practice now lives at the universal
-    level — [practices/headline-capitalization.md](practices/headline-capitalization.md),
-    with its rules defined once in
-    [tools/title_case.py](tools/title_case.py). Morgan believes a rule for
-    this already existed in `precedent-team-maintainers` or in his
-    individual set, and asked that it live in exactly one place. Landing
-    it here was the half that could be done from a BestPractice session;
-    the other half — read whichever private set holds it, confirm the
-    universal wording covers what it said, and remove it there — cannot.
-    Per [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) this is the
-    correct order (a rule is never absent from both homes at once), but
-    the removal is not optional: until it happens the rule is duplicated
-    across two levels, which is what Morgan asked to avoid.
-    **Blocked on:** a session that can read `themorgan/precedent-team-maintainers`
-    and `themorgan/precedent-individual`. `add_repo` refuses a cross-owner
-    add once a session holds `alex137` repos, and the GitHub read tools
-    refuse the same repos, so it must be a session started against them.
+26. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
+    holding all four repositories searched by purpose and by mechanism
+    across every practice body, frontmatter, check script and test:
+    exactly one duplicate, `header-caps` in `precedent-team-maintainers`,
+    with its own check and a two-direction test. `precedent-individual`
+    had no capitalization practice at all. It was retired there per
+    [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md), its check and
+    test removed, on branch `claude/practice-repos-audit-migration-2l9jbz`
+    (no pull request opened). **Three clauses the universal practice does
+    not carry**, recorded here because retiring the old rule dropped them
+    rather than moving them: (a) *heading-level consistency* — siblings at
+    the same rank sharing a heading level, which is an outline rule, not a
+    capitalization one, and is now unenforced anywhere; (b) *scope* —
+    `header-caps` applied to `**/*.md` while
+    [practices/headline-capitalization.md](practices/headline-capitalization.md)
+    deliberately covers `documentation/**/*.md` only, so practice files,
+    specs and READMEs lost their same-rank check; (c) the *escape hatch*
+    letting a repo document a different scheme inline, which the universal
+    rule deliberately does not offer. (a) is the one worth a decision: it
+    was mechanically checked and is now not checked at all.
 
 27. **Done 2026-09-06 — the individual-source bootstrap hook is installed
     here, and this repo is now checked as a consumer of its own install
@@ -442,23 +444,22 @@ which is the failure this repointing exists to end — write
     `individual_status` in `--json`;
     [spec/SOURCES.md](spec/SOURCES.md) carries the row.
 
-29. **Audit the RepoPersonalPreferences migration for anything else lost.**
-    RPP's 46 rules were split into the two private sets on 2026-09-01
-    (closing phase 3 — [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)
-    is the procedure). No per-rule ledger of that split exists anywhere in
-    this repository: nothing here records which of the 46 landed where, so
-    "did anything get dropped" cannot be answered from BestPractice at
-    all — the very gap
-    [practices/parallel-artifact-ledger.md](practices/parallel-artifact-ledger.md)
-    exists to close, applied to a migration instead of a parallel artifact
-    family. If a ledger was written, it is in one of the private repos.
-    The check itself is mechanical once the repos are in one session: list
-    RPP's 46 rule identifiers, list every practice in
-    `precedent-team-maintainers` and `precedent-individual`, and diff —
-    anything in the first list with no descendant in the second two either
-    moved to universal, was deliberately retired, or was lost, and each of
-    those three is a different answer. **Blocked on:** a session that can
-    read `themorgan/RepoPersonalPreferences` plus both private sets.
+29. <a id="rpp-migration-audited"></a>**Done 2026-09-06 — nothing was lost in the migration, and the audit
+    is recorded here because no ledger holds it.** RepoPersonalPreferences'
+    46 rule identifiers (from its own `process/personal/README.md` headings,
+    cross-checked against its `MAP.md`) were diffed against 41 practices in
+    `precedent-team-maintainers`, 10 in `precedent-individual` and the
+    placeholder in `precedent-team-tms`. **43 have a live descendant** — 39
+    team, 4 individual, plus `bestpractice-sync`, retired in team and active
+    in individual after the 2026-09-03 move. **3 have no active descendant,
+    none of them lost:** `deep-check` moved to universal (retired in team
+    2026-09-05 in favour of `very-deep-check`); `bestpractice-wins` was
+    deliberately retired, its effect now carried structurally by the
+    resolver's precedence; `morgan-scope` was deliberately retired, and its
+    substantive half — the attributing account, and he/him — survives inside
+    `precedent-individual`'s `commit-author.md` `## Detail`. That last one
+    survived *by absorption rather than by design*: nothing recorded that it
+    moved there, which is the whole argument for a ledger.
 
 30. **Upstream-only registries ride along in vendored engine files.**
     [tools/doc_sync.py](tools/doc_sync.py)'s `PAIRS` hardcodes
@@ -498,3 +499,31 @@ which is the failure this repointing exists to end — write
     call about which steps apply to the publisher — deliberately not
     folded into the thread that found the first instance, which would have
     meant deciding all of them in passing.
+
+32. <a id="migrated-practices-lost-their-stories"></a>**The RPP migration dropped every `## Story`, and that is the
+    provenance the catalogue exists to keep.** Found by the 2026-09-06
+    migration audit ([`rpp-migration-audited`](TODO.md#rpp-migration-audited)):
+    34 of 41 practices in `precedent-team-maintainers` and 3 of 10 in
+    `precedent-individual` have an empty `## Story`; `header-caps` also had
+    an empty `## Why`, and `fail-gracefully` has Detail, Why and Story all
+    empty. The incident each rule exists to prevent stayed behind in
+    RepoPersonalPreferences. Nothing is *lost* while RPP survives, but it is
+    unreachable from the rule it justifies, which is exactly what
+    [practices/cite-the-incident.md](practices/cite-the-incident.md) and
+    [practices/mistakes-become-rules.md](practices/mistakes-become-rules.md)
+    exist to prevent — and a rule whose reason nobody can see is the first
+    one someone deletes. Backfill from RPP's own text, per practice.
+    **Blocked on:** a session holding `themorgan/RepoPersonalPreferences`
+    plus the two private sets. Note the size honestly: 37 practices, each
+    needing a real incident written from the original, not a paraphrase.
+
+33. <a id="team-check-cites-retired-practice"></a>**`precedent-team-maintainers`' `check_deep_check.py` cites a practice
+    retired in that same set.** `# practice: deep-check`, retired
+    2026-09-05 when `very-deep-check` replaced it — a live
+    [code-cites-practice](practices/code-cites-practice.md) violation left
+    by the retirement. Either the citation moves to `very-deep-check` or the
+    check goes with the practice; that is the team set's own call, which is
+    why the session that found it did not decide unilaterally.
+    **Blocked on:** a session holding `themorgan/precedent-team-maintainers`,
+    and the decision above.
+

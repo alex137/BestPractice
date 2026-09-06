@@ -195,6 +195,22 @@ case documented above.
    `tools/precedent_resolve.py`'s own lazy self-heal re-invoking this same
    hook later, from inside the agent's own turn, after that instruction has
    already run.
+5c. **If the project already carries someone else's hook, do not add a
+   second one — set `PRECEDENT_INDIVIDUAL_REPO` to your own set's URL.**
+   The hook is committed to a *shared* project, but an individual set
+   belongs to one person, so the account baked in when it was instantiated
+   is right for whoever installed it and wrong for every other person on
+   that project. The instantiated hook reads `PRECEDENT_INDIVIDUAL_REPO`
+   first and falls back to the baked-in default, so each person points it
+   at their own account through their environment — on Claude Code Remote,
+   the environment's own variable configuration — while the tracked file
+   stays one file with one default. The *name* is deliberately not
+   overridable: [practices/source-naming.md](../practices/source-naming.md)
+   fixes it as the same string in every person's own account, so only the
+   account can legitimately differ. (Added 2026-09-06, when this repo
+   installed its own hook and baked in the one individual set that exists
+   here — correct for its owner, wrong for the second maintainer, and
+   nothing was going to say so.)
 6. Fill in `leak-blocklist.txt` with the person's own private terms, then
    `export PRECEDENT_LEAK_BLOCKLIST=<path>` and
    `git config precedent.requireVocabulary true` in every shared project

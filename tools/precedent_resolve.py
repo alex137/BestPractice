@@ -229,8 +229,13 @@ def warn_name_matches_path(level, name, path, where):
 
 
 # A practice that is not active is resolvable by slug -- so `supersedes:`
-# still points somewhere real -- but is not in force.
-IN_FORCE_STATUS = 'active'
+# still points somewhere real -- but is not in force. Re-exported from
+# build_views rather than defined twice: this module and the generated views
+# disagreed about it for months (build_views never read `status:` at all, so
+# it emitted retired practices into the loader block while this file
+# correctly reported them not in force), and one definition is what stops
+# that recurring.
+IN_FORCE_STATUS = bv.IN_FORCE_STATUS
 
 
 class ResolveError(Exception):

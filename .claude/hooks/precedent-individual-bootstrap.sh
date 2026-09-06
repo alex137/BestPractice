@@ -42,9 +42,26 @@ if [ ! -f "$ENGINE" ]; then
   ENGINE="${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_bootstrap.py"
 fi
 
+# WHOSE individual set. An individual set belongs to ONE person, but this
+# hook is committed to a SHARED project -- so the account baked in at
+# instantiation is right for whoever installed it and wrong for everyone
+# else on the same project, who each have their own set under their own
+# account. PRECEDENT_INDIVIDUAL_REPO lets each person point this at theirs
+# without editing a tracked file (and without a second, conflicting hook).
+#
+# The NAME is deliberately not overridable: practice source-naming fixes it
+# as the same string in every person's own account, so only the account --
+# that is, the URL -- can legitimately differ.
+#
+# Set it in whatever your environment uses for per-session variables; on
+# Claude Code Remote that is the environment's own configuration. Leave it
+# unset and you get the project's default, which is the behaviour every
+# install had before this existed.
+REPO_URL="${PRECEDENT_INDIVIDUAL_REPO:-https://github.com/themorgan/precedent-individual}"
+
 exec python3 "$ENGINE" \
   --level individual \
   --name "precedent-individual" \
-  --repo-url "https://github.com/themorgan/precedent-individual" \
+  --repo-url "$REPO_URL" \
   --clone "$HOME/precedent-individual" \
   --config "$HOME/.config/precedent/config.json"
