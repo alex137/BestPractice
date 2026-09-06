@@ -29,7 +29,13 @@ the instructions-file directive; (3) does it have a stop/teardown hook that
 can block ending a turn — port the git-hygiene check and the `reply`-gate
 print
 ([claude-code/hooks/stop-git-check.sh](claude-code/hooks/stop-git-check.sh))
-if so; (4) can commands be pre-approved — port the allowlist idea if so.
+if so; (4) can commands be pre-approved — port the allowlist idea if so;
+(5) can it run something before a tool call — port the freshness gate
+([claude-code/hooks/freshness-guard.sh](claude-code/hooks/freshness-guard.sh)),
+and wire its session-start half plus
+[claude-code/hooks/commit-identity.sh](claude-code/hooks/commit-identity.sh)
+into whatever answer question (2) gave, since neither depends on anything
+Claude Code specific beyond how it is invoked.
 Then contribute the adapter back upstream.
 
 **Transfer verdicts for changes to any one adapter are ledgered:**
