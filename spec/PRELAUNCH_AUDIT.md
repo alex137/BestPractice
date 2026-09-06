@@ -350,6 +350,44 @@ run prompted on every single run.
    design question is untouched, and a second team set now exists to test
    any answer against.
 
+### For Morgan — found by running the two real consumer repos, his call
+
+These are decisions about his own repositories, not defects in Precedent,
+so this session reported them rather than acting on them.
+
+- **`themorgan/WorkingWithAI` is public and names the private individual
+  source about forty times** — its `AGENTS.md` alone ten, plus `README.md`,
+  `GETTING_STARTED.md`, `MAP.md`, `TODO.md`, three `content/` documents,
+  and `.claude/hooks/`, several as full `https://github.com/themorgan/precedent-individual/blob/...`
+  URLs. The same `AGENTS.md` states the boundary it is crossing: the
+  individual source is "**Never** declared in this repo's own tracked
+  config — naming it here would leak its existence and location to anyone
+  with read access to this repo." The tracked *config* indeed does not name
+  it; the prose around that sentence does, at length. Either the boundary
+  is real and the prose needs to change, or the disclosure is deliberate
+  and the sentence should stop claiming otherwise — but not both. Nothing
+  here reveals the private set's *contents*; the leak is existence and
+  location. Precedent's own half is closed either way: materialize() no
+  longer mints such a URL on its own (item 6 above).
+- **That repo's `practice_audit.py` gate can never pass.** Its `AGENTS.md`
+  says the audit "must pass before committing anything that touches
+  `process/`". It reports 110 SCRUB failures, every one of them the
+  `Buenos Aires` term on that repo's own blocklist matching upstream
+  documents that legitimately carry it in their own date headers. The
+  collision is documented there as understood, but a gate that structurally
+  cannot go green is not a gate. Scoping the blocklist to exclude
+  `process/upstream/`, or dropping that term from it, would make the
+  sentence true again.
+- **Both consumer repos mirror engine files by hand rather than with
+  [precedent_vendor_engine.py](../tools/precedent_vendor_engine.py).**
+  That is how `WorkingWithAI` ended up with three root copies OLDER than
+  its own vendored tree — including a `precedent_materialize.py` with no
+  self-referential-source guard, the check that stops a sync destroying a
+  hand-authored repo-local source — and a `precedent_check.py` sitting
+  beside no `routing_audit.py`. Both fixed in this pass, but by hand
+  again; the durable fix is for these repos to adopt the vendoring tool,
+  whose `CONSUMER_ENGINE_FILES` is the list they are each re-deriving.
+
 ### Noted, no action recommended
 
 - **`INSTALL.md`'s sections read 1, 0, 2, 3…** The document explains why
