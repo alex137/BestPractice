@@ -10,6 +10,7 @@ index_clause: "one formatter per quantity kind, declared in one module"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -10,6 +10,7 @@ index_clause: "names are fixed by level; say the convention before anyone picks 
 checked_by:  "tools/precedent_check.py"
 defines:     ["practice-set source"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       2026-09-06

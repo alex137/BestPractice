@@ -10,6 +10,7 @@ index_clause: "name a fast check and a full check; say which gates what"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

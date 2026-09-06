@@ -9,6 +9,7 @@ index_clause: "placeholder — delete this file once you've written your own"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

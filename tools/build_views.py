@@ -90,6 +90,135 @@ def _approx_tokens(text):
 # other way round -- putting the constant there would be a cycle.)
 IN_FORCE_STATUS = 'active'
 
+# THE TWO WAYS A PRACTICE STOPS APPLYING HERE ARE NOT THE SAME THING, and
+# collapsing them into one word is what let a live rule be dropped
+# (2026-09-06; see spec/PRACTICE_FORMAT.md "Status" and this repo's
+# practices/mistakes-become-rules.md).
+#
+#   deduplicated  The COPY here is redundant. The rule itself is fully in
+#                 force, from somewhere else -- another source's practice,
+#                 or the engine. `in_force_at:` says where, and the check
+#                 resolves it. This is the common, cheap, verifiable path.
+#   retired       Nobody wants this rule anywhere. `in_force_at: none`,
+#                 plus a Story line saying why. Rare and deliberate.
+#
+# The distinction exists because "retire" invites the question "does
+# something similar exist?", which is answerable by reading two files and
+# feeling that they rhyme -- and that is exactly how a routine check was
+# dropped on the authority of an unrelated occasional one. "Deduplicate"
+# cannot be answered by resemblance: it forces the only question that
+# matters, which is what the surviving copy is and whether it resolves in
+# force.
+DEDUPLICATED_STATUS = 'deduplicated'
+RETIRED_STATUS = 'retired'
+
+# Every status this engine recognizes. A practice carrying anything else is
+# a typo or a newer engine's vocabulary, and is reported rather than
+# silently treated as one of these (see verify_harness.py's
+# check_status_contract) -- but it is still NOT IN FORCE, because
+# `is_in_force` tests for `active` rather than testing against this list.
+# Failing closed is the only safe direction: a status nobody here
+# understands must never be loaded as if it were current.
+KNOWN_STATUSES = (IN_FORCE_STATUS, DEDUPLICATED_STATUS, RETIRED_STATUS)
+
+
+def practice_status(fm):
+    """A practice's declared status, decoded, defaulting to in-force.
+
+    `status:` is written unquoted in every practice file this repo has, but
+    it is a frontmatter string like any other and a hand-authored one may
+    arrive quoted -- so it goes through _json_str rather than being read
+    raw. Two tools used to compare `fm.get('status') == 'retired'` directly
+    and would have missed both a quoted value and, once this vocabulary
+    landed, every `deduplicated` practice."""
+    return _json_str(fm.get('status', IN_FORCE_STATUS)) or IN_FORCE_STATUS
+
+
+def is_in_force(fm):
+    """Whether this practice's rule applies here, now.
+
+    The one predicate every loading channel must use. It is deliberately
+    `== IN_FORCE_STATUS` and not `not in (DEDUPLICATED_STATUS,
+    RETIRED_STATUS)`: an unrecognized status fails closed."""
+    return practice_status(fm) == IN_FORCE_STATUS
+
+
+# `in_force_at:` takes a slug, or one of these two literals.
+IN_FORCE_AT_ENGINE = 'engine'    # absorbed into the mechanism; no practice to load
+IN_FORCE_AT_NOWHERE = 'none'     # in force nowhere -- the retirement case
+
+
+def status_contract_violation(fm, sections=None, slug_in_force=None):
+    """-> a message naming what is wrong with this practice's `status:` /
+    `in_force_at:` pair, or None when the pair is sound.
+
+    WHY THE PAIR IS CHECKED AND NOT JUST THE STATUS. `status:` alone records
+    that a rule stopped applying here but never whether anything replaced it,
+    so "deduplicated safely" and "dropped and forgotten" were indistinguishable
+    to every check in the system -- the forwarding address existed only as
+    English prose in `## Story`, which no tool reads. That is the gap a live
+    rule fell through on 2026-09-06.
+
+    `slug_in_force` is a callable (slug) -> bool, INJECTED rather than
+    imported. The real answer comes from precedent_resolve.resolve() against
+    the actually-declared sources, and precedent_resolve imports this module,
+    so reaching for it here would be a cycle. Passing None checks the SHAPE
+    only -- that a forwarding address is present and well-formed -- and
+    deliberately does not check that it resolves, which is the entire point
+    of the field. A caller that can resolve must pass the callable; one that
+    cannot must say so rather than reporting a shape check as the real one."""
+    status = practice_status(fm)
+    target = _json_str(fm.get('in_force_at', '')) or ''
+
+    if status not in KNOWN_STATUSES:
+        return (f"status: {status!r} is not a status this engine knows "
+                f"({', '.join(KNOWN_STATUSES)}). It is treated as not in "
+                f"force, which may not be what was meant.")
+
+    if status == IN_FORCE_STATUS:
+        if target:
+            return (f"status: active carries in_force_at: {target!r}. A rule "
+                    f"in force HERE has no forwarding address; one of the two "
+                    f"is wrong.")
+        return None
+
+    if not target:
+        return (f"status: {status} with no in_force_at:. Not optional on "
+                f"anything that is not active -- it is what tells a "
+                f"deduplication apart from a rule dropped and forgotten.")
+
+    if status == DEDUPLICATED_STATUS:
+        if target == IN_FORCE_AT_NOWHERE:
+            return (f"status: deduplicated with in_force_at: none. "
+                    f"Deduplicated means the rule IS in force, elsewhere; if "
+                    f"it is in force nowhere, that is status: retired, and "
+                    f"needs the evidence retirement needs.")
+        if target == IN_FORCE_AT_ENGINE:
+            return None
+        if slug_in_force is None:
+            return None          # shape is sound; resolution not checked here
+        if not slug_in_force(target):
+            return (f"status: deduplicated names in_force_at: {target!r}, but "
+                    f"that slug does not resolve IN FORCE against the declared "
+                    f"sources. A surviving copy that is itself dropped, "
+                    f"shadowed or unreachable is not a surviving copy -- this "
+                    f"is the deduplication that silently loses a rule.")
+        return None
+
+    # status == RETIRED_STATUS
+    if target != IN_FORCE_AT_NOWHERE:
+        return (f"status: retired with in_force_at: {target!r}. Retired means "
+                f"the rule is wanted nowhere, so the only legal value is "
+                f"'none'. If the rule survives at {target!r}, this is "
+                f"status: deduplicated.")
+    story = (sections or {}).get('story', '').strip()
+    if not story:
+        return ("status: retired with an empty ## Story. Retirement is the "
+                "rare, deliberate case and is the one status no mechanism can "
+                "verify for you, so it must say in prose why nobody wants "
+                "this rule anywhere.")
+    return None
+
 
 def load_practices(practices_dir=None, in_force_only=True):
     """Every practice file in the directory, minus the ones not in force.
@@ -115,8 +244,8 @@ def load_practices(practices_dir=None, in_force_only=True):
     out, dropped = [], []
     for f in sorted(practices_dir.glob('*.md')):
         fm, sections = sp._read_practice_file(f)
-        status = _json_str(fm.get('status', IN_FORCE_STATUS)) or IN_FORCE_STATUS
-        if in_force_only and status != IN_FORCE_STATUS:
+        status = practice_status(fm)
+        if in_force_only and not is_in_force(fm):
             dropped.append((fm.get('slug', f.stem), status))
             continue
         out.append((fm, sections, f))

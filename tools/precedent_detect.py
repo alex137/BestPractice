@@ -52,6 +52,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp  # noqa: E402
+import build_views as bv  # noqa: E402
 import precedent_promote as pp  # noqa: E402
 
 # Deliberately specific phrasing, not bare "always"/"never" -- those words
@@ -136,7 +137,11 @@ def cmd_restated(args):
                 fm, sections = sp._read_practice_file(f)
             except sp.PracticeFileError:
                 continue
-            if fm.get('status') == 'retired':
+            # Any practice not in force, not only a retired one. This read
+            # the literal 'retired', so every `deduplicated` practice went
+            # on being offered to the duplicate detector as if it were a
+            # live rule of this source's own.
+            if not bv.is_in_force(fm):
                 continue
             entries[fm.get('slug', f.stem)] = sections.get('rule', '')
         by_source[p] = entries

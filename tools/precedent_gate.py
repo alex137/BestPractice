@@ -86,6 +86,7 @@ import split_practices as sp
 # copy-pasted second implementation (which is exactly the kind of drift
 # this repo's own engine-plus-host-shims practice exists to prevent).
 import precedent_show as ps
+import build_views as bv
 
 SCOPE = _ENGINE_DIR / 'routing_scope.json'
 
@@ -115,6 +116,14 @@ def practices_by_gate(practices_dir=None):
         try:
             fm, _sections = sp._read_practice_file(f)
         except sp.PracticeFileError:
+            continue
+        # A practice not in force is not registered to any gate. This is
+        # the channel where getting it wrong costs most -- the gates are
+        # the blocking path, so an unfiltered `status:` here means a
+        # dropped rule keeps being served as a requirement at merge time
+        # (which is exactly what masked a bad drop for a day: the gate
+        # kept serving the practice the index had already removed).
+        if not bv.is_in_force(fm):
             continue
         for g in json.loads(fm.get('gates', '[]') or '[]'):
             out.setdefault(g, []).append(fm['slug'])

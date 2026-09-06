@@ -119,6 +119,9 @@ def _render_practice(fm, proposed_rule, observed, approved_by, level):
     lines.append(f"checked_by:  {checked_by if checked_by else 'null'}")
     lines.append("defines:     []")
     lines.append("status:      active")
+    # Null while active; required the moment `status:` becomes
+    # `deduplicated` or `retired` (spec/PRACTICE_FORMAT.md, "Status").
+    lines.append("in_force_at: null")
     lines.append("supersedes:  []")
     overrides = fm.get('overrides')
     lines.append(f"overrides:   {json.dumps(overrides) if overrides else 'null'}")

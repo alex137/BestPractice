@@ -10,6 +10,7 @@ index_clause: "renaming a file means repointing every link to it, in the same co
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-06"

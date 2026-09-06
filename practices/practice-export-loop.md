@@ -10,6 +10,7 @@ index_clause: "vendor upstream as tracked files; check improvements back in"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

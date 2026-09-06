@@ -10,6 +10,7 @@ index_clause: "a rule about the outside world carries its date, inline"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -10,6 +10,7 @@ index_clause: "compression rounds against you; qualifiers travel with the figure
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

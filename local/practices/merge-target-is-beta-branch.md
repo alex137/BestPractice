@@ -10,6 +10,7 @@ index_clause: "Alex approves only major main merges; precedent-beta-v01 is unres
 checked_by:  "tools/checks/check_merge_target_is_beta_branch.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -10,6 +10,7 @@ index_clause: "fix the setting forward; never rewrite published history"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

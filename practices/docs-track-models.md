@@ -10,6 +10,7 @@ index_clause: "every script-derived figure sits inside a generated block"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

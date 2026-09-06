@@ -135,7 +135,11 @@ def _catalogue_slugs_and_rules(against_paths):
             except sp.PracticeFileError:
                 continue
             slug = fm.get('slug', f.stem)
-            if fm.get('status') == 'retired':
+            # Any practice not in force, not only a retired one -- a
+            # `deduplicated` practice is just as absent from what this
+            # source actually imposes, and comparing against the literal
+            # 'retired' silently counted every one of them as competition.
+            if not bv.is_in_force(fm):
                 continue
             out[slug] = (sections.get('rule', ''), str(f))
     return out

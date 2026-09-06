@@ -10,6 +10,7 @@ index_clause: "one fixed word means \"merge as agreed\"; document it exactly"
 checked_by:  null
 defines:     ["go merge"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -2531,6 +2531,187 @@ def check_generated_views_regenerate():
           ok, detail)
 
 
+def check_status_contract():
+    """A practice that is not `active` must say where its rule went.
+
+    THE INCIDENT (2026-09-06). `status: retired` recorded that a rule stopped
+    applying here but never whether anything replaced it. The forwarding
+    address lived only as English prose in `## Story`, which no tool reads, so
+    "deduplicated safely" and "dropped and forgotten" were indistinguishable to
+    every check in the system. A routine per-commit check was dropped on the
+    authority of an unrelated occasional one -- the two rules resembled each
+    other, and resemblance was accepted as coverage. Nothing failed, because
+    nothing could: no check had anything to compare.
+
+    The vocabulary is the fix, and this is what gives it teeth
+    (spec/PRACTICE_FORMAT.md, "Status"):
+
+      active         no forwarding address; the rule applies here.
+      deduplicated   the COPY is redundant; `in_force_at:` names a slug that
+                     must RESOLVE IN FORCE, or `engine`.
+      retired        wanted nowhere; `in_force_at: none` and a real ## Story.
+
+    WHAT THIS CHECK REFUSES TO CLAIM. "Resolves in force" is only answerable
+    against the actually-declared sources. When any of them is unreachable --
+    a sibling clone this session does not have -- the resolved set is
+    incomplete, and a "does not resolve" verdict would be an artifact of the
+    missing checkout rather than a finding. In that case this degrades to the
+    SHAPE check (a forwarding address is present and well-formed) and says so
+    in its own name, rather than reporting a weaker check as the stronger
+    one."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as _bv
+    import precedent_resolve as _pr
+
+    # --- can we resolve for real this run? --------------------------------
+    slug_in_force, resolution = None, 'shape only'
+    try:
+        sources = _pr.load_config(str(ROOT))
+        res = _pr.resolve(sources)
+        if res['missing']:
+            gone = ', '.join(m['name'] for m in res['missing'])
+            resolution = f'shape only -- source(s) unreachable this run: {gone}'
+        else:
+            in_force = set(res['practices'])
+            slug_in_force = in_force.__contains__
+            resolution = f'resolved against {len(sources)} source(s)'
+    except Exception as e:                                # noqa: BLE001
+        resolution = f'shape only -- sources unresolvable ({type(e).__name__}: {e})'
+
+    # --- 1. every practice file in every source this repo owns -------------
+    violations, scanned = [], 0
+    dirs = [ROOT / 'practices']
+    local = ROOT / 'local' / 'practices'
+    if local.is_dir():
+        dirs.append(local)
+    for d in dirs:
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, sections = sp._read_practice_file(f)
+            except sp.PracticeFileError:
+                continue
+            scanned += 1
+            v = _bv.status_contract_violation(fm, sections, slug_in_force)
+            if v:
+                violations.append(f"{f.relative_to(ROOT)}: {v}")
+    check(f'status contract holds for every practice in this repo '
+          f'({scanned} scanned, {resolution})',
+          not violations, '; '.join(violations[:8]))
+
+    # --- 2. the contract actually refuses each way of getting it wrong -----
+    # BestPractice's own catalogue is 100% active, so without these the check
+    # above passes vacuously and would go on passing if the validator were
+    # gutted. Each case is a rule from the table in this docstring.
+    def fm_of(status, in_force_at=None):
+        d = {'status': status}
+        if in_force_at is not None:
+            d['in_force_at'] = in_force_at
+        return d
+
+    story = {'story': 'It stopped mattering when we dropped the tool.'}
+    live = {'header-caps'}.__contains__
+    cases = [
+        ('an active practice with a forwarding address is contradictory',
+         _bv.status_contract_violation(fm_of('active', 'header-caps')) is not None),
+        ('an ordinary active practice is clean',
+         _bv.status_contract_violation(fm_of('active')) is None),
+        ('deduplicated with no in_force_at is refused -- this is exactly the '
+         '"dropped and forgotten" case that used to be indistinguishable',
+         _bv.status_contract_violation(fm_of('deduplicated')) is not None),
+        ('deduplicated pointing at a slug that IS in force is accepted',
+         _bv.status_contract_violation(fm_of('deduplicated', 'header-caps'),
+                                       slug_in_force=live) is None),
+        ('deduplicated pointing at a slug that is NOT in force is refused -- '
+         'a surviving copy that is itself gone is not a surviving copy',
+         _bv.status_contract_violation(fm_of('deduplicated', 'deep-check'),
+                                       slug_in_force=live) is not None),
+        ('deduplicated with in_force_at: engine is accepted -- the successor '
+         'is code, not a slug',
+         _bv.status_contract_violation(fm_of('deduplicated', 'engine'),
+                                       slug_in_force=live) is None),
+        ('deduplicated with in_force_at: none is refused -- in force nowhere '
+         'is retirement, and needs retirement\'s evidence',
+         _bv.status_contract_violation(fm_of('deduplicated', 'none')) is not None),
+        ('retired pointing at a live slug is refused -- if the rule survives '
+         'there, it was deduplicated',
+         _bv.status_contract_violation(fm_of('retired', 'header-caps'), story,
+                                       slug_in_force=live) is not None),
+        ('retired with in_force_at: none and a real Story is accepted',
+         _bv.status_contract_violation(fm_of('retired', 'none'), story) is None),
+        ('retired with an empty Story is refused -- the one status no '
+         'mechanism can verify must say why in prose',
+         _bv.status_contract_violation(fm_of('retired', 'none'), {'story': ''})
+         is not None),
+        ('an unrecognized status is reported rather than waved through',
+         _bv.status_contract_violation(fm_of('superseded', 'header-caps'))
+         is not None),
+        ('...and is NOT in force, so an unknown status fails closed',
+         not _bv.is_in_force(fm_of('superseded'))),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'the status contract refuses each way of getting it wrong '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+    # --- 3. the new word is wired to the FILTER, not just to the validator --
+    # A status can be spelled correctly in the spec, validated correctly here,
+    # and still be loaded into every session if the loader's own predicate
+    # never learned it. That is the shape of the original defect, so it gets
+    # its own end-to-end case rather than being assumed from case 2.
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dedup-'))
+    try:
+        (tmp / 'practices').mkdir()
+        src = ROOT / 'practices'
+        (tmp / 'practices' / 'repo-is-memory.md').write_text(
+            (src / 'repo-is-memory.md').read_text(encoding='utf-8'), encoding='utf-8')
+        dedup = (src / 'verify-postcondition.md').read_text(encoding='utf-8')
+        dedup = re.sub(r'^status:(\s+)active$', r'status:\1deduplicated', dedup,
+                       count=1, flags=re.M)
+        dedup = re.sub(r'^in_force_at: null$', 'in_force_at: repo-is-memory',
+                       dedup, count=1, flags=re.M)
+        if 'deduplicated' not in dedup or 'in_force_at: repo-is-memory' not in dedup:
+            raise RuntimeError('fixture did not actually become deduplicated')
+        (tmp / 'practices' / 'verify-postcondition.md').write_text(dedup, encoding='utf-8')
+        (tmp / 'AGENTS.md').write_text(
+            '<!-- BEGIN GENERATED: precedent-loader -->\n<!-- END GENERATED -->\n',
+            encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'build_views.py'),
+             '--repo', str(tmp), '--agents-only'], capture_output=True, text=True)
+        rendered = (tmp / 'AGENTS.md').read_text(encoding='utf-8')
+        e2e = [
+            ('a deduplicated practice is absent from the generated loader block',
+             r.returncode == 0 and 'verify-postcondition' not in rendered),
+            ('the active practice beside it is still emitted',
+             'repo-is-memory' in rendered),
+            ('the drop is announced by status name, not silently',
+             'verify-postcondition' in r.stderr and 'deduplicated' in r.stderr),
+        ]
+        # ...and `precedent show` MARKS it rather than refusing, because a
+        # session naming a slug explicitly is asking "what happened to this?"
+        s = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_show.py'),
+             'verify-postcondition', '--repo', str(tmp)],
+            capture_output=True, text=True)
+        e2e += [
+            ('precedent show still resolves the slug rather than refusing it',
+             s.returncode == 0),
+            ('...and marks it NOT IN FORCE, naming where the rule lives now',
+             'NOT IN FORCE' in s.stdout and 'repo-is-memory' in s.stdout),
+            ('...with the marking ABOVE the rule text, so a session that '
+             'stops reading early cannot take it as current',
+             'NOT IN FORCE' in s.stdout.split('\n\n')[0]),
+        ]
+        bad_e2e = [n for n, ok in e2e if not ok]
+        check(f'the deduplicated status is honored by the loading channels, '
+              f'not merely spelled correctly ({len(e2e)} stated cases)',
+              not bad_e2e,
+              '; '.join(bad_e2e) + f' || build_views: {r.stdout}{r.stderr} '
+              f'|| show: {s.stdout}{s.stderr}')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_retired_practices_leave_the_views():
     """A practice that is not in force must not be in the loader block.
 
@@ -7000,6 +7181,7 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_status_contract()
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()

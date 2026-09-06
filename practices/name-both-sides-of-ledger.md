@@ -10,6 +10,7 @@ index_clause: "name both sides; check what is charged against what is received"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

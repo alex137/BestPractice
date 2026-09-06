@@ -10,6 +10,7 @@ index_clause: "read every repo in force against itself, pass by pass; never a ro
 checked_by:  null
 defines:     ["very deep check"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -351,22 +352,35 @@ else, the same
 structural gap [spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md)
 found `routing-audit` fell into, and logged there as `TODO.md` item 17.
 
-Enumerating it turned up something the v28 amendment's own author could not
-have known: earlier that same day, the phase-3 private-set migration
-(v27) had already carried this exact list into the maintainers' own team
-set (private, so named rather than linked) as its own `deep-check`
-practice, generalized (RPP's own vendored-tree
-language dropped, since Precedent's private sets aren't vendored the way
-RPP's `process/` tree was) but otherwise the same enumeration as here. So
-the list was never actually missing — it just wasn't recognized as the
-fulfillment of this commitment, and it existed only as prose in a private
-team practice with no companion engine, one repo away from where a
-Precedent user without access to that private team set could reach it. This
-practice and its tool are the universal version: available to any repo
-running Precedent, not only Morgan and Alex's. Whether
-`precedent-team-maintainers`' own `deep-check` should now point at this one
-via `overrides:`, or stay a separate team-level statement of the same rule,
-is the team's own call — noted, not decided, here.
+Enumerating it turned up that earlier that same day, the phase-3 private-set
+migration (v27) had carried a related list into the maintainers' own team set
+(private, so named rather than linked) as its own `deep-check` practice. This
+practice and its tool are the universal audit: available to any repo running
+Precedent, not only Morgan and Alex's.
+
+**Corrected 2026-09-06, on Morgan's ruling: the team's `deep-check` and this
+practice are unrelated rules, and the deep check keeps happening in sessions
+when committing, as it always did.** This Story previously described the team
+practice as "generalized ... but otherwise the same enumeration as here," and
+that sentence was wrong in a way that did real damage: it was read as
+authority to drop `deep-check` from the team set as redundant, which removed a
+routine per-commit check for a day.
+
+The two differ in kind and cadence. `deep-check` is the working check a
+session runs against its own repo as part of landing work. This practice is a
+rare, expensive, cross-repo audit of the whole Precedent system —
+"deliberately rare because the judging is expensive", and by its own Rule
+never wired into a commit, push, or merge gate. Dropping the routine check on
+the authority of the occasional one was the error, and this Story made it look
+reasonable. The team's `deep-check` is restored to `active`, and the open
+question this Story used to carry — whether it should point here via
+`overrides:` — is answered: **it should not.** They are not the same rule, so
+there is nothing to override.
+
+This is the whole argument of
+[decisions/2026-09-06-deduplication-not-retirement.md](../decisions/2026-09-06-deduplication-not-retirement.md)
+in miniature: two rules resembled each other, and resemblance was accepted as
+coverage.
 
 Revised 2026-09-05, on Morgan's direct request, adding the missing-source
 failure and the stale-branch sweep. Both were real, reproduced, not

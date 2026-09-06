@@ -195,6 +195,14 @@ def load_on_demand_practices(practices_dir=None):
             fm, sections = sp._read_practice_file(f)
         except sp.PracticeFileError as e:
             sys.exit(f"precedent paths FAIL: {e}")
+        # A practice not in force must not be routed to a path. This
+        # channel never read `status:` at all until 2026-09-06, so it went
+        # on naming dropped practices for every matching file while the
+        # generated views -- built from the same directory -- correctly
+        # left them out. A session was told by the index that a practice
+        # did not exist and told here to follow it.
+        if not bv.is_in_force(fm):
+            continue
         if fm.get('tier') != 'on-demand':
             continue
         globs = _globs(fm.get('applies_to', '[]'))

@@ -10,6 +10,7 @@ index_clause: "disclose GitHub-specific setup where the project's people read"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -10,6 +10,7 @@ index_clause: "check both options exist in the source before costing them"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

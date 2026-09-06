@@ -10,6 +10,7 @@ index_clause: "never jump a heading level; a heading one below its parent, or de
 checked_by:  "tools/precedent_check.py"
 defines:     ["skipped heading level"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-06"

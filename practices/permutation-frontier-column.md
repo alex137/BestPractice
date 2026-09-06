@@ -10,6 +10,7 @@ index_clause: "one full table with a computed Frontier column"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

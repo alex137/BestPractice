@@ -10,6 +10,7 @@ index_clause: "generic, domain, repo-local \u2014 each rule to its own layer"
 checked_by:  "tools/precedent_check.py"
 defines:     ["practice pack"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

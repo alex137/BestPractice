@@ -10,6 +10,7 @@ index_clause: "state plainly what happened and where — individual, named team,
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

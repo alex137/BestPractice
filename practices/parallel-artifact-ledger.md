@@ -10,6 +10,7 @@ index_clause: "ledger the transfer verdict per member, per change"
 checked_by:  "tools/precedent_check.py"
 defines:     ["parallel-artifact family"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

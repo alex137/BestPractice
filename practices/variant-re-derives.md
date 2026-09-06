@@ -10,6 +10,7 @@ index_clause: "re-derive what a variant inherits; limits bind, choices do not"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

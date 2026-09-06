@@ -9,6 +9,7 @@ index_clause: "placeholder — delete this file once the team has written its ow
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

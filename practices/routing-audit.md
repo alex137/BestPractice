@@ -10,6 +10,7 @@ index_clause: "run the mechanical coverage check now; roll the deep-read slice f
 checked_by:  "tools/precedent_check.py"
 defines:     ["routing audit"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -10,6 +10,7 @@ index_clause: "one vendored engine, thin host shims, never a fork"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

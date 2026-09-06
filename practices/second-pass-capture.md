@@ -10,6 +10,7 @@ index_clause: "a separate capture pass after the work, not inside it"
 checked_by:  null
 defines:     ["capture sweep"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

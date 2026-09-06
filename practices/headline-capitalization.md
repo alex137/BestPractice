@@ -10,6 +10,7 @@ index_clause: "outward-facing headings are New York Times headline case, applied
 checked_by:  "tools/precedent_check.py"
 defines:     ["headline capitalization"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-06"

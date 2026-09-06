@@ -10,6 +10,7 @@ index_clause: "stamp a build code and a manifest; never hand-edit output"
 checked_by:  "tools/precedent_check.py"
 defines:     ["generated artifact"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -10,6 +10,7 @@ index_clause: "sweep every source's full catalogue, one practice at a time, on r
 checked_by:  null
 defines:     ["full practice audit"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -10,6 +10,7 @@ index_clause: "attempt a mechanical check before leaving a new practice advisory
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

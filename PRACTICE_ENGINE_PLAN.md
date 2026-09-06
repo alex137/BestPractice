@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-02 (Buenos Aires) by the first real Precedent beta-test session, to version 30 -->
+<!-- Last updated: 2026-09-06 (Buenos Aires) by the deduplication-vocabulary session, to version 33 -->
 
 # Precedent — Rewrite Plan (Approved)
 
@@ -129,7 +129,7 @@ Each names where the plan addresses it.
 | A change in one place silently implies a change elsewhere, and nothing knows (the four drift commits; the dangling "step 5"; the uninstalled hook) | Generated views, phase 2 |
 | Navigation documents ([MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md)) hand-maintained and drifting — stale counts, missing files, missing terms | Generated views, phase 2 |
 | No gate records that it ran; "considered and found nothing" is indistinguishable from "never asked" | [Gate Receipts](#gate-receipts) |
-| Nothing retires a practice; the catalogue cannot shrink | [Lifecycle](#lifecycle--practices-must-be-able-to-die) |
+| Nothing removes a practice; the catalogue cannot shrink | [Lifecycle](#lifecycle--practices-must-be-able-to-die) |
 | The anti-bloat guard is prose competing with fifty other prose rules | [The Resident Budget](#the-resident-budget) and [Promotion Criteria](#stage-3--promotion-criteria) |
 | No way to note something without promoting it to a resident rule, so everything worth noticing became one — 21 to 46 rules in three days | [The Candidate](#stage-2--the-candidate) |
 | Only 2 of 46 practices mechanically enforced; `fail-gracefully` asserted, never tested | Phase 5 |
@@ -185,8 +185,9 @@ applies_to:  ["**/*.md"]        # path globs — what this practice covers
 occasion:    "writing or editing a document"   # prose trigger where globs cannot express it
 checked_by:  tools/checks/doc_links.py         # or null
 defines:     ["document reference"]            # terms this practice owns, for the generated glossary
-status:      active             # active | superseded | retired
-supersedes:  []
+status:      active             # active | deduplicated | retired
+in_force_at: null               # where the rule lives now -- points forwards; required unless active
+supersedes:  []                 # slugs this practice replaced -- points backwards
 overrides:   null               # a lower-source slug this replaces
 added:       2026-08-29
 approved_by: PR #61
@@ -391,7 +392,7 @@ fire?"** Three parts:
 **What the routing audit produces is fixes to the routing, not just to the
 work.** A practice found applicable-but-unrouted twice is a candidate for a
 narrower glob, a better occasion, or — best — a check that makes the question
-moot. That feeds the retirement-and-promotion report rather than accumulating
+moot. That feeds the removal-and-promotion report rather than accumulating
 as a list of misses.
 
 **And its honest limit, stated so nobody leans on it too hard:** this is a
@@ -505,8 +506,10 @@ doing deliberately as the first exercise of the lifecycle:
   down and hope is read.
 
 Both are cases where a written rule existed only because the structure could
-not express the thing. That is the retirement path working as intended, and a
-useful signal to look for elsewhere in the 46.
+not express the thing. **Neither is a retirement:** the rules did not stop
+being wanted, and their successor is not another practice — it is the
+resolver. They are the `status: deduplicated`, `in_force_at: engine` case,
+and a useful signal to look for elsewhere in the 46.
 
 #### One Individual Set per Person, Not per Team
 
@@ -655,7 +658,7 @@ fifty other prose rules. The replacement is structural:
 - **Every new practice must declare a reachable channel** or it cannot be
   added at all.
 - **A periodic report** lists practices with no `checked_by`, never cited, or
-  superseded — the pressure toward enforcement and retirement that nothing
+  superseded — the pressure toward enforcement and removal that nothing
   currently supplies.
 
 ### Severity, Not Ranking
@@ -674,8 +677,20 @@ buckets people can assign correctly. `checked_by` carries the other half of
 
 The current system has no removal path at all. This one has:
 
-- `status: active | superseded | retired`, with `supersedes: [slug…]` on the
-  replacement so provenance survives.
+- **Two ways a practice stops applying here, and they are not the same
+  thing.** The common one is that the *copy* became redundant while the rule
+  stayed fully in force from a different source; the rare one is that nobody
+  wants the rule anywhere. Collapsing both into one word is what let a live
+  rule be dropped on the strength of a resemblance
+  (2026-09-06 — [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md)).
+- `status: active | deduplicated | retired`, with `supersedes: [slug…]` on
+  the replacement and `in_force_at:` on the departing copy, so provenance
+  survives in both directions. `deduplicated` requires a forwarding address
+  that **resolves in force** — a slug, or the literal `engine` when the
+  successor is the mechanism rather than a practice; `retired` requires
+  `in_force_at: none` and a `## Story` line. The bar is what stops
+  "something similar exists" being an answer. Full format:
+  [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md#status).
 - **Promotion**, the normal life of a good practice: individual → team →
   universal. A file move plus a scrub plus a PR to the higher source.
 - **A mechanical promotion signal.** *The same practice restated in a second
@@ -911,21 +926,31 @@ that is the clobbering trap wearing a helpful face.
 ### Stage 6 — The Loop Closes
 
 Practices that never fire, are never cited, or whose check never trips become
-retirement candidates in the periodic report. This is the half BestPractice
+removal candidates in the periodic report. This is the half BestPractice
 lacks entirely: three creation prompts and no removal prompt at all.
 
-**Retirement is a candidate, never an action — the report proposes, it does
-not flip `status: retired` itself.** *(Spelled out 2026-09-02, pre-phase-5;
+**A removal candidate is a question, and the report must ask the right one.**
+Never-fired and never-cited say a *copy* is idle here; they do not say the
+rule is unwanted, because a rule already in force from a higher source looks
+exactly the same from inside the source that stopped carrying it. So the
+report asks the deduplication question first — *what is the surviving copy,
+and does it resolve in force?* — and reaches retirement only when the answer
+is nothing, anywhere.
+
+**Removal is a candidate, never an action — the report proposes, it does
+not flip `status:` itself.** *(Spelled out 2026-09-02, pre-phase-5;
 see [Amendments](#amendments-since-approval).)* Retiring a practice changes
 the binding set exactly as much as adding one does, so [the same principle
 that governs creation](#what-automatic-honestly-means-here) — the system
 notices and proposes, a human approves — applies to removal without
 exception, and it routes through **the same per-level approval gate Stage 4
-already defines**, not a separate one:
+already defines**, not a separate one — and this holds for a deduplication
+just as much as for a retirement, because dropping the copy still changes
+what that source imposes:
 
-| Level | What retirement requires |
+| Level | What a removal (deduplication or retirement) requires |
 |---|---|
-| **Individual** | The owner's own *"yes, retire it"* — identical to individual creation, since there is no one else's approval to seek. |
+| **Individual** | The owner's own *"yes, drop it"* — identical to individual creation, since there is no one else's approval to seek. |
 | **Team** | An approver's review, through the same `approvers.json`/`CODEOWNERS` mechanism Stage 4 uses for a new team practice — never an automatic flip, even when the evidence (never fired, never cited) looks conclusive. |
 | **Universal** | A PR to Precedent, same as universal promotion. |
 
@@ -998,7 +1023,7 @@ For any repo, before and after migration:
 | 2 ✅ | **Loader and generated views.** *(Closed 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
 | 3 ✅ | **Split the sources.** *(Closed 2026-09-01 — see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).)* Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. **All five hold, the fifth (the two private sets populated from RPP's 46 rules) from a session opened directly against `themorgan/precedent-individual` and `themorgan/precedent-team-maintainers` — reported done by Morgan, 2026-09-01, per this plan's own architecture that population can only happen from a session holding those repos, never from here — see the phase-3 section.** |
 | 4 ✅ | **Enforcement push.** *(Closed 2026-08-31 — see [What Phase 4 Built, and What It Found First](#what-phase-4-built-and-what-it-found-first).)* *(Swapped ahead of the creation pipeline, 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Convert checkable practices to scripts, starting with the ones phase 2 measured as most-missed; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above the current 8-of-52; each converted practice has a test proving its check fires; the routing eval re-run shows the converted practices no longer missed. **The first two hold. The third does not, as written, and cannot: this plan's own design says an enforced practice is never routed, so the routing eval cannot show one 'no longer missed'. It is answered by a coverage report that states its own limit. The row's 'drop their prose from the resident tier' was also not followed, for two practices whose check is narrower than their rule. Both departures are argued in the phase-4 section rather than quietly taken.** |
-| 5 ✅ | **The creation pipeline.** *(Tooling built and harness-tested 2026-09-02 — see [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md).)* Candidates, detection signals, promotion criteria, approval routing, the periodic retirement report. | **Met, mechanically: `check_creation_pipeline_fires()` in [tools/verify_harness.py](tools/verify_harness.py) proves a candidate promotes, lands and parses end to end, and that each of the four criteria refuses individually with a reason.** Not yet met in the sense that matters most: no real candidate has been raised against a real incident yet, so the criteria's thresholds are tested for mechanism, not calibration — see [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md#what-phase-6-inherits). |
+| 5 ✅ | **The creation pipeline.** *(Tooling built and harness-tested 2026-09-02 — see [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md).)* Candidates, detection signals, promotion criteria, approval routing, the periodic removal report. | **Met, mechanically: `check_creation_pipeline_fires()` in [tools/verify_harness.py](tools/verify_harness.py) proves a candidate promotes, lands and parses end to end, and that each of the four criteria refuses individually with a reason.** Not yet met in the sense that matters most: no real candidate has been raised against a real incident yet, so the criteria's thresholds are tested for mechanism, not calibration — see [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md#what-phase-6-inherits). |
 | 6 | **Migrate consumer repos**, one at a time, harness-gated. *(Underway, not closed — first real migration run 2026-09-02, see [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).)* | Each repo passes the harness before its migration lands. **One of them does: `themorgan/WorkingWithAI` migrated 2026-09-02, deliberately first as the beta test for the pattern rather than in the order this plan's own text elsewhere suggested (RepoPersonalPreferences, "the one whose failure modes are understood"). That same migration is what drove building `tools/precedent_sync_views.py` (2026-09-03) — the one-command sync a consumer repo actually runs — after finding nothing connected the resolver's output to a generated `AGENTS.md` for a multi-source repo. Not yet met for the rest: no other consumer repo has migrated, so the pattern is proven once, not yet repeated.** |
 | 7 | **Merge back to BestPractice.** | A PR is open against `main`, or a deliberate decision to extract the work into a standalone fork instead. |
 
@@ -1783,6 +1808,18 @@ just a dated index of what moved and where its record actually lives,
 matching the rest of this document's own current-state discipline
 ([docs-are-current-state](practices/docs-are-current-state.md)).
 
+- **2026-09-06 — v33.** `retired` was the wrong name for what actually
+  happens, and the wrong name caused the one real rule loss in this system's
+  history. Three statuses now, with different bars of evidence: `active`,
+  `deduplicated` (the copy is redundant; the rule is in force elsewhere) and
+  `retired` (wanted nowhere) — plus a new `in_force_at:` field, required on
+  anything not `active`, that a check resolves for real rather than taking on
+  trust. Landed together with the channel fix it is the precondition for:
+  `status:` was honored by two of five loading channels, and the three that
+  ignored it were the accidental safety net that kept a wrongly-dropped rule
+  working. Full reasoning, the departures from the originating brief, and
+  what this does not close:
+  [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md).
 - **2026-09-04 — v32.** An adopter with no individual or team repo yet had
   nowhere to start — closed for the case that doesn't need the full
   creation pipeline. New skeletons

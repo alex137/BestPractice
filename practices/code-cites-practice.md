@@ -10,6 +10,7 @@ index_clause: "cite the practice's slug in a comment, right where the code is"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

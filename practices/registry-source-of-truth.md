@@ -10,6 +10,7 @@ index_clause: "state lives in one machine-readable registry; documents derive"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -528,13 +528,52 @@ which is the failure this repointing exists to end — write
     plus the two private sets. Note the size honestly: 37 practices, each
     needing a real incident written from the original, not a paraphrase.
 
-33. <a id="team-check-cites-retired-practice"></a>**`precedent-team-maintainers`' `check_deep_check.py` cites a practice
-    retired in that same set.** `# practice: deep-check`, retired
-    2026-09-05 when `very-deep-check` replaced it — a live
-    [code-cites-practice](practices/code-cites-practice.md) violation left
-    by the retirement. Either the citation moves to `very-deep-check` or the
-    check goes with the practice; that is the team set's own call, which is
-    why the session that found it did not decide unilaterally.
-    **Blocked on:** a session holding `themorgan/precedent-team-maintainers`,
-    and the decision above.
+33. <a id="team-check-cites-retired-practice"></a>~~**`precedent-team-maintainers`' `check_deep_check.py` cites a practice
+    retired in that same set.**~~ **Resolved by reversal, 2026-09-06.** The
+    premise was the bug: `deep-check` was never redundant with
+    `very-deep-check` — they are unrelated rules of different kind and
+    cadence (see
+    [practices/very-deep-check.md](practices/very-deep-check.md)'s corrected
+    `## Story`). `deep-check` is restored to `active` in the team set, so the
+    `# practice: deep-check` citation resolves again and there is nothing to
+    move. This is the incident that motivated
+    [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md).
+
+34. <a id="convert-team-set-retired-statuses"></a>**Convert
+    `precedent-team-maintainers`' two `status: retired` practices to
+    `status: deduplicated`.** `bestpractice-sync` (rule in force at
+    individual) and `header-caps` (rule in force at universal) are both
+    deduplications recorded under the old vocabulary, and neither can meet
+    retirement's evidence bar (`in_force_at: none` plus a Story line saying
+    nobody wants the rule anywhere) because both rules are fully in force.
+    **This is time-sensitive in a way the other items are not:**
+    `verify_harness.py`'s new `check_status_contract` refuses them, so that
+    set goes red on its next vendored-engine refresh. Set
+    `status: deduplicated` and `in_force_at:` to the surviving slug in each.
+    **Blocked on:** a session holding `themorgan/precedent-team-maintainers`.
+
+35. <a id="build-codeowners-check-flag"></a>**`build_codeowners.py --check` is not a check — it takes no such flag
+    and writes anyway.** The flag falls through `main()`, which
+    unconditionally rewrites `CODEOWNERS`. Worse, the generated header
+    stamps the current `HEAD` sha (`_source_sha()`) rather than a hash of
+    `approvers.json`'s own content, so regenerating produces a diff after
+    *every* commit whether or not approvers changed — a caller trying to
+    verify CODEOWNERS is current instead dirties the tree. This was a
+    private team-set tool until 2026-09-06 and is now part of the vendored
+    engine, so every source the bootstrap creates inherits it. Fix: a real
+    `--check` that compares and exits non-zero without writing, and stamp
+    from `approvers.json`'s content hash so an unchanged approver list
+    regenerates byte-identically.
+
+36. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
+    None of the three private sets has a `precedent.json`, so each set's
+    `build_views.py` renders its own catalogue alone — and a universal
+    practice cannot reach the set that dropped its own copy in favour of it.
+    `very-deep-check` is in force in every consuming project and invisible
+    inside `precedent-team-maintainers` itself; so is
+    `headline-capitalization`, whose team-level copy that set deduplicated.
+    This is the structural half of why `status:` went unhonored in three
+    loading channels for so long. **A design decision, not a bug fix** — a
+    source repo eating its own cooking changes what binds a contributor to
+    that set, so it needs Morgan's call before any work starts.
 

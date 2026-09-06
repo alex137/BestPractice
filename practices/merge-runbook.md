@@ -10,6 +10,7 @@ index_clause: "write conflict resolution per file class, once, then follow it"
 checked_by:  null
 defines:     ["merge runbook"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -10,6 +10,7 @@ index_clause: "decompose first; one verdict per part, on ownership grounds"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

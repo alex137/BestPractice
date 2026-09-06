@@ -10,6 +10,7 @@ index_clause: "roll it out to attached sources now; else a blocked-on TODO"
 checked_by:  null
 defines:     ["cross-source rollout"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       2026-09-05

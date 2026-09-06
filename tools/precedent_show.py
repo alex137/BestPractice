@@ -64,6 +64,7 @@ PRACTICES_DIR = ROOT / 'practices'
 
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
+import build_views as bv
 
 SECTION_FLAGS = {'--detail': 'detail', '--why': 'why', '--story': 'story',
                  '--install': 'install'}
@@ -78,6 +79,50 @@ SECTION_FLAGS = {'--detail': 'detail', '--why': 'why', '--story': 'story',
 # ../PRACTICES` cheerfully opened practices/../PRACTICES.md -- the whole
 # 200KB catalogue -- and died on a bare AssertionError with no message.
 SLUG_RE = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
+
+
+def _not_in_force_banner(fm, slug):
+    """A banner for a practice whose rule does NOT apply here, or None.
+
+    WHY THIS MARKS RATHER THAN REFUSES. Naming a slug explicitly is usually
+    a session asking "what happened to this?", and once `in_force_at:`
+    exists the answer is more useful than a refusal -- a refusal sends the
+    reader hunting through git history for a forwarding address the
+    frontmatter is already holding. The other three channels
+    (build_views.py, precedent_resolve.py, precedent_paths.py,
+    precedent_gate.py) enumerate practices and must DROP these; this one is
+    addressed by name and shows them, marked.
+
+    WHY THE BANNER GOES ABOVE THE RULE, not below it (2026-09-06). Every
+    consumer of this output is a session that reads top-down and may stop
+    early. A footnote under a 200-word Rule is read after the rule has
+    already been taken as current, which is the failure this whole status
+    vocabulary exists to prevent, reproduced one layer down."""
+    if bv.is_in_force(fm):
+        return None
+    status = bv.practice_status(fm)
+    target = bv._json_str(fm.get('in_force_at', '')) or ''
+    if status == bv.DEDUPLICATED_STATUS:
+        if target and target != 'none':
+            where = (f"the engine itself enforces it -- there is no practice to load"
+                     if target == 'engine'
+                     else f"the rule is in force at `{target}`; load that instead")
+        else:
+            # Declared redundant with no forwarding address. The check in
+            # verify_harness.py refuses this, so reaching it means the file
+            # was hand-edited past the check -- say so rather than implying
+            # a successor exists.
+            where = ("no `in_force_at:` recorded, so where the rule survives is "
+                     "NOT known from this file -- treat it as unresolved")
+        return (f"> NOT IN FORCE HERE (status: {status}) -- this copy is "
+                f"redundant, {where}.")
+    if status == bv.RETIRED_STATUS:
+        return (f"> NOT IN FORCE ANYWHERE (status: {status}) -- this rule was "
+                f"withdrawn, not moved. See its ## Story for why "
+                f"(precedent_show.py {slug} --story).")
+    return (f"> NOT IN FORCE (status: {status}) -- a status this engine does "
+            f"not recognize, so the practice is treated as not current. "
+            f"Known statuses: {', '.join(bv.KNOWN_STATUSES)}.")
 
 
 def _materialize_manifest(root):
@@ -200,6 +245,9 @@ def main():
             sys.exit(f"precedent show FAIL: {e}")
         body = sections.get(section, '').strip()
         block = f"### {slug}\n{body if body else '(no ' + section + ' recorded yet)'}"
+        banner = _not_in_force_banner(_fm, slug)
+        if banner:
+            block = f"### {slug}\n{banner}\n\n{body}" if body else f"### {slug}\n{banner}"
         if manifest is not None:
             note = _source_unreachable_note(manifest, slug)
             if note:

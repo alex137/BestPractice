@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a pre-phase-5 slug-citation session, to version 3 -->
+<!-- Last updated: 2026-09-06 (Buenos Aires) by the deduplication-vocabulary session, to version 4 -->
 
 # The Practice File Format
 
@@ -27,7 +27,8 @@ gates:       []                  # named moments -- see below
 index_clause: "the one line the occasion index shows"   # see below
 checked_by:  tools/x.py or null
 defines:     []
-status:      active
+status:      active           # active | deduplicated | retired -- see below
+in_force_at: null             # where the rule lives now; required unless active
 supersedes:  []
 overrides:   null
 added:       null                # see "What's deferred" below
@@ -311,6 +312,87 @@ keeping 117 more words resident had no measured benefit to protect. The
 answer the plan points at is phase 4 — `verify-postcondition` carries
 `checked_by: null` and is on phase 4's starting queue. Recorded here so that
 whoever runs the routing eval after phase 4 knows this changed underneath it.
+
+## Status
+
+**The format never enumerated the legal values of `status:` until version 4.**
+The shape block showed `status: active` and nothing said what else was
+allowed — which is part of how the meaning drifted, and is recorded here
+rather than quietly fixed.
+
+There are three, and they answer different questions with different evidence:
+
+| `status:` | Means | Requires |
+|---|---|---|
+| `active` | The rule is in force here. | no `in_force_at:` |
+| `deduplicated` | The **copy** here is redundant. The rule itself is fully in force, from another source or from the engine. | `in_force_at:` naming a slug that **resolves in force**, or the literal `engine` |
+| `retired` | Nobody wants this rule anywhere. | `in_force_at: none`, plus a `## Story` line saying why |
+
+`in_force_at:` is the field that did not exist before version 4, and its
+absence is the defect the other two rows exist to fix. `supersedes:` points
+*backwards*, from a replacement to what it replaced. Nothing pointed
+*forwards*: `status:` recorded that a rule stopped applying here but never
+whether anything replaced it, so the forwarding address lived only as English
+prose in `## Story`, which no tool reads. "Deduplicated safely" and "dropped
+and forgotten" were therefore indistinguishable to every check in the system.
+
+### Why the vocabulary changed, which is not a labelling quibble
+
+Every use of the old `status: retired` across this ecosystem, at the point
+the rename landed:
+
+| Practice | What actually happened | Verdict |
+|---|---|---|
+| `bestpractice-sync` | copy dropped; rule in force at individual | correct — a **deduplication** |
+| `header-caps` | copy dropped; rule in force at universal | correct — a **deduplication** |
+| `deep-check` | dropped outright, "very-deep-check covers it" | **wrong; reversed 2026-09-06** |
+
+Every correct use was a deduplication, and the only attempt at a genuine
+retirement was the mistake. **The word invited it.** "Retire" sounds like a
+judgement about whether a rule is still wanted, so the question a session
+asks itself becomes *"does something similar exist?"* — which is answerable
+by reading two files and feeling that they rhyme. That is exactly what
+happened to `deep-check`: a routine per-commit check was dropped on the
+authority of an unrelated, deliberately-rare cross-repo audit, because the
+two resembled each other and resemblance was accepted as coverage.
+
+"Deduplicate" cannot be answered by resemblance. It forces the only question
+that matters: **what is the surviving copy, and does it resolve in force?**
+[`tools/verify_harness.py`](../tools/verify_harness.py)'s
+`check_status_contract` answers it mechanically rather than taking the
+mover's word for it.
+
+### Retirement is demoted, not deleted
+
+Two real cases cannot be expressed as deduplication, and both have occurred,
+so `retired` stays — rare, loud, and no longer reachable by "something
+similar exists":
+
+- **Genuinely obsolete.** A rule about a tool you stopped using has no
+  duplicate anywhere. This is the case the word actually fits, and it is what
+  [`tools/precedent_retire.py`](../tools/precedent_retire.py) exists to find
+  (never cited **and** unreachable). Nothing has hit it yet.
+- **Absorbed into the mechanism.** RepoPersonalPreferences' `bestpractice-wins` said the personal
+  layer beats the generic one; it was dropped because precedence became a
+  property of the resolver. There is no successor *slug* — the successor is
+  code.
+
+**The second is filed under `deduplicated`, with `in_force_at: engine`, not
+under `retired`.** That was a deliberate call and the reasoning is worth
+keeping: the rule is *fully in force*, merely enforced by code instead of by
+prose. Filing an in-force rule under a status that means "nobody wants this
+rule anywhere" would reproduce, one level down, exactly the conflation this
+vocabulary exists to remove. So `deduplicated` means "in force elsewhere, and
+here is where" — whether *elsewhere* is another practice or the engine — and
+`retired` keeps a single legal value, `none`, which is what makes it loud.
+
+### An unknown status fails closed
+
+[`tools/build_views.py`](../tools/build_views.py)'s `is_in_force` tests for
+`active` rather than testing against the list of known statuses. A practice
+carrying a status this engine does not recognize — a typo, or a newer
+engine's vocabulary — is therefore **not** loaded, and is reported by the
+harness. Failing the other way would load a rule nobody here can vouch for.
 
 ## `gates` (Phase 4)
 

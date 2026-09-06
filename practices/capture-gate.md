@@ -10,6 +10,7 @@ index_clause: "capture the follow-on work in the thread that created the need"
 checked_by:  null
 defines:     ["capture gate"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

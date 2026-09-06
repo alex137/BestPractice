@@ -256,6 +256,7 @@ def _frontmatter(practice, meta):
         'checked_by:  ' + (json.dumps(meta['checked_by']) if meta['checked_by'] else 'null'),
         'defines:     []',
         'status:      active',
+        'in_force_at: null',
         'supersedes:  []',
         'overrides:   null',
         'added:       null',
