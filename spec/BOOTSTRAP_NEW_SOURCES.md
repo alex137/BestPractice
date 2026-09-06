@@ -106,8 +106,7 @@ upstream into BestPractice instead, not to be silently discarded.
 `checkin.py` mirrors a consumer's entire `process/upstream/` tree,
 deleting anything the tree no longer has, in both directions. A source
 repo's `tools/` directory holds vendored engine files *alongside*
-non-vendored, repo-owned ones (`tools/checks/`, and
-`precedent-team-maintainers`' own `build_codeowners.py`) that a
+non-vendored, repo-owned ones (`tools/checks/`, most obviously) that a
 whole-directory mirror-and-delete would destroy, and the flow here is
 one-directional (a source has nothing of its own to check in upstream) —
 different enough on both axes that overloading `checkin.py` with a second
@@ -224,6 +223,14 @@ per person), and it needs at least one approver at creation time.
    identical gap, not a new one.
 7. Fill in `leak-blocklist.txt` and `approvers.json` for real, delete
    `practices/example-starter.md` once a real first practice replaces it.
+8. **For a team set, run `python3 tools/build_codeowners.py`** and commit
+   the `CODEOWNERS` it writes. `approvers.json` is the declaration;
+   `CODEOWNERS` is what actually makes GitHub require an approver's review,
+   and until it exists the approver list enforces nothing. Re-run it every
+   time `approvers.json` changes; never hand-edit the generated file. (An
+   individual set skips this — it has no `approvers.json`, and one person
+   is the whole approval mechanism. The tool says so and exits 0 rather
+   than failing, so running it there is harmless.)
 
 ## What this does not close
 
