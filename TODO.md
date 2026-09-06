@@ -286,3 +286,30 @@ the upstream layer. Ordered by priority.
     12 stated cases (a reachable and an unreachable case added for each of
     the gate and path channels, alongside the pre-existing
     `precedent_show.py` cases) — all 12 pass.
+
+21. **A materialized practice's relative links are dead in the consuming
+    repo.** Fixed at the source on 2026-09-06 (a practice file's
+    `../tools/x.py` resolves in *this* repo), but
+    [tools/precedent_materialize.py](tools/precedent_materialize.py) copies
+    practice bytes verbatim — so a consumer's own
+    `practices/very-deep-check.md` links `../tools/very_deep_check.py` and
+    `../spec/ATTENTION_CEILING.md`, neither of which exists there. Every
+    consuming repo therefore ships ~60 practice files with dead internal
+    links. The durable fix is to rewrite non-sibling relative links to
+    absolute upstream URLs at materialize time. **Blocked on:** it makes a
+    materialized file differ byte-for-byte from its source, which is
+    exactly what `precedent-team-maintainers`' own materialized-tree audit
+    checks — that audit has to change in the same pass, so this needs both
+    repos attached. Its `check_light_check.py` already exempts
+    materialized `practices/` from its broken-link scan for this reason,
+    which is a workaround rather than a fix.
+22. **Sweep the team and individual sets' judgment-only practices.**
+    [tools/full_practice_audit.py](tools/full_practice_audit.py) reports 49
+    judgment-only practices across the three sources. The 2026-09-06
+    pre-launch audit judged the universal slice's highest-yield ones and
+    fixed what they found; the 39 team-level and the individual ones are
+    untouched. **Blocked on:** nothing but session budget — take them one
+    at a time, with the closed question
+    [practices/full-practice-audit.md](practices/full-practice-audit.md)
+    names, in a session with those repos attached. Full context:
+    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md).

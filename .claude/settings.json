@@ -1,5 +1,5 @@
 {
-  "_comment": "Settings for sessions on the BestPractice repo itself (instantiated from templates/harness/claude-code/settings.json; paths adapted because the tools live at tools/, not process/upstream/tools/).",
+  "_comment": "Settings for sessions on the BestPractice repo itself, instantiated from templates/harness/claude-code/settings.json. This repo IS the source of that template, so a drift between the two is this repo failing to run what it ships -- which is exactly what it was doing until 2026-09-06: no PreToolUse hook at all (the path-triggered loading channel, unrun in the repo that defines it) and an allowlist that still named process/upstream/tools/ paths this repo does not have. Adapted from the template only where this repo genuinely differs: its own tools live at tools/ (so the process/upstream/ entries are dropped, not kept as dead weight) and it has a deck builder nobody else does.",
   "permissions": {
     "allow": [
       "Bash(grep *)",
@@ -17,9 +17,32 @@
       "Bash(git push -u origin *)",
       "Bash(git check-ignore *)",
       "Bash(git check-attr *)",
+      "Bash(python3 tools/precedent_show.py)",
+      "Bash(python3 tools/precedent_show.py *)",
+      "Bash(python3 tools/precedent_paths.py)",
+      "Bash(python3 tools/precedent_paths.py *)",
+      "Bash(python3 tools/precedent_gate.py)",
+      "Bash(python3 tools/precedent_gate.py *)",
+      "Bash(python3 tools/precedent_check.py)",
+      "Bash(python3 tools/precedent_check.py *)",
+      "Bash(python3 tools/precedent_sync_views.py)",
+      "Bash(python3 tools/precedent_sync_views.py *)",
+      "Bash(python3 tools/routing_audit.py)",
+      "Bash(python3 tools/routing_audit.py *)",
+      "Bash(python3 tools/doc_lint.py)",
       "Bash(python3 tools/doc_lint.py *)",
+      "Bash(python3 tools/doc_sync.py)",
+      "Bash(python3 tools/doc_sync.py *)",
+      "Bash(bash tools/bootstrap.sh)",
       "Bash(python3 tools/practice_audit.py)",
       "Bash(python3 tools/practice_audit.py *)",
+      "Bash(python3 tools/verify_harness.py)",
+      "Bash(python3 tools/verify_harness.py *)",
+      "Bash(python3 tools/build_views.py)",
+      "Bash(python3 tools/build_views.py *)",
+      "Bash(python3 tools/catalogue_stats.py)",
+      "Bash(python3 tools/leak_gate.py)",
+      "Bash(python3 tools/leak_gate.py *)",
       "Bash(python3 deck/build_deck.py *)"
     ]
   },
@@ -30,6 +53,17 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-paths.sh"
           }
         ]
       }
