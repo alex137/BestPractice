@@ -444,6 +444,116 @@ def source_levels_from_manifest(root):
     return levels or None
 
 
+class _BlockNotVerifiable(Exception):
+    """A declared source is unreachable, so the block cannot be judged."""
+
+
+def loader_practices(root, own_practices):
+    """-> (practices, source_levels) for the AGENTS.md loader block.
+
+    THE BLOCK RENDERS EVERY SOURCE THE REPO DECLARES, not just its own
+    catalogue. Precedent's own repo declares three -- universal (itself),
+    a team set, and a repo-local one -- and rendered ONLY the universal
+    one, so 65 of 65 universal practices reached the block while 0 of 41
+    team and 0 of 11 individual did. The config said they were in force,
+    the resolver agreed, and the one artifact a session actually reads
+    listed none of them: a rule nothing can load is not in force, it is
+    filed. Measured 2026-09-06, fixed here at Morgan's direction.
+
+    A consuming repo gets this through precedent_sync_views.py, which
+    materializes every source into one practices/ tree and leaves a
+    MANIFEST.json for source_levels_from_manifest() to read. Precedent
+    itself cannot take that route: its practices/ IS the universal source
+    (`path: "."`), and precedent_materialize.py refuses a self-referential
+    source by name, since its output directory would be that source's only
+    copy. So the sources are resolved IN MEMORY here instead -- the same
+    resolver, the same precedence, nothing written to disk.
+
+    PRIVATE SOURCES ARE EXCLUDED FROM A PUBLIC REPO'S BLOCK. The block is
+    a tracked file; in a public repo, writing it publishes whatever it
+    contains, permanently. Universal and repo-local sources are already
+    public -- one is the repo itself, the other lives in its own tree. Team
+    and individual sets are private repositories whose practice text has
+    never been published, so rendering their clauses here is publication by
+    another route: precedent_resolve.py already refuses to let a shared repo
+    DECLARE an individual source, because "naming it here leaks its
+    existence and location", and this is the same disclosure by a different
+    door. Precedent's own repo is the public case, and
+    decisions/2026-09-06-precedent-binds-itself.md rejected multi-source
+    generated views THERE on exactly this ground. A repo says which it is
+    with `"visibility": "public"` in precedent.json; absent that, nothing is
+    excluded -- which is the right default, because the repos that most need
+    the multi-source block are the private consumers.
+    """
+    config = root / 'precedent.json'
+    if not config.is_file():
+        return own_practices, source_levels_from_manifest(root)
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_resolve as _pr
+    except Exception as e:                       # keep going, and say so
+        print(f"build_views NOTICE: precedent_resolve.py did not import "
+              f"({e}); the loader block covers this repo's own practices/ "
+              f"only, not the other sources precedent.json declares.",
+              file=sys.stderr)
+        return own_practices, source_levels_from_manifest(root)
+
+    try:
+        declared = _pr.load_config(root)
+    except Exception as e:
+        print(f"build_views NOTICE: {config} did not resolve ({e}); the "
+              f"loader block covers this repo's own practices/ only.",
+              file=sys.stderr)
+        return own_practices, source_levels_from_manifest(root)
+
+    try:
+        public = json.loads(config.read_text(
+            encoding='utf-8')).get('visibility') == 'public'
+    except (ValueError, OSError):
+        public = False
+    # Exclude, keep going, and SAY so on stderr rather than silently.
+    PRIVATE_LEVELS = ('team', 'individual')
+    if public:
+        dropped = [f"{s['name']} ({s['level']})" for s in declared
+                   if s['level'] in PRIVATE_LEVELS]
+        declared = [s for s in declared if s['level'] not in PRIVATE_LEVELS]
+        if dropped:
+            print(f"build_views: {', '.join(dropped)} excluded from the "
+                  f"loader block -- this repo declares visibility: public, "
+                  f"and the block is a tracked file, so rendering a private "
+                  f"source into it would publish its practice text.",
+                  file=sys.stderr)
+
+    # Only this repo's own source: nothing to merge, keep the old path.
+    if len(declared) <= 1:
+        return own_practices, source_levels_from_manifest(root)
+
+    res = _pr.resolve(declared)
+    if res['missing']:
+        # A declared source that does not resolve HERE makes the block
+        # unverifiable, not stale. A team source is a sibling clone and an
+        # individual source resolves through a private user-level config, so
+        # neither exists in a bare CI checkout -- and the committed block was
+        # built where they did. Regenerating without them and calling the
+        # difference "drift" would fail every CI run and every fixture, on
+        # evidence the environment could not have. Found the moment this
+        # went multi-source, 2026-09-06: the harness's own temp-dir fixtures
+        # reported the freshly-generated block as hand-edited.
+        for m in res['missing']:
+            print(f"build_views NOTICE: the {m['level']} source "
+                  f"{m['name']!r} is not available ({m['reason']}).",
+                  file=sys.stderr)
+        print("build_views: NOT VERIFIABLE -- the loader block is built from "
+              "sources this environment cannot reach, so it can be neither "
+              "confirmed current nor reported stale here. Re-run where every "
+              "declared source resolves.", file=sys.stderr)
+        raise _BlockNotVerifiable()
+    practices = [(v['fm'], v['sections'], v['file'])
+                 for v in res['practices'].values()]
+    levels = {slug: v['level'] for slug, v in res['practices'].items()}
+    return practices, levels
+
+
 def render_agents_md(practices, agents_md=None, source_levels=None):
     agents_md = agents_md if agents_md is not None else AGENTS_MD
     original = agents_md.read_text(encoding='utf-8')
@@ -651,8 +761,22 @@ def main():
     agents_only = '--agents-only' in argv
     practices = load_practices(practices_dir)
 
-    levels = source_levels_from_manifest(root)
-    new_agents = render_agents_md(practices, agents_md, source_levels=levels)
+    # MAP.md and GLOSSARY.md stay this repo's OWN catalogue -- they document
+    # the set it publishes. Only the loader block covers every declared
+    # source, because that block is what a session actually loads.
+    try:
+        block_practices, levels = loader_practices(root, practices)
+    except _BlockNotVerifiable:
+        # Exit 0: not verified is not a failure, and not a pass either --
+        # the reason is already on stderr, in those words.
+        if check:
+            return 0
+        sys.exit("build_views FAIL: refusing to WRITE a loader block from an "
+                 "incomplete source set -- that would silently drop every "
+                 "practice the unreachable sources contribute. Make them "
+                 "resolvable, then re-run.")
+    new_agents = render_agents_md(block_practices, agents_md,
+                                  source_levels=levels)
     targets = [(agents_md, new_agents)]
     if not agents_only:
         targets.append((map_md, render_map_md(practices)))

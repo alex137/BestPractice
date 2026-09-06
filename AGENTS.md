@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~312 of 2000 token budget, 6 of 65 practices)
+## Resident block (~312 of 2000 token budget, 6 of 66 practices (6 universal))
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -149,6 +149,8 @@ When naming a new file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
+When opening or merging a pull request in this repository:
+  merge-target-is-beta-branch — Alex approves only major main merges; precedent-beta-v01 is unrestricted
 When ordering sections in a document:
   section-order-by-frequency — order sections by how often the reader needs them
 When printing a numeric quantity that will be compared across rows:

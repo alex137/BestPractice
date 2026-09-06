@@ -790,7 +790,16 @@ def _practice_is_reachable(ctx):
     # matches ordinary prose everywhere as a substring, and every one of those
     # would have counted as "reachable" -- the check would then under-report
     # exactly the practices whose names are common words.
-    named = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)+', instructions))
+    # Slugs the loader ACTUALLY indexes, read from the two shapes the
+    # generated block uses -- an occasion-index line ("  slug — clause") and
+    # a resident entry ("**slug.** ..."). Matching bare words in prose
+    # instead was wrong both ways: it required a hyphen, so a single-word
+    # slug like `install` could never be found and was reported unreachable
+    # forever; and loosening the pattern to allow single words would have
+    # matched the ordinary English word "install" anywhere in the file and
+    # called the practice reachable when nothing indexed it.
+    named = set(re.findall(r'^\s+([a-z0-9][a-z0-9-]*) \u2014 ', instructions, re.M))
+    named |= set(re.findall(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', instructions, re.M))
     exempted, blocked_exemptions = [], []
     for slug, (fm, s) in sorted(in_force.items()):
         if slug in not_binding:
@@ -817,6 +826,27 @@ def _practice_is_reachable(ctx):
     if not in_force:
         raise NotApplicable('no practice resolved from any declared source, '
                             'so there is nothing to judge reachability for')
+
+    # A repo that declares `visibility: public` deliberately keeps
+    # individual-level practices OUT of its tracked loader block, because
+    # publishing that block would publish somebody's private set (see
+    # build_views.loader_practices). Those are excluded BY DESIGN, so
+    # reporting them as gaps every run is how an advisory becomes wallpaper:
+    # nine permanent findings nobody can act on would bury the real ones.
+    # Counted and named, never listed as findings.
+    public = False
+    try:
+        public = json.loads((ROOT / 'precedent.json').read_text(
+            encoding='utf-8')).get('visibility') == 'public'
+    except (ValueError, OSError):
+        pass
+    by_design = [u for u in unreachable if public and u[1] == 'individual']
+    unreachable = [u for u in unreachable if u not in by_design]
+    if by_design:
+        print(f'  ({len(by_design)} individual-level practice(s) are '
+              f'deliberately absent from this public repo\'s tracked block, '
+              f'so the block cannot publish them -- they still apply to the '
+              f'person, and reach a session through their own private repos)')
 
     out = []
     # A stale exemption is a real defect, not advisory noise: it names a

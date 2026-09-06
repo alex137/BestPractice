@@ -398,6 +398,41 @@ which is the failure this repointing exists to end — write
     [`attach-private-sources`](TODO.md#attach-private-sources) for exactly
     what that takes.
 
+    **The engine half landed too, 2026-09-06 (was "Part A").**
+    [tools/build_views.py](tools/build_views.py) now renders the loader block
+    from every source `precedent.json` declares, not the repo's own
+    `practices/` alone — because in a **private consumer repo** that is
+    simply correct, and consumers are where the miss actually bit: a repo
+    vendoring a team set had its team's rules resolve, materialize and
+    check, while the one artifact a session reads listed none of them.
+    It is deliberately **off here**, by the `visibility: public` guard
+    below: this repo is world-readable, so rendering a private team set's
+    Rule clauses into a tracked [AGENTS.md](AGENTS.md) would publish them
+    permanently, which is exactly what the decision record above rejected.
+    `not_binding` is the mechanism for this repo; the multi-source block is
+    the mechanism for every repo that vendors it. They are not competing
+    answers to one question.
+
+    Two guards came with it. A repo declaring `visibility: public` renders
+    **no private-level source** — team or individual — into its tracked
+    block; publishing that block would publish the private set, the same
+    disclosure [tools/precedent_resolve.py](tools/precedent_resolve.py)
+    already refuses to allow by config. And a declared source that cannot be
+    reached makes the block **NOT VERIFIABLE** rather than stale: a team
+    source is a sibling clone no bare continuous-integration checkout has, so
+    calling that "drift" would fail every run on evidence the environment
+    could not have.
+
+    **What remains is the measurement above, and it is far smaller than this
+    item first assumed.** 11 practices carry check scripts; of the 15 run
+    against this tree, 5 pass, 4 find real problems worth fixing, and 6
+    report things this repo cannot act on because the practice is about a
+    different kind of repository. Only if a pattern shows up across them —
+    several meaning the same thing, such as "a repo one person authors
+    alone" — is new vocabulary worth building, and by then its values will be
+    known rather than guessed.
+
+
 26. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
     holding all four repositories searched by purpose and by mechanism
     across every practice body, frontmatter, check script and test:
