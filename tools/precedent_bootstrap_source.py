@@ -51,6 +51,7 @@ individual set without --force).
 """
 import json
 import os
+import re
 import pathlib
 import sys
 
@@ -150,8 +151,17 @@ def verify(level, path):
     set bootstrapped by this tool has it. Nobody had noticed, because
     nothing was looking.
 
-    Only files are checked, not their contents: an empty blocklist is a
-    deliberate state (`blank-blocklist`), an absent one is a gap."""
+    Contents are checked too, but only against what a real consumer of the
+    file actually needs -- "well-formed" defined by the tools that read it,
+    not by a wish list. build_codeowners.py refuses an approvers.json with
+    no approvers or an approver with no `github`, so a source carrying one
+    is already broken and simply has not been run against yet;
+    precedent_resolve.py needs an individual config to name a set; and a
+    file still holding a `{{PLACEHOLDER}}` was bootstrapped and never
+    finished, which no consumer can do anything sensible with.
+
+    An empty blocklist stays fine on purpose (`blank-blocklist`): an empty
+    one is a deliberate state, an absent one is a gap."""
     skeleton = SKELETONS.get(level)
     if skeleton is None or not skeleton.is_dir():
         return []
@@ -171,7 +181,78 @@ def verify(level, path):
                 break
         else:
             missing.append(str(rel))
-    return missing
+    return missing + _malformed(level, path)
+
+
+PLACEHOLDER_RE = re.compile(r'\{\{[A-Z_]+\}\}')
+
+
+def _malformed(level, path):
+    """-> [str] ways this source's files are present but unusable."""
+    path = pathlib.Path(path)
+    out = []
+
+    # A file bootstrapped and never filled in. Any consumer reading a
+    # `{{NAME}}` gets a literal placeholder where a real value belongs.
+    for rel in ('approvers.json', 'leak-blocklist.txt', 'config.json.sample',
+                'README.md'):
+        f = path / rel
+        if not f.is_file():
+            continue
+        try:
+            text = f.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        found = sorted(set(PLACEHOLDER_RE.findall(text)))
+        if found:
+            out.append(f'{rel} still holds unfilled {", ".join(found)}')
+
+    if level == 'team':
+        f = path / 'approvers.json'
+        if f.is_file():
+            # Exactly what build_codeowners.py refuses. A source that fails
+            # here is already broken; it just has not been run against yet.
+            try:
+                data = json.loads(f.read_text(encoding='utf-8'))
+            except (OSError, json.JSONDecodeError) as e:
+                out.append(f'approvers.json is not valid JSON -- {e}')
+            else:
+                approvers = data.get('approvers') or []
+                if not approvers:
+                    out.append('approvers.json declares no approvers -- '
+                               'build_codeowners.py refuses this, and a team '
+                               'set always has at least one')
+                for entry in approvers:
+                    if not isinstance(entry, dict) or not entry.get('github'):
+                        out.append(f'approvers.json entry {entry!r} has no '
+                                   f'"github" -- CODEOWNERS needs a username '
+                                   f'to address, not just a name')
+
+    if level == 'individual':
+        f = path / 'config.json.sample'
+        if f.is_file():
+            try:
+                data = json.loads(f.read_text(encoding='utf-8'))
+            except (OSError, json.JSONDecodeError) as e:
+                out.append(f'config.json.sample is not valid JSON -- {e}')
+            else:
+                ind = data.get('individual') or {}
+                for field in ('name', 'path'):
+                    if not ind.get(field):
+                        out.append(f'config.json.sample has no '
+                                   f'individual.{field} -- precedent_resolve.py '
+                                   f'reads exactly this shape')
+
+    # Every source level ships practices/. A source with none resolves to
+    # nothing, which the loader reports as a source contributing zero rules
+    # rather than as a source that is broken.
+    pdir = path / 'practices'
+    if not pdir.is_dir():
+        out.append('no practices/ directory')
+    elif not any(pdir.glob('*.md')):
+        out.append('practices/ holds no practice files')
+
+    return out
 
 
 def bootstrap(level, name, dest, approvers=None, force=False):

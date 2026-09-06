@@ -5287,6 +5287,94 @@ def check_rule_rewrite_detection():
           not bad)
 
 
+def check_source_shape_is_verified():
+    """A source is checked for the shape its skeleton defines, and for the
+    shape its CONSUMERS need.
+
+    precedent_bootstrap_source.py only ever ran for sources it created. A
+    source migrated into place -- assembled by hand from an older system --
+    never passed through it, and nothing afterwards asked whether it came
+    out right. Both of this project's migrated sets were missing a skeleton
+    file, and had been since migration (2026-09-06).
+
+    File presence alone was the first version and was not enough: an
+    approvers.json with no approvers, or an approver with no `github`, is
+    present and useless -- build_codeowners.py refuses exactly those, so a
+    source carrying one is already broken and has only not been run against
+    yet. "Well-formed" is defined here by what a real consumer of the file
+    needs, never by a wish list."""
+    import importlib.util, tempfile, shutil, json as _json
+    spec = importlib.util.spec_from_file_location(
+        '_bss', ROOT / 'tools' / 'precedent_bootstrap_source.py')
+    bss = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bss)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        def fixture(level, **edits):
+            d = pathlib.Path(td) / f'src{len(cases)}{level}{len(edits)}'
+            shutil.copytree(ROOT / 'templates' / f'practice-set-{level}', d)
+            (d / 'practices').mkdir(exist_ok=True)
+            (d / 'practices' / 'x.md').write_text('---\nslug: x\n---\n## Rule\nx\n',
+                                                  encoding='utf-8')
+            if level == 'team':
+                (d / 'approvers.json').write_text(_json.dumps(
+                    {'approvers': [{'name': 'A', 'github': 'a'}]}), encoding='utf-8')
+                (d / 'approvers.json.template').unlink(missing_ok=True)
+            else:
+                (d / 'config.json.sample').write_text(_json.dumps(
+                    {'individual': {'name': 'n', 'path': '/p'}}), encoding='utf-8')
+            (d / 'leak-blocklist.txt').write_text('# blank\n', encoding='utf-8')
+            # The skeleton's README is full of {{PLACEHOLDER}}s by design;
+            # bootstrap fills them. A fixture standing in for a FINISHED
+            # source has to fill them too -- verify() caught this fixture
+            # itself the first time it ran, which is the check working.
+            (d / 'README.md').write_text('# A finished set\n', encoding='utf-8')
+            for rel, text in edits.items():
+                if text is None:
+                    (d / rel).unlink(missing_ok=True)
+                else:
+                    (d / rel).write_text(text, encoding='utf-8')
+            return d
+
+        cases.append(('a complete team set is well-formed',
+                      bss.verify('team', fixture('team')) == []))
+        cases.append(('a complete individual set is well-formed',
+                      bss.verify('individual', fixture('individual')) == []))
+        cases.append(('a missing skeleton file is reported',
+                      any('leak-blocklist' in f for f in bss.verify(
+                          'team', fixture('team', **{'leak-blocklist.txt': None})))))
+        cases.append(('an approvers.json with no approvers is reported -- '
+                      'build_codeowners.py refuses exactly this',
+                      any('no approvers' in f for f in bss.verify(
+                          'team', fixture('team', **{'approvers.json':
+                              _json.dumps({'approvers': []})})))))
+        cases.append(('an approver with no github is reported',
+                      any('"github"' in f for f in bss.verify(
+                          'team', fixture('team', **{'approvers.json':
+                              _json.dumps({'approvers': [{'name': 'A'}]})})))))
+        cases.append(('an unfilled {{PLACEHOLDER}} is reported -- bootstrapped '
+                      'and never finished',
+                      any('unfilled' in f for f in bss.verify(
+                          'team', fixture('team',
+                                          **{'leak-blocklist.txt': 'a {{NAME}} b'})))))
+        cases.append(('an individual config missing individual.path is reported',
+                      any('individual.path' in f for f in bss.verify(
+                          'individual', fixture('individual', **{'config.json.sample':
+                              _json.dumps({'individual': {'name': 'n'}})})))))
+        d = fixture('team')
+        for f in (d / 'practices').glob('*.md'):
+            f.unlink()
+        cases.append(('a source with no practice files is reported',
+                      any('no practice files' in x for x in bss.verify('team', d))))
+
+    bad = [n for n, ok in cases if not ok]
+    for n in bad:
+        print(f"  source-shape case did not behave as stated: {n}")
+    check(f'a source is verified for shape AND well-formedness '
+          f'({len(cases)} stated cases)', not bad)
+
+
 def check_machine_readable_files_parse():
     """Every JSON and YAML file this change TOUCHED still parses.
 
@@ -6224,6 +6312,7 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
+    check_source_shape_is_verified()
     check_machine_readable_files_parse()
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()

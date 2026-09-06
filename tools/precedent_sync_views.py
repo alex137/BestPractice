@@ -81,6 +81,37 @@ def sync(repo, user_config=None, check=False):
     # drift check rewrote practices/, tools/checks/ and MANIFEST.json on
     # every run, and deleted a whole source's files whenever that source
     # happened to be unreachable. See precedent_materialize.drift().
+    # A source that RESOLVED but contributed nothing. `missing` above covers
+    # a source that could not be found; this is the other shape -- the path
+    # exists, the resolver is happy, and the source is simply empty, so the
+    # repo syncs with that whole catalogue silently gone. Verified 2026-09-06:
+    # emptying a universal source's practices/ left both
+    # `precedent_resolve.py` and this tool reporting success, with only a
+    # "0 universal" in a count line that nothing reads.
+    #
+    # Retired practices count as contributed: a source that deliberately
+    # retired everything is a decision, not an accident.
+    contributed = {}
+    for group in ('practices', 'retired', 'shadowed', 'blocked'):
+        for entry in (res.get(group) or {}).values() if isinstance(
+                res.get(group), dict) else (res.get(group) or []):
+            name = entry.get('source') if isinstance(entry, dict) else None
+            if name:
+                contributed[name] = contributed.get(name, 0) + 1
+    empty = [s['name'] for s in sources
+             if s['name'] not in {m['name'] for m in res['missing']}
+             and not contributed.get(s['name'])]
+    if empty:
+        raise pm.MaterializeError(
+            f"these declared source(s) resolved but contributed no practices "
+            f"at all: {', '.join(sorted(empty))}. That is not the same as a "
+            f"missing source (reported separately, and degraded past): the "
+            f"path exists and is simply empty, so a sync would quietly drop "
+            f"that whole catalogue. Check the path in precedent.json, or that "
+            f"the clone is not empty. Retired practices count as contributed, "
+            f"so a source that deliberately retired everything does not trip "
+            f"this.")
+
     written, checks_written, rstats = pm.materialize(
         sources, res, pathlib.Path(repo), dry_run=check)
     tree_drift = pm.drift(sources, res, pathlib.Path(repo)) if check else []
