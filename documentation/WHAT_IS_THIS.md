@@ -15,9 +15,9 @@ automatically, without anyone having to write a policy document by hand.
 
 This grew out of a broader philosophy about how people and AI should work
 together, developed in
-**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)** (private
-for now — it will be made public soon). What follows are the practical
-things BestPractice does that put that philosophy to work.
+**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. What
+follows are the practical things BestPractice does that put that
+philosophy to work.
 
 ## Practices, created automatically
 
