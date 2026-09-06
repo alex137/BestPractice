@@ -1051,6 +1051,13 @@ _ENGINE_REF_ABSENT_OK = {
     # routing audit has been run in this repo yet", which is the correct
     # state of a fresh install, not a file somebody forgot to copy.
     'routing_audit_state.json',
+    # precedent_vendor_engine.py WRITES this into a repo it vendors INTO.
+    # BestPractice is the origin, never a vendoree, so its absence here is
+    # the correct state and its presence would be the anomaly -- the exact
+    # inverse of every other entry's reasoning, which is why it needs
+    # saying. code-cites-practice reads it to tell a stale citation from
+    # version skew in vendored code.
+    'ENGINE_MANIFEST.json',
 }
 
 
@@ -2055,9 +2062,36 @@ def _code_cites_practice(ctx):
             ov = (fm.get('overrides') or 'null').strip().strip('"').strip("'")
             if ov and ov != 'null':
                 known.setdefault(ov, fm.get('status'))
+    # A VENDORED engine file's citations are upstream's, not this repo's.
+    # In a consuming repo, tools/ IS the vendored engine, and its catalogue
+    # under process/upstream/ tracks BestPractice's default branch -- so an
+    # engine file refreshed from precedent-beta-v01 can legitimately cite a
+    # practice the consumer's own catalogue does not carry yet. That is not
+    # a typo and not a deletion; it is version skew, and it is unfixable
+    # from the consuming repo: editing vendored code to silence it is the
+    # one thing precedent_vendor_engine.py refuses outright. Reported for
+    # real on 2026-09-06, in the first consumer refresh that pulled
+    # precedent_resolve.py's `practice: source-naming` citations into a
+    # repo whose catalogue predated the practice by hours.
+    #
+    # The exemption is deliberately keyed on ENGINE_MANIFEST.json rather
+    # than on a filename list: BestPractice itself has no manifest -- it is
+    # the origin, not a vendoree -- so the check keeps its full strength in
+    # the one repo where these citations can actually be fixed. It is the
+    # same accommodation the `overrides:` case above already makes, for the
+    # same reason, in the other direction.
+    vendored = set()
+    manifest = ROOT / 'tools' / 'ENGINE_MANIFEST.json'
+    if manifest.is_file():
+        try:
+            vendored = set(json.loads(manifest.read_text(encoding='utf-8'))
+                           .get('files', []))
+        except (json.JSONDecodeError, OSError):
+            vendored = set()
+
     out = []
     for f in sorted((ROOT / 'tools').glob('*.py')):
-        if f.name in CODE_CITE_SKIP_FILES:
+        if f.name in CODE_CITE_SKIP_FILES or f.name in vendored:
             continue
         text = f.read_text(encoding='utf-8', errors='ignore')
         seen = set()
