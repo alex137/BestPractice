@@ -55,7 +55,8 @@ import build_views as bv  # noqa: E402
 
 
 def sync(repo, user_config=None, check=False):
-    """-> (written, checks_written, rstats, agents_md_path, changed: bool).
+    """-> (written, checks_written, rstats, agents_md_path, changed: bool,
+    tree_drift: [str]).  tree_drift is always empty unless check=True.
     Raises pr.ResolveError or pm.MaterializeError on failure, exactly as
     the two tools this wraps would -- this function is thin on purpose,
     the two tools underneath carry all the real logic and all the real
@@ -74,7 +75,15 @@ def sync(repo, user_config=None, check=False):
               f"is not available ({m['reason']}). Syncing WITHOUT it.",
               file=sys.stderr)
 
-    written, checks_written, rstats = pm.materialize(sources, res, pathlib.Path(repo))
+    # --check writes nothing at all -- not the materialized tree either.
+    # It used to write it: --check guarded only the AGENTS.md write below
+    # while materialize() ran unconditionally, so the documented read-only
+    # drift check rewrote practices/, tools/checks/ and MANIFEST.json on
+    # every run, and deleted a whole source's files whenever that source
+    # happened to be unreachable. See precedent_materialize.drift().
+    written, checks_written, rstats = pm.materialize(
+        sources, res, pathlib.Path(repo), dry_run=check)
+    tree_drift = pm.drift(sources, res, pathlib.Path(repo)) if check else []
 
     # Render the loader block from the SAME resolved practices materialize()
     # just wrote, not by re-reading practices/ off disk -- res['practices']
@@ -104,10 +113,12 @@ def sync(repo, user_config=None, check=False):
     new_text = pre + block + post
 
     if check:
-        return written, checks_written, rstats, agents_md, (new_text != original)
+        return (written, checks_written, rstats, agents_md,
+                (new_text != original), tree_drift)
 
     agents_md.write_text(new_text, encoding='utf-8')
-    return written, checks_written, rstats, agents_md, (new_text != original)
+    return (written, checks_written, rstats, agents_md,
+            (new_text != original), tree_drift)
 
 
 def main():
@@ -131,19 +142,28 @@ def main():
         i += 2
 
     try:
-        written, checks_written, rstats, agents_md, changed = sync(
+        written, checks_written, rstats, agents_md, changed, tree_drift = sync(
             repo, user_config, check=check)
     except (pr.ResolveError, pm.MaterializeError) as e:
         sys.exit(f"precedent_sync_views FAIL: {e}")
 
     if check:
+        problems = list(tree_drift)
         if changed:
-            sys.exit(f"precedent_sync_views --check FAIL: {agents_md} is "
-                     f"stale or hand-edited, drifted from a fresh sync.")
-        print(f"precedent_sync_views --check OK: {agents_md} byte-identical "
-              f"to a fresh sync ({len(written)} practice(s), "
-              f"{len(rstats['practices'])} resident, ~{rstats['tokens']} of "
-              f"{rstats['budget']} token budget)")
+            problems.insert(0, f"{agents_md} is stale or hand-edited, "
+                                f"drifted from a fresh sync")
+        if problems:
+            for line in problems:
+                print(f"  {line}", file=sys.stderr)
+            sys.exit(f"precedent_sync_views --check FAIL: "
+                     f"{len(problems)} difference(s) from a fresh sync. "
+                     f"Nothing was written -- re-run without --check to "
+                     f"take the sync, then review the diff.")
+        print(f"precedent_sync_views --check OK: {agents_md} and the "
+              f"materialized tree are byte-identical to a fresh sync "
+              f"({len(written)} practice(s), {len(checks_written)} check "
+              f"file(s), {len(rstats['practices'])} resident, "
+              f"~{rstats['tokens']} of {rstats['budget']} token budget)")
         return 0
 
     print(f"precedent_sync_views OK: materialized {len(written)} practice(s) "

@@ -4090,6 +4090,70 @@ def check_sync_views_cross_source():
                       and 'MUST SURVIVE' in
                           (selfref2 / 'practices' / 'shared.md').read_text(encoding='utf-8'),
                       r_self2.stdout + r_self2.stderr))
+        # --- --check writes NOTHING (2026-09-06) --------------------------
+        # It used to guard only the AGENTS.md write while materialize() ran
+        # underneath it unconditionally, so the documented read-only drift
+        # check rewrote practices/, tools/checks/ and MANIFEST.json every
+        # time a session ran it. Found against a real four-source consumer,
+        # where it made a genuine light-check failure vanish by overwriting
+        # the drifted file, and -- with one source unreachable, the ordinary
+        # state of a session before add_repo has run -- deleted 57 tracked
+        # files while printing a check verdict. Both directions are pinned:
+        # the clean case must not write, and the unreachable-source case
+        # must not delete.
+        run()  # take a clean sync first, so any later difference is the check's
+
+        def snapshot():
+            out = {}
+            for sub in ('practices', 'tools'):
+                d = consumer / sub
+                for f in sorted(d.rglob('*')) if d.is_dir() else []:
+                    if f.is_file():
+                        out[str(f.relative_to(consumer))] = f.read_bytes()
+            mf = consumer / 'MANIFEST.json'
+            if mf.is_file():
+                out['MANIFEST.json'] = mf.read_bytes()
+            return out
+
+        before = snapshot()
+        rc_chk, out_chk = run('--check')
+        cases.append(('--check on an already-synced repo exits 0',
+                      rc_chk == 0, out_chk))
+        cases.append(('--check writes nothing at all -- not practices/, not '
+                      'tools/checks/, not MANIFEST.json',
+                      snapshot() == before,
+                      f'{len(set(before) ^ set(snapshot()))} file(s) added/removed'))
+
+        # A source that cannot be reached is the ordinary state of a fresh
+        # session, not an error state. --check must report it, never act on it.
+        hidden = tmp / 't-hidden'
+        team.rename(hidden)
+        try:
+            rc_gone, out_gone = run('--check')
+            after_gone = snapshot()
+        finally:
+            hidden.rename(team)
+        cases.append(('--check with a source unreachable FAILS rather than '
+                      'reporting clean', rc_gone != 0, out_gone))
+        cases.append(('--check with a source unreachable deletes nothing -- '
+                      'the tree is byte-identical afterwards',
+                      after_gone == before,
+                      f'{len(set(before) - set(after_gone))} file(s) deleted'))
+        cases.append(('and it names the missing practice rather than only '
+                      'the loader block',
+                      'team-fixture' in out_gone, out_gone))
+
+        # Real drift must still be reported, or the two cases above could be
+        # satisfied by a --check that reports nothing at all.
+        victim = consumer / 'practices' / 'uni-fixture.md'
+        victim.write_text(victim.read_text(encoding='utf-8') + '\nhand-edited\n',
+                          encoding='utf-8')
+        rc_drift, out_drift = run('--check')
+        cases.append(('a hand-edited materialized practice is reported as '
+                      'drift', rc_drift != 0 and 'uni-fixture' in out_drift,
+                      out_drift))
+        run()  # restore the fixture for the cases below
+
         # --- the OTHER writer of the same block must agree with this one ---
         # Both commands are documented for a consuming repo: session start
         # runs precedent_sync_views.py, and generated-artifact-provenance

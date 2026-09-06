@@ -271,7 +271,40 @@ run prompted on every single run.
    survive), and a document written in a heading style the parser does not
    read reports "cannot tell" rather than "the anchor is missing". All
    nine are fixed; the whole tree resolves. practice: `convention-to-audit`.
-5. **The team set's 39 judgment-only practices were not swept.** The full
+5. ~~**`precedent_sync_views.py --check` wrote to the working tree.**~~
+   **Done.** Found by running the real consumer repos rather than
+   fixtures — `themorgan/HavrutaBrainstorm`, a four-source install whose
+   own `AGENTS.md` tells every session to run this at session start.
+   `--check` guarded only the `AGENTS.md` write; `materialize()` ran
+   underneath it unconditionally, deleting and rewriting `practices/`,
+   `tools/checks/` and `MANIFEST.json` every time.
+
+   Two consequences, both observed in that repo, not reasoned about:
+
+   - The repo's own light check correctly failed on a materialized check
+     script that had drifted from its source. Running `--check` made the
+     failure **disappear** — not by fixing the drift, by overwriting the
+     drifted file from the live source. A check that destroys the
+     evidence it exists to report is worse than no check.
+   - With one source unreachable — the ordinary state of a session before
+     `add_repo` has run, which both consumer repos' own instructions
+     describe as the common case — a `--check` run **deleted 57 tracked
+     files**: every practice and check script that source contributed. It
+     printed a check verdict while doing it. Paired with a Stop hook that
+     blocks ending a turn on uncommitted changes, this pushes a session
+     toward committing the deletion.
+
+   `--check` now plans everything against the same output directory (so
+   link rewriting resolves identically) and compares, writing nothing.
+   It also gained the thing it never had: the old version compared only
+   `AGENTS.md`, so a hand-edited materialized practice reported **clean**.
+   Pinned in the harness in both directions — the negative control failed
+   the old code on exactly those three points.
+
+   Running it against the real repo immediately surfaced 11 differences
+   that had been invisible, including two orphaned check scripts from a
+   team practice retired weeks earlier.
+6. **The team set's 39 judgment-only practices were not swept.** The full
    practice audit reports 49 judgment-only practices across three sources.
    This session judged the universal slice's highest-yield ones
    (`lead-with-what-it-is`, `section-order-by-frequency`,
@@ -280,12 +313,12 @@ run prompted on every single run.
    The team and individual slices are untouched — a session with those
    repos attached should take them next, one at a time, with the closed
    question the practice's own Rule names.
-6. **TODO.md item 11 still needs a live session**: whether
+7. **TODO.md item 11 still needs a live session**: whether
    `additionalContext` reaches the model or only the transcript. The test
    plan is written; it needs a real Claude Code session with the adapter
    installed. Now cheaper to run than it was: this repo installs the hook
    itself as of today, so the next session here is the test.
-7. **The design half of TODO.md item 7**: whether a consuming repo should
+8. **The design half of TODO.md item 7**: whether a consuming repo should
    be able to express a preference between two team sources at all, rather
    than being told to rename one. The silent-failure half is closed; the
    design question is untouched, and a second team set now exists to test

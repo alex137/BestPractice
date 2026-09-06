@@ -308,7 +308,7 @@ def _plan_checks(sources, res=None):
     return plan
 
 
-def materialize(sources, res, out_dir):
+def materialize(sources, res, out_dir, dry_run=False):
     """Reads every resolved practice file and every source's check/test
     file INTO MEMORY before deleting or writing anything in out_dir.
 
@@ -323,7 +323,12 @@ def materialize(sources, res, out_dir):
     read it from the path just deleted. Reading everything up front makes
     the delete/write order irrelevant to correctness: by the time
     anything is removed, every byte this function still needs is already
-    held in memory, whether or not its original path just got wiped."""
+    held in memory, whether or not its original path just got wiped.
+
+    dry_run computes the identical plan -- same out_dir, so the link
+    rewriting resolves to the same paths -- and touches nothing on disk.
+    It exists because --check has to be able to answer "is the committed
+    tree current?" without being the thing that changes it; see drift()."""
     out_dir = pathlib.Path(out_dir)
     self_referential = _self_referential_sources(sources, out_dir)
     if self_referential:
@@ -352,11 +357,12 @@ def materialize(sources, res, out_dir):
                       for slug, practice in res['practices'].items()}
     checks_plan = _plan_checks(sources, res)   # raises MaterializeError before any write
 
-    if practices_dir.exists():
-        shutil.rmtree(practices_dir)
-    if checks_dir.exists():
-        shutil.rmtree(checks_dir)
-    practices_dir.mkdir(parents=True)
+    if not dry_run:
+        if practices_dir.exists():
+            shutil.rmtree(practices_dir)
+        if checks_dir.exists():
+            shutil.rmtree(checks_dir)
+        practices_dir.mkdir(parents=True)
 
     written = []
     all_slugs = set(practice_plan)
@@ -370,7 +376,8 @@ def materialize(sources, res, out_dir):
         # comparison can tell a rewrite from a drift.
         placed = _rewrite_links(data, practice['file'], out_dir,
                                 sibling_slugs=all_slugs)
-        dest.write_bytes(placed)
+        if not dry_run:
+            dest.write_bytes(placed)
         written.append({'slug': slug, 'level': practice['level'],
                          'source': practice['source'],
                          'sha256_16': hashlib.sha256(placed).hexdigest()[:16],
@@ -380,8 +387,9 @@ def materialize(sources, res, out_dir):
     checks_written = []
     for rel_label, filename, source_name, data in checks_plan:
         dest_dir = checks_dir if rel_label == 'checks' else checks_dir / 'tests'
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        (dest_dir / filename).write_bytes(data)
+        if not dry_run:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            (dest_dir / filename).write_bytes(data)
         checks_written.append({'path': f'tools/{rel_label}/{filename}',
                                 'source': source_name,
                                 'sha256_16': hashlib.sha256(data).hexdigest()[:16]})
@@ -394,7 +402,15 @@ def materialize(sources, res, out_dir):
             f"materializing an over-budget set. Demote or retire a "
             f"resident practice in one of the sources first.")
 
-    manifest = {
+    manifest = _build_manifest(sources, written, checks_written, rstats)
+    if not dry_run:
+        (out_dir / 'MANIFEST.json').write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+    return written, checks_written, rstats
+
+
+def _build_manifest(sources, written, checks_written, rstats):
+    return {
         'generated_by': 'tools/precedent_materialize.py',
         'generated_at_utc': datetime.datetime.now(datetime.timezone.utc)
                                  .isoformat(timespec='seconds'),
@@ -408,9 +424,82 @@ def materialize(sources, res, out_dir):
         'practices': written,
         'checks': checks_written,
     }
-    (out_dir / 'MANIFEST.json').write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-    return written, checks_written, rstats
+
+
+# The read-only half. A check that mutates what it is checking is worse
+# than no check: it destroys the evidence it exists to report.
+#
+# 2026-09-06, found against a real four-source consumer install. Its
+# AGENTS.md tells every session to run `precedent_sync_views.py --check` at
+# session start, and --check guarded only the AGENTS.md write -- materialize()
+# ran unconditionally underneath it, so every "check" silently rewrote
+# practices/, tools/checks/ and MANIFEST.json in the working tree. Two
+# consequences, both observed, not reasoned about:
+#
+#   * A consuming repo's own light check correctly failed on a materialized
+#     check script that had drifted from its source. Running --check made
+#     the failure disappear -- not by fixing the drift, by overwriting the
+#     drifted file from the live source. The next run reported clean.
+#   * With one source temporarily unreachable -- the ordinary state of a
+#     fresh session before `add_repo` has run, which both consuming repos'
+#     own instructions describe -- a --check run DELETED 57 tracked files:
+#     every practice and check script that source contributed. It printed
+#     a check verdict while doing it.
+#
+# So --check now plans everything (same out_dir, so link rewriting resolves
+# identically) and compares against disk instead of writing.
+def drift(sources, res, out_dir):
+    """-> [str] findings describing how out_dir differs from a fresh sync.
+
+    Writes nothing. An empty list means the committed materialized tree is
+    exactly what a sync would produce right now."""
+    out_dir = pathlib.Path(out_dir)
+    written, checks_written, rstats = materialize(sources, res, out_dir,
+                                                  dry_run=True)
+    found = []
+
+    def _compare(rel_dir, planned, label):
+        d = out_dir / rel_dir
+        on_disk = {f.name: f for f in d.iterdir() if f.is_file()} if d.is_dir() else {}
+        for name, want in sorted(planned.items()):
+            have = on_disk.pop(name, None)
+            if have is None:
+                found.append(f"{rel_dir}/{name} is missing -- a fresh sync writes it ({label})")
+            elif hashlib.sha256(have.read_bytes()).hexdigest()[:16] != want:
+                found.append(f"{rel_dir}/{name} differs from what a fresh sync writes ({label})")
+        for name in sorted(on_disk):
+            found.append(f"{rel_dir}/{name} is not produced by any declared source -- "
+                          f"a sync would delete it ({label})")
+
+    _compare('practices', {f"{w['slug']}.md": w['sha256_16'] for w in written},
+             'practice')
+    planned_checks = {}
+    for c in checks_written:
+        planned_checks.setdefault(str(pathlib.PurePosixPath(c['path']).parent),
+                                  {})[pathlib.PurePosixPath(c['path']).name] = c['sha256_16']
+    for rel_dir, planned in sorted(planned_checks.items()):
+        _compare(rel_dir, planned, 'check script')
+
+    # generated_at_utc is a timestamp, not state -- comparing it would make
+    # every run report drift against itself.
+    mf = out_dir / 'MANIFEST.json'
+    want = _build_manifest(sources, written, checks_written, rstats)
+    if not mf.is_file():
+        found.append('MANIFEST.json is missing -- a fresh sync writes it')
+    else:
+        try:
+            have = json.loads(mf.read_text(encoding='utf-8'))
+        except json.JSONDecodeError:
+            found.append('MANIFEST.json is not valid JSON')
+            have = None
+        if have is not None:
+            have.pop('generated_at_utc', None)
+            want_cmp = dict(want)
+            want_cmp.pop('generated_at_utc', None)
+            if have != want_cmp:
+                found.append('MANIFEST.json differs from what a fresh sync writes '
+                              '(ignoring its generated_at_utc timestamp)')
+    return found
 
 
 def _parse_args(argv):
