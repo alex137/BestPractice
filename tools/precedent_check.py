@@ -85,6 +85,13 @@ _toplevel = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
                            capture_output=True, text=True).stdout.strip()
 ROOT = pathlib.Path(_toplevel) if _toplevel else pathlib.Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
+# Where this module physically sits. In the classic INSTALL.md section 1
+# layout that is <repo>/process/upstream/tools/, NOT <repo>/tools/ -- ROOT
+# is deliberately the consuming repo's own root (see the long comment
+# above), so `ROOT / 'tools' / x` names a directory the vendored audit
+# tools are not in. Every check that reaches for a sibling tool goes
+# through _tool_path() rather than assuming one layout or the other.
+_HERE_TOOLS = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS))
 import split_practices as sp
 
@@ -489,8 +496,8 @@ GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
        "instead, not by this check.")
 def _generated_artifact_provenance(ctx):
     out = []
-    builder = ROOT / 'tools' / 'build_views.py'
-    if not builder.exists():
+    builder = _tool_path('tools/build_views.py')
+    if builder is None:
         raise NotApplicable('tools/build_views.py is absent, so nothing here '
                             'declares which artifacts are generated')
     # Which of the two this repo actually GENERATES, read off the files
@@ -519,8 +526,22 @@ def _generated_artifact_provenance(ctx):
             out.append(Finding(name, 'names build_views.py but does not say '
                                      'it is generated, so a reader cannot '
                                      'tell whether editing it is safe'))
-    argv = [sys.executable, str(builder), '--check']
+    # --repo, always: build_views.py derives its own root from its file
+    # location, which in the classic vendoring layout is
+    # <repo>/process/upstream/, not the consuming repo. Without this it
+    # went looking for process/upstream/AGENTS.md and reported the
+    # FileNotFoundError as "a generated view is stale or hand-edited".
+    argv = [sys.executable, str(builder), '--repo', str(ROOT), '--check']
     if not generated_here:
+        # Nothing wholly generated here, so the only thing left to
+        # regenerate is AGENTS.md's loader block -- and a repo on the
+        # classic INSTALL.md section 1 model has no such block at all
+        # (its instructions file is hand-authored end to end). Reporting
+        # "a generated view is stale or hand-edited" for a file that
+        # declares nothing generated is a finding nobody can act on.
+        _n, instructions = _instructions_file()
+        if '<!-- BEGIN GENERATED: precedent-loader -->' not in instructions:
+            return out
         argv.append('--agents-only')
     r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
     if r.returncode != 0:
@@ -1195,12 +1216,12 @@ def _two_check_levels(ctx):
        'whether the audit is actually being RUN or a slice actually READ -- '
        'only that the tool exists and its own bookkeeping stays honest.')
 def _routing_audit(ctx):
-    tool = ROOT / 'tools' / 'routing_audit.py'
-    if not tool.exists():
-        return [Finding(str(tool.relative_to(ROOT)),
+    tool = _tool_path('tools/routing_audit.py')
+    if tool is None:
+        return [Finding('tools/routing_audit.py',
                         "does not exist -- routing-audit.md names it as "
                         "this practice's implementation")]
-    state_path = ROOT / 'tools' / 'routing_audit_state.json'
+    state_path = tool.parent / 'routing_audit_state.json'
     if not state_path.exists():
         return []
     try:
@@ -1208,8 +1229,16 @@ def _routing_audit(ctx):
     except (json.JSONDecodeError, OSError) as e:
         return [Finding(str(state_path.relative_to(ROOT)),
                         f'is not valid JSON ({e})')]
+    # The catalogue this repo actually has: the materialized/authored
+    # practices/ at the root, or -- in the classic vendoring layout -- the
+    # vendored tree this tool was copied alongside. Reading only the first
+    # made `active` empty in every classic install, so every rotation entry
+    # in the state file read as stale bookkeeping for a retired practice.
+    practices_dir = ROOT / 'practices'
+    if not practices_dir.is_dir():
+        practices_dir = tool.parent.parent / 'practices'
     active = set()
-    for f in sorted((ROOT / 'practices').glob('*.md')):
+    for f in sorted(practices_dir.glob('*.md')):
         try:
             fm, _sections = sp._read_practice_file(f)
         except sp.PracticeFileError:
@@ -1376,6 +1405,29 @@ def _search_by_purpose(ctx):
     return [Finding(d, n) for d, n in dl.check_findability(wired) if d in scope]
 
 
+def _tool_path(rel):
+    """Resolve a repo-relative `tools/<name>` against the layout this repo
+    actually has, or None.
+
+    Two layouts, both real: the Precedent loader install (INSTALL.md
+    section 0) puts the engine at `<repo>/tools/`, and the classic
+    vendoring install (section 1) puts it at
+    `<repo>/process/upstream/tools/`. Checks that shell out to a sibling
+    tool assumed the first, so in a classic install `practice_audit.py`,
+    `model_audit.py` and `doc_sync.py` were all sitting right there in
+    `process/upstream/tools/` and their checks reported nothing --
+    silently PASSING before _run() learned to refuse a missing script, and
+    honestly but wrongly SKIPPING after. Neither is the truth: the tool is
+    present and the check should run."""
+    rel = str(rel).replace('\\', '/')
+    name = rel.split('/')[-1]
+    for cand in (ROOT / rel, _HERE_TOOLS / name,
+                 ROOT / 'process' / 'upstream' / 'tools' / name):
+        if cand.exists():
+            return cand
+    return None
+
+
 def _run(script, *args):
     """Run one of this repo's own audit scripts, refusing loudly if it is
     not here.
@@ -1389,11 +1441,12 @@ def _run(script, *args):
     not in the vendored engine and nothing noticed. That is precisely the
     "a scan with an empty input set printing OK" failure this module's own
     docstring says it exists to prevent, and this module was doing it."""
-    path = ROOT / script
-    if not path.exists():
+    path = _tool_path(script)
+    if path is None:
         raise NotApplicable(
-            f'{script} is not in this repo, so this check has nothing to '
-            f'run. It is not part of the vendored engine '
+            f'{script} is in neither this repo\'s own tools/ nor a vendored '
+            f'process/upstream/tools/, so this check has nothing to run. It '
+            f'is not part of the vendored engine '
             f'(precedent_vendor_engine.py\'s CONSUMER_ENGINE_FILES) -- copy '
             f'it from Precedent if this repo needs the practice enforced')
     r = subprocess.run([sys.executable, str(path), *args],

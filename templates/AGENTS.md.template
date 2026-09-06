@@ -28,6 +28,24 @@ deliverables and indexes which documents back each part of each one.
      the audits that gate them (practice `convention-to-audit`). State the single source of truth
      explicitly and what wins when documents disagree with it. -->
 
+### Session start
+
+- At session start, run `bash tools/bootstrap.sh` before other work (harnesses
+  with a hook mechanism run it automatically — see `templates/harness/`).
+
+### Two check levels
+
+<!-- practice `two-check-levels`. Rename the two levels if your team prefers
+     other words, but name them somewhere fixed and say which gates what —
+     the point is that "run the check" resolves to one thing without a
+     session re-deriving it. Add your own repo's audits to the deep check. -->
+
+- **Light check** — `python3 process/upstream/tools/doc_lint.py` on the markdown you touched.
+  Fast, run before every commit without thinking about it. Gates a commit.
+- **Deep check** — the full suite: `python3 process/upstream/tools/precedent_check.py`,
+  `python3 process/upstream/tools/practice_audit.py`, and `<your own audits>`.
+  Gates a push and a merge.
+
 ### Build-environment gotchas — do NOT rediscover these
 
 <!-- Every expensive environment discovery, WITH its story (practice
@@ -43,9 +61,6 @@ deliverables and indexes which documents back each part of each one.
        - <package/tool that must be installed, what failed without it, how
          long it cost>
        - <tool that does not work here; what to use instead> -->
-
-- At session start, run `bash tools/bootstrap.sh` before other work (harnesses
-  with a hook mechanism run it automatically — see `templates/harness/`).
 
 - **A session's checkout can be stale enough to look complete while missing
   real, merged work — with no error.** `git status` reports "up to date with

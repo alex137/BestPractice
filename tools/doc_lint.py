@@ -103,6 +103,7 @@ ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 lead
 # A dot plus a lowercase extension immediately after the token: the token is
 # a filename stem (LEDGER.md, MAP.md, SETUP.md), never an acronym to gloss.
 FILENAME_STEM_RE = re.compile(r'\.[a-z][a-z0-9]{0,4}\b')
+HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.S)
 GLOSSARY_PATH = ROOT / 'GLOSSARY.md'
 ACRONYM_SKIP_FILES = {'GLOSSARY.md'}
 # common words / units / universally-known tech that are never worth glossing:
@@ -214,6 +215,13 @@ def scan_unglossed(text, known, path=None):
     enforced check still failing on `LEDGER.md`. Both callers now go
     through this function, so a filter added here reaches the gate."""
     doc_name = pathlib.PurePath(path).stem.upper() if path else None
+    # HTML comments are guidance to whoever edits the file, never content
+    # the document asserts, and no reader ever sees them rendered -- so an
+    # ALL-CAPS word used for emphasis inside one ("use this LOADER variant
+    # for a fresh install", in templates/AGENTS.md.loader.template) is not
+    # an acronym anybody can gloss. Blanked rather than removed so line
+    # numbers still point at the right line.
+    text = HTML_COMMENT_RE.sub(lambda m: '\n' * m.group(0).count('\n'), text or '')
     out, seen, incode = [], set(), False
     for i, line in enumerate(text.splitlines(), 1):
         if line.lstrip().startswith('```'):
