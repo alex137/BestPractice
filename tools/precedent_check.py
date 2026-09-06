@@ -1299,6 +1299,81 @@ TWO_CHECK_LEVELS_RE = re.compile(
     r'\*\*light check\*\*.{0,400}?\*\*deep check\*\*', re.S | re.I)
 
 
+def _published_default_branch():
+    """origin's default branch ref, or None when there is no usable one."""
+    head = _git('symbolic-ref', 'refs/remotes/origin/HEAD')
+    if head.returncode == 0 and head.stdout.strip():
+        return head.stdout.strip().replace('refs/remotes/', '', 1)
+    for cand in ('origin/main', 'origin/master'):
+        if _git('rev-parse', '--verify', '--quiet', cand).returncode == 0:
+            return cand
+    return None
+
+
+@check('rename-updates-links', 'tree',
+       'no tracked file still references a path this branch renamed away '
+       'or deleted',
+       'a reference that was already dead before this branch started, and '
+       'a rename whose old path is too generic to search for safely (a '
+       'bare `README.md`, a single path segment) -- those are skipped '
+       'rather than guessed at. It also cannot see a reference built by '
+       'string concatenation at runtime.')
+def _rename_updates_links(ctx):
+    base = _published_default_branch()
+    if base is None:
+        raise NotApplicable(
+            'no published default branch to compare against (no origin, or '
+            'origin/HEAD unset), so there is no way to tell which paths '
+            'THIS branch renamed from ones that moved long ago')
+    r = _git('diff', '--name-status', '--find-renames', f'{base}...HEAD')
+    if r.returncode != 0:
+        raise NotApplicable(f'could not diff against {base}')
+    old_paths = []
+    for line in r.stdout.splitlines():
+        parts = line.split('\t')
+        if not parts or not parts[0]:
+            continue
+        status = parts[0]
+        if status.startswith('R') and len(parts) >= 3:
+            old_paths.append((parts[1], parts[2]))
+        elif status.startswith('D') and len(parts) >= 2:
+            old_paths.append((parts[1], None))
+    if not old_paths:
+        raise NotApplicable('this branch renames or deletes no file, so '
+                            'there is no reference to repoint')
+    # A path with one segment is too generic to search for: `README.md`
+    # appears in prose everywhere and means a different file in every
+    # directory. Skipping those is why this reports what it skipped.
+    searchable = [(o, n) for o, n in old_paths if '/' in o]
+    skipped = len(old_paths) - len(searchable)
+    out = []
+    tracked = _git('ls-files').stdout.split()
+    for old, new_path in searchable:
+        for rel in tracked:
+            if rel == new_path or rel == old:
+                continue
+            f = ROOT / rel
+            if not f.is_file():
+                continue
+            try:
+                text = f.read_text(encoding='utf-8', errors='ignore')
+            except OSError:
+                continue
+            for i, line in enumerate(text.splitlines(), 1):
+                if old in line:
+                    where = f'renamed to {new_path}' if new_path else 'deleted'
+                    out.append(Finding(
+                        f'{rel}:{i}',
+                        f'still references {old!r}, which this branch '
+                        f'{where} -- repoint it in the same change, or the '
+                        f'repository is broken at every commit in between'))
+                    break
+    if not out and skipped:
+        print(f'  (rename-updates-links: {skipped} single-segment path(s) '
+              f'skipped as too generic to search)')
+    return out
+
+
 @check('two-check-levels', 'tree',
        'the session instructions name two fixed, distinct check levels '
        '("light check" / "deep check") and say which gates a commit versus '

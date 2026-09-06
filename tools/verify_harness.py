@@ -191,7 +191,10 @@ def check_source_coverage(files, original_practices_by_number):
         num = fm.get('source_practice_number')
         if num is None:
             # legitimate for a practice minted fresh (phase 3 on), but then
-            # it is not part of the migrated set this check is about
+            # it is not part of the migrated set this check is about.
+            # split_practices.py drops a `null` field rather than storing
+            # the string, so this guard is live -- it was dead until
+            # 2026-09-06 and `int('null')` below crashed instead.
             continue
         by_number.setdefault(num, []).append(stem)
 
@@ -2667,6 +2670,24 @@ def check_precedent_check_fires():
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(
                 r'\n\| Looking for.*?\n\n', '\n\n', t, flags=re.S))
         case('quick-index', _plant_qi)
+
+        # rename-updates-links -- a file moved, its references left behind.
+        # Needs a published default branch to diff against, which the
+        # pristine fixture has no remote for, so the setup gives it one
+        # pointing at the baseline commit and branches off it. spec/LOADER.md
+        # is chosen because AGENTS.md and other documents link it, so the
+        # rename really does strand references the way the practice describes.
+        def _setup_rename(repo):
+            git(repo, 'branch', '-M', 'main')
+            git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+            git(repo, 'symbolic-ref', 'refs/remotes/origin/HEAD',
+                'refs/remotes/origin/main')
+            git(repo, 'checkout', '-qb', 'feature')
+
+        def _plant_rename(repo):
+            git(repo, 'mv', 'spec/LOADER.md', 'spec/LOADER_MOVED.md')
+            git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
+        case('rename-updates-links', _plant_rename, setup=_setup_rename)
 
         # two-check-levels -- the light/deep check pair removed from AGENTS.md
         def _plant_tcl(repo):
@@ -5266,6 +5287,238 @@ def check_rule_rewrite_detection():
           not bad)
 
 
+def check_source_shape_is_verified():
+    """A source is checked for the shape its skeleton defines, and for the
+    shape its CONSUMERS need.
+
+    precedent_bootstrap_source.py only ever ran for sources it created. A
+    source migrated into place -- assembled by hand from an older system --
+    never passed through it, and nothing afterwards asked whether it came
+    out right. Both of this project's migrated sets were missing a skeleton
+    file, and had been since migration (2026-09-06).
+
+    File presence alone was the first version and was not enough: an
+    approvers.json with no approvers, or an approver with no `github`, is
+    present and useless -- build_codeowners.py refuses exactly those, so a
+    source carrying one is already broken and has only not been run against
+    yet. "Well-formed" is defined here by what a real consumer of the file
+    needs, never by a wish list."""
+    import importlib.util, tempfile, shutil, json as _json
+    spec = importlib.util.spec_from_file_location(
+        '_bss', ROOT / 'tools' / 'precedent_bootstrap_source.py')
+    bss = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bss)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        def fixture(level, **edits):
+            d = pathlib.Path(td) / f'src{len(cases)}{level}{len(edits)}'
+            shutil.copytree(ROOT / 'templates' / f'practice-set-{level}', d)
+            (d / 'practices').mkdir(exist_ok=True)
+            (d / 'practices' / 'x.md').write_text('---\nslug: x\n---\n## Rule\nx\n',
+                                                  encoding='utf-8')
+            if level == 'team':
+                (d / 'approvers.json').write_text(_json.dumps(
+                    {'approvers': [{'name': 'A', 'github': 'a'}]}), encoding='utf-8')
+                (d / 'approvers.json.template').unlink(missing_ok=True)
+            else:
+                (d / 'config.json.sample').write_text(_json.dumps(
+                    {'individual': {'name': 'n', 'path': '/p'}}), encoding='utf-8')
+            (d / 'leak-blocklist.txt').write_text('# blank\n', encoding='utf-8')
+            # The skeleton's README is full of {{PLACEHOLDER}}s by design;
+            # bootstrap fills them. A fixture standing in for a FINISHED
+            # source has to fill them too -- verify() caught this fixture
+            # itself the first time it ran, which is the check working.
+            (d / 'README.md').write_text('# A finished set\n', encoding='utf-8')
+            for rel, text in edits.items():
+                if text is None:
+                    (d / rel).unlink(missing_ok=True)
+                else:
+                    (d / rel).write_text(text, encoding='utf-8')
+            return d
+
+        cases.append(('a complete team set is well-formed',
+                      bss.verify('team', fixture('team')) == []))
+        cases.append(('a complete individual set is well-formed',
+                      bss.verify('individual', fixture('individual')) == []))
+        cases.append(('a missing skeleton file is reported',
+                      any('leak-blocklist' in f for f in bss.verify(
+                          'team', fixture('team', **{'leak-blocklist.txt': None})))))
+        cases.append(('an approvers.json with no approvers is reported -- '
+                      'build_codeowners.py refuses exactly this',
+                      any('no approvers' in f for f in bss.verify(
+                          'team', fixture('team', **{'approvers.json':
+                              _json.dumps({'approvers': []})})))))
+        cases.append(('an approver with no github is reported',
+                      any('"github"' in f for f in bss.verify(
+                          'team', fixture('team', **{'approvers.json':
+                              _json.dumps({'approvers': [{'name': 'A'}]})})))))
+        cases.append(('an unfilled {{PLACEHOLDER}} is reported -- bootstrapped '
+                      'and never finished',
+                      any('unfilled' in f for f in bss.verify(
+                          'team', fixture('team',
+                                          **{'leak-blocklist.txt': 'a {{NAME}} b'})))))
+        cases.append(('an individual config missing individual.path is reported',
+                      any('individual.path' in f for f in bss.verify(
+                          'individual', fixture('individual', **{'config.json.sample':
+                              _json.dumps({'individual': {'name': 'n'}})})))))
+        d = fixture('team')
+        for f in (d / 'practices').glob('*.md'):
+            f.unlink()
+        cases.append(('a source with no practice files is reported',
+                      any('no practice files' in x for x in bss.verify('team', d))))
+
+    bad = [n for n, ok in cases if not ok]
+    for n in bad:
+        print(f"  source-shape case did not behave as stated: {n}")
+    check(f'a source is verified for shape AND well-formedness '
+          f'({len(cases)} stated cases)', not bad)
+
+
+def check_machine_readable_files_parse():
+    """Every JSON and YAML file this change TOUCHED still parses.
+
+    Changed-scope on purpose. This gates a push and runs constantly, so its
+    question is "did I just break something", not "is the whole repo well".
+    The whole-tree sweep is the very deep check's job
+    (`tools/very_deep_check.py`), which is on-demand and is the only place a
+    file nobody has touched in months gets looked at again.
+
+    Nothing here parsed a YAML or JSON file at all until 2026-09-06 -- not
+    .github/workflows/deep-check.yml, the file that RUNS this check in CI,
+    and not precedent.json, MANIFEST.json, ENGINE_MANIFEST.json or
+    routing_scope.json, each read by exactly one tool that would report its
+    own confusing failure rather than "this file is malformed". A broken
+    workflow is the worst of them: GitHub skips it silently, so the gate
+    stops running and every push looks as green as the day before. That is
+    the worst shape a check can have, and it applied to the check-running
+    check itself."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_parse_check', ROOT / 'tools' / 'parse_check.py')
+    pcheck = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pcheck)
+
+    paths, scope = pcheck.changed(ROOT)
+    failures, parsed, skipped = pcheck.validate(ROOT, paths)
+    n = len(pcheck.candidates(ROOT, paths))
+    for rel, why in failures:
+        print(f"  {rel}: {why}")
+    if skipped:
+        not_applicable(f'{", ".join(skipped)} files in scope were not parsed',
+                       'no parser installed here (pip install pyyaml) -- a '
+                       'file nobody parsed is not a file that parses')
+    check(f'every JSON/YAML file this change touched parses '
+          f'({n} in scope; {scope})', not failures)
+
+    # Scripts a workflow actually invokes, as opposed to mentions in prose.
+    # Same class as vendored-engine-file-refs-resolve: a job calling a
+    # missing script fails on every run, and nothing says so until somebody
+    # reads a CI log. Whole-tree because there are three of them.
+    RUN_SCRIPT = re.compile(r'python3?\s+((?:tools|process|deck)/[\w/.-]+\.py)')
+    workflows = [f for f in pcheck.tracked(ROOT) if '/workflows/' in f]
+    missing = []
+    for rel in workflows:
+        text = (ROOT / rel).read_text(encoding='utf-8')
+        for name in sorted(set(RUN_SCRIPT.findall(text))):
+            if not (ROOT / name).is_file():
+                missing.append((rel, name))
+    for rel, name in missing:
+        print(f"  {rel}: runs {name}, which does not exist")
+    check(f'every script a workflow runs exists ({len(workflows)} workflow '
+          f'file(s))', not missing)
+
+
+def check_null_frontmatter_is_absent():
+    """A `null` frontmatter field parses as absent, not as the string 'null'.
+
+    Every value the practice reader returns is raw field text, so a null
+    field used to arrive as the literal `'null'` -- truthy, not None, not
+    int-parseable. Every `if x is None` and `if 'x' not in fm` guard
+    written against the four nullable fields was therefore dead code that
+    had never once run, because every practice inherited from PRACTICES.md
+    carries a real value in all four.
+
+    This is worst in exactly the repos with no inherited practices at all.
+    A brand-new team or individual set bootstrapped from
+    templates/practice-set-*/ ships a starter practice with `checked_by:
+    null`, `overrides: null` and `added: null`, so a new adopter's very
+    first practice takes these paths, and a migrated repo whose practices
+    are all locally authored takes them for every single one.
+
+    Found 2026-09-06, when the first freshly-minted practice landed in
+    practices/. `split_practices.py build` did not print the careful
+    "no source_practice_number" message its author wrote for exactly this
+    case -- it crashed on `int('null')` instead, and nine practices were
+    already in that state.
+
+    Null is dropped rather than stored as None deliberately: every caller
+    that supplies its own default keeps behaving identically, including
+    precedent_retire.py, whose `checked_by not in ('null', '')` would read
+    None as a real value."""
+    import tempfile
+    fresh = ('---\nslug:        fx-null\ntitle:       "Fixture"\n'
+             'tier:        on-demand\nseverity:    default\n'
+             'applies_to:  ["**"]\noccasion:    "x"\ngates:       []\n'
+             'index_clause: "x"\nchecked_by:  null\ndefines:     []\n'
+             'status:      active\nsupersedes:  []\noverrides:   null\n'
+             'added:       null\napproved_by: "A New Adopter"\n'
+             'source_practice_number: null\n---\n## Rule\nx\n\n'
+             '## Why\nx\n\n## Story\nx\n\n## Install\nx\n')
+    with tempfile.TemporaryDirectory() as td:
+        f = pathlib.Path(td) / 'fx-null.md'
+        f.write_text(fresh, encoding='utf-8')
+        fm, _sections = sp._read_practice_file(f)
+
+    nullable = ('checked_by', 'overrides', 'added', 'source_practice_number')
+    present = [k for k in nullable if k in fm]
+    check(f'a null frontmatter field is absent, so `k not in fm` and '
+          f'`fm.get(k) is None` both work ({len(nullable)} nullable fields)',
+          not present, f'still present: {present}')
+
+    # The defaults every caller relies on must be untouched by that.
+    check("a caller's own 'null' default still arrives as 'null', so "
+          "precedent_retire.py's `not in ('null', '')` keeps working",
+          fm.get('checked_by', 'null') == 'null'
+          and fm.get('overrides', 'null') == 'null')
+
+    # And a real value must still come through raw, quotes and all -- the
+    # convention every reader in this codebase is written against.
+    check('a non-null field is still returned as raw field text',
+          fm.get('title') == '"Fixture"' and fm.get('status') == 'active',
+          f'title={fm.get("title")!r} status={fm.get("status")!r}')
+
+    # ONE reader for both formats. They had their own copies until
+    # 2026-09-06 and had already drifted on exactly this: candidates
+    # decoded null to None, practices kept the string. Pinned by behaviour
+    # rather than by grepping for the import, so a re-forked copy that
+    # happens to agree today still has to keep agreeing.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_pc_cand', ROOT / 'tools' / 'precedent_candidate.py')
+    pcand = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pcand)
+    cand_fm, _body = pcand._parse_frontmatter(
+        '---\nslug: x\nproposed_checked_by: null\n---\nbody\n')
+    check('the candidate reader applies the same null policy as the '
+          'practice reader -- absent, not None, not the string',
+          'proposed_checked_by' not in cand_fm, str(cand_fm))
+    check('and it still decodes its own format: a quoted scalar and a list '
+          'come back as Python values',
+          pcand._parse_frontmatter(
+              '---\ntitle: "A, B"\nproposed_gates: ["merge", "push"]\n---\nx\n'
+          )[0] == {'title': 'A, B', 'proposed_gates': ['merge', 'push']})
+
+    # The end-to-end symptom, not just the parser: the command that broke.
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'split_practices.py'),
+                        'build'], capture_output=True, text=True, cwd=str(ROOT))
+    out = r.stdout + r.stderr
+    check('split_practices.py build reports unnumbered practices by name '
+          'instead of crashing on int(\'null\')',
+          'Traceback' not in out and 'no source_practice_number' in out,
+          out[-200:])
+
+
 def check_frontmatter_is_real_yaml():
     """The fence says YAML, so a real YAML parser has to accept it.
 
@@ -6059,6 +6312,9 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
+    check_source_shape_is_verified()
+    check_machine_readable_files_parse()
+    check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()

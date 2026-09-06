@@ -276,6 +276,22 @@ def load_blocklist():
         line = line.strip()
         if not line or line.startswith('#'):
             continue
+        # practice_audit.py's scrub reads the same file format and honours a
+        # leading `!` as a path exemption. This gate deliberately does NOT,
+        # and says so rather than compiling it: `!foo/` is a perfectly valid
+        # regex, so it would silently become a pattern matching a literal
+        # "!foo/" and nothing else -- a line the author believes is doing
+        # something, doing nothing. Refused rather than honoured because
+        # exempting a path from a LEAK scan is how a leak gets out: the
+        # scrub audits a vendored tree that is already public, this gate
+        # stands between a private term and publication.
+        if line.startswith('!'):
+            sys.exit(f"leak gate FAIL: {path}:{i} starts with '!'. Path "
+                     f"exemptions are a practice_audit.py scrub feature and "
+                     f"are deliberately NOT honoured here -- exempting a path "
+                     f"from a leak scan is how a leak gets out. Remove the "
+                     f"line, or keep the two files separate if the scrub "
+                     f"genuinely needs the exemption.")
         try:
             pats.append(re.compile(line, re.I))
         except re.error as e:

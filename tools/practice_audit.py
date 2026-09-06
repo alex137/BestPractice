@@ -66,7 +66,7 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 def load_blocklist(path):
-    """-> (patterns_or_None, reason). `path is None` is an explicit opt-out
+    """-> ((patterns, exempt_prefixes) or None, reason). `path is None` is an explicit opt-out
     (`scrub_blocklist: null`) -- a deliberate choice, distinct from a
     configured path that simply doesn't exist on disk, which is a check
     that did not run, not a pass. Conflating the two (both used to return
@@ -78,19 +78,32 @@ def load_blocklist(path):
         return None, 'opt_out'
     if not path.exists():
         return None, 'missing'
-    pats = []
+    pats, exempt = [], []
     for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
         line = line.strip()
         if not line or line.startswith('#'):
+            continue
+        # A leading "!" exempts a path prefix instead of adding a pattern.
+        # Needed because a blocklist term can legitimately appear in the
+        # vendored tree's own writing ABOUT that term -- upstream's decision
+        # record explaining the leak-gate vocabulary quotes the very
+        # identifiers it explains, and that arrived FROM upstream rather
+        # than leaking TO it (2026-09-06, in a real consumer, where it was
+        # the last thing standing between the repo and a clean gate). The
+        # exemption sits in the blocklist because that is the one file a
+        # consuming repo owns and reviews for exactly this question.
+        if line.startswith('!'):
+            exempt.append(line[1:].strip())
             continue
         try:
             pats.append(re.compile(line))
         except re.error as e:
             print(f"WARN: blocklist line {i} is not a valid regex ({e}): {line}")
-    return pats, 'ok'
+    return (pats, tuple(exempt)), 'ok'
 
 def scrub(tree, blocklist_path, fails, label):
-    pats, reason = load_blocklist(blocklist_path)
+    loaded, reason = load_blocklist(blocklist_path)
+    pats, exempt = loaded if loaded else (None, ())
     if reason == 'missing':
         fails.append(f"SCRUB: [{label}] blocklist configured at "
                      f"{blocklist_path.relative_to(ROOT)} but the file does not "
@@ -106,6 +119,8 @@ def scrub(tree, blocklist_path, fails, label):
         if not path.is_file() or path.suffix.lower() not in TEXT_EXT:
             continue
         rel = path.relative_to(ROOT)
+        if any(str(rel).replace('\\', '/').startswith(e) for e in exempt):
+            continue
         for i, line in enumerate(path.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
             for pat in pats:
                 if pat.search(line):
@@ -113,7 +128,9 @@ def scrub(tree, blocklist_path, fails, label):
                     hits += 1
                     break
     if not hits:
-        print(f"scrub OK [{label}]: {tree.relative_to(ROOT)}/ clean against {len(pats)} blocklist pattern(s).")
+        extra = f", {len(exempt)} path exemption(s)" if exempt else ""
+        print(f"scrub OK [{label}]: {tree.relative_to(ROOT)}/ clean against "
+              f"{len(pats)} blocklist pattern(s){extra}.")
 
 def layout(fails, claimed):
     stray = [n for n in UPSTREAM_ONLY_DOCS if (ROOT / n).exists() and n not in claimed]
