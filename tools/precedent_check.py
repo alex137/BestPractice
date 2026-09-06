@@ -816,19 +816,7 @@ def _engine_plus_host_shims(ctx):
     # to OLDER content than that repo's own vendored tree, which is the
     # failure this rule is about), and stops firing on a manifest-recorded
     # engine.
-    # Segment at a time: the literal spelling `ROOT / 'tools' / '<name>'` is
-    # what vendored-engine-file-refs-resolve scans for, and this file is a
-    # consumer's, absent in the upstream repo itself -- spelling it out
-    # would be a false violation here on every run.
-    manifest = (ROOT / 'tools').joinpath('ENGINE_MANIFEST.json')
-    vendored_engine = set()
-    if manifest.is_file():
-        try:
-            m = json.loads(manifest.read_text(encoding='utf-8'))
-            vendored_engine = {f"tools/{n}" for n in m.get('files', [])}
-            vendored_engine.add('tools/ENGINE_MANIFEST.json')
-        except (json.JSONDecodeError, OSError, TypeError):
-            vendored_engine = set()
+    vendored_engine = _vendored_engine_files()
 
     RUN = 8
 
@@ -1772,6 +1760,20 @@ def _code_cites_practice(ctx):
             except sp.PracticeFileError:
                 continue
             known[fm['slug']] = fm.get('status')
+            # A slug some IN-FORCE practice declares it overrides is
+            # superseded, not missing. In a consuming repo a higher-precedence
+            # source can replace a universal practice under a different name
+            # -- precedent-team-maintainers' `rule-links` overrides the
+            # universal `doc-references-are-links` -- and the overridden slug
+            # then resolves to no file at all. The universal engine code that
+            # cites it is still correct about why it exists; the rule simply
+            # arrives under another name here. Reported as a typo or a
+            # deletion (2026-09-06, in a real four-source consumer) it is
+            # unfixable from the consuming repo: the citation is in vendored
+            # code, and the "missing" practice is deliberately absent.
+            ov = (fm.get('overrides') or 'null').strip().strip('"').strip("'")
+            if ov and ov != 'null':
+                known.setdefault(ov, fm.get('status'))
     out = []
     for f in sorted((ROOT / 'tools').glob('*.py')):
         if f.name in CODE_CITE_SKIP_FILES:
@@ -1822,6 +1824,29 @@ def _code_cites_practice(ctx):
 # collision. `_` and `-` count as name characters, so `pack_sync` no longer
 # matches inside `voice_pack_sync` while `personal-pack-sync` still matches
 # on its own.
+@functools.lru_cache(maxsize=None)
+def _vendored_engine_files():
+    """Paths tools/ENGINE_MANIFEST.json records as vendored engine code.
+
+    A consuming repo does not author these and cannot edit them: the next
+    `precedent_vendor_engine.py refresh` overwrites whatever it changed.
+    Reporting a finding inside one is unactionable -- 2026-09-06, seeding a
+    real consumer's engine through the sanctioned tool immediately produced
+    retired-vocabulary findings against the engine's own source code,
+    including the comment in this very file explaining the voice_pack_sync
+    collision.
+    """
+    manifest = (ROOT / 'tools').joinpath('ENGINE_MANIFEST.json')
+    if not manifest.is_file():
+        return frozenset()
+    try:
+        m = json.loads(manifest.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, OSError):
+        return frozenset()
+    names = m.get('files') or []
+    return frozenset([f'tools/{n}' for n in names] + ['tools/ENGINE_MANIFEST.json'])
+
+
 @functools.lru_cache(maxsize=None)
 def _retired_term_re(term):
     return re.compile(r'(?<![\w-])' + re.escape(term) + r'(?![\w-])')
@@ -1918,6 +1943,8 @@ def _migration_scrubs_vocabulary(ctx):
             if rel in RETIRED_VOCAB_SKIP_FILES:
                 continue
             if any(_exempt_matches(rel, e) for e in exempt_files):
+                continue
+            if rel in _vendored_engine_files():
                 continue
             try:
                 text = (ROOT / rel).read_text(encoding='utf-8')
