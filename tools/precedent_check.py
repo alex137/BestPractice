@@ -790,8 +790,54 @@ def _practice_is_reachable(ctx):
     # matches ordinary prose everywhere as a substring, and every one of those
     # would have counted as "reachable" -- the check would then under-report
     # exactly the practices whose names are common words.
-    named = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)+', instructions))
-    exempted, blocked_exemptions = [], []
+    # Slugs the loader ACTUALLY indexes, read from the two shapes the
+    # generated block uses -- an occasion-index line ("  slug — clause") and
+    # a resident entry ("**slug.** ..."). Matching bare words in prose
+    # instead was wrong both ways: it required a hyphen, so a single-word
+    # slug like `install` could never be found and was reported unreachable
+    # forever; and loosening the pattern to allow single words would have
+    # matched the ordinary English word "install" anywhere in the file and
+    # called the practice reachable when nothing indexed it.
+    named = set(re.findall(r'^\s+([a-z0-9][a-z0-9-]*) \u2014 ', instructions, re.M))
+    named |= set(re.findall(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', instructions, re.M))
+
+    # THE FIFTH CHANNEL, and why it is judged structurally rather than by
+    # looking for the file. In a repo declaring `visibility: public`, the
+    # tracked loader block deliberately omits the team and individual
+    # levels -- their text may not be committed -- and
+    # tools/precedent_session_practices.py renders exactly that complement
+    # into .precedent/SESSION_PRACTICES.md at session start, which
+    # AGENTS.md's standing instruction points at.
+    #
+    # Those practices ARE reachable, and this check said they were not,
+    # because _instructions_file() reads AGENTS.md and nothing else. Found
+    # 2026-09-06 by testing the claim rather than assuming it: a second
+    # session was weighing publishing private practice text against leaving
+    # 34 team rules unloaded, on the belief that the already-built untracked
+    # channel would not satisfy this check.
+    #
+    # Keyed off the MECHANISM being wired, not off the file existing: the
+    # file is untracked and regenerated per session, so it is absent in
+    # continuous integration and in every fresh clone. Testing for it would
+    # make this check report those practices unreachable in CI forever --
+    # the permanently-red-gate failure this module already refuses
+    # elsewhere. What is asserted is that the channel exists: the tool is
+    # present, the session-start hook invokes it, and the repo is public, so
+    # the tool carries exactly these levels.
+    session_channel_levels = ()
+    try:
+        import build_views as _bv
+        hook = ROOT / '.claude' / 'hooks' / 'session-start.sh'
+        wired = ((ROOT / 'tools' / 'precedent_session_practices.py').is_file()
+                 and hook.is_file()
+                 and 'precedent_session_practices' in hook.read_text(
+                     encoding='utf-8', errors='ignore'))
+        if wired and _bv.repo_is_public(ROOT):
+            session_channel_levels = _bv.PRIVATE_LEVELS
+    except Exception:                                        # noqa: BLE001
+        session_channel_levels = ()
+
+    exempted, blocked_exemptions, via_session = [], [], []
     for slug, (fm, s) in sorted(in_force.items()):
         if slug in not_binding:
             # `severity: blocking` may not be exempted -- the same rule the
@@ -805,6 +851,9 @@ def _practice_is_reachable(ctx):
             continue
         if slug in named:
             continue                       # resident block or occasion index
+        if s['level'] in session_channel_levels:
+            via_session.append(slug)       # .precedent/SESSION_PRACTICES.md
+            continue
         if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
             continue                       # fires at a named moment
         cb = (fm.get('checked_by') or 'null').strip('" ')
@@ -817,6 +866,27 @@ def _practice_is_reachable(ctx):
     if not in_force:
         raise NotApplicable('no practice resolved from any declared source, '
                             'so there is nothing to judge reachability for')
+
+    # A repo that declares `visibility: public` deliberately keeps
+    # individual-level practices OUT of its tracked loader block, because
+    # publishing that block would publish somebody's private set (see
+    # build_views.loader_practices). Those are excluded BY DESIGN, so
+    # reporting them as gaps every run is how an advisory becomes wallpaper:
+    # nine permanent findings nobody can act on would bury the real ones.
+    # Counted and named, never listed as findings.
+    public = False
+    try:
+        public = json.loads((ROOT / 'precedent.json').read_text(
+            encoding='utf-8')).get('visibility') == 'public'
+    except (ValueError, OSError):
+        pass
+    by_design = [u for u in unreachable if public and u[1] == 'individual']
+    unreachable = [u for u in unreachable if u not in by_design]
+    if by_design:
+        print(f'  ({len(by_design)} individual-level practice(s) are '
+              f'deliberately absent from this public repo\'s tracked block, '
+              f'so the block cannot publish them -- they still apply to the '
+              f'person, and reach a session through their own private repos)')
 
     out = []
     # A stale exemption is a real defect, not advisory noise: it names a
@@ -840,6 +910,11 @@ def _practice_is_reachable(ctx):
             f'-- a blocking practice is exactly the one a downstream repo may '
             f'not switch off. Remove the exemption, or take the matter up '
             f'with the source that set the severity.'))
+    if via_session:
+        print(f'  ({len(via_session)} practice(s) reach this session through '
+              f'.precedent/SESSION_PRACTICES.md, which carries the levels a '
+              f'public repo\'s tracked loader block may not: '
+              f'{", ".join(sorted(via_session))})')
     if exempted:
         print(f'  ({len(exempted)} practice(s) declared not-binding here, with '
               f'reasons, in precedent.json: {", ".join(sorted(exempted))})')

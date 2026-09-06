@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~312 of 2000 token budget, 6 of 65 practices)
+## Resident block (~312 of 2000 token budget, 6 of 66 practices (6 universal))
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -149,6 +149,8 @@ When naming a new file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
+When opening or merging a pull request in this repository:
+  merge-target-is-beta-branch — Alex approves only major main merges; precedent-beta-v01 is unrestricted
 When ordering sections in a document:
   section-order-by-frequency — order sections by how often the reader needs them
 When printing a numeric quantity that will be compared across rows:
@@ -205,7 +207,7 @@ When writing or triaging an open item:
 
 ## Standing instruction
 
-Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging a branch, reviewing work, before pushing, ending a turn and writing the reply — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those.
+Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging a branch, reviewing work, before pushing, ending a turn and writing the reply — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those. If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the practices in force from this repo's team, individual and repo-local sources, which are NOT in this block and bind work here exactly as these do. It is regenerated at session start and is deliberately untracked — never commit it or quote it into a pull request.
 
 <!-- END GENERATED -->
 

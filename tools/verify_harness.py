@@ -2775,6 +2775,196 @@ def check_default_blocklist_runs_the_vocabulary_layer():
           not bad, '; '.join(bad))
 
 
+def check_session_practices_load_without_publishing():
+    """The team and individual practices reach a session here, and cannot
+    reach a commit.
+
+    THE PROBLEM (spec/PRELAUNCH_AUDIT.md, 2026-09-06). precedent.json
+    declares more sources than the committed AGENTS.md carries, and 43 of
+    the 114 practices in force reached no loading channel at all -- a
+    session was never shown the team's or the person's own rules while the
+    config said they bind the work.
+
+    WHY THE OBVIOUS FIX IS WRONG HERE. Rendering the resolved multi-source
+    set into AGENTS.md would publish private practice text, in a PUBLIC
+    repo, on the commit that added the feature. The constraint is on
+    COMMITTING that text, not on LOADING it -- so it is generated at session
+    start into .precedent/, which is gitignored.
+
+    The two properties that make that safe are asserted together here,
+    because either alone is worthless: the file must actually carry the
+    other sources' practices, AND it must be impossible to commit."""
+    import tempfile, shutil, json as _json
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_practices as psp
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-session-'))
+    try:
+        # A repo declaring universal (itself) + a team source.
+        repo = tmp / 'repo'
+        (repo / 'practices').mkdir(parents=True)
+        team = tmp / 'team' / 'practices'
+        team.mkdir(parents=True)
+        src = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
+
+        def mk(dest, slug, occasion):
+            x = re.sub(r'^slug:(\s+)\S+$', rf'slug:\g<1>{slug}', src, count=1, flags=re.M)
+            x = re.sub(r'^occasion:.*$', f'occasion:    {_json.dumps(occasion)}',
+                       x, count=1, flags=re.M)
+            (dest / f'{slug}.md').write_text(x, encoding='utf-8')
+
+        mk(repo / 'practices', 'universal-one', 'doing universal work')
+        mk(team, 'team-only-rule', 'committing work in this repo')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'visibility': 'public',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
+                        {'level': 'team', 'name': 'precedent-team-maintainers',
+                         'path': str(tmp / 'team')}]}), encoding='utf-8')
+
+        extra, levels, notes = psp.collect(str(repo))
+        slugs = {fm['slug'] for fm, _s, _f in extra}
+        cases.append(("a team source's practice IS collected for the session",
+                      'team-only-rule' in slugs))
+        cases.append(('...and the universal one is NOT duplicated -- it is already '
+                      'in the committed AGENTS.md, and repeating it would double '
+                      'every session\'s resident block',
+                      'universal-one' not in slugs))
+        cases.append(('the level is carried, so the block can say where a rule came from',
+                      levels.get('team-only-rule') == 'team'))
+
+        text = psp.render(extra, levels, notes)
+        cases.append(('the rendered block names the team practice',
+                      'team-only-rule' in text))
+        cases.append(('...and warns, in the file itself, never to commit it',
+                      'Never commit it' in text))
+
+        # An unreachable source is NAMED, not silently dropped.
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'visibility': 'public',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
+                        {'level': 'team', 'name': 'precedent-team-maintainers',
+                         'path': str(tmp / 'no-such-dir')}]}), encoding='utf-8')
+        _extra, _levels, notes2 = psp.collect(str(repo))
+        cases.append(('an unresolved source is NAMED in the output -- "unreachable" '
+                      'and "that source has no rules" must not look the same',
+                      any('precedent-team-maintainers' in n for n in notes2)))
+        cases.append(('...and the file still renders rather than failing',
+                      'did not resolve' in psp.render(_extra, _levels, notes2)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # THE SAFETY PROPERTY. Asserted against this repo's real .gitignore and
+    # real git, not against a fixture: the whole design rests on this file
+    # being uncommittable, and a fixture could pass while the real repo leaks.
+    r = subprocess.run(['git', '-C', str(ROOT), 'check-ignore',
+                        '.precedent/SESSION_PRACTICES.md'],
+                       capture_output=True, text=True)
+    cases.append(('.precedent/ is gitignored in THIS repo -- the private text '
+                  'cannot reach a commit, which is the only reason loading it '
+                  'here is safe at all', r.returncode == 0))
+    r = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '--error-unmatch',
+                        '.precedent/SESSION_PRACTICES.md'],
+                       capture_output=True, text=True)
+    cases.append(('...and no such file is tracked right now', r.returncode != 0))
+
+    # The pointer a session actually follows must be in the committed block.
+    agents = (ROOT / 'AGENTS.md').read_text(encoding='utf-8')
+    cases.append(('AGENTS.md tells a session the file exists -- a generated file '
+                  'nothing points at is one nobody reads',
+                  '.precedent/SESSION_PRACTICES.md' in agents))
+
+    # Never fatal: it runs from a session-start hook under `set -e`.
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_session_practices.py'),
+                        '--repo', str(tmp / 'gone')], capture_output=True, text=True)
+    cases.append(('it exits 0 even pointed at a directory that does not exist -- a '
+                  'session that fails to START because an optional practice file '
+                  'could not be written is far worse than one missing it',
+                  r.returncode == 0))
+
+    # THE INTEGRATION PROPERTY, and the one this nearly got wrong. The
+    # tracked loader block now renders every declared source EXCEPT the
+    # private levels in a public repo. So this file must carry exactly that
+    # complement -- no more (duplicating what the block already has) and no
+    # less (the gap reopening in silence). Both sides read
+    # build_views.PRIVATE_LEVELS and build_views.repo_is_public, and the
+    # pointer in the standing instruction is keyed off the same test: an
+    # earlier version keyed it off "was this rendered single-source", which
+    # stopped being true the moment a public repo rendered multi-source, and
+    # the pointer silently vanished from AGENTS.md.
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as _bv
+    cases.append(('this repo declares visibility: public, so its tracked block '
+                  'omits the private levels and something else must carry them',
+                  _bv.repo_is_public(ROOT)))
+    cases.append(('the levels this file carries are exactly the ones the block '
+                  'omits -- one definition, so the two cannot disagree about '
+                  'which practices a session is otherwise never shown',
+                  psp.__dict__.get('bv').PRIVATE_LEVELS is _bv.PRIVATE_LEVELS))
+    block_text = (ROOT / 'AGENTS.md').read_text(encoding='utf-8')
+    cases.append(('no private level appears in the committed block',
+                  '(team)' not in block_text.split('END GENERATED')[0]
+                  and '(individual)' not in block_text.split('END GENERATED')[0]))
+
+    # AND THE REACHABILITY CHECK MUST KNOW IT. Loading them is half the job:
+    # if `layered-practice-packs` still reports them unreachable, the gap
+    # reads as open, and the next session weighs publishing private text or
+    # leaving the rules unloaded against a channel that already exists.
+    # Found 2026-09-06 exactly that way -- by testing the claim, not
+    # assuming it.
+    import tempfile as _tf, shutil as _sh, json as _js
+    import precedent_check as _pc
+    fx = pathlib.Path(_tf.mkdtemp(prefix='precedent-fifth-'))
+    try:
+        repo = fx / 'repo'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'tools').mkdir(parents=True)
+        (repo / '.claude' / 'hooks').mkdir(parents=True)
+        tsrc = fx / 'team' / 'practices'
+        tsrc.mkdir(parents=True)
+        base = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
+        x = re.sub(r'^slug:(\s+)\S+$', r'slug:\g<1>team-unreachable', base, count=1, flags=re.M)
+        x = re.sub(r'^gates:.*$', 'gates:       []', x, count=1, flags=re.M)
+        x = re.sub(r'^checked_by:.*$', 'checked_by:  null', x, count=1, flags=re.M)
+        (tsrc / 'team-unreachable.md').write_text(x, encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('# nothing names it\n', encoding='utf-8')
+        (repo / 'precedent.json').write_text(_js.dumps({
+            'format_version': 1, 'visibility': 'public',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
+                        {'level': 'team', 'name': 'precedent-team-maintainers',
+                         'path': str(fx / 'team')}]}), encoding='utf-8')
+        _sh.copy(ROOT / 'tools' / 'precedent_session_practices.py', repo / 'tools')
+        hook = repo / '.claude' / 'hooks' / 'session-start.sh'
+
+        def findings():
+            saved = _pc.ROOT
+            _pc.ROOT = repo
+            try:
+                return len(_pc._practice_is_reachable(None) or [])
+            finally:
+                _pc.ROOT = saved
+
+        hook.write_text('#!/bin/bash\n# no loader here\n', encoding='utf-8')
+        cases.append(('with the session channel NOT wired, a private-level '
+                      'practice is still reported unreachable -- the channel is '
+                      'never assumed', findings() == 1))
+        hook.write_text('#!/bin/bash\npython3 tools/precedent_session_practices.py\n',
+                        encoding='utf-8')
+        cases.append(('...and once the hook invokes it, the same practice counts '
+                      'as reachable, so the gap stops reading as open',
+                      findings() == 0))
+        (repo / 'tools' / 'precedent_session_practices.py').unlink()
+        cases.append(('...and removing the tool reopens it, even with the hook '
+                      'still calling it -- both halves are required',
+                      findings() == 1))
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'the team and individual practices reach a session without reaching a '
+          f'commit ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_not_binding_cannot_be_abused():
     """A repo can say "in force at its source, does not bind here" -- and
     cannot use that to quietly switch a rule off.
@@ -3333,6 +3523,22 @@ def check_precedent_check_fires():
         def fresh(name):
             repo = tmp / name
             shutil.copytree(pristine, repo, symlinks=True)
+            # NO sibling sources are copied beside the fixture, deliberately.
+            # build_views.py went multi-source on 2026-09-06 and the first
+            # version of this fixture DID copy them, so that the regeneration
+            # case exercised the real path instead of a degraded one. That
+            # became wrong the same day, when the privacy guard widened: this
+            # repo declares `visibility: public`, so private-level sources are
+            # dropped from the block BEFORE resolution and their absence
+            # cannot make it unverifiable. Copying them back in only gave
+            # layered-practice-packs' baseline the real repo's 34 unreachable
+            # team practices to report -- an open architectural question (see
+            # TODO.md#unreachable-practices), not a defect a fixture planted,
+            # and it made every planted case below prove nothing. A fixture
+            # for a PRIVATE consumer's multi-source block would need them; the
+            # coverage for that lives in
+            # check_loader_block_covers_every_declared_source(), which runs
+            # against the real tree with its real sources.
             return repo
 
         def run(repo, slug, *extra):
@@ -6789,6 +6995,103 @@ def check_title_case_leaves_code_and_first_word_alone():
           f'alone ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_loader_block_covers_every_declared_source():
+    """The loader block renders every PUBLISHABLE source `precedent.json`
+    declares -- and never a private one in a public repo.
+
+    Measured here 2026-09-06, before the fix: 65 of 65 universal practices
+    reached this repo's block, 0 of 41 team, 0 of 11 individual. The config
+    declared all three, the resolver agreed, and the one artifact a session
+    actually reads listed only the first. A rule nothing can load is not in
+    force; it is filed. That is what the first half asserts, and it is the
+    whole rule in a private consumer repo -- which is every repo that
+    vendors this engine.
+
+    The second half is the privacy boundary, and it is the reason this is a
+    check rather than a setting somebody remembers.
+    `precedent_resolve.py` already refuses to let a shared repo DECLARE an
+    individual source, because naming it leaks its existence and location.
+    Rendering a private source's practices into a tracked, published file is
+    the same disclosure arriving by another route -- so a repo marked
+    `"visibility": "public"` must never carry team- or individual-level
+    content in its block, and a regression there publishes a private set
+    silently and permanently. This repo is that public case; see
+    decisions/2026-09-06-precedent-binds-itself.md section 2, which rejected
+    multi-source generated views here on exactly this ground.
+    """
+    import json as _json
+    config = ROOT / 'precedent.json'
+    if not config.is_file():
+        not_applicable('the loader block covers every declared source',
+                       'this repo declares no precedent.json')
+        return
+    try:
+        import precedent_resolve as pr
+        declared = pr.load_config(ROOT)
+        cfg = _json.loads(config.read_text(encoding='utf-8'))
+    except Exception as e:
+        not_applicable('the loader block covers every declared source',
+                       f'sources did not resolve here ({e}) -- not a pass')
+        return
+
+    agents = ROOT / 'AGENTS.md'
+    if not agents.is_file():
+        not_applicable('the loader block covers every declared source',
+                       'this repo has no AGENTS.md')
+        return
+    name = 'AGENTS.md'
+    instructions = agents.read_text(encoding='utf-8')
+    a, b = '<!-- BEGIN GENERATED', '<!-- END GENERATED'
+    if a not in instructions or b not in instructions:
+        not_applicable('the loader block covers every declared source',
+                       'AGENTS.md carries no generated loader block')
+        return
+    # Only the GENERATED block counts. A slug mentioned in hand-written prose
+    # is not the loader pointing a session at it.
+    block = instructions[instructions.index(a):instructions.index(b)]
+    # Slugs the loader ACTUALLY indexes, read from the two shapes the
+    # generated block uses -- an occasion-index line ("  slug — clause") and
+    # a resident entry ("**slug.** ..."). Matching bare words in prose
+    # instead was wrong both ways: it required a hyphen, so a single-word
+    # slug like `install` could never be found and was reported unreachable
+    # forever; and loosening the pattern to allow single words would have
+    # matched the ordinary English word "install" anywhere in the file and
+    # called the practice reachable when nothing indexed it.
+    named = set(re.findall(r'^\s+([a-z0-9][a-z0-9-]*) \u2014 ', block, re.M))
+    named |= set(re.findall(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', block, re.M))
+
+    public = cfg.get('visibility') == 'public'
+    missing, leaked = [], []
+    for s in declared:
+        d = pathlib.Path(s['path']) / 'practices'
+        if not d.is_dir():
+            continue                       # unreachable here; not evidence
+        active = []
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sec = sp._read_practice_file(f)
+            except Exception:
+                continue
+            if (fm.get('status') or 'active').strip('" ') == 'active':
+                active.append(fm.get('slug', f.stem))
+        if not active:
+            continue
+        present = [a for a in active if a in named]
+        if public and s['level'] in ('team', 'individual'):
+            leaked += present
+        elif not present:
+            missing.append(f"{s['level']}/{s['name']} ({len(active)} active "
+                           f"practices, none in {name})")
+
+    check('the loader block renders every publishable source '
+          'precedent.json declares', not missing, '; '.join(missing))
+    if public:
+        check('no private-source practice reaches a public repo\'s tracked '
+              'loader block',
+              not leaked,
+              f'{len(leaked)} leaked: {", ".join(sorted(leaked)[:6])}')
+
+
 def check_tools_answer_help_without_writing():
     """`--help` is safe and informative on every tool in tools/.
 
@@ -7927,6 +8230,7 @@ def main():
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
     check_default_blocklist_runs_the_vocabulary_layer()
+    check_session_practices_load_without_publishing()
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
     check_status_contract()
@@ -7960,6 +8264,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
     check_tools_answer_help_without_writing()
+    check_loader_block_covers_every_declared_source()
     check_title_case_leaves_code_and_first_word_alone()
     check_checkin_update_never_mutates_the_clone()
     check_rendered_docs_are_current()
