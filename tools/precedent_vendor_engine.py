@@ -670,7 +670,12 @@ def refresh(clone, force=False, ref=None):
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
           f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {manifest.get('source_commit', '?')[:12]})")
-    _warn_catalogue_skew(dest, new_commit)
+    # ROOT, not `dest`: refresh()'s local for the repo being refreshed is
+    # `dest_tools` (ROOT / 'tools'), and there has never been a `dest` here.
+    # Landed 2026-09-06 as a NameError that crashed EVERY refresh, after the
+    # files were already written and "refresh OK" already printed -- so the
+    # run looked half-successful and its exit code was the only tell.
+    _warn_catalogue_skew(ROOT, new_commit)
 
     # THE SECOND PASS, and why it is not optional. The file list for a kind
     # lives in THIS module, and a refresh runs the copy that is already
