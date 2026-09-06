@@ -4688,8 +4688,9 @@ def check_vendor_engine_consumer_case():
                       re.M)
         cases.append(("precedent_vendor_engine.py's SOURCE_BRANCH is readable, so this "
                       "fixture cannot drift from it", m is not None, ''))
+        source_branch = m.group(1) if m else 'precedent-beta-v01'
         subprocess.run(['git', '-C', str(upstream), 'update-ref',
-                        f'refs/heads/{m.group(1) if m else "precedent-beta-v01"}', 'HEAD'],
+                        f'refs/heads/{source_branch}', 'HEAD'],
                        capture_output=True, text=True)
         r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
                             'refresh', str(upstream)], capture_output=True, text=True)
@@ -4702,6 +4703,45 @@ def check_vendor_engine_consumer_case():
                       '(not a silent no-op), even when the upstream commit has not moved',
                       r.returncode == 0 and hand_edited.read_bytes() == original_bytes,
                       r.stdout + r.stderr))
+
+        # -- and again from a clone with NO origin/<SOURCE_BRANCH> ref at all,
+        # which is exactly what a GitHub Actions workspace yields: the runner
+        # checks out only the ref under test, so a clone taken from it has no
+        # remote-tracking branch for SOURCE_BRANCH. refresh() must fall back to
+        # the local branch of that name. Regression test for a real CI failure
+        # (2026-09-06): "precedent-beta-v01 @ origin/prece has no
+        # tools/build_views.py" -- plain `git rev-parse <missing-ref>` exits
+        # non-zero but ECHOES THE REF NAME on stdout, and _git() keeps stdout
+        # while discarding the exit code, so the `or <fallback>` never fired and
+        # the ref name was carried forward as if it were a commit hash. Forced
+        # here rather than left to the environment, so both resolution paths are
+        # covered wherever this runs.
+        subprocess.run(['git', '-C', str(upstream), 'update-ref', '-d',
+                        f'refs/remotes/origin/{source_branch}'],
+                       capture_output=True, text=True)
+        cases.append(('the throwaway clone really has no origin/<SOURCE_BRANCH> ref',
+                      subprocess.run(['git', '-C', str(upstream), 'rev-parse', '--verify',
+                                      '--quiet', f'origin/{source_branch}'],
+                                     capture_output=True, text=True).returncode != 0, ''))
+        # Assert on RESOLUTION, not on the file being rewritten: the first
+        # refresh above already replaced the consumer's own vendored
+        # precedent_vendor_engine.py with SOURCE_BRANCH's copy (the tool
+        # travels with the engine it defines, by design), so round two runs
+        # upstream's semantics, not this working tree's -- and upstream may
+        # legitimately short-circuit with "already current". What must hold
+        # either way is that SOURCE_BRANCH resolved to a real commit: the bug
+        # this guards produced a hard failure naming a truncated ref NAME
+        # where a hash belonged.
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                            'refresh', str(upstream), '--force'], capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        cases.append(('refresh() still resolves SOURCE_BRANCH from a clone with no '
+                      'origin/<SOURCE_BRANCH>, falling back to the local branch instead '
+                      'of carrying the ref NAME forward as a commit',
+                      r.returncode == 0
+                      and 'invalid object name' not in out
+                      and f'@ origin/{source_branch[:12]}' not in out,
+                      out))
 
         # -- the consumer's OWN vendored precedent_sync_views.py, run the way
         # a real consumer's AGENTS.md documents it (--repo .), resolves all

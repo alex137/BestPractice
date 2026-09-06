@@ -271,6 +271,24 @@ def _git(cwd, *args):
                           capture_output=True, text=True).stdout.strip()
 
 
+def _rev(repo_dir, ref):
+    """Resolve `ref` to a commit, or '' if it does not exist.
+
+    `--verify --quiet` matters: plain `git rev-parse <missing-ref>` exits
+    non-zero but ECHOES THE REF NAME on stdout, and _git() below returns
+    stdout while discarding the exit code. A caller doing
+    `_git(..., 'rev-parse', ref) or <fallback>` therefore gets the truthy
+    string 'origin/precedent-beta-v01' instead of falling back, and carries
+    that non-commit forward as if it were a hash. Caught in CI (2026-09-06):
+    a clone whose origin lacked SOURCE_BRANCH failed downstream with
+    "precedent-beta-v01 @ origin/prece has no tools/build_views.py" -- the
+    12-char truncation of the ref name being printed where a commit belonged.
+    """
+    r = subprocess.run(['git', '-C', str(repo_dir), 'rev-parse', '--verify',
+                        '--quiet', ref], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else ''
+
+
 def _head_commit(repo_dir):
     return _git(repo_dir, 'rev-parse', 'HEAD')
 
@@ -375,8 +393,11 @@ def _source_tools_at(clone, kind=DEFAULT_KIND):
     kind's list, and _write_engine_files() will look for every one of them
     in the directory returned here."""
     _git(clone, 'fetch', '--quiet', 'origin', SOURCE_BRANCH)
-    commit = (_git(clone, 'rev-parse', f'origin/{SOURCE_BRANCH}')
-              or _git(clone, 'rev-parse', SOURCE_BRANCH))
+    # origin/<branch> first, then a local branch of that name: a CI workspace
+    # carries only the ref under test, so a clone taken from it legitimately
+    # has no origin/<SOURCE_BRANCH> at all.
+    commit = (_rev(clone, f'origin/{SOURCE_BRANCH}')
+              or _rev(clone, SOURCE_BRANCH))
     if not commit:
         sys.exit(f"precedent_vendor_engine FAIL: {clone} has no {SOURCE_BRANCH} "
                  f"(neither origin/{SOURCE_BRANCH} nor a local branch of that name) "
