@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 64 practices)
+## Resident block (~312 of 2000 token budget, 6 of 65 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -84,7 +84,7 @@ the command — *"no unpushed commits on any branch"*, *"the gate passed"*,
 *"the file contains X"* — and then test that, independently of whatever the
 command printed.
 
-### Occasion index
+## Occasion index
 
 ```
 When a change here has implications for how an attached team, individual, or repo-local source should work:
@@ -109,6 +109,8 @@ When a review finds a defect:
   mistakes-become-rules — root-cause the miss, then encode the prevention
 When a tool warns about already-published git history:
   no-rewrite-for-warnings — fix the setting forward; never rewrite published history
+When adding or re-levelling a heading in any document:
+  heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
 When an install step adds something GitHub-specific:
   github-setup-disclosed — disclose GitHub-specific setup where the project's people read
 When building a mechanism that makes something discoverable or reachable:
@@ -201,7 +203,7 @@ When writing or triaging an open item:
   todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
 ```
 
-### Standing instruction
+## Standing instruction
 
 Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging, reviewing, pushing, ending a turn — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those.
 

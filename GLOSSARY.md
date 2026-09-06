@@ -19,4 +19,5 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
+| skipped heading level | [heading-outline](practices/heading-outline.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |

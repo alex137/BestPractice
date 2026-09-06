@@ -414,8 +414,19 @@ which is the failure this repointing exists to end — write
     deliberately covers `documentation/**/*.md` only, so practice files,
     specs and READMEs lost their same-rank check; (c) the *escape hatch*
     letting a repo document a different scheme inline, which the universal
-    rule deliberately does not offer. (a) is the one worth a decision: it
-    was mechanically checked and is now not checked at all.
+    rule deliberately does not offer. **All three are now settled
+    (2026-09-06).** (a) is rebuilt as its own universal practice,
+    [practices/heading-outline.md](practices/heading-outline.md), bound to
+    `**/*.md` with a mechanical check in
+    [tools/doc_lint.py](tools/doc_lint.py) and a gate in
+    [tools/precedent_check.py](tools/precedent_check.py) — wider than the
+    team rule it restores, since a broken outline is not a matter of
+    audience. (b) is not a loss but the intended design: Morgan confirmed
+    that capitalization governs outward-facing content only and that
+    internal working files are deliberately out of scope, and
+    [practices/headline-capitalization.md](practices/headline-capitalization.md)
+    now says so in its own first paragraph rather than leaving it to be
+    inferred. (c) stands as the deliberate tightening it was read as.
 
 27. **Done 2026-09-06 — the individual-source bootstrap hook is installed
     here, and this repo is now checked as a consumer of its own install

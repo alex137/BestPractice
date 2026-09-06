@@ -2784,6 +2784,15 @@ def check_precedent_check_fires():
         # orientation-map
         case('orientation-map', lambda repo: (repo / 'MAP.md').unlink())
 
+        # heading-outline -- a heading demoted two levels at once, so it has
+        # no parent. documentation/INSTALL.md is the plant because it is a
+        # short file whose only heading is its H1, so appending an h3 makes
+        # the skip unambiguous and cannot collide with other planted cases.
+        def _plant_outline(repo):
+            rewrite(repo, 'documentation/INSTALL.md',
+                    lambda t: t + '\n### An orphaned heading, two levels down\n')
+        case('heading-outline', _plant_outline)
+
         # headline-capitalization -- an outward-facing heading knocked back
         # into sentence case. "Learn More" is the plant because it is the one
         # heading every documentation/ file ends with, so this stays valid

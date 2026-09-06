@@ -17,6 +17,16 @@ approved_by: "Morgan"
 source_practice_number: null
 ---
 ## Rule
+**This rule governs content published for people outside the project, and
+nothing else.** Headings in internal working files — practice files,
+specs, briefs, `AGENTS.md`, `TODO.md`, this file — are out of scope on
+purpose, not by oversight: how a heading is *styled* matters where
+strangers read it and matters nowhere else, so sentence case in a spec is
+correct and is never to be "fixed". Stated by Morgan, 2026-09-06, settling
+it; `applies_to` and the check are scoped to match, and the counterpart
+rule for internal files is [heading-outline](heading-outline.md), which is
+about whether an outline is *broken* rather than how it looks.
+
 Every heading in an outward-facing document is written in **New York Times
 headline capitalization**, and the rule is applied by
 [tools/title_case.py](../tools/title_case.py) rather than by whoever is

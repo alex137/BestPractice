@@ -510,6 +510,44 @@ def iter_prose_lines(path):
         if not incode:
             yield i, line
 
+# NOT named HEADING_RE: line 189 already defines one, for anchor
+# resolution, and redefining it here silently broke every anchor check
+# in the harness the moment this was added (2026-09-06). A module-level
+# name is a shared namespace; the second definition simply wins.
+HEADING_LEVEL_RE = re.compile(r'^(#{1,6})\s+\S')
+
+
+def scan_heading_skips(path):
+    """[(lineno, from_level, to_level, text)] for every heading that jumps
+    more than one level deeper than the heading before it.
+
+    One detector, two callers -- this function and precedent_check.py's
+    `heading-outline` gate -- the same discipline scan_unglossed() follows,
+    for the same reason: the warning and the gate drifting apart is how a
+    check stops meaning anything.
+
+    WHAT THIS DELIBERATELY DOES NOT CHECK, measured rather than assumed.
+    "The first heading is an H1" is not a rule here: 80 of this repo's 153
+    tracked markdown files open at `##`, so it is not the convention and
+    encoding it would be inventing one. "Siblings share a rank" is not
+    mechanically decidable either -- a section legitimately nests deeper
+    than the one before it. What IS decidable, and is the whole defect
+    worth catching, is the skip: `##` followed by `####` has no `###` to
+    belong to, so the outline it renders is wrong in any table of contents
+    that reads it, and no reader can tell which level was meant."""
+    out = []
+    prev = None
+    for i, line in iter_prose_lines(path):
+        m = HEADING_LEVEL_RE.match(line)
+        if not m:
+            continue
+        level = len(m.group(1))
+        if prev is not None and level > prev + 1:
+            out.append((i, prev, level, line.strip()[:80]))
+        prev = level
+    return out
+
+
 def iter_prose_paragraphs(path):
     """Yield (start_lineno, paragraph_text) for each blank-line-delimited
     span of prose lines outside fenced code blocks. GFM strikethrough (a
@@ -771,6 +809,7 @@ def main():
     total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
     unsourced_lines, residue_lines, broken_link_lines = [], [], []
+    skip_lines = []
     for f in files:
         if not (ROOT / f).exists():
             continue
@@ -778,6 +817,9 @@ def main():
             residue_lines.append(f"  {f}:{i}: {why}")
         for i, target, why in check_broken_links(f):
             broken_link_lines.append(f"  {f}:{i}: -> {target}  ({why})")
+        for i, frm, to, txt in scan_heading_skips(f):
+            skip_lines.append(f"  {f}:{i}: h{frm} -> h{to} (no h{frm + 1} "
+                              f"between them): {txt}")
         s, u, g, t, nf = check_file(f, fix=fix, known=known)
         total_fixed += nf
         for i, txt in s:
@@ -822,6 +864,12 @@ def main():
         if total_targeted > 40:
             print(f"  … and {total_targeted - 40} more")
 
+    if skip_lines:
+        print(f"\nSKIPPED HEADING LEVELS — {len(skip_lines)} (FAIL; a heading "
+              "more than one level below the one before it has no parent, so the "
+              "outline it renders is wrong):")
+        print('\n'.join(skip_lines[:40]))
+
     if unsourced_lines:
         print(f"\nUNSOURCED QUANTITIES — {len(unsourced_lines)} in documents that "
               f"opted in with {GATE_MARKER} (FAIL; generate it, cite it, or mark "
@@ -829,10 +877,11 @@ def main():
         print('\n'.join(unsourced_lines[:40]))
 
     if (not strike_lines and not unlinked_lines and not unglossed_lines
-            and not target_lines and not unsourced_lines and not broken_link_lines):
+            and not target_lines and not unsourced_lines and not broken_link_lines
+            and not skip_lines):
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
               f"no broken relative links, no unlinked references, no unglossed "
-              f"acronyms, no target= anchors.")
+              f"acronyms, no target= anchors, no skipped heading levels.")
 
     # check 5: findability. Gate mode checks only documents in scope, so a new
     # analysis must be indexed; --all reports the legacy backlog.
@@ -873,9 +922,12 @@ def main():
 
     # gate: strikethrough always fails in scope; unsourced quantities fail only
     # in documents that explicitly opted in, so the legacy corpus never blocks;
-    # process residue (check 6) fails on any deliverable in scope.
+    # process residue (check 6) fails on any deliverable in scope. Skipped
+    # heading levels fail too: the whole tracked tree had exactly one when the
+    # check was written (in generated output, since fixed), so there is no
+    # legacy backlog to grandfather and nothing to soften this to a warning.
     if gate and (strike_lines or unsourced_lines or findability or residue_lines
-                 or broken_link_lines):
+                 or broken_link_lines or skip_lines):
         return 1
     return 0
 

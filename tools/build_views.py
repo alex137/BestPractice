@@ -258,18 +258,18 @@ def build_loader_block(practices, source_levels=None):
                                         for fm, _s in resident)
         count_detail += ' (' + ', '.join(f"{by_level[l]} {l}" for l in
                                           sorted(by_level) if by_level[l]) + ')'
-    lines.append(f"### Resident block (~{token_count} of {RESIDENT_BUDGET_TOKENS} token budget, "
+    lines.append(f"## Resident block (~{token_count} of {RESIDENT_BUDGET_TOKENS} token budget, "
                  f"{count_detail})")
     lines.append('')
     lines.append(resident_text)
     lines.append('')
-    lines.append("### Occasion index")
+    lines.append("## Occasion index")
     lines.append('')
     lines.append("```")
     lines.append(index_text)
     lines.append("```")
     lines.append('')
-    lines.append("### Standing instruction")
+    lines.append("## Standing instruction")
     lines.append('')
     lines.append("Before starting work of a kind named in the occasion index above, run "
                  "`python3 tools/precedent_show.py SLUG` for each listed slug to load its "

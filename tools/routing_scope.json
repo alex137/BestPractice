@@ -189,6 +189,13 @@
       "why": "The distinguishing condition is that the install step is GitHub-SPECIFIC, and the workflow files are exactly that. INSTALL.md and SETUP.md were in a first draft of this glob; they are where the fact must be DISCLOSED, not what makes the practice fire, and including them surfaced it on half the eval cases.",
       "decided": "phase 4 routing pass"
     },
+    "heading-outline": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Wide on purpose, and the counterpart to headline-capitalization's narrow glob. Whether an outline is BROKEN is not a matter of audience -- a skipped level misfiles a section in any renderer, in a spec or a practice file exactly as in a published page -- while how a heading is STYLED only matters where people outside the project read it. The two halves came out of one retired team rule that bound both to `**/*.md`; splitting the scopes is the point of splitting the slugs. Measured before it was set: the whole tracked tree had exactly one violation, in generated output, so the wide glob costs no backlog.",
+      "decided": "2026-09-06, when the practice was added"
+    },
     "headline-capitalization": {
       "globs": [
         "documentation/**/*.md"
