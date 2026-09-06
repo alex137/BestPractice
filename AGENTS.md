@@ -337,6 +337,17 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   `git branch --set-upstream-to=origin/<branch>`. Setting the remote URL to
   the canonical capitalization at the same time stops the misleading
   redirect notice.
+  **The refspec half of that repair now applies itself** — 2026-09-06,
+  [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh) here and
+  [templates/bootstrap.sh](templates/bootstrap.sh) for dependent repos both
+  widen `remote.origin.fetch` at session start when it carries no
+  `refs/heads/*` mapping, before the freshness block runs. It is local
+  config only, idempotent, and announced on stderr rather than done
+  silently. Verified against a real `--single-branch` clone: pushing a
+  feature branch from one left `git rev-list origin/feature..HEAD` unable
+  to resolve at all, and the repair plus one fetch made it answer `0`. The
+  clone-URL capitalization half is *not* automated — nothing local knows
+  the canonical spelling — so that stays a manual `git remote set-url`.
 
 - **A stale container is indistinguishable from missing work, and the
   freshness guard can be the thing that's lying.** On 2026-09-06 a session

@@ -251,7 +251,32 @@ def load_config(repo, user_config=None):
 
     user_cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
         os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
-    if not user_cfg_path.exists():
+    def _individual_entry():
+        """The declared individual source, or None -- and None means
+        'not usable from here', not merely 'the file is absent'.
+
+        The three ways a too-early hook leaves this broken are distinct
+        states on disk and used to be treated as one: no config file at
+        all, a config file the hook created before it could write an
+        `individual` entry, and an entry whose declared clone directory
+        the hook never managed to create. Only the first triggered the
+        self-heal, so a hook that got half-way through -- which is what a
+        hook killed part-way by a failing `git clone` actually leaves --
+        was reported as 'this person has no individual set' forever."""
+        if not user_cfg_path.exists():
+            return None, False
+        cfg = _read_json(user_cfg_path, 'the user config')
+        ind = cfg.get('individual')
+        if not ind or not ind.get('path'):
+            return None, False
+        path = pathlib.Path(ind['path']).expanduser()
+        entry = {'level': 'individual',
+                 'name': ind.get('name', 'precedent-individual'),
+                 'path': str(path)}
+        return entry, (path / 'practices').is_dir()
+
+    entry, usable = _individual_entry()
+    if not usable:
         # practice: session-bootstrap -- a hook that ran too early to have
         # this session's own `add_repo` access yet (guaranteed on a fresh
         # session, not just possible) looks identical, from here, to "this
@@ -259,13 +284,13 @@ def load_config(repo, user_config=None):
         # turn (and its add_repo call) has actually happened, before
         # reporting the latter.
         _self_heal_individual_source(repo_root)
-    if user_cfg_path.exists():
-        cfg = _read_json(user_cfg_path, 'the user config')
-        ind = cfg.get('individual')
-        if ind:
-            sources.append({'level': 'individual',
-                            'name': ind.get('name', 'precedent-individual'),
-                            'path': str(pathlib.Path(ind['path']).expanduser())})
+        entry, usable = _individual_entry()
+    # A DECLARED-but-unusable source is still appended: load_source() then
+    # reports the real reason ("<path> has no practices/ directory") instead
+    # of the source vanishing, which would be the same silence the self-heal
+    # exists to break. Only a person who declared nothing gets no entry.
+    if entry is not None:
+        sources.append(entry)
     sources.sort(key=lambda s: _precedence_rank(s['level']))
     return sources
 
@@ -603,4 +628,13 @@ def _explain(slug, res, sources):
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

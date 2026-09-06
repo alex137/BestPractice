@@ -178,6 +178,14 @@ COMMANDS = {
 
 
 def _parse_args(argv):
+    # `--help` is the first thing anyone types, and until 2026-09-06 every
+    # tool here answered it with "FAIL: expected --flag value pairs, stuck at
+    # '--help'" -- a hard error, on the exact command documentation/ tells a
+    # new reader to run. The module docstring is already the usage text; print
+    # it and exit 0.
+    if any(a in ('--help', '-h') for a in argv):
+        print((sys.modules['__main__'].__doc__ or __doc__ or '').strip())
+        raise SystemExit(0)
     if not argv or argv[0] not in COMMANDS:
         sys.exit(f"precedent_detect FAIL: first argument must be one of "
                   f"{sorted(COMMANDS)}, got {argv[0] if argv else None!r}")

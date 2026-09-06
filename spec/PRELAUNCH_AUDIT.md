@@ -339,12 +339,12 @@ run prompted on every single run.
    The team and individual slices are untouched — a session with those
    repos attached should take them next, one at a time, with the closed
    question the practice's own Rule names.
-9. **TODO.md item 11 still needs a live session**: whether
+9. **[TODO.md's `additionalcontext-reaches-the-model` item](../TODO.md#additionalcontext-reaches-the-model) still needs a live session**: whether
    `additionalContext` reaches the model or only the transcript. The test
    plan is written; it needs a real Claude Code session with the adapter
    installed. Now cheaper to run than it was: this repo installs the hook
    itself as of today, so the next session here is the test.
-10. **The design half of TODO.md item 7**: whether a consuming repo should
+10. **The design half of [TODO.md's `multiple-team-sources-disagree` item](../TODO.md#multiple-team-sources-disagree)**: whether a consuming repo should
    be able to express a preference between two team sources at all, rather
    than being told to rename one. The silent-failure half is closed; the
    design question is untouched, and a second team set now exists to test
@@ -406,3 +406,201 @@ so this session reported them rather than acting on them.
   back to the working tree and stamping `<sha>+dirty`; `refresh` takes
   `--from-ref` for fixtures. The remaining friction is inherent to the
   guarantee and is cheaper than weakening it.
+
+## Second pass, 2026-09-06 — the deferred list, worked
+
+The first pass closed what a real install, a real migration and a real
+two-team resolve broke, and left a list of what it had not reached. This
+section is that list worked through, item by item. Everything below was
+reproduced before it was fixed, and each fix has a negative control run
+against the code as it stood.
+
+### The tool surface answered `--help` three different wrong ways, and one of them destroyed files
+
+Running `--help` across every script in [tools/](../tools/) — the first
+thing any reader of [documentation/HOW_TO_USE_THIS_TECHNICAL.md](../documentation/HOW_TO_USE_THIS_TECHNICAL.md)
+types, since that guide points a public audience straight at these
+commands — produced three failure shapes and no successes:
+
+- a hard `FAIL: unknown option '--help'` (the seven creation-pipeline
+  tools, plus `precedent_show`, `precedent_paths`, `precedent_gate`,
+  `leak_gate`, `routing_audit`, `precedent_sync_views`, `precedent_resolve`,
+  `precedent_simulate`);
+- a silent fall-through that **ran the whole audit** as though nothing had
+  been asked (`precedent_check`, `doc_lint`, `verify_harness`,
+  `catalogue_stats`, `full_practice_audit`, `very_deep_check`,
+  `parse_check`);
+- the docstring printed with a non-zero exit (`checkin`,
+  `precedent_vendor_engine`), and one bare traceback (`doc_html`, which
+  read the flag as a document path).
+
+**And [tools/resplit_sections.py](../tools/resplit_sections.py) answered by
+rewriting 46 tracked practice files.** Its default action was to WRITE:
+any argument it did not recognise fell through to the write branch, so
+`--help` silently reverted every edit made to `practices/*.md` since the
+phase-1.5 editorial split — slug links back to numeric citations, later
+Story paragraphs gone — with no confirmation and no diff. The damage
+surfaced two steps later as an apparently unrelated `doc_sync` DRIFT, which
+is exactly how a destructive default hides. A spent one-shot migration tool
+sitting in `tools/` must have its safe mode be the one you get by accident.
+
+Fixed: every tool answers `--help` with its module docstring and exit 0;
+`resplit_sections` writes only on an explicit `--write`, refuses an
+unrecognised argument outright, and states in every mode that it is spent
+and that its `--check` reporting drift is the expected condition, not a
+gate to turn green. `check_tools_answer_help_without_writing` in
+[tools/verify_harness.py](../tools/verify_harness.py) now asserts all three
+properties — answered, non-empty, and writes nothing — against a throwaway
+copy of the tracked tree, because a check for "does this tool clobber the
+repo" must not be able to clobber the repo while finding out. Its negative
+control, the pre-fix `resplit_sections` default restored, reports the 46
+files and leaves the real tree untouched.
+
+### Seven tools crashed instead of degrading
+
+Sweeping every tool against a directory that is a git repository with no
+commits and none of the repo's own files — the shape of a partial vendor,
+and of a consumer that has not instantiated its templates yet — produced
+seven raw tracebacks. Three are in **vendored engine files**, so they reach
+consuming repos: [precedent_gate.py](../tools/precedent_gate.py) on a
+missing `routing_scope.json`, [build_views.py](../tools/build_views.py) on
+an `AGENTS.md` not yet instantiated, and
+[doc_sync.py](../tools/doc_sync.py) on a `PAIRS` entry whose document was
+renamed away. The other four are this repo's own
+(`behavioral_replay`, `doc_html`, `resplit_sections`, and a second
+`doc_sync` site). Each now exits with a message naming the missing thing
+*and the remedy*; `behavioral_replay` folds "no commits at all" into the
+DEGRADED path it already had for a shallow clone, which is the same fact
+further along the same axis.
+
+### `doc_sync`'s restatement scan failed open
+
+[tools/doc_sync.py](../tools/doc_sync.py)'s `owned_figures()` caught every
+exception from importing the script it reads and returned `[]` — making a
+crashing emitter indistinguishable from a deliberate opt-out, so the
+restatement scan examined nothing and the gate printed green. That is this
+repository's own recurring failure shape, an empty result reading as
+"clean" rather than as "could not check". An import failure now fails the
+gate with the traceback attached to the document it could not scan.
+
+### Half-bootstrapped individual sources were reported as "no individual set"
+
+[tools/precedent_resolve.py](../tools/precedent_resolve.py)'s self-heal
+fired only when the user config file was entirely absent. A hook killed
+part-way — which is what a failing `git clone` actually leaves — produces
+two other states: a config with no `individual` entry, and an entry whose
+declared clone directory was never created. Both read as "this person has
+no individual set", permanently. All three now trigger the one self-heal
+attempt, and a source that is *declared* but still unusable afterwards is
+kept in the list so `load_source()` reports the real reason, rather than
+vanishing into the same silence.
+
+### The single-branch clone repair now applies itself
+
+The refspec half of the `add_repo` workaround
+([AGENTS.md](../AGENTS.md)'s gotchas) is no longer a manual recipe:
+[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh) and
+[templates/bootstrap.sh](../templates/bootstrap.sh) widen
+`remote.origin.fetch` at session start when it carries no `refs/heads/*`
+mapping, before the freshness block runs. Verified against a real
+`--single-branch` clone: pushing a feature branch from one left
+`git rev-list origin/feature..HEAD` unable to resolve at all, and the
+repair plus one fetch made it answer `0`. The clone-URL capitalization half
+stays manual — nothing local knows the canonical spelling.
+
+### Both install paths, re-walked end to end
+
+`INSTALL.md` §0 (loader) and §1 (classic vendoring) were both walked
+against the current engine, not read. §0: vendor the catalogue, seed the
+engine with `precedent_vendor_engine.py seed --kind consumer`, declare
+sources, instantiate the templates, sync — the deep check on the result
+comes back **15 passed, 0 violated**, matching what the section claims. §1:
+vendor into `process/upstream/`, instantiate, write the manifest, scrub
+blocklist, `practice_audit.py --update-baseline` then a bare run — **OK, 0
+pending export, 0 warnings**, and `checkin.py fresh` correctly reports
+upstream movement now that it compares full hashes rather than a short hash
+against a long one. §1 step 1 now says to skip [evals/](../evals/), which
+is 557 of the 784 files a consumer was vendoring and which nothing a
+consumer runs reads.
+
+### Every source-supplied check, read
+
+Sixteen check scripts across three sources (nine team, six individual, one
+repo-local). Asked of each: what it scans, whether its findings can be
+acted on where it runs, and whether it has a two-direction test.
+
+- **Fourteen of sixteen crashed when the practice file they quote is
+  absent.** All fourteen shared a byte-identical `rule_text()` whose
+  `read_text` was unguarded, so the violation was correctly detected,
+  correctly printed, and then buried under a `FileNotFoundError` raised
+  from inside the violation *printer*. A materialized check runs in
+  whatever repo its source was resolved into, where the practice file is
+  not guaranteed to be present. Fixed in both private sets; both test
+  suites still pass.
+- **The one check with no test now has one.**
+  `check_merge_target_is_beta_branch.py` (repo-local) gained a
+  four-direction test: fires when `origin/precedent-beta-v01` is an
+  ancestor of `origin/main`, stays clean when they have diverged, exits 2
+  (SKIPPED) when either ref is missing, and is clean on the real repo.
+  Fixtures rather than the real tree, since direction 1 asserts a condition
+  that must never be true here.
+- **The team's nine checks do not run in this repo, and that is a real
+  gap, not a bug.** `precedent.json` declares
+  `precedent-team-maintainers` as an in-force team source, but
+  `register_materialized_checks()` can only reach scripts that were
+  materialized into `tools/checks/` — and Precedent never materializes,
+  because `build_views.py` deliberately stays single-source here. Run by
+  hand against this tree, six of the nine report violations, and reading
+  them is what settles whether wiring them in would be an improvement:
+  `no-stale-counts` fires on every historical figure inside a dated plan or
+  eval record; `private-repo-scrub` fires on universal practices naming the
+  private repos that are their own reference implementations;
+  `session-trailer` fires on the entire commit history, which
+  `no-rewrite-for-warnings` forbids ever fixing. Those findings are not
+  actionable here, and a check whose findings cannot be acted on where it
+  runs is the shape this project already refuses. `header-caps` and
+  `light-check` do produce real, actionable findings about this repo's own
+  documents — recorded here rather than swept, since acting on them is an
+  editorial pass, not a mechanical one.
+
+### The judgment-only sweep, partially done
+
+[TODO.md's `sweep-judgment-only-practices` item](../TODO.md#sweep-judgment-only-practices)
+is a 52-practice sweep the item itself frames as bounded only by session
+budget. This pass took the slice with mechanically testable cores rather
+than stopping at the first practice and running out:
+
+- **`fail-gracefully`** — swept properly, seven real fixes (above).
+- **`durable-list-anchors`** — a real violation, fixed. `TODO.md`'s
+  twenty-two items were cited from three other documents as "item N" while
+  carrying no anchors, so any insertion or strike-through silently
+  repointed every citation. All twenty-two now carry `<a id="...">` slugs,
+  the four number-based citations are repointed, and the file states the
+  convention at the top.
+- **`branch-links`, `rule-links`, `blank-blocklist`, `install`,
+  `quiet-checks`, `registry-source-of-truth`** — checked, clean. The
+  bare `` `main` `` mentions in the team set's `default-branch.md` are the
+  branch *name* in a rule about any repo, not a branch on a host that
+  could be linked.
+- **The remaining ≈45** are untouched. Most are moment-of-work practices
+  (`quote-discipline`, `verify-decomposition`, `name-both-sides-of-ledger`)
+  with no standing repo state to sweep, or editorial ones
+  (`trim-prose`, `proportional-emphasis`, `list-item-parity`) that need a
+  reader rather than a script.
+
+### The committed HTML render was stale, and nothing checked it
+
+Found by accident, which is the point: the tools-that-write sweep ran
+[tools/doc_html.py](../tools/doc_html.py) bare, and the regenerated
+[spec/PREFORK_AUDIT.html](PREFORK_AUDIT.html) came back with a whole
+paragraph the source had gained and the render had never been rebuilt for.
+`generated-artifact-provenance` holds that property for the generated
+*views* (`MAP.md`, `GLOSSARY.md`, `AGENTS.md`'s block) and does not reach
+the rendered ones. A stale render is the worse artifact of the two: it
+looks current, it is linked as the readable view of the document, and it
+disagrees with it silently. `check_rendered_docs_are_current` in
+[tools/verify_harness.py](../tools/verify_harness.py) now rebuilds every
+document in `doc_html.py`'s own registry into a scratch directory and
+compares, ignoring only the build stamp, which is the one line that
+legitimately differs every run. Its negative control is the render as it
+was committed before this pass: reported stale.

@@ -560,6 +560,14 @@ def drift(sources, res, out_dir):
 
 
 def _parse_args(argv):
+    # `--help` is the first thing anyone types, and until 2026-09-06 every
+    # tool here answered it with "FAIL: expected --flag value pairs, stuck at
+    # '--help'" -- a hard error, on the exact command documentation/ tells a
+    # new reader to run. The module docstring is already the usage text; print
+    # it and exit 0.
+    if any(a in ('--help', '-h') for a in argv):
+        print((sys.modules['__main__'].__doc__ or __doc__ or '').strip())
+        raise SystemExit(0)
     args = {}
     i = 0
     while i < len(argv):

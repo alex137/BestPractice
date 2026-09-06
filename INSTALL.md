@@ -67,6 +67,14 @@ it applies.
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
    upstream commit hash you copied from (used by updates, step 2).
+   **Skip [evals/](evals/)** — it is Precedent's own routing-quality
+   measurement corpus, 557 of the 784 files a consumer was otherwise
+   vendoring and ≈2.5 MB, and nothing a consumer runs reads any of it.
+   [tools/checkin.py](tools/checkin.py) excludes the same directory from
+   its drift comparison, so an install that skips it is not reported as
+   having drifted, and an existing install that already carries a copy is
+   not either — deleting that stale copy is a re-vendor, not something the
+   tooling reaches in and does.
 2. **Instantiate the templates** (adaptive — rewrite with the repo's actual
    subject matter, don't copy verbatim):
    - `templates/AGENTS.md.template` → `AGENTS.md` at the repo root: the

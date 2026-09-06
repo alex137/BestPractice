@@ -95,12 +95,26 @@ def strip_fenced_code(text):
     return "\n".join(out)
 
 
+class OwnedFiguresUnavailable(Exception):
+    """A script's owned_figures() could not be read -- never a silent pass."""
+
+
 def owned_figures(script):
     """Figures a script declares it owns, as (label, [rendered forms]).
 
     A script opts in by defining owned_figures() returning that shape. Scripts
     that do not are simply not checked -- instrumentation is per-script and
     deliberate.
+
+    A script that fails to IMPORT is a different thing entirely, and used to be
+    indistinguishable from one that opted out: the bare `except Exception:
+    return []` here made a crashing emitter look exactly like a deliberate
+    opt-out, so the restatement scan silently examined nothing and the gate
+    printed green. That is this repo's own recurring failure -- an empty result
+    reading as "clean" rather than as "could not check" (see AGENTS.md's
+    gotchas, where the same shape bit a scope:'tree' check and three inherited
+    audits). An import failure now raises, and the caller fails the gate with
+    the traceback.
     """
     path = ROOT / script
     spec = importlib.util.spec_from_file_location(f"_of_{Path(script).stem}", path)
@@ -109,13 +123,21 @@ def owned_figures(script):
     real, sys.stdout = sys.stdout, io.StringIO()
     try:
         spec.loader.exec_module(mod)
-    except Exception:
-        return []
+    except Exception as e:
+        raise OwnedFiguresUnavailable(
+            f"{script} could not be imported to read owned_figures(): "
+            f"{type(e).__name__}: {e}") from e
     finally:
         sys.stdout = real
         sys.path.pop(0)
     fn = getattr(mod, "owned_figures", None)
-    return fn() if callable(fn) else []
+    if not callable(fn):
+        return []
+    try:
+        return list(fn())
+    except Exception as e:
+        raise OwnedFiguresUnavailable(
+            f"{script}.owned_figures() raised: {type(e).__name__}: {e}") from e
 
 
 def block_re(name):
@@ -149,6 +171,16 @@ def main():
     fail = False
     for doc, name, script in PAIRS:
         path = ROOT / doc
+        # Graceful degradation, not a crash: PAIRS is hand-maintained, and a
+        # document renamed or deleted without updating it leaves an entry
+        # pointing at nothing. A bare FileNotFoundError here names a path
+        # and no remedy; this names the registry that has to change.
+        if not path.is_file():
+            print(f"[doc_sync] FAIL  {doc}: registered in PAIRS but no such "
+                  f"file -- the document was renamed or deleted; update "
+                  f"PAIRS in tools/doc_sync.py (or restore the file)")
+            fail = True
+            continue
         text = path.read_text()
         m = block_re(name).search(text)
         if not m:
@@ -178,6 +210,12 @@ def main():
     # which code produced the numbers.
     docs = {}
     for doc, name, script in PAIRS:
+        # Graceful degradation, not a crash: a PAIRS entry pointing at a file that
+        # no longer exists was already reported once, above; carrying it into
+        # the footer and restatement passes only turns that one clear finding
+        # into a bare FileNotFoundError two loops later.
+        if not (ROOT / doc).is_file():
+            continue
         docs.setdefault(doc, set()).add(Path(script).name)
     for doc, scripts in docs.items():
         text = (ROOT / doc).read_text()
@@ -206,7 +244,14 @@ def main():
         text = (ROOT / doc).read_text()
         outside = re.sub(r"<!--gen:.*?<!--/gen:[\w-]+-->", "", text, flags=re.S)
         for script in sorted({s for d, n, s in PAIRS if d == doc}):
-            for label, forms in owned_figures(script):
+            try:
+                declared = owned_figures(script)
+            except OwnedFiguresUnavailable as e:
+                print(f"[doc_sync] FAIL  {doc}: {e} — the restatement scan for "
+                      "this document examined nothing, which is not a pass")
+                fail = True
+                continue
+            for label, forms in declared:
                 for form in forms:
                     rx = re.compile(r"(?<![\w.])" + re.escape(form) + r"(?![/\w])")
                     for line in outside.splitlines():

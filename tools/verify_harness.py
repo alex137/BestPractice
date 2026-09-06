@@ -5375,6 +5375,165 @@ def check_source_shape_is_verified():
           f'({len(cases)} stated cases)', not bad)
 
 
+def check_rendered_docs_are_current():
+    """Every committed HTML render still matches its markdown source.
+
+    tools/doc_html.py writes a .html beside each document in its own DOCS
+    registry, and nothing checked that the committed render was still the
+    one that source produces. It was not: on 2026-09-06 an accidental bare
+    run of the tool -- during the sweep for tools that write when they
+    should not -- regenerated spec/PREFORK_AUDIT.html and picked up a whole
+    paragraph the source had gained and the render had never been rebuilt
+    for. A stale render is worse than no render: it is a page that looks
+    current, is linked as the readable view of the document, and disagrees
+    with it silently.
+
+    generated-artifact-provenance already holds this property for the
+    generated VIEWS (MAP.md, GLOSSARY.md, AGENTS.md's block); this is the
+    same property for the rendered ones, which that check does not reach.
+
+    The build stamp is excluded from the comparison: it is the one line
+    that legitimately differs on every run, so comparing it would make this
+    fail constantly and mean nothing.
+    """
+    import importlib.util, re as _re, tempfile, shutil
+    spec = importlib.util.spec_from_file_location(
+        '_doc_html', ROOT / 'tools' / 'doc_html.py')
+    try:
+        dh = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(dh)
+    except Exception as e:
+        not_applicable('rendered documents are current',
+                       f'tools/doc_html.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+    if not getattr(dh, 'DOCS', None):
+        not_applicable('rendered documents are current',
+                       'doc_html.py registers no documents, so there is '
+                       'no render to compare')
+        return
+
+    STAMP = _re.compile(r'<div class="renderstamp">[^<]*</div>')
+    stale, missing = [], []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-check-'))
+    try:
+        for rel, title in dh.DOCS:
+            src = ROOT / rel
+            committed = src.with_suffix('.html')
+            if not src.is_file():
+                missing.append(f'{rel} (source missing)')
+                continue
+            if not committed.is_file():
+                missing.append(str(committed.relative_to(ROOT)))
+                continue
+            out = tmp / (pathlib.Path(rel).stem + '.html')
+            dh.render(src, out, title)
+            a = STAMP.sub('', committed.read_text(encoding='utf-8'))
+            b = STAMP.sub('', out.read_text(encoding='utf-8'))
+            if a != b:
+                stale.append(str(committed.relative_to(ROOT)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    check(f'every registered document\'s HTML render is current '
+          f'({len(dh.DOCS)} registered)',
+          not stale and not missing,
+          '; '.join(
+              ([f'stale: {", ".join(stale)}'] if stale else [])
+              + ([f'missing: {", ".join(missing)}'] if missing else [])))
+
+
+def check_tools_answer_help_without_writing():
+    """`--help` is safe and informative on every tool in tools/.
+
+    Two properties, both learned the hard way on 2026-09-06 by a sweep that
+    simply ran `--help` across every script here to see what came back:
+
+    * **It is answered, with exit 0.** The tools split three ways before that
+      sweep -- a hard `FAIL: unknown option '--help'`, a silent fall-through
+      that ran the whole audit as though nothing had been asked, or the
+      docstring printed with a non-zero exit. `--help` is the first thing any
+      reader types, and documentation/HOW_TO_USE_THIS_TECHNICAL.md points a
+      public audience straight at these commands.
+
+    * **It writes nothing.** tools/resplit_sections.py defaulted to WRITING:
+      any argument it did not recognise, `--help` included, fell through to
+      the write branch and silently rewrote 46 tracked practice files,
+      reverting every edit made to them since phase 1.5 -- no confirmation,
+      no diff, and the damage surfaced two steps later as an unrelated
+      doc_sync DRIFT that looked like a numbers problem. A destructive
+      DEFAULT on a spent migration tool is the dangerous shape: the safe mode
+      has to be the one you get by accident.
+
+    Run against a throwaway copy of the tracked tree, never against the real
+    one -- a check for "does this tool clobber the repo" must not be able to
+    clobber the repo while finding out.
+    """
+    import hashlib, shutil, tempfile
+    tools = sorted((ROOT / 'tools').glob('*.py'))
+    tracked = subprocess.run(['git', 'ls-files'], cwd=str(ROOT),
+                             capture_output=True, text=True)
+    if tracked.returncode != 0 or not tracked.stdout.strip():
+        not_applicable('tools answer --help without writing',
+                       'git ls-files returned nothing here, so there is no '
+                       'tracked tree to copy and compare -- not a pass')
+        return
+
+    files = [f for f in tracked.stdout.splitlines() if f]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='help-sweep-'))
+    try:
+        for rel in files:
+            src = ROOT / rel
+            if not src.is_file():
+                continue
+            dst = tmp / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+
+        def snapshot():
+            out = {}
+            for rel in files:
+                f = tmp / rel
+                if f.is_file():
+                    out[rel] = hashlib.sha256(f.read_bytes()).hexdigest()
+            return out
+
+        before = snapshot()
+        # A module with no `if __name__ == '__main__'` block is a library
+        # (tools/table_fmt.py is one): it is imported, never invoked, so
+        # "answer --help" is not a property it can have. Named here rather
+        # than quietly dropped, so the exemption stays visible.
+        libraries = [t for t in tools
+                     if "__main__" not in t.read_text(encoding='utf-8')]
+        tools = [t for t in tools if t not in libraries]
+        bad_exit, silent = [], []
+        for tool in tools:
+            r = subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
+                                '--help'],
+                               cwd=str(tmp), capture_output=True, text=True,
+                               timeout=120)
+            if r.returncode != 0:
+                bad_exit.append(f'{tool.name} exited {r.returncode}')
+            elif not r.stdout.strip():
+                silent.append(tool.name)
+        after = snapshot()
+        wrote = sorted(set(before) & set(after)
+                       - {k for k in before if before[k] == after.get(k)})
+        wrote += sorted(set(after) - set(before))
+
+        check(f'every tool answers --help with exit 0 ({len(tools)} tools; '
+              f'{len(libraries)} import-only module(s) exempt: '
+              f'{", ".join(t.name for t in libraries) or "none"})',
+              not bad_exit, '; '.join(bad_exit))
+        check('every tool\'s --help actually prints something',
+              not silent, ', '.join(silent))
+        check('no tool writes to the tree when asked for --help',
+              not wrote,
+              f'{len(wrote)} file(s) changed: ' + ', '.join(wrote[:8]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_machine_readable_files_parse():
     """Every JSON and YAML file this change TOUCHED still parses.
 
@@ -6321,10 +6480,21 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
+    check_tools_answer_help_without_writing()
+    check_rendered_docs_are_current()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

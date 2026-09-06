@@ -1345,6 +1345,14 @@ def _wire_note_backlinks(body):
 def render(src, out_path, title):
     """Render one markdown document to its sortable-table HTML product."""
     src, out_path = Path(src), Path(out_path)
+    # Graceful degradation, not a crash: DOCS is a hand-maintained registry, and a
+    # document renamed out from under it (or a path typed on the command
+    # line) used to surface as a bare FileNotFoundError naming a path and
+    # no remedy.
+    if not src.is_file():
+        sys.exit(f"doc_html FAIL: no such document: {src}. If it was renamed "
+                 f"or removed, update the DOCS registry in tools/doc_html.py; "
+                 f"`--list` prints what is registered.")
     md_text = expand_includes(src.read_text(encoding="utf-8"), src.parent)
     body = markdown.markdown(md_text, extensions=["tables"])
     body = rewrite_links(body, src.parent)
@@ -1369,8 +1377,15 @@ def render(src, out_path, title):
 """
     out_path.write_text(out, encoding="utf-8")
     n_tables = body.count("<table>")
-    print(f"wrote {out_path.relative_to(ROOT) if out_path.is_absolute() else out_path}"
-          f": {len(out):,} bytes, {n_tables} tables sortable")
+    # Graceful degradation, not a crash: relative_to() raises for any
+    # absolute path outside the repo, and rendering to one is legitimate --
+    # a scratch directory, a comparison build. The file is already written
+    # by this point, so raising here fails AFTER the work succeeded.
+    try:
+        shown = out_path.relative_to(ROOT) if out_path.is_absolute() else out_path
+    except ValueError:
+        shown = out_path
+    print(f"wrote {shown}: {len(out):,} bytes, {n_tables} tables sortable")
 
 
 def build_all():
@@ -1380,6 +1395,12 @@ def build_all():
 
 
 if __name__ == "__main__":
+    # `--help` is what anyone types first; this one used to answer with a
+    # traceback, because it treated the flag as a document path to render.
+    # See the same guard in the other tools here (2026-09-06).
+    if any(a in ("--help", "-h") for a in sys.argv[1:]):
+        print((__doc__ or "").strip())
+        sys.exit(0)
     if "--list" in sys.argv:
         for rel, title in DOCS:
             print(f"  {rel}  ->  {Path(rel).with_suffix('.html')}  ({title})")
