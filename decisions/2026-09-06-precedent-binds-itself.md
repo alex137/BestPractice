@@ -106,7 +106,28 @@ project has already been bitten by once: its framing is that the misfits
 the same reasoning that dropped `deep-check` on the authority of a rule it
 merely resembled. A rule that does not apply here is not a rule nobody wants.
 
-So: **shape 2, built now.** `precedent.json` gains `not_binding`, a list of
+**Both halves are now built, and shape 3's safe form is the session-time
+file.** The constraint shape 3 runs into is on *committing* private text, not
+on *loading* it — so
+[tools/precedent_session_practices.py](../tools/precedent_session_practices.py)
+resolves every declared source at session start and writes the block into
+`.precedent/SESSION_PRACTICES.md`, which is gitignored. The private text
+reaches the session that needs it and cannot reach a commit; the committed
+`AGENTS.md` is unchanged and still single-source. The
+[session-start hook](../.claude/hooks/session-start.sh) runs it, and the
+generated standing instruction points at it — but only when the block was
+rendered single-source, since a consuming repo that already renders
+multi-source has those practices inline and a pointer would name a duplicate.
+
+It loads, and deliberately does not enforce: the other sources' check scripts
+are not materialized here. Turning those on before `not_binding` is populated
+would make the gate red for reasons nobody has judged — the same audit found
+six of them report things this repo cannot act on. Reading first; enforcement
+once the exemptions are written.
+
+So: **shape 2, built now,** and it remains the half that shape 3 cannot do —
+a rule that does not bind this repo needs a stated reason whether or not its
+text is loaded: `precedent.json` gains `not_binding`, a list of
 `{slug, reason}`. The guards are the feature, because an exemption list is
 otherwise a mechanism for opting out of rules:
 

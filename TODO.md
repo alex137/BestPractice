@@ -394,9 +394,19 @@ which is the failure this repointing exists to end — write
     NOT redundant, so it must be re-judged rather than copied. Writing
     exemptions for practices whose text and severity cannot be read would be
     asserting what cannot be verified.
+    **The loading half is now closed too (2026-09-06).**
+    [tools/precedent_session_practices.py](tools/precedent_session_practices.py),
+    run by the [session-start hook](.claude/hooks/session-start.sh), resolves
+    every declared source and writes the team/individual/repo-local block into
+    `.precedent/SESSION_PRACTICES.md` — gitignored, so the private text
+    reaches the session and cannot reach a commit. That is shape 3's safe
+    form: the constraint was always on committing the text, never on loading
+    it. It loads but does not enforce; materializing the other sources' check
+    scripts waits on the exemptions below.
     **Blocked on:** a session that can resolve the private sources — see
     [`attach-private-sources`](TODO.md#attach-private-sources) for exactly
-    what that takes.
+    what that takes. Until then the mechanism runs and correctly reports each
+    private source as unresolved rather than silently empty.
 
 26. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
     holding all four repositories searched by purpose and by mechanism

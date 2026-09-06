@@ -485,6 +485,31 @@ def build_loader_block(practices, source_levels=None):
             f"At a named moment — {moments} — run "
             f"`python3 tools/precedent_gate.py {'|'.join(live_gates)}`: some practices "
             f"fire at a moment rather than in a file, and no path glob reaches those.")
+    # THE POINTER TO THE SESSION-TIME MULTI-SOURCE BLOCK, and why it is
+    # conditional on `source_levels` being absent. When source_levels IS
+    # given, this block was rendered from an already-resolved multi-source
+    # set (a consuming repo's precedent_sync_views.py run over
+    # precedent_materialize.py's output), so the team and individual
+    # practices are right here and a pointer elsewhere would be noise
+    # pointing at a duplicate. When it is absent, this is a SINGLE-source
+    # render -- this repo's own case -- and the other declared sources
+    # reach the session only through the untracked file
+    # tools/precedent_session_practices.py writes at session start, because
+    # this repository is public and their text may not be committed
+    # (practice: affordance-is-shared -- every single-source repo that
+    # declares a private source has this same gap, not only Precedent's own).
+    # `instruction and` matters: a source with NO practices must say so
+    # rather than sprout a Standing instruction section whose only content
+    # is a pointer to another file. Caught by the check that the loader
+    # block advertises only the channels a source actually fills.
+    if instruction and not source_levels:
+        instruction.append(
+            "If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the "
+            "practices in force from this repo's team, individual and repo-local "
+            "sources, which are NOT in this block and bind work here exactly as these "
+            "do. It is regenerated at session start and is deliberately untracked — "
+            "never commit it or quote it into a pull request.")
+
     if instruction:
         lines.append("## Standing instruction")
         lines.append('')
@@ -653,6 +678,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_resolve.py': "Resolves the universal, team and individual sources into one set, by precedence",
     'precedent_migrate_status.py': "Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor",
     'precedent_retire.py': "Stage 6 (phase 5) — the periodic removal report; proposes, never acts",
+    'precedent_session_practices.py': "Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_simulate.py': "One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log",
     'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
