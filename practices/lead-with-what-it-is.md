@@ -36,10 +36,10 @@ itself was. "Wait, is this an AI assistant?" is the natural, correct reaction
 to reading process-description with zero subject-matter context first.
 
 ## Install
-[INSTALL.md](INSTALL.md)'s README-entry step and
-[SETUP.md](SETUP.md)'s guided install both instruct: if the repo has no
+[INSTALL.md](../INSTALL.md)'s README-entry step and
+[SETUP.md](../SETUP.md)'s guided install both instruct: if the repo has no
 README yet, write a short project-specific opening — from the
 administrator's "what is this project about" answer — before inserting the
-[README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template)
+[README_AGENT_ENTRY.md.template](../templates/README_AGENT_ENTRY.md.template)
 block. If a README already exists, insert only the entry block into it;
 don't rewrite its opening.

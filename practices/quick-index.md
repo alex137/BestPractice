@@ -32,4 +32,4 @@ for something — the index is built from real misses, not speculation.
 
 ## Install
 Part of
-[templates/AGENTS.md.template](templates/AGENTS.md.template).
+[templates/AGENTS.md.template](../templates/AGENTS.md.template).

@@ -26,7 +26,14 @@ behavior that GitHub silently neutered):
      deduped to one line per acronym; skipped entirely if there is no GLOSSARY.md
      (a repo without one opts out naturally).
 
-  4. HTML ANCHOR WITH target= (warning). GitHub's sanitizer strips target=
+  4. BROKEN RELATIVE LINK (error). A relative markdown link whose target does
+     not exist, resolved from the linking FILE's own directory (not the repo
+     root — the mistake that produced 96 of them here, in files one level
+     down). Skips fenced blocks, code spans, URLs and bare anchors; skips
+     templates/ and deck/, whose links deliberately name a tree that is not
+     this repo's.
+
+  5. HTML ANCHOR WITH target= (warning). GitHub's sanitizer strips target=
      (and most other attributes) from raw HTML anchors in rendered markdown,
      so an "open in new tab" link silently does nothing there (as of 2026-08;
      origin: a thread spent two commits adding target="_blank" and reverting
@@ -48,9 +55,11 @@ explicitly still scans it.
 Requires cmark-gfm for exact detection:  pip install cmarkgfm
 (If absent, the strikethrough check is SKIPPED with a notice rather than guessing.)
 
-Run:  python3 process/upstream/tools/doc_lint.py            # changed-vs-default-branch, gate
-      python3 process/upstream/tools/doc_lint.py --all       # whole repo, report-only
-      python3 process/upstream/tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
+Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
+      python3 tools/doc_lint.py --all        # whole repo, report-only
+      python3 tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
+(In a repo that vendors this the classic way, the path is
+process/upstream/tools/doc_lint.py.)
 """
 import re, sys, subprocess, pathlib
 
@@ -91,6 +100,9 @@ def drop_frozen(files):
 
 # ---- acronym check (check 3) ----
 ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 leading letters
+# A dot plus a lowercase extension immediately after the token: the token is
+# a filename stem (LEDGER.md, MAP.md, SETUP.md), never an acronym to gloss.
+FILENAME_STEM_RE = re.compile(r'\.[a-z][a-z0-9]{0,4}\b')
 GLOSSARY_PATH = ROOT / 'GLOSSARY.md'
 ACRONYM_SKIP_FILES = {'GLOSSARY.md'}
 # common words / units / universally-known tech that are never worth glossing:
@@ -103,6 +115,22 @@ ACRONYM_STOP = {
     'USA','US','UK','EU','UN','USD','ROI','IRR','NPV','CAGR','CEO','CTO',
     'MJ','MW','MN','GW','KW','KWH','WH','NM','KM','MM','CM','HZ','KHZ','MHZ','GHZ','DB',
     'DBM','PSI','HP','KG','LB','KT','KN','GB','MB','TB','AC','DC','NE','NW','SSE','SSW',
+    # Ordinary English words this repo writes in caps for emphasis. The
+    # regex cannot tell "shout this word" from "expand this initialism",
+    # and every one of these was a standing, unfixable warning: there is
+    # no expansion of ONLY, and adding it to a glossary of coined terms
+    # would be worse than the warning. Reported as 101 unglossed
+    # acronyms on this repo, of which these and ALL-CAPS filename stems
+    # (see FILENAME_STEM_RE) were the great majority.
+    'ON','OFF','BEGIN','END','BEFORE','AFTER','ONLY','BOTH','EACH','EVERY','NEVER',
+    'ALWAYS','FAIL','PASS','SKIP','GATE','PATH','NAME','DATE','TIME','ACTIVE','CAPS',
+    'LAYOUT','MUST','SHOULD','THIS','THAT','THEN','WITH','FROM','INTO','ANY','NONE',
+    'REAL','SAME','READ','WRITE','RUN','ADD','USE','SET','NOT','WAS','ARE','CAN',
+    # Universally known in a software repository; expanding them on first
+    # use in every document is noise, not clarity.
+    'PR','PRS','CI','CD','VCS','UTC','YAML','TOML','DOM','JS','TS','LLM','LLMS',
+    'HTML5','REST','SQL','SSH','TLS','SSL','ENV','REPO','REGEX','DIFF','SHA','UUID',
+    'TL','DR','NA','IO','CWD','STDIN','STDOUT','STDERR',
 }
 
 def load_known_acronyms():
@@ -117,6 +145,111 @@ def load_known_acronyms():
             if tok:
                 known.add(tok)
     return known
+
+# ---- broken relative link check (check 4; practice: doc-references-are-links)
+#
+# A link is only a reference if it lands somewhere. 96 links in this repo did
+# not (2026-09-06): the great majority were `practices/*.md` files written
+# with root-relative targets -- `](tools/doc_lint.py)` from a file that lives
+# in `practices/`, resolving to `practices/tools/doc_lint.py` and returning a
+# 404 for every reader of the practice file itself. `doc-references-are-links`
+# asked for links and nothing checked they resolved, so the convention broke
+# quietly for as long as it existed. practice: convention-to-audit.
+LINK_RE = re.compile(r'\[([^\]\n]*)\]\(([^)\s]+?)(?:\s+"[^"]*")?\)')
+CODE_SPAN_RE = re.compile(r'`[^`]*`')
+# Directories whose markdown deliberately links against a tree that is not
+# this repo's own, so an unresolvable target there is correct, not broken:
+#
+#   templates/  -- a skeleton instantiated INTO another repo. Its links name
+#                  files that will exist there (`tools/build_views.py` in a
+#                  bootstrapped practice set, `approvers.json` in a team set),
+#                  never files beside the template.
+#   deck/*/slides/ -- deck/build_deck.py resolves a slide's asset paths from
+#                  the DECK root, not the slide's own directory, so
+#                  `assets/loop.svg` is right for the builder and wrong for a
+#                  reader browsing the raw file. The builder is the audience.
+LINK_CHECK_EXEMPT_DIRS = ('templates/', 'deck/')
+
+
+def check_broken_links(path):
+    """[(lineno, target)] relative links in `path` that resolve to nothing.
+
+    Skips fenced blocks and inline code spans (a link written inside
+    backticks is a value being documented, not a reference), absolute
+    URLs, mailto:, and pure `#anchor` targets -- an anchor's existence is
+    not something this can check without rendering the document."""
+    rel = str(path).replace('\\', '/')
+    if rel.startswith(LINK_CHECK_EXEMPT_DIRS):
+        return []
+    p = ROOT / path
+    out, incode = [], False
+    for i, line in enumerate(p.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
+        if line.lstrip().startswith(('```', '~~~')):
+            incode = not incode
+            continue
+        if incode:
+            continue
+        clean = CODE_SPAN_RE.sub(lambda m: ' ' * len(m.group(0)), line)
+        for _label, target in LINK_RE.findall(clean):
+            if target.startswith(('http://', 'https://', 'mailto:', '#')):
+                continue
+            bare = target.split('#')[0]
+            if not bare:
+                continue
+            if not (p.parent / bare).exists():
+                out.append((i, target))
+    return out
+
+
+def scan_unglossed(text, known, path=None):
+    """[(lineno, TOKEN)] — every ALL-CAPS token in `text` that is not a
+    known acronym, not glossed inline as `LONG FORM (TOK)`, not a filename
+    stem, and not the document's own name.
+
+    THE ONE DETECTOR. tools/precedent_check.py's `acronyms-glossary` check
+    used to carry its own copy of this loop, under a docstring promising
+    "one detector, two callers" — and then drifted from it exactly as that
+    docstring said it must not: two filters added here (filename stems,
+    a document naming itself) fixed doc_lint's report and left the
+    enforced check still failing on `LEDGER.md`. Both callers now go
+    through this function, so a filter added here reaches the gate."""
+    doc_name = pathlib.PurePath(path).stem.upper() if path else None
+    out, seen, incode = [], set(), False
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith('```'):
+            incode = not incode
+            continue
+        if incode:
+            continue
+        clean = _decontent(line)
+        for m in ACRONYM_RE.finditer(clean):
+            tok = m.group(1)
+            if tok in known or tok in seen:
+                continue
+            if tok == doc_name:
+                # A document naming itself in its own title (SETUP.md's
+                # "# SETUP — guided install"). Not an acronym, and the one
+                # person who cannot fix it is the person editing that file.
+                continue
+            if FILENAME_STEM_RE.match(clean, m.end()):
+                # An ALL-CAPS filename stem is a file reference, not an
+                # acronym: LEDGER.md, MAP.md, TODO.md, AGENTS.md. This
+                # repo's own report was 101 "unglossed acronyms", of which
+                # the largest group was file names split at the dot.
+                # Glossing "LEDGER" is not a thing anyone can do; the
+                # reference is already covered by the unlinked-reference
+                # check.
+                continue
+            # Glossed right here — covers THIS use, and every later bare
+            # use in the same document. Recording `seen` only on the
+            # violation branch (the bug this replaces) meant a correctly
+            # glossed first use never protected a second, later mention.
+            seen.add(tok)
+            if f'({tok})' in clean:
+                continue
+            out.append((i, tok))
+    return out
+
 
 def _decontent(line):
     """Strip code spans, self-referential link labels, and link/URL targets so
@@ -261,8 +394,12 @@ def iter_prose_paragraphs(path):
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
-    scan_acronyms = known is not None and path not in ACRONYM_SKIP_FILES
-    seen_acr = set()
+    if known is not None and path not in ACRONYM_SKIP_FILES:
+        # One detector, shared with precedent_check.py's acronyms-glossary
+        # gate — see scan_unglossed's docstring for the drift this closed.
+        unglossed = scan_unglossed(
+            (ROOT / path).read_text(encoding='utf-8', errors='ignore'),
+            known, path)
     for i, line in iter_prose_lines(path):
         if HAVE_GFM and renders_del(line) and '~~' not in line:
             if fix:
@@ -278,23 +415,6 @@ def check_file(path, fix=False, known=None):
         # code spans stripped first so documenting the rule doesn't trip it
         if TARGET_RE.search(re.sub(r'`[^`]*`', ' ', line)):
             targeted.append((i, line.strip()[:100]))
-        # unglossed acronyms: ALL-CAPS token not known and not defined inline this line
-        if scan_acronyms:
-            clean = _decontent(line)
-            for m in ACRONYM_RE.finditer(clean):
-                tok = m.group(1)
-                if tok in known or tok in seen_acr:
-                    continue
-                if f'({tok})' in clean:
-                    # Glossed right here -- covers THIS use, and every later
-                    # bare use in the same document. Recording seen_acr only
-                    # inside the violation branch below (the bug this
-                    # replaces) meant a correctly-glossed first use never
-                    # actually protected a second, later bare mention.
-                    seen_acr.add(tok)
-                    continue
-                seen_acr.add(tok)
-                unglossed.append((i, tok))
     if fix and changed_lines:
         lines = (ROOT / path).read_text(encoding='utf-8', errors='ignore').splitlines()
         for i, new in changed_lines.items():
@@ -500,12 +620,14 @@ def main():
     known = None if fix else load_known_acronyms()
     total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
-    unsourced_lines, residue_lines = [], []
+    unsourced_lines, residue_lines, broken_link_lines = [], [], []
     for f in files:
         if not (ROOT / f).exists():
             continue
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
+        for i, target in check_broken_links(f):
+            broken_link_lines.append(f"  {f}:{i}: -> {target}")
         s, u, g, t, nf = check_file(f, fix=fix, known=known)
         total_fixed += nf
         for i, txt in s:
@@ -557,9 +679,10 @@ def main():
         print('\n'.join(unsourced_lines[:40]))
 
     if (not strike_lines and not unlinked_lines and not unglossed_lines
-            and not target_lines and not unsourced_lines):
+            and not target_lines and not unsourced_lines and not broken_link_lines):
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
-              f"no unlinked references, no unglossed acronyms, no target= anchors.")
+              f"no broken relative links, no unlinked references, no unglossed "
+              f"acronyms, no target= anchors.")
 
     # check 5: findability. Gate mode checks only documents in scope, so a new
     # analysis must be indexed; --all reports the legacy backlog.
@@ -578,6 +701,15 @@ def main():
         if len(findability) > 40:
             print(f"  … and {len(findability) - 40} more")
 
+    if broken_link_lines:
+        print(f"\nBROKEN RELATIVE LINKS — {len(broken_link_lines)} link(s) "
+              f"resolve to nothing ({'FAIL' if gate else 'backlog report'}; a "
+              "reference that 404s is not a reference — check the path is "
+              "relative to THIS file's directory, not the repo root):")
+        print('\n'.join(broken_link_lines[:40]))
+        if len(broken_link_lines) > 40:
+            print(f"  … and {len(broken_link_lines) - 40} more")
+
     if residue_lines:
         print(f"\nPROCESS RESIDUE IN DELIVERABLES — {len(residue_lines)} "
               f"line(s) ({'FAIL' if gate else 'backlog report'}; a "
@@ -591,7 +723,8 @@ def main():
     # gate: strikethrough always fails in scope; unsourced quantities fail only
     # in documents that explicitly opted in, so the legacy corpus never blocks;
     # process residue (check 6) fails on any deliverable in scope.
-    if gate and (strike_lines or unsourced_lines or findability or residue_lines):
+    if gate and (strike_lines or unsourced_lines or findability or residue_lines
+                 or broken_link_lines):
         return 1
     return 0
 

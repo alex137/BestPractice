@@ -92,6 +92,20 @@ AMENDED_POST_CONVERSION = {
     # fidelity checks found the same category of edit the rest of this set
     # already covers: three "practice N" citations converted to slug links.
     'todo-is-a-handoff',
+    # Added 2026-09-06 by the broken-relative-link sweep (see
+    # CHANGES_TO_TELL_ALEX.md, "Relative-link sweep in practices/"): a
+    # practice file lives one directory down, so a link written
+    # `](tools/doc_lint.py)` resolved to `practices/tools/doc_lint.py` and
+    # 404'd on GitHub for every reader of the practice file itself. 67
+    # such links across 28 files were repointed to `](../...)`. Only the
+    # link TARGET changed -- no prose, and the word-multiset checks above
+    # still pass untouched -- but the sentence-identity check compares the
+    # rendered target too, so the eight practices whose changed links sit
+    # inside a checked section are declared here rather than exempted
+    # silently.
+    'doc-references-are-links', 'github-setup-disclosed',
+    'lead-with-what-it-is', 'orientation-map', 'pr-template-honest-gates',
+    'quick-index', 'reply-links-files', 'section-order-by-frequency',
 }
 
 CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'
@@ -1631,6 +1645,53 @@ def check_doc_lint_fires():
         cases.append(('AI and AGENTS -- generic, non-project-specific terms '
                       '-- are in the acronym stoplist and not flagged',
                       not stoplist_flagged))
+
+        # An ALL-CAPS filename stem is a file reference, not an acronym --
+        # and neither is a document naming itself in its own title. Both
+        # were standing, unfixable warnings (LEDGER.md, SETUP.md's own
+        # heading); the second one could only be cleared by the one person
+        # who cannot clear it, the person editing that file.
+        (tmp / 'stems.md').write_text(
+            "The ledger is [templates/harness/LEDGER.md](../t/LEDGER.md).\n",
+            encoding='utf-8')
+        _s, _u, stem_flagged, *_ = dl.check_file('stems.md', fix=False, known=set())
+        cases.append(('an ALL-CAPS filename stem (LEDGER.md) is not '
+                      'reported as an unglossed acronym', not stem_flagged))
+
+        (tmp / 'SETUP.md').write_text("# SETUP - guided install\n", encoding='utf-8')
+        _s, _u, selfname_flagged, *_ = dl.check_file('SETUP.md', fix=False, known=set())
+        cases.append(("a document naming itself in its own title is not "
+                      "reported as an unglossed acronym", not selfname_flagged))
+
+        # --- broken relative links (check 7) -------------------------------
+        # 96 links in this repo resolved to nothing before this check
+        # existed; the largest group was practices/*.md written with
+        # root-relative targets from a file one directory down.
+        (tmp / 'tools').mkdir(exist_ok=True)
+        (tmp / 'tools' / 'real.py').write_text('x\n', encoding='utf-8')
+        (tmp / 'practices').mkdir(exist_ok=True)
+        (tmp / 'practices' / 'p.md').write_text(
+            "Root-relative from a subdirectory: [a](tools/real.py).\n"
+            "Correct: [b](../tools/real.py).\n"
+            "In a code span, a value not a reference: `[c](tools/gone.py)`.\n"
+            "```\n[d](tools/gone.py)\n```\n"
+            "External: [e](https://example.com/x) and anchor [f](#top).\n",
+            encoding='utf-8')
+        broken = dl.check_broken_links('practices/p.md')
+        cases.append(('a root-relative link from a subdirectory is caught '
+                      'as broken', broken == [(1, 'tools/real.py')]))
+        cases.append(('a correct ../ link, a link inside a code span, a link '
+                      'inside a fenced block, an external URL and a bare '
+                      'anchor are all left alone',
+                      [t for _i, t in broken] == ['tools/real.py']))
+
+        (tmp / 'templates').mkdir(exist_ok=True)
+        (tmp / 'templates' / 'README.md').write_text(
+            "The engine lands at [tools/](tools/) when instantiated.\n",
+            encoding='utf-8')
+        cases.append(('templates/ is exempt -- its links name files in the '
+                      'repo the template is instantiated INTO',
+                      dl.check_broken_links('templates/README.md') == []))
     finally:
         dl.ROOT = real_root
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1643,7 +1704,10 @@ def check_doc_lint_fires():
           f'same-line strikethrough, clean prose stays clean, a '
           f'*_decision.md link is not residue, a real verify-later flag is '
           f'still caught, a glossed acronym stays clean on reuse while an '
-          f'unglossed one is still caught)', ok)
+          f'unglossed one is still caught, a filename stem and a document '
+          f'naming itself are not acronyms, and a broken relative link is '
+          f'caught while a correct one, a code span, a fenced block, a URL, '
+          f'an anchor and templates/ are not)', ok)
 
 
 def check_practice_heading_parsing():

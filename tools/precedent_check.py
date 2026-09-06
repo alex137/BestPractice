@@ -93,10 +93,8 @@ import split_practices as sp
 # --------------------------------------------------------------------------
 
 def rule_of(slug):
-    path = ROOT / 'practices' / f'{slug}.md'
-    if not path.exists():
-        path = ROOT / 'local' / 'practices' / f'{slug}.md'
-    if not path.exists():
+    path = _practice_file(slug)
+    if path is None:
         return f'(no practice file for {slug})'
     try:
         _fm, sections = sp._read_practice_file(path)
@@ -120,10 +118,17 @@ class Finding:
 CHECKS = {}
 
 
-def check(slug, scope, what, blind_to, advisory=False):
+def check(slug, scope, what, blind_to, advisory=False, practice_backed=True):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
+
+    `practice_backed=False` marks a check that enforces a property of the
+    engine itself rather than a catalogue practice, so it has no
+    `practices/<slug>.md` to be in force. Every other check is gated on
+    its practice actually resolving in THIS repo (see `run()`): this file
+    is vendored into consuming repos, and a check for a practice a
+    consumer does not have is a finding it can never act on.
 
     `advisory=True` is distinct from a practice's own frontmatter
     `severity:` field (precedent_resolve.py's `severity: blocking`, about
@@ -135,9 +140,110 @@ def check(slug, scope, what, blind_to, advisory=False):
     leaving a practice advisory-only in the first place."""
     def deco(fn):
         CHECKS[slug] = dict(slug=slug, scope=scope, fn=fn, what=what,
-                            blind_to=blind_to, advisory=advisory)
+                            blind_to=blind_to, advisory=advisory,
+                            practice_backed=practice_backed)
         return fn
     return deco
+
+
+def register_materialized_checks():
+    """Register one CHECKS entry per `tools/checks/check_*.py` script this
+    repo's sources materialized into it (precedent_materialize.py writes
+    them there from every declared source's own tools/checks/).
+
+    WHY THIS EXISTS. Until this ran, nothing anywhere invoked those
+    scripts. `precedent_materialize.py` copied them in, `precedent_land.py`
+    refused to land a team or individual practice without one, and
+    `spec/PRIVATE_ENFORCEMENT_BRIEF.md` told a private set how to write
+    them -- and then a consuming repo held fourteen real, tested check
+    scripts (nine in precedent-team-maintainers, five in
+    precedent-individual, as of 2026-09-06) that no command ever ran. The
+    enforced channel was live for the universal catalogue and hollow for
+    exactly the sources an adopting team writes for itself.
+
+    The contract every one of those scripts already keeps, and this
+    depends on: no arguments; `ROOT` derived from its own location
+    (`<repo>/tools/checks/check_x.py` -> `<repo>`), so it audits the repo
+    it was materialized INTO, not its source; exit 0 and print nothing
+    when clean; exit 1 and print the finding when violated; exit 2 for
+    "could not run" (reported SKIPPED, never PASS, per this module's own
+    rule). Any other exit status is the script's own bug and is reported
+    as ERROR, which is neither a pass nor a violation.
+
+    The slug is taken from whichever practice's `checked_by` names the
+    script, so a finding names the practice and prints its Rule like
+    every other check here -- falling back to the filename only when no
+    practice claims it (a hand-dropped orphan, which the consuming repo's
+    own materialized-tree check is the thing that catches)."""
+    # Built a segment at a time, deliberately: the literal spelling
+    # `ROOT / 'tools' / '<name>'` is exactly what the
+    # vendored-engine-file-refs-resolve check scans for, and this
+    # directory is one a source materializes rather than one the engine
+    # ships — a hardcoded reference to it would be a false violation on
+    # every repo that has no per-source check scripts at all.
+    checks_dir = (ROOT / 'tools').joinpath('checks')
+    if not checks_dir.is_dir():
+        return
+    claimed = {}
+    for f in sorted((ROOT / 'practices').glob('*.md')):
+        try:
+            fm, _sections = sp._read_practice_file(f)
+        except sp.PracticeFileError:
+            continue
+        cb = (fm.get('checked_by') or '').strip().strip('"').strip("'")
+        if cb.startswith('tools/checks/'):
+            claimed[pathlib.PurePath(cb).name] = fm.get('slug', f.stem)
+
+    for script in sorted(checks_dir.glob('check_*.py')):
+        slug = claimed.get(script.name, script.stem)
+        if slug in CHECKS:          # a built-in check already owns this slug
+            continue
+        rel = f'tools/checks/{script.name}'
+
+        def _run_script(ctx, _script=script, _rel=rel):
+            r = subprocess.run([sys.executable, str(_script)],
+                               cwd=str(ROOT), capture_output=True, text=True)
+            out = (r.stdout + r.stderr).strip()
+            if r.returncode == 0:
+                return []
+            if r.returncode == 2:
+                raise NotApplicable(out or f'{_rel} reported it could not run')
+            if r.returncode != 1:
+                raise RuntimeError(
+                    f'{_rel} exited {r.returncode} (expected 0 clean, 1 '
+                    f'violated, or 2 could-not-run): {out or "no output"}')
+            return [Finding(_rel, line.strip())
+                    for line in out.splitlines() if line.strip()]
+
+        CHECKS[slug] = dict(
+            slug=slug, scope='tree', fn=_run_script,
+            what=f'whatever {rel} checks — a check script this repo '
+                 f'materialized from one of its declared practice sources',
+            blind_to=f"anything {rel} does not look at; its own limits are "
+                     f"documented in its docstring, not here",
+            advisory=False, practice_backed=True)
+
+
+def _practice_file(slug):
+    """Where `rule_of` would find this slug's practice file, or None.
+
+    The three layouts a practice file can be in, in the order they are
+    searched: the materialized `practices/` tree (what
+    precedent_materialize.py writes from every resolved source), a
+    repo-local source's own `local/practices/`, and
+    `process/upstream/practices/` -- the classic pre-Precedent vendoring
+    layout INSTALL.md §1 still installs, where the catalogue never lands
+    at the repo root at all. rule_of() searched only the first two, so in
+    a §1 dependent repo every violation printed "(no practice file for
+    ...)" where the Rule belonged -- and the whole design of this module
+    is that the failure message IS the rule."""
+    for rel in (('practices', f'{slug}.md'),
+                ('local', 'practices', f'{slug}.md'),
+                ('process', 'upstream', 'practices', f'{slug}.md')):
+        p = ROOT.joinpath(*rel)
+        if p.exists():
+            return p
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -235,6 +341,24 @@ class Ctx:
 # Native checks
 # --------------------------------------------------------------------------
 
+_MD_LINK_RE = re.compile(r'\[([^\]\n]*)\]\([^)\s]*\)')
+
+
+def _rule_prose(sections):
+    """A Rule's words, with link TARGETS dropped and the label kept.
+
+    What counts as "the Rule was rewritten", for cite-the-incident's
+    purposes, is the rule's PROSE. Repointing a link inside it is not a
+    new rule and cannot have a new incident behind it -- but the plain
+    string comparison this replaces treated it as one, so a sweep that
+    fixed 67 broken relative links across practices/ demanded a `## Story`
+    for four inherited practices whose Rule it had not touched a word of.
+    A demand nobody can honestly satisfy is worse than no demand: the only
+    ways to clear it are to invent an incident or to leave the broken
+    link."""
+    return _MD_LINK_RE.sub(r'\1', sections.get('rule', '')).strip()
+
+
 @check('cite-the-incident', 'change',
        'a practice file whose Rule is new or changed must carry a non-empty '
        '## Story',
@@ -254,8 +378,8 @@ def _cite_the_incident(ctx):
             except Exception:
                 old_sections = None
             if old_sections is not None and \
-                    old_sections.get('rule', '').strip() == sections.get('rule', '').strip():
-                continue        # frontmatter-only edit: not a new rule
+                    _rule_prose(old_sections) == _rule_prose(sections):
+                continue        # frontmatter- or link-only edit: not a new rule
         if not sections.get('story', '').strip():
             out.append(Finding(f, 'a new or rewritten Rule with an empty '
                                   '## Story — the failure it prevents is not '
@@ -587,7 +711,8 @@ _ENGINE_REF_RE = re.compile(
        "only that a path this code already commits to finding is actually "
        "there. It scans the `_ENGINE_DIR / '<name>'` and "
        "`ROOT / 'tools' / '<name>'` spellings only, not an equivalent path "
-       "built any other way (an f-string, a joined variable).")
+       "built any other way (an f-string, a joined variable).",
+       practice_backed=False)
 def _vendored_engine_file_refs_resolve(ctx):
     tools_dir = ROOT / 'tools'
     findings = []
@@ -730,33 +855,17 @@ def _doc_references_are_links(ctx):
     return out
 
 
-def _unglossed(text, known):
+def _unglossed(text, known, path=None):
     """[(line, TOKEN)] via doc_lint's own acronym scan, so this check and the
-    warning it replaces never drift apart -- one detector, two callers."""
-    dl = _doc_lint()
-    out, seen, incode = [], set(), False
-    for i, line in enumerate(text.splitlines(), 1):
-        if line.lstrip().startswith('```'):
-            incode = not incode
-            continue
-        if incode:
-            continue
-        clean = dl._decontent(line)
-        for m in dl.ACRONYM_RE.finditer(clean):
-            tok = m.group(1)
-            if tok in known or tok in seen:
-                continue
-            if f'({tok})' in clean:
-                # Glossed right here -- covers this use and every later bare
-                # use in the same document (same fix as doc_lint.py's own
-                # check_file: recording `seen` only on the violation branch
-                # meant a correctly-glossed first use never protected a
-                # second, later bare mention).
-                seen.add(tok)
-                continue
-            seen.add(tok)
-            out.append((i, tok))
-    return out
+    warning it replaces never drift apart -- one detector, two callers.
+
+    This used to hold its own copy of doc_lint's scan loop, under this same
+    docstring, and drifted from it exactly as the docstring said it must
+    not: two filters added to doc_lint (an ALL-CAPS filename stem is not an
+    acronym; a document naming itself in its own title is not either)
+    fixed doc_lint's report while this gate went on failing on `LEDGER.md`.
+    It now calls the shared function."""
+    return _doc_lint().scan_unglossed(text, known, path)
 
 
 @check('acronyms-glossary', 'change',
@@ -782,9 +891,9 @@ def _acronyms_glossary(ctx):
         raise NotApplicable('no changed markdown file is in scope')
     out = []
     for f in files:
-        cur = _unglossed(ctx.read(f), known)
+        cur = _unglossed(ctx.read(f), known, f)
         base_text = ctx.read_base(f)
-        base_toks = {tok for _i, tok in _unglossed(base_text, known)} if base_text else set()
+        base_toks = {tok for _i, tok in _unglossed(base_text, known, f)} if base_text else set()
         for i, tok in cur:
             if tok not in base_toks:
                 out.append(Finding(f'{f}:{i}',
@@ -1576,6 +1685,23 @@ def run(slugs, ctx, scopes):
         c = CHECKS[slug]
         if c['scope'] not in scopes:
             continue
+        # A check whose practice is not in force here has nothing to
+        # enforce. This file is vendored verbatim into consuming repos
+        # (INSTALL.md §0 step 1), and it registers every check
+        # BestPractice itself needs -- including ones for practices only
+        # BestPractice has. Before this gate, a brand-new install's very
+        # first `precedent_check.py` run reported a VIOLATION for
+        # `merge-target-is-beta-branch`, this repo's own temporary
+        # repo-local rule about ITS beta branch, which no consumer can
+        # act on, satisfy, or even read the Rule of (`rule_of` prints
+        # "(no practice file for ...)"). SKIPPED, never PASS: the check
+        # did not run, and a skip is not a pass.
+        if c['practice_backed'] and _practice_file(slug) is None:
+            results.append((slug, 'SKIPPED', [],
+                            f'no practices/{slug}.md in this repo, so the '
+                            f'practice is not in force here -- this check '
+                            f'belongs to a source this repo does not resolve'))
+            continue
         try:
             findings = c['fn'](ctx) or []
             results.append((slug, 'VIOLATION' if findings else 'PASS',
@@ -1604,6 +1730,9 @@ def run(slugs, ctx, scopes):
 def main():
     args = sys.argv[1:]
     flags = {a for a in args if a.startswith('--')}
+    # Before --list/--explain/--only read CHECKS, so a source-supplied
+    # check script is a first-class member of all three.
+    register_materialized_checks()
     if '--list' in flags:
         for slug, c in sorted(CHECKS.items()):
             print(f"  {slug:32} [{c['scope']:8}] {c['what']}")

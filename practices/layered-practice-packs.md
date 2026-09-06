@@ -41,7 +41,7 @@ practice — Universal or Team — whose `applies_to` / `occasion` / `gates`
 scope it to that domain's work, routed by the same occasion index and
 path-triggered channel as every other on-demand practice. The decision rule
 above still holds; only the *implementation* of the middle tier changed.
-Recorded in [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md).
+Recorded in [CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md).
 
 **Still open, not solved by the loader: a domain bundle shared across more
 than one team.** The loader routes a single source's own practices; it does
@@ -82,7 +82,7 @@ every other on-demand practice.
 
 **Pre-migration (a repo still vendoring BestPractice the old way):** vendor
 the pack tree at `process/<pack>/`; write `process/manifest_<pack>.json`
-(schema of [INSTALL.md](INSTALL.md) §5, plus `upstream.scrub_blocklist` — a
+(schema of [INSTALL.md](../INSTALL.md) §5, plus `upstream.scrub_blocklist` — a
 path, or `null` to opt a private pack out of the scrub); instantiate the
 pack's practices in the repo's real files and record the mapping; install its
 harness adapter so the rules load when the domain work happens. The export

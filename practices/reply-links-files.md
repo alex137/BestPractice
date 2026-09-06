@@ -39,4 +39,4 @@ those files' distribution is governed by their own send policy.
 
 ## Install
 Convention in
-[templates/AGENTS.md.template](templates/AGENTS.md.template).
+[templates/AGENTS.md.template](../templates/AGENTS.md.template).

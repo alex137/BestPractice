@@ -39,5 +39,5 @@ dropped a registry entry. Fixed rules plus a loud audit made merges fast
 
 ## Install
 Runbook section in
-[templates/AGENTS.md.template](templates/AGENTS.md.template); adapt the file
+[templates/AGENTS.md.template](../templates/AGENTS.md.template); adapt the file
 classes to your repo.
