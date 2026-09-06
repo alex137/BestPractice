@@ -1692,7 +1692,18 @@ def _docs_track_models(ctx):
         import doc_sync
     except Exception as e:
         raise NotApplicable(f'tools/doc_sync.py did not import: {e}')
-    owned = [f for _d, _n, s in doc_sync.PAIRS for f in doc_sync.owned_figures(s)]
+    try:
+        owned = [f for _d, _n, s in doc_sync.PAIRS
+                 for f in doc_sync.owned_figures(s)]
+    except doc_sync.OwnedFiguresUnavailable as e:
+        # A vendored copy carries UPSTREAM's PAIRS, naming scripts this repo
+        # never vendored -- so the import genuinely cannot happen here, and
+        # that is a not-configured-yet fact about the copy, not a defect in
+        # this repo. Distinct from an import that fails where the script IS
+        # present, which doc_sync itself fails the gate on.
+        raise NotApplicable(
+            f'{e} -- if this is a vendored copy, replace PAIRS in '
+            f'tools/doc_sync.py with this repo\'s own pairs')
     if not owned:
         raise NotApplicable('no script declares an owned figure '
                             '(owned_figures()), so no restatement can be '

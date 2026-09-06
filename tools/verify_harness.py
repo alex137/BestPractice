@@ -5443,6 +5443,31 @@ def check_rendered_docs_are_current():
               + ([f'missing: {", ".join(missing)}'] if missing else [])))
 
 
+def _looks_like_help(tool, out):
+    """Does this output actually answer --help, or is it the tool running?
+
+    The test is the tool's own module docstring: a help answer contains a
+    real run of it. Deliberately not an exact match -- argparse prints its
+    own usage/description rather than the raw docstring, and that is a
+    perfectly good help answer.
+    """
+    import ast
+    try:
+        doc = ast.get_docstring(ast.parse(tool.read_text(encoding='utf-8')))
+    except Exception:
+        return True                      # unparseable: not this check's call
+    if not doc:
+        return True                      # nothing to compare against
+    o = ' '.join(out.split()).lower()
+    if 'usage:' in o:                    # argparse-generated help
+        return True
+    for line in doc.strip().splitlines():
+        line = ' '.join(line.split())
+        if len(line) >= 40 and line.lower() in o:
+            return True
+    return False
+
+
 def check_tools_answer_help_without_writing():
     """`--help` is safe and informative on every tool in tools/.
 
@@ -5506,7 +5531,7 @@ def check_tools_answer_help_without_writing():
         libraries = [t for t in tools
                      if "__main__" not in t.read_text(encoding='utf-8')]
         tools = [t for t in tools if t not in libraries]
-        bad_exit, silent = [], []
+        bad_exit, silent, not_help = [], [], []
         for tool in tools:
             r = subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
                                 '--help'],
@@ -5516,6 +5541,19 @@ def check_tools_answer_help_without_writing():
                 bad_exit.append(f'{tool.name} exited {r.returncode}')
             elif not r.stdout.strip():
                 silent.append(tool.name)
+            elif not _looks_like_help(tool, r.stdout):
+                # Exit 0 with output is NOT enough. A tool that simply
+                # ignores an unrecognised flag runs its whole normal job and
+                # exits 0, which passed every property above while answering
+                # nothing -- build_views.py did exactly that until
+                # 2026-09-06, silently regenerating MAP.md, GLOSSARY.md and
+                # AGENTS.md's block on `--help`. In THIS repo those are
+                # already current, so even the "writes nothing" property
+                # held: an identical rewrite is invisible to a hash. It was
+                # only visible in a consuming repo, where the same command
+                # would have rewritten drifted views. So the output itself
+                # has to be checked against the tool's own docstring.
+                not_help.append(tool.name)
         after = snapshot()
         wrote = sorted(set(before) & set(after)
                        - {k for k in before if before[k] == after.get(k)})
@@ -5527,6 +5565,9 @@ def check_tools_answer_help_without_writing():
               not bad_exit, '; '.join(bad_exit))
         check('every tool\'s --help actually prints something',
               not silent, ', '.join(silent))
+        check('every tool\'s --help answers with its own usage text, rather '
+              'than running the tool',
+              not not_help, ', '.join(not_help))
         check('no tool writes to the tree when asked for --help',
               not wrote,
               f'{len(wrote)} file(s) changed: ' + ', '.join(wrote[:8]))

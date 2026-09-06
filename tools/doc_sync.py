@@ -64,6 +64,15 @@ PAIRS = [
 # the host shim if the whole tree is too broad.
 DOC_GLOB = "**/*.md"
 
+# Directories the orphan-sentinel scan must not walk. A repo that VENDORS an
+# upstream practice layer carries a whole copy of that upstream's documents,
+# generated blocks and all -- and those blocks are registered in the
+# UPSTREAM's PAIRS, not in this repo's. Scanning them reports every one as an
+# unregistered orphan, in a tree the consuming repo is not allowed to edit.
+# Seen 2026-09-06 in a real dependent repo: two orphans, both inside
+# process/upstream/, neither actionable there.
+SKIP_DIRS = ("process/upstream/",)
+
 
 def strip_fenced_code(text):
     """Blank out fenced code blocks, keeping line numbering.
@@ -169,6 +178,25 @@ def main():
         return
 
     fail = False
+
+    # A VENDORED copy arrives carrying UPSTREAM's registry, not this repo's.
+    # Every entry then points at a document that does not exist here, and the
+    # honest reading is "this copy is not configured yet", not "this repo's
+    # registry is broken" -- the remedy is to replace PAIRS with this repo's
+    # own pairs (or empty it), which is a host decision, not a defect to fix
+    # by restoring files that were never here. Distinguished mechanically:
+    # NONE of the registered documents existing is an unconfigured copy; SOME
+    # of them missing is a genuinely stale registry, reported per entry below.
+    live_pairs = [(d, n, s) for d, n, s in PAIRS if (ROOT / d).is_file()]
+    if PAIRS and not live_pairs:
+        print(f"[doc_sync] NOT APPLICABLE: all {len(PAIRS)} registered "
+              f"document(s) are absent here ({', '.join(d for d, _, _ in PAIRS)})"
+              f" -- this is an upstream copy of PAIRS, not this repo's. "
+              f"Replace PAIRS in tools/doc_sync.py with this repo's own "
+              f"(document, block, script) triples, or leave it empty if no "
+              f"document here carries generated numbers yet.")
+        PAIRS[:] = []
+
     for doc, name, script in PAIRS:
         path = ROOT / doc
         # Graceful degradation, not a crash: PAIRS is hand-maintained, and a
@@ -277,6 +305,8 @@ def main():
     found = set()
     for path in sorted(ROOT.glob(DOC_GLOB)):
         rel = str(path.relative_to(ROOT))
+        if any(rel.startswith(d) for d in SKIP_DIRS):
+            continue
         for mm in re.finditer(r"^<!--gen:([\w-]+)-->",
                               strip_fenced_code(path.read_text(errors="ignore")),
                               re.M):
