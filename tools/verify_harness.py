@@ -2665,6 +2665,15 @@ def check_precedent_check_fires():
         # orientation-map
         case('orientation-map', lambda repo: (repo / 'MAP.md').unlink())
 
+        # headline-capitalization -- an outward-facing heading knocked back
+        # into sentence case. "Learn More" is the plant because it is the one
+        # heading every documentation/ file ends with, so this stays valid
+        # however the pages themselves are reorganized.
+        def _plant_headline(repo):
+            rewrite(repo, 'documentation/WHAT_IS_THIS_AND_BENEFITS.md',
+                    lambda t: t.replace('## Learn More', '## Learn more', 1))
+        case('headline-capitalization', _plant_headline)
+
         # quick-index -- the table removed from the instructions
         def _plant_qi(repo):
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(

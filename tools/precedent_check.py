@@ -1065,6 +1065,29 @@ def _doc_references_are_links(ctx):
     return out
 
 
+@check('headline-capitalization', 'change',
+       'a changed outward-facing document has every heading in New York '
+       'Times headline capitalization',
+       'headings outside the practice\'s scope (practice files, specs, the '
+       'repo\'s own working documents), which are deliberately sentence '
+       'case; and a phrase whose capitalization carries meaning, which only '
+       'a person can add to title_case.KEEP_PHRASES.')
+def _headline_capitalization(ctx):
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import title_case
+    scope = [f for f in ctx.changed
+             if f.startswith('documentation/') and f.endswith('.md')
+             and (ROOT / f).exists()]
+    if not scope:
+        raise NotApplicable('no changed outward-facing document is in scope')
+    out = []
+    for f in scope:
+        for line, before, after in title_case.process(ROOT / f, write=False):
+            out.append(Finding(f'{f}:{line}',
+                               f'not headline case: {before!r} -> {after!r}'))
+    return out
+
+
 def _unglossed(text, known, path=None):
     """[(line, TOKEN)] via doc_lint's own acronym scan, so this check and the
     warning it replaces never drift apart -- one detector, two callers.

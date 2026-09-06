@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-### Resident block (~312 of 2000 token budget, 6 of 62 practices)
+### Resident block (~312 of 2000 token budget, 6 of 63 practices)
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -191,6 +191,8 @@ When writing or editing a document:
   doc-references-are-links — reference repo files as relative links; use ≈, never ~
   docs-are-current-state — state what is true now; version control holds the history
   label-describes-content — "one line" must be one line; else name it for its content
+When writing or editing a heading in an outward-facing document:
+  headline-capitalization — outward-facing headings are New York Times headline case, applied by tool
 When writing or filling out a pull-request description:
   pr-template-honest-gates — write the body from the diff; an unchecked box is fine
 When writing or triaging an open item:

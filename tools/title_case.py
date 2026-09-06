@@ -20,10 +20,9 @@ The rule, stated once so the output is arguable rather than magic:
 Fenced code blocks are skipped, so a ``` block containing a `# comment` is
 never rewritten.
 
-No `practice: SLUG` citation yet (code-cites-practice): the convention this
-enforces has no practice file in any source this session can resolve. See
-TODO.md — raising it is blocked on reading the two private sets, which a
-session with them attached must do before a duplicate is created.
+practice: headline-capitalization — this file IS that practice's definition,
+not merely its enforcement: the rules above are stated here once so no
+adopting repository restates them. Change them here and everywhere follows.
 """
 
 import json

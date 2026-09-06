@@ -318,24 +318,89 @@ the upstream layer. Ordered by priority.
     names, in a session with those repos attached. Full context:
     [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md).
 
-23. **Land a headline-capitalization practice — after checking the two
-    private sets for one that already exists.** Morgan asked whether this
-    repo has a practice requiring New York Times headline capitalization,
-    having noticed [documentation/](documentation/) was not following one.
-    It does not, in either source a session can resolve from this
-    repository: not in the universal catalogue, and not in
-    `bestpractice-local`. But [precedent.json](precedent.json) declares a
-    third source, `precedent-team-maintainers`, and Morgan's individual set
-    is deliberately not declared here at all — so two of the four levels
-    could not be searched, and a practice created without reading them
-    risks being a duplicate at the wrong level
-    ([search-by-purpose](practices/search-by-purpose.md)). The convention
-    itself is now mechanically enforceable —
-    [tools/title_case.py](tools/title_case.py), `--check` and `--write`,
-    already applied to every heading under `documentation/` — so what is
-    left is deciding the level, writing the practice file, and wiring the
-    tool in as its `checked_by`. **Blocked on:** a session with
-    `themorgan/precedent-team-maintainers` and `themorgan/precedent-individual`
-    attached. This session could not attach them — `add_repo` refuses a
-    cross-owner add once a session holds `alex137` repos, so it must be a
-    session started against those repos.
+23. **Check the two private sets for a duplicate headline-capitalization
+    rule, and delete it there.** The practice now lives at the universal
+    level — [practices/headline-capitalization.md](practices/headline-capitalization.md),
+    with its rules defined once in
+    [tools/title_case.py](tools/title_case.py). Morgan believes a rule for
+    this already existed in `precedent-team-maintainers` or in his
+    individual set, and asked that it live in exactly one place. Landing
+    it here was the half that could be done from a BestPractice session;
+    the other half — read whichever private set holds it, confirm the
+    universal wording covers what it said, and remove it there — cannot.
+    Per [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) this is the
+    correct order (a rule is never absent from both homes at once), but
+    the removal is not optional: until it happens the rule is duplicated
+    across two levels, which is what Morgan asked to avoid.
+    **Blocked on:** a session that can read `themorgan/precedent-team-maintainers`
+    and `themorgan/precedent-individual`. `add_repo` refuses a cross-owner
+    add once a session holds `alex137` repos, and the GitHub read tools
+    refuse the same repos, so it must be a session started against them.
+
+24. **BestPractice never instantiated the individual-source bootstrap hook
+    it ships to every other adopter.**
+    [tools/precedent_resolve.py](tools/precedent_resolve.py) self-heals a
+    missing individual source by re-invoking
+    `.claude/hooks/precedent-individual-bootstrap.sh` from inside the
+    agent's turn, after `add_repo` has run — the 2026-09-06 correction to
+    the session-bootstrap incident. That hook does not exist in this repo:
+    [.claude/hooks/](.claude/hooks/) has `session-start.sh`,
+    `precedent-paths.sh` and `stop-git-check.sh` and nothing else, so the
+    self-heal's second guard returns early and the individual set can
+    never resolve in a BestPractice session. The template is right there
+    at [templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template](templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
+    and [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)'s
+    `--write-session-hook` instantiates it. `verify_harness.py` already
+    tests that a *consuming* repo has this hook — the gap is that
+    BestPractice is treated as the publisher and never checked as a
+    consumer of its own install instructions. **Blocked on:** a session
+    that can reach the individual repo, since the instantiated hook names
+    it and an untested session-start hook must not be committed blind.
+
+25. **A missing individual source is silent; a missing team source is
+    loud.** In `load_config`, a team source that fails to resolve is
+    reported through `missing` and printed. An individual source whose
+    user-level config is absent is simply never appended to `sources` —
+    no `missing` entry, no warning. The module docstring names exactly
+    this ambiguity ("config absent" ≠ "no individual set") and
+    `_self_heal_individual_source` addresses only the fresh-session-hook
+    half of it. After the self-heal has been tried and the config is
+    still absent, the resolver should say so, the way it does for a team
+    source. **Blocked on:** nothing — this is a small change to
+    `tools/precedent_resolve.py` plus a harness case. Not done here only
+    because it is a separate defect from the work in this thread.
+
+26. **This repo's own loader is universal-only, so no team or individual
+    practice can ever fire in a BestPractice session.**
+    [tools/build_views.py](tools/build_views.py) builds the AGENTS.md
+    resident block and occasion index from the universal catalogue alone.
+    [precedent.json](precedent.json)'s own comment records this as
+    deliberate ("build_views.py deliberately stays single-source"), and it
+    is defensible for a repo that publishes the universal set — but the
+    consequence was not written down anywhere a session would find it:
+    `precedent-team-maintainers` is a *declared* source whose practices
+    cannot reach the channel a session actually reads. That is how a real
+    rule went unapplied on 2026-09-06 (see item 23). Decide and record
+    which it is: fold the team source into this repo's generated loader,
+    or state plainly in AGENTS.md that team and individual practices do
+    not load here and must be consulted with `precedent_resolve.py`.
+    **Blocked on:** nothing but the decision, which is Morgan's and
+    Alex's rather than a session's.
+
+27. **Audit the RepoPersonalPreferences migration for anything else lost.**
+    RPP's 46 rules were split into the two private sets on 2026-09-01
+    (closing phase 3 — [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)
+    is the procedure). No per-rule ledger of that split exists anywhere in
+    this repository: nothing here records which of the 46 landed where, so
+    "did anything get dropped" cannot be answered from BestPractice at
+    all — the very gap
+    [practices/parallel-artifact-ledger.md](practices/parallel-artifact-ledger.md)
+    exists to close, applied to a migration instead of a parallel artifact
+    family. If a ledger was written, it is in one of the private repos.
+    The check itself is mechanical once the repos are in one session: list
+    RPP's 46 rule identifiers, list every practice in
+    `precedent-team-maintainers` and `precedent-individual`, and diff —
+    anything in the first list with no descendant in the second two either
+    moved to universal, was deliberately retired, or was lost, and each of
+    those three is a different answer. **Blocked on:** a session that can
+    read `themorgan/RepoPersonalPreferences` plus both private sets.

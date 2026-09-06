@@ -189,6 +189,13 @@
       "why": "The distinguishing condition is that the install step is GitHub-SPECIFIC, and the workflow files are exactly that. INSTALL.md and SETUP.md were in a first draft of this glob; they are where the fact must be DISCLOSED, not what makes the practice fire, and including them surfaced it on half the eval cases.",
       "decided": "phase 4 routing pass"
     },
+    "headline-capitalization": {
+      "globs": [
+        "documentation/**/*.md"
+      ],
+      "why": "Narrow on purpose. The practice covers OUTWARD-FACING documents only -- a practice file's heading, a spec's, or a brief's is working text, and sentence case is right there. `documentation/` is where this repo keeps the documents written for people outside the project, so it is the whole scope and the glob can say so exactly. An adopting repo points this at its own outward-facing directory; the capitalization rules themselves do not move, since they live in tools/title_case.py.",
+      "decided": "2026-09-06, when the practice was added"
+    },
     "index-remembers-past": {
       "globs": [
         "**"
