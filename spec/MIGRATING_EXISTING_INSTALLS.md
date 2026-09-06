@@ -266,6 +266,25 @@ the loader.
    pack was inlined in full still applies just as much as it always did —
    resist it; the generated block *is* the non-duplicated form.
 
+   **Also vendor `tools/precedent_check.py` — separately, by hand — before
+   calling this step done.** `precedent_vendor_engine.py --kind consumer`
+   covers the nine engine files above plus `routing_scope.json`, but it
+   deliberately does NOT vendor `precedent_check.py`: that file is a
+   separate enforcement channel (`checked_by`, not the loader), out of
+   this tool's scope by design, not an oversight — see its own module
+   docstring. A migration that stops at the vendor-engine step ends up
+   with a fully working loader and **no enforced-checks tool at all**:
+   `precedent_gate.py` hard-crashes (`FileNotFoundError`) without
+   `routing_scope.json` sitting next to it (already covered above), and
+   `precedent_check.py --list`/any real run simply doesn't exist without
+   its own copy. Confirmed real, not hypothetical: `themorgan/WorkingWithAI`
+   followed this exact step as written (2026-09-06) and ended up missing
+   `tools/precedent_check.py` for exactly this reason — copy
+   `process/upstream/tools/precedent_check.py` to the consuming repo's own
+   `tools/precedent_check.py` in the same pass, and verify it with a real
+   run (`python3 tools/precedent_check.py --list`, then a plain invocation)
+   before moving on, the same bar step 8 already sets for the loader.
+
 8. **Validate for real**, not against a fixture: `python3
    tools/precedent_sync_views.py --repo .` from the consuming repo, with
    its `precedent.json` and a real user-level individual config in place.
@@ -460,3 +479,26 @@ pattern depends on that had never been exercised against real content
 before. That's exactly why this document keeps asking a migrating session
 to validate for real (step 8) and report back what looked wrong, rather
 than treating a clean run as proof the machinery is correct.
+
+## A third real bug — this document's own step 7, incomplete — found 2026-09-06
+
+Unlike the two above, this one was in the pattern itself, not in tooling
+it depends on. `themorgan/WorkingWithAI` followed step 7 exactly as
+written and ended up with a repo that could load practices but not check
+them: `tools/precedent_check.py` was simply absent, because step 7's file
+list (the nine engine files plus `routing_scope.json`, all handled by
+`precedent_vendor_engine.py --kind consumer`) never named it —
+`precedent_check.py` is deliberately excluded from that tool's scope (a
+separate enforcement channel, not the loader), and the step's prose never
+said so or told the reader to handle it another way. The gap was silent
+until someone actually tried to run a check: `precedent_gate.py` fails
+loudly (`FileNotFoundError` on the missing `routing_scope.json`, in this
+case not the cause but caught the same way), while a missing
+`precedent_check.py` just means the enforced channel doesn't exist —
+nothing errors, there is simply nothing there to catch anything. Fixed
+two ways, same session: step 7 above now names `precedent_check.py`
+explicitly as a required, separate hand-copy; and (tracked as
+`alex137/BestPractice` [TODO.md](../TODO.md)) a mechanical check now
+scans every vendored engine file for hardcoded `ROOT / 'tools' / '<name>'`
+paths and flags any that don't exist locally — the same class of gap this
+one was, caught structurally instead of by a downstream crash.

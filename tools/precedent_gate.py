@@ -75,6 +75,17 @@ _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 ROOT = _ENGINE_DIR.parent  # unchanged default when --repo is omitted
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
+# TODO.md item 20 (was 19): this channel read practices/*.md directly,
+# bypassing precedent_show.py's materialized-source reachability note
+# (PR #114) the same way precedent_paths.py did. Fixed by importing
+# precedent_show.py's two helpers directly -- same discipline this file
+# already uses for split_practices.py, not a subprocess call (which would
+# mean re-parsing precedent_show.py's own "### slug\n<body>" stdout format
+# back into structured data here, solely to get a note this file can
+# already print itself once it has the same two functions) and not a
+# copy-pasted second implementation (which is exactly the kind of drift
+# this repo's own engine-plus-host-shims practice exists to prevent).
+import precedent_show as ps
 
 SCOPE = _ENGINE_DIR / 'routing_scope.json'
 
@@ -146,10 +157,16 @@ def main():
         sys.exit(f"precedent gate FAIL: gate {gate!r} ({vocab[gate]}) has no "
                  f"practices registered to it. An empty gate is a step that "
                  f"loads nothing and looks like it worked.")
+    manifest = ps._materialize_manifest(root)
     print(f"# Practices for the {gate} gate — {vocab[gate]}\n")
     for slug in slugs:
         fm, sections = sp._read_practice_file(practices_dir / f'{slug}.md')
-        print(f"### {slug}\n{sections.get('rule', '').strip()}\n")
+        block = f"### {slug}\n{sections.get('rule', '').strip()}"
+        if manifest is not None:
+            note = ps._source_unreachable_note(manifest, slug)
+            if note:
+                block += f"\n{note}"
+        print(f"{block}\n")
     return 0
 
 

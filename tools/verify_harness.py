@@ -2466,6 +2466,12 @@ def check_precedent_check_fires():
         case('no-version-suffix',
              lambda repo: (repo / 'findings-v2.md').write_text('x\n', encoding='utf-8'))
 
+        # vendored-engine-file-refs-resolve -- delete a file precedent_gate.py
+        # hardcodes a reference to (_ENGINE_DIR / 'routing_scope.json'),
+        # reproducing the themorgan/WorkingWithAI incident this check exists for
+        case('vendored-engine-file-refs-resolve',
+             lambda repo: (repo / 'tools' / 'routing_scope.json').unlink())
+
         # generated-artifact-provenance -- a hand-edited generated view
         case('generated-artifact-provenance',
              lambda repo: rewrite(repo, 'MAP.md', lambda t: t + '\nhand-added\n'))
@@ -3526,18 +3532,35 @@ def check_show_flags_unreachable_materialized_source():
     one) with no MANIFEST.json at all (never adds a note, regardless of
     slug); and multiple slugs in one call sourced differently (each gets
     its own independent verdict, matching precedent_show.py's own
-    per-slug concatenation)."""
+    per-slug concatenation).
+
+    EXTENDED 2026-09-06 (TODO.md item 20, closed) to cover
+    precedent_gate.py and precedent_paths.py too -- both read
+    practices/*.md directly, the same way precedent_show.py itself used
+    to, so the note above never reached a practice loaded through the
+    gate-triggered or path-triggered channel. Closed by having both
+    modules `import precedent_show as ps` and call its two helpers
+    directly, NOT by a subprocess call to precedent_show.py (would mean
+    re-parsing its own "### slug\\n<body>" stdout format back into
+    structured data purely to recover a note this file can already print
+    itself) and NOT by a second, copy-pasted implementation
+    (engine-plus-host-shims: one mechanism, shared by import, the same
+    discipline all three files already use for split_practices.py). Two
+    more stated cases below reuse the same indiv/uni fixture with one
+    added practice (gated + a narrow applies_to, so both channels can
+    actually reach it), checked reachable and unreachable exactly like
+    the show() cases above."""
     import shutil, subprocess, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-show-reachability-'))
     cases = []
     try:
-        def write_practice(path, slug, rule):
+        def write_practice(path, slug, rule, applies_to='["**"]', gates='[]'):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(
                 f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
-                f'severity: default\napplies_to: ["**"]\noccasion: "testing"\n'
-                f'index_clause: "a harness fixture"\nchecked_by: null\n'
+                f'severity: default\napplies_to: {applies_to}\noccasion: "testing"\n'
+                f'gates: {gates}\nindex_clause: "a harness fixture"\nchecked_by: null\n'
                 f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
                 f'added: null\napproved_by: "harness"\n---\n\n## Rule\n{rule}\n\n'
                 f'## Detail\n\n## Why\n\n## Story\n\n## Install\n', encoding='utf-8')
@@ -3545,6 +3568,13 @@ def check_show_flags_unreachable_materialized_source():
         indiv = tmp / 'indiv-source'
         write_practice(indiv / 'practices' / 'show-fixture-individual.md',
                        'show-fixture-individual', 'The individual fixture Rule.')
+        # Gated + narrow applies_to, so the SAME materialized fixture also
+        # exercises precedent_gate.py and precedent_paths.py below -- both
+        # read practices/*.md directly, same as precedent_show.py, and TODO
+        # item 20 named them as needing the identical reachability note.
+        write_practice(indiv / 'practices' / 'show-fixture-individual-routed.md',
+                       'show-fixture-individual-routed', 'The routed individual fixture Rule.',
+                       applies_to='["fixture-only/*.md"]', gates='["push"]')
         uni = tmp / 'uni-source'
         write_practice(uni / 'practices' / 'show-fixture-universal.md',
                        'show-fixture-universal', 'The universal fixture Rule.')
@@ -3561,6 +3591,8 @@ def check_show_flags_unreachable_materialized_source():
 
         materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
         show_tool = str(ROOT / 'tools' / 'precedent_show.py')
+        gate_tool = str(ROOT / 'tools' / 'precedent_gate.py')
+        paths_tool = str(ROOT / 'tools' / 'precedent_paths.py')
 
         def materialize():
             r = subprocess.run([sys.executable, materialize_tool, '--out', str(consumer),
@@ -3570,6 +3602,16 @@ def check_show_flags_unreachable_materialized_source():
 
         def show(*slugs):
             r = subprocess.run([sys.executable, show_tool, *slugs, '--repo', str(consumer)],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        def gate(name):
+            r = subprocess.run([sys.executable, gate_tool, name, '--repo', str(consumer)],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        def paths(*p):
+            r = subprocess.run([sys.executable, paths_tool, *p, '--repo', str(consumer)],
                                capture_output=True, text=True)
             return r.returncode, r.stdout + r.stderr
 
@@ -3585,6 +3627,18 @@ def check_show_flags_unreachable_materialized_source():
         cases.append(('a universal-sourced slug in the same materialized tree '
                       'shows no note either', rc == 0 and 'NOT reachable' not in out, out))
 
+        rc, out = gate('push')
+        cases.append(('reachable: precedent_gate.py shows no note for the '
+                      'gated individual-sourced slug either',
+                      rc == 0 and 'NOT reachable' not in out
+                      and 'show-fixture-individual-routed' in out, out))
+
+        rc, out = paths('fixture-only/x.md')
+        cases.append(('reachable: precedent_paths.py shows no note for the '
+                      'same slug matched by path',
+                      rc == 0 and 'NOT reachable' not in out
+                      and 'show-fixture-individual-routed' in out, out))
+
         shutil.move(str(indiv), str(tmp / 'indiv-source-hidden'))
         rc, out = show('show-fixture-individual')
         cases.append(('unreachable: the same individual-sourced slug now carries '
@@ -3596,6 +3650,18 @@ def check_show_flags_unreachable_materialized_source():
         cases.append(('the universal-sourced slug is unaffected by the '
                       'individual source going missing -- the check is per-slug, '
                       'not a blanket flag', rc == 0 and 'NOT reachable' not in out, out))
+
+        rc, out = gate('push')
+        cases.append(('unreachable: precedent_gate.py now carries the note for '
+                      'the gated individual-sourced slug (TODO item 20, closed)',
+                      rc == 0 and 'NOT reachable this session' in out
+                      and '(source: individual,' in out, out))
+
+        rc, out = paths('fixture-only/x.md')
+        cases.append(('unreachable: precedent_paths.py now carries the note for '
+                      'the same slug matched by path (TODO item 20, closed)',
+                      rc == 0 and 'NOT reachable this session' in out
+                      and '(source: individual,' in out, out))
 
         rc, out = show('show-fixture-individual', 'show-fixture-universal')
         cases.append(('mixed in one call: each slug gets its own independent '
@@ -3618,8 +3684,9 @@ def check_show_flags_unreachable_materialized_source():
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'precedent_show.py flags a materialized slug whose declared source is not '
-          f'reachable this session ({len(cases)} stated cases)',
+    check(f'precedent_show.py/precedent_gate.py/precedent_paths.py all flag a '
+          f'materialized slug whose declared source is not reachable this session '
+          f'({len(cases)} stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 

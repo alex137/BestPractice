@@ -240,18 +240,80 @@ the upstream layer. Ordered by priority.
     [tools/precedent_check.py](tools/precedent_check.py), update this
     item, and update [practices/parallel-artifact-ledger.md](practices/parallel-artifact-ledger.md)'s
     Story section to record the resolution.
-20. **`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable
-    materialized source either — only `precedent_show.py` does, 2026-09-06.**
-    Both read `practices/*.md` directly via `split_practices._read_practice_file`
-    rather than shelling out to `precedent_show.py` (confirmed by grep, not
-    assumed), so the reachability note that tool now carries
-    (`_source_unreachable_note`) never reaches a practice loaded through the
-    gate-triggered or path-triggered channel — only the on-demand,
-    `precedent show SLUG`-invoked channel gets it. **Blocked-on:** this was
-    explicitly out of scope for the session that built the fix (asked for
-    `precedent_show.py` specifically); giving `precedent_gate.py`/
-    `precedent_paths.py` the same protection means either routing them
-    through `precedent_show.py` as a subprocess (a real behavior change to
-    how they load content, not just a bugfix) or duplicating the check —
-    a real design call, not a mechanical port, left for whoever picks this
-    up next.
+
+    **Re-verified fresh, 2026-09-06, on PR #110's own current CI run —
+    still reproduces, still unexplained, escalated to Alex.** Merging
+    `precedent-beta-v01`'s current tip into PR #110's branch and pushing
+    triggered a brand-new CI run against merge-test commit `7ad93d0`
+    (`5007766` merged onto `b72762f`); it failed with the identical
+    `f2078d6` violation. Before assuming it was the same unfixed anomaly,
+    this session ruled out four *new* candidate explanations, each
+    directly tested rather than argued: (1) the local investigation's own
+    shallow clone — deepened to full history (`git fetch --depth=2000`),
+    confirmed `f2078d6` genuinely is an ancestor and the check passes
+    clean locally either way; (2) the merge-test ref (`pull/110/merge`)
+    double-merging to different content than what was actually pushed —
+    read `templates/harness/LEDGER.md` and `tools/precedent_check.py`
+    directly from GitHub's own `7ad93d03767657cc1f6ecb261c273e4119dfd55a`
+    via the API: byte-identical to a clean local checkout, `f2078d6`'s row
+    present, `advisory=True` present in the check's own registration; (3) a
+    tracked, stale `__pycache__/precedent_check.cpython-*.pyc` shadowing
+    current source — `tools/__pycache__/` is gitignored and confirmed not
+    tracked in the tested commit, ruled out; (4) `verify_harness.py`'s own
+    self-tests for this check contaminating the real working tree before
+    the standalone `precedent_check.py` step runs in the same CI job —
+    read both self-test implementations
+    (`check_parallel_artifact_ledger_fires`, `check_precedent_check_fires`):
+    both operate entirely inside `tempfile.mkdtemp()` scratch trees
+    (one loads `precedent_check.py` via `importlib.util` with `pc.ROOT`
+    reassigned to the scratch dir, the other `shutil.copytree`s the whole
+    repo into per-case scratch copies and runs each as a subprocess with
+    `cwd` set to the copy) — neither ever touches this repo's own
+    `templates/harness/LEDGER.md`, ruled out. A **fifth, direct** test: a
+    brand-new, fully isolated `git clone` of nothing but the exact tested
+    secure hash algorithm (SHA) — the commit hash, `7ad93d0`, no
+    working-branch state carried over — ran
+    `python3 tools/precedent_check.py` clean — `0 violated` — on the
+    identical commit CI called a violation. Four independent confirmations
+    the content and code are correct (three from the prior finding, this
+    fresh isolated-clone run a fourth, distinct from the three CI already
+    had) plus these four ruled-out local hypotheses leaves nothing left to
+    test from outside GitHub's own execution environment. Per this task's
+    own standing instruction (two automated diagnostic commits already
+    reverted, per this item's own account above) this is the point to stop
+    attempting another automated diagnosis: escalated to Alex directly, as
+    a comment on PR #110, asking for a raw Actions UI look at run
+    `34003769809` / job `101407169823` — something a log fetch over the
+    API cannot show (runner diagnostics, any organization-level Actions
+    configuration, anything else the UI surfaces that the plain log
+    stream doesn't).
+20. ~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable
+    materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
+    **Done (2026-09-06).** Both read `practices/*.md` directly via
+    `split_practices._read_practice_file` rather than shelling out to
+    `precedent_show.py` (confirmed by grep, not assumed), so the
+    reachability note that tool carries (`_source_unreachable_note`) never
+    reached a practice loaded through the gate-triggered or path-triggered
+    channel — only the on-demand, `precedent show SLUG`-invoked channel got
+    it. **The design call, stated before picking (same bar as PR #114's own
+    design section):** three options existed — (a) route both files through
+    `precedent_show.py` as a subprocess, (b) duplicate
+    `_materialize_manifest`/`_source_unreachable_note`'s logic into each, or
+    (c) import `precedent_show.py` directly and call its two helpers.
+    (a) means re-parsing `precedent_show.py`'s own `"### slug\n<body>"`
+    stdout format back into structured data for no reason, purely to get a
+    note the caller could already print itself once it has the same
+    function. (b) is exactly the drift this repo's own
+    [engine-plus-host-shims](practices/engine-plus-host-shims.md) practice
+    exists to prevent — two copies of the same reachability logic that can
+    silently diverge the next time one is fixed and the other isn't.
+    (c) costs nothing new: both files already `import split_practices as sp`
+    for the same reason (a sibling module in the same `tools/` directory),
+    so importing `precedent_show as ps` the same way and calling
+    `ps._materialize_manifest(root)` / `ps._source_unreachable_note(manifest, slug)`
+    is the same discipline already in use, not a new one. Chose (c).
+    Verified: [tools/verify_harness.py](tools/verify_harness.py)'s
+    `check_show_flags_unreachable_materialized_source` extended from 8 to
+    12 stated cases (a reachable and an unreachable case added for each of
+    the gate and path channels, alongside the pre-existing
+    `precedent_show.py` cases) — all 12 pass.

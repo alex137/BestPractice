@@ -552,6 +552,60 @@ def _engine_plus_host_shims(ctx):
     return out
 
 
+# The captured group is restricted to filename-shaped characters
+# ([\w.-]+, no "<", ">", or spaces) deliberately, not just to keep the regex
+# tight: this check's OWN registration below documents the two path shapes
+# it looks for using a `'<name>'` placeholder, in a plain string literal --
+# an unrestricted capture matched that placeholder text against itself,
+# reporting a false violation for a file named literally "<name>" on every
+# run, planted or not. Restricting the capture to real-filename characters
+# fixed it structurally (the placeholder can never match) rather than by
+# excluding this file by path, which would leave the same trap for the next
+# docstring that quotes the pattern it implements.
+_ENGINE_REF_RE = re.compile(
+    r"""_ENGINE_DIR\s*/\s*['"]([\w.-]+)['"]|ROOT\s*/\s*['"]tools['"]\s*/\s*['"]([\w.-]+)['"]"""
+)
+
+
+# cite-the-incident, 2026-09-06: themorgan/WorkingWithAI followed
+# spec/MIGRATING_EXISTING_INSTALLS.md step 7 exactly as written and ended up
+# with a hard-crashing precedent_gate.py -- FileNotFoundError on
+# routing_scope.json, which precedent_gate.py itself names via
+# `_ENGINE_DIR / 'routing_scope.json'` -- discovered only when someone
+# actually tried to run a gate, not before. This check statically scans every
+# tools/*.py file for exactly that shape of hardcoded reference and flags any
+# target that isn't actually there, so the same class of gap (a vendored
+# engine file naming a companion that never got copied) surfaces mechanically
+# on the next `precedent_check.py` run instead of via a downstream crash.
+@check('vendored-engine-file-refs-resolve', 'tree',
+       "every hardcoded `_ENGINE_DIR / '<name>'` or `ROOT / 'tools' / '<name>'` "
+       "path inside a tools/*.py file names a file that actually exists under "
+       "this repo's own tools/",
+       "whether the referenced file's CONTENT is current or correct, and "
+       "whether a file with no hardcoded reference to it at all (nothing in "
+       "tools/*.py names its path this way) was itself supposed to be here -- "
+       "only that a path this code already commits to finding is actually "
+       "there. It scans the `_ENGINE_DIR / '<name>'` and "
+       "`ROOT / 'tools' / '<name>'` spellings only, not an equivalent path "
+       "built any other way (an f-string, a joined variable).")
+def _vendored_engine_file_refs_resolve(ctx):
+    tools_dir = ROOT / 'tools'
+    findings = []
+    for p in sorted(tools_dir.glob('*.py')):
+        text = p.read_text(encoding='utf-8', errors='ignore')
+        for m in _ENGINE_REF_RE.finditer(text):
+            name = m.group(1) or m.group(2)
+            if not (tools_dir / name).exists():
+                findings.append(Finding(
+                    f'tools/{p.name}',
+                    f"references tools/{name}, which does not exist locally "
+                    f"-- a vendored engine file naming a companion that was "
+                    f"never copied over is exactly how themorgan/WorkingWithAI "
+                    f"ended up with a hard-crashing precedent_gate.py "
+                    f"(2026-09-06, missing routing_scope.json)"))
+    return findings
+
+
 @check('verify-postcondition', 'turn-end',
        'the state you wanted after the operations this turn: nothing '
        'committed but unpushed on any local branch, and no tracked file '
