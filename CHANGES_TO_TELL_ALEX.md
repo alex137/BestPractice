@@ -1,4 +1,5 @@
-<!-- Last updated: 2026-09-04 (Buenos Aires) by the session merging pull request (PR) #86, folding in a cleanup session's and the phase-6 pre-fork audit session's own entries -->
+<!-- Last updated: 2026-09-06 (Buenos Aires) by the session reviewing four carried-over open items, adding the two-check-levels and deliverables-look-like-output entries below -->
+<!--record-doc--> This file quotes practice Rules verbatim to say what changed in them, so it names the apparatus doc_lint.py check 6 keeps out of deliverables. It is a record document, not a deliverable.
 
 # Changes to tell Alex
 
@@ -244,6 +245,67 @@ needs this slug named here to keep exempting it from the fidelity checks
 honestly — it already was, from the unrelated 2026-09-01 slug-link sweep
 below, but that entry doesn't disclose *this* change, so it needed its
 own, same reasoning as the `session-bootstrap` entry above.
+
+### `two-check-levels` (BestPractice practice 44) — 2026-09-06
+
+**What changed.** Two things, neither touching the Rule. `defines:` was
+`[]` and is now `["light check", "deep check"]`, so both terms land in the
+generated [GLOSSARY.md](GLOSSARY.md) — the practice's own Install step has
+always said to put the chosen pair in the repo's glossary, and this repo
+had adopted the pair in `AGENTS.md` without ever registering it, which
+[`very-deep-check`](practices/very-deep-check.md)'s pass 3 names as a
+defect in its own right (a trigger word reachable only by already knowing
+it). And the Install section's closing sentence, which told a repo to fold
+extra checks into the "light" name "rather than inventing a third level —
+two named levels is the right number for almost every repo," now says third
+*gate* and adds a paragraph drawing the line: what gates a commit, push or
+merge must fold into one of the two names; a rare audit a person asks for
+by name, that no gate ever waits on, is a separate mechanism.
+
+**Why it needed saying.** This branch built exactly such a mechanism —
+[`very-deep-check`](practices/very-deep-check.md), four ordered passes over
+every repo in force, by its own Rule "never wired into a commit, push, or
+merge gate" — and left practice 44 asserting that a third level should not
+exist. The two are compatible on the substance and were not on the page,
+which is the kind of contradiction the same practice's pass 3 exists to
+catch.
+
+**What did not change.** The Rule is untouched, byte-for-byte: two named
+levels, fixed and distinct, named in the repo's own glossary. The
+decision rule for a *gate* is unchanged and is now stated more sharply
+than before, not relaxed. `checked_by` still points at the same check in
+[`tools/precedent_check.py`](tools/precedent_check.py), unchanged.
+
+### `deliverables-look-like-output` (BestPractice practice 49) — 2026-09-06
+
+**What changed.** The Rule routed every kind of apparatus — claims-to-source
+table, verification log, decision provenance, retirement lore, open
+verify-later items — into a single **paired record document**
+(`*_record.md`). It now adds that where a repo gives one of those kinds its
+own home, that home wins: under Precedent a decision that is not about a
+practice goes to a dated file in `decisions/`, and a practice's own
+originating incident goes to its `## Story`. Detail item 3 gains the same
+alternative. [`tools/doc_lint.py`](tools/doc_lint.py)'s check 6 follows: a
+`decisions/` directory is now record-class (it was being linted as a
+deliverable, and so flagged for containing its own subject matter), and a
+deliverable's one allowed reference now includes a link to a dated decision
+record, not only to a `_record.md`/`_diligence.md`-suffixed one.
+
+**Why it needed saying.** The plan's "Where Decisions and History Live"
+gave decision provenance a home this practice predates, and this repo has
+been writing real records into `decisions/` since 2026-08-31 while the
+practice still said they belong in a paired record doc. The lint half was
+a latent gate failure, reproduced before fixing: a deliverable that
+correctly linked its decision record instead of restating the decision
+failed the gate for doing the right thing.
+
+**What did not change.** The decision rule is intact and is the whole point
+of the practice: apparatus does not travel with the deliverable, a
+verify-later flag means verify now, and a cited decision names its decider
+and date. Only *which* file it lands in gained an alternative. The check's
+own patterns are untouched — verified still firing on an unattributed "user
+decision" with no record link, and still not exempting an ordinary document
+link.
 
 ## Cross-referenced only, not a behavior change
 

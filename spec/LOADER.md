@@ -172,7 +172,7 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | `## Rule` share of the catalogue | 23% of the catalogue |
 | Rules still over 150 words | 11 |
 | Carrying a `## Detail` | 26 |
-| Carrying a `## Story` | 34 |
+| Carrying a `## Story` | 35 |
 | Enforced by a check | 33 of 65 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 

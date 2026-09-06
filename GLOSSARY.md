@@ -9,11 +9,13 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
+| deep check | [two-check-levels](practices/two-check-levels.md) |
 | document reference | [doc-references-are-links](practices/doc-references-are-links.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | go merge | [merge-authorization-keyword](practices/merge-authorization-keyword.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
+| light check | [two-check-levels](practices/two-check-levels.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |

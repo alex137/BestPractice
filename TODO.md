@@ -354,6 +354,17 @@ which is the failure this repointing exists to end — write
     change, whose ask was scoped to BestPractice's `precedent-beta-v01`
     alone. Any session with `precedent-team-maintainers` attached and a
     mandate to touch it can close this.
+    **Narrowed 2026-09-06:** the `overrides:` half is already ruled out —
+    [practices/very-deep-check.md](practices/very-deep-check.md)'s Story
+    records Morgan's ruling that the team's `deep-check` and this practice
+    are unrelated rules, so there is nothing to override, and the team's
+    routine per-commit check keeps happening. The same date,
+    [practices/two-check-levels.md](practices/two-check-levels.md) drew the
+    general line this rests on: what gates a commit, push or merge is one of
+    the two named levels, while a rare audit a person asks for by name is a
+    separate mechanism. So the open call is only whether the team's
+    `deep-check` should adopt anything from the four passes — not whether it
+    should be replaced by them.
 
 24. <a id="consumer-source-names"></a>~~**Check the consumer repos' own source names against the convention.**~~
     **Done (2026-09-06.)** `themorgan/HavrutaBrainstorm` — the one consumer
