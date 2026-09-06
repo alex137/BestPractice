@@ -546,10 +546,22 @@ which is the failure this repointing exists to end — write
     deduplications recorded under the old vocabulary, and neither can meet
     retirement's evidence bar (`in_force_at: none` plus a Story line saying
     nobody wants the rule anywhere) because both rules are fully in force.
-    **This is time-sensitive in a way the other items are not:**
-    `verify_harness.py`'s new `check_status_contract` refuses them, so that
-    set goes red on its next vendored-engine refresh. Set
-    `status: deduplicated` and `in_force_at:` to the surviving slug in each.
+
+    **Correction, same day:** an earlier draft of this item said the set
+    would "go red on its next vendored-engine refresh." That was wrong, and
+    wrong in the direction that matters — `verify_harness.py` is **not** in
+    [`ENGINE_FILES`](tools/precedent_vendor_engine.py), so
+    `check_status_contract` never runs in a practice set at all. The set
+    does not go red; it goes **silent**, which is worse. The new engine
+    simply starts treating those two records as not in force — correct
+    either way — with nothing to say the vocabulary underneath them changed.
+
+    The migration is now mechanical:
+    [`tools/precedent_migrate_status.py`](tools/precedent_migrate_status.py)
+    (vendored, so it runs inside the set) reports both, auto-proposes
+    `bestpractice-sync` (same slug, active in `precedent-individual`), and
+    leaves `header-caps` UNDETERMINED because its successor is renamed —
+    `--set header-caps=headline-capitalization`. Run it report-only first.
     **Blocked on:** a session holding `themorgan/precedent-team-maintainers`.
 
 35. <a id="build-codeowners-check-flag"></a>**`build_codeowners.py --check` is not a check — it takes no such flag

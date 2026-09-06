@@ -117,9 +117,26 @@ def _not_in_force_banner(fm, slug):
         return (f"> NOT IN FORCE HERE (status: {status}) -- this copy is "
                 f"redundant, {where}.")
     if status == bv.RETIRED_STATUS:
-        return (f"> NOT IN FORCE ANYWHERE (status: {status}) -- this rule was "
-                f"withdrawn, not moved. See its ## Story for why "
-                f"(precedent_show.py {slug} --story).")
+        if target == bv.IN_FORCE_AT_NOWHERE:
+            return (f"> NOT IN FORCE ANYWHERE (status: {status}, "
+                    f"in_force_at: none) -- this rule was withdrawn, not "
+                    f"moved. See its ## Story for why "
+                    f"(precedent_show.py {slug} --story).")
+        # A LEGACY RECORD, and the one case where saying less is the whole
+        # point. Before `in_force_at:` existed, `retired` covered BOTH a
+        # withdrawn rule and a redundant copy of one still fully in force
+        # elsewhere -- that ambiguity is the defect this vocabulary exists
+        # to remove, and every real use of the old status turned out to be
+        # the second kind. So this must NOT be reported as a withdrawal:
+        # asserting "withdrawn, not moved" from a record that says no such
+        # thing states the confusion as fact instead of merely inheriting
+        # it, which is worse than the silence it replaced.
+        return (f"> NOT IN FORCE HERE (status: {status}) -- and this record "
+                f"PREDATES `in_force_at:`, so it does not say whether the "
+                f"rule survives elsewhere. Do not read it as withdrawn: "
+                f"under the older vocabulary `retired` covered both a "
+                f"withdrawn rule and a redundant copy of a live one. Run "
+                f"`precedent_migrate_status.py` to classify it.")
     return (f"> NOT IN FORCE (status: {status}) -- a status this engine does "
             f"not recognize, so the practice is treated as not current. "
             f"Known statuses: {', '.join(bv.KNOWN_STATUSES)}.")

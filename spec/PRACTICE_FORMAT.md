@@ -386,6 +386,53 @@ vocabulary exists to remove. So `deduplicated` means "in force elsewhere, and
 here is where" — whether *elsewhere* is another practice or the engine — and
 `retired` keeps a single legal value, `none`, which is what makes it loud.
 
+### Migrating a record written under the old vocabulary
+
+A practice carrying a non-active status with **no** `in_force_at:` predates
+this field. It does not say which of the two things it meant, and nothing can
+work that out from the file alone — so no tool in this engine treats it as
+either. [`tools/precedent_show.py`](../tools/precedent_show.py) marks it as
+*not in force here* and explicitly declines to call it a withdrawal;
+`status_contract_violation` reports it as unmigrated rather than malformed.
+
+[`tools/precedent_migrate_status.py`](../tools/precedent_migrate_status.py)
+does the migration, and it is vendored into every practice set
+([`ENGINE_FILES`](../tools/precedent_vendor_engine.py)) because the legacy
+records live in the private sets, not in this catalogue. It reports by
+default and writes only what it is told to write:
+
+```
+# always start here -- report only, writes nothing
+python3 tools/precedent_migrate_status.py --repo . --against ../precedent-individual
+
+# then record the decisions, one flag per practice
+python3 tools/precedent_migrate_status.py --repo . --against ../precedent-individual \
+    --set header-caps=headline-capitalization --apply
+```
+
+It proposes only what it can establish: a practice whose **same slug** is
+active in one of the `--against` sources. Anything else comes back
+**UNDETERMINED**, with the practice's own `## Story` printed as evidence —
+because the old convention put the forwarding address there in prose — and
+printed rather than parsed, since a regex over prose is a guess wearing a
+mechanism's clothes.
+
+**A renamed successor is undetermined by construction, and that is the
+point.** `header-caps`'s rule survives at universal as
+`headline-capitalization`; nothing mechanical connects the two names. A
+migration willing to guess there would re-introduce exactly the
+resemblance-based reasoning this rename exists to remove — so it refuses,
+and a person names the target. It also refuses a named target that is not
+active in any source, and refuses `--set ...=none` on a practice with an
+empty `## Story`.
+
+Because `verify_harness.py` is deliberately **not** vendored, this tool is
+also the only compliance signal a practice set has for this: it exits
+non-zero while any legacy record remains, and
+[`precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s
+`refresh` prints a notice naming them — the moment the new vocabulary
+arrives is the moment to say so.
+
 ### An unknown status fails closed
 
 [`tools/build_views.py`](../tools/build_views.py)'s `is_in_force` tests for

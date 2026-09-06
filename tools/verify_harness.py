@@ -2531,6 +2531,131 @@ def check_generated_views_regenerate():
           ok, detail)
 
 
+def check_legacy_status_migration():
+    """A practice written under the OLD status vocabulary can be classified,
+    and cannot be classified by guessing.
+
+    THE GAP THIS CLOSES. `status: retired` used to mean two different things
+    -- a redundant copy of a rule still fully in force elsewhere, and a rule
+    withdrawn everywhere -- and a legacy record does not say which. The
+    records are in the private practice sets; BestPractice's own catalogue
+    never had one, which is exactly why nothing here would otherwise
+    exercise this. So the fixtures below reproduce both real cases:
+
+      bestpractice-sync   the surviving copy has the SAME slug, in another
+                          source -- mechanically determinable.
+      header-caps         the surviving rule is `headline-capitalization`
+                          at universal -- a RENAMED successor, which nothing
+                          mechanical connects to it. Must come back
+                          UNDETERMINED rather than guessed.
+
+    The second is the one that matters. A migration willing to guess at a
+    renamed successor would re-introduce precisely the resemblance-based
+    reasoning the whole status rename removes."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_migrate_status as pms
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-legacy-'))
+    cases = []
+    try:
+        src = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
+
+        def make(root, slug, status='active', story=None, legacy=False):
+            d = tmp / root / 'practices'
+            d.mkdir(parents=True, exist_ok=True)
+            x = re.sub(r'^slug:(\s+)\S+$', rf'slug:\g<1>{slug}', src, count=1, flags=re.M)
+            x = re.sub(r'^status:(\s+)active$', rf'status:\g<1>{status}', x, count=1, flags=re.M)
+            if legacy:                       # the field did not exist yet
+                x = re.sub(r'^in_force_at: null\n', '', x, count=1, flags=re.M)
+            if story is not None:
+                x = re.sub(r'(?s)## Story\n.*?\n## Install',
+                           f'## Story\n{story}\n\n## Install', x, count=1)
+            (d / f'{slug}.md').write_text(x, encoding='utf-8')
+            return d / f'{slug}.md'
+
+        team_sync = make('team', 'bestpractice-sync', 'retired',
+                         'Moved to the individual set.', legacy=True)
+        team_caps = make('team', 'header-caps', 'retired',
+                         'The universal catalogue carries this now.', legacy=True)
+        make('individual', 'bestpractice-sync')
+        make('universal', 'headline-capitalization')
+        against = [str(tmp / 'individual'), str(tmp / 'universal')]
+
+        recs = pms.legacy_records(tmp / 'team' / 'practices')
+        cases.append(('a legacy record (non-active, no in_force_at) is found',
+                      {fm.get('slug') for _f, fm, _s in recs}
+                      == {'bestpractice-sync', 'header-caps'}))
+
+        live = pms.active_slugs(against)
+        cases.append(('only ACTIVE slugs count as a surviving copy',
+                      'bestpractice-sync' in live and 'headline-capitalization' in live))
+
+        # report-only must never write
+        before = team_sync.read_text(encoding='utf-8')
+        rc = pms.report(str(tmp / 'team'), against, {}, False)
+        cases.append(('report-only leaves every file untouched',
+                      team_sync.read_text(encoding='utf-8') == before))
+        cases.append(('report-only exits non-zero while legacy records remain',
+                      rc == 1))
+
+        # the renamed successor must NOT be guessed
+        rc = pms.report(str(tmp / 'team'), against, {}, True)
+        caps_after = team_caps.read_text(encoding='utf-8')
+        cases.append(('a RENAMED successor is left UNDETERMINED, not guessed -- '
+                      'guessing here is the resemblance reasoning the rename removes',
+                      'status:      retired' in caps_after
+                      and 'in_force_at' not in caps_after))
+        sync_after = team_sync.read_text(encoding='utf-8')
+        cases.append(('...while the same-slug case IS migrated, to deduplicated',
+                      'status:      deduplicated' in sync_after
+                      and 'in_force_at: bestpractice-sync' in sync_after))
+
+        # an explicitly named target that is not in force is refused
+        pms.report(str(tmp / 'team'), against, {'header-caps': 'no-such-slug'}, True)
+        cases.append(('an in_force_at: target that is not active anywhere is refused',
+                      'no-such-slug' not in team_caps.read_text(encoding='utf-8')))
+
+        # a real retirement needs a Story
+        make('team2', 'storyless', 'retired', '', legacy=True)
+        pms.report(str(tmp / 'team2'), against, {'storyless': 'none'}, True)
+        cases.append(('--set ...=none is refused without a ## Story saying why',
+                      'status:      retired' in
+                      (tmp / 'team2' / 'practices' / 'storyless.md').read_text(encoding='utf-8')
+                      and 'in_force_at' not in
+                      (tmp / 'team2' / 'practices' / 'storyless.md').read_text(encoding='utf-8')))
+
+        # the named target lands, and the result satisfies the contract
+        pms.report(str(tmp / 'team'), against,
+                   {'header-caps': 'headline-capitalization'}, True)
+        fm, sections = sp._read_practice_file(team_caps)
+        import build_views as _bv
+        cases.append(('an explicitly named successor migrates cleanly',
+                      _bv.practice_status(fm) == 'deduplicated'
+                      and _bv._json_str(fm.get('in_force_at', '')) == 'headline-capitalization'))
+        cases.append(('...and the migrated file satisfies the status contract',
+                      _bv.status_contract_violation(
+                          fm, sections, {'headline-capitalization'}.__contains__) is None))
+        cases.append(('the migration is idempotent -- a second run finds nothing',
+                      pms.report(str(tmp / 'team'), against, {}, False) == 0))
+
+        # the rewriter must not touch a body line that merely starts "status:"
+        body_trap = make('team3', 'body-trap', 'retired',
+                         'status: active is a line of prose here.', legacy=True)
+        pms.report(str(tmp / 'team3'), against, {'body-trap': 'engine'}, True)
+        after = body_trap.read_text(encoding='utf-8')
+        cases.append(('a body line beginning "status:" is not rewritten -- only '
+                      'the frontmatter block is touched',
+                      'status: active is a' in after
+                      and 'status:      deduplicated' in after))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'a legacy status record can be migrated, and a renamed successor '
+          f'is never guessed ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_status_contract():
     """A practice that is not `active` must say where its rule went.
 
@@ -7224,6 +7349,7 @@ def main():
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
     check_status_contract()
+    check_legacy_status_migration()
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
