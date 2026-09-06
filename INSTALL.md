@@ -4,6 +4,15 @@ Instructions for wiring BestPractice into a *dependent repo*, keeping it
 current, and flowing improvements back. Read [PRACTICES.md](PRACTICES.md)
 first for what each practice is and why.
 
+This document only covers **installing** BestPractice. For what working
+with it looks like once it's installed, see
+[documentation/HOW_TO_USE_THIS_TECHNICAL.md](documentation/HOW_TO_USE_THIS_TECHNICAL.md)
+if you're technical, or
+[documentation/HOW_TO_USE_THIS_NONTECHNICAL.md](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md)
+if you're not — and
+[documentation/WHAT_IS_THIS.md](documentation/WHAT_IS_THIS.md) if you
+haven't decided to adopt it yet.
+
 You don't need to run the technical steps yourself to follow, or approve,
 this setup: read just the shaded **"In plain terms"** note at the start of
 each section below, in order, and skip everything underneath it — together

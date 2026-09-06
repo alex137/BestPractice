@@ -9,115 +9,60 @@
 > has not reached; it is rewritten in place as later phases land rather than
 > kept as a second, drifting copy.
 
+**New here?** Start with [What Is This](documentation/WHAT_IS_THIS.md) for
+the pitch, then jump to the how-to guide for your situation:
+[technical](documentation/HOW_TO_USE_THIS_TECHNICAL.md) or
+[non-technical](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md).
+
 ## The philosophy behind this project
 
 BestPractice is one working expression of a broader philosophy about how
 people and AI should work together, developed in
 **[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)** (private for
-now — it will be made public soon). Read that repo for the theory this
-platform is built to embody.
+now — it will be made public soon). Read that repo for the theory.
 
-In short: it's an alternative to Google Docs, built on three core ideas,
-each showing up in more than one place — in the software itself and in the
-conventions around it:
+In short: it's an alternative to Google Docs, built on three ideas:
 
 - **Human collaboration comes first.** The tool exists to make people
   working together better, not to route around them.
-- **AI sits between the work and the people doing it**, rather than
-  everyone drafting, deciding, and documenting alone — pushing back on
-  your ideas to strengthen them, and keeping the record of how a decision
-  was reached, not just the decision itself.
+- **AI sits between the work and the people doing it**, pushing back on
+  ideas to strengthen them and keeping the record of how a decision was
+  reached, not just the decision itself.
 - **AI watches what's actually happening and proposes the rules for it** —
-  generating the practices and protocols a team should follow from its own
-  real history, and putting them up for people to approve, never landing
-  them unapproved.
+  generated from a team's own history, and put up for approval, never
+  landed unapproved.
 
 **Keep the project's memory in GitHub, and let people work with that
-memory through AI conversations.**
+memory through AI conversations.** Nothing is lost in chat history: the
+conversation itself becomes part of the record, so the *why* behind a
+change stays on record along with the *what*. And instead of everyone
+editing one live document and pausing for big changes, every person (and
+AI thread) works at full speed on a private copy, joining the project
+through review — each change credited to whoever drove it, reason
+recorded.
 
-BestPractice helps people work together with AI assistants on a shared
-project without losing decisions, repeating work, passing around outdated
-files, or overwriting each other's changes. Members work by opening an AI
-agent with access to the project: they ask questions about what the
-project knows, discuss ideas, and implement updates with the AI's help —
-and the administrator green-lights changes, also with AI help, before
-they join the shared project. The output of every AI conversation becomes
-part of the project, so nothing is lost in chat history.
-
-**It captures intention, not just text.** Most writing tools keep the
-sentence you landed on and lose the reasoning that got you there.
-Working a decision through in conversation with an AI does the
-opposite: the back-and-forth that produces the wording is itself part
-of what gets saved, so the *why* behind a change stays on record, not
-just the *what*. That also moves your attention to where it belongs —
-the assistant carries the mechanics of drafting, formatting, and
-editing, so you spend your time thinking through the problem, not
-producing the document that describes it. It's a tighter loop than the
-usual way of writing with an LLM: instead of asking for a draft and
-then editing it yourself afterward, you think out loud with the
-assistant and the document is what falls out of that conversation.
-
-**It is an alternative to Google-Docs-style collaboration.** A shared
-live document lets everyone make tiny edits at once — but the unwritten
-rule is that everyone pauses while one person makes a big change, big
-edits trample each other, and the document never remembers who decided
-what, or why. Here there is no pause: every person (and every AI thread)
-works at full speed on a private copy, changes join the shared project
-through review, every change is credited to the person who drove it with
-the reason recorded — and the system itself notices which teammates a
-change matters to, and flags them.
-
-Think of a hospital chart at shift change: clinicians rotate, but the
-chart carries every observation, every decision, and the reasoning behind
-it — if it isn't in the chart, it didn't happen — so the incoming doctor
-picks up the patient cold and nothing learned on the last shift is lost
-in the handover. BestPractice gives your project that chart.
-
-Behind the scenes, the project lives in a GitHub repository. GitHub is a
-system originally built for programmers that keeps the current files,
-earlier versions, decisions, open questions, and change history together
-— the same durable memory for every person and every new AI session.
+Behind the scenes, the project lives in a GitHub repository — a durable,
+shared memory that every person and every new AI session can pick up cold.
 BestPractice adapts it so you don't need to be a programmer to get those
-advantages for your project; you just need a few ground rules, captured
-in [Git, minimally](GIT.md). Changes are safe by construction: each
-change happens on its own working copy, is checked automatically, and
-joins the shared project only when it is approved.
+advantages; you just need a few ground rules, in [Git, minimally](GIT.md).
 
-The main shift is that you stop using the general-purpose chat apps —
-ChatGPT, the ordinary Claude chat, and their workplace versions — and use
-**Claude Code** instead. Claude has automated the setup that used to
-require a programmer: it connects to your project's repository out of the
-box, on desktop and on a phone. We expect OpenAI and Grok to add the same
-kind of experience soon (they have not, as of 2026-08); until then,
-unless you want to set up a programming environment yourself, these
-documents assume you are a Claude Code user. Members who prefer other
-assistants still have supported paths — see the members' page below and
-[MOBILE.md](MOBILE.md).
+The main shift: you use **Claude Code** instead of general-purpose chat
+apps. Other assistants have supported paths too; see [MOBILE.md](MOBILE.md).
 
 ## Built for many hands
 
-The collaboration problems a shared document can't solve are handled by
-conventions the assistants follow automatically:
+Conventions the assistants follow automatically handle what a shared
+document can't:
 
-- **No duplicated work.** When a member takes on a to-do item, their
-  assistant claims it under their name — and warns anyone else's
-  assistant before it starts overlapping work.
-- **Nothing lands by surprise.** Before proposing a change, the
-  assistant works out who it matters to — from who wrote the affected
-  text, and who has pushed back on similar changes before — and requests
-  that person's review. Routine changes merge routinely; sensitive ones
-  find their reviewer. Nobody has to declare their sensitivities up
-  front; the system learns them from the project's own history.
-- **Authors keep the credit.** Changes are recorded as the member's
-  work, with the AI as co-author, so the project's history shows
-  people's contributions as theirs.
-- **Every conversation starts caught up.** Each new session opens with a
-  plain-language summary of what changed since that member last worked.
+- **No duplicated work.** An assistant claims a to-do item under its
+  member's name and warns others off overlapping it.
+- **Nothing lands by surprise.** The assistant finds who a change matters
+  to and requests their review.
+- **Authors keep the credit**, with the AI as co-author.
+- **Every session starts caught up**, summarizing what changed since that
+  member last worked.
 
-Your side of the loop is conversational too: say *"what's waiting for
-me?"* and your assistant summarizes each pending proposal, integrates
-any that collide, and merges on your word. The administrator section at
-the end of the members' Getting Started page teaches it in full.
+Say *"what's waiting for me?"* and your assistant merges on your word.
 
 ## What your members will see
 
@@ -131,25 +76,8 @@ back into BestPractice for everyone ([INSTALL.md](INSTALL.md) §4).
 
 ## Installing BestPractice on your project
 
-1. **Set up a GitHub repository** for your project — brand-new or one
-   that already has your files in it
-   ([how, and why GitHub](GIT.md)).
-2. **Open the repository in Claude Code or Codex** (for Claude: go to
-   [claude.ai/code](https://claude.ai/code) and start a session on the
-   repository) and paste:
-
-   > Follow the instructions at
-   > https://github.com/alex137/BestPractice/blob/main/SETUP.md
-
-   The agent asks you two questions about your project, installs
-   everything, walks you through what it created, and turns on the
-   automatic checks. You approve; it goes live.
-3. **Say "Add project members."** The agent guides you through granting
-   access on GitHub, then writes a personal welcome message — with the
-   Getting Started link and a suggested first task — for you to paste
-   into email or chat.
-
-That is the whole setup.
+Setup doesn't require you to write any code yourself — see
+[INSTALL.md](INSTALL.md) to get started.
 
 ## Everything else
 
@@ -162,7 +90,8 @@ Hand installation, updates, and contributing improvements back:
 complete, current one): [PRACTICES.md](PRACTICES.md). Slide decks built
 from plain files: [deck/](deck/). Git in eight ideas: [GIT.md](GIT.md).
 Open items and roadmap: [TODO.md](TODO.md). Repository index for agents:
-[AGENTS.md](AGENTS.md).
+[AGENTS.md](AGENTS.md). The pitch and how-to guides for people outside the
+project: [documentation/](documentation/).
 
 A separate project grew out of this one:
 **[GitAround](https://github.com/alex137/GitAround)**, a way to read a

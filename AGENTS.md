@@ -238,6 +238,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
 | Precedent explained for someone adopting it (not a developer) | [ADOPTING.md](ADOPTING.md) |
+| Public-facing pitch and how-to guides, for people outside the project (marketing, technical how-to, non-technical how-to) | [documentation/](documentation/) |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
 | An example personal practice set | [examples/practice-set/](examples/practice-set/) |
 | The private-term blocklist template (copy into your own private set) | [templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template) |
