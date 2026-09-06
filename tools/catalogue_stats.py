@@ -123,10 +123,11 @@ ANCHORS = [
     # fail every time a later practice is added -- but a DELIBERATE rewrite
     # of an original-52 practice still moves it, same as the 8->7 Rules-over-
     # 150-words correction below: moved 15->16 on 2026-09-05 when
-    # session-bootstrap gained a real Detail (see CHANGES_TO_TELL_ALEX.md).
-    # See phase3_snapshot_stats's docstring.
+    # session-bootstrap gained a real Detail, then 16->17 on 2026-09-06 when
+    # merge-authorization-keyword gained a real Detail (see
+    # CHANGES_TO_TELL_ALEX.md). See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     16, 16, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     17, 17, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as

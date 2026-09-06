@@ -208,6 +208,34 @@ honestly —
 it already was, from the unrelated 2026-09-01 slug-link sweep below, but
 that entry doesn't disclose *this* change, so it needed its own.
 
+### `merge-authorization-keyword` (BestPractice practice 45) — 2026-09-06
+
+**What changed.** `## Detail` and `## Story` were both empty in this
+practice since phase 1 — it describes a mechanism a repo *can* adopt, but
+this repo had never actually adopted a specific word for it. Both are now
+populated: Detail names this repo's adopted phrase, "Go merge"
+(case-insensitive), and states concretely what saying it authorizes here
+(commit and push the thread's agreed change to `precedent-beta-v01`, after
+the usual checks); Story records the incident that prompted formalizing
+it — Morgan closed two consecutive messages with "Go merge" before the
+keyword existed as a documented rule. The generic Rule text — one fixed
+word, said standing alone, means "merge as agreed," documented in
+`GLOSSARY.md` — is untouched; this only exercises the practice's own
+`## Install` step for the first time in this repo.
+
+**What did not change.** `## Rule` is untouched, byte-for-byte, and
+`checked_by` is still `null` — this practice has no mechanical check, by
+design (see its own `## Rule`: an ambiguous case is treated as *not*
+authorization, which is a human judgment call, not something a script can
+verify). Logged here rather than left silent because it moves a phase-3
+catalogue figure ([`spec/PRACTICE_FORMAT.md`](spec/PRACTICE_FORMAT.md)'s
+"carries a Detail" count, 16 → 17) and because this file's own
+`_amended_and_logged` mechanism ([`tools/verify_harness.py`](tools/verify_harness.py))
+needs this slug named here to keep exempting it from the fidelity checks
+honestly — it already was, from the unrelated 2026-09-01 slug-link sweep
+below, but that entry doesn't disclose *this* change, so it needed its
+own, same reasoning as the `session-bootstrap` entry above.
+
 ## Cross-referenced only, not a behavior change
 
 **A scope note on the entry below, added 2026-09-03**: "no `checked_by`

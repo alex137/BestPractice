@@ -26,6 +26,14 @@ origin incident happened. Full story, the mechanical check, and the
 retirement condition:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
 
+**This repo's standing merge-authorization keyword is "Go merge"** —
+standing alone (its own line, or set off by a preceding sentence-ending
+punctuation mark; case-insensitive), it means: commit and push what the
+thread just agreed on to `precedent-beta-v01`, per the paragraph above,
+after the usual checks, without asking again. See
+[practices/merge-authorization-keyword.md](practices/merge-authorization-keyword.md)
+for the full rule and what does *not* count as standing alone.
+
 **This repo is becoming Precedent, a restructuring of BestPractice — read
 [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) first, in full, before
 touching anything else here.** It is the approved plan of record; its "For
