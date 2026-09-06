@@ -770,10 +770,18 @@ which is the failure this repointing exists to end — write
   templates first, so the fix reaches every set rather than only the two
   that already exist.
 
-- **Backfill the engine-refresh workflow into source sets bootstrapped
-  before it existed.** `templates/practice-set-{individual,team}/.github/
-  workflows/engine-refresh.yml` reaches every set created from 2026-09-06
-  on. Sets created before that date have no scheduled freshness channel at
-  all and need the file added by hand. **Blocked on:** nothing here — this
-  is a one-line copy per set, but it has to happen *in* each set's own
-  private repo, so it cannot be done from this repo's own branch.
+- **A scheduled freshness channel exists only for whoever builds one.** The
+  two channels shipped here — the bootstrap warning and
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) —
+  are both incidental: they fire when someone happens to be bootstrapping a
+  set, or happens to be working in this repo. A set nobody touches for a
+  month is told nothing for a month. The scheduled channel that would close
+  that was added to both source templates on 2026-09-06 and **removed the
+  same day, deliberately**: a cron job phoning a remote weekly, spending an
+  adopter's Actions minutes and opening pull requests in their repository, is
+  not something a universal template gets to decide on their behalf. It is an
+  individual-level preference now, and
+  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) records the
+  shape in full so nobody re-derives it. **Blocked on:** nothing mechanical,
+  and that is the point — reopening this means someone arguing the imposition
+  is worth it for every adopter, which is a decision rather than a task.

@@ -91,7 +91,7 @@ python3 tools/precedent_vendor_engine.py status  ../BestPractice   # drift? behi
 python3 tools/precedent_vendor_engine.py refresh ../BestPractice   # pull, re-vendor, re-stamp
 ```
 
-### Three ways a set finds out it is behind, and why it needed three
+### How a set finds out it is behind
 
 Until 2026-09-06 there were none, and the cost was real: two live sets sat
 more than two hundred commits behind this repo, both generating a loader
@@ -109,17 +109,50 @@ have one.
 
 | Channel | Runs | Needs a clone? |
 |---|---|---|
-| `.github/workflows/engine-refresh.yml`, shipped in both source templates | Weekly, and on demand | No — it makes its own, in CI |
-| The warning `precedent_bootstrap_source.py` prints when the checkout it is seeding *from* is itself behind | At bootstrap | No — it is running inside one |
+| The warning [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py) prints when the checkout it is seeding *from* is itself behind | At bootstrap | No — it is running inside one |
 | [tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py), from a session working in this repo | Every session start here | No — this checkout *is* the clone |
 
-The workflow opens a pull request and stops. It never merges: a set's own
-rules decide that, and a template cannot know them. It needs one GitHub
-setting that is **off by default** — *Allow GitHub Actions to create and
-approve pull requests*, under Settings → Actions → General → Workflow
-permissions. Without it the run fails at the pull-request step rather than
-passing quietly, which is deliberate: a silent no-op would recreate exactly
-the problem the workflow exists to fix.
+Both are incidental: they fire when someone happens to be bootstrapping, or
+happens to be working in this repo. Neither runs on a schedule, so a set
+nobody touches for a month is told nothing for a month.
+
+### The scheduled channel, and why it is not shipped here
+
+The obvious third channel is a weekly GitHub Actions job in the source set
+itself: clone this repo, refresh, regenerate, open a pull request. It works,
+and it is the only channel that fires whether or not anyone is looking.
+
+**It was added to both source templates on 2026-09-06 and removed the same
+day.** Not because it broke — because a template is the wrong place to make
+that choice. A scheduled workflow inherited by every adopter is a cron job
+phoning a remote every week, consuming their Actions minutes, opening pull
+requests in their repository, on a schedule they did not pick. That is a
+real imposition, and "it is good for you" is not a reason to install it in
+someone's repo without asking. It now lives at the **individual level**, in
+the practice set of whoever wants it, which is where a preference about how
+one's own repositories behave belongs
+([`layered-practice-packs`](../practices/layered-practice-packs.md)).
+
+Anyone who wants it can build it — the shape, recorded here so it does not
+have to be re-derived:
+
+- Clone this repo's `precedent-beta-v01`, run `precedent_vendor_engine.py
+  refresh`, then `build_views.py`. **Both**, in one commit: a refreshed
+  generator whose views have not been re-run leaves the set failing its own
+  `build_views --check`.
+- Use the resulting **diff** as the signal — `git status --porcelain` empty
+  means the engine was already current. Do not parse a notice string.
+- Push a branch, then try to open a pull request. This needs a GitHub
+  setting that is **off by default** and that an organization or enterprise
+  can withhold entirely: *Allow GitHub Actions to create and approve pull
+  requests*, under Settings → Actions → General → Workflow permissions.
+- **Do not let the notification depend on that setting.** Fall back to
+  opening an issue, which needs only `issues: write` and which nothing
+  gates; put a `compare/<base>...<branch>?expand=1` link in it so the person
+  opens the pull request themselves in one click. Fall back *only* on that
+  specific permission error, so an unrelated failure still fails loudly.
+- Keep one issue, reused, and close it when a later run finds the engine
+  current — so an open issue means *stale now*, not *was stale once*.
 
 ```
 ```
