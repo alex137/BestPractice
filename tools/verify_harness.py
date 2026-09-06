@@ -5863,6 +5863,14 @@ def check_source_shape_is_verified():
             # source has to fill them too -- verify() caught this fixture
             # itself the first time it ran, which is the check working.
             (d / 'README.md').write_text('# A finished set\n', encoding='utf-8')
+            # The two session hooks live in the harness adapter, not in
+            # either skeleton (one copy per level would drift, and
+            # _copy_skeleton writes plain text, while a hook without its
+            # executable bit silently never runs) -- so a fixture standing
+            # in for a FINISHED source installs them the same way
+            # bootstrap() does, rather than by copying a tree that was
+            # never going to contain them.
+            bss._install_session_hooks(d)
             for rel, text in edits.items():
                 if text is None:
                     (d / rel).unlink(missing_ok=True)
@@ -5874,6 +5882,12 @@ def check_source_shape_is_verified():
                       bss.verify('team', fixture('team')) == []))
         cases.append(('a complete individual set is well-formed',
                       bss.verify('individual', fixture('individual')) == []))
+        cases.append(('a source with no session hooks is reported -- they are '
+                      'the one part of a source\'s shape that does not live '
+                      'in the skeleton',
+                      any('freshness-guard' in f for f in bss.verify(
+                          'team', fixture('team',
+                                          **{'.claude/hooks/freshness-guard.sh': None})))))
         cases.append(('a missing skeleton file is reported',
                       any('leak-blocklist' in f for f in bss.verify(
                           'team', fixture('team', **{'leak-blocklist.txt': None})))))
