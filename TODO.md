@@ -184,133 +184,53 @@ the upstream layer. Ordered by priority.
     (that directory's own first commit is exempt, the same reasoning
     already applied repo-wide), so a future family's inception commit
     doesn't need the same manual backfill.
-19. **Root-cause why `parallel-artifact-ledger`'s own CI step never shows its
-    diagnostic output — a GitHub Actions log-capture anomaly, currently
-    working around it by making the check advisory-only.** Found 2026-09-05,
-    same day as item 18: after item 18's row was backfilled and after
-    [`b16b141`](https://github.com/alex137/BestPractice/commit/b16b141)
-    made the root-commit exemption shallow-clone-safe (reads `.git/shallow`
-    directly, since `git rev-list --max-parents=0` can't be trusted on a
-    shallow checkout) and
-    [`2a0fbe0`](https://github.com/alex137/BestPractice/commit/2a0fbe0)
-    added `fetch-depth: 0` to `deep-check.yml`'s checkout (a real, separate,
-    repo-wide gap — see that workflow's own comment), GitHub Actions (git
-    2.55.0) *still* reported the same `f2078d6` violation, on content
-    confirmed correct four independent ways: a GitHub API read of the PR's
-    own merge-ref content, a full local reproduction (git 2.43.0), and two
-    temporary diagnostic commits
-    ([`4aca732`](https://github.com/alex137/BestPractice/commit/4aca732),
-    stderr; [`62e2592`](https://github.com/alex137/BestPractice/commit/62e2592),
-    stdout with an explicit flush) that proved the check function
-    completes normally (0 errored, all 3 findings correctly formatted) —
-    meaning the diagnostic print statements demonstrably executed — yet
-    neither ever surfaced in the CI log for the real, standalone
-    [precedent_check.py](tools/precedent_check.py) step, even though the
-    identical code prints correctly every time it runs through
-    [verify_harness.py](tools/verify_harness.py)'s own subprocess
-    self-test in the same job. No stray `sys.stdout` reassignment was
-    found anywhere in [tools/precedent_check.py](tools/precedent_check.py) or
-    anything it imports. Both diagnostic commits were reverted
-    ([`b997f5e`](https://github.com/alex137/BestPractice/commit/b997f5e))
-    rather than left in. Full account:
-    [PR #110, comment](https://github.com/alex137/BestPractice/pull/110#issuecomment-5554511294).
+19. ~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows
+    its diagnostic output — a GitHub Actions log-capture anomaly, currently
+    working around it by making the check advisory-only.**~~ **Done
+    (2026-09-06)** — there was no log-capture anomaly and no false positive.
+    [verify_harness.py](tools/verify_harness.py) (CI step 5) invoked a
+    vendored [precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    `refresh <ROOT> --force`, and `refresh()` then ran `git checkout
+    precedent-beta-v01` plus `git pull` in the clone it was handed — which in
+    CI is the job's own workspace. Step 5 therefore moved the workspace onto
+    the base branch, and [precedent_check.py](tools/precedent_check.py) (step
+    6) ran the *base* branch's tree, where
+    the [harness adapter ledger](templates/harness/LEDGER.md) genuinely has
+    no `f2078d6` row.
+    Every other symptom follows from the same substitution: the summary line
+    CI printed was the base branch's own pre-advisory format, and the
+    diagnostic prints never appeared because by step 6 the file was no longer
+    the file they had been added to. `git status` stays clean throughout — a
+    branch checkout leaves no dirty file to notice — which is why four rounds
+    of content verification all came back correct while the workspace stood
+    on a different commit.
 
-    **Scope note, checked 2026-09-05:** `precedent-beta-v01`'s own tip
-    (`74657e6`) and every other open PR were checked at the time this was
-    found — none were failing. That's not because the underlying gap is
-    absent there: `precedent-beta-v01`'s `deep-check.yml` still has no
-    `fetch-depth: 0` (only this PR's branch does), so its checkout stays
-    shallow (depth 1), `git log --no-merges -- <member-dir>` finds nothing
-    to flag, and the check falsely, silently passes — the exact
-    already-documented "scope: 'tree' check... false pass on an
-    under-fetched clone" gotcha in this file's own AGENTS.md, just
+    Reproduced deterministically: run
+    [verify_harness.py](tools/verify_harness.py) and then
+    [precedent_check.py](tools/precedent_check.py) in one checkout and the
+    second reports the violation; run
+    [precedent_check.py](tools/precedent_check.py) alone on the same commit
+    and it is clean. Fixed upstream in
+    [`25546bc`](https://github.com/alex137/BestPractice/commit/25546bc) —
+    `refresh()` materializes blobs with `git show` and never checks the clone
+    out, with a regression case that fails against the pre-fix engine — and
+    here by vendoring from a throwaway clone instead of `str(ROOT)`.
+    `advisory=True` is off; the check is enforcing again. Full account:
+    [PR #110, comment](https://github.com/alex137/BestPractice/pull/110#issuecomment-5556343855).
+
+    **The scope note from 2026-09-05 was right, and still applies.**
+    `precedent-beta-v01`'s
+    [deep-check.yml](.github/workflows/deep-check.yml) has no `fetch-depth:
+    0` (only this PR's branch does), so its checkout stays shallow (depth 1),
+    `git log --no-merges -- <member-dir>` finds nothing to flag, and this
+    check falsely, silently passes there — the "scope: 'tree' check... false
+    pass on an under-fetched clone" gotcha in [AGENTS.md](AGENTS.md),
     manifesting repo-wide via the workflow's default rather than a local
-    clone's. The moment PR #110 merges, `fetch-depth: 0` lands on
-    `precedent-beta-v01` too, and every push/PR against it would hit this
-    same false positive from then on — hence downgrading the check to
-    advisory-only ([tools/precedent_check.py](tools/precedent_check.py)'s
-    `advisory=True` on this one check's registration; see its own dated
-    comment) in the *same*
-    PR, so nothing else goes red the moment the fix lands.
+    clone's. When this PR merges, `fetch-depth: 0` lands on
+    `precedent-beta-v01` and the check starts really running there — which is
+    why [`dfe504d`](https://github.com/alex137/BestPractice/commit/dfe504d)'s
+    ledger row has to land in the same merge, as it does.
 
-    **Re-promotion condition:** once the CI-log-capture anomaly is
-    understood and fixed (or proven not to recur — e.g. verified against a
-    later git/runner-image version), remove `advisory=True` from
-    `parallel-artifact-ledger`'s `@check(...)` registration in
-    [tools/precedent_check.py](tools/precedent_check.py), update this
-    item, and update [practices/parallel-artifact-ledger.md](practices/parallel-artifact-ledger.md)'s
-    Story section to record the resolution.
-
-    **Re-verified fresh, 2026-09-06, on PR #110's own current CI run —
-    still reproduces, still unexplained, escalated to Alex.** Merging
-    `precedent-beta-v01`'s current tip into PR #110's branch and pushing
-    triggered a brand-new CI run against merge-test commit `7ad93d0`
-    (`5007766` merged onto `b72762f`); it failed with the identical
-    `f2078d6` violation. Before assuming it was the same unfixed anomaly,
-    this session ruled out four *new* candidate explanations, each
-    directly tested rather than argued: (1) the local investigation's own
-    shallow clone — deepened to full history (`git fetch --depth=2000`),
-    confirmed `f2078d6` genuinely is an ancestor and the check passes
-    clean locally either way; (2) the merge-test ref (`pull/110/merge`)
-    double-merging to different content than what was actually pushed —
-    read `templates/harness/LEDGER.md` and `tools/precedent_check.py`
-    directly from GitHub's own `7ad93d03767657cc1f6ecb261c273e4119dfd55a`
-    via the API: byte-identical to a clean local checkout, `f2078d6`'s row
-    present, `advisory=True` present in the check's own registration; (3) a
-    tracked, stale `__pycache__/precedent_check.cpython-*.pyc` shadowing
-    current source — `tools/__pycache__/` is gitignored and confirmed not
-    tracked in the tested commit, ruled out; (4) `verify_harness.py`'s own
-    self-tests for this check contaminating the real working tree before
-    the standalone `precedent_check.py` step runs in the same CI job —
-    read both self-test implementations
-    (`check_parallel_artifact_ledger_fires`, `check_precedent_check_fires`):
-    both operate entirely inside `tempfile.mkdtemp()` scratch trees
-    (one loads `precedent_check.py` via `importlib.util` with `pc.ROOT`
-    reassigned to the scratch dir, the other `shutil.copytree`s the whole
-    repo into per-case scratch copies and runs each as a subprocess with
-    `cwd` set to the copy) — neither ever touches this repo's own
-    `templates/harness/LEDGER.md`, ruled out. A **fifth, direct** test: a
-    brand-new, fully isolated `git clone` of nothing but the exact tested
-    secure hash algorithm (SHA) — the commit hash, `7ad93d0`, no
-    working-branch state carried over — ran
-    `python3 tools/precedent_check.py` clean — `0 violated` — on the
-    identical commit CI called a violation. Four independent confirmations
-    the content and code are correct (three from the prior finding, this
-    fresh isolated-clone run a fourth, distinct from the three CI already
-    had) plus these four ruled-out local hypotheses leaves nothing left to
-    test from outside GitHub's own execution environment. Per this task's
-    own standing instruction (two automated diagnostic commits already
-    reverted, per this item's own account above) this is the point to stop
-    attempting another automated diagnosis: escalated to Alex directly, as
-    a comment on PR #110, asking for a raw Actions UI look at run
-    `34003769809` / job `101407169823` — something a log fetch over the
-    API cannot show (runner diagnostics, any organization-level Actions
-    configuration, anything else the UI surfaces that the plain log
-    stream doesn't).
-
-    **A much more precise lead, found immediately after, on the very next
-    CI run** (triggered by this session's own follow-up push, run
-    `34004885068` / job `101410153665`): the failing step's own summary
-    line is not just wrong content, it is a different, older version of
-    `main()`'s own f-string. CI printed
-    `precedent_check: 18 passed, 1 violated, 0 errored, 8 skipped (a skip
-    is not a pass).` — no `advisory` field at all, and the shorter
-    trailing clause. That exact string is what `precedent-beta-v01`'s own
-    current tip (`b72762f`, this PR's *base*, pre-merge) produces; the
-    `advisory` field was added in [`d35f435`](https://github.com/alex137/BestPractice/commit/d35f435),
-    which exists only on this PR's own branch, never yet merged upstream.
-    But the *immediately preceding* step in the *same job*,
-    `python3 tools/verify_harness.py`, printed `52 passed, 0 failed` with
-    `71 stated cases` for the enforced-channel self-test and
-    `12 stated cases` for the reachability self-test — counts that exist
-    only in this session's own newly-pushed commit, nowhere earlier. One
-    job, one checkout, two consecutive steps disagreeing about which
-    version of `tools/precedent_check.py` is on disk, with no step in
-    between that writes to the workspace. That rules out a content or
-    logic bug in this repository as the explanation and points at GitHub
-    Actions' own checked-out workspace serving inconsistent content for
-    the same path within a single job — flagged precisely to Alex as a
-    follow-up PR comment, narrower than the original ask.
 20. ~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable
     materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
     **Done (2026-09-06).** Both read `practices/*.md` directly via

@@ -1081,34 +1081,34 @@ def _shallow_boundary_commits():
 # general gotcha), and 2a0fbe0 added `fetch-depth: 0` to deep-check.yml's
 # checkout (a real, repo-wide gap independent of this check).
 #
-# None of that fixed CI. GitHub Actions (git 2.55.0) still reports this
-# exact violation on `templates/harness/claude-code|codex|gemini-cli`
-# missing a row for f2078d6, on every commit since, while every local
-# reproduction (git 2.43.0, both a matching shallow fetch and a full
-# clone) and a direct GitHub API read of the PR's own merge-ref content
-# confirm the row is genuinely present -- four independent confirmations.
-# Two temporary diagnostic commits (4aca732, printing to stderr; 62e2592,
-# printing to stdout with an explicit flush) added logging inside this
-# function for the failing case. Neither surfaced in the CI log for the
-# real (non-self-test) `precedent_check.py` step, even though the
-# identical code prints correctly every time it runs through
-# verify_harness.py's own subprocess self-test in the same job, and even
-# though the check completes normally when this happens (0 errored, all 3
-# findings correctly formatted) -- meaning the print statements demonstrably
-# executed; their output just never reached the log for this one step. No
-# stray `sys.stdout` reassignment was found anywhere in this file or
-# anything it imports. Both diagnostic commits were reverted (b997f5e) per
-# plan rather than left in. Full account:
-# https://github.com/alex137/BestPractice/pull/110#issuecomment-5554511294
+# ROOT-CAUSED 2026-09-06 -- and it was never a false positive. The finding
+# was true of the tree CI was actually standing on. verify_harness.py (step
+# 5) invoked a vendored `precedent_vendor_engine.py refresh <ROOT> --force`,
+# and refresh() then ran `git checkout precedent-beta-v01` + `git pull` in
+# the clone it was handed -- which in CI is the job's own workspace. So step
+# 5 moved the workspace onto the base branch, and precedent_check.py (step 6)
+# ran the BASE branch's tree, where templates/harness/LEDGER.md genuinely has
+# no row for f2078d6. The same substitution explains every other symptom:
+# the summary line CI printed was the base branch's own pre-advisory format,
+# and the diagnostic prints never appeared because by step 6 the file was no
+# longer the file they had been added to. `git status` stays clean throughout
+# -- a branch checkout leaves no dirty file to notice -- which is why four
+# independent content verifications all came back correct while the workspace
+# stood on a different commit. Reproduced deterministically: run
+# verify_harness.py and then precedent_check.py in one checkout and the
+# second reports this violation; run precedent_check.py alone on the same
+# commit and it is clean. Fixed upstream in 25546bc (refresh() materializes
+# blobs and never checks the clone out, with a regression case that fails
+# against the pre-fix engine) and here by vendoring from a throwaway clone.
+# Full account:
+# https://github.com/alex137/BestPractice/pull/110#issuecomment-5556343855
 #
-# Given four independent confirmations the content is correct, this reads
-# as a CI-environment log-capture anomaly producing a false positive, not a
-# real content problem -- but the anomaly itself is unexplained. Rather
-# than block every PR and push in this repo (scope is 'tree') on an
-# unresolved platform mystery, this ONE check is advisory (see check()'s
-# own `advisory` parameter) until that mystery is root-caused. See
-# TODO.md's tracking item for the real follow-up and the re-promotion
-# condition.
+# So this check is ENFORCING again, as originally written: there was no
+# platform mystery, and nothing left to except it from. The lesson worth
+# keeping is diagnostic -- when a check's finding contradicts the tree you
+# believe you are on, confirm WHICH COMMIT is actually checked out before
+# concluding the check is wrong. Four rounds of content verification cannot
+# distinguish a wrong answer from a right answer about a different tree.
 @check('parallel-artifact-ledger', 'tree',
        '`templates/harness/LEDGER.md` exists, and every commit that touched '
        'a harness-adapter member (claude-code/, codex/, or gemini-cli/) has '
@@ -1118,9 +1118,8 @@ def _shallow_boundary_commits():
        'every commit that changed a member, the "any marked date without a '
        'complete ledger row fails" half of the practice, added 2026-09-05 '
        'after a routing-audit run found the ledger itself had no audit. '
-       'Advisory-only as of 2026-09-05 (see the dated comment above this '
-       'registration) pending root cause of a CI-only false positive.',
-       advisory=True)
+       'Enforcing; the 2026-09-05 advisory downgrade was lifted 2026-09-06 '
+       'once the CI substitution above was root-caused.')
 def _parallel_artifact_ledger(ctx):
     ledger_path = ROOT / 'templates' / 'harness' / 'LEDGER.md'
     if not ledger_path.exists():

@@ -2431,10 +2431,14 @@ def check_precedent_check_fires():
             rc, out = run(repo, slug, *extra)
             planted[slug] = (rc, out)
             if advisory:
-                # advisory=True (2026-09-05, parallel-artifact-ledger only --
-                # see precedent_check.py's own dated comment) means a planted
-                # violation still reports its findings, labeled ADVISORY, but
-                # does not fail the run (rc stays 0).
+                # advisory=True means a planted violation still reports its
+                # findings, labeled ADVISORY, but does not fail the run (rc
+                # stays 0). precedent_check.check() still offers the parameter;
+                # as of 2026-09-06 no check uses it (parallel-artifact-ledger,
+                # the only one that ever did, is enforcing again), so this
+                # branch is dormant rather than dead -- kept so downgrading a
+                # check stays a one-word change with test support already
+                # there, not a silent loss of coverage.
                 cases.append((f'{slug}: a planted violation reports ADVISORY '
                               f'but does not fail the check',
                               rc == 0 and 'ADVISORY' in out and 'VIOLATION' not in out))
@@ -2959,8 +2963,11 @@ def check_precedent_check_fires():
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'unledgered harness change')
 
+        # advisory=True was dropped 2026-09-06: the CI substitution that made
+        # this check look like a false positive is root-caused and fixed, so a
+        # planted violation must fail the check again like every other one.
         case('parallel-artifact-ledger', _plant_unledgered_harness_change,
-             setup=_ledger_setup, advisory=True)
+             setup=_ledger_setup)
 
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
