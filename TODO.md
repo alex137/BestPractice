@@ -287,6 +287,30 @@ the upstream layer. Ordered by priority.
     API cannot show (runner diagnostics, any organization-level Actions
     configuration, anything else the UI surfaces that the plain log
     stream doesn't).
+
+    **A much more precise lead, found immediately after, on the very next
+    CI run** (triggered by this session's own follow-up push, run
+    `34004885068` / job `101410153665`): the failing step's own summary
+    line is not just wrong content, it is a different, older version of
+    `main()`'s own f-string. CI printed
+    `precedent_check: 18 passed, 1 violated, 0 errored, 8 skipped (a skip
+    is not a pass).` — no `advisory` field at all, and the shorter
+    trailing clause. That exact string is what `precedent-beta-v01`'s own
+    current tip (`b72762f`, this PR's *base*, pre-merge) produces; the
+    `advisory` field was added in [`d35f435`](https://github.com/alex137/BestPractice/commit/d35f435),
+    which exists only on this PR's own branch, never yet merged upstream.
+    But the *immediately preceding* step in the *same job*,
+    `python3 tools/verify_harness.py`, printed `52 passed, 0 failed` with
+    `71 stated cases` for the enforced-channel self-test and
+    `12 stated cases` for the reachability self-test — counts that exist
+    only in this session's own newly-pushed commit, nowhere earlier. One
+    job, one checkout, two consecutive steps disagreeing about which
+    version of `tools/precedent_check.py` is on disk, with no step in
+    between that writes to the workspace. That rules out a content or
+    logic bug in this repository as the explanation and points at GitHub
+    Actions' own checked-out workspace serving inconsistent content for
+    the same path within a single job — flagged precisely to Alex as a
+    follow-up PR comment, narrower than the original ask.
 20. ~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable
     materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
     **Done (2026-09-06).** Both read `practices/*.md` directly via
