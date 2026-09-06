@@ -88,6 +88,28 @@ def _approx_tokens(text):
 # bv.IN_FORCE_STATUS, so the loader and the resolver cannot disagree about
 # what "in force" means. (precedent_resolve imports this module, never the
 # other way round -- putting the constant there would be a cycle.)
+# The levels whose practice text is private. A public repo's tracked loader
+# block must not carry them (see _sources_for_block), and
+# tools/precedent_session_practices.py renders exactly this complement into
+# an untracked file instead -- one definition, so the two cannot disagree
+# about which practices a public repo's session is otherwise never shown.
+PRIVATE_LEVELS = ('team', 'individual')
+
+
+def repo_is_public(root):
+    """Whether this repo declares `visibility: public` in precedent.json.
+
+    Public means the tracked loader block is a publication, so private
+    sources are excluded from it -- and it is therefore also the signal
+    that something else has to carry them, which is what the standing
+    instruction's pointer and precedent_session_practices.py are for."""
+    try:
+        return json.loads((pathlib.Path(root) / 'precedent.json').read_text(
+            encoding='utf-8')).get('visibility') == 'public'
+    except (ValueError, OSError):
+        return False
+
+
 IN_FORCE_STATUS = 'active'
 
 # THE TWO WAYS A PRACTICE STOPS APPLYING HERE ARE NOT THE SAME THING, and
@@ -393,7 +415,7 @@ def _gate_moment(vocab_description):
     return phrase.strip()
 
 
-def build_loader_block(practices, source_levels=None):
+def build_loader_block(practices, source_levels=None, omits_private=False):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -502,7 +524,17 @@ def build_loader_block(practices, source_levels=None):
     # rather than sprout a Standing instruction section whose only content
     # is a pointer to another file. Caught by the check that the loader
     # block advertises only the channels a source actually fills.
-    if instruction and not source_levels:
+    #
+    # `omits_private` is the condition, NOT "was this rendered from a single
+    # source". The first version tested `not source_levels` on the reasoning
+    # that a multi-source render already carries the team and individual
+    # practices inline -- which stopped being true the moment a public repo
+    # began rendering multi-source with the PRIVATE levels deliberately
+    # excluded. That guard then suppressed the pointer in the one repo that
+    # needs it, silently, and the pointer simply vanished from AGENTS.md.
+    # Keyed off the same repo_is_public() the exclusion itself uses, so the
+    # two cannot drift apart again.
+    if instruction and omits_private:
         instruction.append(
             "If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the "
             "practices in force from this repo's team, individual and repo-local "
@@ -620,13 +652,8 @@ def loader_practices(root, own_practices):
               file=sys.stderr)
         return own_practices, source_levels_from_manifest(root)
 
-    try:
-        public = json.loads(config.read_text(
-            encoding='utf-8')).get('visibility') == 'public'
-    except (ValueError, OSError):
-        public = False
+    public = repo_is_public(root)
     # Exclude, keep going, and SAY so on stderr rather than silently.
-    PRIVATE_LEVELS = ('team', 'individual')
     if public:
         dropped = [f"{s['name']} ({s['level']})" for s in declared
                    if s['level'] in PRIVATE_LEVELS]
@@ -668,10 +695,12 @@ def loader_practices(root, own_practices):
     return practices, levels
 
 
-def render_agents_md(practices, agents_md=None, source_levels=None):
+def render_agents_md(practices, agents_md=None, source_levels=None,
+                     omits_private=False):
     agents_md = agents_md if agents_md is not None else AGENTS_MD
     original = agents_md.read_text(encoding='utf-8')
-    block, _tokens, _n = build_loader_block(practices, source_levels=source_levels)
+    block, _tokens, _n = build_loader_block(practices, source_levels=source_levels,
+                                            omits_private=omits_private)
     if BEGIN_MARKER not in original or END_MARKER not in original:
         sys.exit(f"build_views FAIL: {agents_md} has no "
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
@@ -890,8 +919,11 @@ def main():
                  "incomplete source set -- that would silently drop every "
                  "practice the unreachable sources contribute. Make them "
                  "resolvable, then re-run.")
+    # A public repo's block deliberately omits the private levels, so the
+    # standing instruction has to point at what carries them instead.
     new_agents = render_agents_md(block_practices, agents_md,
-                                  source_levels=levels)
+                                  source_levels=levels,
+                                  omits_private=repo_is_public(root))
     targets = [(agents_md, new_agents)]
     if not agents_only:
         targets.append((map_md, render_map_md(practices)))

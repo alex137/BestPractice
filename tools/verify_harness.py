@@ -2817,7 +2817,7 @@ def check_session_practices_load_without_publishing():
         mk(repo / 'practices', 'universal-one', 'doing universal work')
         mk(team, 'team-only-rule', 'committing work in this repo')
         (repo / 'precedent.json').write_text(_json.dumps({
-            'format_version': 1,
+            'format_version': 1, 'visibility': 'public',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
                         {'level': 'team', 'name': 'precedent-team-maintainers',
                          'path': str(tmp / 'team')}]}), encoding='utf-8')
@@ -2841,7 +2841,7 @@ def check_session_practices_load_without_publishing():
 
         # An unreachable source is NAMED, not silently dropped.
         (repo / 'precedent.json').write_text(_json.dumps({
-            'format_version': 1,
+            'format_version': 1, 'visibility': 'public',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
                         {'level': 'team', 'name': 'precedent-team-maintainers',
                          'path': str(tmp / 'no-such-dir')}]}), encoding='utf-8')
@@ -2881,6 +2881,30 @@ def check_session_practices_load_without_publishing():
                   'session that fails to START because an optional practice file '
                   'could not be written is far worse than one missing it',
                   r.returncode == 0))
+
+    # THE INTEGRATION PROPERTY, and the one this nearly got wrong. The
+    # tracked loader block now renders every declared source EXCEPT the
+    # private levels in a public repo. So this file must carry exactly that
+    # complement -- no more (duplicating what the block already has) and no
+    # less (the gap reopening in silence). Both sides read
+    # build_views.PRIVATE_LEVELS and build_views.repo_is_public, and the
+    # pointer in the standing instruction is keyed off the same test: an
+    # earlier version keyed it off "was this rendered single-source", which
+    # stopped being true the moment a public repo rendered multi-source, and
+    # the pointer silently vanished from AGENTS.md.
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as _bv
+    cases.append(('this repo declares visibility: public, so its tracked block '
+                  'omits the private levels and something else must carry them',
+                  _bv.repo_is_public(ROOT)))
+    cases.append(('the levels this file carries are exactly the ones the block '
+                  'omits -- one definition, so the two cannot disagree about '
+                  'which practices a session is otherwise never shown',
+                  psp.__dict__.get('bv').PRIVATE_LEVELS is _bv.PRIVATE_LEVELS))
+    block_text = (ROOT / 'AGENTS.md').read_text(encoding='utf-8')
+    cases.append(('no private level appears in the committed block',
+                  '(team)' not in block_text.split('END GENERATED')[0]
+                  and '(individual)' not in block_text.split('END GENERATED')[0]))
 
     bad = [n for n, ok in cases if not ok]
     check(f'the team and individual practices reach a session without reaching a '

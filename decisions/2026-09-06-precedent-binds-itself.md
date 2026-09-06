@@ -106,8 +106,12 @@ project has already been bitten by once: its framing is that the misfits
 the same reasoning that dropped `deep-check` on the authority of a rule it
 merely resembled. A rule that does not apply here is not a rule nobody wants.
 
-**Both halves are now built, and shape 3's safe form is the session-time
-file.** The constraint shape 3 runs into is on *committing* private text, not
+**Both halves are now built, and shape 3 landed in two pieces the same day
+— one from another session.** `build_views.py` now renders every declared
+source into the tracked loader block, *except* the private levels in a repo
+declaring `visibility: public`; so a private consumer repo gets its team and
+individual practices inline, and this public one still cannot. What remains
+for the public case is the session-time file.** The constraint shape 3 runs into is on *committing* private text, not
 on *loading* it — so
 [tools/precedent_session_practices.py](../tools/precedent_session_practices.py)
 resolves every declared source at session start and writes the block into

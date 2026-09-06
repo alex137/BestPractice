@@ -54,10 +54,13 @@ import precedent_resolve as pr      # noqa: E402
 
 OUT_DIR = '.precedent'
 OUT_NAME = 'SESSION_PRACTICES.md'
-# Practices from THIS source are already in the committed AGENTS.md, so
-# repeating them here would double every session's resident block. Only the
-# sources AGENTS.md does not carry are written.
-ALREADY_IN_AGENTS_MD = 'universal'
+
+# WHICH LEVELS THIS FILE CARRIES: exactly the ones a public repo's tracked
+# loader block leaves out, which is build_views.PRIVATE_LEVELS -- imported
+# rather than restated, because the two answering differently is the whole
+# failure mode. Restating it as `everything except universal` was wrong
+# within hours: build_views began rendering repo-local into the block too,
+# and this file would have duplicated it into every session.
 
 
 def collect(repo):
@@ -83,9 +86,19 @@ def collect(repo):
             f"({m.get('reason', 'no reason given')}) -- its practices are not "
             f"below. Treat that as unknown, not as 'that source has no rules'.")
 
+    # In a repo that is NOT public, the tracked block already carries every
+    # level, so there is nothing left for this file to add and writing one
+    # would duplicate the whole catalogue into every session.
+    if not bv.repo_is_public(repo):
+        notes.append(
+            'this repo does not declare `visibility: public`, so its tracked '
+            'loader block already carries every declared source and there is '
+            'nothing for this file to add.')
+        return [], {}, notes
+
     extra, levels = [], {}
     for slug, p in sorted(res['practices'].items()):
-        if p['level'] == ALREADY_IN_AGENTS_MD:
+        if p['level'] not in bv.PRIVATE_LEVELS:
             continue
         extra.append((p['fm'], p['sections'], pathlib.Path(p['file'])))
         levels[slug] = p['level']
