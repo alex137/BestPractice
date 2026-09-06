@@ -100,7 +100,7 @@ When a document presents a script-derived figure:
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift:
-  very-deep-check — read the whole repo against itself for drift; never a routine gate
+  very-deep-check — read every repo in force against itself, pass by pass; never a routine gate
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
 When a practice lands or a candidate is raised, at any level:
@@ -248,7 +248,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Why each practice is routed the way it is (every glob, and every `**`) | [tools/routing_scope.json](tools/routing_scope.json) |
 | The routing audit: coverage check + rotating deep read, on-demand, never a routine gate | [practices/routing-audit.md](practices/routing-audit.md), engine at [tools/routing_audit.py](tools/routing_audit.py) |
 | The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
-| The very deep check: whole-repo coherence review (the audit list inherited from RepoPersonalPreferences (RPP)), on request only, distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py) |
+| The very deep check: four ordered passes over every repo in force — adopter installs, whether the mechanisms tell the truth, the coherence read, then catalogue and housekeeping — on request only, distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
@@ -340,6 +340,17 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   `git branch --set-upstream-to=origin/<branch>`. Setting the remote URL to
   the canonical capitalization at the same time stops the misleading
   redirect notice.
+  **The refspec half of that repair now applies itself** — 2026-09-06,
+  [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh) here and
+  [templates/bootstrap.sh](templates/bootstrap.sh) for dependent repos both
+  widen `remote.origin.fetch` at session start when it carries no
+  `refs/heads/*` mapping, before the freshness block runs. It is local
+  config only, idempotent, and announced on stderr rather than done
+  silently. Verified against a real `--single-branch` clone: pushing a
+  feature branch from one left `git rev-list origin/feature..HEAD` unable
+  to resolve at all, and the repair plus one fetch made it answer `0`. The
+  clone-URL capitalization half is *not* automated — nothing local knows
+  the canonical spelling — so that stays a manual `git remote set-url`.
 
 - **A stale container is indistinguishable from missing work, and the
   freshness guard can be the thing that's lying.** On 2026-09-06 a session

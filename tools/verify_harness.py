@@ -5295,6 +5295,294 @@ def check_rule_rewrite_detection():
           not bad)
 
 
+def check_source_shape_is_verified():
+    """A source is checked for the shape its skeleton defines, and for the
+    shape its CONSUMERS need.
+
+    precedent_bootstrap_source.py only ever ran for sources it created. A
+    source migrated into place -- assembled by hand from an older system --
+    never passed through it, and nothing afterwards asked whether it came
+    out right. Both of this project's migrated sets were missing a skeleton
+    file, and had been since migration (2026-09-06).
+
+    File presence alone was the first version and was not enough: an
+    approvers.json with no approvers, or an approver with no `github`, is
+    present and useless -- build_codeowners.py refuses exactly those, so a
+    source carrying one is already broken and has only not been run against
+    yet. "Well-formed" is defined here by what a real consumer of the file
+    needs, never by a wish list."""
+    import importlib.util, tempfile, shutil, json as _json
+    spec = importlib.util.spec_from_file_location(
+        '_bss', ROOT / 'tools' / 'precedent_bootstrap_source.py')
+    bss = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bss)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        def fixture(level, **edits):
+            d = pathlib.Path(td) / f'src{len(cases)}{level}{len(edits)}'
+            shutil.copytree(ROOT / 'templates' / f'practice-set-{level}', d)
+            (d / 'practices').mkdir(exist_ok=True)
+            (d / 'practices' / 'x.md').write_text('---\nslug: x\n---\n## Rule\nx\n',
+                                                  encoding='utf-8')
+            if level == 'team':
+                (d / 'approvers.json').write_text(_json.dumps(
+                    {'approvers': [{'name': 'A', 'github': 'a'}]}), encoding='utf-8')
+                (d / 'approvers.json.template').unlink(missing_ok=True)
+            else:
+                (d / 'config.json.sample').write_text(_json.dumps(
+                    {'individual': {'name': 'n', 'path': '/p'}}), encoding='utf-8')
+            (d / 'leak-blocklist.txt').write_text('# blank\n', encoding='utf-8')
+            # The skeleton's README is full of {{PLACEHOLDER}}s by design;
+            # bootstrap fills them. A fixture standing in for a FINISHED
+            # source has to fill them too -- verify() caught this fixture
+            # itself the first time it ran, which is the check working.
+            (d / 'README.md').write_text('# A finished set\n', encoding='utf-8')
+            for rel, text in edits.items():
+                if text is None:
+                    (d / rel).unlink(missing_ok=True)
+                else:
+                    (d / rel).write_text(text, encoding='utf-8')
+            return d
+
+        cases.append(('a complete team set is well-formed',
+                      bss.verify('team', fixture('team')) == []))
+        cases.append(('a complete individual set is well-formed',
+                      bss.verify('individual', fixture('individual')) == []))
+        cases.append(('a missing skeleton file is reported',
+                      any('leak-blocklist' in f for f in bss.verify(
+                          'team', fixture('team', **{'leak-blocklist.txt': None})))))
+        cases.append(('an approvers.json with no approvers is reported -- '
+                      'build_codeowners.py refuses exactly this',
+                      any('no approvers' in f for f in bss.verify(
+                          'team', fixture('team', **{'approvers.json':
+                              _json.dumps({'approvers': []})})))))
+        cases.append(('an approver with no github is reported',
+                      any('"github"' in f for f in bss.verify(
+                          'team', fixture('team', **{'approvers.json':
+                              _json.dumps({'approvers': [{'name': 'A'}]})})))))
+        cases.append(('an unfilled {{PLACEHOLDER}} is reported -- bootstrapped '
+                      'and never finished',
+                      any('unfilled' in f for f in bss.verify(
+                          'team', fixture('team',
+                                          **{'leak-blocklist.txt': 'a {{NAME}} b'})))))
+        cases.append(('an individual config missing individual.path is reported',
+                      any('individual.path' in f for f in bss.verify(
+                          'individual', fixture('individual', **{'config.json.sample':
+                              _json.dumps({'individual': {'name': 'n'}})})))))
+        d = fixture('team')
+        for f in (d / 'practices').glob('*.md'):
+            f.unlink()
+        cases.append(('a source with no practice files is reported',
+                      any('no practice files' in x for x in bss.verify('team', d))))
+
+    bad = [n for n, ok in cases if not ok]
+    for n in bad:
+        print(f"  source-shape case did not behave as stated: {n}")
+    check(f'a source is verified for shape AND well-formedness '
+          f'({len(cases)} stated cases)', not bad)
+
+
+def check_rendered_docs_are_current():
+    """Every committed HTML render still matches its markdown source.
+
+    tools/doc_html.py writes a .html beside each document in its own DOCS
+    registry, and nothing checked that the committed render was still the
+    one that source produces. It was not: on 2026-09-06 an accidental bare
+    run of the tool -- during the sweep for tools that write when they
+    should not -- regenerated spec/PREFORK_AUDIT.html and picked up a whole
+    paragraph the source had gained and the render had never been rebuilt
+    for. A stale render is worse than no render: it is a page that looks
+    current, is linked as the readable view of the document, and disagrees
+    with it silently.
+
+    generated-artifact-provenance already holds this property for the
+    generated VIEWS (MAP.md, GLOSSARY.md, AGENTS.md's block); this is the
+    same property for the rendered ones, which that check does not reach.
+
+    The build stamp is excluded from the comparison: it is the one line
+    that legitimately differs on every run, so comparing it would make this
+    fail constantly and mean nothing.
+    """
+    import importlib.util, re as _re, tempfile, shutil
+    spec = importlib.util.spec_from_file_location(
+        '_doc_html', ROOT / 'tools' / 'doc_html.py')
+    try:
+        dh = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(dh)
+    except Exception as e:
+        not_applicable('rendered documents are current',
+                       f'tools/doc_html.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+    if not getattr(dh, 'DOCS', None):
+        not_applicable('rendered documents are current',
+                       'doc_html.py registers no documents, so there is '
+                       'no render to compare')
+        return
+
+    STAMP = _re.compile(r'<div class="renderstamp">[^<]*</div>')
+    stale, missing = [], []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-check-'))
+    try:
+        for rel, title in dh.DOCS:
+            src = ROOT / rel
+            committed = src.with_suffix('.html')
+            if not src.is_file():
+                missing.append(f'{rel} (source missing)')
+                continue
+            if not committed.is_file():
+                missing.append(str(committed.relative_to(ROOT)))
+                continue
+            out = tmp / (pathlib.Path(rel).stem + '.html')
+            dh.render(src, out, title)
+            a = STAMP.sub('', committed.read_text(encoding='utf-8'))
+            b = STAMP.sub('', out.read_text(encoding='utf-8'))
+            if a != b:
+                stale.append(str(committed.relative_to(ROOT)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    check(f'every registered document\'s HTML render is current '
+          f'({len(dh.DOCS)} registered)',
+          not stale and not missing,
+          '; '.join(
+              ([f'stale: {", ".join(stale)}'] if stale else [])
+              + ([f'missing: {", ".join(missing)}'] if missing else [])))
+
+
+def _looks_like_help(tool, out):
+    """Does this output actually answer --help, or is it the tool running?
+
+    The test is the tool's own module docstring: a help answer contains a
+    real run of it. Deliberately not an exact match -- argparse prints its
+    own usage/description rather than the raw docstring, and that is a
+    perfectly good help answer.
+    """
+    import ast
+    try:
+        doc = ast.get_docstring(ast.parse(tool.read_text(encoding='utf-8')))
+    except Exception:
+        return True                      # unparseable: not this check's call
+    if not doc:
+        return True                      # nothing to compare against
+    o = ' '.join(out.split()).lower()
+    if 'usage:' in o:                    # argparse-generated help
+        return True
+    for line in doc.strip().splitlines():
+        line = ' '.join(line.split())
+        if len(line) >= 40 and line.lower() in o:
+            return True
+    return False
+
+
+def check_tools_answer_help_without_writing():
+    """`--help` is safe and informative on every tool in tools/.
+
+    Two properties, both learned the hard way on 2026-09-06 by a sweep that
+    simply ran `--help` across every script here to see what came back:
+
+    * **It is answered, with exit 0.** The tools split three ways before that
+      sweep -- a hard `FAIL: unknown option '--help'`, a silent fall-through
+      that ran the whole audit as though nothing had been asked, or the
+      docstring printed with a non-zero exit. `--help` is the first thing any
+      reader types, and documentation/HOW_TO_USE_THIS_TECHNICAL.md points a
+      public audience straight at these commands.
+
+    * **It writes nothing.** tools/resplit_sections.py defaulted to WRITING:
+      any argument it did not recognise, `--help` included, fell through to
+      the write branch and silently rewrote 46 tracked practice files,
+      reverting every edit made to them since phase 1.5 -- no confirmation,
+      no diff, and the damage surfaced two steps later as an unrelated
+      doc_sync DRIFT that looked like a numbers problem. A destructive
+      DEFAULT on a spent migration tool is the dangerous shape: the safe mode
+      has to be the one you get by accident.
+
+    Run against a throwaway copy of the tracked tree, never against the real
+    one -- a check for "does this tool clobber the repo" must not be able to
+    clobber the repo while finding out.
+    """
+    import hashlib, shutil, tempfile
+    tools = sorted((ROOT / 'tools').glob('*.py'))
+    tracked = subprocess.run(['git', 'ls-files'], cwd=str(ROOT),
+                             capture_output=True, text=True)
+    if tracked.returncode != 0 or not tracked.stdout.strip():
+        not_applicable('tools answer --help without writing',
+                       'git ls-files returned nothing here, so there is no '
+                       'tracked tree to copy and compare -- not a pass')
+        return
+
+    files = [f for f in tracked.stdout.splitlines() if f]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='help-sweep-'))
+    try:
+        for rel in files:
+            src = ROOT / rel
+            if not src.is_file():
+                continue
+            dst = tmp / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+
+        def snapshot():
+            out = {}
+            for rel in files:
+                f = tmp / rel
+                if f.is_file():
+                    out[rel] = hashlib.sha256(f.read_bytes()).hexdigest()
+            return out
+
+        before = snapshot()
+        # A module with no `if __name__ == '__main__'` block is a library
+        # (tools/table_fmt.py is one): it is imported, never invoked, so
+        # "answer --help" is not a property it can have. Named here rather
+        # than quietly dropped, so the exemption stays visible.
+        libraries = [t for t in tools
+                     if "__main__" not in t.read_text(encoding='utf-8')]
+        tools = [t for t in tools if t not in libraries]
+        bad_exit, silent, not_help = [], [], []
+        for tool in tools:
+            r = subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
+                                '--help'],
+                               cwd=str(tmp), capture_output=True, text=True,
+                               timeout=120)
+            if r.returncode != 0:
+                bad_exit.append(f'{tool.name} exited {r.returncode}')
+            elif not r.stdout.strip():
+                silent.append(tool.name)
+            elif not _looks_like_help(tool, r.stdout):
+                # Exit 0 with output is NOT enough. A tool that simply
+                # ignores an unrecognised flag runs its whole normal job and
+                # exits 0, which passed every property above while answering
+                # nothing -- build_views.py did exactly that until
+                # 2026-09-06, silently regenerating MAP.md, GLOSSARY.md and
+                # AGENTS.md's block on `--help`. In THIS repo those are
+                # already current, so even the "writes nothing" property
+                # held: an identical rewrite is invisible to a hash. It was
+                # only visible in a consuming repo, where the same command
+                # would have rewritten drifted views. So the output itself
+                # has to be checked against the tool's own docstring.
+                not_help.append(tool.name)
+        after = snapshot()
+        wrote = sorted(set(before) & set(after)
+                       - {k for k in before if before[k] == after.get(k)})
+        wrote += sorted(set(after) - set(before))
+
+        check(f'every tool answers --help with exit 0 ({len(tools)} tools; '
+              f'{len(libraries)} import-only module(s) exempt: '
+              f'{", ".join(t.name for t in libraries) or "none"})',
+              not bad_exit, '; '.join(bad_exit))
+        check('every tool\'s --help actually prints something',
+              not silent, ', '.join(silent))
+        check('every tool\'s --help answers with its own usage text, rather '
+              'than running the tool',
+              not not_help, ', '.join(not_help))
+        check('no tool writes to the tree when asked for --help',
+              not wrote,
+              f'{len(wrote)} file(s) changed: ' + ', '.join(wrote[:8]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_machine_readable_files_parse():
     """Every JSON and YAML file this change TOUCHED still parses.
 
@@ -6232,6 +6520,7 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
+    check_source_shape_is_verified()
     check_machine_readable_files_parse()
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
@@ -6240,10 +6529,21 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
+    check_tools_answer_help_without_writing()
+    check_rendered_docs_are_current()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

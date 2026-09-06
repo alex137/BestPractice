@@ -107,29 +107,37 @@ def load_all_practices():
 
 
 def git_commits(max_commits):
+    # Graceful degradation, not a crash: `git log` exits 128 on an unborn HEAD (a
+    # repo with no commits) and on a directory that is not a repo at all.
+    # check=True turned both into a CalledProcessError traceback, when this
+    # tool already knows how to report "not enough history to replay": it
+    # has a DEGRADED path for exactly that, used on a --depth 1 clone. No
+    # commits is the same fact, further along the same axis.
     log = subprocess.run(
         ['git', '-C', str(ROOT), 'log', '--no-merges', '--pretty=format:%H',
          f'-n{max_commits}'],
-        capture_output=True, text=True, check=True,
-    ).stdout.splitlines()
-    return log
+        capture_output=True, text=True,
+    )
+    if log.returncode != 0:
+        return []
+    return log.stdout.splitlines()
 
 
 def changed_files(commit_hash):
     out = subprocess.run(
         ['git', '-C', str(ROOT), 'diff-tree', '--no-commit-id', '--name-only',
          '-r', commit_hash],
-        capture_output=True, text=True, check=True,
-    ).stdout.splitlines()
-    return [f for f in out if f]
+        capture_output=True, text=True,
+    )
+    return [f for f in out.stdout.splitlines() if f] if out.returncode == 0 else []
 
 
 def is_shallow_clone():
     out = subprocess.run(
         ['git', '-C', str(ROOT), 'rev-parse', '--is-shallow-repository'],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip()
-    return out == 'true'
+        capture_output=True, text=True,
+    )
+    return out.returncode == 0 and out.stdout.strip() == 'true'
 
 
 # --------------------------------------------------- mechanical correctness
@@ -458,4 +466,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

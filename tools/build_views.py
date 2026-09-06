@@ -438,6 +438,17 @@ def main():
     agents_md = root / 'AGENTS.md'
     map_md = root / 'MAP.md'
     glossary_md = root / 'GLOSSARY.md'
+    # Graceful degradation, not a crash: the loader block is written INTO an
+    # existing AGENTS.md, between markers the install step puts there. A
+    # repo that has not instantiated it yet (INSTALL.md sec.0 step 4 /
+    # sec.1 step 2) used to get a bare FileNotFoundError from deep inside
+    # the renderer, which reads as the generator being broken rather than
+    # as one install step not done.
+    if not agents_md.is_file():
+        sys.exit(f"build_views FAIL: {agents_md} does not exist. Instantiate "
+                 f"it from templates/AGENTS.md.loader.template (or "
+                 f"templates/AGENTS.md.template on the classic layout), "
+                 f"keeping its BEGIN/END GENERATED markers, then re-run.")
 
     check = '--check' in argv
     # --agents-only: regenerate just AGENTS.md's loader block (resident
@@ -485,4 +496,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

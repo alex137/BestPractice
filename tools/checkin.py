@@ -83,9 +83,45 @@ UPSTREAM = ROOT / 'process' / 'upstream'
 MANIFEST = ROOT / 'process' / 'manifest.json'
 
 
+def _same_commit(a, b):
+    """True when two commit strings name the same commit.
+
+    A manifest may legitimately record a SHORT hash -- a person writing one
+    by hand does, and nothing ever required the full 40 -- while `git
+    rev-parse` and `ls-remote` return the full one. Compared as strings
+    those never match, so a perfectly current repo reports
+    "(!= recorded)" and an unmoved upstream reports "has moved".
+    Reproduced 2026-09-06 against a real consumer: recorded 6ac06f6, clone
+    HEAD 6ac06f6eb166..., reported as different. Prefix comparison, in
+    whichever direction is shorter, with a floor so a truncation to
+    nothing cannot match everything."""
+    a, b = (a or '').strip(), (b or '').strip()
+    if not a or not b:
+        return False
+    n = min(len(a), len(b))
+    if n < 7:            # shorter than git's own minimum abbreviation
+        return False
+    return a[:n] == b[:n]
+
+
 def _git(clone, *args):
     return subprocess.run(['git', '-C', str(clone)] + list(args),
                           capture_output=True, text=True).stdout.strip()
+
+
+# Directories that exist in BestPractice and have no business in a
+# dependent repo. `evals/` is this project's own routing-quality measurement
+# corpus -- 557 of the 784 files a consumer was vendoring, 2.5 MB, and
+# nothing a consumer runs reads any of it (checked across both real
+# consumers, 2026-09-06: the only mention outside the vendored tree is a
+# comment in precedent_check.py). Every session in every consuming repo was
+# cloning, scanning and scrubbing it for nothing.
+#
+# Excluded from the comparison, so an existing consumer that already has the
+# directory simply stops being told it drifted; deleting the stale copy is
+# the consumer's own next re-vendor, not something this tool reaches in and
+# does.
+NOT_VENDORED = frozenset({'evals'})
 
 
 def _files(base):
@@ -100,6 +136,7 @@ def _files(base):
     return {p.relative_to(base) for p in base.rglob('*')
             if p.is_file() and '.git' not in p.parts
             and '__pycache__' not in p.parts
+            and not any(part in NOT_VENDORED for part in p.parts)
             and p.suffix not in ('.pyc', '.pyo')}
 
 
@@ -154,7 +191,7 @@ def fresh():
         except subprocess.TimeoutExpired:
             return 0  # genuinely unreachable -- stays silent, unchanged
         head = out.stdout.split()[0] if out.returncode == 0 and out.stdout else ''
-        if head and head != recorded:
+        if head and not _same_commit(head, recorded):
             print(f"NOTICE: BestPractice upstream has moved ({head[:12]}; your base "
                   f"{recorded[:12]}) — review at the next check-in "
                   f"(process/upstream/INSTALL.md sec.2/sec.4).")
@@ -185,7 +222,8 @@ def status(clone):
           f"({len(added)} added, {len(modified)} modified, {len(deleted)} deleted)")
     print(f"manifest upstream.commit: {recorded}")
     print(f"clone HEAD:               {head}"
-          + ("  (== recorded)" if head == recorded else "  (!= recorded)"))
+          + ("  (== recorded)" if _same_commit(head, recorded)
+             else "  (!= recorded)"))
     return 1 if n else 0
 
 
@@ -434,4 +472,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())
