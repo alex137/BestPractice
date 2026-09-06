@@ -133,7 +133,7 @@ Each names where the plan addresses it.
 | The anti-bloat guard is prose competing with fifty other prose rules | [The Resident Budget](#the-resident-budget) and [Promotion Criteria](#stage-3--promotion-criteria) |
 | No way to note something without promoting it to a resident rule, so everything worth noticing became one — 21 to 46 rules in three days | [The Candidate](#stage-2--the-candidate) |
 | Only 2 of 46 practices mechanically enforced; `fail-gracefully` asserted, never tested | Phase 5 |
-| [checkin.py](process/upstream/tools/checkin.py) `fresh` is silent on failure, so unreachable reads as "current" | Phase 1 |
+| [checkin.py](tools/checkin.py) `fresh` is silent on failure, so unreachable reads as "current" | Phase 1 |
 | Practices cited by position (169 by-number references), making insertion a cross-repo sweep | Slugs, phase 1 |
 | An unresolved drift notice re-stamps its own date every session, so every session inherits a diff it did not create | Phase 1 tooling pass |
 | The export path is one-way in practice — RPP has essentially never checked anything in | Phase 7, and the branch's re-sync discipline |
@@ -961,7 +961,7 @@ BestPractice-only, and BestPractice+RPP.
 
 ### The Converter
 
-Splitting [PRACTICES.md](process/upstream/PRACTICES.md) into per-practice files is mechanical. Splitting each
+Splitting [PRACTICES.md](PRACTICES.md) into per-practice files is mechanical. Splitting each
 practice's prose into Rule / Why / Story is a judgment call, so it is
 **LLM-assisted and human-reviewed, once per practice**. Guard against content
 drift: **no sentence may appear in the output that does not appear in the
@@ -1931,11 +1931,11 @@ matching the rest of this document's own current-state discipline
 
 Open items from the 2026-08-29 review that this rewrite does not resolve:
 
-- **Header capitalization** in [VOICE.md](VOICE.md),
-  [STYLEGUIDE.md](STYLEGUIDE.md) and
+- **Header capitalization** in `VOICE.md`,
+  `STYLEGUIDE.md` and
   [.github/pull_request_template.md](.github/pull_request_template.md) still
   differs from the repo's stated convention. Needs a decision either way.
 - **An allowlist fix is pending export upstream** — the harness template
-  allowlists [practice_audit.py](process/upstream/tools/practice_audit.py) with and without arguments but
-  [doc_lint.py](process/upstream/tools/doc_lint.py) only with, so the merge runbook's own bare invocation prompts on every run
+  allowlists [practice_audit.py](tools/practice_audit.py) with and without arguments but
+  [doc_lint.py](tools/doc_lint.py) only with, so the merge runbook's own bare invocation prompts on every run
   in every repo installing the harness.

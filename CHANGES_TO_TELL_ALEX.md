@@ -292,6 +292,35 @@ them, and a numeric-only citation check can only confirm a cited number
 *exists*, not that it is the *right* one. Worth a note upstream at the next
 real check-in, alongside the existing practice-39 finding.
 
+### Relative-link sweep in `practices/` — 2026-09-06
+
+**What changed.** 67 markdown links across 28 practice files were repointed
+from `](tools/doc_lint.py)` to `](../tools/doc_lint.py)`. A practice file
+lives in `practices/`, one directory below the repo root, so a root-relative
+link inside one resolved to `practices/tools/doc_lint.py` and returned a
+404 on GitHub for anyone reading the practice file itself — which, since
+the fork, is the primary way a practice is read. The newer practice files
+already used `../`; the inherited ones did not, and nothing checked. No
+prose changed: only the target inside the parentheses, never the label.
+
+**Why this needs an entry**, given no Rule's substance moved: the sentence
+identity half of `verify_harness.py`'s fidelity checks compares the rendered
+link target along with the words, so eight practices whose repointed links
+sit inside a checked section needed a disclosed exemption in
+`AMENDED_POST_CONVERSION` — whose own rule is that an exemption must be both
+declared *and* found in this file. The word-multiset checks (no invented
+content, no lost content) still pass untouched, which is the evidence that
+this is a target change and not a text change.
+
+**Affected practices** (the eight carrying the exemption; the other 20 files
+in the sweep needed none): `doc-references-are-links`,
+`github-setup-disclosed`, `lead-with-what-it-is`, `orientation-map`,
+`pr-template-honest-gates`, `quick-index`, `reply-links-files`,
+`section-order-by-frequency`.
+
+**Forward guard.** `tools/doc_lint.py` gained a broken-relative-link check
+so the next one fails a gate instead of a reader.
+
 ## Considered, not changed
 
 ### `practice-export-loop` (BestPractice practice 14) and `mistakes-become-rules` (BestPractice practice 20) — 2026-09-01

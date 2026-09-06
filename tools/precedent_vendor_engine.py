@@ -189,6 +189,49 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     'precedent_materialize.py',
     'precedent_resolve.py',
     'precedent_sync_views.py',
+    # Named by a universal practice's own Install, so a consumer that
+    # resolves that practice needs the file (added 2026-09-06, after
+    # installing into a scratch repo exactly as INSTALL.md section 0
+    # describes and running precedent_check.py on the result):
+    #
+    #   doc_lint.py      -- four enforced checks import it
+    #                       (acronyms-glossary, deliverables-look-like-output,
+    #                       doc-references-are-links, search-by-purpose).
+    #                       Without it all four reported "did not import: No
+    #                       module named 'doc_lint'" -- SKIPPED, which is
+    #                       honest, and useless. It is also the light check
+    #                       AGENTS.md tells every session to run before every
+    #                       commit.
+    #   doc_sync.py      -- two more (computed-numbers-in-scripts,
+    #                       docs-track-models). Its PAIRS list is empty until
+    #                       a repo fills it in, so it reports NOT APPLICABLE
+    #                       there rather than failing.
+    #   routing_audit.py -- routing-audit's Install names it as the practice's
+    #                       implementation, so the check flagged its absence
+    #                       as a violation in every consuming repo. It needs
+    #                       only split_practices and precedent_paths, both
+    #                       already here.
+    'doc_lint.py',
+    'doc_sync.py',
+    'routing_audit.py',
+    # The individual-source SessionStart hook this repo ships as a
+    # template (templates/harness/claude-code/hooks/
+    # individual-source-bootstrap.sh.template) execs this file, and
+    # precedent_resolve.py's own lazy self-heal re-invokes that hook. It
+    # was never vendored, so in a consuming repo the hook exec'd a path
+    # that did not exist -- and both callers swallow the failure by
+    # design, so the individual source simply never resolved and nothing
+    # said why.
+    'precedent_source_bootstrap.py',
+    # The enforced channel itself. INSTALL.md section 0 step 1 used to say
+    # "copy precedent_check.py by hand" -- on the reasoning that it belongs
+    # to phase 4's enforced-checks channel rather than to the loader engine.
+    # True as taxonomy, and exactly the undocumented hand-copy this tool
+    # exists to end: no manifest, no recorded commit, no way to tell a
+    # stale copy from a current one, which is how six of eight engine files
+    # in the first real consumer repo had silently drifted. It travels with
+    # the engine now, and the hand-copy step is gone from INSTALL.md.
+    'precedent_check.py',
     'precedent_vendor_engine.py',  # last, same reason as ENGINE_FILES above
 ]
 
@@ -332,7 +375,37 @@ def seed(dest, kind=DEFAULT_KIND):
         raise ValueError(f"kind must be one of {sorted(KINDS)}, got {kind!r}")
     dest = pathlib.Path(dest).resolve()
     commit = _head_commit(ROOT) or 'unknown'
-    return _write_engine_files(dest / 'tools', ENGINE_DIR, commit, kind)
+    # From the COMMIT, not the working tree. This used to copy whatever
+    # was on disk in ENGINE_DIR while stamping HEAD's hash into
+    # ENGINE_MANIFEST.json, so seeding from a checkout with any
+    # uncommitted engine change wrote a manifest that named a commit the
+    # vendored bytes did not come from. `status` and `refresh` in the
+    # adopter's repo then compared those bytes against that commit's real
+    # content and reported drift forever, with nothing in the adopter's
+    # repo to explain it -- the provenance record silently made false,
+    # which is the one thing a provenance record must not do (practice:
+    # generated-artifact-provenance). An uncommitted change is also not
+    # something an adopter should be shipped: it is, by definition, not
+    # yet part of the engine.
+    if commit == 'unknown':
+        # No commit to read from (an unborn HEAD, or not a git checkout at
+        # all). The working tree is the only thing there is; the manifest
+        # already records 'unknown' rather than claiming a hash.
+        return _write_engine_files(dest / 'tools', ENGINE_DIR, commit, kind)
+    _c, engine_dir = _source_tools_at(ROOT, kind=kind, ref=commit, fetch=False)
+    try:
+        dirty = [n for n in KINDS[kind] + ['routing_scope.json']
+                 if (ENGINE_DIR / n).is_file()
+                 and (ENGINE_DIR / n).read_bytes() != (engine_dir / n).read_bytes()]
+        if dirty:
+            print(f"precedent_vendor_engine seed: NOTE -- vendoring "
+                  f"{commit[:12]}, not this working tree. Uncommitted "
+                  f"changes to {', '.join(dirty)} are NOT in what was "
+                  f"written; commit them and re-run to ship them.",
+                  file=sys.stderr)
+        return _write_engine_files(dest / 'tools', engine_dir, commit, kind)
+    finally:
+        shutil.rmtree(engine_dir, ignore_errors=True)
 
 
 def _load_manifest(dest_tools):
@@ -399,7 +472,7 @@ def status(clone):
     return 1 if drift else 0
 
 
-def _source_tools_at(clone, kind=DEFAULT_KIND):
+def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     """Materialize SOURCE_BRANCH's tools/ out of `clone` into a throwaway
     directory, and return (commit, that directory).
 
@@ -430,12 +503,15 @@ def _source_tools_at(clone, kind=DEFAULT_KIND):
     # has no SOURCE_BRANCH, is a supported case -- the _rev fallback below
     # handles it, and a hard failure here would break vendoring from a local
     # clone that is already up to date.
-    _git(clone, 'fetch', '--quiet', 'origin', SOURCE_BRANCH)
-    # origin/<branch> first, then a local branch of that name: a CI workspace
-    # carries only the ref under test, so a clone taken from it legitimately
-    # has no origin/<SOURCE_BRANCH> at all.
-    commit = (_rev(clone, f'origin/{SOURCE_BRANCH}')
-              or _rev(clone, SOURCE_BRANCH))
+    if fetch:
+        _git(clone, 'fetch', '--quiet', 'origin', SOURCE_BRANCH)
+    # `ref`, when given, names the exact commit to read (seed() passes this
+    # checkout's own HEAD -- it is not vendoring from a branch at all).
+    # Otherwise: origin/<branch> first, then a local branch of that name --
+    # a CI workspace carries only the ref under test, so a clone taken from
+    # it legitimately has no origin/<SOURCE_BRANCH> at all.
+    commit = ref or (_rev(clone, f'origin/{SOURCE_BRANCH}')
+                     or _rev(clone, SOURCE_BRANCH))
     if not commit:
         sys.exit(f"precedent_vendor_engine FAIL: {clone} has no {SOURCE_BRANCH} "
                  f"(neither origin/{SOURCE_BRANCH} nor a local branch of that name) "

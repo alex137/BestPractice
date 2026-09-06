@@ -23,7 +23,7 @@ not just at check-in. Contributions are patterns and abstracted lessons
 only: no names, code words, identifiers, numbers, or incident text from the
 dependent repo's subject matter. Enforcement is mechanical: the dependent
 repo keeps `process/scrub_blocklist.txt` (regex per line — its private
-vocabulary), and [tools/practice_audit.py](tools/practice_audit.py) scans
+vocabulary), and [tools/practice_audit.py](../tools/practice_audit.py) scans
 the entire vendored tree against it on every run, failing loudly on any hit.
 The blocklist itself is never exported (it is a map of the secrets). And a
 public repo is **public from its first commit** — content is authored fresh
@@ -41,6 +41,6 @@ cannot be un-published.
 ## Story
 
 ## Install
-Blocklist format and gate wiring in [INSTALL.md](INSTALL.md).
+Blocklist format and gate wiring in [INSTALL.md](../INSTALL.md).
 Scrub before every commit that touches `process/`; re-run at check-in time
 before opening the upstream PR.

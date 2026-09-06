@@ -390,17 +390,21 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   <branch>`, per the entries above) and recheck before concluding
   anything about two branches' relationship.
 
-- **Four inherited audits are NOT APPLICABLE in this repo, and three of them
-  used to say `FAIL` instead.** [tools/practice_audit.py](tools/practice_audit.py)
-  wants a `process/manifest*.json`, [tools/doc_sync.py](tools/doc_sync.py)'s
-  `PAIRS` is empty and [tools/model_audit.py](tools/model_audit.py)'s
-  `INSTRUMENTED` is empty — all correct, because this repo is the upstream
-  they audit a *dependent* repo against. Two of them exited non-zero for that
-  reason and one printed `OK` on having inspected nothing, so the first were
-  permanently red and the last was a confident all-clear from a scan that
-  never ran. They now say NOT APPLICABLE with the reason, and
+- **Inherited audits that have nothing to inspect say so, rather than
+  passing or failing.** [tools/practice_audit.py](tools/practice_audit.py)
+  wants a `process/manifest*.json` this repo does not have, because this
+  repo is the upstream it audits a *dependent* repo against. It used to
+  exit non-zero for that reason — permanently red, so nobody ran it — and
+  [tools/doc_sync.py](tools/doc_sync.py) and
+  [tools/model_audit.py](tools/model_audit.py), whose `PAIRS` and
+  `INSTRUMENTED` lists were then empty, printed `OK` on having inspected
+  nothing: a confident all-clear from a scan that never ran. All three now
+  say NOT APPLICABLE with the reason, and
   [tools/precedent_check.py](tools/precedent_check.py) reports that as
-  skipped rather than passed.
+  skipped rather than passed. (`PAIRS` and `INSTRUMENTED` have both since
+  been filled in here — two documents and one script — so only
+  `practice_audit.py` is still NOT APPLICABLE in this repo. Corrected
+  2026-09-06; the entry had gone on asserting all three were empty.)
 
 - **`git log --format=%P` silently reports no parents at all for a commit
   sitting at a shallow clone's boundary, even when it really has two.** Writing a mechanical check for `precedent-team-maintainers`

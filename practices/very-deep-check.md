@@ -23,10 +23,10 @@ When a person explicitly asks for a "very deep check", or after work that
 invites drift (a batch of practices added or reordered, a practice that
 changed shape, an install into a new repo, a merge that resolved conflicts
 across several shared files), run
-[tools/very_deep_check.py](tools/very_deep_check.py): it enumerates this
+[tools/very_deep_check.py](../tools/very_deep_check.py): it enumerates this
 checkout's own top-level documents and deliverable content, plus the
 `practices/*.md` tree of every source in force (resolved the same way
-[tools/precedent_resolve.py](tools/precedent_resolve.py) does for ordinary
+[tools/precedent_resolve.py](../tools/precedent_resolve.py) does for ordinary
 loading), and hands the invoking session a fixed checklist of drift
 categories to read that scope against. Never wired into a commit, push, or
 merge gate — the mechanical audits and `routing-audit` already cover what
@@ -162,7 +162,7 @@ folded into one of the three.
 
 **Read this before trusting the result, the same caution
 `full-practice-audit` states for itself.**
-[spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s review-arm result
+[spec/ATTENTION_CEILING.md](../spec/ATTENTION_CEILING.md)'s review-arm result
 (54% recall on a whole-catalogue judgment pass, worse than no review at all)
 was measured against practice-compliance judging, not document-coherence
 reading — a different task, so that figure does not transfer here directly
@@ -171,13 +171,13 @@ either. Treat it the same way: a backstop for what enforcement cannot
 reach, not a substitute for enforcement, until it has its own evaluation.
 
 ## Story
-Named in [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s v28 amendment
+Named in [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s v28 amendment
 (2026-09-01) as "the inherited RepoPersonalPreferences (RPP) audit list ...
 heavier than any of [light check, deep check, routing audit] ... not yet
 inventoried here (RPP is a separate private repo); enumerate and wire it as
 an on-demand tool when phase 5 or later actually needs it" — tracked nowhere
 else, the same
-structural gap [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)
+structural gap [spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md)
 found `routing-audit` fell into, and logged there as `TODO.md` item 17.
 
 Enumerating it turned up something the v28 amendment's own author could not
@@ -200,7 +200,7 @@ is the team's own call — noted, not decided, here.
 Revised 2026-09-05, on Morgan's direct request, adding the two gaps above.
 Both were real, reproduced, not hypothetical: this repo's own team source
 (`../precedent-team-maintainers`) is declared in
-[precedent.json](precedent.json), yet nothing before this revision made a
+[precedent.json](../precedent.json), yet nothing before this revision made a
 session go get that sibling clone before running the check, so a session
 starting in a fresh checkout with no siblings present would run the tool,
 see the source reported "missing" on stderr, and call the result a very
@@ -222,7 +222,7 @@ request — this bullet is its detection-side backstop, for whatever a
 session's own rollout at merge time still misses.
 
 ## Install
-[tools/very_deep_check.py](tools/very_deep_check.py) enumerates the scope
+[tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
 `practices/*.md` tree, reusing `tools/precedent_resolve.py`'s own source
 resolution) and prints the checklist above for the invoking session to
@@ -232,7 +232,7 @@ enumerates, the same class of resistant-to-automation practice
 `full-practice-audit` and `mistakes-become-rules` already name. See
 [full-practice-audit](full-practice-audit.md) for the narrower,
 already-built sibling this one deliberately does not replace, and
-[spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) for the decision
+[spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md) for the decision
 record this practice's own build closes out.
 
 The two additions above *are* mechanically checked, as far as a mechanical

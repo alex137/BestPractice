@@ -144,14 +144,14 @@ cannot prove the premise about the outside world the code was written
 against was true.
 
 ## Install
-[templates/bootstrap.sh](templates/bootstrap.sh) →
+[templates/bootstrap.sh](../templates/bootstrap.sh) →
 `tools/bootstrap.sh` (harness-neutral; all real setup lives here), wired in
-per-harness via [templates/harness/](templates/harness/README.md): a hook
+per-harness via [templates/harness/](../templates/harness/README.md): a hook
 that runs it automatically where the harness supports one (hard guarantee),
 an instructions-file directive where it doesn't (soft guarantee), plus a
 permission allowlist where the harness has that concept. Where the harness
 also supports a blocking stop/teardown hook (Claude Code does; see
-[templates/harness/claude-code/hooks/stop-git-check.sh](templates/harness/claude-code/hooks/stop-git-check.sh)),
+[templates/harness/claude-code/hooks/stop-git-check.sh](../templates/harness/claude-code/hooks/stop-git-check.sh)),
 install that too — some managed environments already provide an equivalent
 check outside the repo, but this makes the same guarantee travel with the
 practice layer for the ones that don't.

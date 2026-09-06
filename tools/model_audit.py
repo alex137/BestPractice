@@ -60,6 +60,7 @@ ignores everything else.
 
 import argparse
 import io
+import pathlib
 import importlib.util
 import sys
 import traceback
@@ -75,6 +76,10 @@ def find_root(start):
 
 
 ROOT = find_root(__file__)
+# Where this file physically sits -- <repo>/tools/ in a loader install,
+# <repo>/process/upstream/tools/ in the classic vendoring one. See the
+# INSTRUMENTED loop for why the difference matters.
+HERE = Path(__file__).resolve()
 
 # Scripts expected to carry self_check() and/or ANCHORS: those that consume or
 # re-derive a quantity owned by another script or recited in an authoritative
@@ -115,9 +120,19 @@ def main():
     failures, warnings, checked, anchors_ok = [], [], 0, 0
 
     for rel in INSTRUMENTED:
+        # Two layouts. In the classic vendoring install this file sits at
+        # <repo>/process/upstream/tools/, ROOT is the CONSUMING repo's
+        # root, and the upstream scripts this list names live beside this
+        # file rather than at <repo>/tools/ -- so a vendored copy reported
+        # every entry of its own inherited list as MISSING, in every
+        # dependent repo, forever. Fall back to the tree this file was
+        # vendored with before calling an entry absent.
         path = ROOT / rel
         if not path.exists():
-            failures.append(f"MISSING: {rel} listed in INSTRUMENTED but absent")
+            path = HERE.parent / pathlib.PurePath(rel).name
+        if not path.exists():
+            failures.append(f"MISSING: {rel} listed in INSTRUMENTED but absent "
+                            f"from both {ROOT} and {HERE.parent}")
             continue
         mod, err = load(path)
         if err:

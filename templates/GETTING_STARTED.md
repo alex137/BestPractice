@@ -7,7 +7,7 @@
      `<placeholders>` with the project's real values and keep the
      section structure so upstream improvements propagate on updates
      (INSTALL.md §2). Assistant-capability statements carry their as-of
-     dates (practice 16); refresh them from the upstream MOBILE.md when
+     dates (practice `volatile-rules-carry-dates`); refresh them from the upstream MOBILE.md when
      taking updates. -->
 
 Welcome. This project runs on a simple idea: **the project's memory lives
@@ -197,7 +197,7 @@ conversation:
 
 ### Automatic checks installed for this project
 
-<!-- Standing note (INSTALL.md §1 step 8 / practice 37): every
+<!-- Standing note (INSTALL.md §1 step 8 / practice `github-setup-disclosed`): every
      GitHub-specific requirement this project depends on gets a line
      here, naming what it is and the exact click-path to configure it —
      not just a mention in the internal install log under

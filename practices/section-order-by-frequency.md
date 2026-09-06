@@ -39,6 +39,6 @@ case — they just have to read past it every time.
 
 ## Install
 A writing convention, checked in review with the question
-above; part of [templates/AGENTS.md.template](templates/AGENTS.md.template)'s
+above; part of [templates/AGENTS.md.template](../templates/AGENTS.md.template)'s
 Conventions section. No mechanical audit — "which order serves most readers"
 is a judgment call, not a pattern a lint can reliably detect.

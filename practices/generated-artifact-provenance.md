@@ -44,8 +44,8 @@ directory.
 ## Install
 Pattern to apply in your builders; no portable tool (the code
 stamping is builder-specific). The `.gitignore`/`.gitattributes` stanzas are
-in [INSTALL.md](INSTALL.md), which also instantiates a baseline
-`.gitignore` from [templates/gitignore.template](templates/gitignore.template)
+in [INSTALL.md](../INSTALL.md), which also instantiates a baseline
+`.gitignore` from [templates/gitignore.template](../templates/gitignore.template)
 at install time — ordinary tool/interpreter caches (`__pycache__/` and
 friends), so the generated-deliverable globs above have a file to land in
 rather than each install having to remember to create one.
