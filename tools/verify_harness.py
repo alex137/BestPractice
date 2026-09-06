@@ -4371,7 +4371,23 @@ def check_creation_pipeline_fires():
             rc, out = pyrun(*args)
             if rc != 0:
                 raise RuntimeError(f"fixture candidate creation failed: {out}")
-            found = sorted((repo / 'candidates').glob(f'{slug}-*.md'))
+            # practice: match-parsed-id-not-prefix -- `glob(f'{slug}-*.md')`
+            # also matches every LONGER slug sharing this one's prefix, so
+            # this helper could hand back a different candidate entirely.
+            # It is the exact bug the prefix case below tests for, in the
+            # helper that builds that case's fixtures; the call site there
+            # had already been hand-narrowed to 'prefix-2*.md' to work
+            # around it, which is the workaround that names the defect.
+            # Matched on each file's own parsed slug instead.
+            found = []
+            for f in sorted((repo / 'candidates').glob('*.md')):
+                fm, _sections = sp._read_practice_file(f)
+                if (fm.get('slug') or '').strip('" ') == slug:
+                    found.append(f)
+            if not found:
+                raise RuntimeError(
+                    f"fixture candidate for slug {slug!r} was created but no "
+                    f"candidates/*.md parses back to that slug")
             return found[-1]
 
         # --- criterion 1: recurrence or real cost ---------------------------
@@ -4540,10 +4556,23 @@ def check_creation_pipeline_fires():
         # Deep-check regression case: counting file_count via glob(f'{slug}-*.md')
         # let a candidate named e.g. 'foo-bar' inflate 'foo''s recurrence count,
         # since 'foo-bar-<date>.md' also matches the glob 'foo-*.md'.
-        make_candidate('pipeline-fixture-prefix', recurrence=1)
+        # The short slug's own file, kept from its own creation. This line
+        # used to be a hand-narrowed `glob('pipeline-fixture-prefix-2*.md')`
+        # -- a workaround for make_candidate() globbing by prefix and handing
+        # back the LONGER candidate created just below. The helper matches on
+        # each file's parsed slug now, so no narrowing is needed and the test
+        # no longer contains a private instance of the bug it tests for.
+        # ORDER MATTERS, and is the negative control. The LONGER slug is
+        # created first, so a prefix glob (`glob(f'{slug}-*.md')`, sorted,
+        # last) hands back 'pipeline-fixture-prefix-longer-<date>.md' when
+        # asked for the short slug -- 'l' sorts after the date's '2'. Created
+        # the other way round, the old prefix-matching helper returns the
+        # right file by luck and this case proves nothing. Reordered
+        # 2026-09-06, after a control run showed exactly that: reverting the
+        # helper to the prefix glob still passed.
         make_candidate('pipeline-fixture-prefix-longer', recurrence=1,
                         **{'cost-if-once': 'unrelated candidate, shares a slug prefix'})
-        f_prefix = sorted((repo / 'candidates').glob('pipeline-fixture-prefix-2*.md'))[0]
+        f_prefix = make_candidate('pipeline-fixture-prefix', recurrence=1)
         rc, out = pyrun(promote_tool, '--file', str(f_prefix), '--level', 'individual')
         cases.append(("a differently-slugged candidate sharing a name prefix "
                       "('foo-bar' alongside 'foo') never inflates the shorter "

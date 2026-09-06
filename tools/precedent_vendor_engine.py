@@ -580,6 +580,49 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     return commit, tmp
 
 
+def _warn_catalogue_skew(dest, engine_commit):
+    """Say when the engine just moved past the catalogue it runs against.
+
+    `refresh` updates the ENGINE and nothing else, by design -- taking the
+    practice catalogue is a separate, deliberate step (INSTALL.md section 2),
+    because installs are adapted and an unattended mirror is the mechanism
+    class that loses content. The cost of that separation is a skew nobody
+    was told about: engine code that cites a practice slug the vendored
+    catalogue predates.
+
+    Reached a real consumer on 2026-09-06. A refresh took the engine to a
+    commit whose `precedent_resolve.py` cites `source-naming` three times,
+    while `process/upstream/` still sat 5 commits back and had no
+    `practices/source-naming.md` -- so the repo's own `code-cites-practice`
+    check reported three violations for a slug that does exist upstream, in
+    code the consumer is not allowed to edit. Nothing in the refresh had
+    said the two halves were now different ages.
+
+    Reports, never fails: the skew is legitimate between an engine refresh
+    and the catalogue update that follows it, and this runs at the moment
+    the person is right there to act on it. Practice fail-gracefully: keep
+    going, and tell the human.
+    """
+    manifest = dest / 'process' / 'manifest.json'
+    if not manifest.is_file():
+        return                              # not the classic vendoring layout
+    try:
+        recorded = json.loads(manifest.read_text(
+            encoding='utf-8'))['upstream']['commit']
+    except (ValueError, KeyError, OSError):
+        return                              # nothing reliable to compare
+    if not recorded or recorded.startswith(engine_commit[:len(recorded)]) \
+            or engine_commit.startswith(recorded[:len(engine_commit)]):
+        return                              # same commit, however abbreviated
+    print(f"NOTICE: the engine is now at {engine_commit[:12]}, but this "
+          f"repo's vendored practice catalogue (process/upstream/) is still "
+          f"at {recorded[:12]}. Engine code can cite practices that "
+          f"catalogue does not carry yet -- if a check reports a slug as "
+          f"'not a real practice', this skew is why. Take the catalogue "
+          f"update too (INSTALL.md section 2), or run "
+          f"`python3 process/upstream/tools/checkin.py update <clone>`.")
+
+
 def refresh(clone, force=False, ref=None):
     """`ref`, when given, names the exact commit or ref inside `clone` to
     vendor from, instead of resolving SOURCE_BRANCH there.
@@ -627,6 +670,7 @@ def refresh(clone, force=False, ref=None):
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
           f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {manifest.get('source_commit', '?')[:12]})")
+    _warn_catalogue_skew(dest, new_commit)
 
     # THE SECOND PASS, and why it is not optional. The file list for a kind
     # lives in THIS module, and a refresh runs the copy that is already
