@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-05 (Buenos Aires) by the session that closed the vendored-engine gap this document names below -->
+<!-- Last updated: 2026-09-05 (Buenos Aires) by the session that closed the source-repo vendored-engine gap this document names, and again the same day by the session that closed its consumer-repo sibling gap (see "The four-source CONSUMER case" below) -->
 
 # Bootstrapping a Brand-New Individual or Team Set
 
@@ -114,15 +114,25 @@ different enough on both axes that overloading `checkin.py` with a second
 manifest shape and a "named file set" mode would have cost more clarity
 than a small, purpose-built tool.
 
-**Not yet built: the four-source CONSUMER case.** This closes the gap for
-a *source* repo (an individual or team set). A real four-source consumer
-(universal + team + individual + repo-local, with `process/upstream/` and
-the full `precedent_materialize.py`/`precedent_resolve.py`/
-`precedent_sync_views.py` toolchain) has not been piloted with a vendored,
-refreshable engine of its own — [`INSTALL.md`](../INSTALL.md) already
-documents that install path, but extending it to vendor the engine the
-same disciplined way is separate, real, still-open follow-up work. Do not
-read "the source-repo case is solid" as "the consumer case is solid too."
+**The four-source CONSUMER case, closed 2026-09-05.** This document and
+`precedent_vendor_engine.py`'s `'source'` kind closed the gap above for a
+*source* repo (an individual or team set) first. A real four-source
+consumer (universal + team + individual + repo-local, with
+`process/upstream/` and the full `precedent_materialize.py`/
+`precedent_resolve.py`/`precedent_sync_views.py` toolchain) needed the same
+treatment — TODO.md tracked it as open, named explicitly so "the
+source-repo case is solid" was not mistaken for "the consumer case is
+solid too." It no longer is: `precedent_vendor_engine.py`'s `'consumer'`
+kind (same script, same seed/status/refresh/fresh subcommands, a larger
+CONSUMER_ENGINE_FILES list) closes it, piloted against the real
+`themorgan/HavrutaBrainstorm` repo. See
+[`INSTALL.md`](../INSTALL.md)'s §0 step 1 and its "Keep the vendored engine
+current (consumer repos)" step under §2 for the consumer-repo procedure,
+and `tools/verify_harness.py`'s `check_vendor_engine_consumer_case()` for
+the fixture proving the whole four-source pipeline actually runs through a
+consumer's own vendored copy, the same rigor
+`check_bootstrap_source_engine_is_functional()` applies to the source-set
+case documented above.
 
 ## The procedure
 

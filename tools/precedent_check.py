@@ -120,13 +120,22 @@ class Finding:
 CHECKS = {}
 
 
-def check(slug, scope, what, blind_to):
+def check(slug, scope, what, blind_to, advisory=False):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
-    drifts from it."""
+    drifts from it.
+
+    `advisory=True` is distinct from a practice's own frontmatter
+    `severity:` field (precedent_resolve.py's `severity: blocking`, about
+    which SOURCE wins when two levels disagree) -- this is about whether
+    THIS enforced check's own findings fail the run. Not exposed as a CLI
+    flag or a general mechanism: a check is advisory only when a specific,
+    dated incident justifies it (see parallel-artifact-ledger's own
+    comment, 2026-09-05), the same bar checkable-gets-checked sets for
+    leaving a practice advisory-only in the first place."""
     def deco(fn):
         CHECKS[slug] = dict(slug=slug, scope=scope, fn=fn, what=what,
-                            blind_to=blind_to)
+                            blind_to=blind_to, advisory=advisory)
         return fn
     return deco
 
@@ -541,6 +550,60 @@ def _engine_plus_host_shims(ctx):
                                         f'engine, thin host shims, never a fork'))
                 break
     return out
+
+
+# The captured group is restricted to filename-shaped characters
+# ([\w.-]+, no "<", ">", or spaces) deliberately, not just to keep the regex
+# tight: this check's OWN registration below documents the two path shapes
+# it looks for using a `'<name>'` placeholder, in a plain string literal --
+# an unrestricted capture matched that placeholder text against itself,
+# reporting a false violation for a file named literally "<name>" on every
+# run, planted or not. Restricting the capture to real-filename characters
+# fixed it structurally (the placeholder can never match) rather than by
+# excluding this file by path, which would leave the same trap for the next
+# docstring that quotes the pattern it implements.
+_ENGINE_REF_RE = re.compile(
+    r"""_ENGINE_DIR\s*/\s*['"]([\w.-]+)['"]|ROOT\s*/\s*['"]tools['"]\s*/\s*['"]([\w.-]+)['"]"""
+)
+
+
+# cite-the-incident, 2026-09-06: themorgan/WorkingWithAI followed
+# spec/MIGRATING_EXISTING_INSTALLS.md step 7 exactly as written and ended up
+# with a hard-crashing precedent_gate.py -- FileNotFoundError on
+# routing_scope.json, which precedent_gate.py itself names via
+# `_ENGINE_DIR / 'routing_scope.json'` -- discovered only when someone
+# actually tried to run a gate, not before. This check statically scans every
+# tools/*.py file for exactly that shape of hardcoded reference and flags any
+# target that isn't actually there, so the same class of gap (a vendored
+# engine file naming a companion that never got copied) surfaces mechanically
+# on the next `precedent_check.py` run instead of via a downstream crash.
+@check('vendored-engine-file-refs-resolve', 'tree',
+       "every hardcoded `_ENGINE_DIR / '<name>'` or `ROOT / 'tools' / '<name>'` "
+       "path inside a tools/*.py file names a file that actually exists under "
+       "this repo's own tools/",
+       "whether the referenced file's CONTENT is current or correct, and "
+       "whether a file with no hardcoded reference to it at all (nothing in "
+       "tools/*.py names its path this way) was itself supposed to be here -- "
+       "only that a path this code already commits to finding is actually "
+       "there. It scans the `_ENGINE_DIR / '<name>'` and "
+       "`ROOT / 'tools' / '<name>'` spellings only, not an equivalent path "
+       "built any other way (an f-string, a joined variable).")
+def _vendored_engine_file_refs_resolve(ctx):
+    tools_dir = ROOT / 'tools'
+    findings = []
+    for p in sorted(tools_dir.glob('*.py')):
+        text = p.read_text(encoding='utf-8', errors='ignore')
+        for m in _ENGINE_REF_RE.finditer(text):
+            name = m.group(1) or m.group(2)
+            if not (tools_dir / name).exists():
+                findings.append(Finding(
+                    f'tools/{p.name}',
+                    f"references tools/{name}, which does not exist locally "
+                    f"-- a vendored engine file naming a companion that was "
+                    f"never copied over is exactly how themorgan/WorkingWithAI "
+                    f"ended up with a hard-crashing precedent_gate.py "
+                    f"(2026-09-06, missing routing_scope.json)"))
+    return findings
 
 
 @check('verify-postcondition', 'turn-end',
@@ -975,6 +1038,77 @@ _LEDGER_MEMBER_DIRS = ('templates/harness/claude-code',
                        'templates/harness/codex', 'templates/harness/gemini-cli')
 
 
+def _shallow_boundary_commits():
+    """Commits git's OWN `.git/shallow` file records as grafted boundaries --
+    ground truth, unlike `git rev-list --max-parents=0` (used below to
+    exempt the repository's real root commit) or `git log --format=%P`:
+    this repo's own AGENTS.md documents both of those as unreliable at
+    exactly a shallow boundary -- a commit that genuinely has two parents
+    can be silently reported as having none, and the exact boundary a
+    shallow fetch lands on is not something a caller of this function
+    controls or can predict (it depends on the fetch depth requested, the
+    target being a merge commit rather than a single ref, and apparently
+    on the git version doing the negotiating -- confirmed 2026-09-05: a
+    genuinely reproduced CI failure on a real PR whose LEDGER.md row for
+    the flagged commit already existed and matched byte-for-byte, on a
+    git version this session's own environment could not install to
+    compare directly). `.git/shallow` is git's own bookkeeping for exactly
+    this fact and isn't subject to either unreliability -- reading it
+    directly, instead of inferring shallowness indirectly, sidesteps the
+    whole class of version- and negotiation-dependent surprise rather than
+    chasing one more instance of it."""
+    git_dir = _git('rev-parse', '--git-dir').stdout.strip()
+    if not git_dir:
+        return set()
+    git_dir_path = pathlib.Path(git_dir)
+    if not git_dir_path.is_absolute():
+        git_dir_path = ROOT / git_dir_path
+    shallow_path = git_dir_path / 'shallow'
+    if not shallow_path.is_file():
+        return set()
+    return set(shallow_path.read_text(encoding='utf-8', errors='ignore').split())
+
+
+# cite-the-incident, 2026-09-05: this check was wired into CI the same day
+# it was written (deep-check.yml) and immediately found a real, pre-existing
+# gap -- templates/harness/LEDGER.md was missing a row for f2078d6, the
+# commit that created the claude-code/codex/gemini-cli family in the first
+# place, five weeks before the ledger file existed. That gap is fixed
+# (backfilled in dfe504d). Two more, separately real fixes followed:
+# b16b141 made the root/inception exemption above shallow-clone-safe (reads
+# .git/shallow directly, since `git rev-list --max-parents=0` can't be
+# trusted on a shallow checkout -- see this file's AGENTS.md for the
+# general gotcha), and 2a0fbe0 added `fetch-depth: 0` to deep-check.yml's
+# checkout (a real, repo-wide gap independent of this check).
+#
+# ROOT-CAUSED 2026-09-06 -- and it was never a false positive. The finding
+# was true of the tree CI was actually standing on. verify_harness.py (step
+# 5) invoked a vendored `precedent_vendor_engine.py refresh <ROOT> --force`,
+# and refresh() then ran `git checkout precedent-beta-v01` + `git pull` in
+# the clone it was handed -- which in CI is the job's own workspace. So step
+# 5 moved the workspace onto the base branch, and precedent_check.py (step 6)
+# ran the BASE branch's tree, where templates/harness/LEDGER.md genuinely has
+# no row for f2078d6. The same substitution explains every other symptom:
+# the summary line CI printed was the base branch's own pre-advisory format,
+# and the diagnostic prints never appeared because by step 6 the file was no
+# longer the file they had been added to. `git status` stays clean throughout
+# -- a branch checkout leaves no dirty file to notice -- which is why four
+# independent content verifications all came back correct while the workspace
+# stood on a different commit. Reproduced deterministically: run
+# verify_harness.py and then precedent_check.py in one checkout and the
+# second reports this violation; run precedent_check.py alone on the same
+# commit and it is clean. Fixed upstream in 25546bc (refresh() materializes
+# blobs and never checks the clone out, with a regression case that fails
+# against the pre-fix engine) and here by vendoring from a throwaway clone.
+# Full account:
+# https://github.com/alex137/BestPractice/pull/110#issuecomment-5556343855
+#
+# So this check is ENFORCING again, as originally written: there was no
+# platform mystery, and nothing left to except it from. The lesson worth
+# keeping is diagnostic -- when a check's finding contradicts the tree you
+# believe you are on, confirm WHICH COMMIT is actually checked out before
+# concluding the check is wrong. Four rounds of content verification cannot
+# distinguish a wrong answer from a right answer about a different tree.
 @check('parallel-artifact-ledger', 'tree',
        '`templates/harness/LEDGER.md` exists, and every commit that touched '
        'a harness-adapter member (claude-code/, codex/, or gemini-cli/) has '
@@ -983,7 +1117,9 @@ _LEDGER_MEMBER_DIRS = ('templates/harness/claude-code',
        'per member, not a rubber-stamped one -- only that a row exists for '
        'every commit that changed a member, the "any marked date without a '
        'complete ledger row fails" half of the practice, added 2026-09-05 '
-       'after a routing-audit run found the ledger itself had no audit.')
+       'after a routing-audit run found the ledger itself had no audit. '
+       'Enforcing; the 2026-09-05 advisory downgrade was lifted 2026-09-06 '
+       'once the CI substitution above was root-caused.')
 def _parallel_artifact_ledger(ctx):
     ledger_path = ROOT / 'templates' / 'harness' / 'LEDGER.md'
     if not ledger_path.exists():
@@ -995,8 +1131,14 @@ def _parallel_artifact_ledger(ctx):
     # into existence, zero parents -- is inception, not "a change to any
     # member" the practice's Rule is about; exclude it, or every squashed-
     # history scratch copy and this repo's own real "Initial import" commit
-    # would need a ledger row for simply existing.
+    # would need a ledger row for simply existing. Also exclude whatever
+    # git's OWN `.git/shallow` bookkeeping records as a grafted boundary --
+    # see _shallow_boundary_commits()'s own docstring: on a shallow clone (a
+    # CI checkout, most obviously) `--max-parents=0` cannot be trusted to
+    # find every commit this check should treat as "can't verify, don't
+    # guess" the same way it already treats a genuine root.
     roots = set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split())
+    roots |= _shallow_boundary_commits()
     findings = []
     for member_dir in _LEDGER_MEMBER_DIRS:
         out = _git('log', '--no-merges', '--format=%H', '--', member_dir).stdout.split()
@@ -1009,6 +1151,7 @@ def _parallel_artifact_ledger(ctx):
                     f'no row references {full_hash[:7]} ({member_dir}), a '
                     f'commit that changed a member of the harness-adapter '
                     f'family -- add a dated row with a per-member verdict'))
+
     return findings
 
 
@@ -1499,13 +1642,30 @@ def main():
     slugs = [only] if only else sorted(CHECKS)
     results = run(slugs, ctx, scopes)
 
-    violated = [r for r in results if r[1] == 'VIOLATION']
+    all_violated = [r for r in results if r[1] == 'VIOLATION']
     skipped = [r for r in results if r[1] == 'SKIPPED']
     errored = [r for r in results if r[1] == 'ERROR']
     passed = [r for r in results if r[1] == 'PASS']
 
+    # advisory=True (see check()'s own docstring) is a per-check, incident-
+    # justified exception, not a general severity dial -- as of 2026-09-05
+    # the only member is parallel-artifact-ledger (see the dated comment
+    # above _parallel_artifact_ledger()). Its findings still print in full;
+    # they just don't fail the run.
+    violated = [r for r in all_violated if not CHECKS[r[0]].get('advisory')]
+    advisory = [r for r in all_violated if CHECKS[r[0]].get('advisory')]
+
     for slug, _st, findings, _why in violated:
         print(f'\nVIOLATION  {slug}')
+        for f in findings:
+            print(f'    {f}')
+        print('  the rule:')
+        for line in rule_of(slug).splitlines():
+            print(f'    {line}')
+
+    for slug, _st, findings, _why in advisory:
+        print(f'\nADVISORY   {slug} — findings below do not fail this run '
+              f'(see this check\'s own registration for why)')
         for f in findings:
             print(f'    {f}')
         print('  the rule:')
@@ -1521,7 +1681,8 @@ def main():
         print(f'note: {ctx.scope_reason}')
 
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
-          f'{len(errored)} errored, {len(skipped)} skipped (a skip is not a pass).')
+          f'{len(advisory)} advisory, {len(errored)} errored, {len(skipped)} '
+          f'skipped (a skip is not a pass; advisory findings do not fail the run).')
     if violated or errored:
         return 1
     if skipped and '--strict' in flags:

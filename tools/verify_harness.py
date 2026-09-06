@@ -2422,7 +2422,7 @@ def check_precedent_check_fires():
         # --- one planted violation per enforced practice --------------------
         planted = {}
 
-        def case(slug, plant, extra=(), setup=None):
+        def case(slug, plant, extra=(), setup=None, advisory=False):
             repo = fresh(slug)
             if setup:
                 setup(repo)
@@ -2430,14 +2430,27 @@ def check_precedent_check_fires():
                 plant(repo)
             rc, out = run(repo, slug, *extra)
             planted[slug] = (rc, out)
-            cases.append((f'{slug}: a planted violation fails the check',
-                          rc == 1 and 'VIOLATION' in out))
+            if advisory:
+                # advisory=True means a planted violation still reports its
+                # findings, labeled ADVISORY, but does not fail the run (rc
+                # stays 0). precedent_check.check() still offers the parameter;
+                # as of 2026-09-06 no check uses it (parallel-artifact-ledger,
+                # the only one that ever did, is enforcing again), so this
+                # branch is dormant rather than dead -- kept so downgrading a
+                # check stays a one-word change with test support already
+                # there, not a silent loss of coverage.
+                cases.append((f'{slug}: a planted violation reports ADVISORY '
+                              f'but does not fail the check',
+                              rc == 0 and 'ADVISORY' in out and 'VIOLATION' not in out))
+            else:
+                cases.append((f'{slug}: a planted violation fails the check',
+                              rc == 1 and 'VIOLATION' in out))
             clean = fresh(slug + '-clean')
             if setup:
                 setup(clean)
             rc2, out2 = run(clean, slug, *extra)
             cases.append((f'{slug}: the same tree unplanted does not',
-                          rc2 == 0 and 'VIOLATION' not in out2))
+                          rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2))
 
         # cite-the-incident -- a new practice with no ## Story
         def _plant_cite(repo):
@@ -2456,6 +2469,12 @@ def check_precedent_check_fires():
         # no-version-suffix
         case('no-version-suffix',
              lambda repo: (repo / 'findings-v2.md').write_text('x\n', encoding='utf-8'))
+
+        # vendored-engine-file-refs-resolve -- delete a file precedent_gate.py
+        # hardcodes a reference to (_ENGINE_DIR / 'routing_scope.json'),
+        # reproducing the themorgan/WorkingWithAI incident this check exists for
+        case('vendored-engine-file-refs-resolve',
+             lambda repo: (repo / 'tools' / 'routing_scope.json').unlink())
 
         # generated-artifact-provenance -- a hand-edited generated view
         case('generated-artifact-provenance',
@@ -2944,6 +2963,9 @@ def check_precedent_check_fires():
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'unledgered harness change')
 
+        # advisory=True was dropped 2026-09-06: the CI substitution that made
+        # this check look like a false positive is root-caused and fixed, so a
+        # planted violation must fail the check again like every other one.
         case('parallel-artifact-ledger', _plant_unledgered_harness_change,
              setup=_ledger_setup)
 
@@ -3517,18 +3539,35 @@ def check_show_flags_unreachable_materialized_source():
     one) with no MANIFEST.json at all (never adds a note, regardless of
     slug); and multiple slugs in one call sourced differently (each gets
     its own independent verdict, matching precedent_show.py's own
-    per-slug concatenation)."""
+    per-slug concatenation).
+
+    EXTENDED 2026-09-06 (TODO.md item 20, closed) to cover
+    precedent_gate.py and precedent_paths.py too -- both read
+    practices/*.md directly, the same way precedent_show.py itself used
+    to, so the note above never reached a practice loaded through the
+    gate-triggered or path-triggered channel. Closed by having both
+    modules `import precedent_show as ps` and call its two helpers
+    directly, NOT by a subprocess call to precedent_show.py (would mean
+    re-parsing its own "### slug\\n<body>" stdout format back into
+    structured data purely to recover a note this file can already print
+    itself) and NOT by a second, copy-pasted implementation
+    (engine-plus-host-shims: one mechanism, shared by import, the same
+    discipline all three files already use for split_practices.py). Two
+    more stated cases below reuse the same indiv/uni fixture with one
+    added practice (gated + a narrow applies_to, so both channels can
+    actually reach it), checked reachable and unreachable exactly like
+    the show() cases above."""
     import shutil, subprocess, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-show-reachability-'))
     cases = []
     try:
-        def write_practice(path, slug, rule):
+        def write_practice(path, slug, rule, applies_to='["**"]', gates='[]'):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(
                 f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
-                f'severity: default\napplies_to: ["**"]\noccasion: "testing"\n'
-                f'index_clause: "a harness fixture"\nchecked_by: null\n'
+                f'severity: default\napplies_to: {applies_to}\noccasion: "testing"\n'
+                f'gates: {gates}\nindex_clause: "a harness fixture"\nchecked_by: null\n'
                 f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
                 f'added: null\napproved_by: "harness"\n---\n\n## Rule\n{rule}\n\n'
                 f'## Detail\n\n## Why\n\n## Story\n\n## Install\n', encoding='utf-8')
@@ -3536,6 +3575,13 @@ def check_show_flags_unreachable_materialized_source():
         indiv = tmp / 'indiv-source'
         write_practice(indiv / 'practices' / 'show-fixture-individual.md',
                        'show-fixture-individual', 'The individual fixture Rule.')
+        # Gated + narrow applies_to, so the SAME materialized fixture also
+        # exercises precedent_gate.py and precedent_paths.py below -- both
+        # read practices/*.md directly, same as precedent_show.py, and TODO
+        # item 20 named them as needing the identical reachability note.
+        write_practice(indiv / 'practices' / 'show-fixture-individual-routed.md',
+                       'show-fixture-individual-routed', 'The routed individual fixture Rule.',
+                       applies_to='["fixture-only/*.md"]', gates='["push"]')
         uni = tmp / 'uni-source'
         write_practice(uni / 'practices' / 'show-fixture-universal.md',
                        'show-fixture-universal', 'The universal fixture Rule.')
@@ -3552,6 +3598,8 @@ def check_show_flags_unreachable_materialized_source():
 
         materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
         show_tool = str(ROOT / 'tools' / 'precedent_show.py')
+        gate_tool = str(ROOT / 'tools' / 'precedent_gate.py')
+        paths_tool = str(ROOT / 'tools' / 'precedent_paths.py')
 
         def materialize():
             r = subprocess.run([sys.executable, materialize_tool, '--out', str(consumer),
@@ -3561,6 +3609,16 @@ def check_show_flags_unreachable_materialized_source():
 
         def show(*slugs):
             r = subprocess.run([sys.executable, show_tool, *slugs, '--repo', str(consumer)],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        def gate(name):
+            r = subprocess.run([sys.executable, gate_tool, name, '--repo', str(consumer)],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        def paths(*p):
+            r = subprocess.run([sys.executable, paths_tool, *p, '--repo', str(consumer)],
                                capture_output=True, text=True)
             return r.returncode, r.stdout + r.stderr
 
@@ -3576,6 +3634,18 @@ def check_show_flags_unreachable_materialized_source():
         cases.append(('a universal-sourced slug in the same materialized tree '
                       'shows no note either', rc == 0 and 'NOT reachable' not in out, out))
 
+        rc, out = gate('push')
+        cases.append(('reachable: precedent_gate.py shows no note for the '
+                      'gated individual-sourced slug either',
+                      rc == 0 and 'NOT reachable' not in out
+                      and 'show-fixture-individual-routed' in out, out))
+
+        rc, out = paths('fixture-only/x.md')
+        cases.append(('reachable: precedent_paths.py shows no note for the '
+                      'same slug matched by path',
+                      rc == 0 and 'NOT reachable' not in out
+                      and 'show-fixture-individual-routed' in out, out))
+
         shutil.move(str(indiv), str(tmp / 'indiv-source-hidden'))
         rc, out = show('show-fixture-individual')
         cases.append(('unreachable: the same individual-sourced slug now carries '
@@ -3587,6 +3657,18 @@ def check_show_flags_unreachable_materialized_source():
         cases.append(('the universal-sourced slug is unaffected by the '
                       'individual source going missing -- the check is per-slug, '
                       'not a blanket flag', rc == 0 and 'NOT reachable' not in out, out))
+
+        rc, out = gate('push')
+        cases.append(('unreachable: precedent_gate.py now carries the note for '
+                      'the gated individual-sourced slug (TODO item 20, closed)',
+                      rc == 0 and 'NOT reachable this session' in out
+                      and '(source: individual,' in out, out))
+
+        rc, out = paths('fixture-only/x.md')
+        cases.append(('unreachable: precedent_paths.py now carries the note for '
+                      'the same slug matched by path (TODO item 20, closed)',
+                      rc == 0 and 'NOT reachable this session' in out
+                      and '(source: individual,' in out, out))
 
         rc, out = show('show-fixture-individual', 'show-fixture-universal')
         cases.append(('mixed in one call: each slug gets its own independent '
@@ -3609,8 +3691,9 @@ def check_show_flags_unreachable_materialized_source():
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'precedent_show.py flags a materialized slug whose declared source is not '
-          f'reachable this session ({len(cases)} stated cases)',
+    check(f'precedent_show.py/precedent_gate.py/precedent_paths.py all flag a '
+          f'materialized slug whose declared source is not reachable this session '
+          f'({len(cases)} stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 
@@ -4469,6 +4552,252 @@ def check_bootstrap_source_engine_is_functional():
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 
 
+def _write_fixture_practice(path, slug, applies_to, rule_text):
+    """Same frontmatter shape check_bootstrap_source_engine_is_functional's
+    own fixture practice uses -- kept as a helper here because this check
+    needs three of these (one per source level) instead of one."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+        f'severity: default\napplies_to: {json.dumps(applies_to)}\n'
+        f'occasion: "testing the vendored consumer engine"\n'
+        f'gates: []\nindex_clause: "{slug} — a consumer-engine-harness fixture"\n'
+        'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+        'overrides: null\nadded: 2026-09-05\n'
+        'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
+        f'---\n## Rule\n{rule_text}\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+        encoding='utf-8')
+
+
+def check_vendor_engine_consumer_case():
+    """TODO.md item 18, tested rather than trusted: tools/precedent_vendor_
+    engine.py's 'consumer' kind (added 2026-09-05, piloted against the real
+    themorgan/HavrutaBrainstorm repo) produces a genuinely working
+    four-source engine in a consumer repo, the same rigor
+    check_bootstrap_source_engine_is_functional() already applies to the
+    narrower source-set case -- not just that the right files land in the
+    right place.
+
+    Distinct from that check in what it has to prove: a source set's
+    vendored engine only ever reads ONE practices/ directory (its own). A
+    consumer's vendored engine has to actually RESOLVE three real, separate
+    sources (universal = this repo's own checkout, a fixture team set, a
+    fixture repo-local set) through precedent_resolve.py/precedent_
+    materialize.py/precedent_sync_views.py into one materialized tree
+    BEFORE build_views.py/precedent_gate.py/precedent_paths.py/
+    precedent_show.py have anything to read -- so this fixture wires all
+    three, seeds the consumer's own vendored engine with `--kind consumer`,
+    then proves a fixture practice AT EACH LEVEL survives the whole pipeline
+    into AGENTS.md and into each command's real output."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-consumer-engine-'))
+    cases = []
+    try:
+        consumer = tmp / 'consumer'
+        team_dir = tmp / 'fixture-team'
+        consumer.mkdir()
+
+        _write_fixture_practice(team_dir / 'practices' / 'consumer-fixture-team.md',
+                                 'consumer-fixture-team', ['team-only/**'],
+                                 'A team-level fixture rule, present in no other repo.')
+        _write_fixture_practice(consumer / 'local' / 'practices' / 'consumer-fixture-local.md',
+                                 'consumer-fixture-local', ['local-only/**'],
+                                 'A repo-local fixture rule, present in no other repo.')
+
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
+                {'level': 'team', 'name': 'consumer-fixture-team', 'path': str(team_dir)},
+                {'level': 'repo-local', 'name': 'consumer-harness-local', 'path': 'local'},
+            ],
+        }), encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text(
+            f'# fixture consumer\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+
+        # -- seed the consumer's OWN vendored engine, from THIS checkout,
+        # exactly how INSTALL.md's consumer procedure runs it --
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+                            'seed', str(consumer), '--kind', 'consumer'],
+                           capture_output=True, text=True)
+        cases.append(('seeding the consumer engine succeeds', r.returncode == 0,
+                      r.stdout + r.stderr))
+
+        manifest_path = consumer / 'tools' / 'ENGINE_MANIFEST.json'
+        consumer_files = ['build_views.py', 'precedent_gate.py', 'precedent_paths.py',
+                          'precedent_show.py', 'split_practices.py',
+                          'precedent_materialize.py', 'precedent_resolve.py',
+                          'precedent_sync_views.py', 'precedent_vendor_engine.py',
+                          'routing_scope.json']
+        cases.append(('every consumer engine file is present -- all 8 content files plus '
+                      'the vendoring tool itself',
+                      all((consumer / 'tools' / f).is_file() for f in consumer_files),
+                      str([f for f in consumer_files if not (consumer / 'tools' / f).is_file()])))
+
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.is_file() else {}
+        cases.append(("ENGINE_MANIFEST.json records kind: consumer",
+                      manifest.get('kind') == 'consumer', str(manifest.get('kind'))))
+
+        import hashlib
+        mismatched = [f for f, h in manifest.get('sha256', {}).items()
+                     if hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
+        cases.append(('every recorded sha256 matches the file actually written',
+                      bool(manifest.get('sha256')) and not mismatched, str(mismatched)))
+
+        # -- status(), run from the consumer's OWN vendored copy, against
+        # this real checkout, finds zero drift right after seeding --
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                            'status', str(ROOT)], capture_output=True, text=True)
+        cases.append(('status() against a real BestPractice checkout finds no drift '
+                      'right after seeding', r.returncode == 0, r.stdout + r.stderr))
+
+        # -- the drift-refusal / --force pair, the same property status()
+        # depends on and that refresh() must actually honor (a real,
+        # reproduced bug: --force used to no-op silently when the upstream
+        # commit had not moved -- see refresh()'s own comment) --
+        hand_edited = (consumer / 'tools' / 'build_views.py')
+        original_bytes = hand_edited.read_bytes()
+        hand_edited.write_bytes(original_bytes + b'\n# hand edit\n')
+
+        # refresh() reads from a DISPOSABLE clone, never this repo's own
+        # checkout. Handing it str(ROOT) is what moved the CI workspace
+        # mid-job: refresh() used to `git checkout SOURCE_BRANCH` in the clone
+        # it read FROM, so step 5 left the workspace on SOURCE_BRANCH and
+        # every later step in the job silently ran against the wrong commit
+        # (see precedent_vendor_engine._source_tools_at's docstring, and
+        # check_bootstrap_source_engine_is_functional's own refresh case,
+        # which asserts that no longer happens). refresh() is read-only now,
+        # so str(ROOT) would no longer corrupt anything -- but a test that
+        # vendors FROM a throwaway clone does not depend on that guarantee
+        # continuing to hold, which is the point.
+        upstream = tmp / 'upstream-clone'
+        r = subprocess.run(['git', 'clone', '--quiet', str(ROOT), str(upstream)],
+                           capture_output=True, text=True)
+        cases.append(('a throwaway clone of this checkout is available to vendor from',
+                      r.returncode == 0 and (upstream / '.git').exists(),
+                      r.stdout + r.stderr))
+        # Give the clone SOURCE_BRANCH by name so _source_tools_at resolves it
+        # with no network and no assumption about which refs the caller's
+        # checkout carries: on a GitHub Actions runner the workspace holds only
+        # the ref under test, so `origin/<SOURCE_BRANCH>` need not exist at all.
+        # Read the name from the tool rather than hardcoding it -- its own
+        # docstring says SOURCE_BRANCH becomes 'main' once the beta lands.
+        m = re.search(r"^SOURCE_BRANCH = '([^']+)'",
+                      (ROOT / 'tools' / 'precedent_vendor_engine.py').read_text(encoding='utf-8'),
+                      re.M)
+        cases.append(("precedent_vendor_engine.py's SOURCE_BRANCH is readable, so this "
+                      "fixture cannot drift from it", m is not None, ''))
+        source_branch = m.group(1) if m else 'precedent-beta-v01'
+        subprocess.run(['git', '-C', str(upstream), 'update-ref',
+                        f'refs/heads/{source_branch}', 'HEAD'],
+                       capture_output=True, text=True)
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                            'refresh', str(upstream)], capture_output=True, text=True)
+        cases.append(('refresh() without --force refuses a hand-edited vendored file',
+                      r.returncode != 0 and 'hand-edited' in (r.stdout + r.stderr),
+                      r.stdout + r.stderr))
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                            'refresh', str(upstream), '--force'], capture_output=True, text=True)
+        cases.append(('refresh() with --force actually overwrites the hand-edited file '
+                      '(not a silent no-op), even when the upstream commit has not moved',
+                      r.returncode == 0 and hand_edited.read_bytes() == original_bytes,
+                      r.stdout + r.stderr))
+
+        # -- and again from a clone with NO origin/<SOURCE_BRANCH> ref at all,
+        # which is exactly what a GitHub Actions workspace yields: the runner
+        # checks out only the ref under test, so a clone taken from it has no
+        # remote-tracking branch for SOURCE_BRANCH. refresh() must fall back to
+        # the local branch of that name. Regression test for a real CI failure
+        # (2026-09-06): "precedent-beta-v01 @ origin/prece has no
+        # tools/build_views.py" -- plain `git rev-parse <missing-ref>` exits
+        # non-zero but ECHOES THE REF NAME on stdout, and _git() keeps stdout
+        # while discarding the exit code, so the `or <fallback>` never fired and
+        # the ref name was carried forward as if it were a commit hash. Forced
+        # here rather than left to the environment, so both resolution paths are
+        # covered wherever this runs.
+        subprocess.run(['git', '-C', str(upstream), 'update-ref', '-d',
+                        f'refs/remotes/origin/{source_branch}'],
+                       capture_output=True, text=True)
+        cases.append(('the throwaway clone really has no origin/<SOURCE_BRANCH> ref',
+                      subprocess.run(['git', '-C', str(upstream), 'rev-parse', '--verify',
+                                      '--quiet', f'origin/{source_branch}'],
+                                     capture_output=True, text=True).returncode != 0, ''))
+        # Assert on RESOLUTION, not on the file being rewritten: the first
+        # refresh above already replaced the consumer's own vendored
+        # precedent_vendor_engine.py with SOURCE_BRANCH's copy (the tool
+        # travels with the engine it defines, by design), so round two runs
+        # upstream's semantics, not this working tree's -- and upstream may
+        # legitimately short-circuit with "already current". What must hold
+        # either way is that SOURCE_BRANCH resolved to a real commit: the bug
+        # this guards produced a hard failure naming a truncated ref NAME
+        # where a hash belonged.
+        r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                            'refresh', str(upstream), '--force'], capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        cases.append(('refresh() still resolves SOURCE_BRANCH from a clone with no '
+                      'origin/<SOURCE_BRANCH>, falling back to the local branch instead '
+                      'of carrying the ref NAME forward as a commit',
+                      r.returncode == 0
+                      and 'invalid object name' not in out
+                      and f'@ origin/{source_branch[:12]}' not in out,
+                      out))
+
+        # -- the consumer's OWN vendored precedent_sync_views.py, run the way
+        # a real consumer's AGENTS.md documents it (--repo .), resolves all
+        # three sources and materializes + regenerates the loader block --
+        r = subprocess.run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(('precedent_sync_views.py --repo . resolves and materializes '
+                      'cleanly', r.returncode == 0, r.stdout + r.stderr))
+
+        agents_text = (consumer / 'AGENTS.md').read_text(encoding='utf-8') if (consumer / 'AGENTS.md').exists() else ''
+        cases.append(('the regenerated AGENTS.md loader block names a real universal '
+                      'practice (proves the universal source, not just the fixtures, '
+                      'flowed through)', 'orientation-map' in agents_text, agents_text[:300]))
+
+        team_practice = consumer / 'practices' / 'consumer-fixture-team.md'
+        local_practice = consumer / 'practices' / 'consumer-fixture-local.md'
+        cases.append(('the team fixture practice was materialized', team_practice.is_file(), ''))
+        cases.append(('the repo-local fixture practice was materialized', local_practice.is_file(), ''))
+
+        # -- precedent_gate.py / precedent_paths.py / precedent_show.py, run
+        # IN PLACE (no --repo) against the materialized tree, same as the
+        # source-set case's own rigor --
+        r = subprocess.run([sys.executable, 'tools/precedent_gate.py', '--list'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(('the vendored precedent_gate.py lists the real (trimmed) gate '
+                      'vocabulary against the materialized tree',
+                      r.returncode == 0 and 'merge' in r.stdout, r.stdout + r.stderr))
+
+        r = subprocess.run([sys.executable, 'tools/precedent_paths.py', 'team-only/x.md'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(('the vendored precedent_paths.py matches the team fixture by its '
+                      'real applies_to glob', r.returncode == 0
+                      and 'consumer-fixture-team' in r.stdout, r.stdout + r.stderr))
+
+        r = subprocess.run([sys.executable, 'tools/precedent_show.py', 'consumer-fixture-local'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(("the vendored precedent_show.py returns the repo-local fixture's "
+                      "real Rule text", r.returncode == 0
+                      and 'repo-local fixture rule' in r.stdout, r.stdout + r.stderr))
+
+        # -- a second sync, unchanged, is a clean --check (idempotency, and
+        # the exact invocation a consumer's own session-start documents) --
+        r = subprocess.run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.', '--check'],
+                           capture_output=True, text=True, cwd=str(consumer))
+        cases.append(('a second, unchanged sync passes --check cleanly (idempotent)',
+                      r.returncode == 0, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the vendored engine\'s "consumer" kind is real and functional against a real '
+          f'four-source pipeline, not just present ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
+
+
 def check_individual_source_bootstrap_self_heals():
     """practices/session-bootstrap.md's Detail, tested rather than trusted
     -- and corrected 2026-09-06 after this check's own first version
@@ -4804,6 +5133,7 @@ def main():
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_source_engine_is_functional()
+    check_vendor_engine_consumer_case()
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
 

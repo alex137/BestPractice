@@ -42,6 +42,14 @@ PRACTICES_DIR = ROOT / 'practices'
 
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
+# TODO.md item 20 (was 19): this channel read practices/*.md directly,
+# bypassing precedent_show.py's materialized-source reachability note
+# (PR #114). Fixed by importing precedent_show.py's two helpers directly
+# -- same discipline this file already uses for split_practices.py, not a
+# subprocess call (would mean re-parsing precedent_show.py's own stdout
+# format back into structured data here for no reason) and not a
+# copy-pasted second implementation (engine-plus-host-shims).
+import precedent_show as ps
 
 
 # ---------------------------------------------------------------- matching
@@ -235,8 +243,16 @@ def main():
             print(f"{slug}: {path}")
         return 0
 
+    manifest = ps._materialize_manifest(root)
     rule_by_slug = {slug: rule for slug, _globs, rule in practices}
-    out = [f"### {slug}\n{rule_by_slug[slug].strip()}" for slug in seen_slugs]
+    out = []
+    for slug in seen_slugs:
+        block = f"### {slug}\n{rule_by_slug[slug].strip()}"
+        if manifest is not None:
+            note = ps._source_unreachable_note(manifest, slug)
+            if note:
+                block += f"\n{note}"
+        out.append(block)
     print('\n\n'.join(out))
     return 0
 

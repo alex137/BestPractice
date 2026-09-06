@@ -168,33 +168,96 @@ the upstream layer. Ordered by priority.
     `precedent-team-maintainers`'s own `deep-check` (a team-level call, not
     decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
     "Part 1, answered" section.
-18. **Vendor a refreshable engine into a real four-source consumer, not just
-    a source repo.** [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s
-    "The vendored engine" section and
-    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
-    close this for an individual/team source set (bootstrap and three
-    existing sets migrated, 2026-09-05). A real four-source consumer
-    (universal + team + individual + repo-local, `process/upstream/`, the
-    full `precedent_materialize.py`/`precedent_resolve.py`/
-    `precedent_sync_views.py` toolchain) has not been piloted with a
-    vendored, refreshable engine of its own — [INSTALL.md](INSTALL.md)
-    documents that install path, extending it the same disciplined way is
-    separate work, deliberately not folded into the source-repo fix.
-    **Out of scope for that session** — a different, larger case, named so
-    "the source-repo case is solid" is not mistaken for "the consumer case
-    is solid too."
-19. **`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable
-    materialized source either — only `precedent_show.py` does, 2026-09-06.**
-    Both read `practices/*.md` directly via `split_practices._read_practice_file`
-    rather than shelling out to `precedent_show.py` (confirmed by grep, not
-    assumed), so the reachability note that tool now carries
-    (`_source_unreachable_note`) never reaches a practice loaded through the
-    gate-triggered or path-triggered channel — only the on-demand,
-    `precedent show SLUG`-invoked channel gets it. **Blocked-on:** this was
-    explicitly out of scope for the session that built the fix (asked for
-    `precedent_show.py` specifically); giving `precedent_gate.py`/
-    `precedent_paths.py` the same protection means either routing them
-    through `precedent_show.py` as a subprocess (a real behavior change to
-    how they load content, not just a bugfix) or duplicating the check —
-    a real design call, not a mechanical port, left for whoever picks this
-    up next.
+18. **`parallel-artifact-ledger`'s root-commit exemption doesn't cover a
+    family's own inception commit.** Found 2026-09-05: `_parallel_artifact_ledger`
+    in [tools/precedent_check.py](tools/precedent_check.py) excludes the
+    *repository's* root commit (`git rev-list --max-parents=0`) from needing
+    a ledger row, but not the commit that first created a given family's
+    member directories — [`f2078d6`](https://github.com/alex137/BestPractice/commit/f2078d6ef32731e35d30e279c90d72a55e9b6268)
+    (created `templates/harness/{claude-code,codex,gemini-cli}/` from
+    scratch, 2026-07-20) went unflagged by every backfill pass until CI on
+    an unrelated PR caught it, because scope is `tree` — the check runs
+    against the whole repo regardless of what a given diff touches, so any
+    unfixed gap fails every PR's CI, not just one. Backfilled as a row in
+    [templates/harness/LEDGER.md](templates/harness/LEDGER.md) rather than
+    fixed here; consider extending the exemption itself, per-member-directory
+    (that directory's own first commit is exempt, the same reasoning
+    already applied repo-wide), so a future family's inception commit
+    doesn't need the same manual backfill.
+19. ~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows
+    its diagnostic output — a GitHub Actions log-capture anomaly, currently
+    working around it by making the check advisory-only.**~~ **Done
+    (2026-09-06)** — there was no log-capture anomaly and no false positive.
+    [verify_harness.py](tools/verify_harness.py) (CI step 5) invoked a
+    vendored [precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    `refresh <ROOT> --force`, and `refresh()` then ran `git checkout
+    precedent-beta-v01` plus `git pull` in the clone it was handed — which in
+    CI is the job's own workspace. Step 5 therefore moved the workspace onto
+    the base branch, and [precedent_check.py](tools/precedent_check.py) (step
+    6) ran the *base* branch's tree, where
+    the [harness adapter ledger](templates/harness/LEDGER.md) genuinely has
+    no `f2078d6` row.
+    Every other symptom follows from the same substitution: the summary line
+    CI printed was the base branch's own pre-advisory format, and the
+    diagnostic prints never appeared because by step 6 the file was no longer
+    the file they had been added to. `git status` stays clean throughout — a
+    branch checkout leaves no dirty file to notice — which is why four rounds
+    of content verification all came back correct while the workspace stood
+    on a different commit.
+
+    Reproduced deterministically: run
+    [verify_harness.py](tools/verify_harness.py) and then
+    [precedent_check.py](tools/precedent_check.py) in one checkout and the
+    second reports the violation; run
+    [precedent_check.py](tools/precedent_check.py) alone on the same commit
+    and it is clean. Fixed upstream in
+    [`25546bc`](https://github.com/alex137/BestPractice/commit/25546bc) —
+    `refresh()` materializes blobs with `git show` and never checks the clone
+    out, with a regression case that fails against the pre-fix engine — and
+    here by vendoring from a throwaway clone instead of `str(ROOT)`.
+    `advisory=True` is off; the check is enforcing again. Full account:
+    [PR #110, comment](https://github.com/alex137/BestPractice/pull/110#issuecomment-5556343855).
+
+    **The scope note from 2026-09-05 was right, and still applies.**
+    `precedent-beta-v01`'s
+    [deep-check.yml](.github/workflows/deep-check.yml) has no `fetch-depth:
+    0` (only this PR's branch does), so its checkout stays shallow (depth 1),
+    `git log --no-merges -- <member-dir>` finds nothing to flag, and this
+    check falsely, silently passes there — the "scope: 'tree' check... false
+    pass on an under-fetched clone" gotcha in [AGENTS.md](AGENTS.md),
+    manifesting repo-wide via the workflow's default rather than a local
+    clone's. When this PR merges, `fetch-depth: 0` lands on
+    `precedent-beta-v01` and the check starts really running there — which is
+    why [`dfe504d`](https://github.com/alex137/BestPractice/commit/dfe504d)'s
+    ledger row has to land in the same merge, as it does.
+
+20. ~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable
+    materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
+    **Done (2026-09-06).** Both read `practices/*.md` directly via
+    `split_practices._read_practice_file` rather than shelling out to
+    `precedent_show.py` (confirmed by grep, not assumed), so the
+    reachability note that tool carries (`_source_unreachable_note`) never
+    reached a practice loaded through the gate-triggered or path-triggered
+    channel — only the on-demand, `precedent show SLUG`-invoked channel got
+    it. **The design call, stated before picking (same bar as PR #114's own
+    design section):** three options existed — (a) route both files through
+    `precedent_show.py` as a subprocess, (b) duplicate
+    `_materialize_manifest`/`_source_unreachable_note`'s logic into each, or
+    (c) import `precedent_show.py` directly and call its two helpers.
+    (a) means re-parsing `precedent_show.py`'s own `"### slug\n<body>"`
+    stdout format back into structured data for no reason, purely to get a
+    note the caller could already print itself once it has the same
+    function. (b) is exactly the drift this repo's own
+    [engine-plus-host-shims](practices/engine-plus-host-shims.md) practice
+    exists to prevent — two copies of the same reachability logic that can
+    silently diverge the next time one is fixed and the other isn't.
+    (c) costs nothing new: both files already `import split_practices as sp`
+    for the same reason (a sibling module in the same `tools/` directory),
+    so importing `precedent_show as ps` the same way and calling
+    `ps._materialize_manifest(root)` / `ps._source_unreachable_note(manifest, slug)`
+    is the same discipline already in use, not a new one. Chose (c).
+    Verified: [tools/verify_harness.py](tools/verify_harness.py)'s
+    `check_show_flags_unreachable_materialized_source` extended from 8 to
+    12 stated cases (a reachable and an unreachable case added for each of
+    the gate and path channels, alongside the pre-existing
+    `precedent_show.py` cases) — all 12 pass.
