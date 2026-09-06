@@ -19,6 +19,68 @@ changes for review. Every session starts by reading the repo's own
 instructions file (`AGENTS.md`), so it already knows which practices are
 in force before you say anything.
 
+## Four levels, each just another repo
+
+Before explaining how practices are created, it's useful to understand the
+different levels a practice can live at — every stage below names one.
+
+A practice lives at one of four levels, in precedence order (highest wins
+on conflict): **team > repo-local > individual > universal**.
+
+- **Universal** — the shared, public BestPractice library everyone starts
+  from.
+- **Team** — a private repository of practices for one team. You can have
+  more than one (an engineering-conventions team repo and a separate
+  editorial-conventions team repo, say).
+- **Individual** — a private, personal set of practices, declared in your
+  own user-level configuration, never in a shared project's tracked
+  files. You can keep more than one if you work across separate contexts.
+- **Repo-local** — practices that live inside the project repository
+  itself, at a `practices/` directory named `local`, for rules specific to
+  that one project only.
+
+Every level except repo-local is a genuinely separate git repository,
+resolved live into the project rather than copied in — a team or
+individual source is a sibling checkout your session needs read access
+to, not a folder inside the shared project. A project declares which
+sources apply to it in a `precedent.json` at its root:
+
+```json
+{
+  "sources": [
+    {"level": "universal", "name": "precedent", "path": "process/upstream"},
+    {"level": "team", "name": "<your team repo>", "path": "../<your team repo>"}
+  ]
+}
+```
+
+No new team or individual source? `precedent_bootstrap_source.py`
+instantiates a real starter set from a skeleton in one command:
+```
+python3 tools/precedent_bootstrap_source.py --level team \
+    --name <name> --dest <local clone path> --approver "Your Name:your-github-handle"
+```
+(`--level individual` for a personal set — no `--approver` needed there;
+add `--write-session-hook <project path> --repo-url <URL>` to wire it into
+a hosted session automatically.)
+
+### Moving a practice between levels
+
+A practice that already exists and is still wanted, just at the wrong
+level (a team habit that turns out to be one person's, or a personal habit
+the whole team adopted) moves in two deliberate steps — never a silent
+edit or a copy-and-delete (see [spec/MOVING_PRACTICES.md](../spec/MOVING_PRACTICES.md)):
+
+1. **Land it at the new home**, through that level's own approval —
+   exactly the four-stage walkthrough below, using the existing practice's
+   Rule/Detail/Why/Story as the candidate's content rather than
+   re-deriving it from scratch.
+2. **Retire it at the old home**, through *that* level's own removal
+   approval: set the old file's `status: retired` and add one line to its
+   `## Story` naming where it went. Order matters in this direction only —
+   land first, so there's never a gap where nobody is bound by a rule
+   everyone still wants.
+
 ## Walkthrough: turning a habit into a practice
 
 This is the pipeline underneath "your assistant notices and proposes a
@@ -91,65 +153,6 @@ has to say yes?*
   BestPractice repository, reviewed and merged by someone other than
   whoever proposed it. No single person, including whoever maintains the
   library, can land a universal practice alone.
-
-## Four levels, each just another repo
-
-A practice lives at one of four levels, in precedence order (highest wins
-on conflict): **team > repo-local > individual > universal**.
-
-- **Universal** — the shared, public BestPractice library everyone starts
-  from.
-- **Team** — a private repository of practices for one team. You can have
-  more than one (an engineering-conventions team repo and a separate
-  editorial-conventions team repo, say).
-- **Individual** — a private, personal set of practices, declared in your
-  own user-level configuration, never in a shared project's tracked
-  files. You can keep more than one if you work across separate contexts.
-- **Repo-local** — practices that live inside the project repository
-  itself, at a `practices/` directory named `local`, for rules specific to
-  that one project only.
-
-Every level except repo-local is a genuinely separate git repository,
-resolved live into the project rather than copied in — a team or
-individual source is a sibling checkout your session needs read access
-to, not a folder inside the shared project. A project declares which
-sources apply to it in a `precedent.json` at its root:
-
-```json
-{
-  "sources": [
-    {"level": "universal", "name": "precedent", "path": "process/upstream"},
-    {"level": "team", "name": "<your team repo>", "path": "../<your team repo>"}
-  ]
-}
-```
-
-No new team or individual source? `precedent_bootstrap_source.py`
-instantiates a real starter set from a skeleton in one command:
-```
-python3 tools/precedent_bootstrap_source.py --level team \
-    --name <name> --dest <local clone path> --approver "Your Name:your-github-handle"
-```
-(`--level individual` for a personal set — no `--approver` needed there;
-add `--write-session-hook <project path> --repo-url <URL>` to wire it into
-a hosted session automatically.)
-
-### Moving a practice between levels
-
-A practice that already exists and is still wanted, just at the wrong
-level (a team habit that turns out to be one person's, or a personal habit
-the whole team adopted) moves in two deliberate steps — never a silent
-edit or a copy-and-delete (see [spec/MOVING_PRACTICES.md](../spec/MOVING_PRACTICES.md)):
-
-1. **Land it at the new home**, through that level's own approval —
-   exactly the four-stage walkthrough above, using the existing practice's
-   Rule/Detail/Why/Story as the candidate's content rather than
-   re-deriving it from scratch.
-2. **Retire it at the old home**, through *that* level's own removal
-   approval: set the old file's `status: retired` and add one line to its
-   `## Story` naming where it went. Order matters in this direction only —
-   land first, so there's never a gap where nobody is bound by a rule
-   everyone still wants.
 
 ## How enforcement works
 

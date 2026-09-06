@@ -19,13 +19,33 @@ together, developed in
 follows are the practical things BestPractice does that put that
 philosophy to work.
 
+## Designed for serious collaboration, with automatic document merging
+
+Multiple people, and their assistants, work on the same project at once,
+each on their own private copy — changes merge back automatically instead
+of everyone fighting over one live document. Nobody has to wait their turn
+to edit.
+
+## Codifies Key Universal Best Practices on Effective Work
+
+BestPractice doesn't start you from a blank page: it ships with a starting
+library of proven, general practices for working effectively together,
+distilled from real teams' experience, alongside whatever rules your own
+team adds.
+
 ## Practices, created automatically
 
 Say "always do X" or "never do Y" once, in conversation, and it becomes a
 rule your assistant follows from then on — no separate document to write,
 no meeting to schedule.
 
-## You approve everything, at whatever grain you want
+## Works with any document type
+
+Not just prose — specs, code, contracts, meeting notes, decks, anything
+your team produces in text. The same practices, review flow, and record
+apply across all of it.
+
+## You approve everything, at whatever level of granularity you want
 
 Nothing takes effect unapproved. A rule that's just yours applies the
 moment you agree to it; a rule for your whole team needs one of your
@@ -33,17 +53,23 @@ team's approvers to say yes. Permission is just as granular: some people
 can only suggest ideas in plain language, others can approve changes
 outright — set per person, not all-or-nothing.
 
+## Every decision comes with its reasoning attached
+
+Not just what was decided, but why — and a link back to the exact
+conversation or issue that produced it. Months later, nobody has to guess
+why a rule exists or dig through chat logs to find out.
+
 ## Open source, on GitHub — no vendor lock-in
 
 Everything here is open source and built on top of GitHub, a platform you
 already control your own data in. There's no proprietary format and no
 company that can shut down and take your project's memory with it.
 
-## Every decision comes with its reasoning attached
+## Fully open source
 
-Not just what was decided, but why — and a link back to the exact
-conversation or issue that produced it. Months later, nobody has to guess
-why a rule exists or dig through chat logs to find out.
+Every part of BestPractice — the engine, the practices, the review flow —
+is open source. Inspect it, fork it, or contribute back; nothing about how
+it works is hidden from you.
 
 ## Learn more
 

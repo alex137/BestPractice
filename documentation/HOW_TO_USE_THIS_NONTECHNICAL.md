@@ -14,6 +14,38 @@ The assistant does the actual work — you never touch a technical tool
 yourself, and your account is deliberately set up so nothing you do can
 break the project, even by accident.
 
+## Personal, team, and universal — and moving between them
+
+Before explaining how an idea becomes an official rule, it's useful to
+understand the different places a rule can live. Think of it as three
+shelves:
+
+- **Your own shelf** — habits and preferences that are just yours. Nobody
+  else sees or is bound by what's on it.
+- **Your team's shelf** — rules everyone on your team follows. You can be
+  on more than one team, each with its own shelf.
+- **The public shelf** — rules shared by everyone, everywhere, using this
+  system.
+
+There's also a fourth kind, worth knowing about even though you won't be
+the one stocking it: **this project's own permanent shelf** — rules built
+into this one project specifically, and only this project; they don't come
+from anywhere else and don't travel to any other project either. Whoever
+set this project up technically maintains that shelf directly. It isn't
+something you add to yourself, though an idea you raise can still end up
+there if that's genuinely where it belongs.
+
+**Moving a rule from one shelf to another** happens the same way it was
+created — just say so. For example, something that started as your own
+habit turns out to be something your whole team should do too: say *"I
+think everyone should do this, not just me."* Your assistant proposes it
+on your team's shelf, using the same approval step described below, and
+only removes it from your own shelf once it's actually adopted on the new
+one — so there's never a moment where the rule exists nowhere, and never a
+moment where it's tracked in two places at once. A rule never moves on its
+own; it always needs the same kind of yes at its new home that it needed
+the first time.
+
 ## A worked example, start to finish
 
 Say you're drafting client emails, and you notice something:
@@ -55,28 +87,6 @@ alone.
 Either way: nothing you suggest is ever adopted without a real yes from
 whoever it actually affects, and nothing you say is ever quietly
 forgotten. An idea nobody has acted on yet stays on record, not lost.
-
-## Personal, team, and universal — and moving between them
-
-Think of it as three shelves:
-
-- **Your own shelf** — habits and preferences that are just yours. Nobody
-  else sees or is bound by what's on it.
-- **Your team's shelf** — rules everyone on your team follows. You can be
-  on more than one team, each with its own shelf.
-- **The public shelf** — rules shared by everyone, everywhere, using this
-  system.
-
-**Moving a rule from one shelf to another** happens the same way it was
-created — just say so. For example, something that started as your own
-habit turns out to be something your whole team should do too: say *"I
-think everyone should do this, not just me."* Your assistant proposes it
-on your team's shelf, using the same approval step from the walkthrough
-above, and only removes it from your own shelf once it's actually adopted
-on the new one — so there's never a moment where the rule exists nowhere,
-and never a moment where it's tracked in two places at once. A rule never
-moves on its own; it always needs the same kind of yes at its new home
-that it needed the first time.
 
 ## What you can't do (on purpose)
 
