@@ -681,7 +681,9 @@ def refresh(clone, force=False, ref=None):
     # `dest_tools` (ROOT / 'tools'), and there has never been a `dest` here.
     # Landed 2026-09-06 as a NameError that crashed EVERY refresh, after the
     # files were already written and "refresh OK" already printed -- so the
-    # run looked half-successful and its exit code was the only tell.
+    # run looked half-successful and its exit code was the only tell. Fixed
+    # concurrently and identically by two sessions; the harness case for the
+    # already-current branch came from this one.
     _warn_catalogue_skew(ROOT, new_commit)
 
     # THE SECOND PASS, and why it is not optional. The file list for a kind
