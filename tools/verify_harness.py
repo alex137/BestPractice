@@ -2831,6 +2831,15 @@ def check_precedent_check_fires():
                 encoding='utf-8')
             (repo / 'MIGRATION.md').write_text(
                 'OldPackName is discussed here, on purpose.\n', encoding='utf-8')
+            # A CURRENT name that merely contains the retired one. A plain
+            # substring match reported a live `voice_pack_sync.py` three
+            # times for carrying the retired `pack_sync` (2026-09-06), with
+            # no way to satisfy it but renaming a real file. This file must
+            # stay clean, or the planted case below is passing for the
+            # wrong reason.
+            (repo / 'CURRENT.md').write_text(
+                'See tools/voice_OldPackName_helper.py and '
+                'my_OldPackName-thing, both current.\n', encoding='utf-8')
         case('migration-scrubs-vocabulary',
              lambda repo: (repo / 'STALE.md').write_text(
                  'Still mentions OldPackName here.\n', encoding='utf-8'),

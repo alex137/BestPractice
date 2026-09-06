@@ -59,7 +59,7 @@ Run:
   python3 tools/precedent_check.py --explain        # what each check does NOT check
   python3 tools/precedent_check.py --strict         # a SKIP is a failure
 """
-import difflib, io, json, os, pathlib, re, subprocess, sys
+import difflib, functools, io, json, os, pathlib, re, subprocess, sys
 
 # `git rev-parse --show-toplevel`, not `Path(__file__).resolve().parents[1]`:
 # this module runs two ways -- self-hosted at THIS repo's own tools/
@@ -1778,6 +1778,21 @@ def _code_cites_practice(ctx):
     return out
 
 
+# A retired term is a NAME, so it matches at name boundaries -- not as a
+# substring of a longer, current one. A plain `term in line` reported
+# `voice_pack_sync.py` three times in a real consuming repo (2026-09-06) for
+# carrying the retired term `pack_sync`: a live tool that syncs a voice pack,
+# named years after and unrelated to the personal-pack sync that was retired.
+# There is no way to satisfy that finding except by renaming a current file
+# or exempting the document that mentions it, and both are worse than the
+# collision. `_` and `-` count as name characters, so `pack_sync` no longer
+# matches inside `voice_pack_sync` while `personal-pack-sync` still matches
+# on its own.
+@functools.lru_cache(maxsize=None)
+def _retired_term_re(term):
+    return re.compile(r'(?<![\w-])' + re.escape(term) + r'(?![\w-])')
+
+
 RETIRED_VOCAB_CONFIG = 'process/retired_vocabulary.json'
 # tools/verify_harness.py plants retired-term fixture text (to test this
 # very check) inside its own source, so scanning it for real violations
@@ -1876,7 +1891,7 @@ def _migration_scrubs_vocabulary(ctx):
                 continue
             for i, line in enumerate(text.splitlines(), 1):
                 for term in terms:
-                    if term in line:
+                    if _retired_term_re(term).search(line):
                         out.append(Finding(f'{rel}:{i}',
                                             f'still carries retired term '
                                             f'{term!r} -- scrub it, or add '
