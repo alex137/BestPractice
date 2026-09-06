@@ -358,6 +358,7 @@ TOOLS_DESCRIPTIONS = {
     'catalogue_stats.py': "The figures about the catalogue that other documents cite, computed rather than hand-typed",
     'checkin.py': "Drives the periodic check-in (INSTALL.md §4) mechanically",
     'doc_html.py': "The one sortable-table HTML renderer for repo documents",
+    'parse_check.py': "Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check",
     'doc_lint.py': "Markdown hygiene checks — strikethrough, links, acronyms",
     'doc_sync.py': "Keeps script-generated blocks inside documents in sync with what the script emits",
     'full_practice_audit.py': "The full practice audit — on-demand, whole-catalogue sweep across every source",

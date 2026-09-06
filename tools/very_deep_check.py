@@ -84,6 +84,9 @@ CANDIDATE_DOCS = [
     "TODO.md", "GETTING_STARTED.md",
 ]
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import parse_check as pcheck  # noqa: E402
+
 CHECKLIST = """\
 What to look for -- a starting point, not a specification. Report anything
 that makes the repo harder to trust or follow, whether or not a bullet below
@@ -264,6 +267,38 @@ def main():
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+
+    # BEFORE enumerate_scope, deliberately. Enumerating reads
+    # precedent.json, so a malformed one used to kill this tool with a raw
+    # traceback out of precedent_resolve -- and the diagnosis it needed to
+    # print ("precedent.json is not valid JSON") was in the sweep it never
+    # reached. The most useful finding must not be downstream of the thing
+    # it explains.
+    #
+    # Whole tree, because that is this check's whole point: the deep check
+    # already covers files a change TOUCHED, and a file nobody has touched
+    # in months is exactly what only this sweep will ever look at again.
+    _root = pathlib.Path(repo or ROOT).resolve()
+    _paths = pcheck.tracked(_root)
+    _failures, _parsed, _skipped = pcheck.validate(_root, _paths)
+    if not as_json:
+        print("MACHINE-READABLE FILES -- every tracked JSON and YAML file, "
+              "parsed\n")
+        for _rel, _why in _failures:
+            print(f"  FAIL: {_rel}: {_why}")
+        if _skipped:
+            print(f"  SKIPPED {', '.join(_skipped)}: no parser installed here "
+                  f"(pip install pyyaml). A file nobody parsed is not a file "
+                  f"that parses.")
+        if not _failures:
+            print(f"  OK: {len(pcheck.candidates(_root, _paths))} file(s) parse "
+                  f"({', '.join(_parsed) or 'none tracked'}).")
+        print()
+    if _failures:
+        sys.exit(f"very deep check FAIL: {len(_failures)} tracked file(s) do "
+                 f"not parse. Fix those first -- this tool reads "
+                 f"precedent.json to enumerate its own scope, so it cannot "
+                 f"report anything else while one of them is malformed.")
 
     data = enumerate_scope(repo, user_config)
     repo_root = pathlib.Path(repo or ROOT).resolve()

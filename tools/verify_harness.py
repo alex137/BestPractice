@@ -5287,61 +5287,58 @@ def check_rule_rewrite_detection():
           not bad)
 
 
-def check_yaml_files_are_valid():
-    """Every tracked YAML file parses, and every workflow names real scripts.
+def check_machine_readable_files_parse():
+    """Every JSON and YAML file this change TOUCHED still parses.
 
-    Nothing in this repo's deep check looked at YAML at all until
-    2026-09-06 -- not even at .github/workflows/deep-check.yml, the file
-    that RUNS the deep check in CI. A malformed workflow does not fail
-    loudly; GitHub skips it, so the gate simply stops running and every
-    push looks as green as it did the day before. That is the worst shape
-    a check can have, and it applied to the check-running check itself.
+    Changed-scope on purpose. This gates a push and runs constantly, so its
+    question is "did I just break something", not "is the whole repo well".
+    The whole-tree sweep is the very deep check's job
+    (`tools/very_deep_check.py`), which is on-demand and is the only place a
+    file nobody has touched in months gets looked at again.
 
-    Consuming repos already had this through the team set's light_check
-    (invalid JSON/YAML in a changed file). The repo that publishes that
-    practice did not run it on itself.
+    Nothing here parsed a YAML or JSON file at all until 2026-09-06 -- not
+    .github/workflows/deep-check.yml, the file that RUNS this check in CI,
+    and not precedent.json, MANIFEST.json, ENGINE_MANIFEST.json or
+    routing_scope.json, each read by exactly one tool that would report its
+    own confusing failure rather than "this file is malformed". A broken
+    workflow is the worst of them: GitHub skips it silently, so the gate
+    stops running and every push looks as green as the day before. That is
+    the worst shape a check can have, and it applied to the check-running
+    check itself."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_parse_check', ROOT / 'tools' / 'parse_check.py')
+    pcheck = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pcheck)
 
-    The second half is the same class as vendored-engine-file-refs-resolve:
-    a workflow step that calls `python3 tools/x.py` where no such file
-    exists is a job that fails on every run, and nothing here would say so
-    until someone read a CI log."""
-    try:
-        import yaml
-    except ImportError:
-        not_applicable('every tracked YAML file parses',
-                       'PyYAML is not installed here, so nothing was parsed '
-                       '-- `pip install pyyaml` to run it')
-        return
-
-    tracked = subprocess.run(['git', '-C', str(ROOT), 'ls-files'],
-                             capture_output=True, text=True).stdout.split()
-    yml = [f for f in tracked
-           if f.endswith(('.yml', '.yaml', '.yml.template', '.yaml.template'))]
-    bad = []
-    for rel in yml:
-        try:
-            yaml.safe_load((ROOT / rel).read_text(encoding='utf-8'))
-        except Exception as e:
-            bad.append((rel, str(e).split('\n')[0]))
-    for rel, why in bad:
-        print(f"  {rel}: not valid YAML -- {why}")
-    check(f'every tracked YAML file parses ({len(yml)} file(s), templates '
-          f'included)', not bad)
+    paths, scope = pcheck.changed(ROOT)
+    failures, parsed, skipped = pcheck.validate(ROOT, paths)
+    n = len(pcheck.candidates(ROOT, paths))
+    for rel, why in failures:
+        print(f"  {rel}: {why}")
+    if skipped:
+        not_applicable(f'{", ".join(skipped)} files in scope were not parsed',
+                       'no parser installed here (pip install pyyaml) -- a '
+                       'file nobody parsed is not a file that parses')
+    check(f'every JSON/YAML file this change touched parses '
+          f'({n} in scope; {scope})', not failures)
 
     # Scripts a workflow actually invokes, as opposed to mentions in prose.
+    # Same class as vendored-engine-file-refs-resolve: a job calling a
+    # missing script fails on every run, and nothing says so until somebody
+    # reads a CI log. Whole-tree because there are three of them.
     RUN_SCRIPT = re.compile(r'python3?\s+((?:tools|process|deck)/[\w/.-]+\.py)')
+    workflows = [f for f in pcheck.tracked(ROOT) if '/workflows/' in f]
     missing = []
-    for rel in yml:
-        if '/workflows/' not in rel:
-            continue
+    for rel in workflows:
         text = (ROOT / rel).read_text(encoding='utf-8')
         for name in sorted(set(RUN_SCRIPT.findall(text))):
             if not (ROOT / name).is_file():
                 missing.append((rel, name))
     for rel, name in missing:
         print(f"  {rel}: runs {name}, which does not exist")
-    check(f'every script a workflow runs exists ({len([f for f in yml if "/workflows/" in f])} '
-          f'workflow file(s))', not missing)
+    check(f'every script a workflow runs exists ({len(workflows)} workflow '
+          f'file(s))', not missing)
 
 
 def check_null_frontmatter_is_absent():
@@ -6227,7 +6224,7 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
-    check_yaml_files_are_valid()
+    check_machine_readable_files_parse()
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
     check_link_anchors_resolve()
