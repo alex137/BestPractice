@@ -183,3 +183,18 @@ the upstream layer. Ordered by priority.
     **Out of scope for that session** — a different, larger case, named so
     "the source-repo case is solid" is not mistaken for "the consumer case
     is solid too."
+19. **`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable
+    materialized source either — only `precedent_show.py` does, 2026-09-06.**
+    Both read `practices/*.md` directly via `split_practices._read_practice_file`
+    rather than shelling out to `precedent_show.py` (confirmed by grep, not
+    assumed), so the reachability note that tool now carries
+    (`_source_unreachable_note`) never reaches a practice loaded through the
+    gate-triggered or path-triggered channel — only the on-demand,
+    `precedent show SLUG`-invoked channel gets it. **Blocked-on:** this was
+    explicitly out of scope for the session that built the fix (asked for
+    `precedent_show.py` specifically); giving `precedent_gate.py`/
+    `precedent_paths.py` the same protection means either routing them
+    through `precedent_show.py` as a subprocess (a real behavior change to
+    how they load content, not just a bugfix) or duplicating the check —
+    a real design call, not a mechanical port, left for whoever picks this
+    up next.
