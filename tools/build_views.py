@@ -88,6 +88,28 @@ def _approx_tokens(text):
 # bv.IN_FORCE_STATUS, so the loader and the resolver cannot disagree about
 # what "in force" means. (precedent_resolve imports this module, never the
 # other way round -- putting the constant there would be a cycle.)
+# The levels whose practice text is private. A public repo's tracked loader
+# block must not carry them (see _sources_for_block), and
+# tools/precedent_session_practices.py renders exactly this complement into
+# an untracked file instead -- one definition, so the two cannot disagree
+# about which practices a public repo's session is otherwise never shown.
+PRIVATE_LEVELS = ('team', 'individual')
+
+
+def repo_is_public(root):
+    """Whether this repo declares `visibility: public` in precedent.json.
+
+    Public means the tracked loader block is a publication, so private
+    sources are excluded from it -- and it is therefore also the signal
+    that something else has to carry them, which is what the standing
+    instruction's pointer and precedent_session_practices.py are for."""
+    try:
+        return json.loads((pathlib.Path(root) / 'precedent.json').read_text(
+            encoding='utf-8')).get('visibility') == 'public'
+    except (ValueError, OSError):
+        return False
+
+
 IN_FORCE_STATUS = 'active'
 
 # THE TWO WAYS A PRACTICE STOPS APPLYING HERE ARE NOT THE SAME THING, and
@@ -393,7 +415,7 @@ def _gate_moment(vocab_description):
     return phrase.strip()
 
 
-def build_loader_block(practices, source_levels=None):
+def build_loader_block(practices, source_levels=None, omits_private=False):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -485,6 +507,41 @@ def build_loader_block(practices, source_levels=None):
             f"At a named moment — {moments} — run "
             f"`python3 tools/precedent_gate.py {'|'.join(live_gates)}`: some practices "
             f"fire at a moment rather than in a file, and no path glob reaches those.")
+    # THE POINTER TO THE SESSION-TIME MULTI-SOURCE BLOCK, and why it is
+    # conditional on `source_levels` being absent. When source_levels IS
+    # given, this block was rendered from an already-resolved multi-source
+    # set (a consuming repo's precedent_sync_views.py run over
+    # precedent_materialize.py's output), so the team and individual
+    # practices are right here and a pointer elsewhere would be noise
+    # pointing at a duplicate. When it is absent, this is a SINGLE-source
+    # render -- this repo's own case -- and the other declared sources
+    # reach the session only through the untracked file
+    # tools/precedent_session_practices.py writes at session start, because
+    # this repository is public and their text may not be committed
+    # (practice: affordance-is-shared -- every single-source repo that
+    # declares a private source has this same gap, not only Precedent's own).
+    # `instruction and` matters: a source with NO practices must say so
+    # rather than sprout a Standing instruction section whose only content
+    # is a pointer to another file. Caught by the check that the loader
+    # block advertises only the channels a source actually fills.
+    #
+    # `omits_private` is the condition, NOT "was this rendered from a single
+    # source". The first version tested `not source_levels` on the reasoning
+    # that a multi-source render already carries the team and individual
+    # practices inline -- which stopped being true the moment a public repo
+    # began rendering multi-source with the PRIVATE levels deliberately
+    # excluded. That guard then suppressed the pointer in the one repo that
+    # needs it, silently, and the pointer simply vanished from AGENTS.md.
+    # Keyed off the same repo_is_public() the exclusion itself uses, so the
+    # two cannot drift apart again.
+    if instruction and omits_private:
+        instruction.append(
+            "If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the "
+            "practices in force from this repo's team, individual and repo-local "
+            "sources, which are NOT in this block and bind work here exactly as these "
+            "do. It is regenerated at session start and is deliberately untracked — "
+            "never commit it or quote it into a pull request.")
+
     if instruction:
         lines.append("## Standing instruction")
         lines.append('')
@@ -595,13 +652,8 @@ def loader_practices(root, own_practices):
               file=sys.stderr)
         return own_practices, source_levels_from_manifest(root)
 
-    try:
-        public = json.loads(config.read_text(
-            encoding='utf-8')).get('visibility') == 'public'
-    except (ValueError, OSError):
-        public = False
+    public = repo_is_public(root)
     # Exclude, keep going, and SAY so on stderr rather than silently.
-    PRIVATE_LEVELS = ('team', 'individual')
     if public:
         dropped = [f"{s['name']} ({s['level']})" for s in declared
                    if s['level'] in PRIVATE_LEVELS]
@@ -643,10 +695,12 @@ def loader_practices(root, own_practices):
     return practices, levels
 
 
-def render_agents_md(practices, agents_md=None, source_levels=None):
+def render_agents_md(practices, agents_md=None, source_levels=None,
+                     omits_private=False):
     agents_md = agents_md if agents_md is not None else AGENTS_MD
     original = agents_md.read_text(encoding='utf-8')
-    block, _tokens, _n = build_loader_block(practices, source_levels=source_levels)
+    block, _tokens, _n = build_loader_block(practices, source_levels=source_levels,
+                                            omits_private=omits_private)
     if BEGIN_MARKER not in original or END_MARKER not in original:
         sys.exit(f"build_views FAIL: {agents_md} has no "
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
@@ -763,6 +817,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_resolve.py': "Resolves the universal, team and individual sources into one set, by precedence",
     'precedent_migrate_status.py': "Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor",
     'precedent_retire.py': "Stage 6 (phase 5) — the periodic removal report; proposes, never acts",
+    'precedent_session_practices.py': "Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_simulate.py': "One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log",
     'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
@@ -864,8 +919,11 @@ def main():
                  "incomplete source set -- that would silently drop every "
                  "practice the unreachable sources contribute. Make them "
                  "resolvable, then re-run.")
+    # A public repo's block deliberately omits the private levels, so the
+    # standing instruction has to point at what carries them instead.
     new_agents = render_agents_md(block_practices, agents_md,
-                                  source_levels=levels)
+                                  source_levels=levels,
+                                  omits_private=repo_is_public(root))
     targets = [(agents_md, new_agents)]
     if not agents_only:
         targets.append((map_md, render_map_md(practices)))

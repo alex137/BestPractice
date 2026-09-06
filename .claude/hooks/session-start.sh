@@ -124,6 +124,29 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   fi
 fi
 
+# The practices in force from the TEAM, INDIVIDUAL and REPO-LOCAL sources.
+#
+# WHY THIS RUNS HERE AND WRITES AN UNTRACKED FILE. precedent.json declares
+# more sources than the committed AGENTS.md carries: that block is
+# single-source on purpose, because this repository is PUBLIC and private
+# practice text may not be committed to it. Measured 2026-09-06
+# (spec/PRELAUNCH_AUDIT.md): 43 of the 114 practices in force here reached
+# no loading channel at all, so a session was never shown the team's or the
+# person's own rules while precedent.json said they bind the work. The
+# constraint is on committing that text, not on loading it -- so it is
+# generated at session start into .precedent/ (gitignored) instead.
+#
+# `|| true` and the tool's own always-exit-0 are belt and braces on purpose:
+# this file runs under `set -e`, and a session that fails to START because
+# an OPTIONAL practice file could not be written is a far worse outcome than
+# a session missing it. The tool names any source it could not resolve on
+# stderr rather than omitting it silently -- "unreachable" and "has no
+# rules" must not look the same.
+if [ -f tools/precedent_session_practices.py ]; then
+  python3 tools/precedent_session_practices.py || \
+    echo "WARN: could not write .precedent/SESSION_PRACTICES.md - this session is not being shown the team/individual practices in force here" >&2
+fi
+
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` above would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.
