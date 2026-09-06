@@ -91,6 +91,39 @@ python3 tools/precedent_vendor_engine.py status  ../BestPractice   # drift? behi
 python3 tools/precedent_vendor_engine.py refresh ../BestPractice   # pull, re-vendor, re-stamp
 ```
 
+### Three ways a set finds out it is behind, and why it needed three
+
+Until 2026-09-06 there were none, and the cost was real: two live sets sat
+more than two hundred commits behind this repo, both generating a loader
+block with a defect fixed upstream days earlier. Nothing was broken — there
+was simply no channel through which *"your copy is behind"* could reach
+anyone. It surfaced only because a session happened to have a clone of this
+repo attached and happened to run `status` by hand.
+
+The reason a source set was harder than a consumer repo is worth stating,
+because it explains the shape of all three answers. A consumer vendors
+`process/upstream/` and its bootstrap runs a freshness check at session
+start. A source set could not do the same: `refresh` needs a clone of *this*
+repo to compare against, and a person's ordinary session has no reason to
+have one.
+
+| Channel | Runs | Needs a clone? |
+|---|---|---|
+| `.github/workflows/engine-refresh.yml`, shipped in both source templates | Weekly, and on demand | No — it makes its own, in CI |
+| The warning `precedent_bootstrap_source.py` prints when the checkout it is seeding *from* is itself behind | At bootstrap | No — it is running inside one |
+| [tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py), from a session working in this repo | Every session start here | No — this checkout *is* the clone |
+
+The workflow opens a pull request and stops. It never merges: a set's own
+rules decide that, and a template cannot know them. It needs one GitHub
+setting that is **off by default** — *Allow GitHub Actions to create and
+approve pull requests*, under Settings → Actions → General → Workflow
+permissions. Without it the run fails at the pull-request step rather than
+passing quietly, which is deliberate: a silent no-op would recreate exactly
+the problem the workflow exists to fix.
+
+```
+```
+
 `refresh` pulls BestPractice's `precedent-beta-v01` branch specifically —
 not whatever branch is configured as the clone's default — because that is
 where routine engine work lands until Alex's own, deliberate phase-7

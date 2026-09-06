@@ -52,6 +52,7 @@ individual set without --force).
 import json
 import os
 import re
+import subprocess
 import pathlib
 import sys
 
@@ -256,6 +257,56 @@ def _malformed(level, path):
     return out
 
 
+def _warn_if_clone_is_stale():
+    """Say so, loudly, if THIS checkout is behind its own origin before we
+    seed a new set from it.
+
+    practice: cite-the-incident -- seed() copies the engine from this
+    checkout's HEAD, so a new set's engine version is silently whatever the
+    operator's clone happened to be at. Bootstrap from a clone that is
+    months behind and the set starts life months behind, with
+    ENGINE_MANIFEST.json honestly recording that old commit and nobody with
+    any reason to look at it. That is not hypothetical: two existing sets
+    spent 2026-09-06 more than two hundred commits behind, generating a
+    loader block with a defect fixed upstream days earlier, and nothing
+    anywhere said so.
+
+    A warning, never a refusal. Bootstrapping offline, or from a
+    deliberately pinned checkout, is legitimate; and a network failure here
+    must not stop someone creating their practice set. But silence has to
+    mean "checked and current" -- so an unreachable remote says THAT,
+    rather than nothing, which would be indistinguishable from a clean
+    result."""
+    ok, _ = _git('fetch', '--quiet', 'origin', precedent_vendor_engine.SOURCE_BRANCH)
+    if not ok:
+        print(f"NOTE: could not reach origin to check whether this BestPractice "
+              f"checkout is current, so the engine about to be vendored is "
+              f"whatever this clone holds. Not verified.", file=sys.stderr)
+        return
+    ok, behind = _git('rev-list', '--count',
+                      f'HEAD..origin/{precedent_vendor_engine.SOURCE_BRANCH}')
+    if ok and behind.isdigit() and int(behind) > 0:
+        print(f"WARNING: this BestPractice checkout is {behind} commit(s) behind "
+              f"origin/{precedent_vendor_engine.SOURCE_BRANCH}, and the new set's "
+              f"engine is copied from THIS checkout -- it will start life "
+              f"{behind} commit(s) stale. `git checkout -B "
+              f"{precedent_vendor_engine.SOURCE_BRANCH} "
+              f"origin/{precedent_vendor_engine.SOURCE_BRANCH}` first if you want "
+              f"the current engine.", file=sys.stderr)
+
+
+def _git(*args):
+    """(ok, stdout), never raising, and never returning stdout on failure --
+    see tools/precedent_refresh_sources.py's own _git for the rev-parse trap
+    this shape exists to make impossible."""
+    try:
+        r = subprocess.run(['git', *args], cwd=str(ROOT),
+                           capture_output=True, text=True)
+    except OSError as exc:
+        return False, str(exc)
+    return r.returncode == 0, (r.stdout or '').strip()
+
+
 def bootstrap(level, name, dest, approvers=None, force=False):
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
@@ -278,6 +329,7 @@ def bootstrap(level, name, dest, approvers=None, force=False):
         mapping['APPROVER_NAME'] = first['name']
         mapping['APPROVER_GITHUB'] = first['github']
 
+    _warn_if_clone_is_stale()
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
     if level == 'team':
         _seed_approvers_json(dest, approvers)
