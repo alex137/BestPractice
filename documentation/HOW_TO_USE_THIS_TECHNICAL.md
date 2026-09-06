@@ -7,7 +7,7 @@ For installing BestPractice on a project in the first place, see
 [INSTALL.md](../INSTALL.md). This document is about using it once it's
 there.
 
-## All interaction happens through chat with an assistant
+## All interaction happens through chat or voice with an assistant
 
 You don't edit the project's files directly, and running the practice
 tooling by hand isn't the normal way of working here. Connect the
@@ -18,6 +18,10 @@ assistant reads and writes the repository, runs the checks, and drafts
 changes for review. Every session starts by reading the repo's own
 instructions file (`AGENTS.md`), so it already knows which practices are
 in force before you say anything.
+
+*This repo expects no files to be touched directly — all interaction
+happens mediated by the AI assistant the repo is attached to. The code
+and technical descriptions below exist only to clarify how it works.*
 
 ## Four levels, each just another repo
 

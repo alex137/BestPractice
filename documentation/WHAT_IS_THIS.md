@@ -19,6 +19,19 @@ together, developed in
 follows are the practical things BestPractice does that put that
 philosophy to work.
 
+## AI does all creation, no matter how small: you figure out with it what to do
+
+There's no separate track for "small" changes that you just make yourself —
+even a one-word edit goes through the assistant, so every change is
+something you and it worked out together, not something that slipped in
+unreviewed.
+
+## An AI assistant designed to push back smartly on your ideas for the best result
+
+The assistant isn't there to type whatever you say — it's expected to
+question a weak idea or suggest a better one, so what actually lands is
+the strongest version of what you wanted, not just the first draft of it.
+
 ## Designed for serious collaboration, with automatic document merging
 
 Multiple people, and their assistants, work on the same project at once,
