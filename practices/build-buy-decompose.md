@@ -1,6 +1,6 @@
 ---
 slug:        build-buy-decompose
-title:       Build/buy: decompose before deciding, and keep the verdict supplier-independent
+title:       "Build/buy: decompose before deciding, and keep the verdict supplier-independent"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]

@@ -1,6 +1,6 @@
 ---
 slug:        environment-gotchas
-title:       Recorded lore: environment gotchas with their stories
+title:       "Recorded lore: environment gotchas with their stories"
 tier:        resident
 severity:    default
 applies_to:  ["**"]

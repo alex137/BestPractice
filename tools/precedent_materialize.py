@@ -173,7 +173,8 @@ def _remote_web_base(repo_root):
 _MANAGED_DIRS = ('practices/', 'tools/checks/')
 
 
-def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=()):
+def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=(),
+                   may_name_source_repo=True):
     """Repoint one practice file's relative links for its new home.
 
     Returns the rewritten bytes. Any link this cannot place confidently is
@@ -200,7 +201,20 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=())
     relative link that would have worked perfectly once the run finished.
     Observed in a real four-source consumer, 2026-09-06. Asking the plan
     instead of the disk also makes a dry run and a real run agree by
-    construction, which is what drift() needs to be trustworthy."""
+    construction, which is what drift() needs to be trustworthy.
+
+    `may_name_source_repo` is false for an INDIVIDUAL source, and that is a
+    privacy boundary rather than a preference. precedent_resolve.load_config
+    refuses an individual source declared in a shared repo's tracked config
+    by name: a person's own set is named only in their user-level config, so
+    that its existence and location cannot leak to everyone who can read the
+    repo. Minting `https://github.com/<owner>/<private repo>/blob/...` into
+    a tracked practices/ tree hands over exactly what that refusal protects,
+    and a consuming repo can be public -- themorgan/WorkingWithAI is. Caught
+    2026-09-06 by a consuming repo's own private-repo-scrub check, on a link
+    this rewriter had just created. The link is left as it was written
+    instead: a relative link that does not resolve is a smaller failure than
+    a disclosure that cannot be taken back."""
     try:
         text = data.decode('utf-8')
     except UnicodeDecodeError:
@@ -246,6 +260,8 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=())
         if resolved.is_relative_to(out_root):
             new = os.path.relpath(resolved, dest_dir)
         else:
+            if not may_name_source_repo:
+                return m.group(0)        # naming it is the disclosure
             if web_root is None:
                 web_root = _git_toplevel(src_dir) or False
                 web_base = _remote_web_base(web_root) if web_root else None
@@ -415,7 +431,8 @@ def materialize(sources, res, out_dir, dry_run=False):
         # comparison can tell a rewrite from a drift.
         placed = _rewrite_links(data, practice['file'], out_dir,
                                 sibling_slugs=all_slugs,
-                                planned_out=planned_out)
+                                planned_out=planned_out,
+                                may_name_source_repo=practice['level'] != 'individual')
         if not dry_run:
             dest.write_bytes(placed)
         written.append({'slug': slug, 'level': practice['level'],

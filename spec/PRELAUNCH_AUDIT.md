@@ -304,7 +304,33 @@ run prompted on every single run.
    Running it against the real repo immediately surfaced 11 differences
    that had been invisible, including two orphaned check scripts from a
    team practice retired weeks earlier.
-6. **The team set's 39 judgment-only practices were not swept.** The full
+6. ~~**A materialized link could publish a private repository's URL.**~~
+   **Done.** Caught by a consuming repo's own `private-repo-scrub` check,
+   on a link the link-placement work in this same session had just
+   created. `_rewrite_links` turns a link pointing into the source's own
+   repository into `https://github.com/<owner>/<repo>/blob/<sha>/...`.
+   For an **individual** source that is a disclosure, not a convenience:
+   [precedent_resolve.py](../tools/precedent_resolve.py)'s `load_config`
+   refuses an individual source declared in a shared repo's tracked
+   config precisely so its existence and location cannot leak to everyone
+   who can read the repo — and a consuming repo can be public, as
+   `themorgan/WorkingWithAI` is. An individual source's links are now left
+   as written; a relative link that does not resolve is a smaller failure
+   than a disclosure that cannot be taken back.
+7. ~~**Ten practice files' frontmatter was not valid YAML.**~~ **Done.**
+   The fence says YAML and consuming repos parse it with a real YAML
+   library. This repo's own reader takes everything after the first colon,
+   so `title: Build/buy: decompose before deciding` read fine here and was
+   rejected outright by PyYAML, which sees a nested mapping. Ten of
+   sixty-one universal practice files shipped that way; the three private
+   sets were clean. Nothing here noticed for as long as the format existed,
+   because nothing here parsed its own output the way the people
+   downstream do — it surfaced only when a consuming repo's light check
+   reported it. Titles are now JSON-quoted when they need it, the same
+   escape `occasion:` and `applies_to:` already used, and a harness check
+   parses every practice file with PyYAML (reported as not-applicable, never
+   passed, where PyYAML is absent).
+8. **The team set's 39 judgment-only practices were not swept.** The full
    practice audit reports 49 judgment-only practices across three sources.
    This session judged the universal slice's highest-yield ones
    (`lead-with-what-it-is`, `section-order-by-frequency`,
@@ -313,12 +339,12 @@ run prompted on every single run.
    The team and individual slices are untouched — a session with those
    repos attached should take them next, one at a time, with the closed
    question the practice's own Rule names.
-7. **TODO.md item 11 still needs a live session**: whether
+9. **TODO.md item 11 still needs a live session**: whether
    `additionalContext` reaches the model or only the transcript. The test
    plan is written; it needs a real Claude Code session with the adapter
    installed. Now cheaper to run than it was: this repo installs the hook
    itself as of today, so the next session here is the test.
-8. **The design half of TODO.md item 7**: whether a consuming repo should
+10. **The design half of TODO.md item 7**: whether a consuming repo should
    be able to express a preference between two team sources at all, rather
    than being told to rename one. The silent-failure half is closed; the
    design question is untouched, and a second team set now exists to test

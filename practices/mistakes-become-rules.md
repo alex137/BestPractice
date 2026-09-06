@@ -1,6 +1,6 @@
 ---
 slug:        mistakes-become-rules
-title:       Mistakes become rules: root-cause the miss, then encode the prevention
+title:       "Mistakes become rules: root-cause the miss, then encode the prevention"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]

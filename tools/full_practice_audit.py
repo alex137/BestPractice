@@ -48,6 +48,7 @@ import json, pathlib, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
+import build_views as bv
 import precedent_resolve as pr
 
 
@@ -80,7 +81,7 @@ def enumerate_practices(repo=None, user_config=None):
             coverage = 'judgment-only'
         rows.append({
             'slug': slug, 'level': practice['level'], 'source': practice['source'],
-            'title': fm.get('title', slug), 'coverage': coverage,
+            'title': bv._json_str(fm.get('title', slug)), 'coverage': coverage,
             'rule': sections.get('rule', '').strip(),
         })
     return {'sources': sources, 'missing': res['missing'], 'practices': rows}

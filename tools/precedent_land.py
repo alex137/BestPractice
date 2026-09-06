@@ -52,6 +52,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_promote as pp  # noqa: E402
+import split_practices as sp  # noqa: E402
 import precedent_candidate as pc  # noqa: E402
 
 
@@ -104,7 +105,7 @@ def _render_practice(fm, proposed_rule, observed, approved_by, level):
         proposed_rule[:76] + ('...' if len(proposed_rule) > 76 else ''))
     lines = ['---']
     lines.append(f"slug:        {fm['slug']}")
-    lines.append(f"title:       {fm['title']}")
+    lines.append(f"title:       {sp._yaml_scalar(fm['title'])}")
     lines.append(f"tier:        {fm.get('tier_requested', 'on-demand')}")
     lines.append("severity:    default")
     applies_to = fm.get('proposed_applies_to') or ['**']

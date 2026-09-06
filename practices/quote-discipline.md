@@ -1,6 +1,6 @@
 ---
 slug:        quote-discipline
-title:       Quote discipline: compression rounds against the writer, and qualifiers travel
+title:       "Quote discipline: compression rounds against the writer, and qualifiers travel"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]

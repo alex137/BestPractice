@@ -1,6 +1,6 @@
 ---
 slug:        layered-practice-packs
-title:       Layered practice packs: a domain layer between generic and repo-local
+title:       "Layered practice packs: a domain layer between generic and repo-local"
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/**", "PRACTICES.md", "precedent.json"]

@@ -1,6 +1,6 @@
 ---
 slug:        outward-summary-discipline
-title:       Outward-facing summaries: a claims-to-source table, honest aggregation, and a recorded adversarial pass
+title:       "Outward-facing summaries: a claims-to-source table, honest aggregation, and a recorded adversarial pass"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]

@@ -223,10 +223,14 @@ def check_titles_match_source(files, original_practices_by_number):
         orig = original_practices_by_number.get(fm.get('source_practice_number'))
         if orig is None:
             continue
-        if fm.get('title', '').strip() != orig['title'].strip():
+        # _json_str, not the raw field: a title containing ': ' has to be
+        # quoted for the frontmatter to be valid YAML at all (see
+        # split_practices._yaml_scalar), and the quotes are encoding, not
+        # content. Comparing raw would report ten false title rewrites.
+        if bv._json_str(fm.get('title', '')).strip() != orig['title'].strip():
             ok = False
             print(f"  {f.name}: title differs from PRACTICES.md\n"
-                  f"      file:   {fm.get('title','')!r}\n"
+                  f"      file:   {bv._json_str(fm.get('title',''))!r}\n"
                   f"      source: {orig['title']!r}")
     check('titles match the source catalogue exactly', ok)
 
@@ -5253,6 +5257,46 @@ def check_rule_rewrite_detection():
           not bad)
 
 
+def check_frontmatter_is_real_yaml():
+    """The fence says YAML, so a real YAML parser has to accept it.
+
+    This repo's own reader takes everything after the first colon and is
+    happy with `title: Build/buy: decompose before deciding`. PyYAML is
+    not -- the second colon opens a nested mapping and it rejects the
+    whole block. Ten of sixty-one practice files shipped that way, and
+    nothing here noticed for as long as the format existed, because
+    nothing here parses its own output the way the people downstream do.
+
+    Found 2026-09-06 from the other side: a consuming repo's own light
+    check, which uses PyYAML, reported them as invalid. A format whose
+    only conforming parser is its author's is not a format, so the check
+    belongs on the producing side. Skipped with a notice where PyYAML
+    isn't installed rather than passing on having parsed nothing."""
+    try:
+        import yaml
+    except ImportError:
+        not_applicable("every practice file's frontmatter parses with a real "
+                        "YAML library",
+                        'PyYAML is not installed here, so nothing was parsed '
+                        '-- `pip install pyyaml` to run it')
+        return
+    bad = []
+    for d in (ROOT / 'practices', ROOT / 'local' / 'practices'):
+        for f in sorted(d.glob('*.md')) if d.is_dir() else []:
+            m = re.match(r'---\n(.*?)\n---\n', f.read_text(encoding='utf-8'), re.S)
+            if not m:
+                bad.append((f.name, 'no frontmatter fence'))
+                continue
+            try:
+                yaml.safe_load(m.group(1))
+            except Exception as e:
+                bad.append((f.name, str(e).split('\n')[0]))
+    for n, why in bad:
+        print(f"  {n}: frontmatter is not valid YAML -- {why}")
+    check("every practice file's frontmatter parses with a real YAML "
+          "library, not only with this repo's own reader", not bad)
+
+
 def check_link_anchors_resolve():
     """A link's #fragment is checked against the target's real headings.
 
@@ -5418,6 +5462,24 @@ def check_materialized_links_are_placed():
                       'file is right there in the same repo',
                       '](../local/tools/own.py)' in lout, lout))
 
+        # The privacy boundary. An individual source is named only in a
+        # person's own user-level config -- load_config refuses one declared
+        # in a shared repo -- so writing its repository's URL into a tracked
+        # practices/ tree publishes exactly what that refusal protects, and
+        # a consuming repo can be public.
+        iout = pm._rewrite_links(src.read_bytes(), str(src), consumer,
+                                 sibling_slugs={'sibling'},
+                                 may_name_source_repo=False).decode('utf-8')
+        cases.append(("an individual source's link is NOT turned into a URL "
+                      "naming its private repository — the dead relative link "
+                      "is the smaller failure",
+                      'github.com/acme/upstream' not in iout
+                      and '](../spec/THING.md)' in iout, iout))
+        cases.append(('and the placements that do not name that repository '
+                      'still happen for an individual source',
+                      '](../tools/engine.py)' in iout and '](sibling.md)' in iout,
+                      iout))
+
         # No remote, no rewrite: never guess a URL.
         noremote = tmp / 'noremote'
         (noremote / 'practices').mkdir(parents=True)
@@ -5438,7 +5500,8 @@ def check_materialized_links_are_placed():
           f'lands ({len(cases)} stated cases: another repo becomes a commit '
           f'URL; a sibling, an external URL, a link that already resolves, '
           f'and a link broken at the source are all left alone; a repo-local '
-          f'source is recomputed relative; no remote means no rewrite)',
+          f'source is recomputed relative; an individual source never names '
+          f'its own private repository; no remote means no rewrite)',
           not bad, '; '.join(f"{n} -- {d[:160]}" for n, d in bad))
 
 
@@ -5951,6 +6014,7 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
+    check_frontmatter_is_real_yaml()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
     check_source_supplied_checks_run()

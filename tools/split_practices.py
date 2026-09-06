@@ -228,12 +228,27 @@ def parse_catalogue(text):
     return practices
 
 
+# The frontmatter fence says YAML and consuming repos parse it with a real
+# YAML library, so what goes between the fences has to actually BE YAML. A
+# plain `title: Build/buy: decompose before deciding` is not: the second
+# colon starts a nested mapping, and PyYAML refuses the whole block. This
+# repo's own hand-rolled reader takes everything after the FIRST colon and
+# never noticed, so ten of sixty-one practice files shipped unparseable to
+# anyone else -- found 2026-09-06 when a consuming repo's own light check,
+# which does use PyYAML, reported them. JSON-quoting is the same escape the
+# neighbouring `occasion:` and `applies_to:` fields already use, and
+# _json_str() on the read side decodes it. practice: convention-to-audit.
+def _yaml_scalar(value):
+    return json.dumps(value) if (': ' in value or value.rstrip().endswith(':')
+                                  or value.lstrip().startswith(('"', "'", '['))) else value
+
+
 def _frontmatter(practice, meta):
     slug = meta['slug']
     lines = [
         '---',
         f'slug:        {slug}',
-        f'title:       {practice["title"]}',
+        f'title:       {_yaml_scalar(practice["title"])}',
         'tier:        on-demand',
         'severity:    default',
         'applies_to:  ' + json.dumps(meta['applies_to']),

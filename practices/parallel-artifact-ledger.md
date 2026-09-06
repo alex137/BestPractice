@@ -1,6 +1,6 @@
 ---
 slug:        parallel-artifact-ledger
-title:       Parallel-artifact families: transfer verdicts are per-mechanism, per-change, and ledgered
+title:       "Parallel-artifact families: transfer verdicts are per-mechanism, per-change, and ledgered"
 tier:        on-demand
 severity:    default
 applies_to:  ["templates/harness/**"]

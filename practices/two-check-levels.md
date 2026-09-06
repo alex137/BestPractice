@@ -1,6 +1,6 @@
 ---
 slug:        two-check-levels
-title:       Two named check levels: a fast one for every commit, a full one before merge
+title:       "Two named check levels: a fast one for every commit, a full one before merge"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]

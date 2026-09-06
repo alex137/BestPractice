@@ -1,6 +1,6 @@
 ---
 slug:        second-pass-capture
-title:       The second-pass capture sweep: production work gets a separate capture review
+title:       "The second-pass capture sweep: production work gets a separate capture review"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
