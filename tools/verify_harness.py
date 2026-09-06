@@ -4503,6 +4503,38 @@ def check_bootstrap_source_engine_is_functional():
         cases.append(('the vendored precedent_show.py returns the fixture practice\'s '
                       'real Rule text', r.returncode == 0
                       and 'present in no other repo' in r.stdout, r.stdout + r.stderr))
+
+        # -- refresh(), run from the bootstrapped set's OWN vendored copy of
+        # the tool against this repo's real checkout, must leave that checkout
+        # exactly where it stood. refresh() used to `git checkout
+        # SOURCE_BRANCH` + `git pull` in the clone it reads FROM, which moved
+        # the caller's repository: for a person, off the branch they were
+        # working on; in CI, the workspace itself, mid-job, so every LATER
+        # step in that job silently ran against SOURCE_BRANCH instead of the
+        # commit under test. That is what PR #110 spent two rounds of
+        # diagnosis on -- and `git status` stays clean the whole time (a
+        # branch checkout leaves no dirty file to notice), which is why no
+        # amount of content verification found it. Asserted against the real
+        # ROOT on purpose: a fixture clone would not have caught the bug,
+        # because the bug is precisely about which repo gets moved.
+        def root_state():
+            return tuple(subprocess.run(['git', '-C', str(ROOT)] + argv,
+                                        capture_output=True, text=True).stdout.strip()
+                         for argv in (['rev-parse', 'HEAD'],
+                                      ['rev-parse', '--abbrev-ref', 'HEAD'],
+                                      ['status', '--porcelain']))
+
+        before = root_state()
+        r = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
+                            'refresh', str(ROOT), '--force'], capture_output=True, text=True)
+        after = root_state()
+        cases.append(('refresh() against a real BestPractice checkout leaves its HEAD, '
+                      'branch and working tree exactly as they were -- it reads blobs, '
+                      'it never checks the clone out',
+                      before == after,
+                      f'before={before}\nafter={after}\n{r.stdout}{r.stderr}'))
+        cases.append(('refresh() against a real BestPractice checkout succeeds',
+                      r.returncode == 0, r.stdout + r.stderr))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -4620,13 +4652,45 @@ def check_vendor_engine_consumer_case():
         hand_edited = (consumer / 'tools' / 'build_views.py')
         original_bytes = hand_edited.read_bytes()
         hand_edited.write_bytes(original_bytes + b'\n# hand edit\n')
+
+        # refresh() reads from a DISPOSABLE clone, never this repo's own
+        # checkout. Handing it str(ROOT) is what moved the CI workspace
+        # mid-job: refresh() used to `git checkout SOURCE_BRANCH` in the clone
+        # it read FROM, so step 5 left the workspace on SOURCE_BRANCH and
+        # every later step in the job silently ran against the wrong commit
+        # (see precedent_vendor_engine._source_tools_at's docstring, and
+        # check_bootstrap_source_engine_is_functional's own refresh case,
+        # which asserts that no longer happens). refresh() is read-only now,
+        # so str(ROOT) would no longer corrupt anything -- but a test that
+        # vendors FROM a throwaway clone does not depend on that guarantee
+        # continuing to hold, which is the point.
+        upstream = tmp / 'upstream-clone'
+        r = subprocess.run(['git', 'clone', '--quiet', str(ROOT), str(upstream)],
+                           capture_output=True, text=True)
+        cases.append(('a throwaway clone of this checkout is available to vendor from',
+                      r.returncode == 0 and (upstream / '.git').exists(),
+                      r.stdout + r.stderr))
+        # Give the clone SOURCE_BRANCH by name so _source_tools_at resolves it
+        # with no network and no assumption about which refs the caller's
+        # checkout carries: on a GitHub Actions runner the workspace holds only
+        # the ref under test, so `origin/<SOURCE_BRANCH>` need not exist at all.
+        # Read the name from the tool rather than hardcoding it -- its own
+        # docstring says SOURCE_BRANCH becomes 'main' once the beta lands.
+        m = re.search(r"^SOURCE_BRANCH = '([^']+)'",
+                      (ROOT / 'tools' / 'precedent_vendor_engine.py').read_text(encoding='utf-8'),
+                      re.M)
+        cases.append(("precedent_vendor_engine.py's SOURCE_BRANCH is readable, so this "
+                      "fixture cannot drift from it", m is not None, ''))
+        subprocess.run(['git', '-C', str(upstream), 'update-ref',
+                        f'refs/heads/{m.group(1) if m else "precedent-beta-v01"}', 'HEAD'],
+                       capture_output=True, text=True)
         r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
-                            'refresh', str(ROOT)], capture_output=True, text=True)
+                            'refresh', str(upstream)], capture_output=True, text=True)
         cases.append(('refresh() without --force refuses a hand-edited vendored file',
                       r.returncode != 0 and 'hand-edited' in (r.stdout + r.stderr),
                       r.stdout + r.stderr))
         r = subprocess.run([sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
-                            'refresh', str(ROOT), '--force'], capture_output=True, text=True)
+                            'refresh', str(upstream), '--force'], capture_output=True, text=True)
         cases.append(('refresh() with --force actually overwrites the hand-edited file '
                       '(not a silent no-op), even when the upstream commit has not moved',
                       r.returncode == 0 and hand_edited.read_bytes() == original_bytes,

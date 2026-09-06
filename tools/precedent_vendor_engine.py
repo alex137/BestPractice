@@ -162,6 +162,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
 
 HERE = pathlib.Path(__file__).resolve()
 ENGINE_DIR = HERE.parent
@@ -346,6 +347,65 @@ def status(clone):
     return 1 if drift else 0
 
 
+def _source_tools_at(clone, kind=DEFAULT_KIND):
+    """Materialize SOURCE_BRANCH's tools/ out of `clone` into a throwaway
+    directory, and return (commit, that directory).
+
+    READ-ONLY with respect to `clone`, deliberately and load-bearingly so.
+    This used to run `git checkout SOURCE_BRANCH` and `git pull` in `clone`
+    to get the files off disk, which moved the caller's repository:
+
+      * for a person, it silently switched their own BestPractice checkout
+        onto SOURCE_BRANCH, abandoning whatever branch they were on;
+      * in CI, `clone` is the job's own workspace, so the checkout moved the
+        workspace mid-job and every LATER step in that job silently ran
+        against SOURCE_BRANCH instead of the commit under test. That cost
+        several sessions of investigation on PR #110, where the step after
+        this one reported a violation that was true of SOURCE_BRANCH and
+        false of the commit being tested, with `git status` clean throughout
+        (a branch checkout leaves no dirty file to notice).
+
+    Blobs, not the working tree -- the same discipline tools/leak_gate.py
+    holds, for the same reason: reading history must not disturb the tree
+    the caller is standing in. A vendoring read needs file CONTENT at a
+    commit, which `git show` gives without touching HEAD or the index.
+
+    `kind` selects which file list to materialize -- the consumer kind
+    vendors precedent_materialize/resolve/sync_views on top of the source
+    kind's list, and _write_engine_files() will look for every one of them
+    in the directory returned here."""
+    _git(clone, 'fetch', '--quiet', 'origin', SOURCE_BRANCH)
+    commit = (_git(clone, 'rev-parse', f'origin/{SOURCE_BRANCH}')
+              or _git(clone, 'rev-parse', SOURCE_BRANCH))
+    if not commit:
+        sys.exit(f"precedent_vendor_engine FAIL: {clone} has no {SOURCE_BRANCH} "
+                 f"(neither origin/{SOURCE_BRANCH} nor a local branch of that name) "
+                 f"-- is it a clone of {SOURCE_REPO}?")
+
+    # file mode per entry, so a vendored file keeps the executable bit it has
+    # upstream (shutil.copy2 used to carry it over from the checked-out tree).
+    modes = {}
+    for line in _git(clone, 'ls-tree', f'{commit}:tools').splitlines():
+        meta, _tab, name = line.partition('\t')
+        if meta and name:
+            modes[name] = meta.split()[0]
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-engine-source-'))
+    for name in KINDS[kind] + ['routing_scope.json']:
+        blob = subprocess.run(['git', '-C', str(clone), 'show', f'{commit}:tools/{name}'],
+                              capture_output=True)
+        if blob.returncode != 0:
+            shutil.rmtree(tmp, ignore_errors=True)
+            sys.exit(f"precedent_vendor_engine FAIL: {SOURCE_BRANCH} @ {commit[:12]} has no "
+                     f"tools/{name} -- "
+                     f"{blob.stderr.decode('utf-8', 'replace').strip()}")
+        out = tmp / name
+        out.write_bytes(blob.stdout)          # bytes, not text: no newline munging
+        if modes.get(name, '').endswith('755'):
+            out.chmod(0o755)
+    return commit, tmp
+
+
 def refresh(clone, force=False):
     dest_tools = ROOT / 'tools'
     manifest = _load_manifest(dest_tools)
@@ -361,22 +421,22 @@ def refresh(clone, force=False):
                      "edit. Move the edit upstream into BestPractice instead (this engine has "
                      "no local variance by design), or pass --force to overwrite anyway.")
 
-    _git(clone, 'fetch', 'origin', SOURCE_BRANCH)
-    _git(clone, 'checkout', SOURCE_BRANCH)
-    _git(clone, 'pull', 'origin', SOURCE_BRANCH)
-    new_commit = _head_commit(clone)
-    # `and not force`: found reproduced while testing this against the consumer
-    # kind -- without it, `refresh --force` on a repo with a hand-edited
-    # vendored file silently did NOTHING when BestPractice's SOURCE_BRANCH
-    # hadn't moved, because this short-circuit ran before --force ever got a
-    # chance to matter. --force exists specifically to repair a hand-edited
-    # file; "the upstream commit is unchanged" must not override that.
-    if new_commit == manifest.get('source_commit') and not force:
-        print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
-              f"@ {new_commit[:12]} -- nothing to do.")
-        return 0
+    new_commit, engine_dir = _source_tools_at(clone, kind)
+    try:
+        # `and not force`: found reproduced while testing this against the consumer
+        # kind -- without it, `refresh --force` on a repo with a hand-edited
+        # vendored file silently did NOTHING when BestPractice's SOURCE_BRANCH
+        # hadn't moved, because this short-circuit ran before --force ever got a
+        # chance to matter. --force exists specifically to repair a hand-edited
+        # file; "the upstream commit is unchanged" must not override that.
+        if new_commit == manifest.get('source_commit') and not force:
+            print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
+                  f"@ {new_commit[:12]} -- nothing to do.")
+            return 0
 
-    written = _write_engine_files(dest_tools, clone / 'tools', new_commit, kind)
+        written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
+    finally:
+        shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
           f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {manifest.get('source_commit', '?')[:12]})")
     print("next: review the diff, run this repo's own light check, then commit.")
