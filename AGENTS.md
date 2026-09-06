@@ -30,7 +30,9 @@ retirement condition:
 standing alone (its own line, or set off by a preceding sentence-ending
 punctuation mark; case-insensitive), it means: commit and push what the
 thread just agreed on to `precedent-beta-v01`, per the paragraph above,
-after the usual checks, without asking again. See
+after the usual checks, without asking again — and then fetch and confirm
+local `HEAD` and `origin/precedent-beta-v01` actually match before calling
+it done ([verify-postcondition](practices/verify-postcondition.md)). See
 [practices/merge-authorization-keyword.md](practices/merge-authorization-keyword.md)
 for the full rule and what does *not* count as standing alone.
 

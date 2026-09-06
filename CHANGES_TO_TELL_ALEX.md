@@ -223,6 +223,15 @@ word, said standing alone, means "merge as agreed," documented in
 `GLOSSARY.md` — is untouched; this only exercises the practice's own
 `## Install` step for the first time in this repo.
 
+**Same-day addition (2026-09-06):** Detail now also requires that "Go
+merge" isn't treated as fulfilled by the push command reporting success —
+the session must fetch the target branch afterward and confirm local
+`HEAD` and `origin/precedent-beta-v01` actually resolve to the same
+commit ([`verify-postcondition`](practices/verify-postcondition.md)),
+prompted by Morgan asking whether the keyword should require that, not by
+anything having gone wrong. Cross-linked from `AGENTS.md`'s merge-keyword
+paragraph too.
+
 **What did not change.** `## Rule` is untouched, byte-for-byte, and
 `checked_by` is still `null` — this practice has no mechanical check, by
 design (see its own `## Rule`: an ambiguous case is treated as *not*
