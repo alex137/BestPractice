@@ -1585,7 +1585,7 @@ questions are closed (see
 — so that checklist is gone from here; what's left is what's still
 actually pending.
 
-**Naming convention for practice sets**
+**Naming convention for practice sets** — settled and enforced; it is no longer a pending human item. The rule lives in [practices/source-naming.md](practices/source-naming.md), the reasoning and the four distinct name layers in [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md), and the reference a session works from in [spec/SOURCES.md](spec/SOURCES.md)'s Naming section. The table below is the shape those carry.
 
 ```
 Precedent                              the engine and universal catalogue

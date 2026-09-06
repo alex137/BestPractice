@@ -137,9 +137,15 @@ case documented above.
 
 ### For an individual set
 
-1. Pick a name (by convention, `<your-name>-individual` or similar — see
-   [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md#what-morgan-needs-to-do)'s
-   naming convention for the pattern this project itself used).
+1. **The name is not a choice: an individual set is always called
+   `precedent-individual`**, in that person's own account, which already
+   namespaces it. Say so before the person creates anything — the naming
+   convention is [practices/source-naming.md](../practices/source-naming.md),
+   the reasoning is in [spec/SOURCE_NAMING.md](SOURCE_NAMING.md), and
+   [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
+   refuses any other `--name` before it creates anything, and
+   [tools/precedent_resolve.py](../tools/precedent_resolve.py) refuses a
+   source declared under one.
 2. Create a **private** repository under the person's own account. If the
    session has the access to do this itself (a GitHub App/token scoped for
    repo creation), do it directly; otherwise hand the person the exact
@@ -196,7 +202,11 @@ case documented above.
 Same shape, with two differences: the repo is created once per team (not
 per person), and it needs at least one approver at creation time.
 
-1. Pick a name (by convention, `<team-name>-maintainers` or similar).
+1. **The name is `precedent-team-<slug>`**, slug lowercase and hyphenated,
+   naming what the team is *for* rather than who is on it — a roster-shaped
+   name is stale the moment a third person joins, and renaming a set breaks
+   every vendored reference to it. Say the convention before the repository
+   is created; see [practices/source-naming.md](../practices/source-naming.md).
 2. Create a **private** repository, shared with the team's members as
    collaborators. Same access caveat as step 2 above.
 3. Run:

@@ -341,3 +341,18 @@ which is the failure this repointing exists to end — write
     change, whose ask was scoped to BestPractice's `precedent-beta-v01`
     alone. Any session with `precedent-team-maintainers` attached and a
     mandate to touch it can close this.
+
+24. **Check the consumer repos' own source names against the convention.**
+    [practices/source-naming.md](practices/source-naming.md) makes a
+    source's name a refusal in
+    [tools/precedent_resolve.py](tools/precedent_resolve.py), not a
+    recommendation, so a consumer repo whose `precedent.json` names a source
+    any other way stops resolving the moment it refreshes its vendored
+    engine. Every source attached to the session that landed this —
+    `precedent-individual`, `precedent-team-maintainers`,
+    `precedent-team-tms` — already conforms, and none of them declares a
+    `precedent.json` of its own. `themorgan/HavrutaBrainstorm` does declare
+    one and was not attached. **Blocked on:** a session with that repository
+    attached. What it needs: read its `precedent.json`, and if a source name
+    does not match its level's shape, fix the name in the same change that
+    refreshes its vendored engine — never one without the other.

@@ -622,6 +622,43 @@ def _generated_artifact_provenance(ctx):
     return out
 
 
+@check('source-naming', 'tree',
+       "every precedent.json in the tree names each source by the shape its "
+       "level fixes -- `precedent`, `precedent-individual`, "
+       "`precedent-team-<slug>`, `local`",
+       'the GitHub repository names themselves, and whether a team slug names '
+       'a purpose rather than a roster. It sees declared names in tracked '
+       'configuration, which is the layer a check can reach; the rest of the '
+       'practice is disclosure, carried by the occasion index.')
+def _source_naming(ctx):
+    out = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as pr
+    for cfg in sorted(ROOT.rglob('precedent.json')):
+        if '.git' in cfg.parts:
+            continue
+        rel = cfg.relative_to(ROOT).as_posix()
+        try:
+            data = json.loads(cfg.read_text(encoding='utf-8'))
+        except json.JSONDecodeError as e:
+            out.append(Finding(rel, f'is not valid JSON ({e})'))
+            continue
+        for entry in data.get('sources', []):
+            level, name = entry.get('level'), entry.get('name')
+            shape = pr.SOURCE_NAME_SHAPE.get(level)
+            if shape is None:
+                continue
+            pattern, expected = shape
+            # The one regular expression per level lives in the resolver, so
+            # the gate and the engine cannot disagree about the convention.
+            if not (isinstance(name, str) and pattern.match(name)):
+                out.append(Finding(
+                    rel, f'names its {level} source {name!r}; a {level} '
+                         f'source is named {expected} -- fixed by its level, '
+                         f'not chosen (spec/SOURCE_NAMING.md)'))
+    return out
+
+
 @check('orientation-map', 'tree',
        'MAP.md exists at the repository root, is not empty, and the session '
        'instructions point at it',
