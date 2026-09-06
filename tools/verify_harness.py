@@ -188,16 +188,13 @@ def check_source_coverage(files, original_practices_by_number):
     ok = True
     by_number = {}
     for stem, (fm, sections, f) in sorted(files.items()):
-        # The frontmatter reader hands back raw field text, so an absent
-        # number arrives as the literal string 'null', not None. Every
-        # inherited practice carries a real number, so the None branch below
-        # had never once been reached -- the first freshly-minted practice
-        # in practices/ (rename-updates-links, 2026-09-06) took the whole
-        # harness down with `int('null')` instead.
-        num = bv._json_str(fm.get('source_practice_number') or 'null')
-        if not num or num == 'null':
+        num = fm.get('source_practice_number')
+        if num is None:
             # legitimate for a practice minted fresh (phase 3 on), but then
-            # it is not part of the migrated set this check is about
+            # it is not part of the migrated set this check is about.
+            # split_practices.py drops a `null` field rather than storing
+            # the string, so this guard is live -- it was dead until
+            # 2026-09-06 and `int('null')` below crashed instead.
             continue
         by_number.setdefault(num, []).append(stem)
 
@@ -498,15 +495,8 @@ def _tokens(text):
 def check_no_invented_content(files, original_practices_by_number):
     ok = True
     for stem, (fm, sections, f) in files.items():
-        # The field is present-but-null on a freshly-minted practice, and the
-        # reader hands back raw text, so `not in fm` alone never caught that
-        # case -- every inherited practice carries a real number, so the
-        # first new one (2026-09-06) was reported as a fidelity failure
-        # against a PRACTICES.md entry that by definition does not exist.
         if 'source_practice_number' not in fm:
             continue  # a practice minted fresh, no BestPractice ancestor to compare against
-        if bv._json_str(fm.get('source_practice_number') or 'null') in ('', 'null'):
-            continue  # same case, written explicitly as null
         if _amended_and_logged(fm.get('slug', stem)):
             continue  # deliberately rewritten post-conversion; see CHANGES_TO_TELL_ALEX.md
         num = fm.get('source_practice_number')
@@ -5297,6 +5287,75 @@ def check_rule_rewrite_detection():
           not bad)
 
 
+def check_null_frontmatter_is_absent():
+    """A `null` frontmatter field parses as absent, not as the string 'null'.
+
+    Every value the practice reader returns is raw field text, so a null
+    field used to arrive as the literal `'null'` -- truthy, not None, not
+    int-parseable. Every `if x is None` and `if 'x' not in fm` guard
+    written against the four nullable fields was therefore dead code that
+    had never once run, because every practice inherited from PRACTICES.md
+    carries a real value in all four.
+
+    This is worst in exactly the repos with no inherited practices at all.
+    A brand-new team or individual set bootstrapped from
+    templates/practice-set-*/ ships a starter practice with `checked_by:
+    null`, `overrides: null` and `added: null`, so a new adopter's very
+    first practice takes these paths, and a migrated repo whose practices
+    are all locally authored takes them for every single one.
+
+    Found 2026-09-06, when the first freshly-minted practice landed in
+    practices/. `split_practices.py build` did not print the careful
+    "no source_practice_number" message its author wrote for exactly this
+    case -- it crashed on `int('null')` instead, and nine practices were
+    already in that state.
+
+    Null is dropped rather than stored as None deliberately: every caller
+    that supplies its own default keeps behaving identically, including
+    precedent_retire.py, whose `checked_by not in ('null', '')` would read
+    None as a real value."""
+    import tempfile
+    fresh = ('---\nslug:        fx-null\ntitle:       "Fixture"\n'
+             'tier:        on-demand\nseverity:    default\n'
+             'applies_to:  ["**"]\noccasion:    "x"\ngates:       []\n'
+             'index_clause: "x"\nchecked_by:  null\ndefines:     []\n'
+             'status:      active\nsupersedes:  []\noverrides:   null\n'
+             'added:       null\napproved_by: "A New Adopter"\n'
+             'source_practice_number: null\n---\n## Rule\nx\n\n'
+             '## Why\nx\n\n## Story\nx\n\n## Install\nx\n')
+    with tempfile.TemporaryDirectory() as td:
+        f = pathlib.Path(td) / 'fx-null.md'
+        f.write_text(fresh, encoding='utf-8')
+        fm, _sections = sp._read_practice_file(f)
+
+    nullable = ('checked_by', 'overrides', 'added', 'source_practice_number')
+    present = [k for k in nullable if k in fm]
+    check(f'a null frontmatter field is absent, so `k not in fm` and '
+          f'`fm.get(k) is None` both work ({len(nullable)} nullable fields)',
+          not present, f'still present: {present}')
+
+    # The defaults every caller relies on must be untouched by that.
+    check("a caller's own 'null' default still arrives as 'null', so "
+          "precedent_retire.py's `not in ('null', '')` keeps working",
+          fm.get('checked_by', 'null') == 'null'
+          and fm.get('overrides', 'null') == 'null')
+
+    # And a real value must still come through raw, quotes and all -- the
+    # convention every reader in this codebase is written against.
+    check('a non-null field is still returned as raw field text',
+          fm.get('title') == '"Fixture"' and fm.get('status') == 'active',
+          f'title={fm.get("title")!r} status={fm.get("status")!r}')
+
+    # The end-to-end symptom, not just the parser: the command that broke.
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'split_practices.py'),
+                        'build'], capture_output=True, text=True, cwd=str(ROOT))
+    out = r.stdout + r.stderr
+    check('split_practices.py build reports unnumbered practices by name '
+          'instead of crashing on int(\'null\')',
+          'Traceback' not in out and 'no source_practice_number' in out,
+          out[-200:])
+
+
 def check_frontmatter_is_real_yaml():
     """The fence says YAML, so a real YAML parser has to accept it.
 
@@ -6090,6 +6149,7 @@ def main():
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
+    check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
