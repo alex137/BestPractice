@@ -166,7 +166,12 @@ def mark_reviewed(slugs):
                  f"current set.")
     state = _load_state()
     today = datetime.date.today().isoformat()
-    commit = _git(['rev-parse', 'HEAD']) or '(no commit)'
+    # --verify --quiet: without it, a failed `rev-parse HEAD` PRINTS 'HEAD' on
+    # stdout and _git() keeps stdout while discarding the exit code, so this
+    # `or '(no commit)'` never fired and routing_audit_state.json recorded a
+    # review as having happened at commit "HEAD". Same hazard audited out of
+    # tools/precedent_vendor_engine.py on 2026-09-06; see AGENTS.md's gotcha.
+    commit = _git(['rev-parse', '--verify', '--quiet', 'HEAD']) or '(no commit)'
     for slug in slugs:
         state[slug] = {'last_reviewed': today, 'commit': commit}
     _save_state(state)

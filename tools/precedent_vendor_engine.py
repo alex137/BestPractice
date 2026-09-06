@@ -267,8 +267,26 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
 
 
 def _git(cwd, *args):
+    """Run git and return stdout, DISCARDING the exit code.
+
+    Only for commands whose failure is genuinely acceptable, and then only
+    where the discard is commented at the call site. Never for resolving a
+    ref: `git rev-parse <missing-ref>` fails AND prints the ref name, so this
+    returns a truthy non-commit -- use _rev() instead. Never to decide whether
+    something worked: a failure here is indistinguishable from success with no
+    output. `fresh()` below is the model for a command that may legitimately
+    fail -- it checks returncode and says "COULD NOT VERIFY" rather than
+    letting silence read as confirmation."""
     return subprocess.run(['git', '-C', str(cwd)] + list(args),
                           capture_output=True, text=True).stdout.strip()
+
+
+def _git_read(cwd, *args):
+    """Run git and return (ok, stdout) so a caller can tell empty output apart
+    from a failed command."""
+    r = subprocess.run(['git', '-C', str(cwd)] + list(args),
+                       capture_output=True, text=True)
+    return r.returncode == 0, r.stdout
 
 
 def _rev(repo_dir, ref):
@@ -290,7 +308,12 @@ def _rev(repo_dir, ref):
 
 
 def _head_commit(repo_dir):
-    return _git(repo_dir, 'rev-parse', 'HEAD')
+    # _rev, not _git: a failed `rev-parse HEAD` prints 'HEAD' back, which is
+    # truthy, so seed()'s `_head_commit(ROOT) or 'unknown'` silently recorded
+    # source_commit: "HEAD" in ENGINE_MANIFEST.json instead of 'unknown' --
+    # and every later status()/refresh() then compared a real hash against the
+    # string "HEAD" and reported upstream as moved, forever.
+    return _rev(repo_dir, 'HEAD')
 
 
 def seed(dest, kind=DEFAULT_KIND):
@@ -351,15 +374,26 @@ def status(clone):
     for name, why in drift:
         print(f"  LOCAL DRIFT: {name} -- {why}")
 
-    clone_head = _git(clone, 'rev-parse', f'origin/{SOURCE_BRANCH}') \
-        or _git(clone, 'rev-parse', SOURCE_BRANCH)
+    # _rev, not _git: plain rev-parse of a missing ref prints the REF NAME, so
+    # this used to bind clone_head='origin/precedent-beta-v01' -- truthy, and
+    # != recorded -- and then told the reader upstream had moved and to run
+    # refresh, when the truth was that this clone has no such ref at all.
+    clone_head = (_rev(clone, f'origin/{SOURCE_BRANCH}')
+                  or _rev(clone, SOURCE_BRANCH))
     recorded = manifest.get('source_commit')
-    behind = bool(clone_head) and clone_head != recorded
     print(f"kind: {kind}")
     print(f"manifest source_commit: {recorded}")
+    if not clone_head:
+        # Not "fresh" and not "moved" -- unknown. Same discipline as fresh().
+        print(f"COULD NOT VERIFY: {clone} has no {SOURCE_BRANCH} "
+              f"(neither origin/{SOURCE_BRANCH} nor a local branch of that name), so "
+              f"whether this vendored engine is current is UNKNOWN -- this is not "
+              f"'confirmed current'. Fetch that branch in the clone, or point at a "
+              f"clone of {SOURCE_REPO}.")
+        return 1 if drift else 0
     print(f"clone origin/{SOURCE_BRANCH}: {clone_head}"
           + ("  (== recorded)" if clone_head == recorded else "  (!= recorded)"))
-    if behind:
+    if clone_head != recorded:
         print(f"NOTICE: BestPractice's {SOURCE_BRANCH} has moved since this engine was "
               f"last vendored -- run `refresh` to pick it up.")
     return 1 if drift else 0
@@ -392,6 +426,10 @@ def _source_tools_at(clone, kind=DEFAULT_KIND):
     vendors precedent_materialize/resolve/sync_views on top of the source
     kind's list, and _write_engine_files() will look for every one of them
     in the directory returned here."""
+    # Exit code deliberately discarded: an offline clone, or one whose origin
+    # has no SOURCE_BRANCH, is a supported case -- the _rev fallback below
+    # handles it, and a hard failure here would break vendoring from a local
+    # clone that is already up to date.
     _git(clone, 'fetch', '--quiet', 'origin', SOURCE_BRANCH)
     # origin/<branch> first, then a local branch of that name: a CI workspace
     # carries only the ref under test, so a clone taken from it legitimately
@@ -406,7 +444,13 @@ def _source_tools_at(clone, kind=DEFAULT_KIND):
     # file mode per entry, so a vendored file keeps the executable bit it has
     # upstream (shutil.copy2 used to carry it over from the checked-out tree).
     modes = {}
-    for line in _git(clone, 'ls-tree', f'{commit}:tools').splitlines():
+    ok, tree = _git_read(clone, 'ls-tree', f'{commit}:tools')
+    if not ok:
+        # No tempdir yet at this point -- nothing to clean up.
+        sys.exit(f"precedent_vendor_engine FAIL: could not list tools/ at "
+                 f"{SOURCE_BRANCH} @ {commit[:12]} in {clone}. Refusing rather than "
+                 f"vendoring with every executable bit silently dropped.")
+    for line in tree.splitlines():
         meta, _tab, name = line.partition('\t')
         if meta and name:
             modes[name] = meta.split()[0]

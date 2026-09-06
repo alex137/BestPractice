@@ -4463,6 +4463,44 @@ def check_bootstrap_source_engine_is_functional():
         cases.append(('status() against a real BestPractice checkout finds no drift '
                       'right after seeding', r.returncode == 0, r.stdout + r.stderr))
 
+
+        # -- status() must not turn "this clone has no SOURCE_BRANCH" into
+        # "upstream has moved". _git() discards exit codes, and a plain
+        # `git rev-parse <missing-ref>` PRINTS THE REF NAME, so status() used to
+        # bind clone_head='origin/<SOURCE_BRANCH>', find it != recorded, and
+        # advise running `refresh` -- which, before refresh() became read-only,
+        # would then check the reader's own BestPractice clone out onto
+        # SOURCE_BRANCH. A false alarm wired to a destructive remedy. Fixed
+        # 2026-09-06 while auditing every _git() call site in that tool.
+        #
+        # An initialized repo with no commits covers both halves at once: it has
+        # no SOURCE_BRANCH, and its HEAD is unborn -- the one state where
+        # `rev-parse HEAD` echoes 'HEAD' on stdout (a non-repo prints nothing,
+        # which is why the plain form looked fine for years).
+        norefs = tmp / 'clone-without-source-branch'
+        norefs.mkdir(parents=True, exist_ok=True)
+        subprocess.run(['git', '-C', str(norefs), 'init', '-q'], capture_output=True)
+        r = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
+                            'status', str(norefs)], capture_output=True, text=True)
+        status_out = r.stdout + r.stderr
+        cases.append(('status() on a clone with no SOURCE_BRANCH reports COULD NOT VERIFY '
+                      'and does NOT claim upstream has moved',
+                      'COULD NOT VERIFY' in status_out
+                      and 'has moved since this engine' not in status_out,
+                      status_out))
+
+        # -- and the resolver underneath it. seed() does
+        # `_head_commit(ROOT) or 'unknown'`, so a truthy 'HEAD' was recorded as
+        # ENGINE_MANIFEST.json's source_commit, after which every status() and
+        # refresh() compared a real hash against the string "HEAD" and reported
+        # upstream as moved, permanently.
+        import precedent_vendor_engine as _pve
+        cases.append(("_rev() returns '' for an unborn HEAD rather than the string 'HEAD', "
+                      "so seed()'s `or 'unknown'` fallback actually fires",
+                      _pve._rev(norefs, 'HEAD') == '' and _pve._head_commit(norefs) == '',
+                      f"_rev={_pve._rev(norefs, 'HEAD')!r} "
+                      f"_head_commit={_pve._head_commit(norefs)!r}"))
+
         # -- add a second, fixture practice AFTER bootstrap (example-starter
         # alone proves too little: its own occasion text could coincidentally
         # match without the loader actually parsing frontmatter) --
