@@ -59,7 +59,7 @@ running the tool, not by reading about it.
 ## Story
 2026-09-06: Morgan asked why `documentation/` was not following this rule,
 believing a practice for it already existed. It did not — not in the
-universal catalogue, not in `bestpractice-local`. Four documents had
+universal catalogue, not in this repo's own repo-local set. Four documents had
 drifted into a mix: 25 of their headings were sentence case, some were
 title case, and two headings added earlier in that same session were title
 case only because they had been dictated that way.

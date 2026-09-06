@@ -87,54 +87,37 @@ CANDIDATE_DOCS = [
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import parse_check as pcheck  # noqa: E402
 import precedent_bootstrap_source as bootstrap_source  # noqa: E402
+import split_practices as sp  # noqa: E402
 
-CHECKLIST = """\
-What to look for -- a starting point, not a specification. Report anything
-that makes the repo harder to trust or follow, whether or not a bullet below
-names it:
+# The passes the invoking session actually works are read from the practice
+# file's own `## Detail` section at run time, not kept as a second copy here.
+# They used to be a CHECKLIST string literal in this file, which is a copy of
+# practices/very-deep-check.md's Detail with nothing keeping the two in step
+# -- exactly the "needless repetition" the check itself tells a session to
+# report. One source, one code path (split_practices is the same parser
+# precedent_show.py uses, so the section boundaries can't be read two ways).
+PRACTICE_FILE = ROOT / 'practices' / 'very-deep-check.md'
 
-- Contradictions -- two rules, or two documents, that can't both be
-  followed; a rule whose own carve-outs have eaten it.
-- Stale references -- a slug, practice number, filename, heading, or
-  click-path pointing at something moved or gone; a positional number cited
-  as if it were a name; numbering that skips, repeats, or runs out of order;
-  an orphaned name a rename elsewhere left behind in this repo's own prose.
-- Fragments -- a sentence, note, or heading left behind by an earlier edit:
-  a "temporary" caveat whose occasion has passed, a note about a
-  reorganization that already happened.
-- Needless repetition -- the same rule stated in full in several places,
-  where one statement plus pointers would do.
-- Disproportion -- paragraphs of detail on a minor point, prose that
-  emphasizes an aside more than the point it supports, a rule grouped where
-  it no longer fits.
-- Process-cost disproportion -- a rule that's minor in the scheme of things
-  but costs a disproportionate amount of tokens, time, or friction each time
-  it applies, especially one re-researched from scratch on every occurrence
-  instead of following a written-down answer.
-- Formatting and spacing drift -- inconsistent heading levels and
-  capitalization, a bullet missing the blank line its neighbors have, mixed
-  list markers, a ragged table, stray blank lines or trailing whitespace, a
-  stale "last updated" header.
-- Self-application -- a rule this repo asks of every project it's installed
-  into that this repo doesn't yet follow itself.
-- Cross-source staleness -- a check, tool, or convention this repo changed
-  that an attached team or individual source's own tooling, vendored engine
-  copy, or written practice still assumes the old form of. Update the
-  source in the same pass (practice: cross-source-rollout) if it's
-  attached; if a blocked-on TODO for it already exists, confirm it's still
-  accurate rather than adding a second one.
-- Backlog drift -- a TODO.md (or equivalent open-items document) entry
-  already done, no longer relevant, or never actually decided.
-- Anything else the read turns up -- if something is wrong and none of the
-  categories above name it, it is still a finding; if it will recur, add a
-  bullet to practices/very-deep-check.md so the next run looks for it
-  deliberately.
 
-Fix what the review turns up in the same pass -- these are almost always
-small -- then re-run the mechanical audits, since the fixes themselves can
-break a link. Anything deliberately left alone gets a line in TODO.md saying
-so, rather than being silently dropped.\
-"""
+def checklist(practice_file=None):
+    """-> the practice's ## Detail section as text, or a pointer to it if the
+    file isn't readable from here. Never raises: a tool that dies rather than
+    printing its enumeration because a doc moved is worse than one that says
+    where to look."""
+    path = pathlib.Path(practice_file or PRACTICE_FILE)
+    try:
+        _fm, sections = sp._read_practice_file(path)
+        body = (sections.get('detail') or '').strip()
+    except Exception as exc:                                  # noqa: BLE001
+        body = ''
+        why = f'{type(exc).__name__}: {exc}'
+    else:
+        why = 'that section is empty'
+    if body:
+        return body
+    return (f"(could not read the passes from {path} -- {why}. Read that "
+            f"file's ## Detail section directly, or run "
+            f"`python3 tools/precedent_show.py very-deep-check --detail`.)")
 
 
 def _run_git(repo_dir, *args):
@@ -370,7 +353,7 @@ def main():
         print("  (no team or individual source resolved here)")
     print()
 
-    print(CHECKLIST)
+    print(checklist())
 
     if not skip_branch_scan:
         print("\nSTALE BRANCHES -- mechanically merged, not yet deleted (still\n"
@@ -397,4 +380,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

@@ -83,9 +83,83 @@ UPSTREAM = ROOT / 'process' / 'upstream'
 MANIFEST = ROOT / 'process' / 'manifest.json'
 
 
+def _same_commit(a, b):
+    """True when two commit strings name the same commit.
+
+    A manifest may legitimately record a SHORT hash -- a person writing one
+    by hand does, and nothing ever required the full 40 -- while `git
+    rev-parse` and `ls-remote` return the full one. Compared as strings
+    those never match, so a perfectly current repo reports
+    "(!= recorded)" and an unmoved upstream reports "has moved".
+    Reproduced 2026-09-06 against a real consumer: recorded 6ac06f6, clone
+    HEAD 6ac06f6eb166..., reported as different. Prefix comparison, in
+    whichever direction is shorter, with a floor so a truncation to
+    nothing cannot match everything."""
+    a, b = (a or '').strip(), (b or '').strip()
+    if not a or not b:
+        return False
+    n = min(len(a), len(b))
+    if n < 7:            # shorter than git's own minimum abbreviation
+        return False
+    return a[:n] == b[:n]
+
+
 def _git(clone, *args):
     return subprocess.run(['git', '-C', str(clone)] + list(args),
                           capture_output=True, text=True).stdout.strip()
+
+
+# Directories that exist in BestPractice and have no business in a dependent
+# repo. `evals/` is this project's own routing-quality measurement corpus --
+# the fixtures behind spec/LOADER.md's recall and precision figures. It answers
+# a question about BUILDING Precedent, not about using it, and nothing a
+# consumer runs reads any of it (checked across both real consumers,
+# 2026-09-06: the only mention outside the vendored tree is a comment in
+# precedent_check.py). Every session in every consuming repo was cloning,
+# scanning and scrubbing it for nothing.
+#
+# NOTE, because this reads like a deletion and is not: nothing here removes a
+# PRACTICE. Practices live in practices/ and every one of them still vendors.
+# This excludes measurement fixtures only.
+#
+# The share it accounts for is measured, never typed: `python3
+# tools/checkin.py not-vendored` prints it against the tree in front of you.
+# An earlier version of this comment froze the figures inline and they were
+# stale within a day, which is the same rot that practice
+# `computed-numbers-in-scripts` exists to stop -- in prose it is a gate, and in
+# a code comment nothing checks it at all, so the honest form is a command the
+# reader can run.
+#
+# Excluded from the comparison, so an existing consumer that already has the
+# directory simply stops being told it drifted; deleting the stale copy is
+# the consumer's own next re-vendor, not something this tool reaches in and
+# does.
+NOT_VENDORED = frozenset({'evals'})
+
+
+def not_vendored_share(base=None):
+    """-> (excluded_files, total_files, excluded_bytes) for the tree at `base`.
+
+    Measures rather than recites. `_files()` already applies the exclusion, so
+    this counts both ways over the same walk it uses, and the two can never
+    disagree.
+    """
+    base = pathlib.Path(base or ROOT)
+    total = excluded = 0
+    excluded_bytes = 0
+    for p in base.rglob('*'):
+        if not p.is_file() or '.git' in p.parts or '__pycache__' in p.parts:
+            continue
+        if p.suffix in ('.pyc', '.pyo'):
+            continue
+        total += 1
+        if any(part in NOT_VENDORED for part in p.parts):
+            excluded += 1
+            try:
+                excluded_bytes += p.stat().st_size
+            except OSError:
+                pass                          # a race or a broken link: not fatal
+    return excluded, total, excluded_bytes
 
 
 def _files(base):
@@ -100,6 +174,7 @@ def _files(base):
     return {p.relative_to(base) for p in base.rglob('*')
             if p.is_file() and '.git' not in p.parts
             and '__pycache__' not in p.parts
+            and not any(part in NOT_VENDORED for part in p.parts)
             and p.suffix not in ('.pyc', '.pyo')}
 
 
@@ -154,7 +229,7 @@ def fresh():
         except subprocess.TimeoutExpired:
             return 0  # genuinely unreachable -- stays silent, unchanged
         head = out.stdout.split()[0] if out.returncode == 0 and out.stdout else ''
-        if head and head != recorded:
+        if head and not _same_commit(head, recorded):
             print(f"NOTICE: BestPractice upstream has moved ({head[:12]}; your base "
                   f"{recorded[:12]}) — review at the next check-in "
                   f"(process/upstream/INSTALL.md sec.2/sec.4).")
@@ -185,7 +260,8 @@ def status(clone):
           f"({len(added)} added, {len(modified)} modified, {len(deleted)} deleted)")
     print(f"manifest upstream.commit: {recorded}")
     print(f"clone HEAD:               {head}"
-          + ("  (== recorded)" if head == recorded else "  (!= recorded)"))
+          + ("  (== recorded)" if _same_commit(head, recorded)
+             else "  (!= recorded)"))
     return 1 if n else 0
 
 
@@ -420,6 +496,34 @@ def main():
     args = sys.argv[1:]
     if args and args[0] == 'fresh':
         return fresh()
+    if args and args[0] == 'not-vendored':
+        # Measures the NOT_VENDORED share against the tree in front of you,
+        # so no document or comment has to freeze the numbers. Reports which
+        # tree it measured, because the answer differs between this repo and
+        # a consumer's process/upstream/ copy.
+        base = pathlib.Path(args[1]) if len(args) > 1 else (
+            UPSTREAM if UPSTREAM.is_dir() else ROOT)
+        excluded, total, nbytes = not_vendored_share(base)
+        if not total:
+            print(f"checkin not-vendored: nothing to measure under {base} -- "
+                  f"no files found, so this figure is not zero, it is unknown")
+            return 1
+        names = ', '.join(sorted(NOT_VENDORED)) or '(nothing excluded)'
+        print(f"tree measured:  {base}")
+        print(f"excluded dirs:  {names}")
+        # Bytes, explicitly labelled: `du` reports DISK BLOCKS, and 557 small
+        # files round up to roughly four times their real size at a 4K block.
+        # A session quoting "2.4 MB" from `du` next to "557 files" from here
+        # is quoting two different quantities as if they were one -- practice
+        # `one-formatter-per-quantity`, learned the same day this was written.
+        print(f"excluded files: {excluded} of {total} "
+              f"({excluded / total * 100:.0f}%), "
+              f"{nbytes / 1e6:.1f} MB of content "
+              f"(byte sum, not `du` disk usage -- `du` counts 4K blocks and "
+              f"reports several times this for many small files)")
+        print("practices/ is never excluded -- this is measurement fixtures, "
+              "not rules.")
+        return 0
     if len(args) < 2 or args[0] not in ('status', 'update', 'push', 'record'):
         sys.exit(__doc__)
     clone = _clone_or_die(args[1])
@@ -434,4 +538,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

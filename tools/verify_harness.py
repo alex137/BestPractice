@@ -1217,7 +1217,7 @@ def check_source_precedence():
                          'path': str(universal)},
                         {'level': 'team', 'name': 'precedent-team-fixture',
                          'path': str(team)},
-                        {'level': 'repo-local', 'name': 'a-project-local',
+                        {'level': 'repo-local', 'name': 'local',
                          'path': 'local'}]}), encoding='utf-8')
         user_cfg = tmp / 'user.json'
         user_cfg.write_text(json.dumps({
@@ -1427,7 +1427,7 @@ def check_source_precedence():
             (spelling / 'local' / 'practices').mkdir(parents=True)
             (spelling / 'precedent.json').write_text(json.dumps({
                 'format_version': 1,
-                'sources': [{'level': 'repo-local', 'name': 'spelled-differently',
+                'sources': [{'level': 'repo-local', 'name': 'local',
                              'path': slug_variant}]}), encoding='utf-8')
             r_sp = subprocess.run(
                 [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -1461,14 +1461,14 @@ def check_source_precedence():
         # plan's own rule is that the resolver fails loudly here.
         two_teams = tmp / 'two-teams'
         (two_teams).mkdir()
-        t_a, t_b = tmp / 'team-a', tmp / 'team-b'
+        t_a, t_b = tmp / 'precedent-team-a', tmp / 'precedent-team-b'
         practice(t_a, 'shared', level_note='Team A version.')
         practice(t_b, 'shared', level_note='Team B version.')
         practice(t_b, 'b-only', level_note='Only in B.')
         (two_teams / 'precedent.json').write_text(json.dumps({
             'format_version': 1,
-            'sources': [{'level': 'team', 'name': 'team-a', 'path': str(t_a)},
-                        {'level': 'team', 'name': 'team-b', 'path': str(t_b)}]}),
+            'sources': [{'level': 'team', 'name': 'precedent-team-a', 'path': str(t_a)},
+                        {'level': 'team', 'name': 'precedent-team-b', 'path': str(t_b)}]}),
             encoding='utf-8')
         r_two = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -1546,7 +1546,7 @@ def check_cross_source_resident_budget():
             'format_version': 1,
             'sources': [{'level': 'universal', 'name': 'precedent',
                          'path': str(ROOT)},
-                        {'level': 'team', 'name': 'fixture-team',
+                        {'level': 'team', 'name': 'precedent-team-fixture',
                          'path': str(team)}]}), encoding='utf-8')
         rc2, out2, err2 = _run([sys.executable, str(ROOT / 'tools' /
                                 'precedent_resolve.py'), '--repo', str(consumer),
@@ -2262,7 +2262,7 @@ def check_example_set():
     try:
         cfg = tmp / 'user.json'
         cfg.write_text(json.dumps({'format_version': 1, 'individual': {
-            'name': 'an-example-personal-set', 'path': str(EXAMPLE_SET)}}),
+            'name': 'precedent-individual', 'path': str(EXAMPLE_SET)}}),
             encoding='utf-8')
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -2584,6 +2584,16 @@ def check_precedent_check_fires():
         def run(repo, slug, *extra):
             env = dict(os.environ)
             env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            # The fixture must not resolve whoever's individual set happens
+            # to be configured on this machine. It is found by ABSOLUTE path
+            # from a user-level config, so unlike the team source (a relative
+            # sibling that a temp-dir fixture cannot reach) it follows the
+            # fixture anywhere -- and layered-practice-packs' baseline then
+            # reports that developer's private practices, making the planted
+            # case prove nothing. Pointed at a file that does not exist, so
+            # the resolver takes its documented "this person has no
+            # individual set" path rather than a half-configured one.
+            env['PRECEDENT_USER_CONFIG'] = str(repo / '.no-user-config.json')
             r = subprocess.run(
                 [sys.executable, str(repo / 'tools' / 'precedent_check.py'),
                  '--only', slug, *extra],
@@ -2620,7 +2630,10 @@ def check_precedent_check_fires():
                 # the only one that ever did, is enforcing again), so this
                 # branch is dormant rather than dead -- kept so downgrading a
                 # check stays a one-word change with test support already
-                # there, not a silent loss of coverage.
+                # there, not a silent loss of coverage. (Live again since
+                # 2026-09-06: layered-practice-packs' reachability check is
+                # advisory, because closing its findings is an architectural
+                # decision a check cannot make -- see its own registration.)
                 cases.append((f'{slug}: a planted violation reports ADVISORY '
                               f'but does not fail the check',
                               rc == 0 and 'ADVISORY' in out and 'VIOLATION' not in out))
@@ -2673,6 +2686,28 @@ def check_precedent_check_fires():
             rewrite(repo, 'documentation/WHAT_IS_THIS_AND_BENEFITS.md',
                     lambda t: t.replace('## Learn More', '## Learn more', 1))
         case('headline-capitalization', _plant_headline)
+
+        # source-naming -- a source named freehand instead of by its level.
+        # `bestpractice-local` is the real name this repo's own repo-local
+        # source carried before the convention was fixed, so the planted case
+        # is the exact drift the practice exists to stop, not an invented one.
+        case('source-naming',
+             lambda repo: rewrite(repo, 'precedent.json', lambda t: t.replace(
+                 '"name": "local"', '"name": "bestpractice-local"')))
+
+        # layered-practice-packs -- a practice left in force with nothing
+        # able to load it. Planted by deleting one judgment-only practice's
+        # line from the instructions' occasion index while leaving the
+        # practice itself active: it is still in force, and now no channel
+        # reaches it. That is the real shape (a source declared in
+        # precedent.json whose practices never reach the generated views),
+        # reproduced with only the universal source, which is the one a
+        # fixture can resolve.
+        def _plant_unreachable(repo):
+            rewrite(repo, 'AGENTS.md', lambda t: re.sub(
+                r'\nWhen quoting or compressing someone else.s figures:\n'
+                r'  quote-discipline[^\n]*\n', '\n', t))
+        case('layered-practice-packs', _plant_unreachable, advisory=True)
 
         # quick-index -- the table removed from the instructions
         def _plant_qi(repo):
@@ -3674,8 +3709,8 @@ def check_materialize_bridges_loader():
         consumer = tmp / 'consumer'
         (consumer).mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'universal', 'name': 'uni', 'path': str(uni)},
-                        {'level': 'team', 'name': 'team', 'path': str(team)}]
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+                        {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)}]
         }), encoding='utf-8')
 
         materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
@@ -3862,11 +3897,11 @@ def check_show_flags_unreachable_materialized_source():
         consumer = tmp / 'consumer'
         (consumer).mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'universal', 'name': 'uni-src', 'path': str(uni)}]
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)}]
         }), encoding='utf-8')
         user_config = tmp / 'user-config.json'
         user_config.write_text(json.dumps({
-            'individual': {'name': 'indiv-src', 'path': str(indiv)},
+            'individual': {'name': 'precedent-individual', 'path': str(indiv)},
         }), encoding='utf-8')
 
         materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
@@ -4014,13 +4049,13 @@ def check_sync_views_cross_source():
                         occasion='doing local things')
 
         (consumer / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'universal', 'name': 'uni', 'path': str(universal)},
-                        {'level': 'team', 'name': 'team', 'path': str(team)},
-                        {'level': 'repo-local', 'name': 'self', 'path': 'local'}]
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(universal)},
+                        {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)},
+                        {'level': 'repo-local', 'name': 'local', 'path': 'local'}]
         }), encoding='utf-8')
         user_cfg = tmp / 'user.json'
         user_cfg.write_text(json.dumps({
-            'individual': {'name': 'ind', 'path': str(individual)}}), encoding='utf-8')
+            'individual': {'name': 'precedent-individual', 'path': str(individual)}}), encoding='utf-8')
         (consumer / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
             '<!-- END GENERATED -->\n', encoding='utf-8')
@@ -4084,7 +4119,7 @@ def check_sync_views_cross_source():
         write_practice(selfref / 'practices' / 'local-only.md', 'local-only',
                         'A self-referential universal rule.')
         (selfref / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'universal', 'name': 'self', 'path': '.'}]
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'}]
         }), encoding='utf-8')
         (selfref / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
@@ -4112,14 +4147,14 @@ def check_sync_views_cross_source():
         # lowest-precedence-loses-and-must-not-be-destroyed shape with
         # universal (still below team) standing in for it.
         selfref2 = tmp / 'selfref2'
-        other = tmp / 'other-team'
+        other = tmp / 'precedent-team-other'
         write_practice(selfref2 / 'practices' / 'shared.md', 'shared',
                         'HAND-AUTHORED -- MUST SURVIVE.')
         write_practice(other / 'practices' / 'shared.md', 'shared',
                         'TEAM VERSION.')
         (selfref2 / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'team', 'name': 'other-team', 'path': str(other)},
-                        {'level': 'universal', 'name': 'self', 'path': '.'}]
+            'sources': [{'level': 'team', 'name': 'precedent-team-other', 'path': str(other)},
+                        {'level': 'universal', 'name': 'precedent', 'path': '.'}]
         }), encoding='utf-8')
         (selfref2 / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
@@ -4537,7 +4572,7 @@ def check_creation_pipeline_fires():
         # a listed approver. A listed approver's own say-so already lands a
         # team practice directly (precedent_land.py), so --as-issue and the
         # nudge below are both about authority, never about git access.
-        team_repo = tmp / 'fixture-team'
+        team_repo = tmp / 'precedent-team-fixture'
         (team_repo / 'candidates').mkdir(parents=True)
         (team_repo / 'approvers.json').write_text(
             json.dumps({'approvers': [{'name': 'Approved Person', 'github': 'approved-gh'}]}),
@@ -4701,18 +4736,18 @@ def check_bootstrap_source_produces_resolvable_set():
         team_dest = tmp / 'team-set'
 
         rc, out = pyrun(bootstrap_tool, '--level', 'individual',
-                        '--name', 'harness-fixture-individual', '--dest', str(indiv_dest))
+                        '--name', 'precedent-individual', '--dest', str(indiv_dest))
         cases.append(('bootstrapping an individual set succeeds and writes its files',
                       rc == 0 and (indiv_dest / 'practices' / 'example-starter.md').is_file()
                       and (indiv_dest / 'config.json.sample').is_file(), out))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
-                        '--name', 'harness-fixture-team', '--dest', str(team_dest))
+                        '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest))
         cases.append(('bootstrapping a team set without --approver is refused',
                       rc == 1 and 'approver' in out, out))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
-                        '--name', 'harness-fixture-team', '--dest', str(team_dest),
+                        '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest),
                         '--approver', 'Harness Approver:harness-approver-gh')
         approvers_json = team_dest / 'approvers.json'
         cases.append(('bootstrapping a team set succeeds and seeds approvers.json',
@@ -4724,7 +4759,7 @@ def check_bootstrap_source_produces_resolvable_set():
         (non_empty / 'something.txt').parent.mkdir(parents=True)
         (non_empty / 'something.txt').write_text('pre-existing', encoding='utf-8')
         rc, out = pyrun(bootstrap_tool, '--level', 'individual',
-                        '--name', 'harness-fixture-refused', '--dest', str(non_empty))
+                        '--name', 'precedent-individual', '--dest', str(non_empty))
         cases.append(('bootstrapping into a non-empty destination is refused without --force',
                       rc == 1 and 'not empty' in out, out))
 
@@ -4734,12 +4769,12 @@ def check_bootstrap_source_produces_resolvable_set():
             'format_version': 1,
             'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
-                {'level': 'team', 'name': 'harness-fixture-team', 'path': str(team_dest)},
+                {'level': 'team', 'name': 'precedent-team-harness-fixture', 'path': str(team_dest)},
             ],
         }), encoding='utf-8')
         user_config = tmp / 'user-config.json'
         user_config.write_text(json.dumps({
-            'individual': {'name': 'harness-fixture-individual', 'path': str(indiv_dest)},
+            'individual': {'name': 'precedent-individual', 'path': str(indiv_dest)},
         }), encoding='utf-8')
 
         rc, out = pyrun(str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -4795,7 +4830,7 @@ def check_bootstrap_source_engine_is_functional():
         bootstrap_tool = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         dest = tmp / 'engine-set'
         r = subprocess.run([sys.executable, bootstrap_tool, '--level', 'individual',
-                            '--name', 'harness-engine-fixture', '--dest', str(dest)],
+                            '--name', 'precedent-individual', '--dest', str(dest)],
                            capture_output=True, text=True)
         cases.append(('bootstrapping succeeds', r.returncode == 0, r.stdout + r.stderr))
 
@@ -5004,7 +5039,7 @@ def check_vendor_engine_consumer_case():
     cases = []
     try:
         consumer = tmp / 'consumer'
-        team_dir = tmp / 'fixture-team'
+        team_dir = tmp / 'precedent-team-consumer-fixture'
         consumer.mkdir()
 
         _write_fixture_practice(team_dir / 'practices' / 'consumer-fixture-team.md',
@@ -5018,8 +5053,8 @@ def check_vendor_engine_consumer_case():
             'format_version': 1,
             'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
-                {'level': 'team', 'name': 'consumer-fixture-team', 'path': str(team_dir)},
-                {'level': 'repo-local', 'name': 'consumer-harness-local', 'path': 'local'},
+                {'level': 'team', 'name': 'precedent-team-consumer-fixture', 'path': str(team_dir)},
+                {'level': 'repo-local', 'name': 'local', 'path': 'local'},
             ],
         }), encoding='utf-8')
         (consumer / 'AGENTS.md').write_text(
@@ -5382,6 +5417,206 @@ def check_source_shape_is_verified():
         print(f"  source-shape case did not behave as stated: {n}")
     check(f'a source is verified for shape AND well-formedness '
           f'({len(cases)} stated cases)', not bad)
+
+
+def check_rendered_docs_are_current():
+    """Every committed HTML render still matches its markdown source.
+
+    tools/doc_html.py writes a .html beside each document in its own DOCS
+    registry, and nothing checked that the committed render was still the
+    one that source produces. It was not: on 2026-09-06 an accidental bare
+    run of the tool -- during the sweep for tools that write when they
+    should not -- regenerated spec/PREFORK_AUDIT.html and picked up a whole
+    paragraph the source had gained and the render had never been rebuilt
+    for. A stale render is worse than no render: it is a page that looks
+    current, is linked as the readable view of the document, and disagrees
+    with it silently.
+
+    generated-artifact-provenance already holds this property for the
+    generated VIEWS (MAP.md, GLOSSARY.md, AGENTS.md's block); this is the
+    same property for the rendered ones, which that check does not reach.
+
+    The build stamp is excluded from the comparison: it is the one line
+    that legitimately differs on every run, so comparing it would make this
+    fail constantly and mean nothing.
+    """
+    import importlib.util, re as _re, tempfile, shutil
+    spec = importlib.util.spec_from_file_location(
+        '_doc_html', ROOT / 'tools' / 'doc_html.py')
+    try:
+        dh = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(dh)
+    except Exception as e:
+        not_applicable('rendered documents are current',
+                       f'tools/doc_html.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+    if not getattr(dh, 'DOCS', None):
+        not_applicable('rendered documents are current',
+                       'doc_html.py registers no documents, so there is '
+                       'no render to compare')
+        return
+
+    STAMP = _re.compile(r'<div class="renderstamp">[^<]*</div>')
+    stale, missing = [], []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-check-'))
+    try:
+        for rel, title in dh.DOCS:
+            src = ROOT / rel
+            committed = src.with_suffix('.html')
+            if not src.is_file():
+                missing.append(f'{rel} (source missing)')
+                continue
+            if not committed.is_file():
+                missing.append(str(committed.relative_to(ROOT)))
+                continue
+            out = tmp / (pathlib.Path(rel).stem + '.html')
+            dh.render(src, out, title)
+            a = STAMP.sub('', committed.read_text(encoding='utf-8'))
+            b = STAMP.sub('', out.read_text(encoding='utf-8'))
+            if a != b:
+                stale.append(str(committed.relative_to(ROOT)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    check(f'every registered document\'s HTML render is current '
+          f'({len(dh.DOCS)} registered)',
+          not stale and not missing,
+          '; '.join(
+              ([f'stale: {", ".join(stale)}'] if stale else [])
+              + ([f'missing: {", ".join(missing)}'] if missing else [])))
+
+
+def _looks_like_help(tool, out):
+    """Does this output actually answer --help, or is it the tool running?
+
+    The test is the tool's own module docstring: a help answer contains a
+    real run of it. Deliberately not an exact match -- argparse prints its
+    own usage/description rather than the raw docstring, and that is a
+    perfectly good help answer.
+    """
+    import ast
+    try:
+        doc = ast.get_docstring(ast.parse(tool.read_text(encoding='utf-8')))
+    except Exception:
+        return True                      # unparseable: not this check's call
+    if not doc:
+        return True                      # nothing to compare against
+    o = ' '.join(out.split()).lower()
+    if 'usage:' in o:                    # argparse-generated help
+        return True
+    for line in doc.strip().splitlines():
+        line = ' '.join(line.split())
+        if len(line) >= 40 and line.lower() in o:
+            return True
+    return False
+
+
+def check_tools_answer_help_without_writing():
+    """`--help` is safe and informative on every tool in tools/.
+
+    Two properties, both learned the hard way on 2026-09-06 by a sweep that
+    simply ran `--help` across every script here to see what came back:
+
+    * **It is answered, with exit 0.** The tools split three ways before that
+      sweep -- a hard `FAIL: unknown option '--help'`, a silent fall-through
+      that ran the whole audit as though nothing had been asked, or the
+      docstring printed with a non-zero exit. `--help` is the first thing any
+      reader types, and documentation/HOW_TO_USE_THIS_TECHNICAL.md points a
+      public audience straight at these commands.
+
+    * **It writes nothing.** tools/resplit_sections.py defaulted to WRITING:
+      any argument it did not recognise, `--help` included, fell through to
+      the write branch and silently rewrote 46 tracked practice files,
+      reverting every edit made to them since phase 1.5 -- no confirmation,
+      no diff, and the damage surfaced two steps later as an unrelated
+      doc_sync DRIFT that looked like a numbers problem. A destructive
+      DEFAULT on a spent migration tool is the dangerous shape: the safe mode
+      has to be the one you get by accident.
+
+    Run against a throwaway copy of the tracked tree, never against the real
+    one -- a check for "does this tool clobber the repo" must not be able to
+    clobber the repo while finding out.
+    """
+    import hashlib, shutil, tempfile
+    tools = sorted((ROOT / 'tools').glob('*.py'))
+    tracked = subprocess.run(['git', 'ls-files'], cwd=str(ROOT),
+                             capture_output=True, text=True)
+    if tracked.returncode != 0 or not tracked.stdout.strip():
+        not_applicable('tools answer --help without writing',
+                       'git ls-files returned nothing here, so there is no '
+                       'tracked tree to copy and compare -- not a pass')
+        return
+
+    files = [f for f in tracked.stdout.splitlines() if f]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='help-sweep-'))
+    try:
+        for rel in files:
+            src = ROOT / rel
+            if not src.is_file():
+                continue
+            dst = tmp / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+
+        def snapshot():
+            out = {}
+            for rel in files:
+                f = tmp / rel
+                if f.is_file():
+                    out[rel] = hashlib.sha256(f.read_bytes()).hexdigest()
+            return out
+
+        before = snapshot()
+        # A module with no `if __name__ == '__main__'` block is a library
+        # (tools/table_fmt.py is one): it is imported, never invoked, so
+        # "answer --help" is not a property it can have. Named here rather
+        # than quietly dropped, so the exemption stays visible.
+        libraries = [t for t in tools
+                     if "__main__" not in t.read_text(encoding='utf-8')]
+        tools = [t for t in tools if t not in libraries]
+        bad_exit, silent, not_help = [], [], []
+        for tool in tools:
+            r = subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
+                                '--help'],
+                               cwd=str(tmp), capture_output=True, text=True,
+                               timeout=120)
+            if r.returncode != 0:
+                bad_exit.append(f'{tool.name} exited {r.returncode}')
+            elif not r.stdout.strip():
+                silent.append(tool.name)
+            elif not _looks_like_help(tool, r.stdout):
+                # Exit 0 with output is NOT enough. A tool that simply
+                # ignores an unrecognised flag runs its whole normal job and
+                # exits 0, which passed every property above while answering
+                # nothing -- build_views.py did exactly that until
+                # 2026-09-06, silently regenerating MAP.md, GLOSSARY.md and
+                # AGENTS.md's block on `--help`. In THIS repo those are
+                # already current, so even the "writes nothing" property
+                # held: an identical rewrite is invisible to a hash. It was
+                # only visible in a consuming repo, where the same command
+                # would have rewritten drifted views. So the output itself
+                # has to be checked against the tool's own docstring.
+                not_help.append(tool.name)
+        after = snapshot()
+        wrote = sorted(set(before) & set(after)
+                       - {k for k in before if before[k] == after.get(k)})
+        wrote += sorted(set(after) - set(before))
+
+        check(f'every tool answers --help with exit 0 ({len(tools)} tools; '
+              f'{len(libraries)} import-only module(s) exempt: '
+              f'{", ".join(t.name for t in libraries) or "none"})',
+              not bad_exit, '; '.join(bad_exit))
+        check('every tool\'s --help actually prints something',
+              not silent, ', '.join(silent))
+        check('every tool\'s --help answers with its own usage text, rather '
+              'than running the tool',
+              not not_help, ', '.join(not_help))
+        check('no tool writes to the tree when asked for --help',
+              not wrote,
+              f'{len(wrote)} file(s) changed: ' + ', '.join(wrote[:8]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def check_machine_readable_files_parse():
@@ -6021,7 +6256,7 @@ def check_individual_source_bootstrap_self_heals():
         # here to the tool's own direct invocations instead.
         clone, config = tmp / 'clone', tmp / 'config.json'
         rc, out = run(str(bootstrap_tool), '--level', 'individual',
-                     '--name', 'harness-fixture-src', '--repo-url', source_url,
+                     '--name', 'precedent-individual', '--repo-url', source_url,
                      '--clone', str(clone), '--config', str(config),
                      '--retries', '3', '--retry-delay', '0',
                      '--remote-only', 'false')
@@ -6029,10 +6264,10 @@ def check_individual_source_bootstrap_self_heals():
                       'the first attempt',
                       rc == 0 and (clone / 'practices' / 'example.md').is_file()
                       and json.loads(config.read_text()).get('individual', {}).get('name')
-                      == 'harness-fixture-src', out))
+                      == 'precedent-individual', out))
 
         rc2, out2 = run(str(bootstrap_tool), '--level', 'individual',
-                        '--name', 'harness-fixture-src', '--repo-url', source_url,
+                        '--name', 'precedent-individual', '--repo-url', source_url,
                         '--clone', str(clone), '--config', str(config),
                         '--retries', '3', '--retry-delay', '0',
                         '--remote-only', 'false')
@@ -6042,7 +6277,7 @@ def check_individual_source_bootstrap_self_heals():
         # --- case 3: unreachable -- retries the stated number, then degrades,
         # never fails, never writes a config -------------------------------
         rc3, out3 = run(str(bootstrap_tool), '--level', 'individual',
-                        '--name', 'harness-fixture-unreachable',
+                        '--name', 'precedent-individual',
                         '--repo-url', f'file://{tmp / "does-not-exist"}',
                         '--clone', str(tmp / 'clone-unreachable'),
                         '--config', str(tmp / 'config-unreachable.json'),
@@ -6061,7 +6296,7 @@ def check_individual_source_bootstrap_self_heals():
         # default > 1 would silently reintroduce the exact wasted latency
         # this correction removed, on every cold session, for zero benefit.
         rc6, out6 = run(str(bootstrap_tool), '--level', 'individual',
-                        '--name', 'harness-fixture-unreachable-default',
+                        '--name', 'precedent-individual',
                         '--repo-url', f'file://{tmp / "does-not-exist"}',
                         '--clone', str(tmp / 'clone-unreachable-default'),
                         '--config', str(tmp / 'config-unreachable-default.json'),
@@ -6081,8 +6316,8 @@ def check_individual_source_bootstrap_self_heals():
             '#!/bin/bash\nset -uo pipefail\n'
             'if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then exit 0; fi\n'
             f'python3 "{bootstrap_tool}" --level individual '
-            f'--name harness-fixture-src --repo-url "{source_url}" '
-            '--clone "$HOME/harness-fixture-src" '
+            f'--name precedent-individual --repo-url "{source_url}" '
+            '--clone "$HOME/precedent-individual" '
             '--config "$HOME/.config/precedent/config.json" '
             '--retries 3 --retry-delay 0\n', encoding='utf-8')
         hook.chmod(0o755)
@@ -6330,10 +6565,21 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()
+    check_tools_answer_help_without_writing()
+    check_rendered_docs_are_current()
 
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

@@ -235,8 +235,52 @@ def frontmatter_text(path):
     return text[:end + 5]
 
 
+KNOWN_FLAGS = ('--check', '--write')
+
+SPENT_NOTICE = (
+    "resplit_sections is a SPENT one-shot migration: the phase-1.5 editorial\n"
+    "split landed long ago, and practices/*.md has been edited many times\n"
+    "since (slug links replacing numeric citations, new Story paragraphs,\n"
+    "whole practices added that predate no spec entry at all). Rebuilding a\n"
+    "practice body from PRACTICES.md's source text therefore REVERTS that\n"
+    "later work -- which is why --check reporting drift is the expected,\n"
+    "correct state here and not a gate anyone should turn green by\n"
+    "re-running the tool. Nothing calls this script; it is kept because\n"
+    "tools/section_split.json is the reviewable record of which text moved\n"
+    "where, and that record is only readable next to the code that applied it."
+)
+
+
 def main():
-    check = '--check' in sys.argv
+    # Writing is OPT-IN. It used to be the DEFAULT: any argv this script did
+    # not recognise -- `--help` included -- fell through to the write branch
+    # and silently rewrote 46 tracked practice files, reverting every edit
+    # made to them since phase 1.5, with no confirmation and no diff.
+    # Reproduced 2026-09-06 by a sweep that ran `--help` across every tool in
+    # tools/ to see which ones answered it; this one answered by clobbering
+    # the catalogue, and the damage surfaced two steps later as an unrelated
+    # doc_sync DRIFT. A destructive default on a spent migration tool is the
+    # dangerous shape -- the safe mode has to be the one you get by accident.
+    unknown = [a for a in sys.argv[1:] if a not in KNOWN_FLAGS]
+    if unknown:
+        sys.exit(f"resplit FAIL: unknown argument(s) {' '.join(unknown)} -- "
+                 f"known flags are {', '.join(KNOWN_FLAGS)}. Refusing to run "
+                 f"rather than falling through to a write.\n\n{SPENT_NOTICE}")
+    write = '--write' in sys.argv
+    strict = '--check' in sys.argv
+    if not write and not strict:
+        # Bare invocation REPORTS. It prints the same comparison --check
+        # prints, but exits 0, because drift here is the expected state
+        # (see SPENT_NOTICE) and a permanently-red gate is a gate nobody
+        # runs -- this repo's own inherited-audit lesson, in AGENTS.md.
+        print(SPENT_NOTICE + "\n")
+    check = not write
+    # Graceful degradation, not a crash: the editorial split lives in this data
+    # file; without it there is nothing to apply and nothing to compare.
+    if not SPEC_PATH.is_file():
+        sys.exit(f"resplit FAIL: {SPEC_PATH} is missing -- the editorial "
+                 f"split it applies lives entirely in that file, so there "
+                 f"is nothing to check or write.\n\n{SPENT_NOTICE}")
     spec = json.loads(SPEC_PATH.read_text(encoding='utf-8'))
     source_by_number = {p['number']: p
                         for p in sp.parse_catalogue(sp.CATALOGUE.read_text(encoding='utf-8'))}
@@ -253,9 +297,10 @@ def main():
                 path.write_text(new_text, encoding='utf-8')
     if check:
         if drift:
-            print(f"resplit --check FAIL: {len(drift)} practice(s) differ from the "
+            label = "--check FAIL" if strict else "report"
+            print(f"resplit {label}: {len(drift)} practice(s) differ from the "
                   f"spec in tools/section_split.json: {', '.join(drift)}")
-            return 1
+            return 1 if strict else 0
         print(f"resplit --check OK: all {len(spec)} spec'd practices match "
               f"tools/section_split.json")
         return 0
@@ -264,4 +309,7 @@ def main():
 
 
 if __name__ == '__main__':
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip() + '\n\n' + SPENT_NOTICE)
+        sys.exit(0)
     sys.exit(main())

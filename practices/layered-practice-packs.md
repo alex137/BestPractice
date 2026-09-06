@@ -7,7 +7,7 @@ applies_to:  ["practices/**", "PRACTICES.md", "precedent.json"]
 occasion:    "deciding where a new rule belongs"
 gates:       []
 index_clause: "generic, domain, repo-local \u2014 each rule to its own layer"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     ["practice pack"]
 status:      active
 supersedes:  []

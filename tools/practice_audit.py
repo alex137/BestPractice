@@ -262,6 +262,11 @@ def audit(update=False, only=None):
 
 if __name__ == '__main__':
     args = sys.argv[1:]
+    # `--help` is what anyone types first; before 2026-09-06 this ran the
+    # whole audit instead of answering. The module docstring is the usage.
+    if any(a in ('--help', '-h') for a in args):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     only = None
     if '--manifest' in args:
         only = args[args.index('--manifest') + 1]

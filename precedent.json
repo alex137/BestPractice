@@ -28,7 +28,8 @@
     "-- AGENTS.md's hand-authored 'Working in this repo' section carries",
     "the rule directly for that reason. See local/practices/ and",
     "PRACTICE_ENGINE_PLAN.md's 'Source' section for the path: \"local\"",
-    "convention this follows."
+    "convention this follows. Its NAME is fixed to \"local\" by the same",
+    "convention -- see spec/SOURCE_NAMING.md and practices/source-naming.md."
   ],
   "sources": [
     {
@@ -43,7 +44,7 @@
     },
     {
       "level": "repo-local",
-      "name": "bestpractice-local",
+      "name": "local",
       "path": "local"
     }
   ]

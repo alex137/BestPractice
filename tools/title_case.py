@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """title_case.py — headline capitalization for markdown headings.
 
-Applies (--write) or checks (--check, the default) New York Times headline
+Checks (bare, the default) or applies (--write) New York Times headline
 capitalization on every ATX heading in the files given, or in documentation/
 when none are named.
 
@@ -128,6 +128,17 @@ def process(path: pathlib.Path, write: bool):
 
 def main():
     args = [a for a in sys.argv[1:]]
+    if "--help" in args or "-h" in args:
+        print(__doc__.strip())
+        print("\nRun:\n"
+              "  python3 tools/title_case.py [FILE ...]"
+              "           # check; exit 1 on any wrong heading\n"
+              "  python3 tools/title_case.py --write [FILE ...]"
+              "   # rewrite them in place\n"
+              "  python3 tools/title_case.py --json [FILE ...]"
+              "    # report as JSON\n"
+              "\nWith no FILE, every markdown file in documentation/.")
+        return 0
     write = "--write" in args
     as_json = "--json" in args
     paths = [pathlib.Path(a) for a in args if not a.startswith("--")]

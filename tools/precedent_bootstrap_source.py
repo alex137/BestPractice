@@ -57,6 +57,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_resolve
 import precedent_vendor_engine
 
 LEVELS = {'individual', 'team'}
@@ -368,6 +369,14 @@ def write_repo_config(repo_config_dir, name, dest, force=False):
 
 
 def _parse_args(argv):
+    # `--help` is the first thing anyone types, and until 2026-09-06 every
+    # tool here answered it with "FAIL: expected --flag value pairs, stuck at
+    # '--help'" -- a hard error, on the exact command documentation/ tells a
+    # new reader to run. The module docstring is already the usage text; print
+    # it and exit 0.
+    if any(a in ('--help', '-h') for a in argv):
+        print((sys.modules['__main__'].__doc__ or __doc__ or '').strip())
+        raise SystemExit(0)
     args = {}
     i = 0
     while i < len(argv):
@@ -388,6 +397,15 @@ def main():
     if level not in LEVELS or not name or not dest:
         sys.exit("precedent_bootstrap_source FAIL: --level "
                   f"({sorted(LEVELS)}), --name NAME and --dest PATH are all required")
+
+    # practice: source-naming -- this tool is where a person's chosen name
+    # first becomes a real repository, so it is the last place a wrong one is
+    # cheap to fix. Refuse here rather than at resolve time, when the
+    # repository already exists and renaming it breaks references.
+    try:
+        precedent_resolve.check_source_name(level, name, '--name')
+    except precedent_resolve.ResolveError as e:
+        sys.exit(f"precedent_bootstrap_source FAIL: {e}")
 
     force = args.get('--force', 'false').lower() == 'true'
     approvers = _parse_approvers(args['--approver']) if args.get('--approver') else []

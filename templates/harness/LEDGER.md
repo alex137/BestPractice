@@ -54,5 +54,5 @@ first commit; `f2078d6` predates the ledger file itself by five weeks
 and was never a repository root, so nothing had excluded it. Backfilled
 by row instead of by changing the check's exemption logic — whether to
 also exempt each family's own inception commit mechanically is tracked as
-[TODO.md](../../TODO.md) item 18, a separate, smaller follow-up not
+[TODO.md's `ledger-root-commit-exemption` item](../../TODO.md#ledger-root-commit-exemption), a separate, smaller follow-up not
 folded into this fix.

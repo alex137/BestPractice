@@ -622,6 +622,43 @@ def _generated_artifact_provenance(ctx):
     return out
 
 
+@check('source-naming', 'tree',
+       "every precedent.json in the tree names each source by the shape its "
+       "level fixes -- `precedent`, `precedent-individual`, "
+       "`precedent-team-<slug>`, `local`",
+       'the GitHub repository names themselves, and whether a team slug names '
+       'a purpose rather than a roster. It sees declared names in tracked '
+       'configuration, which is the layer a check can reach; the rest of the '
+       'practice is disclosure, carried by the occasion index.')
+def _source_naming(ctx):
+    out = []
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as pr
+    for cfg in sorted(ROOT.rglob('precedent.json')):
+        if '.git' in cfg.parts:
+            continue
+        rel = cfg.relative_to(ROOT).as_posix()
+        try:
+            data = json.loads(cfg.read_text(encoding='utf-8'))
+        except json.JSONDecodeError as e:
+            out.append(Finding(rel, f'is not valid JSON ({e})'))
+            continue
+        for entry in data.get('sources', []):
+            level, name = entry.get('level'), entry.get('name')
+            shape = pr.SOURCE_NAME_SHAPE.get(level)
+            if shape is None:
+                continue
+            pattern, expected = shape
+            # The one regular expression per level lives in the resolver, so
+            # the gate and the engine cannot disagree about the convention.
+            if not (isinstance(name, str) and pattern.match(name)):
+                out.append(Finding(
+                    rel, f'names its {level} source {name!r}; a {level} '
+                         f'source is named {expected} -- fixed by its level, '
+                         f'not chosen (spec/SOURCE_NAMING.md)'))
+    return out
+
+
 @check('orientation-map', 'tree',
        'MAP.md exists at the repository root, is not empty, and the session '
        'instructions point at it',
@@ -646,6 +683,124 @@ def _orientation_map(ctx):
 QUICK_INDEX_HEADER_RE = re.compile(
     r'^\|[^|\n]*\b(looking for|want to find|where things are|need)\b[^|\n]*\|',
     re.I | re.M)
+
+
+@check('layered-practice-packs', 'tree',
+       'every practice in force in this repo is reachable by at least one '
+       'loading channel here -- resident, occasion index, a path trigger, a '
+       'gate, or a running check',
+       'whether a reachable practice is actually FOLLOWED, and whether a '
+       'practice that is unreachable here SHOULD bind this repo at all. It '
+       'reports the gap; closing it is either wiring the practice in or '
+       'saying out loud that it does not apply, and only a person can pick.',
+       advisory=True)
+def _practice_is_reachable(ctx):
+    """A rule nothing can load is not in force; it is filed.
+
+    `precedent.json` declaring a source is a claim that its practices bind
+    work here. Four channels can make good on that claim -- the resident
+    block, the occasion index, a path trigger, and an enforced check (plus
+    gates, which fire at a moment). A practice that none of them reaches is
+    a rule nobody will ever be shown, in a repo that says it is in force:
+    the config and the loader disagree, and the config is the one that
+    reads as authoritative.
+
+    Measured here on 2026-09-06: 30 of 114 practices in force in Precedent's
+    own repo were reachable by nothing at all -- 27 from the team source and
+    3 from the individual one. Both are genuinely declared in
+    `precedent.json` and in the user-level config; neither reaches
+    `AGENTS.md`'s generated block, because `build_views.py` deliberately
+    stays single-source here, and neither reaches the enforced channel,
+    because `register_materialized_checks()` can only see scripts that were
+    materialized -- and Precedent cannot materialize into itself.
+
+    ADVISORY, deliberately, to the bar this module sets for that (see
+    parallel-artifact-ledger's own note): the remedy is an architectural
+    decision -- wire the sources into this repo's generated views, or state
+    per practice that it does not bind here -- and running the same 15
+    source checks against this tree showed the answer is not simply "turn
+    them all on": five pass, four report real findings, and six report
+    things this repo cannot act on because the practice is about a
+    different kind of repository. Failing the gate would leave it red until
+    somebody makes that call, and a permanently red gate is a gate nobody
+    runs, which is this repo's own documented lesson.
+
+    A source that does not RESOLVE in this environment is skipped, never
+    reported -- a team source is a sibling clone and an individual source
+    resolves through a private user-level config, so neither exists in a
+    bare CI checkout, and their absence there is not evidence of anything.
+    """
+    try:
+        import precedent_resolve as pr
+    except Exception as e:
+        raise NotApplicable(f'precedent_resolve.py did not import ({e}), so '
+                            f'the set of practices in force cannot be read')
+    try:
+        sources = pr.load_config(ROOT)
+    except Exception as e:
+        raise NotApplicable(f'this repo declares no readable source set ({e})')
+
+    name, instructions = _instructions_file()
+    if not instructions:
+        raise NotApplicable('this repo has no instructions file, so it has no '
+                            'resident block or occasion index to be reachable '
+                            'through')
+
+    reachable_names = set()
+    for d in ((ROOT / 'tools').joinpath('checks'),
+              (ROOT / 'local').joinpath('tools', 'checks')):
+        if d.is_dir():
+            reachable_names |= {f.name for f in d.glob('check_*.py')}
+
+    in_force, unreachable, unresolved = {}, [], []
+    for s in sources:
+        d = pathlib.Path(s['path']) / 'practices'
+        if not d.is_dir():
+            unresolved.append(f"{s['level']}/{s['name']}")
+            continue
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sections = sp._read_practice_file(f)
+            except Exception:
+                continue
+            if (fm.get('status') or 'active').strip('" ') != 'active':
+                continue
+            in_force.setdefault(fm.get('slug', f.stem), (fm, s))
+
+    # Word-boundary, not substring: a slug like `install` or `doc-recipe`
+    # matches ordinary prose everywhere as a substring, and every one of those
+    # would have counted as "reachable" -- the check would then under-report
+    # exactly the practices whose names are common words.
+    named = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)+', instructions))
+    for slug, (fm, s) in sorted(in_force.items()):
+        if slug in named:
+            continue                       # resident block or occasion index
+        if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
+            continue                       # fires at a named moment
+        cb = (fm.get('checked_by') or 'null').strip('" ')
+        if cb and cb != 'null':
+            # A check only counts if something here can RUN it.
+            if pathlib.Path(cb).name in reachable_names or (ROOT / cb).is_file():
+                continue
+        unreachable.append((slug, s['level'], s['name']))
+
+    if not in_force:
+        raise NotApplicable('no practice resolved from any declared source, '
+                            'so there is nothing to judge reachability for')
+
+    out = []
+    for slug, level, src in unreachable:
+        out.append(Finding(
+            f'{level}/{src}',
+            f'{slug} is in force here but reachable by no channel: not in '
+            f'{name}, no gate, and no check this repo can run. Either wire '
+            f'it in, or say in the source that it does not bind this repo'))
+    if out:
+        print(f'  ({len(unreachable)} of {len(in_force)} practices in force '
+              f'are reachable by nothing here'
+              + (f'; {", ".join(unresolved)} did not resolve and were not '
+                 f'judged)' if unresolved else ')'))
+    return out
 
 
 @check('quick-index', 'tree',
@@ -1715,7 +1870,18 @@ def _docs_track_models(ctx):
         import doc_sync
     except Exception as e:
         raise NotApplicable(f'tools/doc_sync.py did not import: {e}')
-    owned = [f for _d, _n, s in doc_sync.PAIRS for f in doc_sync.owned_figures(s)]
+    try:
+        owned = [f for _d, _n, s in doc_sync.PAIRS
+                 for f in doc_sync.owned_figures(s)]
+    except doc_sync.OwnedFiguresUnavailable as e:
+        # A vendored copy carries UPSTREAM's PAIRS, naming scripts this repo
+        # never vendored -- so the import genuinely cannot happen here, and
+        # that is a not-configured-yet fact about the copy, not a defect in
+        # this repo. Distinct from an import that fails where the script IS
+        # present, which doc_sync itself fails the gate on.
+        raise NotApplicable(
+            f'{e} -- if this is a vendored copy, replace PAIRS in '
+            f'tools/doc_sync.py with this repo\'s own pairs')
     if not owned:
         raise NotApplicable('no script declares an owned figure '
                             '(owned_figures()), so no restatement can be '
@@ -2225,4 +2391,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

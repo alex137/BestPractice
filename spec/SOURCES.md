@@ -61,6 +61,43 @@ is the shortcut the plan forbids, and the leak gate refuses it by path. A
 check whose setup requires switching off another check is a check that ends
 up switching it off.
 
+## Naming
+
+A source's name is fixed by its level, not chosen:
+
+| Level | Name | Where it lives |
+|---|---|---|
+| Universal | `precedent` — no prefix; it is the product, not a set | [alex137/BestPractice](https://github.com/alex137/BestPractice) |
+| Individual | `precedent-individual`, identical in every person's own account | a private repository in that person's account |
+| Team | `precedent-team-<slug>`, slug lowercase and hyphenated | a private repository the team owns |
+| Repo-local | `local`, matching its fixed `path` | the consuming repo's own `local/` directory |
+
+Three reasons, in the order they bite. The `precedent-` prefix makes practice
+sets cluster in a repository listing, and lets tooling find them by pattern
+instead of by configuration. The owner is never repeated in the name, because
+the account already namespaces it — `themorgan/precedent-individual` is
+unambiguous, and every person's set carrying the same name in their own
+account is what keeps the tooling simple. A team is named for its **purpose**,
+never its roster: `precedent-team-morgan-alex` is stale the moment a third
+person joins, and renaming a set breaks every vendored reference to it.
+
+[tools/precedent_resolve.py](../tools/precedent_resolve.py)'s `load_config`
+refuses a `name` that does not match its level's shape, and warns — never
+refuses — when a source's name and the basename of its `path` disagree, since
+a continuous integration checkout or a git worktree can legitimately put a
+conforming source in a differently-named directory.
+[tools/precedent_check.py](../tools/precedent_check.py) checks every
+`precedent.json` in the tree, shipped templates included.
+
+Neither reaches the moment that actually decides a name: a person creating a
+repository, minutes before any of this runs.
+[practices/source-naming.md](../practices/source-naming.md) therefore also
+requires a session to **state the convention** when importing, creating, or
+attaching a practice-holding repository comes up — before a name is picked,
+not after. [spec/SOURCE_NAMING.md](SOURCE_NAMING.md) carries the reasoning,
+the four distinct name layers and why they are enforced differently, and the
+decisions taken.
+
 ## What phase 3 did not do, and why it could not be done from here
 
 **The two private sets exist but are still empty.** The plan's phase-3 item 1

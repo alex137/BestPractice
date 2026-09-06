@@ -4,7 +4,14 @@ Dependent repos keep their own TODO.md (from
 [templates/TODO.md.template](templates/TODO.md.template)); this one tracks
 the upstream layer. Ordered by priority.
 
-1. **Lean further into GitHub Actions as the enforcement layer.** The
+**Cite an item by its anchor, never by its number.** Every item carries an
+`<a id="...">` slug; the visible number is reading-order furniture that
+shifts whenever anything is added, reordered, or struck through. Three
+documents had already cited items as "TODO.md item N" (found 2026-09-06),
+which is the failure this repointing exists to end — write
+`[TODO.md's \`slug\` item](TODO.md#slug)` instead.
+
+1. <a id="actions-as-enforcement-layer"></a>**Lean further into GitHub Actions as the enforcement layer.** The
    markdown-lint workflow ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)) proves
    the pattern: checks run in CI, so they bind every contributor — human,
    Claude Code, ChatGPT, anyone — regardless of whether the agent has a
@@ -17,34 +24,34 @@ the upstream layer. Ordered by priority.
    audits — never ran, and every commit landed authored as the agent.
    Runbook gates bind only sessions that run the runbook; required CI
    checks bind every path to the default branch.
-2. **Evaluate GitHub Issues for open items.** Mirroring or replacing
+2. <a id="github-issues-for-open-items"></a>**Evaluate GitHub Issues for open items.** Mirroring or replacing
    TODO-file items with Issues would let shell-less assistants and phone
    users browse, discuss, and close work items natively. Needs a
    convention for keeping Issues and the repo-is-the-memory principle
    consistent (an Issue is not on `main`).
-3. **Re-verify plain-ChatGPT write support.** As of 2026-08,
+3. <a id="plain-chatgpt-write-support"></a>**Re-verify plain-ChatGPT write support.** As of 2026-08,
    [MOBILE.md](MOBILE.md) treats writing (branches, file updates, PRs)
    from a plain GitHub-connected ChatGPT conversation as not reliably
    available and documents a split workflow instead. Re-test when
    OpenAI's connector capabilities change, and update MOBILE.md either
    way.
-4. **Verify a Grok workflow.** Untested as of 2026-08 — see
+4. <a id="grok-workflow"></a>**Verify a Grok workflow.** Untested as of 2026-08 — see
    [MOBILE.md](MOBILE.md). If Grok gains repository access, the universal
    starting instruction should apply unchanged; verify and document.
-5. **Companion mobile app, if the Shortcut proves insufficient.** The
+5. <a id="companion-mobile-app"></a>**Companion mobile app, if the Shortcut proves insufficient.** The
    iPhone Shortcut and text-replacement setups in
    [MOBILE.md](MOBILE.md) approximate a Claude-Code-like entry point for
    ChatGPT users without custom development. If they prove too clumsy in
    practice, a small companion app (pick repo → type task → open
    assistant with the bootstrap prompt) is the next step — noting that
    this is real app development, not documentation.
-6. **Out-of-chat change notifications for members.** In-chat catch-up is
+6. <a id="out-of-chat-notifications"></a>**Out-of-chat change notifications for members.** In-chat catch-up is
    now a convention (the instructions template's session-start
    catch-up), but a member who hasn't opened a session learns nothing.
    Evaluate a GitHub Actions job that emails a plain-language digest of
    merged changes (or leans on GitHub's built-in Watch notifications,
    documented in the members' page) — as of 2026-08, unexplored.
-7. **Define what happens when a consumer repo imports multiple `team`
+7. <a id="multiple-team-sources-disagree"></a>**Define what happens when a consumer repo imports multiple `team`
    sources that disagree.** See PRACTICE_ENGINE_PLAN.md's `## Deferred`
    section (added 2026-09-03, alongside that session's precedence reorder)
    for the detail — not duplicated here. **Half-closed 2026-09-06**: the
@@ -62,7 +69,7 @@ the upstream layer. Ordered by priority.
    one. Revisit when a real multi-team-import case appears — a second team
    set now exists (`precedent-team-tms`, 2026-09-05), so that is closer
    than it was.
-8. **Reduce GitHub dependency when ready.** The layer itself is plain git
+8. <a id="reduce-github-dependency"></a>**Reduce GitHub dependency when ready.** The layer itself is plain git
    + markdown + Python; GitHub specifics are the worked examples (PRs,
    Actions, Issues, branch rulesets). When priorities allow, document
    Gitea equivalents (Gitea Actions is workflow-compatible; Issues and
@@ -70,11 +77,10 @@ the upstream layer. Ordered by priority.
    losing the practices. Deliberately below the Actions/Issues items
    above: deeper GitHub integration now is acceptable, since equivalents
    can be added later.
-9. ~~**The pre-fork catalogue audit table.**~~ **Done (2026-09-03).** One
-   row per inherited practice, verdict against this plan's architecture,
+9. <a id="prefork-catalogue-audit-table"></a>~~**The pre-fork catalogue audit table.**~~ **Done (2026-09-03).** One   row per inherited practice, verdict against this plan's architecture,
    plus whether Alex needs to hear about it:
    [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md).
-10. **`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
+10. <a id="individual-practice-scoping"></a>**`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
     in [PRACTICE_ENGINE_PLAN.md's Deferred section](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet),
     correctly not built yet. **No longer blocked** (noted 2026-09-06): the
     stated blocker was "a real second team's private set existing to test
@@ -82,7 +88,7 @@ the upstream layer. Ordered by priority.
     existed since 2026-09-05. It is now an ordinary open item — build it
     when it is worth building, and don't re-derive the design judgment,
     which is already made.
-11. **Confirm `additionalContext` actually reaches the model, not just the
+11. <a id="additionalcontext-reaches-the-model"></a>**Confirm `additionalContext` actually reaches the model, not just the
     transcript.** The new `PreToolUse` hook
     ([templates/harness/claude-code/hooks/precedent-paths.sh](templates/harness/claude-code/hooks/precedent-paths.sh),
     [`spec/LOADER.md`](spec/LOADER.md#the-pretooluse-hook-and-what-is-confirmed-versus-assumed))
@@ -104,11 +110,10 @@ the upstream layer. Ordered by priority.
     negative result (the session never mentions the practice across
     several such edits) is itself the answer, and should be recorded here
     either way rather than left unconfirmed indefinitely.
-12. ~~**Investigate why `routing-audit` fell through, audit the plan for
-    other silent drops.**~~ **Part 1 done (2026-09-04)** — root cause and
+12. <a id="routing-audit-silent-drop"></a>~~**Investigate why `routing-audit` fell through, audit the plan for    other silent drops.**~~ **Part 1 done (2026-09-04)** — root cause and
     scan for other drops in
     [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s "Part 1,
-    answered" section; the one adjacent gap it found is item 17 below.
+    answered" section; the one adjacent gap it found is [`wire-the-very-deep-check-list`](#wire-the-very-deep-check-list) below.
     **Part 2 (pre-register and run a real evaluation of the two new audit
     mechanisms before trusting their output) is pre-registered and run
     twice** —
@@ -126,7 +131,7 @@ the upstream layer. Ordered by priority.
     that two 6-case runs are a stronger signal than one but still not a
     replacement for the routing eval's fuller multi-run discipline, if this
     ever needs to be trusted at higher stakes than an on-demand backstop.
-13. **Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
+13. <a id="retire-merge-target-practice"></a>**Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
     (and its check at
     [local/tools/checks/check_merge_target_is_beta_branch.py](local/tools/checks/check_merge_target_is_beta_branch.py),
     and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the
@@ -140,7 +145,7 @@ the upstream layer. Ordered by priority.
     the shared engine.) **Blocked on:** Alex's review
     and approval of `precedent-beta-v01` for the real phase-7 merge into
     `main` — not something to anticipate or do early.
-14. **Run the non-technical-contributor access plan for real.**
+14. <a id="nontechnical-contributor-access"></a>**Run the non-technical-contributor access plan for real.**
     [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
     is drafted but not executed — it doubles as item 9's neighbor,
     [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s still-open item 4 (the
@@ -148,8 +153,7 @@ the upstream layer. Ordered by priority.
     person and repo to run it against, and Morgan adding the GitHub
     collaborator role by hand (no tool in this repo's GitHub toolset
     creates a collaborator invite).
-15. ~~**Build the team practice repo and reusable document-project template
-    for non-technical document work.**~~ **Done (2026-09-05)** —
+15. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for non-technical document work.**~~ **Done (2026-09-05)** —
     [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
     Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per
     [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) (empty of
@@ -158,15 +162,14 @@ the upstream layer. Ordered by priority.
     [templates/nontechnical-document-project/](templates/nontechnical-document-project/)
     added here. Step 3 (the plan's own boundary) deliberately not done — see
     item 16.
-16. **Run the document-project pilot once Morgan has a real first
+16. <a id="document-project-pilot"></a>**Run the document-project pilot once Morgan has a real first
     project.** Item 15 no longer blocks this — the template and team repo
     are real. Deliberately not planned further than that: see
     [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
     "Sequencing" section for why a pilot project and person are not invented
     ahead of a real one existing. **Blocked on:** a real subject and a real
     person, neither of which exists yet.
-17. ~~**Enumerate and wire the inherited RPP "very deep check" audit list as
-    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
+17. <a id="wire-the-very-deep-check-list"></a>~~**Enumerate and wire the inherited RPP "very deep check" audit list as    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
     [RepoPersonalPreferences](https://github.com/themorgan/RepoPersonalPreferences)
     answered the redundancy question first: `full-practice-audit` asks,
     practice by practice, "is this Rule satisfied" — a closed question
@@ -189,8 +192,7 @@ the upstream layer. Ordered by priority.
     `precedent-team-maintainers`'s own `deep-check` (a team-level call, not
     decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
     "Part 1, answered" section.
-18. ~~**`parallel-artifact-ledger`'s root-commit exemption doesn't cover a
-    family's own inception commit.**~~ Found 2026-09-05: `_parallel_artifact_ledger`
+18. <a id="ledger-root-commit-exemption"></a>~~**`parallel-artifact-ledger`'s root-commit exemption doesn't cover a    family's own inception commit.**~~ Found 2026-09-05: `_parallel_artifact_ledger`
     in [tools/precedent_check.py](tools/precedent_check.py) excludes the
     *repository's* root commit (`git rev-list --max-parents=0`) from needing
     a ledger row, but not the commit that first created a given family's
@@ -209,8 +211,7 @@ the upstream layer. Ordered by priority.
     the harness case that proves the check fires gained a fourth stated case
     for the exemption, and a planted removal of a genuine later change still
     fails, so the exemption did not widen into a hole.
-19. ~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows
-    its diagnostic output — a GitHub Actions log-capture anomaly, currently
+19. <a id="ledger-ci-step-invisible"></a>~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows    its diagnostic output — a GitHub Actions log-capture anomaly, currently
     working around it by making the check advisory-only.**~~ **Done
     (2026-09-06)** — there was no log-capture anomaly and no false positive.
     [verify_harness.py](tools/verify_harness.py) (CI step 5) invoked a
@@ -256,8 +257,7 @@ the upstream layer. Ordered by priority.
     why [`dfe504d`](https://github.com/alex137/BestPractice/commit/dfe504d)'s
     ledger row has to land in the same merge, as it does.
 
-20. ~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable
-    materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
+20. <a id="gate-and-paths-unreachable-source"></a>~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable    materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
     **Done (2026-09-06).** Both read `practices/*.md` directly via
     `split_practices._read_practice_file` rather than shelling out to
     `precedent_show.py` (confirmed by grep, not assumed), so the
@@ -287,8 +287,7 @@ the upstream layer. Ordered by priority.
     the gate and path channels, alongside the pre-existing
     `precedent_show.py` cases) — all 12 pass.
 
-21. ~~**A materialized practice's relative links are dead in the consuming
-    repo.**~~ **Done (2026-09-06.)** Every consuming repo was shipping ≈60
+21. <a id="materialized-links-dead"></a>~~**A materialized practice's relative links are dead in the consuming    repo.**~~ **Done (2026-09-06.)** Every consuming repo was shipping ≈60
     practice files whose internal links resolved to nothing:
     [tools/precedent_materialize.py](tools/precedent_materialize.py) copied
     practice bytes verbatim, so `../tools/very_deep_check.py` and
@@ -307,18 +306,90 @@ the upstream layer. Ordered by priority.
     own light check has dropped the exemption it needed to stay green, and
     its test case for that path now requires a finding instead of silence.
 
-22. **Sweep the team and individual sets' judgment-only practices.**
+22. <a id="sweep-judgment-only-practices"></a>**Sweep the team and individual sets' judgment-only practices.**
     [tools/full_practice_audit.py](tools/full_practice_audit.py) reports 49
     judgment-only practices across the three sources. The 2026-09-06
     pre-launch audit judged the universal slice's highest-yield ones and
-    fixed what they found; the 39 team-level and the individual ones are
-    untouched. **Blocked on:** nothing but session budget — take them one
+    fixed what they found. **Partially swept 2026-09-06** (second pass, see
+    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md)'s "The judgment-only
+    sweep, partially done"): `fail-gracefully` produced seven real fixes and
+    `durable-list-anchors` one; `branch-links`, `rule-links`,
+    `blank-blocklist`, `install`, `quiet-checks` and
+    `registry-source-of-truth` came back clean. **Roughly 45 remain** —
+    mostly moment-of-work practices with no standing repo state to sweep,
+    and editorial ones that need a reader rather than a script. **Blocked
+    on:** nothing but session budget — take them one
     at a time, with the closed question
     [practices/full-practice-audit.md](practices/full-practice-audit.md)
     names, in a session with those repos attached. Full context:
     [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md).
 
-23. **Check the two private sets for a duplicate headline-capitalization
+23. <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
+    `precedent-team-maintainers`' own `deep-check`.**
+    [practices/very-deep-check.md](practices/very-deep-check.md) was
+    restructured 2026-09-06 from one drift checklist into four ordered
+    passes — adopter installs, whether the mechanisms tell the truth, the
+    coherence read, then catalogue and housekeeping — with the run made
+    resumable via [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md). The
+    team set's `deep-check` is the same inherited list one generation back,
+    so it now states an older, narrower version of the same rule: it should
+    either adopt the passes, or point at this practice via `overrides:` and
+    stop restating it. That call was already open (item 17 above records it
+    as the team's own to make); this restructure is what makes leaving it
+    open cost something. **Blocked on:** an explicit instruction, not
+    availability — the source was attached in the session that made this
+    change, whose ask was scoped to BestPractice's `precedent-beta-v01`
+    alone. Any session with `precedent-team-maintainers` attached and a
+    mandate to touch it can close this.
+
+24. **Check the consumer repos' own source names against the convention.**
+    [practices/source-naming.md](practices/source-naming.md) makes a
+    source's name a refusal in
+    [tools/precedent_resolve.py](tools/precedent_resolve.py), not a
+    recommendation, so a consumer repo whose `precedent.json` names a source
+    any other way stops resolving the moment it refreshes its vendored
+    engine. Every source attached to the session that landed this —
+    `precedent-individual`, `precedent-team-maintainers`,
+    `precedent-team-tms` — already conforms, and none of them declares a
+    `precedent.json` of its own. `themorgan/HavrutaBrainstorm` does declare
+    one and was not attached. **Blocked on:** a session with that repository
+    attached. What it needs: read its `precedent.json`, and if a source name
+    does not match its level's shape, fix the name in the same change that
+    refreshes its vendored engine — never one without the other.
+25. <a id="unreachable-practices"></a>**Decide what happens to a practice that
+    is in force but does not bind the repo it reached.** Measured 2026-09-06:
+    of the 114 practices in force in this repo, **43 are reachable by no
+    loading channel at all** — not resident, not in the occasion index, no
+    gate, no runnable check. `layered-practice-packs`' new check in
+    [tools/precedent_check.py](tools/precedent_check.py) reports them on every
+    run, advisory, and
+    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md)'s "Rules in force that
+    nothing can load" has the measurement and the evidence. The reason it is
+    advisory rather than blocking is the finding itself: running all fifteen
+    source-supplied checks against this tree shows the answer is not "turn
+    them all on" — five pass, four report real findings worth fixing, and
+    **six report things this repo cannot act on because the practice is about
+    a different kind of repository** (a repo one person authors alone, or the
+    team set's own shipped content; `session-trailer` wants a trailer on every
+    commit in a history [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)
+    forbids rewriting). The system has no vocabulary for "in force at this
+    level, does not bind this repo," so silence is doing that job — which is
+    why a forgotten rule and a deliberately-inapplicable one look identical.
+    **Blocked on:** a design decision that is Morgan's, not a session's. Three
+    shapes to choose between: a per-practice `binds:` / `not_in_repos:` field
+    the resolver honors; a per-repo opt-out list in `precedent.json`; or
+    making this repo's generated views multi-source so the 34 team practices
+    load here and the misfits get retired or moved instead. Whichever is
+    picked, the advisory check is already the thing that will say when it is
+    done. A worked example of the cost, 2026-09-06: Morgan asked why
+    `documentation/` was not following a headline-capitalization rule he
+    believed existed. It may well exist in a private set; it could not
+    have fired either way, because this repo's generated views are
+    universal-only. The rule was landed at the universal level instead
+    ([practices/headline-capitalization.md](practices/headline-capitalization.md)),
+    which sidesteps the question for one rule without answering it.
+
+26. **Check the two private sets for a duplicate headline-capitalization
     rule, and delete it there.** The practice now lives at the universal
     level — [practices/headline-capitalization.md](practices/headline-capitalization.md),
     with its rules defined once in
@@ -337,7 +408,7 @@ the upstream layer. Ordered by priority.
     add once a session holds `alex137` repos, and the GitHub read tools
     refuse the same repos, so it must be a session started against them.
 
-24. **BestPractice never instantiated the individual-source bootstrap hook
+27. **BestPractice never instantiated the individual-source bootstrap hook
     it ships to every other adopter.**
     [tools/precedent_resolve.py](tools/precedent_resolve.py) self-heals a
     missing individual source by re-invoking
@@ -357,7 +428,7 @@ the upstream layer. Ordered by priority.
     that can reach the individual repo, since the instantiated hook names
     it and an untested session-start hook must not be committed blind.
 
-25. **A missing individual source is silent; a missing team source is
+28. **A missing individual source is silent; a missing team source is
     loud.** In `load_config`, a team source that fails to resolve is
     reported through `missing` and printed. An individual source whose
     user-level config is absent is simply never appended to `sources` —
@@ -370,24 +441,7 @@ the upstream layer. Ordered by priority.
     `tools/precedent_resolve.py` plus a harness case. Not done here only
     because it is a separate defect from the work in this thread.
 
-26. **This repo's own loader is universal-only, so no team or individual
-    practice can ever fire in a BestPractice session.**
-    [tools/build_views.py](tools/build_views.py) builds the AGENTS.md
-    resident block and occasion index from the universal catalogue alone.
-    [precedent.json](precedent.json)'s own comment records this as
-    deliberate ("build_views.py deliberately stays single-source"), and it
-    is defensible for a repo that publishes the universal set — but the
-    consequence was not written down anywhere a session would find it:
-    `precedent-team-maintainers` is a *declared* source whose practices
-    cannot reach the channel a session actually reads. That is how a real
-    rule went unapplied on 2026-09-06 (see item 23). Decide and record
-    which it is: fold the team source into this repo's generated loader,
-    or state plainly in AGENTS.md that team and individual practices do
-    not load here and must be consulted with `precedent_resolve.py`.
-    **Blocked on:** nothing but the decision, which is Morgan's and
-    Alex's rather than a session's.
-
-27. **Audit the RepoPersonalPreferences migration for anything else lost.**
+29. **Audit the RepoPersonalPreferences migration for anything else lost.**
     RPP's 46 rules were split into the two private sets on 2026-09-01
     (closing phase 3 — [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)
     is the procedure). No per-rule ledger of that split exists anywhere in

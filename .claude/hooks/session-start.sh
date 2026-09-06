@@ -13,6 +13,29 @@ fi
 pip install --quiet cmarkgfm markdown 2>/dev/null || \
   echo "WARN: pip install failed - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py all degrade" >&2
 
+# Repair a single-branch clone's refspec before anything tries to fetch.
+# A repository attached mid-session (Claude Code's `add_repo`, and any
+# `git clone --single-branch`) is handed exactly one refspec --
+# `+refs/heads/main:refs/remotes/origin/main`. Push a feature branch from
+# such a clone and the push genuinely succeeds, but no `origin/<branch>`
+# ref is ever written, so every later `git rev-list origin/<branch>..HEAD`
+# fails to resolve and the branch reads as "unpushed, no remote
+# counterpart" forever -- including to a Stop hook that then blocks the
+# turn. Seen 2026-09-06 on two consumer repos whose work was already
+# safely on GitHub; the honest-looking remedy (push again) changes
+# nothing, because the push was never the problem.
+#
+# Widening the refspec is local config only: it adds no commits, moves no
+# refs, and re-running it is a no-op. Doing it here means the freshness
+# block below can actually resolve origin/<branch> on a feature branch,
+# which on a single-branch clone it silently could not.
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  if ! git config --get-all remote.origin.fetch 2>/dev/null | grep -q 'refs/heads/\*'; then
+    git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null && \
+      echo "NOTE: this clone fetched only one branch; widened remote.origin.fetch so other branches resolve. (See AGENTS.md gotchas: a single-branch clone makes every other branch read as 'unpushed' forever.)" >&2
+  fi
+fi
+
 # Verify the local checkout actually matches origin before any work starts.
 # See AGENTS.md's gotchas section for the incident: a session's local branch
 # had ZERO commits in common with origin -- 51 real commits invisible, no

@@ -67,6 +67,21 @@ it applies.
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
    upstream commit hash you copied from (used by updates, step 2).
+   **Skip [evals/](evals/)** — it is Precedent's own routing-quality
+   measurement corpus (the fixtures behind
+   [spec/LOADER.md](spec/LOADER.md)'s recall and precision figures), it
+   answers a question about *building* Precedent rather than using it, and
+   nothing a consumer runs reads any of it. It is most of what a consumer
+   was otherwise copying; run
+   `python3 tools/checkin.py not-vendored` for the share against the tree in
+   front of you rather than trusting a figure typed here, which goes stale
+   the week it is written. **Nothing about this skips a practice** — every
+   file under `practices/` still vendors; this is measurement fixtures only.
+   [tools/checkin.py](tools/checkin.py) excludes the same directory from
+   its drift comparison, so an install that skips it is not reported as
+   having drifted, and an existing install that already carries a copy is
+   not either — deleting that stale copy is a re-vendor, not something the
+   tooling reaches in and does.
 2. **Instantiate the templates** (adaptive — rewrite with the repo's actual
    subject matter, don't copy verbatim):
    - `templates/AGENTS.md.template` → `AGENTS.md` at the repo root: the
@@ -250,10 +265,19 @@ it applies.
      {
        "sources": [
          {"level": "universal", "name": "precedent", "path": "process/upstream"},
-         {"level": "team", "name": "<their repo's name>", "path": "../<their repo's name>"}
+         {"level": "team", "name": "precedent-team-<slug>", "path": "../precedent-team-<slug>"}
        ]
      }
      ```
+     **Names are fixed by level, not chosen** — `precedent` for the
+     universal set, `precedent-individual` for a person's own,
+     `precedent-team-<slug>` for a team's, `local` for a repo-local one.
+     Say that out loud before anyone creates or renames a repository here,
+     rather than correcting a name afterwards: renaming a set breaks every
+     vendored reference to it, and
+     [`tools/precedent_resolve.py`](tools/precedent_resolve.py) refuses a
+     source declared under any other shape. See
+     [`practices/source-naming.md`](practices/source-naming.md).
      A team source is **resolved live from a sibling checkout, never
      vendored** — it already has its own repo and its own maintainers, so
      copying it in would just be a second, driftable copy. `path` is

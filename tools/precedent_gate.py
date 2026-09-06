@@ -92,6 +92,18 @@ SCOPE = _ENGINE_DIR / 'routing_scope.json'
 
 def gate_vocabulary():
     """The closed set of gate names, and what moment each one is."""
+    # Graceful degradation, not a crash: this engine file is vendored into
+    # consuming repos, where routing_scope.json is a separate copy that a
+    # partial vendor can leave out. Absent, this used to raise a bare
+    # FileNotFoundError from inside a gate the session runs at a named
+    # moment (merge, push, reply), which reads as the gate itself being
+    # broken rather than as one missing file with a one-line fix.
+    if not SCOPE.is_file():
+        sys.exit(f"precedent gate FAIL: {SCOPE} is missing. It ships beside "
+                 f"this script as one unit; re-vendor the engine "
+                 f"(python3 tools/precedent_vendor_engine.py refresh "
+                 f"<bestpractice-clone>) or copy routing_scope.json from "
+                 f"the source repo's tools/.")
     d = json.loads(SCOPE.read_text(encoding='utf-8'))
     return {k: v for k, v in d.get('gates', {}).items() if not k.startswith('_')}
 
@@ -171,4 +183,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())
