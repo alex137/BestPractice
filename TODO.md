@@ -356,3 +356,29 @@ which is the failure this repointing exists to end — write
     attached. What it needs: read its `precedent.json`, and if a source name
     does not match its level's shape, fix the name in the same change that
     refreshes its vendored engine — never one without the other.
+25. <a id="unreachable-practices"></a>**Decide what happens to a practice that
+    is in force but does not bind the repo it reached.** Measured 2026-09-06:
+    of the 114 practices in force in this repo, **43 are reachable by no
+    loading channel at all** — not resident, not in the occasion index, no
+    gate, no runnable check. `layered-practice-packs`' new check in
+    [tools/precedent_check.py](tools/precedent_check.py) reports them on every
+    run, advisory, and
+    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md)'s "Rules in force that
+    nothing can load" has the measurement and the evidence. The reason it is
+    advisory rather than blocking is the finding itself: running all fifteen
+    source-supplied checks against this tree shows the answer is not "turn
+    them all on" — five pass, four report real findings worth fixing, and
+    **six report things this repo cannot act on because the practice is about
+    a different kind of repository** (a repo one person authors alone, or the
+    team set's own shipped content; `session-trailer` wants a trailer on every
+    commit in a history [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)
+    forbids rewriting). The system has no vocabulary for "in force at this
+    level, does not bind this repo," so silence is doing that job — which is
+    why a forgotten rule and a deliberately-inapplicable one look identical.
+    **Blocked on:** a design decision that is Morgan's, not a session's. Three
+    shapes to choose between: a per-practice `binds:` / `not_in_repos:` field
+    the resolver honors; a per-repo opt-out list in `precedent.json`; or
+    making this repo's generated views multi-source so the 34 team practices
+    load here and the misfits get retired or moved instead. Whichever is
+    picked, the advisory check is already the thing that will say when it is
+    done.

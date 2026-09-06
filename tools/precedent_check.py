@@ -685,6 +685,124 @@ QUICK_INDEX_HEADER_RE = re.compile(
     re.I | re.M)
 
 
+@check('layered-practice-packs', 'tree',
+       'every practice in force in this repo is reachable by at least one '
+       'loading channel here -- resident, occasion index, a path trigger, a '
+       'gate, or a running check',
+       'whether a reachable practice is actually FOLLOWED, and whether a '
+       'practice that is unreachable here SHOULD bind this repo at all. It '
+       'reports the gap; closing it is either wiring the practice in or '
+       'saying out loud that it does not apply, and only a person can pick.',
+       advisory=True)
+def _practice_is_reachable(ctx):
+    """A rule nothing can load is not in force; it is filed.
+
+    `precedent.json` declaring a source is a claim that its practices bind
+    work here. Four channels can make good on that claim -- the resident
+    block, the occasion index, a path trigger, and an enforced check (plus
+    gates, which fire at a moment). A practice that none of them reaches is
+    a rule nobody will ever be shown, in a repo that says it is in force:
+    the config and the loader disagree, and the config is the one that
+    reads as authoritative.
+
+    Measured here on 2026-09-06: 30 of 114 practices in force in Precedent's
+    own repo were reachable by nothing at all -- 27 from the team source and
+    3 from the individual one. Both are genuinely declared in
+    `precedent.json` and in the user-level config; neither reaches
+    `AGENTS.md`'s generated block, because `build_views.py` deliberately
+    stays single-source here, and neither reaches the enforced channel,
+    because `register_materialized_checks()` can only see scripts that were
+    materialized -- and Precedent cannot materialize into itself.
+
+    ADVISORY, deliberately, to the bar this module sets for that (see
+    parallel-artifact-ledger's own note): the remedy is an architectural
+    decision -- wire the sources into this repo's generated views, or state
+    per practice that it does not bind here -- and running the same 15
+    source checks against this tree showed the answer is not simply "turn
+    them all on": five pass, four report real findings, and six report
+    things this repo cannot act on because the practice is about a
+    different kind of repository. Failing the gate would leave it red until
+    somebody makes that call, and a permanently red gate is a gate nobody
+    runs, which is this repo's own documented lesson.
+
+    A source that does not RESOLVE in this environment is skipped, never
+    reported -- a team source is a sibling clone and an individual source
+    resolves through a private user-level config, so neither exists in a
+    bare CI checkout, and their absence there is not evidence of anything.
+    """
+    try:
+        import precedent_resolve as pr
+    except Exception as e:
+        raise NotApplicable(f'precedent_resolve.py did not import ({e}), so '
+                            f'the set of practices in force cannot be read')
+    try:
+        sources = pr.load_config(ROOT)
+    except Exception as e:
+        raise NotApplicable(f'this repo declares no readable source set ({e})')
+
+    name, instructions = _instructions_file()
+    if not instructions:
+        raise NotApplicable('this repo has no instructions file, so it has no '
+                            'resident block or occasion index to be reachable '
+                            'through')
+
+    reachable_names = set()
+    for d in ((ROOT / 'tools').joinpath('checks'),
+              (ROOT / 'local').joinpath('tools', 'checks')):
+        if d.is_dir():
+            reachable_names |= {f.name for f in d.glob('check_*.py')}
+
+    in_force, unreachable, unresolved = {}, [], []
+    for s in sources:
+        d = pathlib.Path(s['path']) / 'practices'
+        if not d.is_dir():
+            unresolved.append(f"{s['level']}/{s['name']}")
+            continue
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sections = sp._read_practice_file(f)
+            except Exception:
+                continue
+            if (fm.get('status') or 'active').strip('" ') != 'active':
+                continue
+            in_force.setdefault(fm.get('slug', f.stem), (fm, s))
+
+    # Word-boundary, not substring: a slug like `install` or `doc-recipe`
+    # matches ordinary prose everywhere as a substring, and every one of those
+    # would have counted as "reachable" -- the check would then under-report
+    # exactly the practices whose names are common words.
+    named = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)+', instructions))
+    for slug, (fm, s) in sorted(in_force.items()):
+        if slug in named:
+            continue                       # resident block or occasion index
+        if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
+            continue                       # fires at a named moment
+        cb = (fm.get('checked_by') or 'null').strip('" ')
+        if cb and cb != 'null':
+            # A check only counts if something here can RUN it.
+            if pathlib.Path(cb).name in reachable_names or (ROOT / cb).is_file():
+                continue
+        unreachable.append((slug, s['level'], s['name']))
+
+    if not in_force:
+        raise NotApplicable('no practice resolved from any declared source, '
+                            'so there is nothing to judge reachability for')
+
+    out = []
+    for slug, level, src in unreachable:
+        out.append(Finding(
+            f'{level}/{src}',
+            f'{slug} is in force here but reachable by no channel: not in '
+            f'{name}, no gate, and no check this repo can run. Either wire '
+            f'it in, or say in the source that it does not bind this repo'))
+    if out:
+        print(f'  ({len(unreachable)} of {len(in_force)} practices in force '
+              f'are reachable by nothing here'
+              + (f'; {", ".join(unresolved)} did not resolve and were not '
+                 f'judged)' if unresolved else ')'))
+    return out
+
+
 @check('quick-index', 'tree',
        'the session instructions carry a "looking for X → go to Y" table '
        'with at least five rows',

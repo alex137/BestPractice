@@ -125,7 +125,7 @@ a number in a sentence. That is `docs-track-models`, happening here.
 | Rules still over 150 words | 9 |
 | Carrying a `## Detail` | 26 |
 | Carrying a `## Story` | 32 |
-| Enforced by a check | 30 of 63 practices carry a `checked_by` |
+| Enforced by a check | 31 of 63 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py

@@ -68,8 +68,15 @@ it applies.
    `process/upstream/` and commit it as ordinary tracked files. Record the
    upstream commit hash you copied from (used by updates, step 2).
    **Skip [evals/](evals/)** — it is Precedent's own routing-quality
-   measurement corpus, 557 of the 784 files a consumer was otherwise
-   vendoring and ≈2.5 MB, and nothing a consumer runs reads any of it.
+   measurement corpus (the fixtures behind
+   [spec/LOADER.md](spec/LOADER.md)'s recall and precision figures), it
+   answers a question about *building* Precedent rather than using it, and
+   nothing a consumer runs reads any of it. It is most of what a consumer
+   was otherwise copying; run
+   `python3 tools/checkin.py not-vendored` for the share against the tree in
+   front of you rather than trusting a figure typed here, which goes stale
+   the week it is written. **Nothing about this skips a practice** — every
+   file under `practices/` still vendors; this is measurement fixtures only.
    [tools/checkin.py](tools/checkin.py) excludes the same directory from
    its drift comparison, so an install that skips it is not reported as
    having drifted, and an existing install that already carries a copy is

@@ -2584,6 +2584,16 @@ def check_precedent_check_fires():
         def run(repo, slug, *extra):
             env = dict(os.environ)
             env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            # The fixture must not resolve whoever's individual set happens
+            # to be configured on this machine. It is found by ABSOLUTE path
+            # from a user-level config, so unlike the team source (a relative
+            # sibling that a temp-dir fixture cannot reach) it follows the
+            # fixture anywhere -- and layered-practice-packs' baseline then
+            # reports that developer's private practices, making the planted
+            # case prove nothing. Pointed at a file that does not exist, so
+            # the resolver takes its documented "this person has no
+            # individual set" path rather than a half-configured one.
+            env['PRECEDENT_USER_CONFIG'] = str(repo / '.no-user-config.json')
             r = subprocess.run(
                 [sys.executable, str(repo / 'tools' / 'precedent_check.py'),
                  '--only', slug, *extra],
@@ -2620,7 +2630,10 @@ def check_precedent_check_fires():
                 # the only one that ever did, is enforcing again), so this
                 # branch is dormant rather than dead -- kept so downgrading a
                 # check stays a one-word change with test support already
-                # there, not a silent loss of coverage.
+                # there, not a silent loss of coverage. (Live again since
+                # 2026-09-06: layered-practice-packs' reachability check is
+                # advisory, because closing its findings is an architectural
+                # decision a check cannot make -- see its own registration.)
                 cases.append((f'{slug}: a planted violation reports ADVISORY '
                               f'but does not fail the check',
                               rc == 0 and 'ADVISORY' in out and 'VIOLATION' not in out))
@@ -2672,6 +2685,20 @@ def check_precedent_check_fires():
         case('source-naming',
              lambda repo: rewrite(repo, 'precedent.json', lambda t: t.replace(
                  '"name": "local"', '"name": "bestpractice-local"')))
+
+        # layered-practice-packs -- a practice left in force with nothing
+        # able to load it. Planted by deleting one judgment-only practice's
+        # line from the instructions' occasion index while leaving the
+        # practice itself active: it is still in force, and now no channel
+        # reaches it. That is the real shape (a source declared in
+        # precedent.json whose practices never reach the generated views),
+        # reproduced with only the universal source, which is the one a
+        # fixture can resolve.
+        def _plant_unreachable(repo):
+            rewrite(repo, 'AGENTS.md', lambda t: re.sub(
+                r'\nWhen quoting or compressing someone else.s figures:\n'
+                r'  quote-discipline[^\n]*\n', '\n', t))
+        case('layered-practice-packs', _plant_unreachable, advisory=True)
 
         # quick-index -- the table removed from the instructions
         def _plant_qi(repo):

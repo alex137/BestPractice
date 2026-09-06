@@ -636,3 +636,102 @@ rather than stopping at a clean local run:
   walks the whole vendored tree and reported all sixteen — an upstream
   defect surfaced to the one reader who cannot fix it. Both are the first
   document an adopter of a new set reads.
+
+## Rules in force that nothing can load
+
+Raised by Morgan on 2026-09-06, reading the note above about `evals/` being
+71% of the vendored tree: *"does that mean you delete rules that weren't
+active? We would still need the rules! The thing to fix is, what can you do to
+make sure they are wired in and referenced and used, and not sitting there in
+vain."*
+
+**On `evals/` specifically, no: nothing there is a rule.** It is the
+routing-quality measurement corpus — the fixtures behind
+[spec/LOADER.md](LOADER.md)'s recall and precision figures — and it answers a
+question about *building* Precedent, not about using it. Every file under
+`practices/` still vendors, at every level. The figures are no longer typed
+into prose either; `python3 tools/checkin.py not-vendored` measures the share
+against the tree in front of you, because the frozen ones in that comment were
+stale within a day.
+
+**But the underlying question was the right one to ask, and the answer here
+was worse than expected.**
+
+### What was measured
+
+`precedent.json` declares three sources in force in this repo — universal,
+`precedent-team-maintainers`, and the repo-local set — and the user-level
+config adds `precedent-individual`. Together they put **114 practices in
+force**. Of those, **43 are reachable by no loading channel at all**: not in
+the resident block, not in the occasion index, no gate, and no check this repo
+can run. 34 team, 9 individual.
+
+Two mechanisms produce that, both deliberate in isolation:
+
+- `build_views.py` **stays single-source here on purpose** — `precedent.json`'s
+  own comment says so — so this repo's `AGENTS.md` carries the universal
+  catalogue and nothing else.
+- `register_materialized_checks()` can only reach check scripts that were
+  *materialized* into `tools/checks/`, and Precedent cannot materialize into
+  itself (its `practices/` **is** the universal source).
+
+So the config says 114 practices bind work here, and the loader shows 71. A
+rule nothing can load is not in force; it is filed.
+
+### The mechanism now in place
+
+`layered-practice-packs` gained a mechanical check
+([tools/precedent_check.py](../tools/precedent_check.py)): for every practice
+in force, assert at least one channel reaches it here, and name the ones where
+none does. A source that does not resolve in the current environment is
+skipped, never reported — a team source is a sibling clone and an individual
+source resolves through a private user-level config, so neither exists in a
+bare CI checkout.
+
+It is **advisory**, to the bar this project sets for that, and the reason is
+the finding below rather than squeamishness.
+
+### Why "just turn them all on" is the wrong fix, with evidence
+
+The 15 source-supplied checks were run against this tree — possible for the
+first time, since they now honor `PRECEDENT_CHECK_ROOT` (see the root-cause
+section below). Five pass. The other ten split cleanly, and the split is the
+point:
+
+| Verdict | Checks | What it means |
+|---|---|---|
+| Passes here | `default-branch`, `derived-file-marker`, `draft-marker`, `assorted-notes`, `my-identity-is-not-private` | The practice binds this repo and this repo satisfies it. Wire in, free. |
+| Real, actionable finding | `header-caps`, `light-check`, `no-stale-counts`, `file-header` | The practice binds this repo and this repo violates it. Wire in, then fix. |
+| Cannot be acted on here | `commit-author`, `buenos-aires-dates`, `claude-web-bootstrap`, `session-trailer`, `deep-check`, `private-repo-scrub` | The practice is about a *different kind of repository* — a repo one person authors alone, or the team set's own shipped content. `session-trailer` wants a trailer on every commit in a history `no-rewrite-for-warnings` forbids rewriting. |
+
+That last row is why the check reports rather than fails. **The system has no
+way to say "this source is in force, but this practice does not bind this
+repo."** Silence is currently doing that job, which is exactly why 43 rules
+sit unreachable and nobody can tell the deliberate cases from the forgotten
+ones. Adding that vocabulary is a design change, not a fix, and it is
+[TODO.md's `unreachable-practices` item](../TODO.md#unreachable-practices).
+
+### Root cause of the fourteen crashing checks, and the fix
+
+The earlier pass fixed the crash. This one found why the practice files were
+absent in the first place, which is the part that would otherwise recur.
+
+Every check derived one `ROOT` from its own location and used it for **two
+different questions**: *what repository do I audit* and *where does my own rule
+text live*. Those coincide in both normal cases — a check run inside its own
+set, and a check materialized into a consuming repo, where
+`precedent_materialize.py` writes `practices/` and `tools/checks/` side by
+side. They come apart in the third case: a repo that **declares** a source and
+never materializes it. Precedent's own repo is exactly that, so
+`parents[2]/practices/` resolved to a catalogue the practice was never in.
+
+Split, in all sixteen checks: `SOURCE_ROOT` (the set the script ships in, where
+its rule text always is) and `ROOT` (the repo audited, overridable via
+`PRECEDENT_CHECK_ROOT`). The rule text can no longer be absent, and a repo that
+declares a source without materializing it can now point that source's checks
+at itself — which is what made the table above measurable.
+
+`check_deep_check.py` now asserts the split across the whole family, with three
+negative controls. That matters more than the fix: these scripts are written by
+copying the last one, so a property nothing checks propagates by copy — which
+is precisely how one bad line reached fourteen files.
