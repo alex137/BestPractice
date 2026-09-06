@@ -5492,6 +5492,44 @@ def check_pretooluse_hook_fires():
     cases.append(('malformed stdin does not crash the hook or its shell', rc == 0 and out == ''))
 
     rc, out = run_hook(json.dumps({'tool_name': 'Bash'}))
+    # --- the per-session seen file: the same Rules must not be re-injected
+    # on every edit. Measured before this existed: ten practices and ~1,000
+    # words of Rule text on EVERY markdown edit, identical every time.
+    import tempfile as _tf
+    _seen = pathlib.Path(_tf.mkdtemp(prefix='precedent-seen-')) / 'seen.txt'
+    _paths = str(ROOT / 'tools' / 'precedent_paths.py')
+
+    def _paths_run(*extra):
+        r = subprocess.run([sys.executable, _paths, *extra, 'README.md'],
+                           capture_output=True, text=True, cwd=str(ROOT))
+        return r.returncode, r.stdout
+
+    rc_a, out_a = _paths_run('--seen-file', str(_seen))
+    rc_b, out_b = _paths_run('--seen-file', str(_seen))
+    cases.append(('the first match with a --seen-file prints full Rules',
+                  rc_a == 0 and len(out_a.split()) > 200))
+    cases.append(('the second prints a short reminder instead, naming every '
+                  'practice and how to get its full Rule back',
+                  rc_b == 0 and len(out_b.split()) < len(out_a.split()) / 3
+                  and 'Already loaded this session' in out_b
+                  and 'precedent_show.py' in out_b))
+    seen_slugs = {l.strip() for l in _seen.read_text().splitlines() if l.strip()}
+    cases.append(('every practice shown in full is recorded, so the reminder '
+                  'covers exactly what was already sent',
+                  seen_slugs and all(f'### {s}' in out_a for s in seen_slugs)))
+    r_c = subprocess.run([sys.executable, _paths, '--seen-file', str(_seen),
+                          'tools/x.py'], capture_output=True, text=True, cwd=str(ROOT))
+    cases.append(("a practice that has NOT been shown yet still arrives in "
+                  "full, so the optimization cannot swallow a new match",
+                  r_c.returncode == 0 and '### code-cites-practice' in r_c.stdout))
+    rc_d, out_d = _paths_run('--seen-file', str(_seen.parent / 'nope' / 'x.txt'))
+    cases.append(('an unreadable or missing seen file means "nothing seen '
+                  'yet", never an error -- this is a context optimization, '
+                  'not a correctness mechanism',
+                  rc_d == 0 and len(out_d.split()) > 200))
+    import shutil as _sh
+    _sh.rmtree(_seen.parent, ignore_errors=True)
+
     cases.append(('a tool call with no tool_input at all (matcher scopes this out '
                   'in settings.json, but the wrapper itself must not assume that) '
                   'prints nothing', rc == 0 and out == ''))
@@ -5499,7 +5537,9 @@ def check_pretooluse_hook_fires():
     bad = [(n, '') for n, ok in cases if not ok]
     check(f'PreToolUse hook fires ({len(cases)} stated cases: Edit file_path, '
           f'a no-match path, NotebookEdit notebook_path fallback, malformed '
-          f'stdin, a tool call with no tool_input, and no permission verdict)',
+          f'stdin, a tool call with no tool_input, no permission verdict, and a '
+          f'per-session seen file that stops the same Rules being re-injected '
+          f'on every edit without swallowing a new match)',
           not bad, '; '.join(n for n, _ in bad))
 
 
