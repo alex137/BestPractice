@@ -3333,17 +3333,22 @@ def check_precedent_check_fires():
         def fresh(name):
             repo = tmp / name
             shutil.copytree(pristine, repo, symlinks=True)
-            # The loader block is multi-source now, so every declared source
-            # has to RESOLVE inside the fixture or build_views reports the
-            # block unverifiable -- and a case planted to make it stale then
-            # proves nothing, because "could not check" is not "checked".
-            # The team source is a relative sibling (`../precedent-team-
-            # maintainers`), so a copy beside the fixture repo is what makes
-            # the fixture exercise the real path rather than a degraded one.
-            for s in _declared_sibling_sources():
-                dest = repo.parent / pathlib.Path(s).name
-                if not dest.exists() and pathlib.Path(s).is_dir():
-                    shutil.copytree(s, dest, symlinks=True)
+            # NO sibling sources are copied beside the fixture, deliberately.
+            # build_views.py went multi-source on 2026-09-06 and the first
+            # version of this fixture DID copy them, so that the regeneration
+            # case exercised the real path instead of a degraded one. That
+            # became wrong the same day, when the privacy guard widened: this
+            # repo declares `visibility: public`, so private-level sources are
+            # dropped from the block BEFORE resolution and their absence
+            # cannot make it unverifiable. Copying them back in only gave
+            # layered-practice-packs' baseline the real repo's 34 unreachable
+            # team practices to report -- an open architectural question (see
+            # TODO.md#unreachable-practices), not a defect a fixture planted,
+            # and it made every planted case below prove nothing. A fixture
+            # for a PRIVATE consumer's multi-source block would need them; the
+            # coverage for that lives in
+            # check_loader_block_covers_every_declared_source(), which runs
+            # against the real tree with its real sources.
             return repo
 
         def run(repo, slug, *extra):
@@ -6784,30 +6789,6 @@ def check_title_case_leaves_code_and_first_word_alone():
             bad.append(f'{why}: {text!r} -> {got!r} (wanted {must!r} in it)')
     check(f'title_case leaves inline code spans and enumerated first words '
           f'alone ({len(cases)} stated cases)', not bad, '; '.join(bad))
-
-
-def _declared_sibling_sources():
-    """Absolute paths of every source this repo declares OUTSIDE its own tree.
-
-    Only these need copying beside a fixture: a source at `.` or `local/`
-    travels with the copytree already.
-    """
-    config = ROOT / 'precedent.json'
-    if not config.is_file():
-        return []
-    try:
-        import precedent_resolve as pr
-        out = []
-        for s in pr.load_config(ROOT):
-            path = pathlib.Path(s['path'])
-            if not path.is_absolute():
-                path = (ROOT / path)
-            path = path.resolve()
-            if ROOT.resolve() not in path.parents and path != ROOT.resolve():
-                out.append(str(path))
-        return out
-    except Exception:
-        return []                          # fixture degrades, never crashes
 
 
 def check_loader_block_covers_every_declared_source():
