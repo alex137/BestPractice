@@ -4591,22 +4591,19 @@ def check_source_sets_can_learn_they_are_stale():
     """
     cases = []
 
-    # 1. Every source template ships the scheduled workflow. A set created
-    #    tomorrow gets the channel without anyone remembering to add it.
+    # 1. No source template ships a scheduled workflow, and that is the
+    #    decision, not an omission (2026-09-06). One was added here and
+    #    pulled back out the same day: a cron job that phones a remote every
+    #    week and opens pull requests is a real imposition on every adopter
+    #    who inherits it, and a universal template is exactly the wrong place
+    #    to make that choice for people. It lives at the individual level
+    #    now, for whoever wants it. This case exists so the file cannot
+    #    reappear here without someone deciding to put it back.
     for level in ('individual', 'team'):
         wf = ROOT / 'templates' / f'practice-set-{level}' / '.github' / 'workflows' / 'engine-refresh.yml'
-        text = wf.read_text(encoding='utf-8') if wf.is_file() else ''
-        cases.append((f'the {level} source template ships an engine-refresh workflow',
-                      bool(text), str(wf.relative_to(ROOT))))
-        # It must actually refresh AND regenerate: an engine bump whose views
-        # were not re-run leaves the set failing its own build_views --check.
-        cases.append((f"the {level} workflow regenerates views, not just the engine",
-                      'precedent_vendor_engine.py refresh' in text and 'build_views.py' in text,
-                      ''))
-        # The GitHub setting it needs is off by default, and a workflow that
-        # cannot open a PR must say so rather than pass quietly.
-        cases.append((f'the {level} workflow discloses the GitHub setting it needs',
-                      'create and approve pull requests' in text, ''))
+        cases.append((f'the {level} source template ships no scheduled workflow '
+                      f'(a per-person choice, not a universal default)',
+                      not wf.exists(), str(wf.relative_to(ROOT)) if wf.exists() else ''))
 
     # 2. The bootstrap tool warns when the clone it is seeding FROM is behind.
     bs = (ROOT / 'tools' / 'precedent_bootstrap_source.py').read_text(encoding='utf-8')
@@ -4660,7 +4657,7 @@ def check_source_sets_can_learn_they_are_stale():
 
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'a vendored source set can learn its engine is stale '
-          f'({len(cases)} stated cases: template workflow, bootstrap warning, '
+          f'({len(cases)} stated cases: no templated cron, bootstrap warning, '
           f'attached-source detector)',
           not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
