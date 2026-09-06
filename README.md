@@ -15,7 +15,7 @@ the pitch, then jump to the how-to guide for your situation:
 [technical](documentation/HOW_TO_USE_THIS_TECHNICAL.md) or
 [non-technical](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md).
 
-## The philosophy behind this project
+## The Philosophy Behind This Project
 
 Precedent is one working expression of a broader philosophy about how
 people and AI should work together, developed in
@@ -50,7 +50,7 @@ advantages; you just need a few ground rules, in [Git, minimally](GIT.md).
 The main shift: you use **Claude Code** instead of general-purpose chat
 apps. Other assistants have supported paths too; see [MOBILE.md](MOBILE.md).
 
-## Built for many hands
+## Built for Many Hands
 
 Conventions the assistants follow automatically handle what a shared
 document can't:
@@ -67,7 +67,7 @@ document can't:
 
 Say *"what's waiting for me?"* and your assistant merges on your word.
 
-## What your members will see
+## What Your Members Will See
 
 Members receive one link: to the project's own Getting Started page,
 which opens with the short case for working this way and then gives
@@ -77,12 +77,12 @@ Installing Precedent creates a version of that page adapted to your
 project, and improvements projects make to their onboarding pages flow
 back into Precedent for everyone ([INSTALL.md](INSTALL.md) §4).
 
-## Installing Precedent on your project
+## Installing Precedent on Your Project
 
 Setup doesn't require you to write any code yourself — see
 [INSTALL.md](INSTALL.md) to get started.
 
-## Everything else
+## Everything Else
 
 Hand installation, updates, and contributing improvements back:
 [INSTALL.md](INSTALL.md). The working method, for power users:

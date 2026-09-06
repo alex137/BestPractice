@@ -8,7 +8,7 @@ tool you talk to about your work. If you are working on the rewrite itself,
 [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) is the document for you,
 not this one.*
 
-## What it is
+## What It Is
 
 *The question this document answers:* **I have a project and an assistant
 that keeps making the same mistakes. What is Precedent, and would it help?**
@@ -43,7 +43,7 @@ at the time.
 work, and the ones that can be enforced get enforced. Not that writing a rule
 down makes anyone follow it. It measurably does not.
 
-## Adding it to a project you already have
+## Adding It to a Project You Already Have
 
 This is the common case and it should be the shortest.
 
@@ -68,7 +68,7 @@ come along with it; they are not extra places you have to open first. If using t
 cost would fall hardest on the smallest changes — the ones that should be
 cheapest.
 
-## Setting up your own practices
+## Setting Up Your Own Practices
 
 Some of what you want written down is about **you**, not about the team: how
 your name is spelled, which time zone your dates are in, that you like the
@@ -107,7 +107,7 @@ than promised.** Three things hold it up:
 Two people working on the same project get **different** sets of practices,
 each seeing their own personal ones and neither seeing the other's.
 
-## Sharing practices with a team
+## Sharing Practices With a Team
 
 A team gets its own private space too — one per team — holding the practices
 that team has agreed on. Everyone on the team can read it; nobody else can.
@@ -145,7 +145,7 @@ formal is about what you all ship, and the second one has to win. Whenever
 that happens, you are told which practice is in force and which one was set
 aside. Nothing is dropped quietly.
 
-## How an idea becomes a practice
+## How an Idea Becomes a Practice
 
 You work normally. Around that, one path takes an idea from something that
 happened in conversation to a rule your assistant follows from then on — and
@@ -196,7 +196,7 @@ So the whole thing reduces to one question, asked and answered in the same
 breath as the idea itself: *am I the person allowed to say yes to this?* If
 yes, it's already done. If no, it becomes something the right person sees.
 
-## What it does not do
+## What It Does Not Do
 
 **It does not write your rules for you.** It suggests; a person approves.
 That middle step is the design, not an unfinished corner of it.
@@ -219,7 +219,7 @@ into one, do.
 **It is not a substitute for saying things to people.** It writes down what
 you have already decided. It has no opinion about whether you decided well.
 
-## If you want the detail
+## If You Want the Detail
 
 | | |
 |---|---|

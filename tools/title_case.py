@@ -2,8 +2,9 @@
 """title_case.py — headline capitalization for markdown headings.
 
 Checks (bare, the default) or applies (--write) New York Times headline
-capitalization on every ATX heading in the files given, or in documentation/
-when none are named.
+capitalization on every ATX heading in the files given, or, when none are
+named, in every outward-facing document in the repo — everything except the
+internal working files listed in INTERNAL_DIRS / INTERNAL_FILES below.
 
 The rule, stated once so the output is arguable rather than magic:
 
@@ -29,6 +30,65 @@ import json
 import pathlib
 import re
 import sys
+
+# EVERY document is outward-facing unless it is named here. Stated as an
+# exclusion on purpose (Morgan, 2026-09-06): an allowlist of outward
+# directories silently misses each new one somebody adds, which is exactly
+# what happened here — the practice shipped covering `documentation/` alone,
+# and `content/` and `book*/` had to be added the same day. An exclusion
+# fails the safe way round: a directory nobody has classified is treated as
+# published, and the worst case is a heading capitalized that did not need to
+# be.
+#
+# WHAT COUNTS AS INTERNAL: the project managing itself. Practice files, the
+# engine, specs, briefs, decision records, evaluation fixtures, templates
+# awaiting instantiation, and the instructions/index/catalogue documents a
+# session reads to work here. None of it is published to anyone, and heading
+# style in it is never to be "fixed".
+INTERNAL_DIRS = (
+    ".claude", ".github", "candidates", "decisions", "deck", "evals",
+    "examples", "local", "practices", "process", "spec", "templates", "tools",
+)
+
+# A repository's root holds BOTH kinds, which is why directories alone cannot
+# settle this: README.md and SETUP.md are the first things an outsider reads,
+# while PRACTICES.md and PRACTICE_ENGINE_PLAN.md sit beside them and are pure
+# internal machinery. Named individually, therefore. Three of these are also
+# GENERATED (AGENTS.md, MAP.md, GLOSSARY.md) — rewriting a heading in one
+# would be undone by the next tools/build_views.py run and fail its
+# byte-identical check in between, so they could not be in scope even if they
+# were outward-facing.
+INTERNAL_FILES = (
+    "AGENTS.md", "CLAUDE.md", "CHANGES_TO_TELL_ALEX.md", "GLOSSARY.md",
+    "MAP.md", "PRACTICES.md", "PRACTICE_ENGINE_PLAN.md", "TODO.md",
+)
+
+
+def is_outward(rel_path):
+    """Is a repo-relative path a document published to people outside the
+    project? True for anything not excluded above."""
+    parts = pathlib.PurePosixPath(str(rel_path).replace("\\", "/")).parts
+    if not parts or not parts[-1].endswith(".md"):
+        return False
+    if parts[0] in INTERNAL_DIRS:
+        return False
+    if len(parts) == 1 and parts[0] in INTERNAL_FILES:
+        return False
+    return True
+
+
+def outward_files(root=None):
+    """Every outward-facing markdown file in the repo."""
+    base = pathlib.Path(root) if root is not None else pathlib.Path(".")
+    out = []
+    for f in sorted(base.rglob("*.md")):
+        rel = f.relative_to(base)
+        if rel.parts and rel.parts[0] == ".git":
+            continue
+        if is_outward(rel):
+            out.append(f)
+    return out
+
 
 # The standard New York Times list of words that stay lowercase inside a
 # headline. Length is not the criterion — membership is.
@@ -137,13 +197,16 @@ def main():
               "   # rewrite them in place\n"
               "  python3 tools/title_case.py --json [FILE ...]"
               "    # report as JSON\n"
-              "\nWith no FILE, every markdown file in documentation/.")
+              "\nWith no FILE, every outward-facing markdown file in the repo "
+              "— that is, all of them except " + ", ".join(
+                  f"{d}/" for d in INTERNAL_DIRS) + " and the internal "
+              "root documents (" + ", ".join(INTERNAL_FILES) + ").")
         return 0
     write = "--write" in args
     as_json = "--json" in args
     paths = [pathlib.Path(a) for a in args if not a.startswith("--")]
     if not paths:
-        paths = sorted(pathlib.Path("documentation").glob("*.md"))
+        paths = outward_files()
     paths = [p for p in paths if p.is_file()]
     if not paths:
         print("title_case: no markdown files to inspect")
