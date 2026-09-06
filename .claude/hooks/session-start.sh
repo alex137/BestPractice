@@ -147,6 +147,28 @@ if [ -f tools/precedent_session_practices.py ]; then
     echo "WARN: could not write .precedent/SESSION_PRACTICES.md - this session is not being shown the team/individual practices in force here" >&2
 fi
 
+# Attached practice-set sources whose vendored engine has gone stale.
+#
+# WHY THIS BELONGS HERE AND NOWHERE ELSE. A source set (someone's own
+# precedent-individual, a team's precedent-team-*) vendors this repo's
+# engine as tracked files, and refreshing it needs a clone of THIS repo to
+# compare against -- which an ordinary session in that set has no reason to
+# have. A session working HERE always does, by definition. So this is the
+# one place the question can be answered for free, and until 2026-09-06
+# nothing asked it: two real sets sat more than two hundred commits behind,
+# generating a loader block with a defect fixed upstream days earlier, and
+# it surfaced only because a session happened to run a check by hand.
+#
+# Report only -- it never refreshes anything on its own. `--apply` is a
+# person's decision (or a session acting on one), because the result has to
+# be reviewed and published under each set's own merge rules, which this
+# hook cannot know. Exit 0 regardless: a session that fails to START over
+# an advisory notice about a DIFFERENT repository is a far worse outcome
+# than one that misses the notice.
+if [ -f tools/precedent_refresh_sources.py ]; then
+  python3 tools/precedent_refresh_sources.py 2>/dev/null || true
+fi
+
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` above would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.
