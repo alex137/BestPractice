@@ -914,7 +914,11 @@ either run and falsified, or predicted null on falsified siblings' direct
 evidence.** [The supporting moves](#the-supporting-moves-now-the-primary-recommendation)
 have already been pushed as far as they honestly go for now: **24 enforced,
 10 more gate-only (see the 2026-09-01 correction above), 20 genuinely
-resistant**, each of the 20 broken down by *why* in that section — not a stopping point chosen
+resistant** — a dated split, over the 54-practice catalogue as it stood on
+2026-09-03, not a live figure; run `python3 tools/catalogue_stats.py` for
+what it is today (28 of 61 enforced as of 2026-09-06, with 12 gate-only and
+21 resistant, so the shape held as the catalogue grew). Each of the 20 is
+broken down by *why* in that section — not a stopping point chosen
 for convenience, but a second full pass through every remaining practice
 that converted two more (`two-check-levels`, `index-remembers-past`) and
 demonstrated, rather than assumed, why the rest resist (`volatile-rules-carry-dates`

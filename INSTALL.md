@@ -457,14 +457,18 @@ not this section.
    1's tracked path, not scattered elsewhere.
 8. Commit everything on a branch, same as §1.
 
-**The caveat, stated plainly rather than left to be discovered.** This
-section is new. Steps 1–2 and 6 (vendoring, `precedent.json`, and
-`precedent_sync_views.py` actually producing a working `AGENTS.md`) were
-dry-run tested in a scratch fixture while writing this section and do
-work as described — but the section as a whole has not yet been rehearsed
-end to end against a real repo, which
-[spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) names as still ahead. Two
-things it deliberately does **not** cover, by design and not oversight:
+**What has and has not been rehearsed, stated plainly rather than left to
+be discovered.** Every step here has now been walked end to end against a
+scratch repository (2026-09-06, the pre-launch audit): vendor, declare
+sources, instantiate, sync, and run the deep check on the result, which
+comes back clean — 15 checks passed, 0 violated. That pass is what found
+the eight violations a fresh install used to end on, five of which the
+installer could do nothing about, and they are fixed. **What is still
+missing is a real project**: a scratch repository has no subject matter,
+so nothing here has been tested against an adopter actually adapting the
+templates to their own work, which [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)
+names as still ahead. Two things this section deliberately does **not**
+cover, by design and not oversight:
 
 - **`MAP.md`/`GLOSSARY.md` generation.** `tools/precedent_sync_views.py`
   deliberately does not build these for a consuming repo (see its own
