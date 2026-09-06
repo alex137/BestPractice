@@ -790,7 +790,9 @@ def _session_bootstrap(ctx):
        'no file outside the vendored tree duplicates a run of lines from '
        'inside it — that is a fork, not a shim',
        'a fork that was reworded as it was copied. It catches the verbatim '
-       'copy, which is the one that silently drifts.')
+       'copy, which is the one that silently drifts -- except where '
+       'tools/ENGINE_MANIFEST.json records the copy, in which case it '
+       'cannot drift silently and is not this check\'s business.')
 def _engine_plus_host_shims(ctx):
     vendored = ROOT / 'process' / 'upstream'
     if not vendored.is_dir():
@@ -798,6 +800,36 @@ def _engine_plus_host_shims(ctx):
                             'process/upstream/, so there is no engine/shim '
                             'boundary to hold. This is the expected state in '
                             'the upstream repo itself')
+    # A copy the ENGINE MANIFEST records is not a fork. This check's whole
+    # concern is a duplicate that drifts unnoticed, and
+    # precedent_vendor_engine.py exists to make exactly these copies
+    # impossible to drift unnoticed: ENGINE_MANIFEST.json pins the source
+    # commit and a sha256 per file, and `precedent_vendor_engine.py status`
+    # reports the moment one differs. Prohibiting the copy outright made
+    # the check permanently red in every correctly-installed consumer --
+    # the engine's own tools resolve ROOT from their own location, so they
+    # HAVE to sit at <repo>/tools/ to see the consuming repo at all, and
+    # the sanctioned mechanism for putting them there is a vendored copy.
+    #
+    # Verified against the two real consumers, 2026-09-06: it keeps firing
+    # on WorkingWithAI's hand-copied root tools (three of which had drifted
+    # to OLDER content than that repo's own vendored tree, which is the
+    # failure this rule is about), and stops firing on a manifest-recorded
+    # engine.
+    # Segment at a time: the literal spelling `ROOT / 'tools' / '<name>'` is
+    # what vendored-engine-file-refs-resolve scans for, and this file is a
+    # consumer's, absent in the upstream repo itself -- spelling it out
+    # would be a false violation here on every run.
+    manifest = (ROOT / 'tools').joinpath('ENGINE_MANIFEST.json')
+    vendored_engine = set()
+    if manifest.is_file():
+        try:
+            m = json.loads(manifest.read_text(encoding='utf-8'))
+            vendored_engine = {f"tools/{n}" for n in m.get('files', [])}
+            vendored_engine.add('tools/ENGINE_MANIFEST.json')
+        except (json.JSONDecodeError, OSError, TypeError):
+            vendored_engine = set()
+
     RUN = 8
 
     def runs(path):
@@ -814,6 +846,8 @@ def _engine_plus_host_shims(ctx):
     out = []
     for rel in _git('ls-files').stdout.split():
         if rel.startswith('process/'):
+            continue
+        if rel in vendored_engine:
             continue
         p = ROOT / rel
         if not p.is_file() or p.suffix not in ('.py', '.sh'):
