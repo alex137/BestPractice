@@ -32,12 +32,27 @@ The assistant isn't there to type whatever you say — it's expected to
 question a weak idea or suggest a better one, so what actually lands is
 the strongest version of what you wanted, not just the first draft of it.
 
-## Designed for serious collaboration, with automatic document merging
+## Designed for Multi-Person Collaboration to Shape the Output
 
-Multiple people, and their assistants, work on the same project at once,
-each on their own private copy — changes merge back automatically instead
-of everyone fighting over one live document. Nobody has to wait their turn
-to edit.
+Several people, each with their own assistant, work on the same project at
+the same time — proposing, arguing, adding, cutting — so what finally lands
+is shaped by all of them, not by whoever happened to type into the document
+last. Nobody has to wait their turn to edit.
+
+## Automatically Merges substantial changes to the same Document by different collaborators simultaneously
+
+Two people can rewrite different parts of the same document at once, each on
+their own private copy, and their work is combined automatically — not just
+one-word tweaks, but whole rewritten sections. If two edits genuinely
+contradict each other, your assistant shows you both and asks, rather than
+silently picking a winner.
+
+## GitHub becomes your memory: documents, decisions, and The Why
+
+Documents, the decisions made about them, and the reasoning behind each one
+are all kept together in one place your team already owns — so the project
+remembers itself. Nothing important lives only in someone's head or in a
+chat window that scrolls away.
 
 ## Codifies Key Universal Best Practices on Effective Work
 
