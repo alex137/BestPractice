@@ -6166,7 +6166,16 @@ def check_checkin_update_never_mutates_the_clone():
         g('checkout', '-qb', 'precedent-beta-v01')
         (src / 'marker.txt').write_text('from beta\n')
         g('add', '-A'); g('commit', '-qm', 'beta content')
-        g('checkout', '-q', 'main')          # default branch checked out
+        # The clone rests on a THIRD branch, deliberately. Left on `main` it
+        # cannot detect record()'s old `checkout <default-branch>`, because
+        # checking out the branch you are already on is a no-op -- the first
+        # version of this fixture sat on `main` and its negative control
+        # passed against the bug. Left on `precedent-beta-v01` it would miss
+        # update()'s checkout for the mirror image of the same reason. From
+        # `scratch`, a checkout of either one moves HEAD and is caught.
+        g('checkout', '-qb', 'scratch')
+        (src / 'marker.txt').write_text('scratch, not a branch anything tracks\n')
+        g('add', '-A'); g('commit', '-qm', 'scratch content')
 
         consumer = tmp / 'consumer'
         (consumer / 'process' / 'upstream').mkdir(parents=True)
@@ -6207,6 +6216,49 @@ def check_checkin_update_never_mutates_the_clone():
               (consumer / 'process' / 'upstream' / 'marker.txt'
                ).read_text() == 'from beta\n',
               out)
+
+        # record() and push() carried the SAME two bugs, and the first fix
+        # reached only update() -- found on the next pass by grepping for the
+        # other call sites rather than assuming one fix covered the family.
+        # record() is the one that also checked the clone out.
+        for sub in ('record', 'push'):
+            before2 = clone_state()
+            args = [sys.executable,
+                    str(consumer / 'process' / 'upstream' / 'tools' / 'checkin.py'),
+                    sub, str(src)]
+            if sub == 'record':
+                args += ['--note', 'harness fixture']
+            r2 = subprocess.run(args, capture_output=True, text=True,
+                                cwd=str(consumer))
+            after2 = clone_state()
+            check(f'checkin.py {sub} leaves the source clone\'s HEAD, branch '
+                  f'and working tree exactly as they were',
+                  before2 == after2,
+                  f'before={before2} after={after2}\n{r2.stdout}{r2.stderr}')
+            check(f'checkin.py {sub} resolves the branch the MANIFEST '
+                  f'records, not the clone\'s configured default',
+                  'main' not in (r2.stdout + r2.stderr).replace(
+                      'precedent-beta-v01', ''),
+                  r2.stdout + r2.stderr)
+
+        # `fresh` is the most-run of the family -- tools/bootstrap.sh calls it
+        # at every session start in every consumer -- and it reached the
+        # remote a different way, `ls-remote <repo> HEAD`, which resolves the
+        # remote's default branch. On a pinned consumer that compared the
+        # pinned branch's recorded commit against an unrelated lineage and
+        # printed "upstream has moved" every single session, forever.
+        # `main` here is deliberately AHEAD of the recorded beta commit, so a
+        # default-branch resolution cannot help but report movement.
+        r3 = subprocess.run(
+            [sys.executable,
+             str(consumer / 'process' / 'upstream' / 'tools' / 'checkin.py'),
+             'fresh'],
+            capture_output=True, text=True, cwd=str(consumer))
+        out3 = r3.stdout + r3.stderr
+        check('checkin.py fresh compares against the branch the MANIFEST '
+              'records, so a pinned install is not told "upstream has moved" '
+              'every session by an unrelated lineage',
+              'has moved' not in out3, out3)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

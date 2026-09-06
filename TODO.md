@@ -589,3 +589,29 @@ which is the failure this repointing exists to end — write
     source repo eating its own cooking changes what binds a contributor to
     that set, so it needs Morgan's call before any work starts.
 
+37. <a id="relax-the-pinned-branch-hold"></a>**Relax the pinned-branch hold
+    once the fix has run through real sync cycles.**
+    [tools/checkin.py](tools/checkin.py)'s four commands — `fresh`,
+    `update`, `record`, `push` — now read `upstream.branch` from a consuming
+    repo's own `process/manifest.json` instead of resolving the remote's
+    default branch, and `record` no longer checks the source clone out from
+    under its caller. Seven cases in
+    [tools/verify_harness.py](tools/verify_harness.py) assert both
+    properties with negative controls. That closes the defect
+    [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+    "The default-branch gotcha" was written around, and
+    `_warn_catalogue_skew`'s docstring in
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    names the same fix. **Both still tell people to mirror by hand and to
+    keep the scheduled sync paused, deliberately** — Morgan's call
+    2026-09-06, on the asymmetry: what those documents guard against is an
+    *unattended* job overwriting a vendored tree, so relaxing them too early
+    costs a silent overnight wipe of a repo's practices while staying
+    cautious costs a stale paragraph. **Blocked on:** the fix surviving real
+    sync cycles rather than only its own tests, and then Morgan saying so.
+    What it needs then, in one change: put `checkin.py update` back as the
+    remedy `_warn_catalogue_skew` names, drop the hold paragraph from the
+    migration document, and un-pause the `schedule:` block in each
+    consumer's `bestpractice-upstream-sync.yml` — never one of the three
+    without the others, since a half-relaxed hold is what makes an
+    unattended job run against advice nobody re-read.

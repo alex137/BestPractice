@@ -689,8 +689,24 @@ def _warn_catalogue_skew(dest, engine_commit):
     2026-09-06 by the consumer session that read the notice, recognized the
     trap, and did the manual mirror instead; spec/MIGRATING_EXISTING_INSTALLS.md's
     "The default-branch gotcha" is the same finding from the other side.
-    Teaching checkin.py the pin is the real fix and a larger change; until
-    then this notice must not send anyone at it.
+    UPDATE, later the same day: checkin.py HAS since been taught the pin.
+    All four of its commands -- `fresh`, `update`, `record`, `push` -- now
+    read `upstream.branch` from the consuming repo's own
+    `process/manifest.json` and fall back to the clone's default only when
+    no pin is recorded, and `record` no longer checks the clone out either.
+    Seven harness cases assert it, each with a negative control.
+
+    The remedy named below still points at the manual mirror anyway, and
+    that is a deliberate hold rather than an oversight. What these two
+    documents guard against is an UNATTENDED job overwriting a repo's
+    vendored tree; the fix that would let them relax is hours old at the
+    time of writing, and the two error directions are not symmetric --
+    telling people the automation is safe when it is not costs a silent
+    overnight wipe, while staying cautious costs a stale sentence. Morgan's
+    call, 2026-09-06: record that the pin works, keep the manual remedy,
+    and revisit once the fix has survived real sync cycles. So this is now
+    a "not yet", not a "cannot" -- do not read it as the latter and do not
+    quietly flip it either; that flip is a decision, and it has an owner.
 
     Reached a real consumer on 2026-09-06. A refresh took the engine to a
     commit whose `precedent_resolve.py` cites `source-naming` three times,
