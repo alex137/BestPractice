@@ -59,3 +59,4 @@ by row instead of by changing the check's exemption logic — whether to
 also exempt each family's own inception commit mechanically is tracked as
 [TODO.md's `ledger-root-commit-exemption` item](../../TODO.md#ledger-root-commit-exemption), a separate, smaller follow-up not
 folded into this fix.
+| 2026-09-06 | [`0e1ab9d`](https://github.com/alex137/BestPractice/commit/0e1ab9d5911a3270770dc8aac669d905c65b929f) — freshness is rechecked on an idle return, not only at session start and first write: `freshness-guard.sh` gains a throttled `user-prompt` mode | applied as `hooks/freshness-guard.sh` (new `user-prompt` mode, mtime-throttled, delegating to the existing session-start checks) and `settings.json` (a `UserPromptSubmit` entry, base `main`) | no transfer because codex has no hook mechanism to wire it into — same reason as every other hook-based row above | no transfer, same reason as codex |
