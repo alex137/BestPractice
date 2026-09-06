@@ -6,7 +6,7 @@ severity:    advisory
 applies_to:  ["**"]
 occasion:    "a person explicitly asks for a \"very deep check\" across the whole repo, or after work that invites drift"
 gates:       []
-index_clause: "read the whole repo against itself for drift; never a routine gate"
+index_clause: "read every repo in force against itself, pass by pass; never a routine gate"
 checked_by:  null
 defines:     ["very deep check"]
 status:      active
@@ -16,93 +16,227 @@ added:       null
 approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   declared team/individual source actually be in the session before the check
   runs, and to add a stale-branch sweep across every repo the check touches;
-  revised again same day, Morgan F, to add a cross-source-staleness check"
+  revised again same day, Morgan F, to add a cross-source-staleness check;
+  restructured 2026-09-06, Morgan F, into four ordered passes — adopter
+  installs first, then whether the mechanisms tell the truth, then the
+  coherence read, then catalogue and housekeeping — with the run made
+  resumable across sessions"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
 invites drift (a batch of practices added or reordered, a practice that
 changed shape, an install into a new repo, a merge that resolved conflicts
 across several shared files), run
-[tools/very_deep_check.py](../tools/very_deep_check.py): it enumerates this
-checkout's own top-level documents and deliverable content, plus the
-`practices/*.md` tree of every source in force (resolved the same way
-[tools/precedent_resolve.py](../tools/precedent_resolve.py) does for ordinary
-loading), and hands the invoking session a fixed checklist of drift
-categories to read that scope against. Never wired into a commit, push, or
-merge gate — the mechanical audits and `routing-audit` already cover what
-can be checked cheaply and often; this covers what can only be judged, and
-is deliberately rare because the judging is expensive.
+[tools/very_deep_check.py](../tools/very_deep_check.py) and work the four
+passes in Detail, in that order. The tool enumerates the scope — this
+checkout's own top-level documents, plus the `practices/*.md` tree of every
+source in force, resolved exactly the way
+[tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves them for
+ordinary loading — and prints the passes; reading and judging that scope is
+the session's work, and is nearly the whole cost of this check. Never wired
+into a commit, push, or merge gate — the mechanical audits and
+[routing-audit](routing-audit.md) already cover what can be checked cheaply
+and often; this covers what can only be judged, and is deliberately rare
+because the judging is expensive.
 
-**Before the tool runs, every declared team and individual source must
-actually be present in this session, not merely resolvable in theory.** The
-ordinary loader tolerates a missing personal source and says so on stderr —
-that degradation is the right call for routine loading, where one operator's
-absent individual set is expected and tolerable. It is the wrong call here:
-a very deep check is explicitly asked for, and scoped to the whole set of
-repos in force, so a source silently dropped defeats the reason it was
-asked. `tools/very_deep_check.py` now fails loudly instead of degrading
-when a declared team or individual source isn't actually there — this was a
-real gap, not a hypothetical one: nothing before this revision made a
-session go get the sibling clones a very deep check needs, so a session
-that ran it in a fresh checkout with no siblings present quietly checked
-this repo alone and called it done. On that failure, attach or clone the
-missing source into the session (this harness's own repo-attachment
-mechanism, or a plain `git clone` of the source's repo, whichever this
-session has) and re-run — never re-run with `--allow-missing-sources` just
-to make the failure go away; that flag is for the rare case where proceeding
-without the source is actually the intent (e.g. auditing a repo that
-deliberately has no team set yet).
+**Scope is every Precedent repo in the session, not this checkout alone** —
+this repo, each attached team and individual source, and any consuming repo
+the engine is vendored into. A finding is as likely to be in the seam
+between two of them as inside any one, which is the reason they are read
+together rather than one at a time.
 
-**The check also sweeps every repo it touches for its own stale branches.**
-For the checkout itself and for every team/individual source that is its own
-git checkout (a repo-local source living inside the parent checkout shares
-its parent's branches and isn't swept separately), `tools/very_deep_check.py`
-reports every branch that is fully merged into that repo's integration
-branch and still not deleted — a mechanical, offline fact (`git merge-base
---is-ancestor`), true regardless of whether GitHub's own "merged" flag is
-set (a repo that lands each pull request (PR) by direct push rather than GitHub's merge button
-never sets it, which is exactly the case in these repos). A branch the scan
-cannot mechanically prove merged is still worth a look — it may be closed
-because a later PR superseded it — but that call needs the branch's PR
-history, which an offline git check has no access to; see Install for why
-that half stays a session step rather than a second mechanical check. Either
-way, apply the branch-cleanup method an individual practice set may already
-give a session for its own commits (one real individual set names this in
-its own `next-steps-after-commit` practice; the repo is private, so this
-names the practice rather than linking a page most readers cannot open) —
-identify by who opened or drove the PR (the invoking person's own GitHub
-login, never a branch someone else created), skip the repo's default branch
-and its protected integration branch, and report each remaining one with a
-direct link to its most recent PR's page — the same one-click **Delete
-branch** link GitHub already shows there. That kind of personal practice
-may decline to do this retroactive, whole-repo sweep on its own ("a
-separate, one-off task, done only when asked for directly") — a very deep
-check is exactly that direct ask, so this is the one place the sweep
-belongs as a standing step rather than a one-off.
+**Every declared team and individual source must actually be present before
+the check runs.** The ordinary loader tolerates a missing personal source and
+says so on stderr — the right call for routine loading, where one operator's
+absent individual set is expected. It is the wrong call here: a very deep
+check is explicitly asked for and scoped to the whole set of repos in force,
+so a silently dropped source defeats the reason it was asked.
+[tools/very_deep_check.py](../tools/very_deep_check.py) fails loudly rather
+than degrading. On that
+failure, attach or clone the missing source (this harness's own
+repo-attachment mechanism, or a plain `git clone`) and re-run — never re-run
+with `--allow-missing-sources` to make the failure go away; that flag is for
+the rare case where proceeding without the source is the actual intent (a
+repo that deliberately has no team set yet).
+
+**The passes are ordered by what a miss costs, and that order governs fixing
+too.** A from-scratch install or a migration that strands an adopter is a
+roadblock; a heading capitalized two ways is not. Never let a pass-3 finding
+queue ahead of a pass-1 one because it is easier to fix, and never report a
+run as done with a pass-1 roadblock still open.
+
+**This is more than one session's work, and is meant to be split.** Keep the
+run's state in [spec/VERY_DEEP_CHECK.md](../spec/VERY_DEEP_CHECK.md): which
+passes are done, what each turned up, what was fixed, what was deferred and
+where it went. A later session resumes at the next unfinished pass rather
+than starting over, and a pass is never quietly skipped — a pass deliberately
+not run is recorded as not run, with the reason.
+
+Fix what a pass turns up in the same pass — most findings are small — then
+re-run the mechanical audits, since the fixes themselves break links.
+Anything deliberately left alone gets a line in [TODO.md](../TODO.md) saying
+so, rather than being silently dropped.
 
 ## Detail
 **This is not `full-practice-audit` under another name — the two ask
-different questions.** `full-practice-audit` asks, practice by practice,
-"is this specific practice's Rule satisfied?" — a closed question against
-one Rule at a time. The very deep check asks a question no single
-practice's Rule can be checked against: "does the repo's own writing still
-hold together?" A contradiction between two documents, a stale
-cross-reference, a rule restated in three places, a heading that drifted to
-the wrong capitalization scheme — none of these is a violation of any one
-practice's Rule text; each is a property of the documents *as a set*, which
-is exactly what a per-practice sweep cannot see no matter how many times it
-runs.
+different questions.** [full-practice-audit](full-practice-audit.md) asks,
+practice by practice, "is this specific practice's Rule satisfied?" — a
+closed question against one Rule at a time. The very deep check asks
+questions no single practice's Rule can be checked against: does an adopter
+who has only this repo actually get working? Do the mechanisms report what
+they claim to? Does the repo's own writing still hold together? Each is a
+property of the system *as a set*, which is exactly what a per-practice
+sweep cannot see no matter how many times it runs.
 
-**What to look for — a starting point, not a specification. Report
-anything that makes the repo harder to trust or follow, whether or not a
-bullet below names it:**
+Four passes, in order. Within each, the bullets are a starting point, not a
+specification: report anything that makes the system harder to trust,
+install, or follow, whether or not a bullet below names it. If a finding
+recurs and nothing here names it, add a bullet so the next run looks for it
+deliberately.
+
+### Pass 1 — Can a new adopter get to a working install?
+The highest-cost failures are here, because they strand someone outside this
+session who cannot see what is wrong. Reading the install documents finds
+almost none of them: every significant finding of the 2026-09-06 pre-launch
+audit came from **building the thing the document describes and running the
+checks on it** ([spec/PRELAUNCH_AUDIT.md](../spec/PRELAUNCH_AUDIT.md), "The
+method"). Build the fixtures.
+
+- **A real from-scratch install.** A scratch repository with nothing in it,
+  installed per [INSTALL.md](../INSTALL.md) §0 against `precedent-beta-v01`
+  alone — no team set, no individual set, none of the sibling clones this
+  session happens to have — following the documents exactly as written,
+  without leaning on what this session already knows. Then run the deep
+  check on the result. Anything the session had to work out that the
+  documents did not say is a finding; so is any check that cannot come back
+  clean on a correct fresh install.
+- **A real migration**, the same way: a scratch repo on the classic
+  `process/upstream/` layout, walked end to end through
+  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md).
+- **The empty neighbourhood.** A brand-new person with no individual set; a
+  team with no team set yet; a consumer whose sources are declared but
+  unreachable, as they are in every continuous integration (CI) checkout.
+  Each degradation path should degrade with a named reason — never pass
+  silently on a scan that never ran, and never fail on something the adopter
+  cannot fix.
+- **Cross-repo relationships and permissions.** Walk who must be able to read
+  or write what, for a *new* repo and a *new* person: the vendored engine,
+  each declared source, approvers and CODEOWNERS, and the restricted GitHub
+  roles [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](../spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+  describes. A step that works only because this session's operator already
+  has access is a finding.
+- **Not the practice simulation.** This pass installs real fixtures and runs
+  the ordinary checks on them. It does not run
+  [tools/precedent_simulate.py](../tools/precedent_simulate.py) or its
+  siblings, which are deliberately never reachable from an occasion, gate, or
+  hook ([spec/SIMULATION_BRIEF.md](../spec/SIMULATION_BRIEF.md), "Never
+  automatic") — this practice is not standing to run them either.
+
+### Pass 2 — Do the mechanisms report what they claim to?
+Every mechanical check, gate, and tool, one at a time. Each question below
+found a real defect in the 2026-09-06 pre-launch audit, and none of them is
+visible from a check's own output — a broken check reports confidently.
+
+1. **Does it scan only what this repo can act on?** Bucket every finding:
+   *this repo wrote it* versus *this repo received it* (a vendored upstream
+   tree, a materialized `practices/` directory, a file whose header says do
+   not hand-edit, anybody's published history). A non-empty second bucket
+   means the scope is wrong, not the content — and a check that produces
+   permanently unactionable findings is one people learn to ignore, which
+   costs more than the rule it protects. *(Found: 81 findings from one
+   check, 12 from another, all inside vendored or materialized trees.)*
+2. **Can it ever go green here?** Separately from scope: is there any state
+   of this repository in which this check passes? Ask it of every gate a
+   document calls mandatory. *(Found: a scrub gate at 116 failures no edit
+   in the repo could clear, because the terms arrived from upstream — with
+   its own instructions saying it must pass before any commit.)*
+3. **Does anything named `--check`, `--dry-run`, or `--verify` write?**
+   Snapshot the tree, run it, diff. Then run it again with a dependency
+   deliberately unavailable and diff again. *(Found: `--check` rewrote three
+   files on a clean tree, and deleted 57 tracked files when one source was
+   unreachable, while printing a check verdict — after weeks in the
+   documented session-start sequence.)*
+4. **Does a tool's output depend on the state of its own output directory?**
+   For anything that deletes and rewrites a directory: does it read that
+   directory while deciding what to write? Run it twice and diff; then
+   delete the output directory, run once, and compare. *(Found: link
+   rewriting asked the filesystem about a file the same run was about to
+   write, so a practice's citation of its own check script became an
+   absolute URL into a private repo.)*
+5. **Would a generated name disclose what the architecture hides?** Wherever
+   a tool mints a URL, path, or name, ask what it reveals and to whom — then
+   check whether the consuming repo is public. *(Found: exactly the private-
+   repo URL above, minted into a tracked tree in a public repo, for a source
+   the resolver refuses to let a shared config even name.)*
+6. **Is a file the format it claims?** Parse with a real third-party parser,
+   never the repo's own reader, which is more permissive than the standard
+   and so never notices.
+   [tools/very_deep_check.py](../tools/very_deep_check.py) now does this for
+   every tracked JSON and YAML file; what stays a judgment call is every other
+   declared format — a schema, a fenced block, a manifest — that no parser
+   here covers. *(Found: 10 practice files and 4 decision records PyYAML
+   rejects; the in-house reader took everything after the first colon and
+   was happy.)*
+7. **Do string matches respect name boundaries?** Every blocklist, denylist,
+   and retired-term list: test each term against a plausible compound.
+   *(Found: retired term `pack_sync` matching `voice_pack_sync.py`, a live
+   tool — nothing could satisfy the finding but renaming a real file.)*
+8. **Does anything use alphabetical order to pick a winner?** Where two
+   candidates could satisfy a lookup — two directories, two copies of a file,
+   two sources for a slug — find what breaks the tie. If it is `sorted()`, it
+   is an accident that will pick differently the next time a name changes.
+   *(Found twice: a check script present in both its source and its
+   materialized location, needing different `ROOT` depths, with the wrong one
+   winning every time — two checks confidently reporting that files in plain
+   view did not exist.)*
+9. **Does a rule forbid the only mechanism the project ships for it?** For
+   each rule, ask how a correctly-installed repo satisfies it, then check
+   that the sanctioned tool actually produces that state. *(Found: a rule
+   against duplicated engine code, in a project whose own vendoring tool
+   makes exactly those copies — every correct install permanently in
+   violation.)*
+10. **Read each enforced practice's check against its own Rule.** The full
+    practice audit prints an enforced practice as a single line, on the
+    reasoning that its check either fired or it did not — and questions 1-9
+    are precisely the ways that reasoning fails. This is the only pass that
+    ever looks at those checks, so look: does the check test what the Rule
+    says, all of what it says, and nothing the Rule does not ask for?
+11. **Is each "known exception" still true?** Reproduce every documented
+    gotcha, known-issue note, and "this currently fails because" claim. These
+    are written once and re-tested never, and a stale one is worse than none:
+    it teaches the next session to skip a check that now works. *(Found: a
+    gotcha describing a `ROOT` bug fixed weeks earlier, still telling
+    sessions to work around it.)*
+12. **What does a session inherit that a person configured by hand?** List
+    every `git config`, environment variable, user-level config file, and
+    sibling clone this session or a recent one set up or relied on. Each is
+    something the next session will not have; anything load-bearing belongs
+    in a hook or a checked-in file. *(Found: commit identity unset in four
+    clones, so commits landed under the wrong author and tripped the repo's
+    own check.)*
+
+### Pass 3 — Does the writing still hold together?
+The coherence read, across every repo in scope. Run the mechanical audits
+first so this pass spends its attention on what they cannot see.
 
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
+- **Broken and misdirected references** — run
+  [tools/doc_lint.py](../tools/doc_lint.py)'s broken-relative-link check
+  across the whole tree first, then read for what it cannot see: a link that
+  resolves but points at the wrong thing, a click-path into a user interface
+  that has changed, a cross-repo reference into a repo the reader cannot
+  open, a slug or filename that moved.
 - **Stale references** — a slug, practice number, filename, heading, or
   click-path pointing at something moved or gone; a positional number cited
   as if it were a name; numbering that skips, repeats, or runs out of order;
   an orphaned name a rename elsewhere left behind in this repo's own prose.
+- **Keywords with no entry** — every word or phrase that makes a session
+  *act* ("Go merge", "very deep check", "full practice audit", "light check",
+  "deep check") is owned by a practice's `defines:` field, so it lands in
+  [GLOSSARY.md](../GLOSSARY.md) and a session meeting the word cold can find
+  out what it commands. A trigger word reachable only by already knowing it
+  is not a keyword, it is folklore.
 - **Fragments** — a sentence, note, or heading left behind by an earlier
   edit: a "temporary" caveat whose occasion has passed, a note about a
   reorganization that already happened.
@@ -111,65 +245,101 @@ bullet below names it:**
 - **Disproportion** — paragraphs of detail on a minor point, prose that
   emphasizes an aside more than the point it supports, a rule grouped where
   it no longer fits.
-- **Process-cost disproportion** — a rule that's minor in the scheme of
-  things but costs a disproportionate amount of tokens, time, or friction
-  each time it applies, especially one re-researched from scratch on every
-  occurrence instead of following a written-down answer.
+- **Rules that no longer make sense** — mechanical or written: a rule nobody
+  can state the purpose of, a check that fires on correct work, a convention
+  a later mechanism has overtaken. Deleting one is a finding as legitimate as
+  fixing one.
+- **Cost that isn't earned** — a rule or script that costs a disproportionate
+  amount of tokens, time, or friction each time it applies, especially one
+  re-researched from scratch on every occurrence instead of following a
+  written-down answer; a step in a routine gate that has never produced a
+  finding; a tool whose output nobody reads. Name what to delete, not only
+  what is expensive.
 - **Formatting and spacing drift** — inconsistent heading levels and
   capitalization, a bullet missing the blank line its neighbors have, mixed
   list markers, a ragged table, stray blank lines or trailing whitespace, a
   stale "last updated" header.
 - **Self-application** — a rule this repo asks of every project it's
   installed into that this repo doesn't yet follow itself.
-- **Cross-source staleness** — a check, tool, or convention this repo
-  changed that an attached team or individual source's own tooling,
-  vendored engine copy, or written practice still assumes the old form of.
-  Update the source in the same pass (per
-  [cross-source-rollout](cross-source-rollout.md)) if it's attached; if a
-  `blocked-on` TODO for it already exists, confirm it's still accurate
-  rather than adding a second one.
-- **Backlog drift** — a `TODO.md` (or equivalent open-items document) entry
-  already done, no longer relevant, or never actually decided.
-- **Anything else the read turns up** — if something is wrong and none of
-  the categories above name it, it is still a finding; if it is the kind of
-  thing that will recur, add a bullet here so the next very deep check looks
-  for it deliberately.
+- **Cross-source staleness** — a check, tool, or convention this repo changed
+  that an attached team or individual source's own tooling, vendored engine
+  copy, or written practice still assumes the old form of. Update the source
+  in the same pass (per [cross-source-rollout](cross-source-rollout.md)) if
+  it's attached; if a `blocked-on` TODO for it already exists, confirm it's
+  still accurate rather than adding a second one.
+- **Anything else the read turns up** — if something is wrong and none of the
+  categories above name it, it is still a finding.
 
-Fix what the review turns up in the same pass — these are almost always
-small — then re-run the mechanical audits, since the fixes themselves can
-break a link. Anything deliberately left alone gets a line in `TODO.md`
-saying so, rather than being silently dropped.
+### Pass 4 — Catalogue, backlog, and branches
+Last because none of it strands an adopter, and none of it is cheap.
 
-Two more things this check reports, distinct from the drift categories
-above since neither is a property of the documents themselves:
-
-- **Missing sources, fixed before reading anything.** If the team or
-  individual source is declared but not present in this session, that is a
-  blocking failure, not a finding to note and read around — go attach or
-  clone it (see Rule) and only then start the coherence read.
-- **Stale branches, one list per repo actually in scope.** Every branch the
-  mechanical scan can prove merged into its repo's integration branch, plus
-  any closed-and-superseded branch the session's own judgment turns up,
-  named with a direct link to its most recent PR's page.
+- **The full catalogue, every practice.** Run
+  [tools/full_practice_audit.py](../tools/full_practice_audit.py) across every
+  source in force. That tool deliberately prints enforced practices as one
+  line each; pass 2 item 10 is where those get their real read, so the two
+  together are what "every single practice was looked at" actually means.
+- **Backlog drift.** Read [TODO.md](../TODO.md) (and each source's equivalent)
+  end to end: entries already done, no longer relevant, or never actually
+  decided. Treat an entry that is really just an unfixed bug as work, not as
+  backlog — [todo-is-a-handoff](todo-is-a-handoff.md) queues only what is
+  blocked or out of scope, so anything else there is either doable now or
+  should be closed.
+- **Stale branches, one list per repo in scope.**
+  [tools/very_deep_check.py](../tools/very_deep_check.py) reports, for this checkout and for every source that is its own git
+  checkout (a repo-local source inside the parent checkout shares its
+  parent's branches and isn't swept separately), every branch fully merged
+  into that repo's integration branch and not yet deleted — a mechanical,
+  offline fact (`git merge-base --is-ancestor`), true whether or not GitHub's
+  own "merged" flag is set, which it is not for a repo that lands pull
+  requests (PRs) by direct push rather than the merge button. A branch the
+  scan cannot prove merged is still worth a look — it may be closed because a
+  later PR superseded it — but that call needs the branch's PR history, which
+  an offline check cannot reach. Apply the branch-cleanup method an
+  individual practice set may already define (one real individual set names
+  this in its own `next-steps-after-commit` practice; the repo is private, so
+  this names the practice rather than linking a page most readers cannot
+  open): identify by who opened or drove the PR — the invoking person's own
+  GitHub login, never someone else's branch — skip the repo's default branch
+  and its protected integration branch, and report each remaining one with a
+  direct link to its most recent PR's page, which is the one-click **Delete
+  branch** control GitHub already shows there. A personal practice may
+  decline to do this retroactive sweep on its own ("a separate, one-off task,
+  done only when asked for directly") — a very deep check is exactly that
+  direct ask, so this is the one place the sweep is a standing step.
 
 ## Why
-The mechanical audits (`doc_lint.py`, `leak_gate.py`, `precedent_check.py`,
-`doc_sync.py`) catch broken links, bad syntax, and enforcement drift; the
+The mechanical audits ([doc_lint.py](../tools/doc_lint.py),
+[leak_gate.py](../tools/leak_gate.py),
+[precedent_check.py](../tools/precedent_check.py),
+[doc_sync.py](../tools/doc_sync.py)) catch broken links, bad syntax, and enforcement drift; the
 routing audit catches a practice that should have fired and didn't. None of
-them reads a document's own argument for whether it still makes sense —
-that's a judgment call by design, not a gap any of them is meant to close,
-which is exactly why this stays a separate, on-demand mechanism rather than
-folded into one of the three.
+them reads a document's own argument for whether it still makes sense, and
+none of them can ask whether a check is checking the right thing — a check
+that is wrong reports cleanly, which is exactly why nothing downstream of it
+will ever notice. Both are judgment calls by design, not gaps any of the
+audits is meant to close, which is why this stays a separate, on-demand
+mechanism rather than folded into one of them.
+
+**The pass order is the finding order.** A whole-system review generates far
+more small findings than large ones, and small findings are the ones easiest
+to fix — so an unordered run reliably spends itself on typography while an
+adopter's install stays broken. Passes 1 and 2 are the ones whose misses
+reach someone outside this session; passes 3 and 4 are the ones whose misses
+cost the next session some confusion. Fixing in that order is not a
+preference, it is what makes the check worth its cost.
 
 **Read this before trusting the result, the same caution
 `full-practice-audit` states for itself.**
 [spec/ATTENTION_CEILING.md](../spec/ATTENTION_CEILING.md)'s review-arm result
 (54% recall on a whole-catalogue judgment pass, worse than no review at all)
 was measured against practice-compliance judging, not document-coherence
-reading — a different task, so that figure does not transfer here directly
-— but nothing has evaluated this specific mechanism's own reliability
-either. Treat it the same way: a backstop for what enforcement cannot
-reach, not a substitute for enforcement, until it has its own evaluation.
+reading or fixture-building — different tasks, so that figure does not
+transfer here directly — but nothing has evaluated this specific mechanism's
+own reliability either. Treat it the same way: a backstop for what
+enforcement cannot reach, not a substitute for enforcement, until it has its
+own evaluation. Pass 1 is the partial exception, and the reason it is first:
+building a fixture and running the checks on it produces evidence, not a
+judgment, so its findings do not depend on this caveat.
 
 ## Story
 Named in [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s v28 amendment
@@ -198,59 +368,75 @@ running Precedent, not only Morgan and Alex's. Whether
 via `overrides:`, or stay a separate team-level statement of the same rule,
 is the team's own call — noted, not decided, here.
 
-Revised 2026-09-05, on Morgan's direct request, adding the two gaps above.
-Both were real, reproduced, not hypothetical: this repo's own team source
-(`../precedent-team-maintainers`) is declared in
-[precedent.json](../precedent.json), yet nothing before this revision made a
-session go get that sibling clone before running the check, so a session
-starting in a fresh checkout with no siblings present would run the tool,
-see the source reported "missing" on stderr, and call the result a very
-deep check anyway. And a request in the same conversation to actually run
-the newly-added sweep surfaced real, currently-undeleted stale branches
-across every repo in force in that session — this repo, its team source,
-and the session's own individual source — every one of them a branch whose
-PR had closed (several merged by direct push, with GitHub's own `merged`
-flag still `false` for that reason, confirming the Rule's note above is not
-a hypothetical either) with nobody ever going back to delete it.
+Revised 2026-09-05, on Morgan's direct request, adding the missing-source
+failure and the stale-branch sweep. Both were real, reproduced, not
+hypothetical: this repo's own team source (`../precedent-team-maintainers`)
+is declared in [precedent.json](../precedent.json), yet nothing before that
+revision made a session go get the sibling clone, so a session starting in a
+fresh checkout would run the tool, see the source reported "missing" on
+stderr, and call the result a very deep check anyway. And a request in the
+same conversation to actually run the newly-added sweep surfaced real,
+currently-undeleted stale branches across every repo in force in that
+session — several merged by direct push, with GitHub's own `merged` flag
+still `false` for that reason, confirming the sweep's note is not
+hypothetical either. Revised again the same day to add the
+cross-source-staleness bullet, whose standing prevention side is
+[cross-source-rollout](cross-source-rollout.md).
 
-Revised again the same day, same conversation, to add the checklist's
-cross-source-staleness bullet: a change to how this repo itself checks,
-resolves, or merges is not finished at this repo's own commit if an
-attached team or individual source's own tooling or written conventions
-now assume the old form of it. The standing prevention side of that same
-gap is [cross-source-rollout](cross-source-rollout.md), raised in the same
-request — this bullet is its detection-side backstop, for whatever a
-session's own rollout at merge time still misses.
+Restructured 2026-09-06, on Morgan's direct request, into the four ordered
+passes above. Two things drove it. The first was the pre-launch audit of the
+same date ([spec/PRELAUNCH_AUDIT.md](../spec/PRELAUNCH_AUDIT.md)): every one
+of pass 2's twelve questions is a defect that audit actually found, and not
+one of them was reachable from the drift checklist this practice carried at
+the time — the check was looking only at prose while the mechanisms
+underneath it were reporting confidently and wrongly. The second was that
+the audit found all of it by building fixtures and running checks on them,
+which the practice never asked for; the "simulate a from-scratch install /
+simulate the migration" items Morgan raised are that method written down as
+a standing step. The run being explicitly splittable across sessions came
+from the same request, for the obvious reason: what this practice now asks
+for is more than one session's work, and a check nobody finishes is a check
+that silently becomes its first pass.
 
 ## Install
 [tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
-`practices/*.md` tree, reusing `tools/precedent_resolve.py`'s own source
-resolution) and prints the checklist above for the invoking session to
-apply. No mechanical `checked_by` exists for this practice's own Rule, and
-can't: what it asks for is a session's judgment applied to a scope the tool
-enumerates, the same class of resistant-to-automation practice
-`full-practice-audit` and `mistakes-become-rules` already name. See
+`practices/*.md` tree, reusing
+[tools/precedent_resolve.py](../tools/precedent_resolve.py)'s own source
+resolution) and prints this practice's Detail section — read from this file
+at run time rather than kept as a second copy
+inside the script, so the passes the tool prints cannot drift from the
+passes defined here. No mechanical `checked_by` exists for this practice's
+own Rule, and can't: what it asks for is a session's judgment applied to a
+scope the tool enumerates, the same class of resistant-to-automation
+practice `full-practice-audit` and `mistakes-become-rules` already name. See
 [full-practice-audit](full-practice-audit.md) for the narrower,
 already-built sibling this one deliberately does not replace, and
 [spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md) for the decision
 record this practice's own build closes out.
 
-The two additions above *are* mechanically checked, as far as a mechanical
-check can reach (`checkable-gets-checked`): a missing declared team or
-individual source is a hard, non-zero-exit failure by default (pass
+Four parts of the check *are* mechanical, as far as a mechanical check can
+reach (`checkable-gets-checked`): a missing declared team or individual
+source is a hard, non-zero-exit failure by default (pass
 `--allow-missing-sources` only when proceeding without it is actually
-intended), and the merged half of the branch sweep is a real git check
-(`merge-base --is-ancestor` against each repo's own `origin/HEAD`, or an
-explicit `--target` for this checkout when its own integration branch isn't
-its default one — this repo's own `precedent-beta-v01` being exactly that
-case). What stays a session step, deliberately, is the other half: turning
-a mechanically-merged branch into a *reported* one requires knowing which
-PR it came from, who drove that PR, and that PR's URL — none of which an
-offline `git` check can see, the same reason a person-level practice
-covering the identical lookup for a session's own commits has no
-`checked_by` of its own either. A closed-but-not-provably-
-merged branch is the same story one layer further out: only the session,
-reading that branch's own PR thread, can tell "superseded" from "abandoned,
-still someone's open question" — the very thing this whole practice exists
-to hand to a session's judgment rather than force into a script.
+intended); every tracked JSON and YAML file is parsed with a real parser
+(pass 2 item 6), and a file that does not parse stops the run, since the tool
+reads `precedent.json` to enumerate its own scope; each team and individual
+source is checked against the shape its bootstrap skeleton ships, catching a
+source migrated into place that never passed through bootstrap; and the
+merged half of the branch sweep is a real git check (`merge-base
+--is-ancestor` against each repo's own `origin/HEAD`, or an explicit
+`--target` for this checkout when its integration branch isn't its default
+one — this repo's own `precedent-beta-v01` being exactly that case).
+
+What stays a session step, deliberately: the branch sweep's other half —
+turning a mechanically-merged branch into a *reported* one requires knowing
+which PR it came from, who drove it, and that PR's URL, none of which an
+offline `git` check can see; a closed-but-not-provably-merged branch is the
+same story one layer out, where only the session, reading that branch's PR
+thread, can tell "superseded" from "abandoned, still someone's open
+question". Pass 1's fixtures are a session step for the same reason in a
+different form: building a fresh install and a migration and then judging
+what the documents failed to say is not a thing a script can assert about
+itself, and a scripted install would test the script rather than the
+instructions an adopter actually follows.

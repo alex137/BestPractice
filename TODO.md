@@ -317,3 +317,21 @@ the upstream layer. Ordered by priority.
     [practices/full-practice-audit.md](practices/full-practice-audit.md)
     names, in a session with those repos attached. Full context:
     [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md).
+
+23. **Roll the very deep check's four-pass restructure out to
+    `precedent-team-maintainers`' own `deep-check`.**
+    [practices/very-deep-check.md](practices/very-deep-check.md) was
+    restructured 2026-09-06 from one drift checklist into four ordered
+    passes — adopter installs, whether the mechanisms tell the truth, the
+    coherence read, then catalogue and housekeeping — with the run made
+    resumable via [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md). The
+    team set's `deep-check` is the same inherited list one generation back,
+    so it now states an older, narrower version of the same rule: it should
+    either adopt the passes, or point at this practice via `overrides:` and
+    stop restating it. That call was already open (item 17 above records it
+    as the team's own to make); this restructure is what makes leaving it
+    open cost something. **Blocked on:** an explicit instruction, not
+    availability — the source was attached in the session that made this
+    change, whose ask was scoped to BestPractice's `precedent-beta-v01`
+    alone. Any session with `precedent-team-maintainers` attached and a
+    mandate to touch it can close this.
