@@ -5621,6 +5621,28 @@ def check_source_supplied_checks_run():
                       "into itself",
                       rc == 1 and 'the repo-local finding' in out, out))
 
+        # A repo-local check that IS also materialized exists twice, and the
+        # two copies need different ROOT depths from the same file. Running
+        # the local original in place resolves ROOT to <repo>/local, where
+        # the repo's real files are not -- two of a real consuming repo's
+        # own checks reported `no book-*/ directory exists` and
+        # `README.md: file does not exist` about files in plain view
+        # (2026-09-06). Alphabetical order was deciding it: `local/...`
+        # sorts before `tools/...`, so the wrong copy won every time.
+        script(repo / 'local' / 'tools' / 'checks' / 'check_fx_both.py',
+               'print("VIOLATION: fx-both")\nprint("  ran the LOCAL copy")\n'
+               'sys.exit(1)\n')
+        (repo / 'local' / 'practices' / 'fx-both.md').write_text(
+            (repo / 'practices' / 'fx-clean.md').read_text(encoding='utf-8')
+            .replace('fx-clean', 'fx-both')
+            .replace('check_fx_clean.py', 'check_fx_both.py'), encoding='utf-8')
+        script(repo / 'tools' / 'checks' / 'check_fx_both.py', 'sys.exit(0)\n')
+        rc, out = run('fx-both')
+        cases.append(('when a repo-local check has been materialized too, the '
+                      'MATERIALIZED copy runs -- the two locations need '
+                      'different ROOT depths and only that one is right',
+                      rc == 0 and 'ran the LOCAL copy' not in out, out))
+
         spec = importlib.util.spec_from_file_location(
             '_pc_fx', repo / 'tools' / 'precedent_check.py')
         pc = importlib.util.module_from_spec(spec)
@@ -5631,7 +5653,7 @@ def check_source_supplied_checks_run():
         cases.append(('the slug comes from the practice that CLAIMS the '
                       'script, not from the filename',
                       {'fx-clean', 'fx-violated', 'fx-skipped', 'fx-broken',
-                       'fx-local'} <= added, str(sorted(added))))
+                       'fx-local', 'fx-both'} <= added, str(sorted(added))))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

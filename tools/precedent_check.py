@@ -224,7 +224,30 @@ def register_materialized_checks():
             if cb.endswith('.py') and '/checks/' in cb:
                 claimed[pathlib.PurePath(cb).name] = fm.get('slug', f.stem)
 
-    for script in sorted(s for d in checks_dirs for s in d.glob('check_*.py')):
+    # One script per FILENAME, and the materialized copy wins. The two
+    # locations require different `ROOT` depths from the same file --
+    # `tools/checks/x.py` counts three parents up to the repo root,
+    # `local/tools/checks/x.py` four -- and a script hardcodes whichever
+    # one it was written for. A repo-local source that is ALSO materialized
+    # therefore has two byte-identical copies of every check, exactly one
+    # of which resolves ROOT correctly, and this used to run both and let
+    # alphabetical order decide which finding you saw: `local/...` sorts
+    # before `tools/...`, so the WRONG one won every time.
+    #
+    # 2026-09-06, in a real consuming repo: two of its own repo-local
+    # checks reported `no book-*/ directory exists` and `README.md: file
+    # does not exist` about files sitting in plain view. Both scripts were
+    # correct; run from `local/tools/checks/` their ROOT resolved to
+    # `<repo>/local`, where indeed neither exists. Preferring the
+    # materialized copy is right in both directions -- a repo that cannot
+    # materialize into itself (Precedent's own `path: "."` source) has no
+    # `tools/checks/` at all, so its `local/` scripts still run in place,
+    # which is what they are written for.
+    by_name = {}
+    for d in checks_dirs:
+        for s in sorted(d.glob('check_*.py')):
+            by_name.setdefault(s.name, s)   # checks_dirs is in preference order
+    for script in sorted(by_name.values()):
         slug = claimed.get(script.name, script.stem)
         if slug in CHECKS:          # a built-in check already owns this slug
             continue
