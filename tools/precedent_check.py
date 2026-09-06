@@ -59,7 +59,7 @@ Run:
   python3 tools/precedent_check.py --explain        # what each check does NOT check
   python3 tools/precedent_check.py --strict         # a SKIP is a failure
 """
-import difflib, functools, io, json, os, pathlib, re, subprocess, sys
+import ast, difflib, functools, io, json, os, pathlib, re, subprocess, sys
 
 # `git rev-parse --show-toplevel`, not `Path(__file__).resolve().parents[1]`:
 # this module runs two ways -- self-hosted at THIS repo's own tools/
@@ -1103,6 +1103,160 @@ def _vendored_engine_file_refs_resolve(ctx):
     return findings
 
 
+# Keys that name a DECLARED branch. Three distinct questions get answered by
+# a declaration rather than by inference, and a file answering ANY of them is
+# not the failure this check is about:
+#   base_branch     -- what lineage THIS repo's own work belongs to
+#   branch          -- which branch a VENDORED copy tracks (checkin.py reads
+#                      it from process/manifest.json's `upstream`)
+#   SOURCE_BRANCH   -- which branch the engine is seeded from
+_DECLARED_BRANCH_KEYS = ('base_branch', 'branch')
+
+# Exemptions, each with the reason it is not an inference. Kept as a table
+# rather than a bare name list because an unexplained exemption is how a
+# check quietly stops covering the thing it was written for.
+_BASE_BRANCH_INFERENCE_OK = {
+    'verify_harness.py':
+        "does not INFER a base branch -- it CONSTRUCTS throwaway fixture "
+        "repositories and sets refs/remotes/origin/HEAD on them on purpose, "
+        "including the negative controls for this very family of bugs",
+    'precedent_check.py':
+        "this file, whose own scan for the pattern necessarily contains it",
+}
+
+
+def _unguarded_branch_inferences(text):
+    """-> sorted names of the FUNCTIONS that infer a base branch from
+    `refs/remotes/origin/HEAD` without a declared branch being read first.
+
+    Function-level, not file-level, and that took three attempts to get
+    right -- each earlier version passed its own negative control, which is
+    the only reason the weakness showed at all.
+
+    v1 asked whether the FILE contained the literal `get('base_branch')`.
+    Deleting the helper from doc_lint.py and renaming it left that literal
+    in the dead body, and the control came back green: a check a file
+    passes by containing the right *words*.
+
+    v2 asked whether the file made a real declared-branch CALL anywhere,
+    via AST. Same control, same green -- the dead helper's call was still a
+    call.
+
+    v3, here, asks the actual question: the function doing the inferring
+    must itself read a declaration, or be called by a function that does.
+    The one-hop allowance is not slack; it is checkin.py's real shape,
+    where `_tracked_branch()` reads the manifest's `upstream.branch` and
+    delegates to `_default_branch(clone)` only as the fallback. Requiring
+    the read inside the leaf would have flagged the one resolver in this
+    tree that was already correct.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    docstrings = set()
+    for node in ast.walk(tree):
+        body = getattr(node, 'body', None) if isinstance(
+            node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                   ast.AsyncFunctionDef)) else None
+        if body and isinstance(body[0], ast.Expr) and \
+                isinstance(body[0].value, ast.Constant) and \
+                isinstance(body[0].value.value, str):
+            docstrings.add(id(body[0].value))
+
+    def infers(fn):
+        # A mention in a comment or docstring is prose, not an inference.
+        # precedent_vendor_engine.py's only occurrence is a docstring
+        # explaining checkin.py's old behaviour; flagging a file for
+        # DESCRIBING the bug it already fixed trains people to ignore the
+        # check.
+        return any(isinstance(n, ast.Constant) and isinstance(n.value, str)
+                   and id(n) not in docstrings
+                   and 'refs/remotes/origin/HEAD' in n.value
+                   for n in ast.walk(fn))
+
+    def reads_declaration(fn):
+        for n in ast.walk(fn):
+            if isinstance(n, ast.Call):
+                f = n.func
+                if isinstance(f, ast.Name) and f.id == '_declared_base_branch':
+                    return True
+                if isinstance(f, ast.Attribute) and f.attr == 'get' and n.args \
+                        and isinstance(n.args[0], ast.Constant) \
+                        and n.args[0].value in _DECLARED_BRANCH_KEYS:
+                    return True
+            if isinstance(n, ast.Name) and n.id == 'SOURCE_BRANCH' \
+                    and isinstance(n.ctx, ast.Load):
+                return True
+        return False
+
+    def calls(fn):
+        return {n.func.id for n in ast.walk(fn)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+
+    fns = [n for n in ast.walk(tree)
+           if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    guarded_callers = {name for fn in fns if reads_declaration(fn)
+                       for name in calls(fn)}
+    return sorted(fn.name for fn in fns if infers(fn)
+                  and not reads_declaration(fn)
+                  and fn.name not in guarded_callers)
+
+
+@check('declared-base-branch', 'tree',
+       "every tool that resolves the repo's branch reads precedent.json's "
+       "declared `base_branch` before falling back to inferring one from "
+       "`refs/remotes/origin/HEAD`",
+       "whether the declared value is CORRECT, whether a tool that needs a "
+       "base branch resolves one at all (a tool that hardcodes 'main' as a "
+       "string and never touches origin/HEAD is invisible here), and every "
+       "non-Python way of asking the same question -- a shell script or a "
+       "workflow running `git symbolic-ref` itself is not scanned.",
+       practice_backed=False)
+def _declared_base_branch_is_read(ctx):
+    """Asking `origin/HEAD` for the base branch is the wrong question, and
+    it is wrong in a way that tests clean.
+
+    `origin/HEAD` answers "what does GitHub show first". Callers mean "what
+    lineage does this work belong to". Those are the same value in almost
+    every repo, so the mistake is invisible until one pins its work to a
+    branch that is not its default -- which is what this repo does while
+    `precedent-beta-v01` is unmerged, and has done since 2026-09-03.
+
+    Measured on 2026-09-06, on a real checkout of that branch: SIX separate
+    tools carried their own copy of the inference, and two were actively
+    wrong. `doc_lint.default_branch()` returned the literal string 'HEAD'
+    (origin/HEAD unset, origin/main absent from a single-branch clone), so
+    `changed_md()` diffed against a ref that does not resolve and returned
+    ZERO files -- the markdown gate passing by scanning nothing.
+    `doc_html._link_base()` emitted `/blob/main/` for content that exists
+    only on the beta branch: every generated link dead.
+
+    The duplication is deliberate and stays -- doc_lint.py and doc_html.py
+    are meant to be droppable into a host repo alone, and doc_html.py's own
+    docstring says so. So this does not demand a shared import. It demands
+    that each copy ask the declared question first. Without a check the
+    next tool copies the nearest existing resolver, inherits the bug, and
+    tests clean again: that is precisely how this reached six copies.
+    """
+    findings = []
+    for path in sorted((ROOT / 'tools').glob('*.py')):
+        if path.name in _BASE_BRANCH_INFERENCE_OK:
+            continue
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        for fn in _unguarded_branch_inferences(text):
+            findings.append(Finding(
+                f'tools/{path.name}',
+                f"{fn}() resolves refs/remotes/origin/HEAD without a "
+                "DECLARED branch being read first, so under this repo's "
+                "branch pin it measures against a lineage the work never "
+                "touched -- read precedent.json's `base_branch` (the "
+                "`_declared_base_branch` helper the other resolvers carry), "
+                "or the manifest's `upstream.branch` if the question is "
+                "which branch a vendored copy tracks"))
+    return findings
+
+
 @check('verify-postcondition', 'turn-end',
        'the state you wanted after the operations this turn: nothing '
        'committed but unpushed on any local branch, and no tracked file '
@@ -1528,8 +1682,35 @@ TWO_CHECK_LEVELS_RE = re.compile(
     r'\*\*light check\*\*.{0,400}?\*\*deep check\*\*', re.S | re.I)
 
 
+
+def _declared_base_branch(root):
+    """The branch this repo's work is measured against, as DECLARED in
+    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
+
+    Those are two different questions with usually the same answer, which is
+    why asking the wrong one survives so long. `origin/HEAD` answers "what
+    does GitHub show first"; callers here mean "what lineage does this work
+    belong to". They diverge the moment a repo pins its work to a branch
+    that is not the configured default -- BestPractice's own
+    `precedent-beta-v01` -- and then every inference is quietly wrong with
+    nothing failing. Returns None when undeclared or unreadable, so callers
+    fall back to the old inference rather than breaking (fail-gracefully).
+    Enforced by precedent_check.py's `declared-base-branch`.
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
 def _published_default_branch():
     """origin's default branch ref, or None when there is no usable one."""
+    declared = _declared_base_branch(ROOT)
+    if declared and _git('rev-parse', '--verify', '--quiet',
+                         f'origin/{declared}').returncode == 0:
+        return f'origin/{declared}'
     head = _git('symbolic-ref', 'refs/remotes/origin/HEAD')
     if head.returncode == 0 and head.stdout.strip():
         return head.stdout.strip().replace('refs/remotes/', '', 1)
