@@ -169,8 +169,13 @@ case documented above.
    just be gone next session.
 5b. **On a hosted/ephemeral session, also wire the session-start hook** —
    `--write-session-hook <consuming project path> --repo-url <this set's
-   real git remote, from step 4>` on the same bootstrap command (or run it
-   again against an already-bootstrapped set). This instantiates
+   real git remote, from step 4>` on the same bootstrap command — or, for a
+   set that already exists, run it with **no `--dest`** and those two flags
+   plus `--level individual --name`, which writes the hook and creates or
+   touches nothing else. (That second form only became possible on
+   2026-09-06: `--dest` was required either way, so "run it again against an
+   already-bootstrapped set" meant force-overwriting the set to get a hook,
+   and BestPractice itself therefore had none.) This instantiates
    [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
    into the *consuming* project's `.claude/hooks/precedent-individual-bootstrap.sh`,
    delegating to

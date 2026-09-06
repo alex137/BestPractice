@@ -327,8 +327,14 @@ it applies.
      `python3 tools/precedent_bootstrap_source.py --level individual
      --name <the set's name> --dest <local clone path>
      --write-session-hook <this project's path>
-     --repo-url <the individual repo's URL>` rather than by hand: it
-     instantiates
+     --repo-url <the individual repo's URL>` rather than by hand. **When
+     the set already exists — the usual case, since the hook belongs to
+     the consuming project while the set lives elsewhere — drop `--dest`**
+     and the tool writes the hook and nothing else, creating and touching
+     no set. (`--dest` was required either way until 2026-09-06, so the
+     only route to the hook was creating or force-overwriting a whole
+     individual set; this repo itself went without the hook for exactly
+     that reason.) Either form instantiates
      [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
      at `.claude/hooks/precedent-individual-bootstrap.sh`, which delegates
      to the vendored

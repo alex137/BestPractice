@@ -394,9 +394,44 @@ def main():
     level = args.get('--level')
     name = args.get('--name')
     dest = args.get('--dest')
+
+    # HOOK-ONLY MODE: --write-session-hook with no --dest.
+    #
+    # The hook belongs to the CONSUMING project and names an individual set
+    # that already exists somewhere else -- writing it has nothing to do with
+    # creating a set. But until 2026-09-06 it was reachable only after
+    # bootstrap() succeeded, so a project that needed the hook had to name a
+    # --dest and create (or --force over) a whole individual set to get it.
+    # INSTALL.md and spec/BOOTSTRAP_NEW_SOURCES.md both already told operators
+    # to "run it again against an already-bootstrapped set", which the CLI
+    # could not do. BestPractice itself went without the hook for that reason,
+    # and a session that then could not resolve an individual source had no
+    # way to say whether one existed -- the silence fixed separately in
+    # tools/precedent_resolve.py.
+    if args.get('--write-session-hook') and not dest:
+        repo_url = args.get('--repo-url')
+        if level != 'individual' or not name or not repo_url:
+            sys.exit("precedent_bootstrap_source FAIL: writing only the "
+                     "session hook needs --level individual, --name NAME and "
+                     "--repo-url URL (the set's real git remote -- this tool "
+                     "never guesses a remote on your behalf).")
+        try:
+            precedent_resolve.check_source_name(level, name, '--name')
+            hook_path = write_session_hook(
+                args['--write-session-hook'], name, repo_url,
+                force=args.get('--force', 'false').lower() == 'true')
+        except (precedent_resolve.ResolveError, BootstrapRefused) as e:
+            sys.exit(f"precedent_bootstrap_source FAIL: {e}")
+        print(f"WROTE session-start hook: {hook_path} (no individual set was "
+              f"created or touched -- this mode writes the consuming "
+              f"project's hook and nothing else)")
+        return 0
+
     if level not in LEVELS or not name or not dest:
         sys.exit("precedent_bootstrap_source FAIL: --level "
-                  f"({sorted(LEVELS)}), --name NAME and --dest PATH are all required")
+                  f"({sorted(LEVELS)}), --name NAME and --dest PATH are all "
+                  f"required (except when writing only a session hook: "
+                  f"--write-session-hook PATH --repo-url URL, with --name)")
 
     # practice: source-naming -- this tool is where a person's chosen name
     # first becomes a real repository, so it is the last place a wrong one is

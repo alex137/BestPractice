@@ -1018,6 +1018,45 @@ def check_leak_gate_fires():
         cases.append(('a blocklist with no patterns fails rather than passing '
                       'vacuously', rc == 1))
 
+        # 10. the single ALLOWED_PATHS exemption, from both sides. The
+        #     vendored-private-set rule matches a path SEGMENT beginning
+        #     'precedent-individual', which is also the start of the canonical
+        #     SessionStart hook's FILENAME -- so installing the hook this
+        #     project tells every adopter to install failed the gate
+        #     (2026-09-06, the moment BestPractice installed its own). The
+        #     exemption is one exact path, so the directory case it was
+        #     written for must still fail.
+        hook_rel = '.claude/hooks/precedent-individual-bootstrap.sh'
+        (repo / '.claude' / 'hooks').mkdir(parents=True, exist_ok=True)
+        (repo / hook_rel).write_text('#!/bin/bash\nexit 0\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'the canonical individual-source hook')
+        cases.append(('the canonical individual-source bootstrap hook passes -- '
+                      'the project refusing a file its own instructions '
+                      'require is the bug this exemption fixes',
+                      gate() == 0))
+
+        (repo / 'precedent-individual' / 'practices').mkdir(parents=True)
+        (repo / 'precedent-individual' / 'practices' / 'x.md').write_text(
+            'vendored private content\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'a genuinely vendored private set')
+        cases.append(('a vendored private practice-set DIRECTORY still fails -- '
+                      'the exemption is one exact path, not a prefix',
+                      gate() == 1))
+        git(repo, 'rm', '-rq', 'precedent-individual')
+        git(repo, 'commit', '-qm', 'remove the vendored set')
+
+        # And the exemption must name the path the ENGINE looks for, not a
+        # string that drifts from it.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import leak_gate as _lg
+        import precedent_resolve as _pr
+        cases.append(("leak_gate's exemption is exactly precedent_resolve's "
+                      'INDIVIDUAL_BOOTSTRAP_HOOK, so the gate and the engine '
+                      'cannot disagree about where the hook lives',
+                      _pr.INDIVIDUAL_BOOTSTRAP_HOOK in _lg.ALLOWED_PATHS))
+
         ok = all(passed for _, passed in cases)
         for name, passed in cases:
             if not passed:
@@ -6503,6 +6542,52 @@ def check_individual_source_bootstrap_self_heals():
                       'source is a definite answer, even on a remote session',
                       st8.get('certain') is True
                       and st8.get('code') == 'config-declares-none', out8))
+
+        # --- cases 9-11: BestPractice as a CONSUMER of its own instructions -
+        # The root cause of the hook being absent here for as long as it was:
+        # this repo is treated as the publisher, so every case above builds a
+        # fixture consumer and asserts things about IT. Nothing asserted the
+        # publisher follows the install steps it publishes. These do.
+        own_hook = ROOT / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        cases.append(('this repo carries the individual-source bootstrap hook '
+                      'it tells every adopter to install, and it is executable',
+                      own_hook.is_file() and os.access(own_hook, os.X_OK),
+                      f'{own_hook} is_file={own_hook.is_file()}'))
+
+        # The property that makes committing it safe, and the reason it was
+        # left out as "must not be committed blind": a SessionStart hook must
+        # never block a session, so it has to exit 0 even when its whole job
+        # is impossible. Run here with a HOME that has nothing and no git
+        # credentials -- exactly a session without access to the private set.
+        home_hook = tmp / 'home-own-hook'
+        home_hook.mkdir()
+        rh = subprocess.run(['bash', str(own_hook)], capture_output=True,
+                            text=True, timeout=180,
+                            env={**os.environ, 'HOME': str(home_hook),
+                                 'CLAUDE_PROJECT_DIR': str(ROOT),
+                                 'CLAUDE_CODE_REMOTE': 'true'})
+        cases.append(("this repo's own bootstrap hook exits 0 when it cannot "
+                      'reach the individual set -- a session-start hook that '
+                      'fails must never block the session',
+                      rh.returncode == 0, rh.stdout + rh.stderr))
+
+        # And the CLI route that writes it. Until 2026-09-06 --write-session-hook
+        # was reachable only after bootstrap() created a whole individual set,
+        # so the documented "run it again against an already-bootstrapped set"
+        # could not be run -- which is why this repo went without the hook.
+        hook_only_proj = tmp / 'hook-only-project'
+        hook_only_proj.mkdir()
+        rc9, out9 = run(str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                        '--level', 'individual', '--name', 'precedent-individual',
+                        '--write-session-hook', str(hook_only_proj),
+                        '--repo-url', 'https://example.invalid/precedent-individual')
+        written_hook = hook_only_proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        cases.append(('--write-session-hook writes the hook with no --dest and '
+                      'creates no individual set -- the documented '
+                      '"run it again against an already-bootstrapped set"',
+                      rc9 == 0 and written_hook.is_file()
+                      and not (hook_only_proj / 'practices').exists(),
+                      out9))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
