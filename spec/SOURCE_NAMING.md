@@ -97,6 +97,40 @@ person picks a repository name minutes earlier, in conversation. Telling them
 the convention then is the only intervention available — which is why it is a
 clause of the Rule and not a footnote.
 
+## What the first real consumer refresh showed
+
+`themorgan/HavrutaBrainstorm` refreshed its vendored engine from
+`precedent-beta-v01` on 2026-09-06 — the first time the refusal met a repo
+nobody had prepared for it. Worth keeping, because it is the only evidence
+that the split between the two halves behaves:
+
+- Its repo-local source was named `havruta-local`. The refusal fired during
+  `precedent_sync_views`, **before** anything was written, and its message
+  carried the expected name — so the session fixed it without having this
+  document in its tree.
+- [tools/precedent_check.py](../tools/precedent_check.py) reported
+  `source-naming` as SKIPPED, with the reason
+  (*"this check belongs to a source this repo does not resolve"*), rather
+  than passing. The enforcement travels with the engine and the explanation
+  with the catalogue; a consumer sees the gap instead of a false all-clear.
+- The same refresh produced one finding nobody predicted: a citation
+  problem. `# practice: source-naming` comments inside the vendored
+  [precedent_resolve.py](../tools/precedent_resolve.py) named a practice the
+  consumer's catalogue did not
+  carry yet, so `code-cites-practice` reported them as typos.
+  [tools/precedent_check.py](../tools/precedent_check.py) now exempts files
+  named in `tools/ENGINE_MANIFEST.json` — a vendored engine file's
+  citations are upstream's, and unfixable from the consuming repo. The
+  exemption is keyed on the manifest rather than a filename list precisely
+  so it cannot weaken the check here, where BestPractice has no manifest
+  and never will.
+
+The instruction that sent that session in was also wrong, and the correction
+is worth more than the finding: it named `status` and `refresh` against a
+repo whose `tools/` was a pre-mechanism hand-copy, where neither verb can
+run. [INSTALL.md](../INSTALL.md) §2 step 6 already covered that case, in its
+last sentence; it now leads with it.
+
 ## Decisions taken
 
 **Recommend, or recommend and enforce? Both, split by layer** — refuse the

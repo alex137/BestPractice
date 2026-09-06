@@ -54,7 +54,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Markdown parser
-        run: python -m pip install cmarkgfm
+        run: python -m pip install cmarkgfm markdown
 
       - name: Run the verification harness
         run: python3 tools/verify_harness.py

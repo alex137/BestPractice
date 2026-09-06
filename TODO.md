@@ -342,20 +342,22 @@ which is the failure this repointing exists to end — write
     alone. Any session with `precedent-team-maintainers` attached and a
     mandate to touch it can close this.
 
-24. **Check the consumer repos' own source names against the convention.**
-    [practices/source-naming.md](practices/source-naming.md) makes a
-    source's name a refusal in
-    [tools/precedent_resolve.py](tools/precedent_resolve.py), not a
-    recommendation, so a consumer repo whose `precedent.json` names a source
-    any other way stops resolving the moment it refreshes its vendored
-    engine. Every source attached to the session that landed this —
-    `precedent-individual`, `precedent-team-maintainers`,
-    `precedent-team-tms` — already conforms, and none of them declares a
-    `precedent.json` of its own. `themorgan/HavrutaBrainstorm` does declare
-    one and was not attached. **Blocked on:** a session with that repository
-    attached. What it needs: read its `precedent.json`, and if a source name
-    does not match its level's shape, fix the name in the same change that
-    refreshes its vendored engine — never one without the other.
+24. <a id="consumer-source-names"></a>~~**Check the consumer repos' own source names against the convention.**~~
+    **Done (2026-09-06.)** `themorgan/HavrutaBrainstorm` — the one consumer
+    that declares sources and was not attached when
+    [practices/source-naming.md](practices/source-naming.md) landed — was
+    refreshed from its own session and merged. Its repo-local source was
+    named `havruta-local`; it is now `local`. What the pilot actually
+    proved, beyond the rename: the refusal fired at the right moment
+    (`precedent_sync_views`, before anything was written), its message was
+    actionable enough that the session fixed the name without having
+    [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md) in its tree, and
+    `precedent_check.py` reported `source-naming` as SKIPPED with its
+    reason rather than passing falsely — the enforcement arrives with the
+    engine, the explanation with the catalogue, and the gap between them
+    is visible instead of silent. Two findings it surfaced are item 30
+    below and the `code-cites-practice` fix that landed with this entry.
+
 25. <a id="unreachable-practices"></a>**Decide what happens to a practice that
     is in force but does not bind the repo it reached.** Measured 2026-09-06:
     of the 114 practices in force in this repo, **43 are reachable by no
@@ -428,18 +430,13 @@ which is the failure this repointing exists to end — write
     that can reach the individual repo, since the instantiated hook names
     it and an untested session-start hook must not be committed blind.
 
-28. **A missing individual source is silent; a missing team source is
-    loud.** In `load_config`, a team source that fails to resolve is
-    reported through `missing` and printed. An individual source whose
-    user-level config is absent is simply never appended to `sources` —
-    no `missing` entry, no warning. The module docstring names exactly
-    this ambiguity ("config absent" ≠ "no individual set") and
-    `_self_heal_individual_source` addresses only the fresh-session-hook
-    half of it. After the self-heal has been tried and the config is
-    still absent, the resolver should say so, the way it does for a team
-    source. **Blocked on:** nothing — this is a small change to
-    `tools/precedent_resolve.py` plus a harness case. Not done here only
-    because it is a separate defect from the work in this thread.
+28. **Done 2026-09-06 — a missing individual source is no longer silent.**
+    Kept as a stub rather than deleted, so item 29 does not shift under
+    anyone who cited it. `tools/precedent_resolve.py` now diagnoses the
+    four states an unresolved individual source can be in and reports the
+    two that are genuinely *unknown* rather than *none*, on stderr and as
+    `individual_status` in `--json`;
+    [spec/SOURCES.md](spec/SOURCES.md) carries the row.
 
 29. **Audit the RepoPersonalPreferences migration for anything else lost.**
     RPP's 46 rules were split into the two private sets on 2026-09-01
@@ -458,3 +455,25 @@ which is the failure this repointing exists to end — write
     moved to universal, was deliberately retired, or was lost, and each of
     those three is a different answer. **Blocked on:** a session that can
     read `themorgan/RepoPersonalPreferences` plus both private sets.
+
+30. **Upstream-only registries ride along in vendored engine files.**
+    [tools/doc_sync.py](tools/doc_sync.py)'s `PAIRS` hardcodes
+    `spec/LOADER.md` and `spec/ENFORCEMENT.md`;
+    [tools/model_audit.py](tools/model_audit.py)'s `INSTRUMENTED` names
+    [tools/catalogue_stats.py](tools/catalogue_stats.py). None of those
+    exist in a consuming repo, and both files became consumer-vendored on
+    2026-09-06 — so the first real consumer refresh (HavrutaBrainstorm, the
+    same day) inherited BestPractice's own registry and reported
+    `scripts-assert-properties` violated with `computed-numbers-in-scripts`
+    and `docs-track-models` skipped. Nothing is broken; the consumer's
+    check output is just wrong about whose registry it is reading.
+    `doc_sync.py`'s own docstring already anticipates the host case
+    (*"a repo with `PAIRS = []`"*), so the mechanism exists and the
+    vendoring step simply does not use it. **Blocked on:** nothing but a
+    deliberate pass — this touches the vendoring contract (does
+    `precedent_vendor_engine.py` blank a registry on the way out, or does
+    each file read its registry from a host-owned file?), and picking
+    wrong makes every consumer's copy diverge from upstream's, which is
+    the one thing that tree is designed never to do. Do not fix it
+    piecemeal from a consumer repo.
+

@@ -558,7 +558,22 @@ deliberate procedure below.
    (export first, or `--force` to overwrite) — then update
    `upstream.commit` (`checkin.py record <upstream-clone>`), run the
    audit `--update-baseline`, commit.
-6. **Keep the vendored engine current (consumer repos).** Steps 1–5 above
+6. **Keep the vendored engine current (consumer repos).**
+   **First, look for `tools/ENGINE_MANIFEST.json` — it decides which
+   command you run, and there is no way to discover that from the error.**
+   No manifest means this repo predates the vendoring mechanism and its
+   `tools/` is the old hand-copy: `precedent_vendor_engine.py` is not there
+   to run, and `status` and `refresh` both read the manifest anyway, so
+   neither verb can bootstrap the thing it needs. Seed it once, from a
+   sibling BestPractice clone's own copy of the tool:
+   ```
+   python3 ../BestPractice/tools/precedent_vendor_engine.py seed . --kind consumer
+   ```
+   (Confirmed the hard way 2026-09-06, refreshing `themorgan/HavrutaBrainstorm`:
+   all three commands exited 2 with "No such file or directory", which reads
+   like a broken instruction and is really a missing baseline.) With a
+   manifest present, `status` and `refresh` below are the whole procedure.
+   Steps 1–5 above
    are about `process/upstream/` — the vendored *content* (universal
    practices, `PRACTICES.md`, the audit scripts). This step is about the
    separate tree at this repo's own top-level `tools/`: the loader
@@ -576,8 +591,13 @@ deliberate procedure below.
    [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
    vendored engine" section already documents for an individual/team
    *source* set, extended to a four-source *consumer*'s larger file list.
-   From a sibling BestPractice clone:
+   From a sibling BestPractice clone — **but check for
+   `tools/ENGINE_MANIFEST.json` first: with no manifest, neither verb
+   below can run, and the last paragraph of this step is your entry
+   point, not these two lines:**
    ```
+   # Precondition: tools/ENGINE_MANIFEST.json exists (i.e. a prior seed).
+   # Without it, skip to this step's last paragraph and seed instead.
    python3 tools/precedent_vendor_engine.py status  ../BestPractice   # drift? behind?
    python3 tools/precedent_vendor_engine.py refresh ../BestPractice   # pull, re-vendor, re-stamp
    ```
@@ -592,11 +612,7 @@ deliberate procedure below.
    refresh, re-run `python3 tools/precedent_sync_views.py --repo . --check`
    to confirm the freshly refreshed engine still produces the same
    materialized tree and `AGENTS.md` (or, if the refresh changed loader
-   behavior, review the diff before committing). A repo installed before
-   this mechanism existed (a hand-copy with no `ENGINE_MANIFEST.json`) has
-   nothing to refresh from yet — vendor it for the first time the same way
-   §0 step 1 does, `--kind consumer`, from a sibling BestPractice clone
-   instead of BestPractice's own checkout.
+   behavior, review the diff before committing).
 
 ## 3. (Optional) Give back an improvement — the export gate
 
