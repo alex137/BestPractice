@@ -68,7 +68,7 @@ Run:
 Exit: 0 clean, 1 on any hit, on a misconfigured blocklist, or on an unrun
 vocabulary layer this clone declared it needs.
 """
-import os, pathlib, re, subprocess, sys
+import base64, os, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BLOCKLIST_ENV = 'PRECEDENT_LEAK_BLOCKLIST'
@@ -153,6 +153,41 @@ FORBIDDEN_CONTENT = [
                r'\s*(#.*)?$', re.M | re.I),
      'a practice claiming a non-universal source'),
 ]
+
+# --- profanity, a STRUCTURAL rule and deliberately not a vocabulary one ----
+#
+# Asked for 2026-09-06: "can we put a word on a blocklist by default, so the
+# gate passes and we also test it out?" Half of that is right and half is not,
+# and the split is worth recording rather than quietly picking one.
+#
+# NOT a vocabulary-layer entry. That layer catches PRIVATE words -- client
+# names, code words, internal identifiers -- and its whole design is that the
+# list cannot live in the repo it protects, because a blocklist of secret
+# terms committed to a public repo publishes the secrets. Putting a
+# publishable word there to turn PARTIAL into a green PASS would make the
+# gate report a clean vocabulary scan it did not run, which is this repo's
+# own documented failure mode (checkin.py `fresh` silent on failure, so
+# unreachable read as "current"). PARTIAL stays PARTIAL until a real private
+# blocklist is configured.
+#
+# But profanity IS a real defect in a public, outward-facing repository, and
+# it is safe to publish the rule that catches it -- which is exactly what
+# makes it a STRUCTURAL rule, alongside the email and home-directory shapes.
+# So it lands here, where it can be committed honestly, instead of there,
+# where it would launder an unrun check into a pass.
+#
+# BASE64, and not because anyone is squeamish. This file is itself scanned by
+# the tree scan below, so a rule written as a plain literal matches its own
+# source and hard-fails every clean run -- the identical trap the
+# home-directory rule above already carries a comment about, which cost a
+# red gate on a clean tree once. Encoding the terms means the contiguous word
+# never appears in this file's own bytes.
+_PROFANITY = base64.b64decode('ZnVjayxzaGl0LGN1bnQsYml0Y2gsYXNzaG9sZSxtb3RoZXJmdWNrZXI=').decode().split(',')
+FORBIDDEN_CONTENT.append(
+    (re.compile(r'\b(?:' + '|'.join(_PROFANITY) + r')(?:s|es|ing|ed)?\b', re.I),
+     'profanity, in a repository whose documents are read by people outside '
+     'the project (structural rule, not a private-vocabulary one -- see the '
+     'comment above FORBIDDEN_CONTENT for why the two layers are separate)'))
 
 SKIP_DIRS = {'.git', '__pycache__', 'node_modules', '.venv'}
 TEXT_SUFFIXES = {'.md', '.py', '.json', '.txt', '.sh', '.yml', '.yaml', '.html',

@@ -752,6 +752,16 @@ def _practice_is_reachable(ctx):
         if d.is_dir():
             reachable_names |= {f.name for f in d.glob('check_*.py')}
 
+    try:
+        not_binding = pr.load_not_binding(ROOT)
+    except Exception as e:
+        # A malformed exemption list must be loud, never silently empty:
+        # an exemption mechanism that ignores its own bad entries is a way
+        # to opt out of a rule by typo.
+        return [Finding(str(ROOT / 'precedent.json'),
+                        f'`not_binding` is malformed and no exemption could be '
+                        f'read from it: {e}')]
+
     in_force, unreachable, unresolved = {}, [], []
     for s in sources:
         d = pathlib.Path(s['path']) / 'practices'
@@ -763,8 +773,17 @@ def _practice_is_reachable(ctx):
                 fm, _sections = sp._read_practice_file(f)
             except Exception:
                 continue
-            if (fm.get('status') or 'active').strip('" ') != 'active':
-                continue
+            # Not in force -- any non-active status, not the literal
+            # 'active' test this used to do by hand. Routed through the one
+            # shared predicate so `deduplicated` counts too (practice:
+            # layered-practice-packs).
+            try:
+                import build_views as _bv
+                if not _bv.is_in_force(fm):
+                    continue
+            except Exception:
+                if (fm.get('status') or 'active').strip('" ') != 'active':
+                    continue
             in_force.setdefault(fm.get('slug', f.stem), (fm, s))
 
     # Word-boundary, not substring: a slug like `install` or `doc-recipe`
@@ -772,7 +791,18 @@ def _practice_is_reachable(ctx):
     # would have counted as "reachable" -- the check would then under-report
     # exactly the practices whose names are common words.
     named = set(re.findall(r'[a-z0-9]+(?:-[a-z0-9]+)+', instructions))
+    exempted, blocked_exemptions = [], []
     for slug, (fm, s) in sorted(in_force.items()):
+        if slug in not_binding:
+            # `severity: blocking` may not be exempted -- the same rule the
+            # resolver already applies to precedence, for the same reason: a
+            # blocking practice is exactly the one no downstream declaration
+            # is allowed to switch off.
+            if (fm.get('severity') or 'default').strip('" ') == 'blocking':
+                blocked_exemptions.append((slug, s['level'], s['name']))
+            else:
+                exempted.append(slug)
+            continue
         if slug in named:
             continue                       # resident block or occasion index
         if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
@@ -789,6 +819,30 @@ def _practice_is_reachable(ctx):
                             'so there is nothing to judge reachability for')
 
     out = []
+    # A stale exemption is a real defect, not advisory noise: it names a
+    # rule nothing puts in force, so it is either a typo (and the rule it
+    # meant to exempt is still unreachable and unexplained) or a leftover
+    # from a practice that has since gone. Only reported when every source
+    # resolved -- otherwise "not in force" may just mean "not fetched".
+    if not unresolved:
+        for slug, reason in sorted(not_binding.items()):
+            if slug not in in_force:
+                out.append(Finding(
+                    'precedent.json',
+                    f'`not_binding` exempts {slug!r}, but no declared source '
+                    f'puts that slug in force. Either it is a typo, or the '
+                    f'practice is gone and the exemption outlived it. '
+                    f'(Recorded reason: {reason})'))
+    for slug, level, src in blocked_exemptions:
+        out.append(Finding(
+            f'{level}/{src}',
+            f'`not_binding` exempts {slug!r}, but it is `severity: blocking` '
+            f'-- a blocking practice is exactly the one a downstream repo may '
+            f'not switch off. Remove the exemption, or take the matter up '
+            f'with the source that set the severity.'))
+    if exempted:
+        print(f'  ({len(exempted)} practice(s) declared not-binding here, with '
+              f'reasons, in precedent.json: {", ".join(sorted(exempted))})')
     for slug, level, src in unreachable:
         out.append(Finding(
             f'{level}/{src}',

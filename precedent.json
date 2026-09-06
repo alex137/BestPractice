@@ -29,7 +29,20 @@
     "the rule directly for that reason. See local/practices/ and",
     "PRACTICE_ENGINE_PLAN.md's 'Source' section for the path: \"local\"",
     "convention this follows. Its NAME is fixed to \"local\" by the same",
-    "convention -- see spec/SOURCE_NAMING.md and practices/source-naming.md."
+    "convention -- see spec/SOURCE_NAMING.md and practices/source-naming.md.",
+    "",
+    "`not_binding` (added 2026-09-06) is how this repo says a practice is IN",
+    "FORCE at its source but does NOT bind this repository -- a rule about a",
+    "different KIND of repo, e.g. one a single person authors alone. Shape:",
+    "  \"not_binding\": [{\"slug\": \"...\", \"reason\": \"why it does not bind\"}]",
+    "The reason is mandatory: an exemption nobody argued for is the same",
+    "silence this mechanism replaces. A `severity: blocking` practice cannot",
+    "be exempted at all, and an entry naming a slug nothing puts in force is",
+    "reported as stale. See decisions/2026-09-06-precedent-binds-itself.md",
+    "and tools/precedent_resolve.py's load_not_binding().",
+    "It is deliberately EMPTY here for now: populating it needs the private",
+    "sources resolved, and an exemption for a practice whose text cannot be",
+    "read would assert what cannot be verified (TODO attach-private-sources)."
   ],
   "sources": [
     {

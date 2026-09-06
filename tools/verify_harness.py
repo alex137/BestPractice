@@ -2656,6 +2656,205 @@ def check_legacy_status_migration():
           f'is never guessed ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_profanity_is_structural_not_vocabulary():
+    """Profanity is caught by the always-on structural layer, and the
+    vocabulary layer still reports honestly that it did not run.
+
+    Asked for 2026-09-06: put a word on a blocklist by default so the gate
+    passes and the layer gets exercised. Half right. Exercising it is worth
+    doing; making it PASS that way is not -- the vocabulary layer catches
+    PRIVATE words and its whole design is that the list cannot live in the
+    repo it protects. A publishable word placed there would turn PARTIAL
+    into a green PASS while no private-term scan had run, which is this
+    repo's own documented failure (silence about an unrun check reading as
+    a clean result). So the rule lands in the structural layer, where a
+    committed pattern is honest, and PARTIAL stays PARTIAL.
+
+    The base64 encoding is not squeamishness: leak_gate.py is itself
+    scanned by the tree scan, so a plain literal would match its own source
+    and hard-fail every clean run -- the identical trap the home-directory
+    rule already carries a comment about."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as lg
+    import base64 as _b64
+
+    word = _b64.b64decode('ZnVjaw==').decode()
+    planted = f"# A document\n\nThis {word}ing line should trip the gate.\n"
+    innocuous = ("# A document\n\nOrdinary prose about Scunthorpe, classic "
+                 "assessment, and a bass player.\n")
+
+    def hits(text):
+        return [why for pat, why in lg.FORBIDDEN_CONTENT if pat.search(text)]
+
+    cases = [
+        ('the profanity rule fires on a planted instance',
+         any('profanity' in w for w in hits(planted))),
+        ('...and does not fire on innocuous prose that merely contains the '
+         'letters (the Scunthorpe problem) -- word boundaries, not substrings',
+         not any('profanity' in w for w in hits(innocuous))),
+        ('leak_gate.py does not trip its own rule -- the encoded terms keep '
+         'the contiguous word out of this gate\'s own bytes, the trap the '
+         'home-directory rule already cost a red gate on a clean tree once',
+         not any('profanity' in w for w in
+                 hits((ROOT / 'tools' / 'leak_gate.py').read_text(encoding='utf-8')))),
+        ('the whole tracked tree is clean against it',
+         subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py')],
+                        capture_output=True, text=True).returncode == 0),
+    ]
+
+    # And the honesty property this must not have broken.
+    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py')],
+                       capture_output=True, text=True,
+                       env={k: v for k, v in os.environ.items()
+                            if k != 'PRECEDENT_LEAK_BLOCKLIST'})
+    cases.append(('with no blocklist configured the gate still says PARTIAL, '
+                  'not PASS -- adding a publishable word to the STRUCTURAL '
+                  'layer must not make the VOCABULARY layer look like it ran',
+                  'PARTIAL' in r.stdout + r.stderr))
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'profanity is a structural rule, and the vocabulary layer still '
+          f'reports honestly ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_not_binding_cannot_be_abused():
+    """A repo can say "in force at its source, does not bind here" -- and
+    cannot use that to quietly switch a rule off.
+
+    THE GAP THIS CLOSES (TODO's `unreachable-practices`, opened by
+    spec/PRELAUNCH_AUDIT.md). 43 of 114 practices in force in this repo were
+    reachable by no loading channel. Running the source-supplied checks
+    against the tree showed the answer is not "turn them all on": some pass,
+    some report real findings, and some report things this repo cannot act
+    on because the practice is about a DIFFERENT KIND OF REPOSITORY. The
+    system had no vocabulary for that, so silence was doing the job, and a
+    forgotten rule and a deliberately-inapplicable one looked identical.
+
+    THE RISK, WHICH IS THE WHOLE REASON THIS CHECK EXISTS. An exemption list
+    is a mechanism for opting out of rules. Left unguarded it is strictly
+    worse than the silence it replaces, because it launders "I did not want
+    to" into a recorded decision. So the guards are the feature, and each is
+    asserted here with a negative control:
+
+      a reason is mandatory     an exemption nobody argued for is the same
+                                silence, with a config entry on top
+      blocking cannot be exempt the same rule the resolver already applies
+                                to precedence: a blocking practice is
+                                exactly the one no downstream repo may
+                                switch off
+      stale exemptions surface  one naming a slug nothing puts in force is
+                                a typo (and the rule it meant to exempt is
+                                still unexplained) or outlived its practice
+      malformed fails loudly    a list that silently ignores its own bad
+                                entries is a way to opt out by typo
+    """
+    import tempfile, shutil, json as _json
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as pr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-notbinding-'))
+    cases = []
+    try:
+        def cfg(obj):
+            (tmp / 'precedent.json').write_text(_json.dumps(obj), encoding='utf-8')
+
+        base = {"format_version": 1,
+                "sources": [{"level": "universal", "name": "u", "path": "."}]}
+
+        cfg(base)
+        cases.append(('a repo with no `not_binding` key reads as no exemptions',
+                      pr.load_not_binding(tmp) == {}))
+
+        cfg({**base, "not_binding": [
+            {"slug": "commit-author", "reason": "about a repo one person authors alone"}]})
+        cases.append(('a well-formed exemption is read, reason and all',
+                      pr.load_not_binding(tmp) ==
+                      {"commit-author": "about a repo one person authors alone"}))
+
+        def refuses(obj):
+            cfg(obj)
+            try:
+                pr.load_not_binding(tmp)
+                return False
+            except pr.NotBindingError:
+                return True
+            except Exception:
+                return False
+
+        cases.append(('an exemption with NO reason is refused -- the guard is '
+                      'that opting out is argued, never merely declared',
+                      refuses({**base, "not_binding": [{"slug": "x"}]})))
+        cases.append(('...and an empty/whitespace reason counts as none',
+                      refuses({**base, "not_binding": [{"slug": "x", "reason": "   "}]})))
+        cases.append(('an exemption with no slug is refused',
+                      refuses({**base, "not_binding": [{"reason": "because"}]})))
+        cases.append(('a `not_binding` that is not a list is refused',
+                      refuses({**base, "not_binding": {"x": "y"}})))
+        cases.append(('a non-object entry is refused',
+                      refuses({**base, "not_binding": ["commit-author"]})))
+
+        # Through the REAL check function, with its ROOT pointed at a
+        # fixture repo. Driven in-process rather than by subprocess because
+        # precedent_check.ROOT comes from `git rev-parse --show-toplevel`,
+        # not from an environment variable -- PRECEDENT_CHECK_ROOT steers the
+        # source-supplied check SCRIPTS, not this module.
+        import precedent_check as pc
+        reachable = pc._practice_is_reachable
+
+        def run_check(not_binding, severity='default', slug='fx-unreachable'):
+            repo = tmp / 'repo'
+            shutil.rmtree(repo, ignore_errors=True)
+            (repo / 'practices').mkdir(parents=True)
+            src = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
+            x = re.sub(r'^slug:(\s+)\S+$', rf'slug:\g<1>{slug}', src, count=1, flags=re.M)
+            x = re.sub(r'^severity:(\s+)\S+$', rf'severity:\g<1>{severity}', x, count=1, flags=re.M)
+            x = re.sub(r'^occasion:.*$', 'occasion:    null', x, count=1, flags=re.M)
+            x = re.sub(r'^gates:.*$', 'gates:       []', x, count=1, flags=re.M)
+            x = re.sub(r'^checked_by:.*$', 'checked_by:  null', x, count=1, flags=re.M)
+            (repo / 'practices' / f'{slug}.md').write_text(x, encoding='utf-8')
+            (repo / 'AGENTS.md').write_text('# nothing names it\n', encoding='utf-8')
+            # `name` is fixed by level (spec/SOURCE_NAMING.md) -- the resolver
+            # refuses anything else, which this fixture found the hard way.
+            (repo / 'precedent.json').write_text(_json.dumps(
+                {"format_version": 1,
+                 "sources": [{"level": "universal", "name": "precedent", "path": "."}],
+                 **({"not_binding": not_binding} if not_binding is not None else {})}),
+                encoding='utf-8')
+            saved = pc.ROOT
+            pc.ROOT = repo
+            try:
+                return ' | '.join(str(getattr(f, 'detail', f)) for f in (reachable(None) or []))
+            finally:
+                pc.ROOT = saved
+
+        out = run_check(None)
+        cases.append(('an unreachable practice IS reported when nothing exempts it',
+                      'fx-unreachable' in out))
+
+        out = run_check([{"slug": "fx-unreachable", "reason": "different kind of repo"}])
+        cases.append(('...and stops being reported once exempted, with a reason',
+                      'fx-unreachable' not in out))
+
+        out = run_check([{"slug": "fx-unreachable", "reason": "inconvenient"}],
+                        severity='blocking')
+        cases.append(('a `severity: blocking` practice CANNOT be exempted -- the '
+                      'one rule a downstream repo may never switch off',
+                      'blocking' in out and 'fx-unreachable' in out))
+
+        out = run_check([{"slug": "no-such-practice-anywhere", "reason": "x"},
+                         {"slug": "fx-unreachable", "reason": "different kind of repo"}])
+        cases.append(('a STALE exemption naming a slug nothing puts in force is '
+                      'reported -- a typo must not silently exempt nothing',
+                      'no-such-practice-anywhere' in out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [n for n, ok in cases if not ok]
+    check(f'`not_binding` states what a repo is not bound by, and cannot be '
+          f'used to switch a rule off quietly ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_codeowners_check_is_a_check():
     """`build_codeowners.py --check` verifies without writing, and its output
     is a function of its source rather than of when it ran.
@@ -7537,6 +7736,8 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_profanity_is_structural_not_vocabulary()
+    check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
     check_status_contract()
     check_legacy_status_migration()

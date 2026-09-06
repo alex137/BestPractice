@@ -371,38 +371,32 @@ which is the failure this repointing exists to end — write
     is visible instead of silent. Two findings it surfaced are item 30
     below and the `code-cites-practice` fix that landed with this entry.
 
-25. <a id="unreachable-practices"></a>**Decide what happens to a practice that
-    is in force but does not bind the repo it reached.** Measured 2026-09-06:
-    of the 114 practices in force in this repo, **43 are reachable by no
-    loading channel at all** — not resident, not in the occasion index, no
-    gate, no runnable check. `layered-practice-packs`' new check in
-    [tools/precedent_check.py](tools/precedent_check.py) reports them on every
-    run, advisory, and
-    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md)'s "Rules in force that
-    nothing can load" has the measurement and the evidence. The reason it is
-    advisory rather than blocking is the finding itself: running all fifteen
-    source-supplied checks against this tree shows the answer is not "turn
-    them all on" — five pass, four report real findings worth fixing, and
-    **six report things this repo cannot act on because the practice is about
-    a different kind of repository** (a repo one person authors alone, or the
-    team set's own shipped content; `session-trailer` wants a trailer on every
-    commit in a history [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)
-    forbids rewriting). The system has no vocabulary for "in force at this
-    level, does not bind this repo," so silence is doing that job — which is
-    why a forgotten rule and a deliberately-inapplicable one look identical.
-    **Blocked on:** a design decision that is Morgan's, not a session's. Three
-    shapes to choose between: a per-practice `binds:` / `not_in_repos:` field
-    the resolver honors; a per-repo opt-out list in `precedent.json`; or
-    making this repo's generated views multi-source so the 34 team practices
-    load here and the misfits get retired or moved instead. Whichever is
-    picked, the advisory check is already the thing that will say when it is
-    done. A worked example of the cost, 2026-09-06: Morgan asked why
-    `documentation/` was not following a headline-capitalization rule he
-    believed existed. It may well exist in a private set; it could not
-    have fired either way, because this repo's generated views are
-    universal-only. The rule was landed at the universal level instead
-    ([practices/headline-capitalization.md](practices/headline-capitalization.md)),
-    which sidesteps the question for one rule without answering it.
+25. <a id="unreachable-practices"></a>**Populate `not_binding` for the practices in force here that do not
+    bind this repo.** **The design decision is made and the mechanism is
+    built (2026-09-06** —
+    [decisions/2026-09-06-precedent-binds-itself.md](decisions/2026-09-06-precedent-binds-itself.md)**).**
+    `precedent.json` now takes `not_binding: [{slug, reason}]`, honored by
+    `layered-practice-packs`' check: a reason is mandatory, a
+    `severity: blocking` practice cannot be exempted, a stale entry is
+    reported, and a malformed list fails loudly — all four asserted with
+    negative controls in `check_not_binding_cannot_be_abused`.
+    Shape 1 (a per-practice field) was rejected because whether a rule binds
+    is a property of the pair, not the rule; shape 3 (multi-source generated
+    views here) was rejected for this repo because it would publish private
+    team practice text into a public [AGENTS.md](AGENTS.md), and because its
+    own "the misfits get retired or moved" framing would repeat the
+    `deep-check` error of dropping a valid rule that simply does not apply
+    here.
+    **What is left is a measurement, not a decision:** of the 43 practices
+    reachable by nothing, the audit's table says roughly five should be wired
+    in as-is, four wired in and then fixed, and six declared not-binding —
+    but that table predates Morgan's 2026-09-06 ruling that `deep-check` is
+    NOT redundant, so it must be re-judged rather than copied. Writing
+    exemptions for practices whose text and severity cannot be read would be
+    asserting what cannot be verified.
+    **Blocked on:** a session that can resolve the private sources — see
+    [`attach-private-sources`](TODO.md#attach-private-sources) for exactly
+    what that takes.
 
 26. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
     holding all four repositories searched by purpose and by mechanism
@@ -546,6 +540,26 @@ which is the failure this repointing exists to end — write
     `# practice: deep-check` citation resolves again and there is nothing to
     move. This is the incident that motivated
     [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md).
+
+34. <a id="attach-private-sources"></a>**Run one session rooted at each private set — this unblocks four other
+    items at once.** Established 2026-09-06 by trying it, rather than
+    assumed: all three private repos (`themorgan/precedent-team-maintainers`,
+    `themorgan/precedent-team-tms`, `themorgan/precedent-individual`) are
+    **reachable and pushable** by this account. The blocker is not access. It
+    is that `add_repo` refuses a cross-owner add — a session already holding
+    `alex137/*` cannot attach a `themorgan/*` repo ("cross-tier adds are not
+    supported in v1"). So the unblock is simply **a session whose initial
+    source is the private repo**. BestPractice itself is public, so that
+    session can `git clone https://github.com/alex137/BestPractice` directly;
+    no second `add_repo` is needed. In each such session:
+    `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`,
+    then `python3 tools/precedent_migrate_status.py --repo . --against ..`,
+    then `python3 tools/build_codeowners.py`, committed.
+    Unblocks [`convert-team-set-retired-statuses`](TODO.md#convert-team-set-retired-statuses),
+    [`build-codeowners-check-flag`](TODO.md#build-codeowners-check-flag)'s
+    rollout, [`unreachable-practices`](TODO.md#unreachable-practices)'s
+    measurement, and configuring the leak gate's vocabulary blocklist (which
+    belongs in `precedent-individual`).
 
 34. <a id="convert-team-set-retired-statuses"></a>**Convert
     `precedent-team-maintainers`' two `status: retired` practices to
