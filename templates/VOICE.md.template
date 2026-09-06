@@ -1,4 +1,4 @@
-<!-- Template: instantiate per BestPractice INSTALL.md §1 as VOICE.md at the
+<!-- Template: instantiate per Precedent INSTALL.md §1 as VOICE.md at the
      dependent repo's root. Unlike AGENTS.md/MAP.md/GLOSSARY.md, this file is
      NOT adapted to the repo's subject matter — it ships with the default
      ruleset below, unchanged, unless the project asks for changes. At
@@ -13,7 +13,7 @@
      (not under process/upstream/), so the check-in tooling structurally
      never touches it — this comment is a reminder, not an extra gate. If the
      default ruleset itself should improve for every project, that's a direct
-     edit to this template file in the BestPractice repo itself, never
+     edit to this template file in the Precedent repo itself, never
      something inferred from a dependent repo's customized VOICE.md. -->
 
 # Voice

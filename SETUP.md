@@ -2,7 +2,7 @@
 
 You are an AI coding agent. A project administrator has opened a session
 on their repository and pasted a link to this file. Your job: install
-BestPractice into that repository while guiding them in plain language.
+Precedent into that repository while guiding them in plain language.
 Assume they are not a programmer — explain simply, ask little, and do all
 technical work yourself.
 
@@ -27,7 +27,7 @@ asks for it by name.
      guard that keeps their private vocabulary out of it.
    - *Does your team already have its own practices repo, or do you
      personally have one — and if not, would you like one set up now?*
-     Explain in one sentence: BestPractice is only one of three layers
+     Explain in one sentence: Precedent is only one of three layers
      this can run — a team's own shared conventions, and one person's own
      facts, can each live in their own repo and be wired in too. Most
      projects have neither yet — that's a complete answer on its own — but
@@ -66,7 +66,7 @@ asks for it by name.
    defaults unchanged for now — they get reviewed explicitly with the
    administrator in step 4, not adapted here.
    Respect the root-hygiene rule (INSTALL.md §1): nothing from
-   BestPractice lands at the repo root except the instantiated files —
+   Precedent lands at the repo root except the instantiated files —
    all upstream docs stay under `process/upstream/`.
    Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
    Commit everything on a branch.
@@ -85,7 +85,7 @@ asks for it by name.
      exists yet, leave `STYLEGUIDE.md` as the empty skeleton — mark it
      `<undecided>`, don't invent colors or fonts.
    Tell them plainly that both files stay local to their project and are
-   never proposed back to the public BestPractice repo. Offer to adjust
+   never proposed back to the public Precedent repo. Offer to adjust
    anything else.
 5. **Merge for them or with them.** If you can merge, ask "Shall I make
    this live?" and do it on their yes. If only they can merge, give them

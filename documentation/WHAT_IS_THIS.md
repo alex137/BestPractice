@@ -1,9 +1,9 @@
 # What Is This?
 
-*The question this document answers:* **What is BestPractice, and why
+*The question this document answers:* **What is Precedent, and why
 would a team want it?**
 
-BestPractice is a layer that sits between a group of people and their
+Precedent is a layer that sits between a group of people and their
 shared work — an alternative to Google Docs, built for teams who
 collaborate through an AI assistant rather than a shared live document.
 
@@ -16,7 +16,7 @@ automatically, without anyone having to write a policy document by hand.
 This grew out of a broader philosophy about how people and AI should work
 together, developed in
 **[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. What
-follows are the practical things BestPractice does that put that
+follows are the practical things Precedent does that put that
 philosophy to work.
 
 ## AI does all creation, no matter how small: you figure out with it what to do
@@ -41,7 +41,7 @@ to edit.
 
 ## Codifies Key Universal Best Practices on Effective Work
 
-BestPractice doesn't start you from a blank page: it ships with a starting
+Precedent doesn't start you from a blank page: it ships with a starting
 library of proven, general practices for working effectively together,
 distilled from real teams' experience, alongside whatever rules your own
 team adds.
@@ -57,7 +57,7 @@ no meeting to schedule.
 ## Practices at different levels of sharing
 
 A rule can stay just yours, apply to your whole team, or join the public
-library everyone using BestPractice starts from — you choose which, and a
+library everyone using Precedent starts from — you choose which, and a
 rule that starts narrow can move to a wider level later if it turns out to
 matter beyond where it began.
 
@@ -91,6 +91,6 @@ company that can shut down and take your project's memory with it.
 
 The philosophy behind all of this lives in
 [WorkingWithAI](https://github.com/themorgan/WorkingWithAI). For how to
-actually use BestPractice: [a technical
+actually use Precedent: [a technical
 how-to](HOW_TO_USE_THIS_TECHNICAL.md) or [a non-technical
 how-to](HOW_TO_USE_THIS_NONTECHNICAL.md).

@@ -1,7 +1,7 @@
 # Repository instructions — read me first
 
 <!-- Template: instantiate per templates/nontechnical-document-project/README.md,
-     which follows BestPractice INSTALL.md §0 ("Installing directly onto the
+     which follows Precedent INSTALL.md §0 ("Installing directly onto the
      Precedent loader"). This is the non-technical-document-project variant of
      templates/AGENTS.md.loader.template: the access-restriction and persona
      content below comes from spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md verbatim

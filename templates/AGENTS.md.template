@@ -1,6 +1,6 @@
 # Repository instructions — read me first
 
-<!-- Template: instantiate per BestPractice INSTALL.md §1 as AGENTS.md — the
+<!-- Template: instantiate per Precedent INSTALL.md §1 as AGENTS.md — the
      harness-neutral instructions file (read natively by several agent CLIs;
      other harnesses get a pointer file via templates/harness/, see practice `session-bootstrap`).
      Replace <angle-bracket> placeholders with this repo's real content; keep
@@ -20,7 +20,7 @@ deliverables and indexes which documents back each part of each one.
 | <key deliverable> and its builder | `<path>` |
 | <recurring lookup> | `<path>` |
 | Open items: analyses, verifications, decisions | `TODO.md` |
-| Practice layer: vendored BestPractice copy, manifest, scrub blocklist | `process/` |
+| Practice layer: vendored Precedent copy, manifest, scrub blocklist | `process/` |
 
 ## <Deliverable build workflow>
 
@@ -307,9 +307,9 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
      exists, the member's Getting Started section is everything they
      need.
 
-## Practice export — BestPractice (policy)
+## Practice export — Precedent (policy)
 
-- `process/upstream/` is a vendored copy of the public BestPractice repo
+- `process/upstream/` is a vendored copy of the public Precedent repo
   (`<upstream URL>`), tracked in this repo. **Public-safe invariant:**
   nothing proprietary may appear under `process/upstream/`, ever.
   `python3 process/upstream/tools/practice_audit.py` enforces this against

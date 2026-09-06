@@ -1,6 +1,6 @@
 # Install as .github/workflows/bestpractice-docs.yml in a dependent repository.
-# This version runs the vendored BestPractice linter in place.
-name: BestPractice documentation checks
+# This version runs the vendored Precedent linter in place.
+name: Precedent documentation checks
 
 on:
   pull_request:

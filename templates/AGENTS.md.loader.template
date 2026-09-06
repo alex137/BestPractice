@@ -1,6 +1,6 @@
 # Repository instructions — read me first
 
-<!-- Template: instantiate per BestPractice INSTALL.md §0 ("Installing
+<!-- Template: instantiate per Precedent INSTALL.md §0 ("Installing
      directly onto the Precedent loader") as AGENTS.md — the harness-neutral
      instructions file (read natively by several agent CLIs; other harnesses
      get a pointer file via templates/harness/, see practice `session-bootstrap`). This is
@@ -341,7 +341,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 
 ## Practice sources — Precedent loader (policy)
 
-<!-- The loader variant of the old "Practice export — BestPractice
+<!-- The loader variant of the old "Practice export — Precedent
      (policy)" section: precedent.json + a vendored universal copy,
      instead of process/upstream/. -->
 

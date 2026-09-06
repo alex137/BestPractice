@@ -1,6 +1,6 @@
 # Repo TODO — open analyses, verifications, and decisions
 
-<!-- Template: instantiate per BestPractice INSTALL.md §1 (practice `repo-is-memory`).
+<!-- Template: instantiate per Precedent INSTALL.md §1 (practice `repo-is-memory`).
      The typed convention below is the load-bearing part: the type says WHO
      can act on an item (an agent at the desk, a human decision, hardware). -->
 
@@ -26,7 +26,7 @@ claim with no branch activity for a while is fair to challenge.
 
 ## Recurring
 
-- [ ] **BestPractice check-in:** review `diverged` entries in
+- [ ] **Precedent check-in:** review `diverged` entries in
   `process/manifest.json` and the vendored tree's accumulated changes;
   propose upstream per `process/upstream/INSTALL.md` §4 (scrub audit first).
 

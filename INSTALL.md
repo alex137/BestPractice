@@ -1,10 +1,10 @@
-# How to install BestPractice for you and your team
+# How to install Precedent for you and your team
 
-Instructions for wiring BestPractice into a *dependent repo*, keeping it
+Instructions for wiring Precedent into a *dependent repo*, keeping it
 current, and flowing improvements back. Read [PRACTICES.md](PRACTICES.md)
 first for what each practice is and why.
 
-This document only covers **installing** BestPractice. For what working
+This document only covers **installing** Precedent. For what working
 with it looks like once it's installed, see
 [documentation/HOW_TO_USE_THIS_TECHNICAL.md](documentation/HOW_TO_USE_THIS_TECHNICAL.md)
 if you're technical, or
@@ -24,7 +24,7 @@ To have this conversation live with your assistant rather than reading about
 it, start at [SETUP.md](SETUP.md) instead — this page is the detailed
 reference it works from.
 
-> **In plain terms.** BestPractice is a set of working habits — how a
+> **In plain terms.** Precedent is a set of working habits — how a
 > project remembers its decisions, how contributors avoid overwriting each
 > other's work, and how private information stays private even though this
 > rulebook itself is public. What follows is how that layer gets installed
@@ -49,7 +49,7 @@ it applies.
 ## 1. Install into a dependent repo
 
 > **In plain terms.** This is the one-time setup. An assistant copies
-> BestPractice's files into your project, then rewrites a handful of
+> Precedent's files into your project, then rewrites a handful of
 > them to describe *your* project specifically — a map of where things
 > live, a to-do list, a page that welcomes new members. Nothing from
 > this step becomes visible to anyone but you until you (or whoever has
@@ -180,12 +180,12 @@ it applies.
    `STYLEGUIDE.md`, `.gitignore`, and the README entry-block edit — plus
    `tools/bootstrap.sh`, `.github/workflows/bestpractice-docs.yml`, and
    `.github/pull_request_template.md`. Everything else that ships
-   with BestPractice (INSTALL.md, PRACTICES.md, SETUP.md,
+   with Precedent (INSTALL.md, PRACTICES.md, SETUP.md,
    GITHUB_ACTIONS.md, MOBILE.md, METHOD.md, GIT.md, templates/, tools/,
    deck/) exists ONLY under `process/upstream/` — never copy any of it to
    the root. A contributor browsing the root should see the project's own
    subject matter plus the instantiated files, and nothing about how
-   BestPractice works internally. The audit enforces this: an
+   Precedent works internally. The audit enforces this: an
    upstream-internal doc found at the root fails unless the manifest
    records it as the repo's own document.
 7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
@@ -211,7 +211,7 @@ it applies.
    "Source — Who a Practice Belongs To"). This universal layer is one of
    three a project can run. Ask the administrator directly: *"Does your
    team already have its own practices repo — shared conventions beyond
-   what's generic enough for the public BestPractice? Does anyone here
+   what's generic enough for the public Precedent? Does anyone here
    have their own personal one — facts specific to them, like a commit
    identity or a personal shorthand?"* Most projects have neither yet, and
    that's a complete, valid answer — but don't let it be the end of the
@@ -220,7 +220,7 @@ it applies.
    this session says is *"Want me to set one up for you right now? It only
    takes a minute and needs nothing from you but a name."* — not a
    once-mentioned option left for the administrator to bring back up
-   later. Nobody using BestPractice should have to already know
+   later. Nobody using Precedent should have to already know
    `spec/BOOTSTRAP_NEW_SOURCES.md` exists to get offered it.
    - **If yes, set one (or both) up now — same flow whether this is the
      first ask or a "yes" to the active offer above:** follow
@@ -414,7 +414,7 @@ not this section.
    — which left the one file whose absence makes every
    `checked_by: "tools/precedent_check.py"` claim hollow as the only
    untracked copy in the tree, with no manifest and no way to tell stale
-   from current. Vendoring it from BestPractice's own commit
+   from current. Vendoring it from Precedent's own commit
    (2026-09-06) is what made a fresh install's first `precedent_check.py`
    run come back clean.
 2. **Write `precedent.json`** at the repo root, naming the universal
@@ -488,7 +488,7 @@ cover, by design and not oversight:
 `checkin.py fresh` (one `ls-remote`, notice-only). *Taking* it is the
 deliberate procedure below.
 
-> **In plain terms.** BestPractice itself keeps improving — other
+> **In plain terms.** Precedent itself keeps improving — other
 > projects find better ways of doing things and publish them here. This
 > section is how your project pulls those improvements in later,
 > without losing anything you've customized. Nothing here needs you
@@ -518,10 +518,10 @@ deliberate procedure below.
    sources now** — a project doesn't get only one chance at install to say
    yes, and a "no" the first time (or before the option existed at all)
    isn't permanent. Instantiate them exactly as §1 describes and add
-   manifest entries — a short catch-up prompt ("take the BestPractice
+   manifest entries — a short catch-up prompt ("take the Precedent
    update") is enough to
    propagate a newly introduced template like this to every repo that
-   already installed BestPractice before it existed.
+   already installed Precedent before it existed.
 4. **Fix legacy layout.** Older installs sometimes scattered
    upstream-internal docs (INSTALL.md, GITHUB_ACTIONS.md, …) at the repo
    root; the audit's LAYOUT check now fails on them. Delete the strays —
@@ -564,7 +564,7 @@ deliberate procedure below.
    [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)),
    and refuses to overwrite a hand-edited vendored file unless `--force` —
    this engine carries zero local variance by design, so a local edit is a
-   signal to move the change upstream into BestPractice instead. After a
+   signal to move the change upstream into Precedent instead. After a
    refresh, re-run `python3 tools/precedent_sync_views.py --repo . --check`
    to confirm the freshly refreshed engine still produces the same
    materialized tree and `AGENTS.md` (or, if the refresh changed loader
@@ -577,11 +577,11 @@ deliberate procedure below.
 ## 3. (Optional) Give back an improvement — the export gate
 
 > **In plain terms.** This whole section, and §4 after it, are entirely
-> **optional** — nothing about using BestPractice requires your project to
+> **optional** — nothing about using Precedent requires your project to
 > give anything back. They exist for when your project discovers a *better
 > way of working* — not a fact about your business, just a sharper habit
 > (a clearer checklist, a smarter automatic check) — that could help every
-> other project using BestPractice, the same way yours benefited from
+> other project using Precedent, the same way yours benefited from
 > lessons other projects learned first. Think of it as reporting a better
 > recipe back to a shared cookbook, with your kitchen's specific
 > ingredients removed first. If your project chooses to do this, the
@@ -624,8 +624,8 @@ If yes, in the **same branch**:
 > it if your project would rather keep its improvements to itself. For
 > projects that do want to give back, this is where §3's accumulated
 > improvements actually leave your project: on a schedule, they get
-> bundled up and offered to the public BestPractice project as a formal
-> proposal — a pull request — so that everyone else using BestPractice can
+> bundled up and offered to the public Precedent project as a formal
+> proposal — a pull request — so that everyone else using Precedent can
 > learn from what your team figured out. **This is the step where a human
 > reviewer other than you looks at what's being shared**, as a second
 > check that nothing private slipped through the automatic scrub. If
@@ -638,7 +638,7 @@ If yes, in the **same branch**:
 
 **Session scope note (hosted agent platforms).** Repo access is typically
 fixed when a session is created: a session opened on the dependent repo
-alone can usually *read* the public BestPractice repo (clone, fetch, diff)
+alone can usually *read* the public Precedent repo (clone, fetch, diff)
 but **cannot push branches or open PRs there** — writes fail even though
 the day-to-day export loop (§3) works fine, because that loop is purely
 local commits. So: **open check-in sessions with BOTH repos selected at
@@ -646,7 +646,7 @@ creation.** Everything else can be prepared, scrubbed, and audited in
 ordinary single-repo sessions; only this step needs the dual-repo session.
 
 For projects that choose to give back: on a schedule (a recurring
-`TODO.md` item), in a session with access to the BestPractice repo.
+`TODO.md` item), in a session with access to the Precedent repo.
 [tools/checkin.py](tools/checkin.py) drives the mechanical steps against a
 local clone of the upstream repo; the deliberate steps (review, PR, merge)
 stay manual:
@@ -668,7 +668,7 @@ stay manual:
 2. `python3 process/upstream/tools/checkin.py push <upstream-clone>` —
    runs the **scrub audit first (must pass; nothing is copied on failure)**,
    then mirrors the vendored tree into the clone's working tree.
-3. Commit in the clone on a branch and open a PR against BestPractice.
+3. Commit in the clone on a branch and open a PR against Precedent.
    Human review of that PR is the second scrub line — the blocklist catches
    known vocabulary; the reviewer catches what the blocklist doesn't know
    yet (and adds it to the blocklist).
@@ -789,7 +789,7 @@ Checks, in order — any FAIL exits non-zero:
 ## 7. Practice packs (domain layers)
 
 > **In plain terms.** Some rules are too specific to your industry or
-> workflow to belong in the public BestPractice project, but too general
+> workflow to belong in the public Precedent project, but too general
 > to belong only to your one project either — think a compliance
 > procedure that any project in your regulated field would need, not
 > just yours. A "pack" is a separate, smaller rulebook for exactly that
@@ -845,7 +845,7 @@ on, across the whole lifecycle:
   [guided install](SETUP.md) for the conversational version of this.
 - **At every check-in (§4), only if your project gives back at all
   (§3–§4 are both optional):** review the plain-language summary of what's
-  being proposed back to the public BestPractice project, and approve,
+  being proposed back to the public Precedent project, and approve,
   adjust, or hold it back. This is the one recurring moment where content
   leaves your project's boundary, so it's the one worth actually reading
   rather than rubber-stamping.

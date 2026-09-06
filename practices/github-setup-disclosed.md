@@ -23,7 +23,7 @@ repository secret, a branch-protection or required-check setting, a
 permission grant — the fact, and the exact detail needed to act on it (what
 it's called, what it does, any manual click to enable it), is written into
 the document that project's own people actually read, not left only inside
-BestPractice's internal install playbook. For a dependent repo, that
+Precedent's internal install playbook. For a dependent repo, that
 document is [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md)'s
 administrator section — [INSTALL.md](../INSTALL.md) records the installation
 mechanics; GETTING_STARTED.md records the consequence for this project's

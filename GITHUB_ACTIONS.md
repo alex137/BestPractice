@@ -1,6 +1,6 @@
 # GitHub Actions checks
 
-BestPractice uses repository checks for rules that should not depend on a particular person or AI assistant remembering to run them.
+Precedent uses repository checks for rules that should not depend on a particular person or AI assistant remembering to run them.
 
 This is especially important when working through GitHub-connected ChatGPT. A normal ChatGPT conversation can read and update repository files, but it does not receive a local checkout or an interactive shell. GitHub Actions supplies the missing execution environment: ChatGPT prepares a branch, GitHub runs the checks, and the result appears on the pull request.
 
@@ -49,7 +49,7 @@ The supplied workflow:
 
 1. checks out the complete repository history;
 2. installs Python and `cmarkgfm`;
-3. runs the BestPractice Markdown linter;
+3. runs the Precedent Markdown linter;
 4. reports warnings in the job log; and
 5. fails the pull request only when changed Markdown contains accidental strikethrough.
 
@@ -57,7 +57,7 @@ The linter determines which Markdown files changed relative to the repository's 
 
 ## Install in a dependent repository
 
-During BestPractice installation, copy:
+During Precedent installation, copy:
 
 ```text
 process/upstream/templates/github-actions/doc-lint.yml.template
@@ -69,7 +69,7 @@ to:
 .github/workflows/bestpractice-docs.yml
 ```
 
-Commit the workflow together with the other installed BestPractice files. The template runs the vendored linter at:
+Commit the workflow together with the other installed Precedent files. The template runs the vendored linter at:
 
 ```text
 process/upstream/tools/doc_lint.py
@@ -98,7 +98,7 @@ Repository rules vary by account and organization. Use the repository's current 
 
 ## Updating an installed repository
 
-When BestPractice updates the workflow template:
+When Precedent updates the workflow template:
 
 1. compare the new template with `.github/workflows/bestpractice-docs.yml`;
 2. preserve any dependent-repository adaptations, such as a different default branch or linter path;
@@ -106,7 +106,7 @@ When BestPractice updates the workflow template:
 4. run it through a pull request; and
 5. update the corresponding manifest baseline.
 
-Treat the workflow as an installed BestPractice artifact. A typical manifest entry is:
+Treat the workflow as an installed Precedent artifact. A typical manifest entry is:
 
 ```json
 {

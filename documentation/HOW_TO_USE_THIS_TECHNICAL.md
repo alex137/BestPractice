@@ -1,9 +1,9 @@
 # How to Use This — Technical Guide
 
 *The question this document answers:* **I'm technical — how do I actually
-work inside a BestPractice/Precedent project day to day, step by step?**
+work inside a Precedent project day to day, step by step?**
 
-For installing BestPractice on a project in the first place, see
+For installing Precedent on a project in the first place, see
 [INSTALL.md](../INSTALL.md). This document is about using it once it's
 there.
 
@@ -32,7 +32,7 @@ different levels a practice can live at — every stage below names one.
 A practice lives at one of four levels, in precedence order (highest wins
 on conflict): **team > repo-local > individual > universal**.
 
-- **Universal** — the shared, public BestPractice library everyone starts
+- **Universal** — the shared, public Precedent library everyone starts
   from.
 - **Team** — a private repository of practices for one team. You can have
   more than one (an engineering-conventions team repo and a separate
@@ -137,7 +137,7 @@ runs at each one:
    naming a listed approver. For universal, `precedent_land.py` only
    *drafts* `practices/<slug>.md` — landing it for real means committing
    that draft to a branch and opening a pull request (PR) against
-   BestPractice, reviewed and merged by someone else.
+   Precedent, reviewed and merged by someone else.
 
 ## How practices are approved
 
@@ -155,7 +155,7 @@ has to say yes?*
   proposing a candidate is a slower path here on purpose, not a shortcut
   around needing someone else's agreement.
 - **Everyone's (universal):** goes up as a PR against the shared
-  BestPractice repository, reviewed and merged by someone other than
+  Precedent repository, reviewed and merged by someone other than
   whoever proposed it. No single person, including whoever maintains the
   library, can land a universal practice alone.
 

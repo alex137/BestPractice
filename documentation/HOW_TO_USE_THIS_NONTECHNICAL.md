@@ -4,7 +4,7 @@
 or GitHub — how do I actually use this?**
 
 Someone — usually whoever set up the project — has already installed
-BestPractice before you ever open it. If that's you and it isn't set up
+Precedent before you ever open it. If that's you and it isn't set up
 yet, see [INSTALL.md](../INSTALL.md) — it doesn't require you to write any
 code either. Everything below assumes it's already running.
 

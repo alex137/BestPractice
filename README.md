@@ -1,11 +1,11 @@
-# BestPractice
+# Precedent
 
-> **This branch is being restructured into Precedent.** If you have arrived
+> **This branch is the Precedent restructuring of BestPractice.** If you have arrived
 > here wanting to *use* the practice engine on your own project, read
 > [ADOPTING.md](ADOPTING.md) — it is written for that, and assumes no
 > programming. The design and its evidence are in
 > [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md). Everything below is
-> BestPractice's own documentation, still accurate for the parts the rewrite
+> the pre-fork BestPractice documentation, still accurate for the parts the rewrite
 > has not reached; it is rewritten in place as later phases land rather than
 > kept as a second, drifting copy.
 
@@ -16,7 +16,7 @@ the pitch, then jump to the how-to guide for your situation:
 
 ## The philosophy behind this project
 
-BestPractice is one working expression of a broader philosophy about how
+Precedent is one working expression of a broader philosophy about how
 people and AI should work together, developed in
 **[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. Read that
 repo for the theory.
@@ -43,7 +43,7 @@ recorded.
 
 Behind the scenes, the project lives in a GitHub repository — a durable,
 shared memory that every person and every new AI session can pick up cold.
-BestPractice adapts it so you don't need to be a programmer to get those
+Precedent adapts it so you don't need to be a programmer to get those
 advantages; you just need a few ground rules, in [Git, minimally](GIT.md).
 
 The main shift: you use **Claude Code** instead of general-purpose chat
@@ -72,11 +72,11 @@ Members receive one link: to the project's own Getting Started page,
 which opens with the short case for working this way and then gives
 specific instructions for each kind of AI user — Claude, Codex, ChatGPT,
 Gemini, and Grok. **[Read the sample here.](templates/GETTING_STARTED.md)**
-Installing BestPractice creates a version of that page adapted to your
+Installing Precedent creates a version of that page adapted to your
 project, and improvements projects make to their onboarding pages flow
-back into BestPractice for everyone ([INSTALL.md](INSTALL.md) §4).
+back into Precedent for everyone ([INSTALL.md](INSTALL.md) §4).
 
-## Installing BestPractice on your project
+## Installing Precedent on your project
 
 Setup doesn't require you to write any code yourself — see
 [INSTALL.md](INSTALL.md) to get started.

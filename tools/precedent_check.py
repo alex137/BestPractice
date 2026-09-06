@@ -59,7 +59,7 @@ Run:
   python3 tools/precedent_check.py --explain        # what each check does NOT check
   python3 tools/precedent_check.py --strict         # a SKIP is a failure
 """
-import io, json, os, pathlib, re, subprocess, sys
+import difflib, io, json, os, pathlib, re, subprocess, sys
 
 # `git rev-parse --show-toplevel`, not `Path(__file__).resolve().parents[1]`:
 # this module runs two ways -- self-hosted at THIS repo's own tools/
@@ -387,19 +387,66 @@ class Ctx:
 _MD_LINK_RE = re.compile(r'\[([^\]\n]*)\]\([^)\s]*\)')
 
 
-def _rule_prose(sections):
-    """A Rule's words, with link TARGETS dropped and the label kept.
+# A Rule counts as REWRITTEN when the edit is big enough, in both absolute
+# and relative terms, to be an act of authorship rather than an edit.
+#
+# Both thresholds are needed, and a plain similarity ratio is not enough:
+# on a short Rule one swapped word is a large fraction of the text, and on
+# a long one a genuine paragraph rewrite can be a small fraction. The
+# character floor answers "is this more than a clause?" and the ratio
+# answers "is this most of the rule?"; an authorship event clears both,
+# and a rename, a typo fix or a repointed link clears neither.
+_RULE_REWRITE_MIN_CHARS = 80
+_RULE_REWRITE_MIN_SHARE = 0.15
 
-    What counts as "the Rule was rewritten", for cite-the-incident's
-    purposes, is the rule's PROSE. Repointing a link inside it is not a
-    new rule and cannot have a new incident behind it -- but the plain
-    string comparison this replaces treated it as one, so a sweep that
-    fixed 67 broken relative links across practices/ demanded a `## Story`
-    for four inherited practices whose Rule it had not touched a word of.
-    A demand nobody can honestly satisfy is worse than no demand: the only
-    ways to clear it are to invent an incident or to leave the broken
-    link."""
+
+def _rule_prose(sections):
+    """A Rule's words, with link TARGETS dropped and the label kept."""
     return _MD_LINK_RE.sub(r'\1', sections.get('rule', '')).strip()
+
+
+def _rule_was_rewritten(old_sections, new_sections):
+    """Did this Rule actually get (re)written, or just edited?
+
+    The check this serves demands a `## Story` from anyone who writes a
+    rule, so what it needs to detect is authorship, not any difference at
+    all. A plain string comparison detects any difference at all, and that
+    was wrong twice in one day: a sweep repointing 67 broken relative
+    links demanded a `## Story` from four inherited practices whose prose
+    it had not touched a word of, and then a one-word product rename did
+    the same. Both times the only ways to clear the demand were to invent
+    an incident or to leave the defect unfixed -- and a demand nobody can
+    honestly satisfy is worse than no demand, because it teaches people to
+    route around the check.
+
+    Link targets are normalized away outright (a target is not prose), and
+    what remains is measured by how much actually changed -- see the two
+    thresholds above for why both an absolute and a relative one are
+    needed. Guessing wrong in the lenient direction costs a missing Story
+    on a practice that already had one; guessing wrong in the strict
+    direction costs the credibility of the check, which is worse."""
+    before, after = _rule_prose(old_sections), _rule_prose(new_sections)
+    if before == after:
+        return False
+    if not before or not after:
+        return True          # added or emptied: authorship either way
+    # autojunk=False is load-bearing, not a style choice. On sequences of
+    # 200 elements or more, SequenceMatcher's default heuristic treats any
+    # element appearing in more than 1% of the sequence as "popular junk"
+    # and refuses to anchor on it -- which, for a character-level diff of
+    # ordinary English, is every common letter. The alignment collapses:
+    # swapping one word three times in a 582-character Rule measured as
+    # 622 characters changed, a 107% share, where the true answer is 12
+    # and 2%. That is the STRICT direction of being wrong, so it would
+    # have re-created the false demand this function exists to remove,
+    # only on long Rules where it is hardest to notice. Caught by the
+    # harness case for exactly that scenario.
+    changed = sum(max(i2 - i1, j2 - j1) for tag, i1, i2, j1, j2 in
+                  difflib.SequenceMatcher(None, before, after,
+                                          autojunk=False).get_opcodes()
+                  if tag != 'equal')
+    return (changed >= _RULE_REWRITE_MIN_CHARS
+            and changed / len(before) >= _RULE_REWRITE_MIN_SHARE)
 
 
 @check('cite-the-incident', 'change',
@@ -421,8 +468,8 @@ def _cite_the_incident(ctx):
             except Exception:
                 old_sections = None
             if old_sections is not None and \
-                    _rule_prose(old_sections) == _rule_prose(sections):
-                continue        # frontmatter- or link-only edit: not a new rule
+                    not _rule_was_rewritten(old_sections, sections):
+                continue        # an edit, not an authorship event
         if not sections.get('story', '').strip():
             out.append(Finding(f, 'a new or rewritten Rule with an empty '
                                   '## Story — the failure it prevents is not '

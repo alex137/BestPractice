@@ -1,6 +1,6 @@
 # Canonical names
 
-<!-- Template: instantiate per BestPractice INSTALL.md §1 (practice `repo-is-memory`).
+<!-- Template: instantiate per Precedent INSTALL.md §1 (practice `repo-is-memory`).
      One file owns the nomenclature. Sessions use these names and do not
      invent new ones; a new thing gets its row here in the thread that
      creates it. Link each entry to its defining document (practice `doc-references-are-links`).

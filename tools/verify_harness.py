@@ -5122,6 +5122,70 @@ def check_vendor_engine_consumer_case():
           '; '.join(f"{n} -- {d[:200]}" for n, d in bad))
 
 
+def check_rule_rewrite_detection():
+    """cite-the-incident asks "did somebody WRITE this rule", so it has to
+    tell an authorship event from an edit.
+
+    It used to compare the Rule text for equality, and that was wrong twice
+    in one day (2026-09-06): a sweep repointing 67 broken relative links
+    demanded a `## Story` from four inherited practices whose prose it had
+    not touched a word of, and then a one-word product rename did the same.
+    Both times the only ways to clear the demand were to invent an incident
+    or to leave the defect unfixed. A demand nobody can honestly satisfy is
+    worse than no demand: it teaches people to route around the check.
+
+    Two thresholds, because neither alone works: on a short Rule one
+    swapped word is a large FRACTION of the text, and on a long one a real
+    paragraph rewrite can be a small fraction. Both directions are pinned
+    here, because the lenient direction is where this could quietly become
+    a check that never fires."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_pc_rewrite', ROOT / 'tools' / 'precedent_check.py')
+    pc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pc)
+
+    long_rule = ("A practice layer's own install playbook records the mechanics "
+                 "of every host-specific setup step, and the maintainers read "
+                 "it, but the project's own people read the getting-started "
+                 "page instead. " * 3)
+    cases = [
+        ('a single word swapped in a short Rule is an edit, not a rewrite',
+         "Alpha's internal install playbook records the mechanics.",
+         "Bravo's internal install playbook records the mechanics.", False),
+        ('the same word swapped throughout a long Rule is still an edit',
+         long_rule, long_rule.replace('playbook', 'runbook'), False),
+        ('a repointed link is not a rewrite (the target is not prose)',
+         'See [tools/x.py](tools/x.py) for the engine.',
+         'See [tools/x.py](../tools/x.py) for the engine.', False),
+        ('a typo fix is not a rewrite',
+         'Order sections by how often the reader neds them.',
+         'Order sections by how often the reader needs them.', False),
+        ('replacing the Rule with different substance IS a rewrite',
+         'Every generated file carries a build code.',
+         'Sessions never edit a vendored file by hand; move the change into '
+         'the source repository and re-vendor, so the next refresh does not '
+         'silently discard it.', True),
+        ('a Rule where there was none is authorship',
+         '', 'A new rule, freshly authored, with real substance behind it.', True),
+        ('replacing most of a Rule is a rewrite',
+         'Order sections by how often the reader needs them; common first, '
+         'rare last.',
+         'Order sections alphabetically, and put every migration note in an '
+         'appendix at the very end of the document.', True),
+    ]
+    results = [(name, pc._rule_was_rewritten({'rule': b}, {'rule': a}) == expect)
+               for name, b, a, expect in cases]
+    bad = [n for n, ok in results if not ok]
+    for n in bad:
+        print(f"  rule-rewrite detection did NOT behave as stated: {n}")
+    check(f'cite-the-incident tells an authorship event from an edit '
+          f'({len(cases)} stated cases: a rename, a repeated rename, a '
+          f'repointed link and a typo are edits; new substance, a Rule added '
+          f'from nothing, and most of a Rule replaced are rewrites)',
+          not bad)
+
+
 def check_source_supplied_checks_run():
     """A `checked_by: tools/checks/check_x.py` claim actually RUNS.
 
@@ -5630,6 +5694,7 @@ def main():
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_source_engine_is_functional()
     check_vendor_engine_consumer_case()
+    check_rule_rewrite_detection()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_pretooluse_hook_fires()

@@ -19,7 +19,7 @@ gives the team a shared, inspectable memory instead:
 
 The repository is the memory. The chat is the way you work with it.
 
-GitHub is the worked example throughout these documents, and BestPractice
+GitHub is the worked example throughout these documents, and Precedent
 currently leans on GitHub features (pull requests, Actions checks)
 deliberately. The layer itself is plain git, markdown, and Python, so
 equivalents on other hosts such as Gitea can be added later — see
@@ -27,7 +27,7 @@ equivalents on other hosts such as Gitea can be added later — see
 
 ## The eight ideas
 
-You don't need to know git deeply to use [BestPractice](README.md); you
+You don't need to know git deeply to use [Precedent](README.md); you
 need eight ideas. (Throughout: a "repo" is short for repository — the
 project's shared folder on GitHub; a "session" is one AI conversation; a
 "commit" is one saved change with a note about what and why.)
@@ -75,7 +75,7 @@ project's shared folder on GitHub; a "session" is one AI conversation; a
   app installation is permitted to touch; in the Claude Code app
   specifically, you pick which repos the session can access when you
   create it — and it can hold a branch open in each and commit to all of
-  them in one conversation. This is not a BestPractice feature, just a
+  them in one conversation. This is not a Precedent feature, just a
   practical fact coding tools take for granted that matters here: it is
   how **cross-cutting work** gets done — moving content from one repo to
   another, reorganizing which repo owns what, keeping a shared layer in

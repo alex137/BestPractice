@@ -26,7 +26,7 @@ pip install --quiet cmarkgfm 2>/dev/null || \
   echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
 
 # Is THIS checkout current with its own origin? Distinct from the upstream
-# freshness notice below, which asks whether BestPractice has moved -- this
+# freshness notice below, which asks whether Precedent has moved -- this
 # asks whether the session is even looking at its own repo's real content.
 # Both have failed for real. Origin incident: a session's local branch shared
 # ZERO commits with origin, 51 merged commits invisible, `git status` cheerily
@@ -72,7 +72,7 @@ if [ -f tools/precedent_sync_views.py ] && [ -f precedent.json ]; then
   fi
 fi
 
-# BestPractice upstream freshness notice, for a repo on the CLASSIC
+# Precedent upstream freshness notice, for a repo on the CLASSIC
 # process/upstream/ vendoring layout (INSTALL.md section 1). Detection is
 # automated -- one ls-remote against the public upstream, silent when
 # current or offline; TAKING the update stays deliberate (INSTALL.md

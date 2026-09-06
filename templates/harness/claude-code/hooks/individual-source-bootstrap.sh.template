@@ -37,7 +37,7 @@ set -uo pipefail
 
 ENGINE="${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_bootstrap.py"
 if [ ! -f "$ENGINE" ]; then
-  # BestPractice checking itself, or a repo-root install with no
+  # Precedent checking itself, or a repo-root install with no
   # process/upstream/ vendor tree of its own.
   ENGINE="${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_bootstrap.py"
 fi
