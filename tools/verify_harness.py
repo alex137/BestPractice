@@ -188,8 +188,14 @@ def check_source_coverage(files, original_practices_by_number):
     ok = True
     by_number = {}
     for stem, (fm, sections, f) in sorted(files.items()):
-        num = fm.get('source_practice_number')
-        if num is None:
+        # The frontmatter reader hands back raw field text, so an absent
+        # number arrives as the literal string 'null', not None. Every
+        # inherited practice carries a real number, so the None branch below
+        # had never once been reached -- the first freshly-minted practice
+        # in practices/ (rename-updates-links, 2026-09-06) took the whole
+        # harness down with `int('null')` instead.
+        num = bv._json_str(fm.get('source_practice_number') or 'null')
+        if not num or num == 'null':
             # legitimate for a practice minted fresh (phase 3 on), but then
             # it is not part of the migrated set this check is about
             continue
@@ -492,8 +498,15 @@ def _tokens(text):
 def check_no_invented_content(files, original_practices_by_number):
     ok = True
     for stem, (fm, sections, f) in files.items():
+        # The field is present-but-null on a freshly-minted practice, and the
+        # reader hands back raw text, so `not in fm` alone never caught that
+        # case -- every inherited practice carries a real number, so the
+        # first new one (2026-09-06) was reported as a fidelity failure
+        # against a PRACTICES.md entry that by definition does not exist.
         if 'source_practice_number' not in fm:
             continue  # a practice minted fresh, no BestPractice ancestor to compare against
+        if bv._json_str(fm.get('source_practice_number') or 'null') in ('', 'null'):
+            continue  # same case, written explicitly as null
         if _amended_and_logged(fm.get('slug', stem)):
             continue  # deliberately rewritten post-conversion; see CHANGES_TO_TELL_ALEX.md
         num = fm.get('source_practice_number')
@@ -2667,6 +2680,24 @@ def check_precedent_check_fires():
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(
                 r'\n\| Looking for.*?\n\n', '\n\n', t, flags=re.S))
         case('quick-index', _plant_qi)
+
+        # rename-updates-links -- a file moved, its references left behind.
+        # Needs a published default branch to diff against, which the
+        # pristine fixture has no remote for, so the setup gives it one
+        # pointing at the baseline commit and branches off it. spec/LOADER.md
+        # is chosen because AGENTS.md and other documents link it, so the
+        # rename really does strand references the way the practice describes.
+        def _setup_rename(repo):
+            git(repo, 'branch', '-M', 'main')
+            git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+            git(repo, 'symbolic-ref', 'refs/remotes/origin/HEAD',
+                'refs/remotes/origin/main')
+            git(repo, 'checkout', '-qb', 'feature')
+
+        def _plant_rename(repo):
+            git(repo, 'mv', 'spec/LOADER.md', 'spec/LOADER_MOVED.md')
+            git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
+        case('rename-updates-links', _plant_rename, setup=_setup_rename)
 
         # two-check-levels -- the light/deep check pair removed from AGENTS.md
         def _plant_tcl(repo):

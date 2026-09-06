@@ -165,6 +165,13 @@
       "why": "No path tells you who the audience is.",
       "decided": "phase 4 routing pass"
     },
+    "full-practice-audit": {
+      "globs": [
+        "**"
+      ],
+      "why": "Not a place -- a whole-catalogue sweep is invoked explicitly by a person, not triggered by touching any one file. Reachability comes from its occasion clause.",
+      "decided": "2026-09-03, full-practice-audit / routing-audit session"
+    },
     "generated-artifact-provenance": {
       "globs": [
         "deck/**",
@@ -350,6 +357,38 @@
       "why": "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
       "decided": "phase 4 routing pass"
     },
+    "rename-updates-links": {
+      "globs": [
+        "**"
+      ],
+      "why": "A rename can strand a reference in any file of any type -- a markdown link, a path inside a script, a workflow, a config -- so no narrower glob is honest. `**` is right here for the same reason it is right for no-version-suffix: the occasion is an action taken ON a file, not a property of the file being edited. Its check is scoped instead: it compares against the published default branch, so it only ever asks about renames this branch itself made.",
+      "decided": "2026-09-06, when the practice was added"
+    },
+    "reply-links-files": {
+      "globs": null,
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Its occasion is the reply itself.",
+      "why": "Resident; its applies_to is not this file's business.",
+      "decided": "phase 4 routing pass"
+    },
+    "repo-is-memory": {
+      "globs": null,
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "A turn ending is when knowledge either got committed or was lost.",
+      "why": "Resident; its applies_to is not this file's business.",
+      "decided": "phase 4 routing pass"
+    },
+    "routing-audit": {
+      "globs": [
+        "**"
+      ],
+      "why": "Not a place -- \"checking whether practices that should have fired, fired\" is a periodic act a person invokes, not a file-touch trigger. Reachability comes from its occasion clause.",
+      "decided": "2026-09-03, full-practice-audit / routing-audit session"
+    },
     "scripts-assert-properties": {
       "globs": [
         "**"
@@ -443,13 +482,6 @@
       "why": "Fires on a computed total being reported, wherever that happens.",
       "decided": "phase 4 routing pass"
     },
-    "volatile-rules-carry-dates": {
-      "globs": [
-        "**"
-      ],
-      "why": "The path identifies 'a rule is being written', which is necessary but not distinguishing -- the practice fires only when the rule depends on the OUTSIDE WORLD, and no path can see that. A glob on the rule locus surfaced it on 13 of 20 eval cases against 4 it applies to.",
-      "decided": "phase 4 routing pass"
-    },
     "verify-postcondition": {
       "globs": null,
       "gates": [
@@ -460,44 +492,19 @@
       "why": "Resident; its applies_to is not this file's business.",
       "decided": "phase 4 routing pass"
     },
-    "reply-links-files": {
-      "globs": null,
-      "gates": [
-        "reply"
-      ],
-      "gates_why": "Its occasion is the reply itself.",
-      "why": "Resident; its applies_to is not this file's business.",
-      "decided": "phase 4 routing pass"
-    },
-    "repo-is-memory": {
-      "globs": null,
-      "gates": [
-        "reply"
-      ],
-      "gates_why": "A turn ending is when knowledge either got committed or was lost.",
-      "why": "Resident; its applies_to is not this file's business.",
-      "decided": "phase 4 routing pass"
-    },
-    "routing-audit": {
-      "globs": [
-        "**"
-      ],
-      "why": "Not a place -- \"checking whether practices that should have fired, fired\" is a periodic act a person invokes, not a file-touch trigger. Reachability comes from its occasion clause.",
-      "decided": "2026-09-03, full-practice-audit / routing-audit session"
-    },
-    "full-practice-audit": {
-      "globs": [
-        "**"
-      ],
-      "why": "Not a place -- a whole-catalogue sweep is invoked explicitly by a person, not triggered by touching any one file. Reachability comes from its occasion clause.",
-      "decided": "2026-09-03, full-practice-audit / routing-audit session"
-    },
     "very-deep-check": {
       "globs": [
         "**"
       ],
       "why": "Not a place -- a whole-repo coherence review is invoked explicitly by a person, or after drift-inviting work, not triggered by touching any one file. Reachability comes from its occasion clause, the same as its full-practice-audit and routing-audit siblings.",
       "decided": "2026-09-05, TODO.md item 17 session (RPP 'very deep check' enumerated and wired)"
+    },
+    "volatile-rules-carry-dates": {
+      "globs": [
+        "**"
+      ],
+      "why": "The path identifies 'a rule is being written', which is necessary but not distinguishing -- the practice fires only when the rule depends on the OUTSIDE WORLD, and no path can see that. A glob on the rule locus surfaced it on 13 of 20 eval cases against 4 it applies to.",
+      "decided": "phase 4 routing pass"
     }
   },
   "gates": {

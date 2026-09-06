@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 61 practice files (6 resident, 55 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 62 practice files (6 resident, 56 on-demand). One file per practice; see [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -54,6 +54,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [quote-discipline](practices/quote-discipline.md) | on-demand | quoting or compressing someone else's figures |
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state that multiple documents need to agree on |
+| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving, or deleting a file other files may link to |
 | [reply-links-files](practices/reply-links-files.md) | resident | ending a reply that created or modified files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether the practices that should have fired for recent work actually fired |

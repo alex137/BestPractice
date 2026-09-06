@@ -79,6 +79,7 @@ being checked by it.
 | `parallel-artifact-ledger` | tree | `templates/harness/LEDGER.md` exists, and every commit that touched a harness-adapter member (claude-code/, codex/, or gemini-cli/) has its hash referenced somewhere in the ledger |
 | `practice-export-loop` | tree | every manifest entry marked synced still matches its baseline — a local improvement to a vendored file has been exported, not absorbed |
 | `quick-index` | tree | the session instructions carry a "looking for X → go to Y" table with at least five rows |
+| `rename-updates-links` | tree | no tracked file still references a path this branch renamed away or deleted |
 | `routing-audit` | tree | tools/routing_audit.py exists, and tools/routing_audit_state.json (if present) has no rotation entry for a practice that is not currently active |
 | `scripts-assert-properties` | tree | every instrumented script asserts its own properties, and every figure it recites from a source document still matches that document |
 | `scrub-gate` | tree | every text file in a vendored tree destined for another repo is clean against that tree's blocklist, at all times |
@@ -87,7 +88,7 @@ being checked by it.
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-28 of 61 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+29 of 62 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
