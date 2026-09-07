@@ -48,6 +48,23 @@ a directory that had been retired months earlier, still sitting in its
 the references were left behind, and each one had gone unnoticed for as
 long as it existed.
 
+2026-09-07, the other direction: a private consumer repo renamed its content
+directory, and of the check's eight findings, seven sat in files that repo
+could not edit at all — an individual source's practice text, its check
+script and that check's test, and the copy of its index clause inside the
+generated loader block. Each of those uses the old directory name as the
+canonical *example* of a convention; none points at anything in the
+consuming repo, and `doc_lint` confirmed no link anywhere actually landed
+nowhere. `practices/` and `tools/checks/` are `precedent_materialize.py`'s
+own output directories — deleted and rewritten from every declared source on
+every sync — so an edit there survives until the next sync and no longer.
+The check now skips what a repo *received* rather than wrote, attributed by
+`MANIFEST.json`'s own committed record rather than by live resolution, and
+skips the generated loader block as a *region* so the hand-written half of
+the same document is still checked. A check whose findings a repo cannot act
+on trains people to ignore it, which costs more than the findings were
+worth.
+
 ## Install
 `tools/precedent_check.py`'s `rename-updates-links` check compares the
 current branch against the published default branch, finds files git
