@@ -5710,6 +5710,193 @@ def check_doc_lifecycle_fires_and_clears():
           not failed, '; '.join(failed))
 
 
+def check_commit_identity_derives_declared_timezone():
+    """The declared timezone reaches the SESSION, not just the refusal message.
+
+    The pre-commit backstop refuses a commit whose offset contradicts a
+    declared timezone, and tells the person to rerun under `TZ=...`. Correct,
+    and on its own it is a chore with no end: a hook cannot export TZ into the
+    shells a session runs later, so the remedy gets retyped on every commit
+    forever. 2026-09-07 the person running such a session said so plainly --
+    "I'd rather a permanent fix than my having to do that manually."
+
+    So the hook derives `env.TZ` into .claude/settings.local.json, which the
+    harness reads for the whole of the NEXT session. Four properties have to
+    hold together, and the fixture must be hermetic to test any of them: an
+    early version of this test set no PRECEDENT_USER_CONFIG, so the case for
+    "no declared zone" resolved the real user config, found a real declared
+    zone, and reported a failure against completely correct behaviour.
+      1. a DECLARED zone is written; a GUESSED one never is (writing a guess
+         would enforce something nobody said).
+      2. identity.json stays the source of truth -- a stale TZ already in the
+         file is re-derived, not respected (registry-source-of-truth).
+      3. nothing else in the file is disturbed, and an unparseable one is left
+         entirely alone rather than overwritten.
+      4. the file is per-machine, so the hook warns when it is not gitignored.
+    """
+    import tempfile, json as _json
+    hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not hook.exists():
+        not_applicable('commit-identity derives the declared timezone into '
+                       'the session',
+                       '.claude/hooks/commit-identity.sh is not present here')
+        return
+
+    env = dict(os.environ)
+    # Hermetic: without this the hook resolves the REAL user config and the
+    # "no zone declared" case silently becomes a "zone declared" case.
+    env['PRECEDENT_USER_CONFIG'] = '/nonexistent/precedent-config.json'
+    env.pop('PRECEDENT_COMMIT_TZ', None)
+
+    def _repo(base, zone, settings=None, gitignore=None):
+        base.mkdir(parents=True, exist_ok=True)
+        subprocess.run(['git', '-C', str(base), 'init', '-q'],
+                       capture_output=True)
+        if zone:
+            (base / 'identity.json').write_text(_json.dumps(
+                {'name': 'T', 'email': 't@example.com', 'timezone': zone}),
+                encoding='utf-8')
+        if settings is not None:
+            (base / '.claude').mkdir(exist_ok=True)
+            (base / '.claude' / 'settings.local.json').write_text(
+                settings, encoding='utf-8')
+        if gitignore is not None:
+            (base / '.gitignore').write_text(gitignore, encoding='utf-8')
+        e = dict(env, CLAUDE_PROJECT_DIR=str(base))
+        r = subprocess.run(['bash', str(hook)], capture_output=True,
+                           text=True, env=e, timeout=120)
+        return base / '.claude' / 'settings.local.json', r
+
+    def _tz(f):
+        try:
+            return _json.loads(f.read_text(encoding='utf-8'))['env']['TZ']
+        except Exception:
+            return None
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        f, r = _repo(tmp / 'declared', 'America/Argentina/Buenos_Aires')
+        cases.append(('a declared zone lands in settings.local.json',
+                      _tz(f) == 'America/Argentina/Buenos_Aires'))
+        cases.append(('and the hook still exits 0', r.returncode == 0))
+        before = f.read_bytes()
+        e = dict(env, CLAUDE_PROJECT_DIR=str(tmp / 'declared'))
+        r2 = subprocess.run(['bash', str(hook)], capture_output=True,
+                            text=True, env=e, timeout=120)
+        cases.append(('a second run rewrites nothing', f.read_bytes() == before))
+        cases.append(('and says nothing about it',
+                      'settings.local.json' not in r2.stderr))
+
+        f, _ = _repo(tmp / 'guessed', None)
+        cases.append(('a GUESSED zone writes no file at all', not f.exists()))
+
+        f, _ = _repo(tmp / 'existing', 'Europe/Berlin',
+                     settings='{"env":{"OTHER":"keep"},'
+                              '"permissions":{"allow":["Bash(ls)"]}}')
+        try:
+            d = _json.loads(f.read_text(encoding='utf-8'))
+        except Exception:
+            d = {}
+        cases.append(('an existing file keeps its other keys',
+                      d.get('env', {}).get('TZ') == 'Europe/Berlin'
+                      and d.get('env', {}).get('OTHER') == 'keep'
+                      and d.get('permissions', {}).get('allow') == ['Bash(ls)']))
+
+        f, _ = _repo(tmp / 'stale', 'Europe/Berlin',
+                     settings='{"env":{"TZ":"UTC"}}')
+        cases.append(('a stale TZ is re-derived, not respected',
+                      _tz(f) == 'Europe/Berlin'))
+
+        f, _ = _repo(tmp / 'broken', 'Europe/Berlin', settings='not json at all')
+        cases.append(('an unparseable settings file is left untouched',
+                      f.read_text(encoding='utf-8') == 'not json at all'))
+
+        _, r = _repo(tmp / 'ignored', 'Europe/Berlin',
+                     gitignore='.claude/settings.local.json\n')
+        cases.append(('no gitignore warning when the file IS ignored',
+                      'NOT gitignored' not in r.stderr))
+        _, r = _repo(tmp / 'notignored', 'Europe/Berlin')
+        cases.append(('the gitignore warning fires when it is not',
+                      'NOT gitignored' in r.stderr))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'commit-identity derives the declared timezone into the session '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_commit_identity_copies_are_identical():
+    """The hook exists three times and every copy must be the same file.
+
+    templates/harness/claude-code/hooks/ is what an adopter instantiates,
+    .claude/hooks/ is what this repo runs on itself (a drift there is this
+    repo failing to run what it ships), and the individual practice source
+    carries a third copy that session-start.sh runs for ATTACHED repos, whose
+    own hooks never fire. 2026-09-07 the merge backstop -- the fix for git
+    not running pre-commit on a merge commit, which is how a wrong-offset
+    commit reached main in the first place -- was added to the individual
+    source's copy alone and sat there unpropagated for hours, so the repo
+    that defines the fix did not have it. parallel-artifact-ledger names this
+    exact shape; this makes it mechanical instead.
+    """
+    import hashlib as _h
+    here = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'commit-identity.sh'
+    if not (here.exists() and tmpl.exists()):
+        not_applicable('every copy of commit-identity.sh is byte-identical',
+                       'not every copy is present in this tree')
+        return
+    digests = {p: _h.sha256(p.read_bytes()).hexdigest()
+               for p in (here, tmpl)}
+    # The individual source is outside this repo and only sometimes attached,
+    # so it is compared when reachable and skipped -- named -- when not.
+    #
+    # WHICH clone of the individual source. There are routinely two on one
+    # machine and they are not interchangeable: the config-named one
+    # (~/.config/precedent/config.json), which precedent-individual-bootstrap.sh
+    # `git pull --ff-only`s from origin at every session start, and an
+    # ATTACHED sibling beside this repo, which is the one a session actually
+    # edits and pushes from. The attached one therefore wins here. Comparing
+    # against the config-named clone instead reports drift for every
+    # uncommitted edit in progress -- which this check did on its very first
+    # run, against a change being made three directories away. That is the
+    # same two-clone trap AGENTS.md's gotchas section already records; the
+    # rule that resolves it is: the pulled clone can only ever be BEHIND, so
+    # it is never the better evidence of what the source says.
+    third, note = None, ''
+    try:
+        import json as _json
+        cfg = pathlib.Path(os.environ.get(
+            'PRECEDENT_USER_CONFIG',
+            str(pathlib.Path.home() / '.config' / 'precedent' / 'config.json')))
+        path = None
+        if cfg.exists():
+            path = (_json.loads(cfg.read_text(encoding='utf-8'))
+                    .get('individual') or {}).get('path')
+        cands = []
+        if path:
+            attached = ROOT.parent / pathlib.Path(path).name
+            if attached != ROOT and attached.is_dir():
+                cands.append(attached)
+            cands.append(pathlib.Path(path))
+        for base in cands:
+            cand = base / 'bootstrap' / 'commit-identity.sh'
+            if cand.exists():
+                third = cand
+                digests[cand] = _h.sha256(cand.read_bytes()).hexdigest()
+                break
+    except Exception:
+        pass
+    if third is None:
+        note = (' (the individual source\'s copy was not reachable from here '
+                'and was NOT compared)')
+    uniq = set(digests.values())
+    check(f'every reachable copy of commit-identity.sh is byte-identical '
+          f'({len(digests)} copies){note}',
+          len(uniq) == 1,
+          '; '.join(f'{p.relative_to(ROOT) if ROOT in p.parents else p}='
+                    f'{d[:12]}' for p, d in digests.items()))
 
 
 def check_sync_views_cross_source():
@@ -9895,6 +10082,8 @@ def main():
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()
     check_doc_lifecycle_fires_and_clears()
+    check_commit_identity_derives_declared_timezone()
+    check_commit_identity_copies_are_identical()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()

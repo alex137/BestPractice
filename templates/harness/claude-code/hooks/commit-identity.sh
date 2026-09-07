@@ -303,6 +303,90 @@ exit 0
 HOOK
 chmod +x "$target" 2>/dev/null || true
 
+# ---- the SAME backstop, wired for MERGE commits
+#
+# git does NOT run pre-commit for a merge commit. It runs prepare-commit-msg
+# instead, and a non-zero exit there aborts the commit just the same. So the
+# hook above -- the layer this script exists to provide -- was silent on the
+# one commit kind nobody types by hand.
+#
+# practice: buenos-aires-dates, and cite-the-incident. Reproduced 2026-09-07
+# in a throwaway clone with the pre-commit hook installed: `TZ=UTC git merge
+# side` produced a merge commit dated +0000 and the hook never fired. That
+# is not hypothetical -- it is how commit d85fcc9 reached this repo's own
+# main an hour earlier, from a session that had been careful to run every
+# `git commit` under the right TZ and had not thought about `git merge`.
+#
+# The hook body ignores its arguments, so the same file serves both roles
+# (prepare-commit-msg is handed a message path, a source and a sha; this one
+# reads only `git var GIT_AUTHOR_IDENT`, which is already resolved by then).
+# Same marker, so the same never-clobber rule applies.
+merge_target="$hooks_dir/prepare-commit-msg"
+if [ -e "$merge_target" ] && ! grep -q "$marker" "$merge_target" 2>/dev/null; then
+  echo "WARN: commit-identity: $merge_target already exists and is not this one -- leaving it alone. MERGE commits are NOT backstopped in this checkout." >&2
+else
+  cp "$target" "$merge_target" 2>/dev/null && chmod +x "$merge_target" 2>/dev/null || true
+fi
+
+# ---- make the DECLARED timezone the session's own, not a thing to retype
+#
+# The pre-commit backstop above refuses a commit whose offset contradicts a
+# declared timezone. That is correct and it is not enough: a hook cannot
+# export TZ into the shells a session runs later, so the person is told the
+# remedy (`TZ="..." git commit ...`) and then types it on every commit,
+# forever. 2026-09-07, the incident that produced this block: a session had
+# been running under exactly that arrangement all day, and the complaint was
+# the right one -- "I'd rather a permanent fix than my having to do that
+# manually."
+#
+# So the resolved zone is written where the harness reads environment for the
+# WHOLE session: .claude/settings.local.json's `env` block. That file is
+# per-machine and untracked, which is what makes this safe in a SHARED repo --
+# .claude/settings.json is committed and must not carry one contributor's
+# zone (this repo's own settings.json comment says exactly that), while
+# settings.local.json is that contributor's alone.
+#
+# registry-source-of-truth: identity.json stays the ONE place the zone is
+# declared, and this block DERIVES the env from it at every session start,
+# overwriting a stale value rather than treating it as a second declaration.
+#
+# It takes effect from the NEXT session -- environment is read before hooks
+# run -- so this session still gets the refusal and the remedy line. Said out
+# loud below rather than left to be discovered.
+_derive_session_tz() {
+  [ "$zone_is_guess" -eq 0 ] || return 0        # never propagate a guess
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 - "$ROOT/.claude/settings.local.json" "$zone" <<'DERIVE_TZ' 2>/dev/null
+import json, pathlib, sys
+path, zone = pathlib.Path(sys.argv[1]), sys.argv[2]
+try:
+    data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+    if not isinstance(data, dict):
+        raise SystemExit(0)
+except Exception:
+    # An unparseable settings.local.json is somebody's problem to fix, not
+    # this hook's to overwrite. Say nothing and change nothing.
+    raise SystemExit(0)
+env = data.get('env')
+if not isinstance(env, dict):
+    env = {}
+if env.get('TZ') == zone:
+    raise SystemExit(0)                          # already right: no churn
+env['TZ'] = zone
+data['env'] = env
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+print('written')
+DERIVE_TZ
+}
+
+if [ "$(_derive_session_tz)" = "written" ]; then
+  echo "NOTE: commit-identity: wrote TZ=$zone into $ROOT/.claude/settings.local.json (untracked, per-machine), derived from the declared identity. It applies from the NEXT session on -- environment is read before hooks run -- so commits in THIS session may still need TZ=\"$zone\" git commit ..." >&2
+  if ! git -C "$ROOT" check-ignore -q .claude/settings.local.json 2>/dev/null; then
+    echo "WARN: commit-identity: .claude/settings.local.json is NOT gitignored here. It is a per-machine file, and committing it would push one person's timezone onto everyone -- add it to .gitignore." >&2
+  fi
+fi
+
 if [ "$zone_is_guess" -eq 1 ]; then
   cur_offset="$(date +%z 2>/dev/null || true)"
   guess_offset="$(TZ="$zone" date +%z 2>/dev/null || true)"
