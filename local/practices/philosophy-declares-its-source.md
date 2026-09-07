@@ -55,7 +55,7 @@ gone.
 2026-09-07, and the rule outlived the reason it was written for, which is
 why it is worth recording both.
 
-It was written that morning, when `themorgan/WorkingWithAI`'s `content/`
+It was written that morning, when the project's own prior notes repository's `content/`
 tree was copied into `philosophy/` as a **copy**: the originals stayed
 where they were, nothing synced the two, and the version number existed so
 a later session could see how far this tree had fallen behind. By that

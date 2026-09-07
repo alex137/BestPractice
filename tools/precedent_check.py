@@ -1186,7 +1186,7 @@ def _engine_plus_host_shims(ctx):
     # the sanctioned mechanism for putting them there is a vendored copy.
     #
     # Verified against the two real consumers, 2026-09-06: it keeps firing
-    # on WorkingWithAI's hand-copied root tools (three of which had drifted
+    # on that repository's hand-copied root tools (three of which had drifted
     # to OLDER content than that repo's own vendored tree, which is the
     # failure this rule is about), and stops firing on a manifest-recorded
     # engine.
@@ -1290,7 +1290,7 @@ _ENGINE_REF_ABSENT_OK = {
 }
 
 
-# cite-the-incident, 2026-09-06: themorgan/WorkingWithAI followed
+# cite-the-incident, 2026-09-06: the project's own prior notes repository followed
 # spec/MIGRATING_EXISTING_INSTALLS.md step 7 exactly as written and ended up
 # with a hard-crashing precedent_gate.py -- FileNotFoundError on
 # routing_scope.json, which precedent_gate.py itself names via
@@ -1438,7 +1438,7 @@ def _vendored_engine_file_refs_resolve(ctx):
                     f'tools/{p.name}',
                     f"references tools/{name}, which does not exist locally "
                     f"-- a vendored engine file naming a companion that was "
-                    f"never copied over is exactly how themorgan/WorkingWithAI "
+                    f"never copied over is exactly how the project's own prior notes repository "
                     f"ended up with a hard-crashing precedent_gate.py "
                     f"(2026-09-06, missing routing_scope.json)"))
     return findings

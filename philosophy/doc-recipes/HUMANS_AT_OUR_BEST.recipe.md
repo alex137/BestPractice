@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/doc-recipes/HUMANS_AT_OUR_BEST.recipe.md, version 1. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from the project's own prior notes repository into philosophy/; source: the project's own prior notes repository content/doc-recipes/HUMANS_AT_OUR_BEST.recipe.md, version 1. -->
 
 # Recipe: HUMANS_AT_OUR_BEST.md
 

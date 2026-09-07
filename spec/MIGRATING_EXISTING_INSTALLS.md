@@ -22,7 +22,7 @@ rather than starting from a blank page. This document is that missing
 piece — **the recommended pattern**, not a plan, written from having
 actually done it once, on a real repo, for the first time.
 
-**Worked example: `themorgan/WorkingWithAI`.** Everything below generalizes
+**Worked example: the project's own prior notes repository.** Everything below generalizes
 what that repo's own migration actually did on 2026-09-02, first tested
 against the real `precedent-team-maintainers` and `precedent-individual`
 repos rather than fixtures. Its own record —
@@ -55,7 +55,7 @@ the loader.
    has merged to `main`), this is an ordinary
    [INSTALL.md §2](../INSTALL.md#2-take-an-upstream-update) update:
    `checkin.py update` / `record`, three-way-merged per manifest entry. If
-   — as `WorkingWithAI` deliberately did, to beta-test this exact pattern —
+   — as the project's own prior notes repository deliberately did, to beta-test this exact pattern —
    the repo is pinning a **named non-default branch** ahead of its merge,
    read "The default-branch gotcha" below first: this step is a one-off
    manual mirror instead, and the scheduled sync workflow stays paused for
@@ -368,7 +368,7 @@ the loader.
    engine only, on the reasoning that `checked_by` enforcement is a
    different channel — so a migration that ran the vendor step and stopped
    ended up with a working loader and **no enforced-checks tool at all**.
-   Confirmed real, not hypothetical: `themorgan/WorkingWithAI` followed
+   Confirmed real, not hypothetical: the project's own prior notes repository followed
    this step exactly as it was then written (2026-09-06) and ended up
    without `tools/precedent_check.py` for precisely that reason. It is in
    `CONSUMER_ENGINE_FILES` now, along with the three audit tools several
@@ -462,7 +462,7 @@ the tool, and is now a deliberate hold while the fix settles.
 (`_default_branch()` reads `refs/remotes/origin/HEAD`) — there was no way
 to say "track this named branch instead." A repo doing exactly what this
 document describes — beta-testing a not-yet-merged branch, as
-`WorkingWithAI` did against `precedent-beta-v01` — could not use these
+the project's own prior notes repository did against `precedent-beta-v01` — could not use these
 commands for that branch: `fresh` reported "moved" every single session
 (comparing the pinned branch's commit against `main`'s HEAD, an unrelated
 lineage), and an unattended `update` run would have merged `main`'s tree
@@ -529,7 +529,7 @@ the tool defends the pin from then on.
 
 Running `practice_audit.py`'s scrub check against a repo whose owner is
 *also* a disclosed, named contributor to BestPractice/Precedent itself (not
-a hypothetical — this is exactly `WorkingWithAI`'s situation, and exactly
+a hypothetical — this is exactly that repository's situation, and exactly
 why the check surfaced it) can fail on content that isn't actually a leak:
 the owner's real identity, disclosed on purpose in BestPractice's own
 public docs narrating the real work of populating the private sets, happens
@@ -545,7 +545,7 @@ designed for one person occupying both roles at once. Weakening a
 blocklist entry to silence this would also weaken it against the failure
 mode it actually exists for.
 
-**Not fixed here** — `WorkingWithAI`'s own record documents it as an
+**Not fixed here** — that repository's own record documents it as an
 accepted, understood FAIL for that specific vendored tree rather than
 something to patch around. The shape of a real fix: scrub the **diff**
 against the last-recorded upstream commit, not the whole snapshot every
@@ -656,7 +656,7 @@ rediscover them:
    this file's own [`migration-scrubs-vocabulary` practice](../practices/migration-scrubs-vocabulary.md)
    uses that exact string in its own Story section as its illustrative
    example of "a retired secret name" — a different repo's history
-   (`themorgan/WorkingWithAI`'s), not the migrating repo's, but the same
+   (the project's own prior notes repository's), not the migrating repo's, but the same
    literal substring, materialized into `practices/` the same way. Fixed:
    an `exempt_files` entry ending in `/` now exempts a whole directory
    (see the pattern's own step 5 above, and the practice file's Detail
@@ -672,7 +672,7 @@ than treating a clean run as proof the machinery is correct.
 ## A third real bug — this document's own step 7, incomplete — found 2026-09-06
 
 Unlike the two above, this one was in the pattern itself, not in tooling
-it depends on. `themorgan/WorkingWithAI` followed step 7 exactly as
+it depends on. the project's own prior notes repository followed step 7 exactly as
 written and ended up with a repo that could load practices but not check
 them: `tools/precedent_check.py` was simply absent, because step 7's file
 list (the nine engine files plus `routing_scope.json`, all handled by

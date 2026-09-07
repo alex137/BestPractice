@@ -134,7 +134,7 @@ FORBIDDEN_PATHS = [
 # The hook contains no private practice content: it is a wrapper naming the
 # set's git remote, which this repository already publishes in a dozen spec
 # documents. Whether THAT wider disclosure is intended is a separate open
-# question (spec/PRELAUNCH_AUDIT.md raises it for themorgan/WorkingWithAI);
+# question (spec/PRELAUNCH_AUDIT.md raises it for the project's own prior notes repository);
 # this exemption does not settle it and does not widen it.
 #
 # verify_harness.py asserts this string still equals precedent_resolve's own

@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/AI_GOVERNANCE_TO_COCREATE.md, version 15. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document into philosophy/; source: the project's own prior notes repository, content/AI_GOVERNANCE_TO_COCREATE.md, version 15 -- that repository was made private and is being deleted, so philosophy/ is this document's home now, not a copy of one. -->
 
 # AI Governance to Co-Create
 

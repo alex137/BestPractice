@@ -14,7 +14,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       2026-09-07
-approved_by: "Morgan, 2026-09-07 -- merging WorkingWithAI's `no-ai-voice` (the argument) and `write-like-a-human` (the rule) into one universal practice, deliberately as a short guiding point rather than a vendored ruleset"
+approved_by: "Morgan, 2026-09-07 -- merging that repository's `no-ai-voice` (the argument) and `write-like-a-human` (the rule) into one universal practice, deliberately as a short guiding point rather than a vendored ruleset"
 ---
 ## Rule
 **Nothing you ship may sound like it came from an AI** — a document, a
@@ -57,7 +57,7 @@ Nothing about it is specific to one team or one person.
 ## Story
 2026-09-07, and the history is the argument for the shape this landed in.
 
-WorkingWithAI held both halves. `no-ai-voice` sat in its essay on
+the project's own prior notes repository held both halves. `no-ai-voice` sat in its essay on
 building a company around AI as rule 11; `write-like-a-human` sat in its
 "rules now testing" list as rule 5, and it did not state a rule at all —
 it pointed at a long writing-style ruleset **vendored from a private

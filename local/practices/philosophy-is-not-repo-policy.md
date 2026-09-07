@@ -14,7 +14,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "Morgan, 2026-09-07, as the condition WorkingWithAI's content was brought in under"
+approved_by: "Morgan, 2026-09-07, as the condition that repository's content was brought in under"
 ---
 ## Rule
 Everything under `philosophy/` is **theory, argument and observation** —
@@ -74,7 +74,7 @@ Recorded 2026-09-07, at the moment the risk was created rather than after
 it fired — the one case `cite-the-incident` accepts a prospective story
 for, because the incident is the change itself.
 
-WorkingWithAI's `content/` tree was copied into this repository's
+that repository's `content/` tree was copied into this repository's
 `philosophy/`. In its home repository that material is not inert: its
 [RULES_NOW_TESTING.md](../../philosophy/RULES_NOW_TESTING.md) is explicitly "the checklist a session in any of
 Morgan's real work is expected to follow today", and that repository's own instructions file
@@ -88,7 +88,7 @@ being read about four sessions later — the exact failure
 `repo-is-memory` and `checkable-gets-checked` exist to prevent. The
 mechanism is this practice plus its check.
 
-`themorgan/WorkingWithAI` was retired later the same day, which removes
+the project's own prior notes repository was retired later the same day, which removes
 the *source* of the risk without removing the risk itself: these essays
 are still 22,000 lines of confident, imperative prose sitting one
 directory from a practice catalogue, and now with no other home to point

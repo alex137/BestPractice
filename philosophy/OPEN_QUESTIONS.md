@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session making philosophy/ the permanent home; source: the five content-side open items from themorgan/WorkingWithAI's TODO.md, rescued before that repository was retired. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session making philosophy/ the permanent home; source: the five content-side open items from the project's own prior notes repository's TODO.md, rescued before that repository was retired. -->
 
 # Open Questions
 

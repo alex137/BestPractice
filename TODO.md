@@ -778,7 +778,7 @@ which is the failure this repointing exists to end — write
     very deep check that day held, simultaneously:
     `alex137/bestpractice`, `themorgan/precedent-individual`,
     `themorgan/precedent-team-maintainers`, `themorgan/precedent-team-tms`,
-    `themorgan/workingwithai` and one further private `themorgan/*`
+    `the project's own prior notes repository` and one further private `themorgan/*`
     consumer repo — and
     `add_repo` accepted the last of those *during* that session, with all
     three private sets already attached and worked in. Mixed owners in one
@@ -1568,7 +1568,7 @@ which is the failure this repointing exists to end — write
     Settled 2026-09-07: there is nothing to stay current with.** The
     question was which of three options to take — dated snapshot,
     vendored-and-synced, or move the originals here. Morgan chose the
-    third and went further: `themorgan/WorkingWithAI` is retired, and
+    third and went further: the project's own prior notes repository is retired, and
     [philosophy/](philosophy/) is the only copy of these essays. No
     manifest, no sync, no drift — by construction rather than by
     discipline. [philosophy-declares-its-source](local/practices/philosophy-declares-its-source.md)

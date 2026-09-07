@@ -139,7 +139,7 @@ practices, no crash); no team set; sources declared but unreachable. The
 third is finding 6 above.
 
 **A REAL consumer repository, updated — added to the practice because of
-what it found here.** `themorgan/WorkingWithAI` was attached mid-run, its
+what it found here.** the project's own prior notes repository was attached mid-run, its
 vendored tree brought forward 283 commits, re-synced, and run against its
 own gates. The scratch fixtures above had passed; that one repo then
 produced seven defects in a row, four of them in mechanisms this run had

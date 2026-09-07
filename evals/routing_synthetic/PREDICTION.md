@@ -17,7 +17,7 @@ this repo's own history is 100% self-referential (every commit is about the
 practice engine itself, checked directly), and `main` vs `precedent-beta-v01`
 turned out to be nearly synced after a proper unshallow fetch (only one real
 commit of divergence, practice 53 -- a separate, already-actioned finding).
-An external repo (WorkingWithAI) could not be attached in this session.
+An external repo (the project's own prior notes repository) could not be attached in this session.
 
 ## What this run is, and is deliberately not
 
