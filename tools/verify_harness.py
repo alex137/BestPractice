@@ -6518,6 +6518,118 @@ def check_repo_reference_allowlist():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_leak_gate_scans_the_consuming_repo():
+    """The leak gate scans the repo it is INSTALLED IN, not its own vendor dir.
+
+    Vendored at <repo>/process/upstream/tools/, `parents[1]` is
+    process/upstream/ -- so in the repositories that actually hold private
+    content, this gate scanned BestPractice's own mirrored tree and reported
+    it clean while the consuming repo's tracked files were never opened.
+    Found 2026-09-07 refreshing a real consumer: "893 unit(s) ... clean",
+    which is BestPractice's file count, in a repo tracking 1060.
+    precedent_check.py hit exactly this and fixed it the same way months
+    earlier; nobody carried the fix across to the gate whose whole job is
+    keeping private content out of a public push.
+
+    And the second half, which the first made necessary: the gate's premise
+    is publication -- its own refusal says "a push is a publication" -- which
+    is false in a private consumer. Scanning one for real lit up 111 hits for
+    naming the owner's own private repositories inside a repository that is
+    itself private. Shipping the ROOT fix alone would have turned every
+    private consumer's gate red over content never at risk, and a gate that
+    cries wolf in every install is one people switch off.
+
+    An ABSENT visibility field is NOT private: omitting it counts as public
+    here as everywhere else in the engine, because the failure is asymmetric
+    -- assuming public costs false hits, assuming private costs a permanent
+    publication.
+    """
+    import tempfile, json as _json, shutil as _shutil
+    gate = ROOT / 'tools' / 'leak_gate.py'
+    if not gate.exists():
+        not_applicable('the leak gate scans the consuming repo',
+                       'tools/leak_gate.py is not present here')
+        return
+
+    def _consumer(base, visibility, extra_file=None):
+        """A repo with the gate VENDORED, as a real install has it."""
+        vend = base / 'process' / 'upstream' / 'tools'
+        vend.mkdir(parents=True)
+        _shutil.copy2(gate, vend / 'leak_gate.py')
+        for name in ('leak-blocklist.default.txt',):
+            src = ROOT / 'tools' / name
+            if src.exists():
+                _shutil.copy2(src, vend / name)
+        cfg = {'format_version': 1, 'sources': []}
+        if visibility:
+            cfg['visibility'] = visibility
+        (base / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
+        (base / 'own-file.md').write_text(extra_file or '# just this repo\n',
+                                          encoding='utf-8')
+        subprocess.run(['git', '-C', str(base), 'init', '-q'], capture_output=True)
+        for c in (['config', 'user.email', 'harness@example.com'],
+                  ['config', 'user.name', 'Harness']):
+            subprocess.run(['git', '-C', str(base)] + c, capture_output=True)
+        subprocess.run(['git', '-C', str(base), 'add', '-A'], capture_output=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        subprocess.run(['git', '-C', str(base), 'commit', '-qm', 'base'],
+                       capture_output=True, env=env)
+        return base
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        # ROOT resolves to the CONSUMER, not process/upstream.
+        pub = _consumer(tmp / 'pub', 'public')
+        r = subprocess.run(
+            [sys.executable, str(pub / 'process' / 'upstream' / 'tools' / 'leak_gate.py')],
+            capture_output=True, text=True, cwd=str(pub), timeout=300,
+            env=dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1'))
+        out = r.stdout + r.stderr
+        # The consumer tracks a handful of files; BestPractice tracks ~900.
+        # Any count in the hundreds means it scanned the vendored tree.
+        m = re.search(r'(\d+) unit\(s\)', out)
+        counted = int(m.group(1)) if m else -1
+        tracked = len([x for x in subprocess.run(
+            ['git', '-C', str(pub), 'ls-files'], capture_output=True,
+            text=True).stdout.splitlines() if x])
+        cases.append(('a vendored gate scans the CONSUMING repo, not its own '
+                      'vendor directory', 0 <= counted <= tracked))
+        cases.append(('and the count matches the consumer, not upstream',
+                      counted != 893))
+
+        # A private consumer stands down, and SAYS it inspected nothing.
+        priv = _consumer(tmp / 'priv', 'private')
+        r = subprocess.run(
+            [sys.executable, str(priv / 'process' / 'upstream' / 'tools' / 'leak_gate.py')],
+            capture_output=True, text=True, cwd=str(priv), timeout=300,
+            env=dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1'))
+        out = r.stdout + r.stderr
+        cases.append(('a private consumer stands the gate down',
+                      'NOT APPLICABLE' in out and r.returncode == 0))
+        cases.append(('and says plainly that it is not a pass',
+                      'NOT a pass' in out))
+        cases.append(('and names what still guards the export path',
+                      'practice_audit' in out))
+
+        # ABSENT visibility must NOT be read as private.
+        none = _consumer(tmp / 'none', None)
+        r = subprocess.run(
+            [sys.executable, str(none / 'process' / 'upstream' / 'tools' / 'leak_gate.py')],
+            capture_output=True, text=True, cwd=str(none), timeout=300,
+            env=dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1'))
+        out = r.stdout + r.stderr
+        cases.append(('an ABSENT visibility field still scans -- omitting it '
+                      'is not a way to switch the gate off',
+                      'NOT APPLICABLE' not in out))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the leak gate scans the consuming repo, and stands down only '
+          f'where nothing is published ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_sync_views_cross_source():
     """tools/precedent_sync_views.py -- the one-command glue over
     precedent_materialize.py + build_views.py --agents-only that a
@@ -10802,6 +10914,7 @@ def main():
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
     check_repo_reference_allowlist()
+    check_leak_gate_scans_the_consuming_repo()
     check_update_refuses_while_a_branch_is_pinned()
     check_leftover_pack_is_flagged_after_migration()
     check_detect_restated_fires()

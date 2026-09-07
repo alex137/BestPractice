@@ -83,9 +83,29 @@ Run:
 Exit: 0 clean, 1 on any hit, on a misconfigured blocklist, or on an unrun
 vocabulary layer this clone declared it needs.
 """
-import os, pathlib, re, subprocess, sys
+import json, os, pathlib, re, subprocess, sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+# THE CONSUMING REPO, not this file's parent. Vendored at
+# <repo>/process/upstream/tools/, `parents[1]` is process/upstream/ -- so in
+# the repositories that actually hold private content this gate scanned
+# BestPractice's own mirrored tree and reported it clean, while the consuming
+# repo's tracked files were never opened. Found 2026-09-07 refreshing a real
+# consumer: it reported "893 unit(s) ... clean", which is BestPractice's file
+# count, in a repo tracking 1060.
+#
+# precedent_check.py hit exactly this and fixed it the same way, with the
+# same comment, months earlier -- and nobody carried the fix across to the
+# gate whose whole job is keeping private content out of a public push. A
+# false clean here is the one this project can least afford.
+#
+# `git rev-parse --show-toplevel` walks up from wherever this file sits to
+# the enclosing repository, which is right in both layouts without knowing
+# which one it is in. The literal parents[1] stays as the no-git fallback
+# only, matching doc_lint.py and practice_audit.py.
+_toplevel = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                           cwd=pathlib.Path(__file__).resolve().parent,
+                           capture_output=True, text=True).stdout.strip()
+ROOT = pathlib.Path(_toplevel) if _toplevel else pathlib.Path(__file__).resolve().parents[1]
 BLOCKLIST_ENV = 'PRECEDENT_LEAK_BLOCKLIST'
 
 # The committed, publishable half of the vocabulary layer. See the header of
@@ -391,6 +411,44 @@ def repo_ref_hits(text, owners, allowed):
     return out
 
 
+def declared_visibility(root):
+    """-> ('public'|'private'|None, why) from the repo's own precedent.json.
+
+    THE GATE'S ENTIRE PREMISE IS PUBLICATION -- its own refusal says so: "a
+    push is a publication, and it cannot be taken back." That is true of the
+    upstream repository and false of a private consumer, where nothing in the
+    tree is published by pushing it.
+
+    Found the moment the ROOT fix above started scanning consumers for real,
+    2026-09-07: a private consuming repo lit up with 111 hits for naming the
+    owner's own private repositories inside a repository that is itself
+    private. Shipping the ROOT fix without this would have turned every
+    private consumer's gate red for content that was never at risk -- and a
+    gate that cries wolf in every install is a gate people switch off, which
+    is how the real one stops being read.
+
+    What still guards the export path from a private consumer is
+    practice_audit.py's scrub over the vendored tree: that is the content
+    which actually leaves, and it is gated where it leaves.
+
+    An ABSENT field is not treated as private. Omitting it counts as public
+    everywhere else in the engine (build_views.py's repo_is_public), for the
+    reason that the failure is asymmetric: assuming public costs a few false
+    hits, assuming private costs a permanent publication.
+    """
+    cfg = root / 'precedent.json'
+    if not cfg.exists():
+        return None, 'no precedent.json'
+    try:
+        data = json.loads(cfg.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        return None, f'precedent.json unreadable ({e})'
+    v = (data.get('visibility') or '').strip().lower()
+    if v in ('public', 'private'):
+        return v, f'precedent.json declares visibility: {v}'
+    return None, 'precedent.json declares no visibility'
+
+
 def _parse_blocklist(path, allow_inside_repo=False):
     """Compile one blocklist file to patterns. Shared by both halves so the
     default list and a private one cannot drift in how they are read."""
@@ -554,6 +612,16 @@ def main():
     _raw_bl = os.environ.get(BLOCKLIST_ENV, '').strip()
     _policy = (parse_repo_policy(pathlib.Path(_raw_bl).expanduser())
                if _raw_bl else ({}, {}))
+    _vis, _why = declared_visibility(ROOT)
+    if _vis == 'private':
+        print(f'leak gate NOT APPLICABLE: {_why}, so pushing this tree '
+              f'publishes nothing and there is no leak for this gate to '
+              f'prevent. This is a stand-down, NOT a pass -- it inspected '
+              f'nothing. What still guards content leaving here is '
+              f'practice_audit.py\'s scrub over the vendored tree, which is '
+              f'where the export actually happens.')
+        return 0
+
     hits = scan(units, blocklist, _policy)
     # SAY WHEN THE ALLOWLIST IS OFF. It only does anything once somebody
     # declares an owner private-by-default, and a clone that never did would
