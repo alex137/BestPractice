@@ -913,15 +913,27 @@ which is the failure this repointing exists to end — write
     tell a heading-dense page from an under-emphasized one, which is the whole
     finding — a check here would re-flag the page Morgan just fixed.
 
-    **Blocked on:** a session with the private sets on disk. `bold-key-phrases`
-    is not in this repo's `practices/` — it lives in one of the three private
-    sources, and this session resolved neither of them
+    **Where it lives:** the TEAM set, `precedent-team-maintainers`, at `tier:
+    resident` — [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
+    resolve run and [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md) both
+    name it there alongside `nonblocking-questions` and `small-calls`. Being
+    resident matters for the wording: it is carried in every session's context
+    whether or not the occasion fires, so the clause has to be short.
+
+    **Blocked on:** a session with that set on disk. This one does not have it
     ([tools/precedent_resolve.py](tools/precedent_resolve.py): team source
-    `../precedent-team-maintainers` absent, no individual config). Checked on
+    `../precedent-team-maintainers` absent, no individual config — checked on
     disk rather than recalled, per
     [`migrated-practices-lost-their-stories`](TODO.md#migrated-practices-lost-their-stories)'s
-    own correction about blockers taken from memory.
-
+    own correction about blockers taken from memory). Asked to attach it
+    2026-09-07, `add_repo` refused for the reason
+    [AGENTS.md](AGENTS.md)'s gotcha already records — *"cross-tier adds are not
+    supported in v1: requested themorgan/precedent-individual but session
+    already has repos from owner(s) [alex137]"* — while `list_repos` shows all
+    three private sets with `can_push: true`, so this is the session's shape,
+    not the account's rights. **What closes it:** a session whose INITIAL
+    source is `themorgan/precedent-team-maintainers`; BestPractice is public,
+    so that session clones this repo directly with no second `add_repo`.
 
 - ~~**`precedent_check.py` is not vendored into source sets, so a practice
   set enforces nothing of the universal catalogue.**~~ **Done 2026-09-07**, in
