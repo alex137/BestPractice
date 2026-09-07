@@ -1975,7 +1975,10 @@ def _published_default_branch():
        'a rename whose old path is too generic to search for safely (a '
        'bare `README.md`, a single path segment) -- those are skipped '
        'rather than guessed at. It also cannot see a reference built by '
-       'string concatenation at runtime.')
+       'string concatenation at runtime, and it deliberately says nothing '
+       'about a file the repo received rather than wrote: a vendored tree, '
+       'a materialized practice or check, or the generated loader block, '
+       'each of which is overwritten by its own next sync.')
 def _rename_updates_links(ctx):
     base = _published_default_branch()
     if base is None:
@@ -2005,9 +2008,36 @@ def _rename_updates_links(ctx):
         pass
 
     withheld = set()
+    # Materialized output is the same third state one level further out.
+    # precedent_materialize.py DELETES AND REWRITES practices/ and
+    # tools/checks/ from every declared source on every sync, so a reference
+    # inside one of those files cannot be repointed in the consuming repo at
+    # all -- an edit survives until the next `precedent_sync_views.py` run and
+    # no longer. The reference belongs to whichever source wrote it, and so
+    # does the fix. Attribution is by MANIFEST.json's own committed record
+    # (which source produced each file), never by live resolution: a bare CI
+    # checkout can reach universal and repo-local but never team or
+    # individual, and "this source did not resolve here" is not evidence of
+    # anything. Found 2026-09-07, a consumer renaming its content directory:
+    # of eight findings, seven sat in an individual source's own practice
+    # text, its check script and that check's test -- all of which use the
+    # old directory name as the canonical EXAMPLE of a convention, none of
+    # which points at anything in the consuming repo, and not one of which
+    # that repo could fix.
+    received = set()
     try:
         _m = json.loads((ROOT / 'MANIFEST.json').read_text(encoding='utf-8'))
         withheld = {f"practices/{slug}.md" for slug in (_m.get('withheld') or [])}
+        _local = {s.get('name') for s in (_m.get('sources') or [])
+                  if isinstance(s, dict) and s.get('level') == 'repo-local'}
+        for _e in (_m.get('practices') or []):
+            if isinstance(_e, dict) and _e.get('slug') \
+                    and _e.get('source') not in _local:
+                received.add(f"practices/{_e['slug']}.md")
+        for _e in (_m.get('checks') or []):
+            if isinstance(_e, dict) and _e.get('path') \
+                    and _e.get('source') not in _local:
+                received.add(_e['path'])
     except (ValueError, OSError):
         pass
 
@@ -2041,7 +2071,8 @@ def _rename_updates_links(ctx):
             # the vendored upstream tree and the vendored engine are mirrored
             # wholesale from a published commit, and an edit is overwritten by
             # the next refresh. The reference is upstream's, and so is the fix.
-            if rel.startswith('process/upstream/') or rel in _vendored_engine:
+            if rel.startswith('process/upstream/') or rel in _vendored_engine \
+                    or rel in received:
                 continue
             f = ROOT / rel
             if not f.is_file():
@@ -2050,7 +2081,21 @@ def _rename_updates_links(ctx):
                 text = f.read_text(encoding='utf-8', errors='ignore')
             except OSError:
                 continue
+            in_generated = False
             for i, line in enumerate(text.splitlines(), 1):
+                # The loader block is rewritten wholesale by build_views.py
+                # from the practice sources, so a reference inside it is the
+                # sources' to fix, exactly like the materialized files it is
+                # summarising. Skipped as a REGION, not as a file: the
+                # hand-written half of the same document must still be
+                # repointed, and usually is the thing that most needs to be.
+                if '<!-- BEGIN GENERATED: precedent-loader -->' in line:
+                    in_generated = True
+                elif '<!-- END GENERATED -->' in line:
+                    in_generated = False
+                    continue
+                if in_generated:
+                    continue
                 if old in line:
                     where = f'renamed to {new_path}' if new_path else 'deleted'
                     out.append(Finding(
