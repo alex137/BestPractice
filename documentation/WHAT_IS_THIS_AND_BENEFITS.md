@@ -162,17 +162,22 @@ on top of GitHub, a platform you already control your own data in. There's
 **no proprietary format and no company that can shut down** and take your
 project's memory with it.
 
+### Works With Any Document Type
+
+**Not just prose** — specs, code, contracts, meeting notes, decks, anything
+your team produces in text. The same practices, review flow, and record
+apply across all of it.
+
 ### Plain Text Is the Source — All Other File Types Are Inputs or Outputs
 
-**Plain text is the real material** — prose, specs, contracts, meeting notes,
-code, anything your team produces in words — because text is what can be
-compared, merged line by line, and reviewed. **Every other file type is either
-an input or an output**, and usually both: a Microsoft Word document, an Excel
-spreadsheet, or a PowerPoint deck can be handed to your assistant to read in
-at the start, and any of the three can be produced back out at the end. What
-your team actually edits and keeps a history of is the text in between; the
-Word, Excel, and PowerPoint files are what goes in and what comes out. The
-same practices, review flow, and record apply across all of it.
+**What your team actually edits, and keeps every version of, is plain text**,
+because text is what can be compared, merged line by line, and reviewed.
+**Every other file type is an input, an output, or both**: a Microsoft Word
+document, an Excel spreadsheet, or a PowerPoint deck can be handed to your
+assistant at the start to be read in, and any of the three can be produced
+back out at the end for whoever needs it in that form. Word, Excel, and
+PowerPoint are what goes in and what comes out; the text in between is the
+source they are all made from.
 
 ## Learn More
 
