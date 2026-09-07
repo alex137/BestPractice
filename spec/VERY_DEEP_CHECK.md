@@ -449,9 +449,24 @@ of lines above it, and re-running is precisely what destroyed the evidence.
 [verify_harness.py](../tools/verify_harness.py) now recaps every failure by
 name immediately before the summary, so the shortest reading anyone actually
 does is enough to act on. Proved with a planted failure: `tail -5` names it.
-The original intermittent stays **unexplained and unreproduced** — recorded
-as such rather than written off, since the next occurrence will now say what
-it was.
+
+**The fix then earned itself within the hour, on a case that also explains
+half the mystery.** A later run in the same batch came back `1 failed`, and
+the new recap named it in the tail: `PLANTED probe failure`. That was the
+negative-control test for this very fix, which briefly writes a planted
+failure into `verify_harness.py` — it had overlapped with a harness run
+started minutes earlier. Diagnosed in one look, with no re-run, which is
+exactly what the old output could not do. Two things follow. **Never run the
+harness concurrently with anything that edits the tree**, its own control
+tests included; a run reads the files as it goes, so a mid-run edit produces
+a failure belonging to no commit. And the count alone is genuinely
+ambiguous: `1 failed` looked identical in both cases and meant something
+self-inflicted once and something unknown the other time.
+
+**The original intermittent stays unexplained.** Seven further runs on the
+same tree: six clean, and the one failure among them accounted for above.
+The first one was not concurrent with any write this session made. Recorded
+as open rather than written off — the next occurrence will name itself.
 
 **A self-inflicted lesson worth keeping: this pass wrote a second link
 scanner and got four false findings from it.** Checking relative links across
