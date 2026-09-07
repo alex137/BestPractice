@@ -576,13 +576,20 @@ def _build_manifest(sources, written, checks_written, rstats, withheld=None):
 #
 # So --check now plans everything (same out_dir, so link rewriting resolves
 # identically) and compares against disk instead of writing.
-def drift(sources, res, out_dir):
+def drift(sources, res, out_dir, withheld=None):
     """-> [str] findings describing how out_dir differs from a fresh sync.
 
     Writes nothing. An empty list means the committed materialized tree is
-    exactly what a sync would produce right now."""
+    exactly what a sync would produce right now.
+
+    `withheld` must be what the CALLER excluded, for the same reason the
+    manifest records it: recomputing here without it produces a manifest
+    whose `withheld` list is empty, which differs from the committed one on
+    every run -- so --check could never come back clean in the one kind of
+    repo the exclusion exists for. Caught the day the exclusion landed."""
     out_dir = pathlib.Path(out_dir)
     written, checks_written, rstats = materialize(sources, res, out_dir,
+                                                  withheld=withheld,
                                                   dry_run=True)
     found = []
 

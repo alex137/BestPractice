@@ -196,7 +196,9 @@ def sync(repo, user_config=None, check=False, allow_missing=False):
     written, checks_written, rstats = pm.materialize(
         sources, res, pathlib.Path(repo), dry_run=check,
         withheld=locals().get('withheld_slugs'))
-    tree_drift = pm.drift(sources, res, pathlib.Path(repo)) if check else []
+    tree_drift = (pm.drift(sources, res, pathlib.Path(repo),
+                          withheld=locals().get('withheld_slugs'))
+                  if check else [])
 
     # Render the loader block from the SAME resolved practices materialize()
     # just wrote, not by re-reading practices/ off disk -- res['practices']
