@@ -102,6 +102,17 @@ import split_practices as sp
 def rule_of(slug):
     path = _practice_file(slug)
     if path is None:
+        # Two very different reasons a slug has no practice file, and saying
+        # "no practice file" for both reads as a broken install for the one
+        # that is working exactly as designed. A practice_backed=False check
+        # enforces a property of the ENGINE and never had a catalogue
+        # practice; a practice_backed one whose file is absent is either a
+        # withheld private source or a genuine gap.
+        reg = CHECKS.get(slug) or {}
+        if not reg.get('practice_backed', True):
+            return (f'({slug} enforces a property of the engine itself, not a '
+                    f'catalogue practice -- there is no practices/{slug}.md by '
+                    f'design. The check\'s own description above is the rule.)')
         return f'(no practice file for {slug})'
     try:
         _fm, sections = sp._read_practice_file(path)

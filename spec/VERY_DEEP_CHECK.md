@@ -29,9 +29,9 @@ Working branch `claude/bestpractice-precedent-deep-check-4rmlee` in each.
 | Pass | Status | Date | Notes |
 |---|---|---|---|
 | 1 — adopter installs | done | 2026-09-07 | fresh install and migration both built and run; 6 defects found, all fixed |
-| 2 — mechanisms | partial | 2026-09-07 | questions 1-3, 6-10, 12-13 worked; 4, 5, 11 not yet |
+| 2 — mechanisms | partial | 2026-09-07 | questions 1-3, 6-13 worked; 4 and 5 not yet |
 | 3 — coherence read | partial | 2026-09-07 | mechanical sweep clean; cross-source staleness rolled out; full read not done |
-| 4 — catalogue and housekeeping | branches only | 2026-09-07 | branch sweep run and listed below; catalogue and backlog not done |
+| 4 — catalogue and housekeeping | partial | 2026-09-07 | branch sweep done with verdicts; catalogue enumerated (119 active across 4 sources, 53 judgment-only) but the per-practice judging pass not run; backlog read partial |
 
 Roadblocks (pass 1 and 2 findings that strand an adopter) are fixed before
 anything from passes 3 and 4, whatever order they were found in. A run is not
@@ -200,7 +200,31 @@ run knows the term is load-bearing and easy to trip innocently; the
 systematic sweep of every blocklist against plausible compounds is still
 **not done**.
 
-**Not done:** questions 4, 5, and 11 — output-directory dependence,
+**Question 11 (read each enforced check against its own Rule): worked, and
+it mostly holds.** All 37 enforced checks read against the practices they
+claim. Two structural facts worth recording rather than rediscovering:
+
+- **35 of the 37 are ALSO in the occasion index**, so their Rule text still
+  reaches a session. The plan's original design said a practice with
+  `checked_by` is never loaded at all; this repo softened that, and the
+  softening is right — several of these checks cover a genuine sliver of a
+  broader Rule (`search-by-purpose`'s check tests findability of documents
+  carrying generated numbers, while its Rule is mostly about how a session
+  searches, which nothing mechanical can test). Had the original design
+  held, those Rules would have reached nobody.
+- **The two that are NOT indexed are not a gap.** `declared-base-branch`
+  and `vendored-engine-file-refs-resolve` are declared
+  `practice_backed=False`: they enforce properties of the ENGINE, not
+  catalogue practices, and deliberately have no practice file. Checked
+  before concluding otherwise, which is the point — the obvious reading was
+  "two checks enforcing rules nobody wrote down".
+
+One real finding, fixed: `rule_of()` printed "(no practice file for X)" for
+both cases, so a working engine check read as a broken install. Seen in the
+wild during this run, in a consuming repo's output. It now says which of the
+two it is.
+
+**Not done:** questions 4 and 5 — output-directory dependence,
 generated-name disclosure, string-match name boundaries, and reading each
 enforced practice's check against its own Rule. Question 11 is the
 expensive one and the only pass that ever looks at those checks.
