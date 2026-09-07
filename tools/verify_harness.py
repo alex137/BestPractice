@@ -15,6 +15,21 @@ Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, json, os, pathlib, re, subprocess, sys
 
+# A FIXTURE COMMIT IS NOT A PERSON'S COMMIT. Since 2026-09-07 the commit
+# identity hook installs a backstop at core.hooksPath -- global, because that
+# is the only hook location reaching a repository attached mid-session, which
+# is where three wrong-author incidents came from. It therefore also reaches
+# the throwaway repos this harness builds by the dozen, and refused them for
+# a +0000 offset, taking the whole run down with a RuntimeError on the first
+# `git commit -qm base`.
+#
+# Set here, once, for every subprocess: the override the backstop itself
+# documents. It is the right answer rather than a workaround -- nothing in a
+# temporary directory is anybody's authorship. The two checks that exercise
+# the backstop's own refusals pop this back out of their fixture env, so the
+# coverage is not weakened by it.
+os.environ.setdefault('PRECEDENT_ALLOW_ANY_AUTHOR', '1')
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -5849,6 +5864,14 @@ def check_commit_identity_derives_declared_timezone():
     # "no zone declared" case silently becomes a "zone declared" case.
     env['PRECEDENT_USER_CONFIG'] = '/nonexistent/precedent-config.json'
     env.pop('PRECEDENT_COMMIT_TZ', None)
+    # And HOME, or the hook writes the REAL ~/.gitconfig and the REAL global
+    # hooks directory. It gained that behaviour on 2026-09-07 and this
+    # fixture -- which declares Europe/Berlin -- promptly set this machine's
+    # global identity to a test value and installed a Berlin-offset backstop,
+    # which then refused the very commit landing the fix. A test that mutates
+    # the environment it runs in is not a test.
+    _home = tempfile.mkdtemp(prefix='ci-home-')
+    env['HOME'] = _home
 
     def _repo(base, zone, settings=None, gitignore=None):
         base.mkdir(parents=True, exist_ok=True)
@@ -5990,12 +6013,25 @@ def check_commit_identity_copies_are_identical():
                 break
     except Exception:
         pass
+
+    # EVERY OTHER ATTACHED SOURCE'S COPY, and this is where the check had a
+    # hole. It compared three copies -- this repo's two and the individual
+    # source's -- and a TEAM set carries one too, at .claude/hooks/. Nothing
+    # looked there, so both team sets sat three generations behind
+    # (2026-09-07: missing the merge backstop, the timezone derivation AND
+    # the global identity fix) while this check reported every copy
+    # identical. A check that names the copies it compares is only as good
+    # as that list, so the list is now discovered rather than written down.
+    for sib in sorted(ROOT.parent.glob('precedent-team-*')):
+        cand = sib / '.claude' / 'hooks' / 'commit-identity.sh'
+        if cand.exists():
+            digests[cand] = _h.sha256(cand.read_bytes()).hexdigest()
     if third is None:
         note = (' (the individual source\'s copy was not reachable from here '
                 'and was NOT compared)')
     uniq = set(digests.values())
     check(f'every reachable copy of commit-identity.sh is byte-identical '
-          f'({len(digests)} copies){note}',
+          f'({len(digests)} copies found){note}',
           len(uniq) == 1,
           '; '.join(f'{p.relative_to(ROOT) if ROOT in p.parents else p}='
                     f'{d[:12]}' for p, d in digests.items()))
@@ -6213,6 +6249,163 @@ def check_leftover_pack_is_flagged_after_migration():
 
     failed = [n for n, ok in cases if not ok]
     check(f'a leftover pre-migration practice pack is flagged after migration '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_identity_reaches_a_repo_that_did_not_exist_yet():
+    """The commit identity covers repos ATTACHED AFTER the hook ran.
+
+    Three wrong-author incidents in two days, each "fixed", each recurring,
+    because every fix was aimed at the wrong scope. A SessionStart hook
+    configures the checkouts that exist when it fires. A repository attached
+    mid-turn with `add_repo`, cloned, or `git init`ed during the session was
+    never seen by that pass -- and inherits the container's GLOBAL identity,
+    which is the agent bot account. The per-checkout fix cannot cover it even
+    in principle, and no amount of care in the session can either: the third
+    incident happened to a session that had already written two documents
+    about the first two.
+
+    Measured rather than reasoned about, 2026-09-07: `git config --global
+    user.email` read `noreply@anthropic.com`, and a repository created
+    seconds later committed as `Claude <noreply@anthropic.com>`.
+
+    So the identity is set GLOBALLY, and a backstop is installed at
+    `core.hooksPath`, which is the one hook location that reaches a
+    repository that does not exist yet.
+
+    THE TWO CASES THAT MUST NOT FIRE are what make it safe. `core.hooksPath`
+    makes git look there AND NOWHERE ELSE, so a global hooks directory
+    silently disables every repository's own `.git/hooks/*` -- a worse bug
+    than the one being fixed. Each hook therefore chains to the repository's
+    own hook of the same name first. And a merely INFERRED identity is never
+    written globally: a guess in global config follows the user into every
+    unrelated repository on the machine.
+
+    practice: control-asserts-which-failure. The chaining case caught its own
+    fixture: it planted the "repository's own" hook via
+    `rev-parse --git-path hooks`, which RESPECTS core.hooksPath, so with the
+    backstop installed it wrote into the global directory and the test failed
+    against a working chain. `--absolute-git-dir` is the resolution that
+    means what it says.
+    """
+    import tempfile
+    script = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not script.exists():
+        not_applicable('the commit identity reaches a later-attached repo',
+                       '.claude/hooks/commit-identity.sh is not present here')
+        return
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        home = tmp / 'home'
+        home.mkdir()
+        env = dict(os.environ)
+        env['HOME'] = str(home)
+        env['PRECEDENT_USER_CONFIG'] = '/nonexistent/precedent-config.json'
+        env.pop('PRECEDENT_ALLOW_ANY_AUTHOR', None)
+        env.pop('PRECEDENT_COMMIT_EMAIL', None)
+        env.pop('PRECEDENT_COMMIT_TZ', None)
+        ZONE = 'America/Argentina/Buenos_Aires'
+
+        def g(*a, cwd=None):
+            return subprocess.run(['git'] + list(a), capture_output=True,
+                                  text=True, env=env,
+                                  cwd=str(cwd) if cwd else None, timeout=120)
+
+        # The container's starting condition, reproduced.
+        g('config', '--global', 'user.name', 'Claude')
+        g('config', '--global', 'user.email', 'noreply@anthropic.com')
+
+        src = tmp / 'individual'
+        src.mkdir()
+        g('init', '-q', str(src))
+        (src / 'identity.json').write_text(
+            '{"name":"Morgan F","email":"m@example.com","timezone":"%s"}' % ZONE,
+            encoding='utf-8')
+        r = subprocess.run(['bash', str(script)], capture_output=True, text=True,
+                           env=dict(env, CLAUDE_PROJECT_DIR=str(src)), timeout=180)
+        first = r.stderr
+
+        cases = [
+            ('the global identity stops being the bot',
+             g('config', '--global', 'user.email').stdout.strip() == 'm@example.com'),
+            ('and the displacement is announced',
+             'GLOBAL git identity was the container' in first),
+        ]
+
+        # THE REGRESSION: a repository that did not exist when the hook ran.
+        later = tmp / 'attached-later'
+        later.mkdir()
+        g('init', '-q', str(later))
+        (later / 'f').write_text('x', encoding='utf-8')
+        g('add', 'f', cwd=later)
+        subprocess.run(['git', 'commit', '-q', '-m', 'later'], cwd=str(later),
+                       capture_output=True, text=True,
+                       env=dict(env, TZ=ZONE), timeout=120)
+        cases.append(('a repo created AFTER the hook commits as the person',
+                      g('log', '-1', '--format=%ae', cwd=later).stdout.strip()
+                      == 'm@example.com'))
+
+        # The backstop still refuses if something overrides identity anyway.
+        g('config', 'user.email', 'noreply@anthropic.com', cwd=later)
+        (later / 'g').write_text('y', encoding='utf-8')
+        g('add', 'g', cwd=later)
+        r = subprocess.run(['git', 'commit', '-m', 'bot'], cwd=str(later),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ=ZONE), timeout=120)
+        out = r.stdout + r.stderr
+        cases.append(('a bot-authored commit is refused there',
+                      "container's own agent account" in out))
+        cases.append(('and the refusal names itself as the global backstop',
+                      'GLOBAL backstop' in out))
+
+        g('config', 'user.email', 'm@example.com', cwd=later)
+        r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(later),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ='UTC'), timeout=120)
+        cases.append(('a wrong-offset commit is refused there',
+                      'declared timezone' in (r.stdout + r.stderr)))
+        r = subprocess.run(['git', 'commit', '-q', '-m', 'ok'], cwd=str(later),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ=ZONE), timeout=120)
+        cases.append(('a correct commit is not blocked', r.returncode == 0))
+
+        # MUST NOT FIRE 1: a repository's own hook is not disabled.
+        own = tmp / 'own-hooks'
+        own.mkdir()
+        g('init', '-q', str(own))
+        hd = pathlib.Path(g('rev-parse', '--absolute-git-dir',
+                            cwd=own).stdout.strip()) / 'hooks'
+        hd.mkdir(parents=True, exist_ok=True)
+        (hd / 'pre-commit').write_text(
+            '#!/bin/sh\necho "REPO OWN HOOK RAN" >&2\nexit 1\n', encoding='utf-8')
+        (hd / 'pre-commit').chmod(0o755)
+        (own / 'f').write_text('z', encoding='utf-8')
+        g('add', 'f', cwd=own)
+        r = subprocess.run(['git', 'commit', '-m', 'chain'], cwd=str(own),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ=ZONE), timeout=120)
+        out = r.stdout + r.stderr
+        cases.append(("a repository's OWN pre-commit hook still runs",
+                      'REPO OWN HOOK RAN' in out))
+        cases.append(('and its refusal is still honoured',
+                      not g('log', '--oneline', cwd=own).stdout.strip()))
+
+        # MUST NOT FIRE 2: a GUESSED identity never reaches global config.
+        g('config', '--global', '--unset', 'core.hooksPath')
+        g('config', '--global', 'user.email', 'noreply@anthropic.com')
+        bare = tmp / 'bare'
+        bare.mkdir()
+        g('init', '-q', str(bare))
+        r = subprocess.run(['bash', str(script)], capture_output=True, text=True,
+                           env=dict(env, CLAUDE_PROJECT_DIR=str(bare)), timeout=180)
+        cases.append(('a GUESSED identity is not written globally',
+                      g('config', '--global', 'user.email').stdout.strip()
+                      == 'noreply@anthropic.com'))
+        cases.append(('and the hook still exits 0', r.returncode == 0))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the commit identity reaches a repo attached after the hook ran '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
@@ -10402,6 +10595,7 @@ def main():
     check_doc_lifecycle_fires_and_clears()
     check_commit_identity_derives_declared_timezone()
     check_commit_identity_copies_are_identical()
+    check_identity_reaches_a_repo_that_did_not_exist_yet()
     check_update_refuses_while_a_branch_is_pinned()
     check_leftover_pack_is_flagged_after_migration()
     check_detect_restated_fires()
