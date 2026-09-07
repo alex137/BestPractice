@@ -590,7 +590,60 @@ rules that no longer make sense, cost that is not earned. This is the
 largest single piece of unfinished work in the run, and it is a reading
 task rather than a checking one: nothing above substitutes for it.
 
-### Pass 4 — branches only
+### Pass 4 — catalogue, backlog, and branches
+
+**The catalogue sweep, and an honest note about what it is worth.**
+[full_practice_audit.py](../tools/full_practice_audit.py) enumerates **53
+judgment-only practices** in force for this checkout — 20 universal, 28 from
+`precedent-team-maintainers`, 5 from `precedent-individual`. Its own
+docstring carries the reason to be careful with the result: a retrospective,
+judge-only pass over the catalogue was pre-registered in
+[spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md) predicting 80-86% recall
+and **measured 54% — worse than a session doing the work with no review pass
+at all, at 84%**. The validated fix was converting practices to mechanical
+`checked_by` checks. So the sweep is a backstop for what enforcement has not
+reached, not the primary control, and grinding all 53 in one open pass is
+precisely the framing that measured worst. **Not done in this run**, and
+deliberately: the effort went to the convertibility question instead, which
+is the intervention the measurement actually supports.
+
+**Enforcement coverage, measured across all four sources (2026-09-07):**
+
+| Source | Active | With a `checked_by` | Check scripts |
+|---|---|---|---|
+| `precedent` (universal) | 66 | 34 | in `precedent_check.py` |
+| `precedent-team-maintainers` | 40 | 8 | 8 |
+| `precedent-individual` | 15 | 8 | 8 |
+| `precedent-team-tms` | 2 | 0 | 0 |
+
+**A brief that would have sent a session to build what already exists.**
+[spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md) still said
+the two private sets held *"one practice each"*, that both practices carried
+`checked_by: null`, and that *"no infrastructure exists yet — in either
+private repo"*. All three were false: 40 and 15 practices, 8 checks apiece,
+and a real `tools/checks/` tree in both. The procedure the brief describes
+was followed and worked; only its statement of the gap went stale. Corrected
+in place with the table above rather than deleted, since the procedure is
+still the one to follow.
+
+**`precedent-team-tms`'s 0 of 2 was checked and is correct, not a gap** —
+and this is worth recording because the first read of that row was that it
+*was* the gap, being the non-technical set with no enforcement at all.
+Reading the two practices settled it the other way: `audience-register`'s
+subject is the wording of a reply, which is not an artifact any repository
+holds, and its `## Install` says so specifically; `fail-gracefully`'s Install
+carries its own enforcement analysis. Both are considered noes, which is
+what [checkable-gets-checked](../practices/checkable-gets-checked.md) asks
+for — it wants an attempt and a recorded reason, not a check at any cost. A
+`checked_by: null` count is not a defect count.
+
+**What is left in this pass:** the sequential per-practice judging of the 53,
+one at a time, and the backlog read. Both are deliberately still open. Given
+the 54% measurement, a session picking this up should weigh converting the
+long tail (32 of 40 in the team set, 7 of 15 in the individual set still
+carry `checked_by: null`) above judging it.
+
+### Pass 4 — branches
 
 The catalogue sweep ([full_practice_audit.py](../tools/full_practice_audit.py)
 across every source) and the backlog read are **not done**.

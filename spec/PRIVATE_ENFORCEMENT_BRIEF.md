@@ -20,17 +20,44 @@ describes, not here.
 
 ## The gap, stated plainly
 
-Phase 3 populated the two private sets with one practice each. Phase 4 built
-real, tested enforcement for the universal catalogue — a `checked_by` backed
-by a test that plants the exact violation the practice exists to prevent and
-proves it fires; see [spec/ENFORCEMENT.md](ENFORCEMENT.md) for the live
-count (24 of 54 as this brief was first written, 2026-09-03; the catalogue
-has grown since — run `python3 tools/catalogue_stats.py` rather than
-trusting a number typed into this brief). **Neither private set has any of
-that.** Both of their practices currently carry `checked_by: null`, and no
-infrastructure exists yet — in either private repo — to change that, because
-the checking engine ([tools/precedent_check.py](../tools/precedent_check.py))
-was built only against this repo's own tree.
+**Most of this section describes a gap that has since been closed. It is
+kept, corrected in place, because the procedure below is still how the work
+is done — and because the numbers it used to assert were wrong by 2026-09-07
+in a way that would send a session to build what already exists.**
+
+Phase 3 populated the two private sets with one practice each, and phase 4
+built real, tested enforcement for the universal catalogue — a `checked_by`
+backed by a test that plants the exact violation the practice exists to
+prevent and proves it fires. This brief then said: *"Neither private set has
+any of that. Both of their practices currently carry `checked_by: null`, and
+no infrastructure exists yet — in either private repo."*
+
+Measured 2026-09-07, with all four sources attached:
+
+| Source | Active practices | With a `checked_by` | Check scripts |
+|---|---|---|---|
+| `precedent` (universal) | 66 | 34 | in `precedent_check.py` |
+| `precedent-team-maintainers` | 40 | 8 | 8 |
+| `precedent-individual` | 15 | 8 | 8 |
+| `precedent-team-tms` | 2 | 0 | 0 |
+
+So both of the sets this brief was written for now have their own
+`tools/checks/` directories with real, tested check scripts — the procedure
+below was followed and it worked. What is left is the ordinary long tail: 32
+of 40 and 7 of 15 still carry `checked_by: null`, which is not by itself a
+defect, since [checkable-gets-checked](../practices/checkable-gets-checked.md)
+asks for an attempt and a recorded reason, not a check at any cost.
+
+`precedent-team-tms`'s 0 of 2 was checked and is **correct**, not a gap:
+`audience-register`'s subject is the wording of a reply, which is not an
+artifact any repository holds, and its `## Install` says exactly that;
+`fail-gracefully`'s Install carries its own enforcement analysis, including
+a measurement of why the general form floods. Both are considered noes, which
+is what that practice asks for.
+
+Never re-type these figures — run `python3 tools/catalogue_stats.py`, and see
+[spec/ENFORCEMENT.md](ENFORCEMENT.md). The table above is dated for the same
+reason the original sentence needed correcting.
 
 [practices/checkable-gets-checked.md](../practices/checkable-gets-checked.md)
 already states the standard every practice at every source should meet:
