@@ -317,6 +317,46 @@ merged and not deleted; 1 not merged.
 |---|---|---|---|
 | [`claude/pre-launch-audit-fixes-7wumzx`](https://github.com/themorgan/precedent-team-maintainers/compare/main...claude/pre-launch-audit-fixes-7wumzx) | 16 commits, 16 unlanded, the team-set half of the same audit. Nearly all of its check work (`check_no_stale_counts.py`, `check_light_check.py`, the tests) is already on `main` by another route. `leak-blocklist.txt` is not, nor are the `practices/fail-gracefully.md` and `CODEOWNERS` edits. | 2026-09-06 | **Cherry-pick `leak-blocklist.txt`, review the other two, then close.** Same engine-revert reason as above. The blocklist is the other gap this run rediscovered: until it exists, the leak gate's vocabulary layer has nothing of this set's own to check, and an absent blocklist is a gap where an empty one would be a deliberate state. |
 
+**A FIFTH unmerged branch, missed by this run's own sweep.**
+`precedent-team-tms` also carries `claude/pre-launch-audit-fixes-7wumzx`, 12
+commits ahead. It was invisible because
+[very_deep_check.py](../tools/very_deep_check.py) scans only the sources
+this repo's `precedent.json` declares, while that set is attached and is a
+Precedent repo but is nobody's declared source here — so the tool is
+narrower than its own practice, which says "scope is every Precedent repo
+in the session". `precedent_refresh_sources.py` finds it; the branch sweep
+does not. **Open** — the two tools disagree about what is in scope.
+Verdict for the branch itself: **close**, fully superseded — every file it
+adds is already on that repo's `main`, and its engine is far older.
+
+**The unlanded fixes are landed.** Reading the branches rather than only
+counting them turned up two systematic fixes that had reached `main` in
+neither private set:
+
+- **`SOURCE_ROOT` vs `ROOT`** — one name doing two jobs: the practice set a
+  check ships in, versus the repository it audits. Identical in the two
+  normal cases, different in the third (a repo declaring a source without
+  materializing it), where the rule text was looked up in a directory the
+  practice was never in. Missing from all 15 checks.
+- **The violation-printer guard** — `rule_text()` read its practice file
+  unconditionally, so an absent one raised `FileNotFoundError` *from inside
+  the printer*: the finding detected, printed, then buried under a
+  traceback. 14 of 16 checks shared that exact body.
+
+Ported per [merge-runbook](../practices/merge-runbook.md) rather than
+merged, by file class: taken whole where `main` had not advanced the file;
+ported surgically onto `main`'s version where it had, since `main` carries
+work the branch never saw. Two judgment calls worth recording — `main`'s
+`claude-web-bootstrap.md` was KEPT because the branch names a private
+repository where `main` says "a dependent repo" (`main` is the scrubbed
+version, and taking the branch would have reintroduced it); and
+`fail-gracefully.md` was merged section by section, the branch's Rule and
+Detail with `main`'s later Why and Story backfills.
+
+After: team set 11 passed / 0 violated and 9/9 of its own tests; individual
+set 9 passed / 1 violated and 7/9, both remaining failures being the
+already-published `+0000` commits awaiting a grandfathering decision.
+
 Deleting the 54 merged branches is a mechanical follow-up this session did
 not do. The practice asks for a link to each one's most recent PR, and the
 same finding applies: these repos push directly, so most have no PR page

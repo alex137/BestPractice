@@ -1003,3 +1003,22 @@ which is the failure this repointing exists to end — write
   will produce the same commit next time, so the trailer belongs in the tool.
   **Blocked on:** Morgan, for the grandfathering decision only. The tool's
   missing trailer is not blocked on anything.
+
+- **The branch sweep and the source-refresh tool disagree about what is in
+  scope, and the sweep is the narrower one.** Found 2026-09-07 by the
+  [very deep check](spec/VERY_DEEP_CHECK.md), which reported four unmerged
+  branches and missed a fifth.
+  [tools/very_deep_check.py](tools/very_deep_check.py) scans this checkout
+  plus the sources [precedent.json](precedent.json) declares.
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  discovers every attached Precedent repo, declared or not. So
+  `precedent-team-tms` — attached, a real Precedent repo, but nobody's
+  declared source here — was refreshed by one tool and never swept by the
+  other, and its own `claude/pre-launch-audit-fixes-7wumzx` (12 commits
+  ahead) went unlisted.
+  [practices/very-deep-check.md](practices/very-deep-check.md) is explicit
+  that "scope is every Precedent repo in the session, not this checkout
+  alone", so the tool is narrower than the practice it implements. Give it
+  the same discovery `precedent_refresh_sources.py` already uses rather than
+  a second one.
+  **Blocked on:** nothing but the work.
