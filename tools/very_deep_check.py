@@ -746,8 +746,15 @@ def main():
         _shape_any = True
         _missing = bootstrap_source.verify(_lvl, _path)
         if _missing:
-            print(f"  {_s['name']} ({_lvl}): missing {', '.join(_missing)} "
-                  f"-- present in templates/practice-set-{_lvl}/")
+            # Each entry names its own origin where that is not the
+            # skeleton -- the session hooks and settings.json come from the
+            # harness adapter, and telling a reader to fetch them from a
+            # skeleton that has never contained them sends them nowhere.
+            print(f"  {_s['name']} ({_lvl}): missing:")
+            for _m in _missing:
+                _src = ('' if '(' in _m
+                        else f" -- present in templates/practice-set-{_lvl}/")
+                print(f"      {_m}{_src}")
         else:
             print(f"  {_s['name']} ({_lvl}): complete")
     if not _shape_any:

@@ -6902,6 +6902,42 @@ def check_source_shape_is_verified():
                       any('freshness-guard' in f for f in bss.verify(
                           'team', fixture('team',
                                           **{'.claude/hooks/freshness-guard.sh': None})))))
+        # A source is free to keep its hooks somewhere other than where
+        # bootstrap() writes them, as long as settings.json points at them:
+        # what the shape check is really asking is whether the hook RUNS.
+        # A real one does exactly this (its hooks live in bootstrap/), and
+        # the literal-path check reported that working source as broken.
+        _relocated = fixture('team', **{'.claude/hooks/freshness-guard.sh': None})
+        (_relocated / 'bootstrap').mkdir(exist_ok=True)
+        (_relocated / 'bootstrap' / 'freshness-guard.sh').write_text('#!/bin/sh\n')
+        (_relocated / '.claude' / 'settings.json').write_text(_json.dumps(
+            {'hooks': {'SessionStart': [{'hooks': [{'type': 'command',
+             'command': '$CLAUDE_PROJECT_DIR/bootstrap/freshness-guard.sh '
+                        'session-start main'}]}]}}))
+        cases.append(('a session hook kept outside .claude/hooks/ but wired by '
+                      'the source\'s own settings.json is NOT reported missing',
+                      not any('freshness-guard' in f
+                              for f in bss.verify('team', _relocated))))
+
+        # The negative control for that leniency: wired at a path where
+        # nothing is installed must still be reported, or the check above
+        # would accept any settings.json that merely mentions the name.
+        _dangling = fixture('team', **{'.claude/hooks/freshness-guard.sh': None})
+        (_dangling / '.claude' / 'settings.json').write_text(_json.dumps(
+            {'hooks': {'SessionStart': [{'hooks': [{'type': 'command',
+             'command': '$CLAUDE_PROJECT_DIR/bootstrap/freshness-guard.sh'}]}]}}))
+        cases.append(('a hook wired at a path where no file exists is still '
+                      'reported missing',
+                      any('freshness-guard' in f
+                          for f in bss.verify('team', _dangling))))
+
+        cases.append(('a report names the harness adapter, not the skeleton, '
+                      'for the files the skeleton has never shipped',
+                      all('templates/harness/claude-code/hooks/' in f
+                          for f in bss.verify('team', fixture(
+                              'team', **{'.claude/hooks/commit-identity.sh': None}))
+                          if 'commit-identity' in f)))
+
         cases.append(('a missing skeleton file is reported',
                       any('leak-blocklist' in f for f in bss.verify(
                           'team', fixture('team', **{'leak-blocklist.txt': None})))))
