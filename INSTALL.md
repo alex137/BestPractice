@@ -486,11 +486,28 @@ not this section.
    project managing itself rather than documents published to anyone. It
    is what [tools/title_case.py](tools/title_case.py) adds to its own
    built-in exclusions, which are Precedent's directory names and not
-   yours: without it, every working directory of yours that Precedent
-   never heard of reads as outward-facing, and the
-   `headline-capitalization` gate reports headings you do not want
-   rewritten. The key only ever *adds* exclusions — nothing a repo
-   declares here can pull a vendored `practices/` tree back into scope.
+   yours. The key only ever *adds* exclusions — nothing a repo declares
+   here can pull a vendored `practices/` tree back into scope.
+
+   **`output_paths` is usually the better answer, and most repos should
+   reach for it first.** It inverts the question: list the paths this
+   project actually publishes, and everything else is internal.
+
+   ```json
+   "output_paths": ["business-modeling", "book-joseph", "book-moses"]
+   ```
+
+   Three lines, where the exclusion form needs a list of every other
+   directory kept current forever. Without either key, `title_case.py`
+   falls back to reasoning from *Precedent's* directory names, which in
+   your tree name almost nothing — so your whole working tree reads as
+   published and `headline-capitalization` reports headings you never
+   meant to rewrite. Declaring `output_paths` is opt-in and changes
+   nothing for a repo that omits it. `internal_paths` still subtracts
+   from whichever way the default fell, which is how you exclude a
+   vendored or mirrored subtree sitting *inside* an output directory —
+   headings "fixed" there would be correct until the next sync and then
+   silently revert.
 3. **Ask the team/individual-source question** exactly as §1 step 9
    describes, and wire the individual source's own bootstrap pattern the
    same way if the person has one — this step doesn't change between the

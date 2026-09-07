@@ -7368,6 +7368,131 @@ def check_title_case_leaves_code_and_first_word_alone():
           f'alone ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_title_case_never_corrupts_content():
+    """Headline case is a STYLE change; it must never alter a word or a path.
+
+    All three reproduced from a consuming repo that ran the rule against real
+    output documents, 2026-09-07 -- the point at which a rule aimed at
+    published prose first met labels, provenance headings and vendored
+    subtrees. Every other rule in title_case is a capitalization choice a
+    reader could argue with. These produced a DIFFERENT WORD or a path that
+    does not resolve, which is a different kind of wrong and is why they get
+    their own check.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_tc_corrupt', ROOT / 'tools' / 'title_case.py')
+    try:
+        tc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tc)
+    except Exception as e:
+        not_applicable('title_case never corrupts content',
+                       f'tools/title_case.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+
+    cases = [
+        # (input, must appear in output, why)
+        ('Option A and Option B', 'Option A and',
+         'a capital single-letter LABEL mid-heading is not the article "a"'),
+        ('SAMPLE A — book introduction (excerpt)', 'SAMPLE A',
+         'the same, with the label in caps'),
+        ('Appendix A and the rest', 'Appendix A and',
+         'and again -- these are where labels actually live'),
+        ('Moved from content/BUSINESS-MODEL-CONCEPTS.md: the moat',
+         'content/BUSINESS-MODEL-CONCEPTS.md',
+         'a BARE path keeps its segments; capitalizing one breaks the path'),
+        ('Running title_case.py on the tree', 'title_case.py',
+         'a bare filename, no slash, is a path too'),
+        # ... and the rules that must still work, so the fixes above are not
+        # a licence to stop capitalizing.
+        ('The rise of a nation', 'of a Nation',
+         'a real lowercase article is still lowercased'),
+        ('A study of moats', 'A Study of Moats',
+         'a leading article is still capitalized as the first word'),
+        ('Plan B', 'Plan B', 'a last-word label is untouched, as before'),
+        ('Exhibit A: the numbers', 'Exhibit A: The',
+         'a word after a colon still opens a new phrase'),
+        ('Reading and/or writing', 'And/or',
+         'prose containing a slash is NOT treated as a path'),
+    ]
+    bad = []
+    for text, must, why in cases:
+        got = tc.title_case(text)
+        if must not in got:
+            bad.append(f'{why}: {text!r} -> {got!r} (wanted {must!r} in it)')
+    check(f'title_case never corrupts a word or a path '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_title_case_output_paths_inverts_the_default():
+    """A repo may DECLARE what it publishes, instead of the tool inferring it.
+
+    title_case's exclusion default reasons from BestPractice's own directory
+    names, so in any other tree it names almost nothing and classifies the
+    whole working tree as published -- which is how a consumer got 69
+    "outward-facing" headings across 10 files, none of them outward-facing.
+    `output_paths` inverts that for repos willing to answer, and is opt-in:
+    absent, behaviour is exactly what it was, so no existing install moves.
+
+    The case that matters most is the last one: a vendored subtree sitting
+    INSIDE a declared output directory. It is mirrored from elsewhere by a
+    sync tool, so headings "fixed" there are correct until the next sync and
+    then silently revert. internal_paths must win over output_paths for that
+    to be expressible at all.
+    """
+    import importlib.util, tempfile
+    spec = importlib.util.spec_from_file_location(
+        '_tc_output', ROOT / 'tools' / 'title_case.py')
+    try:
+        tc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tc)
+    except Exception as e:
+        not_applicable('title_case output_paths inverts the default',
+                       f'tools/title_case.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+
+    bad = []
+    with tempfile.TemporaryDirectory() as td:
+        declared = pathlib.Path(td) / 'declared'; declared.mkdir()
+        (declared / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'output_paths': ['business-modeling', 'book-joseph'],
+            'internal_paths': ['book-joseph/voice-pack'],
+        }), encoding='utf-8')
+        absent = pathlib.Path(td) / 'absent'; absent.mkdir()
+        (absent / 'precedent.json').write_text(
+            json.dumps({'format_version': 1}), encoding='utf-8')
+        empty = pathlib.Path(td) / 'empty'; empty.mkdir()
+        (empty / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'output_paths': []}), encoding='utf-8')
+
+        cases = [
+            (declared, 'business-modeling/plan.md', True, 'a declared output path is output'),
+            (declared, 'book-joseph/ch1.md', True, 'so is the second one'),
+            (declared, 'notes/scratch.md', False, 'anything undeclared is internal'),
+            (declared, 'README.md', False, 'including a root document'),
+            (declared, 'practices/x.md', False, 'the engine exclusions still hold'),
+            (declared, 'business-modeling/practices/y.md', False,
+             'a vendored practices tree inside an output path is still excluded'),
+            (declared, 'book-joseph/voice-pack/tone.md', False,
+             'internal_paths WINS over output_paths -- the vendored-subtree case'),
+            (absent, 'README.md', True, 'absent: unchanged, everything not excluded is output'),
+            (absent, 'notes/x.md', True, 'absent: unchanged for a working directory too'),
+            (empty, 'README.md', False,
+             'an EMPTY output_paths is a declaration ("we publish nothing"), not an absence'),
+        ]
+        for root, rel, want, why in cases:
+            got = tc.is_outward(rel, root=root)
+            if got != want:
+                bad.append(f'{why}: is_outward({rel!r}) == {got}, wanted {want}')
+
+    check(f'title_case output_paths inverts the default, opt-in, with '
+          f'internal_paths still subtracting ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_title_case_honours_repo_declared_internal_paths():
     """A repo can exclude its own directories from headline capitalization
     through precedent.json, and cannot use that key to re-include what the
@@ -9479,6 +9604,8 @@ def main():
     check_loader_block_covers_every_declared_source()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()
+    check_title_case_never_corrupts_content()
+    check_title_case_output_paths_inverts_the_default()
     check_checkin_update_never_mutates_the_clone()
     check_rendered_docs_are_current()
 

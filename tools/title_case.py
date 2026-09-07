@@ -85,30 +85,57 @@ INTERNAL_FILES = (
 # Deliberately additive only: a consumer can EXCLUDE more, never re-include
 # what the lists above exclude, so no consumer config can talk this module
 # into rewriting headings in a vendored practices/ tree.
-_EXTRA_INTERNAL = {}
+# `output_paths` INVERTS the question, and is the better answer wherever a
+# repo will give one. Raised 2026-09-07 by Morgan, from a consuming repo that
+# ran the rule against real output: the exclusion default reasons from THIS
+# repo's directory names, so in any other tree it names almost nothing and
+# classifies the entire working tree as published. `internal_paths` lets a
+# consumer subtract, but subtracting everything-but-three-directories is a
+# list that must be kept current forever, and the repo already knows the
+# short answer -- "these three directories are what we publish".
+#
+# The exclusion default was chosen deliberately, to fail safe: an allowlist
+# "silently misses each new one somebody adds", worst case "a heading
+# capitalized that did not need to be". That holds INSIDE this repo. Outside
+# it the failure is not one stray heading, it is every document in the repo,
+# arriving as a check the repo cannot satisfy -- and a rule nobody can
+# satisfy is a rule everybody learns to skip, which costs more than either
+# failure. So the inversion is opt-in and the old default is untouched:
+#
+#   output_paths DECLARED -> those paths are output, everything else is
+#     internal. The repo has answered the question.
+#   output_paths ABSENT   -> exactly today's behaviour, so no existing
+#     install moves under anyone's feet.
+#
+# `internal_paths` still subtracts, from whichever way the default fell.
+# That is what expresses a vendored subtree sitting INSIDE an output
+# directory -- a mirror maintained by a sync tool, whose headings would be
+# "fixed" here and silently reverted on its next sync.
+_PATHS_CONFIG = {}
 
 
-def _extra_internal(root):
-    """Repo-declared extra internal path prefixes, from precedent.json.
+def _paths_config(root):
+    """-> (internal_prefixes, output_prefixes_or_None) from precedent.json.
 
-    Fails open (empty) on anything malformed: no config, unreadable, not
-    JSON, or a value that is not a list of strings. A repo whose config is
-    broken gets this module's built-in boundary, which is the behaviour it
-    had before this key existed -- never a crash inside a heading check.
-    An entry that is absolute or contains `..` is dropped: those escape the
-    repo, and an exclusion nobody can locate is worse than none.
+    Fails open on anything malformed: no config, unreadable, not JSON, or a
+    value that is not a list of strings. A repo whose config is broken gets
+    this module's built-in boundary, which is the behaviour it had before
+    these keys existed -- never a crash inside a heading check. An entry that
+    is absolute or contains `..` is dropped: those escape the repo, and a
+    rule nobody can locate is worse than none.
+
+    `output_paths` present but EMPTY is a declaration, not an absence: a repo
+    saying it publishes nothing gets exactly that, rather than silently
+    falling back to a default built for a different tree.
     """
     key = str(pathlib.Path(root).absolute())
-    if key in _EXTRA_INTERNAL:
-        return _EXTRA_INTERNAL[key]
-    out = []
-    try:
-        declared = json.loads(
-            (pathlib.Path(root) / "precedent.json").read_text(
-                encoding="utf-8")).get("internal_paths")
-    except (ValueError, OSError):
-        declared = None
-    if isinstance(declared, list):
+    if key in _PATHS_CONFIG:
+        return _PATHS_CONFIG[key]
+
+    def _clean(declared):
+        if not isinstance(declared, list):
+            return None
+        out = []
         for entry in declared:
             if not isinstance(entry, str):
                 continue
@@ -116,8 +143,22 @@ def _extra_internal(root):
             if not norm or norm.startswith("/") or ".." in norm.split("/"):
                 continue
             out.append(norm)
-    _EXTRA_INTERNAL[key] = out
-    return out
+        return out
+
+    try:
+        cfg = json.loads((pathlib.Path(root) / "precedent.json").read_text(
+            encoding="utf-8"))
+    except (ValueError, OSError):
+        cfg = {}
+    internal = _clean(cfg.get("internal_paths")) or []
+    output = _clean(cfg.get("output_paths"))
+    _PATHS_CONFIG[key] = (internal, output)
+    return _PATHS_CONFIG[key]
+
+
+def _extra_internal(root):
+    """Back-compat shim: the internal half alone."""
+    return _paths_config(root)[0]
 
 
 def is_outward(rel_path, root="."):
@@ -149,9 +190,18 @@ def is_outward(rel_path, root="."):
     if len(parts) == 1 and parts[0] in INTERNAL_FILES:
         return False
     posix = "/".join(parts)
-    for entry in _extra_internal(root):
+    internal, output = _paths_config(root)
+    # internal_paths subtracts from whichever way the default fell, so it is
+    # checked first and wins over a declared output path -- that is what
+    # expresses a vendored subtree inside an output directory.
+    for entry in internal:
         if posix == entry or posix.startswith(entry + "/"):
             return False
+    if output is not None:
+        # The repo has answered: only what it named is published. Note the
+        # engine exclusions above still apply, so declaring an output path
+        # can never pull a vendored practices/ tree back into scope.
+        return any(posix == e or posix.startswith(e + "/") for e in output)
     return True
 
 
@@ -274,6 +324,37 @@ def _protect_code_spans(text):
 ENUMERATOR = re.compile(r"^(\d+|[ivxlIVXL]+)[.)]$")
 
 
+# A token that names a FILE OR PATH is content, exactly like a code span --
+# the only difference is that nobody backticked it. Capitalizing a segment
+# makes it name something that does not exist.
+#
+# Reported 2026-09-07 from a consuming repo running the rule against real
+# output: a provenance heading, `Moved from content/BUSINESS-MODEL-CONCEPTS.md:
+# the moat`, came back as `Moved From Content/...`, and the heading now names
+# a path that is not there. A sweep here found the same class without a slash
+# at all: `title_case.py` -> `Title_case.py`.
+#
+# Deliberately narrow, so ordinary prose is untouched: a token qualifies only
+# if it ends in a known source/document extension, or contains a "/" with a
+# "." somewhere in it. That second condition is what keeps `and/or` -- which
+# is prose and SHOULD be capitalized -- out of this exemption, while
+# `content/FILE.md` and `docs/a.b/c` stay put.
+PATHISH_EXT = (
+    ".md", ".py", ".sh", ".json", ".yml", ".yaml", ".txt", ".html", ".css",
+    ".js", ".ts", ".toml", ".ini", ".cfg", ".csv", ".tsv", ".svg", ".png",
+)
+
+
+def _is_pathish(token: str) -> bool:
+    core = token.strip("([{\"'\u201c\u201d\u2018\u2019),.!?;]}")
+    if not core:
+        return False
+    low = core.lower()
+    if low.endswith(PATHISH_EXT):
+        return True
+    return "/" in core and "." in core
+
+
 def title_case(text: str) -> str:
     text, restore = _protect_code_spans(text)
     tokens = text.split(" ")
@@ -290,10 +371,29 @@ def title_case(text: str) -> str:
             continue
         after_break = i > 0 and tokens[i - 1].endswith(OPENS_PHRASE)
         first_word = i == 0 or (i == 1 and ENUMERATOR.match(tokens[0] or ""))
-        if first_word or i == last or after_break:
+        if _is_pathish(token):
+            # A path or filename, whatever position it sits in.
+            out.append(token)
+        elif first_word or i == last or after_break:
             out.append(_cap_hyphenated(token))
         elif _core(token) in SMALL:
-            out.append(_lower(token))
+            # NEVER lowercase a single-letter token that arrived CAPITALIZED.
+            # "A" in the small-word list is the article, and nothing else
+            # distinguishes the article from a label -- so `Option A and
+            # Option B` came back as `Option a and Option B`, and `SAMPLE A`
+            # as `SAMPLE a`. That is not a capitalization choice a reader
+            # could disagree with; it is a different word, in the one place
+            # labels live (`Option A`, `Appendix A`, `Exhibit A and B`).
+            # Reported 2026-09-07 from a consuming repo, mid-heading only:
+            # `Plan B` survived as the last word and `Exhibit A:` survived
+            # before a colon, which is why it went unseen.
+            #
+            # Case is already the signal: an article is written lowercase in
+            # the source, so a capital single letter was meant as a label.
+            if len(_core(token)) == 1 and any(c.isupper() for c in token):
+                out.append(token)
+            else:
+                out.append(_lower(token))
         else:
             out.append(_cap_hyphenated(token))
     result = " ".join(out)

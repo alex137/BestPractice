@@ -1151,3 +1151,33 @@ which is the failure this repointing exists to end — write
   attach them *mid-session from a BestPractice-rooted session*, which is a
   different statement from "they are unreachable". Check what is on disk
   before recording a blocker from a remembered rule.
+
+- <a id="practice-consistency-across-team-repos"></a>**How does one practice live in several team repos and stay consistent?**
+  Raised by Morgan 2026-09-07, and **deliberately not thought about yet** —
+  this entry exists to hold the question, not to answer it.
+
+  The occasion: asked whether `fail-gracefully` should be promoted to the
+  universal catalogue, Morgan's answer was that it belongs in the team sets
+  instead. It now lives in **two** — `precedent-team-maintainers` and
+  `precedent-team-tms` — as byte-identical copies, landed the same day. That
+  is a real duplication on disk as of now, not a hypothetical.
+
+  What makes it more than a copy-paste problem: the two sets have different
+  approvers, different audiences (one is the non-technical editorial set),
+  and no mechanism relates them. Nothing detects that the copies have
+  diverged, nothing propagates an improvement from one to the other, and
+  [precedent_resolve.py](tools/precedent_resolve.py)'s precedence is defined
+  between *levels*, not between two sources at the **same** level — a repo
+  declaring both team sources would resolve two practices with the same slug
+  and no rule for which wins. Copying was still the right call today
+  (a rule that means two different things in two sets is worse than one
+  duplicated), but it does not scale past a handful.
+
+  Adjacent, and worth reading together when this is picked up:
+  [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) covers moving a
+  practice between levels, which is the *other* half of the same question and
+  already exists; and `severity: blocking` is the only cross-source
+  relationship the resolver currently models.
+
+  **Blocked on:** nothing but a decision about what shape the answer takes.
+  Explicitly parked at Morgan's request — do not design it in passing.
