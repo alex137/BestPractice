@@ -759,6 +759,42 @@ team file that puts it in force). Slug-link integrity across all four repos:
 **0 findings** — no label disagreeing with its target, no link to a slug
 nothing defines, no stale `overrides:` or `supersedes:` target.
 
+**The backlog read, done — 42 items, 27 open after it, three corrected.**
+
+- **A duplicate item I filed myself this morning.**
+  `practice-consistency-across-team-repos` asked exactly what
+  [item 7](../TODO.md#multiple-team-sources-disagree) had asked since
+  2026-09-03, with a plan reference and a half-closed history the new one
+  lacked. Written without searching the backlog first, which is what
+  [search-by-purpose](../practices/search-by-purpose.md) exists to prevent.
+  Folded into item 7 along with the day's real evidence; the anchor is kept
+  as a pointer so existing links still resolve, rather than deleted.
+
+- **[`attach-private-sources`](../TODO.md#attach-private-sources)'s blocker
+  is false, and four other items wait on it.** It says a session holding
+  `alex137/*` cannot attach a `themorgan/*` repo. This session held
+  `alex137/bestpractice` and **five** `themorgan/*` repositories at once —
+  all three private sets among them, worked in and pushed to — and `add_repo`
+  accepted a sixth mid-run. Corrected here and in
+  [AGENTS.md](../AGENTS.md)'s matching gotcha, both stating what was *not*
+  established: whether a **fresh** session rooted here can make the first
+  cross-owner add. That call was never made, so the constraint may have been
+  lifted or may bind only the first add. The 2026-09-06 refusal was real and
+  reproduced, so this is the environment changing rather than the finding
+  having been wrong.
+
+- **[Item 22](../TODO.md#sweep-judgment-only-practices) contradicted
+  itself** — it declared the sweep COMPLETE and then carried *"blocked on
+  nothing but session budget — take them one at a time"*, reading as both
+  finished and not started depending on where you stopped. Closed with the
+  measurement above (39 of 39 reasoned).
+
+The pattern across all three is one thing: **an open item is a claim, and
+nothing checks a claim in prose.** Two of these described a world that had
+moved, and the third described two worlds at once. That is the same shape as
+the stale brief in this pass and the stale `visibility` comment in pass 3 —
+prose asserting a state, with no mechanism to notice when the state changes.
+
 **What is left in this pass:** the sequential per-practice judging of the 53,
 one at a time, and the backlog read. Both are deliberately still open —
 though the enforcement half of the motivation for the judging is now weaker

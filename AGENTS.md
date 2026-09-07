@@ -631,6 +631,17 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   and a session on 2026-09-06 rediscovered it by trying both calls anyway,
   because this section — the one place written to stop rediscovery — did not
   carry it.
+  **NO LONGER TRUE as written, 2026-09-07.** A session that day held
+  `alex137/bestpractice` and five `themorgan/*` repositories at once —
+  including all three private sets, worked in and pushed to — and `add_repo`
+  accepted a sixth (`themorgan/havrutabrainstorm`) mid-session. Mixed owners
+  in one session is precisely what this entry says is refused. What has NOT
+  been retested is a *fresh* session rooted here adding a `themorgan/*` repo
+  as its first cross-owner add, so the constraint may have been lifted or may
+  bind only the first add. Treat the refusal as possible but no longer
+  certain: try the call, and believe the answer it gives rather than this
+  paragraph. The 2026-09-06 refusal was real and reproduced, so this is the
+  environment changing, not the original finding being wrong.
 
 - **A harness run that overlaps a write to the tree fails on a change
   belonging to no commit, and the count alone cannot tell you that.**

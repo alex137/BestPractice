@@ -69,6 +69,41 @@ which is the failure this repointing exists to end — write
    one. Revisit when a real multi-team-import case appears — a second team
    set now exists (`precedent-team-tms`, 2026-09-05), so that is closer
    than it was.
+
+   **The real case appeared 2026-09-07, twice in one day, and was resolved
+   by removing the collision rather than answering the question.** Two
+   sessions independently landed `fail-gracefully` and `bold-key-phrases`
+   into *both* team sets, each doing the obviously right thing. Confirmed by
+   running it: `precedent_resolve` raised `ResolveError` — *"nothing orders
+   two sources at the same level, so there is no answer to which one wins"* —
+   so any repository declaring both team sources could not resolve at all.
+   Nothing was broken in practice, because no repository declared both.
+   Morgan's decision was to promote both to universal and delete them from
+   the team sets, which is right when the rule is genuinely shared: two
+   teams wanting the identical rule is what a universal rule looks like.
+
+   **That does not answer this item, and the two must not be confused.**
+   Promotion works only while the teams want the *same* rule. The open
+   question is the same slug meaning *different* things to two teams, and
+   every remedy available today is a workaround for it:
+
+   - **Rename one** — cheap, and wrong as a habit: the slug is the identity
+     a session searches by, so two names for one concept is the folklore
+     problem relocated.
+   - **Retire one** — only honest when one team was wrong.
+   - **Move one to another level** — there is no level below team except
+     repo-local, which does not reach a team's other repositories.
+   - **Promote** — requires the rule to be genuinely shared, as here.
+
+   So a rule two teams both want, differently, still has no home. Options
+   worth weighing: an explicit tie-break a *consuming* repo declares (it
+   knows which team it belongs to, which neither source does);
+   source-qualified slugs at the point of use; or accepting the refusal and
+   requiring that no repository declare two team sources.
+
+   **Blocked on:** nothing but a decision about what shape the answer takes.
+   Parked deliberately at Morgan's request, 2026-09-07 — do not design it in
+   passing.
 8. <a id="reduce-github-dependency"></a>**Reduce GitHub dependency when ready.** The layer itself is plain git
    + markdown + Python; GitHub specifics are the worked examples (PRs,
    Actions, Issues, branch rulesets). When priorities allow, document
@@ -306,7 +341,7 @@ which is the failure this repointing exists to end — write
     own light check has dropped the exemption it needed to stay green, and
     its test case for that path now requires a finding instead of silence.
 
-22. <a id="sweep-judgment-only-practices"></a>**Sweep the team and individual sets' judgment-only practices.**
+22. <a id="sweep-judgment-only-practices"></a>~~**Sweep the team and individual sets' judgment-only practices.**~~
     [tools/full_practice_audit.py](tools/full_practice_audit.py) reports 49
     judgment-only practices across the three sources. The 2026-09-06
     pre-launch audit judged the universal slice's highest-yield ones and
@@ -330,12 +365,28 @@ which is the failure this repointing exists to end — write
     session itself), and the remaining 28 came back clean or not-applicable
     with the reason recorded so no later session re-derives them. The sweep
     also turned up a defect no practice pointed at: `tools/title_case.py`
-    was corrupting inline code spans in committed headings. **Blocked
-    on:** nothing but session budget — take them one
-    at a time, with the closed question
-    [practices/full-practice-audit.md](practices/full-practice-audit.md)
-    names, in a session with those repos attached. Full context:
-    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md).
+    was corrupting inline code spans in committed headings.
+
+    **Done — closed 2026-09-07.** This item contradicted itself: it declared
+    the sweep COMPLETE ("all 51 judged") and then carried *"blocked on
+    nothing but session budget — take them one at a time"*, so it read as
+    both finished and not started depending on which sentence you stopped
+    at. The second half is now measured rather than argued. Across **all 39**
+    practices carrying `checked_by: null` in the two private sets: none has
+    an empty `## Install`, the shortest is 177 characters, the median 393,
+    and **not one** uses the "too hard to check" shape
+    [checkable-gets-checked](practices/checkable-gets-checked.md) forbids.
+    Every one records a considered, specific no, which is what that practice
+    asks for — an attempt and a recorded reason, not a check at any cost.
+
+    One case read as unreasoned to a keyword scan and is the opposite:
+    `catalogue-carries-stories` **is** checked mechanically, by the universal
+    catalogue's own `precedent_check.py`, and its `checked_by` is `null`
+    precisely so that set does not carry a second implementation of one rule.
+    39 of 39 accounted for. **A `checked_by: null` count is not a defect
+    count** — the same correction `precedent-team-tms`'s 0 of 2 needed.
+    Full context: [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md) and
+    [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md).
 
 23. <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
     `precedent-team-maintainers`' own `deep-check`.**
@@ -650,6 +701,31 @@ which is the failure this repointing exists to end — write
     rollout, [`unreachable-practices`](TODO.md#unreachable-practices)'s
     measurement, and configuring the leak gate's vocabulary blocklist (which
     belongs in `precedent-individual`).
+
+    **THE BLOCKER AS WRITTEN IS FALSE, 2026-09-07 — and it is the premise
+    four other items are waiting on.** This item says a session holding
+    `alex137/*` cannot attach a `themorgan/*` repo. The session running the
+    very deep check that day held, simultaneously:
+    `alex137/bestpractice`, `themorgan/precedent-individual`,
+    `themorgan/precedent-team-maintainers`, `themorgan/precedent-team-tms`,
+    `themorgan/workingwithai` and `themorgan/havrutabrainstorm` — and
+    `add_repo` accepted the last of those *during* that session, with all
+    three private sets already attached and worked in. Mixed owners in one
+    session is exactly what this item and
+    [AGENTS.md](AGENTS.md)'s gotcha say cannot happen.
+
+    **What is NOT established**, stated so the correction does not overreach:
+    whether a *fresh* session rooted at `alex137/BestPractice` can add a
+    `themorgan/*` repo as its first cross-owner add. That specific call was
+    not made. The constraint may have been lifted, or may only bind the first
+    add — this session cannot tell which, because it did not start empty. So
+    the four items above are **not** blocked on what this item says blocks
+    them, and someone should re-test the fresh-session case rather than
+    assume either answer.
+
+    Its earlier evidence stays, dated: on 2026-09-06 the refusal was real and
+    was reproduced, so this is a change in the environment rather than a
+    mistake in the original finding.
 
 35. <a id="convert-team-set-retired-statuses"></a>*(was item 34 — two items carried that number until 2026-09-06.)* **Convert
     `precedent-team-maintainers`' two `status: retired` practices to
@@ -1214,91 +1290,16 @@ which is the failure this repointing exists to end — write
   different statement from "they are unreachable". Check what is on disk
   before recording a blocker from a remembered rule.
 
-- <a id="practice-consistency-across-team-repos"></a>**How does one practice live in several team repos and stay consistent?**
-  Raised by Morgan 2026-09-07, and **deliberately not thought about yet** —
-  this entry exists to hold the question, not to answer it.
-
-  The occasion: asked whether `fail-gracefully` should be promoted to the
-  universal catalogue, Morgan's answer was that it belongs in the team sets
-  instead. It now lives in **two** — `precedent-team-maintainers` and
-  `precedent-team-tms` — as byte-identical copies, landed the same day. That
-  is a real duplication on disk as of now, not a hypothetical.
-
-  What makes it more than a copy-paste problem: the two sets have different
-  approvers, different audiences (one is the non-technical editorial set),
-  and no mechanism relates them. Nothing detects that the copies have
-  diverged, nothing propagates an improvement from one to the other, and
-  [precedent_resolve.py](tools/precedent_resolve.py)'s precedence is defined
-  between *levels*, not between two sources at the **same** level — a repo
-  declaring both team sources would resolve two practices with the same slug
-  and no rule for which wins. Copying was still the right call today
-  (a rule that means two different things in two sets is worse than one
-  duplicated), but it does not scale past a handful.
-
-  Adjacent, and worth reading together when this is picked up:
-  [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) covers moving a
-  practice between levels, which is the *other* half of the same question and
-  already exists; and `severity: blocking` is the only cross-source
-  relationship the resolver currently models.
-
-  **It is not merely untidy — it is a hard refusal, verified 2026-09-07.**
-  Resolving a source list containing both team sets raises `ResolveError`:
-
-  > `precedent-team-tms` and `precedent-team-maintainers` are both
-  > team-level sources and both define the practice `fail-gracefully` …
-  > Slugs are identities; nothing orders two sources at the same level, so
-  > there is no answer to which one wins — rename one of them, retire one,
-  > or move one to a different level.
-
-  So **any repository that declares both team sources fails to resolve at
-  all** — not a warning, a refusal, and every session in such a repo would be
-  broken. That refusal is the *right* engine behaviour (it is
-  `fail-gracefully` clause 1: a degraded result must never look complete, and
-  the message names its own remedies). The cost sits on the catalogue
-  decision, not the resolver.
-
-  **Nothing is broken today**, checked rather than assumed: every
-  `precedent.json` reachable from here declares exactly one team source —
-  BestPractice and `workingwithai` name `precedent-team-maintainers`, the
-  non-technical template names `precedent-team-tms`. The defect is latent,
-  and it fires the first time one repository wants both — which is the
-  direction "put the rule in the various team repos" points.
-
-  The three remedies the resolver itself names are the shape of the answer:
-  rename one, retire one, or move one to a different level. A fourth would be
-  a new one — teaching the resolver to order two same-level sources, which is
-  a real design change and the reason this is parked rather than patched.
-
-  **Partly resolved 2026-09-07, by removing the collision rather than solving
-  it.** `fail-gracefully` and `bold-key-phrases` were promoted to the
-  universal catalogue and deleted from both team sets, on Morgan's decision.
-  Two different teams wanting the identical rule is what a universal rule
-  looks like, so the duplication was the catalogue reporting a misplaced
-  level. Both team sources now resolve together; verified.
-
-  **What that does NOT solve, and is the reason this item stays open.**
-  Promotion works only while the two teams want the *same* rule. The real
-  question is what happens when they want the same *slug* to mean different
-  things — a rule genuinely local to each team, under a name both reach for
-  — and every remedy available today is a workaround for that case:
-
-  - **Rename one.** Cheap, and wrong as a habit: the slug is the identity a
-    session searches by, so two names for one concept is the folklore
-    problem in a different place.
-  - **Retire one.** Only honest when one team was wrong.
-  - **Move one to another level.** There is no level below team but
-    repo-local, which does not reach a team's other repositories.
-  - **Promote, as done here.** Requires the rule to be genuinely shared.
-
-  So a rule two teams both want, differently, has no home. Precedence is
-  defined *between* levels; nothing orders two sources *at* one. Options
-  worth weighing when this is picked up: an explicit tie-break a consuming
-  repo declares (it knows which team it belongs to, which neither source
-  does); source-qualified slugs at the point of use; or accepting the
-  refusal and requiring one repo never to declare two team sources.
-
-  **Blocked on:** nothing but a decision about what shape the answer takes.
-  Explicitly parked at Morgan's request — do not design it in passing.
+- <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
+  **folded into [item 7](TODO.md#multiple-team-sources-disagree), 2026-09-07.**
+  Filed as a new item earlier that day and it should not have been: item 7
+  had asked the same question since 2026-09-03, with the plan reference and
+  the half-closed history this one lacked. Written without searching the
+  backlog first, which is exactly what
+  [search-by-purpose](practices/search-by-purpose.md) exists to prevent.
+  This anchor is kept, rather than deleted, so links already pointing here
+  still resolve ([rename-updates-links](practices/rename-updates-links.md));
+  the content and the open question now live in item 7.
 
 43. <a id="loader-comment-names-an-unvendored-check"></a>**The generated loader block
     tells every source set that a check catches drift, in exactly the repos where that
