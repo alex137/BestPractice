@@ -5430,6 +5430,124 @@ def check_show_flags_unreachable_materialized_source():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_sync_refuses_to_lose_a_recorded_practice():
+    """A sync will not silently drop a rule the repository already published.
+
+    The incident, 2026-09-07: promoting two practices out of a team set into
+    the universal catalogue left every consumer pinned before the promotion
+    with them in NEITHER source, so its next sync deleted both. `--check`
+    named them; a real sync rmtree's practices/ and says nothing.
+
+    THE BASELINE IS THE COMMITTED MANIFEST, and that is the whole design. A
+    first attempt compared the working tree against the plan and had to be
+    reverted -- it fired on a public repo withholding by design, on a sync
+    already carrying --allow-missing-sources, and on a fixture re-syncing
+    after its sources changed. "The tree differs from the plan" is true
+    constantly. "This repository committed a catalogue containing rule X and
+    X is about to vanish" is narrow enough to refuse on. The four cases below
+    are the four that distinction has to get right.
+    """
+    import tempfile, shutil
+    sync_tool = str(ROOT / 'tools' / 'precedent_sync_views.py')
+
+    def _repo(tmp, extra_source=True):
+        repo, team = tmp / 'c', tmp / 'precedent-team-x'
+        (repo / 'precedent' / 'universal').mkdir(parents=True)
+        shutil.copytree(PRACTICES_DIR, repo / 'precedent' / 'universal' / 'practices')
+        (team / 'practices').mkdir(parents=True)
+        (team / 'practices' / 'team-x-rule.md').write_text(
+            '---\nslug: team-x-rule\ntitle: The rig is used\n'
+            'tier: on-demand\nseverity: default\napplies_to: ["**"]\n'
+            'occasion: "changing firmware"\n'
+            'index_clause: "use the rig"\nstatus: active\n---\n'
+            '## Rule\nUse the rig.\n\n## Story\nIt drifted.\n', encoding='utf-8')
+        # A SECOND practice, so removing the first does not empty the source.
+        # An existing guard already refuses a source that went completely
+        # empty ("a sync would quietly drop that whole catalogue"), and the
+        # first version of this fixture tripped that one instead of the one
+        # under test -- a fixture proving the wrong thing passes just as
+        # confidently as one proving the right thing.
+        (team / 'practices' / 'team-x-keeper.md').write_text(
+            '---\nslug: team-x-keeper\ntitle: The bench is logged\n'
+            'tier: on-demand\nseverity: default\napplies_to: ["**"]\n'
+            'occasion: "logging bench time"\n'
+            'index_clause: "log the bench"\nstatus: active\n---\n'
+            '## Rule\nLog it.\n\n## Story\nIt was not logged.\n',
+            encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# C\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
+        srcs = [{'level': 'universal', 'name': 'precedent',
+                 'path': 'precedent/universal'}]
+        if extra_source:
+            srcs.append({'level': 'team', 'name': 'precedent-team-x',
+                         'path': str(team)})
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'base_branch': 'main',
+            'visibility': 'private', 'sources': srcs}), encoding='utf-8')
+        user = tmp / 'u.json'
+        user.write_text(json.dumps({'format_version': 1}), encoding='utf-8')
+        for c in (['init', '-q', '-b', 'main'],
+                  ['config', 'user.email', 'harness@example.com'],
+                  ['config', 'user.name', 'Harness']):
+            subprocess.run(['git', '-C', str(repo)] + c, capture_output=True)
+        return repo, team, user
+
+    def _sync(repo, user, *flags):
+        return subprocess.run(
+            [sys.executable, sync_tool, '--repo', str(repo),
+             '--user-config', str(user)] + list(flags),
+            capture_output=True, text=True)
+
+    def _commit(repo):
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'catalogue'],
+                       capture_output=True)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        # 1. NO COMMITTED MANIFEST -- a fresh install has nothing to lose.
+        repo, team, user = _repo(tmp)
+        r = _sync(repo, user)
+        cases.append(('a repo with no committed manifest syncs freely',
+                      r.returncode == 0))
+
+        # 2. The real case: publish a catalogue, then the source stops
+        #    producing the rule while STILL being declared.
+        _commit(repo)
+        (team / 'practices' / 'team-x-rule.md').unlink()
+        r = _sync(repo, user)
+        cases.append(('a recorded practice vanishing from a still-declared '
+                      'source REFUSES', r.returncode != 0))
+        cases.append(('and it names the slug and its source',
+                      'team-x-rule' in r.stderr and 'precedent-team-x' in r.stderr))
+        cases.append(('and the practice file survives the refusal',
+                      (repo / 'practices' / 'team-x-rule.md').exists()))
+
+        # 3. --allow-removals is the deliberate override.
+        r = _sync(repo, user, '--allow-removals')
+        cases.append(('--allow-removals permits it',
+                      r.returncode == 0
+                      and not (repo / 'practices' / 'team-x-rule.md').exists()))
+
+        # 4. DROPPING the source is a decision already made -- report, allow.
+        repo2, team2, user2 = _repo(tmp / 'b')
+        _sync(repo2, user2); _commit(repo2)
+        cfg = json.loads((repo2 / 'precedent.json').read_text())
+        cfg['sources'] = [s for s in cfg['sources'] if s['level'] != 'team']
+        (repo2 / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        r = _sync(repo2, user2)
+        cases.append(('dropping a source from precedent.json is allowed, not '
+                      'refused', r.returncode == 0))
+        cases.append(('and it says which practices went with it',
+                      'team-x-rule' in r.stderr))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'a sync refuses to lose a practice the committed manifest records '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_views_cross_source():
     """tools/precedent_sync_views.py -- the one-command glue over
     precedent_materialize.py + build_views.py --agents-only that a
@@ -9611,6 +9729,7 @@ def main():
     check_materialize_bridges_loader()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
+    check_sync_refuses_to_lose_a_recorded_practice()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()

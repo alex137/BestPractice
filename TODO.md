@@ -1411,9 +1411,37 @@ which is the failure this repointing exists to end — write
   recorded?" instead of "does the tree differ from the plan?" — that was not
   tried.
 
-  **Interim, and it is automatic enough to rely on:** `--check` reports
-  removals by name and writes nothing, so running it before a sync is the
-  guard, today, with no new code.
+  **BUILT, 2026-09-07, on the committed-manifest baseline.** A sync now
+  refuses to write when it would remove a practice this repository's
+  **committed `MANIFEST.json`** records and whose source is **still
+  declared** — the stale-vendor case, and the one this item is about. The
+  baseline is the whole difference from the reverted attempt: "the tree
+  differs from the plan" is true constantly, while "this repository
+  published a catalogue containing rule X and X is about to vanish" is
+  narrow enough to refuse on. Four consequences, each closing one of the
+  false positives that killed the first version:
+
+  - No committed manifest — a fresh install, a scratch fixture — and there
+    is no baseline, so the guard does not apply.
+  - A **withheld** slug is excluded: a public repo keeps private-level text
+    out of its tracked tree deliberately.
+  - A slug whose recorded **source is no longer declared** is reported, not
+    refused: dropping a source is a decision somebody just made.
+  - A slug whose source **is** still declared, and which that source no
+    longer produces, is refused. `--allow-removals` overrides it.
+
+  Verified against the real consumer (refused, naming both practices and
+  their source, nothing written) and covered by a 7-case harness test.
+
+  **Two mistakes in building it, both worth keeping.** The first version read
+  `res['practices']` as a list of records when it is a **dict keyed by slug**
+  — so it computed an empty set, and the "cannot establish it, return empty"
+  fallback then swallowed that, leaving the guard silently inert while
+  reporting nothing. It passed its own positive control that way. A fallback
+  meant to fail safe is what hid it; the unreadable case now says so out loud
+  instead. Second, the test fixture deleted the team source's only practice,
+  which tripped a *different*, pre-existing guard (a source gone completely
+  empty) — so the fixture proved the wrong thing, just as confidently.
 
   **Blocked on:** the refresh itself belongs in each consumer, run under
   that repo's own gates — HavrutaBrainstorm has an open session and its own

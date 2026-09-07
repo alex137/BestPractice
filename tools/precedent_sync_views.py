@@ -44,7 +44,9 @@ resident-budget check would themselves exit 1 on (a resolve conflict, a
 tools/checks/ filename collision, an over-budget resident set), or on
 --check finding drift.
 """
+import json
 import pathlib
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -55,7 +57,74 @@ import build_views as bv  # noqa: E402
 
 
 
-def sync(repo, user_config=None, check=False, allow_missing=False):
+def _lost_practices(repo, res, sources, withheld):
+    """-> {'blocking': [(slug, source)], 'source_dropped': [(slug, source)]}.
+
+    Which practices the COMMITTED MANIFEST.json records that this sync would
+    not write back. Reads the manifest from git HEAD rather than from disk on
+    purpose: the on-disk copy is this tool's own output from the last run, so
+    comparing against it asks "does the tree match the plan?" -- true
+    constantly, and the question whose answer had to be reverted earlier that
+    day. The committed copy asks "did this repository publish a catalogue
+    that is about to lose a rule?", which is answerable and worth stopping
+    for.
+
+    Returns empty for anything it cannot establish -- not a git repo, no
+    committed manifest, malformed JSON. A repository with no published
+    catalogue has nothing to lose, and a guard that guessed here would fire
+    on every fresh install.
+    """
+    empty = {'blocking': [], 'source_dropped': []}
+    try:
+        r = subprocess.run(['git', '-C', str(repo), 'show', 'HEAD:MANIFEST.json'],
+                           capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return empty
+    if r.returncode != 0 or not r.stdout.strip():
+        return empty
+    try:
+        recorded = json.loads(r.stdout).get('practices') or []
+    except ValueError:
+        return empty
+
+    # res['practices'] is a DICT KEYED BY SLUG. The first version of this
+    # iterated it as a list of records and so iterated its KEYS as if they
+    # were objects, producing an empty set -- and the "cannot establish it,
+    # return empty" path below then swallowed that, leaving the guard
+    # silently inert while reporting nothing. It shipped past its own
+    # positive control that way. Reading a structure wrong is the third such
+    # defect in this run; what made this one worse than the other two is that
+    # a fallback meant to fail safe is what hid it.
+    pracs = res.get('practices')
+    now = set(pracs) if isinstance(pracs, dict) else {
+        (p.get('slug') if isinstance(p, dict) else getattr(p, 'slug', None))
+        for p in (pracs or [])}
+    now.discard(None)
+    if not now:
+        # Could not read the new set at all. NOT the same as "nothing is
+        # being lost" (practice: fail-gracefully) -- say so rather than
+        # returning a clean answer nobody can distinguish from a real one.
+        print("precedent_sync_views: could not read the resolved practice "
+              "set, so the lost-practice guard did NOT run. This is not a "
+              "clean result.", file=sys.stderr)
+        return empty
+    withheld = set(withheld or ())
+    declared = {s.get('name') for s in sources}
+
+    out = {'blocking': [], 'source_dropped': []}
+    for entry in recorded:
+        if not isinstance(entry, dict):
+            continue
+        slug, src = entry.get('slug'), entry.get('source')
+        if not slug or slug in now or slug in withheld:
+            continue
+        (out['source_dropped'] if src not in declared
+         else out['blocking']).append((slug, src))
+    return out
+
+
+def sync(repo, user_config=None, check=False, allow_missing=False,
+         allow_removals=False):
     """-> (written, checks_written, rstats, agents_md_path, changed: bool,
     tree_drift: [str]).  tree_drift is always empty unless check=True.
     Raises pr.ResolveError or pm.MaterializeError on failure, exactly as
@@ -232,6 +301,68 @@ def sync(repo, user_config=None, check=False, allow_missing=False):
                   f".precedent/SESSION_PRACTICES.md, which is untracked.",
                   file=sys.stderr)
 
+    # REFUSE TO LOSE A RULE THIS REPOSITORY HAS ALREADY RECORDED.
+    #
+    # materialize() rmtree's practices/ and rewrites it, so a slug no
+    # declared source produces any more simply stops existing. `--check`
+    # names each one; a real sync says nothing, and the loss shows up only
+    # as deletions in `git status` afterwards, to whoever reads the diff.
+    #
+    # THE BASELINE IS THE COMMITTED MANIFEST, and that choice is the whole
+    # design. An earlier attempt compared the working tree against the plan
+    # and had to be reverted: it fired on three legitimate flows -- a public
+    # repo withholding private text by design, a sync already carrying
+    # --allow-missing-sources, and a fixture re-syncing after its own sources
+    # changed. "The tree differs from the plan" is true constantly and means
+    # nothing on its own. "This repository committed a catalogue containing
+    # rule X, and X is about to be gone" is a much narrower claim, and it is
+    # the one worth refusing on.
+    #
+    # Four things fall out of using that baseline, each closing one of the
+    # false positives that killed the first attempt:
+    #   * No committed MANIFEST.json -- a scratch fixture, a fresh install,
+    #     an uncommitted experiment -- and there is no baseline, so this does
+    #     not apply. It cannot fire on a repo that has never published a
+    #     catalogue.
+    #   * A WITHHELD slug is excluded: a public repo keeps private-level text
+    #     out of its tracked tree deliberately, and those practices still
+    #     bind through .precedent/SESSION_PRACTICES.md.
+    #   * A slug whose recorded SOURCE IS NO LONGER DECLARED is reported but
+    #     not refused: dropping a source from precedent.json is a decision
+    #     somebody just made on purpose, and the practices it contributed are
+    #     supposed to go with it.
+    #   * A slug whose recorded source IS STILL DECLARED, and which that
+    #     source no longer produces, is the real case: the rule moved or the
+    #     vendored copy went stale, and syncing now loses it. That is the
+    #     2026-09-07 incident -- promoting two practices out of a team set
+    #     left every consumer pinned before the promotion with them in
+    #     neither source.
+    if not check:
+        _lost = _lost_practices(repo, res, sources,
+                                locals().get('withheld_slugs'))
+        if _lost['blocking'] and not (allow_removals or allow_missing):
+            raise pm.MaterializeError(
+                "refusing to WRITE: this sync would remove "
+                + str(len(_lost['blocking'])) + " practice(s) this "
+                "repository's committed MANIFEST.json records, whose source "
+                "is still declared -- "
+                + '; '.join(f"{s} (from {src})"
+                            for s, src in sorted(_lost['blocking']))
+                + ". The usual cause is a stale vendored copy: the rule moved "
+                "between levels upstream, so a copy pinned before the move "
+                "has it in neither source. Refresh and re-run "
+                "(`process/upstream/tools/checkin.py update <clone>`). If the "
+                "removal is intended -- retired upstream, or you meant to "
+                "drop it -- re-run with --allow-removals.")
+        if _lost['source_dropped']:
+            print("precedent_sync_views: removing "
+                  f"{len(_lost['source_dropped'])} practice(s) whose source "
+                  "is no longer declared in precedent.json, which is what "
+                  "dropping a source means: "
+                  + ', '.join(f"{s} ({src})"
+                              for s, src in sorted(_lost['source_dropped'])),
+                  file=sys.stderr)
+
     written, checks_written, rstats = pm.materialize(
         sources, res, pathlib.Path(repo), dry_run=check,
         withheld=locals().get('withheld_slugs'))
@@ -283,9 +414,11 @@ def sync(repo, user_config=None, check=False, allow_missing=False):
 
 def main():
     args = sys.argv[1:]
+    allow_removals = '--allow-removals' in args
     check = '--check' in args
     allow_missing = '--allow-missing-sources' in args
-    args = [a for a in args if a not in ('--check', '--allow-missing-sources')]
+    args = [a for a in args if a not in ('--check', '--allow-missing-sources',
+                                         '--allow-removals')]
     repo, user_config = str(ROOT), None
     known = {'--repo', '--user-config'}
     i = 0
@@ -293,7 +426,7 @@ def main():
         tok = args[i]
         if tok not in known:
             sys.exit(f"precedent_sync_views FAIL: unknown option {tok!r} -- "
-                     f"known options are {', '.join(sorted(known | {'--check'}))}.")
+                     f"known options are {', '.join(sorted(known | {'--check', '--allow-removals'}))}.")
         if i + 1 >= len(args):
             sys.exit(f"precedent_sync_views FAIL: {tok} needs a value.")
         if tok == '--repo':
@@ -304,7 +437,8 @@ def main():
 
     try:
         written, checks_written, rstats, agents_md, changed, tree_drift = sync(
-            repo, user_config, check=check, allow_missing=allow_missing)
+            repo, user_config, check=check, allow_missing=allow_missing,
+            allow_removals=allow_removals)
     except (pr.ResolveError, pm.MaterializeError) as e:
         sys.exit(f"precedent_sync_views FAIL: {e}")
 
