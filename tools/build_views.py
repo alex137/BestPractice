@@ -96,18 +96,60 @@ def _approx_tokens(text):
 PRIVATE_LEVELS = ('team', 'individual')
 
 
-def repo_is_public(root):
-    """Whether this repo declares `visibility: public` in precedent.json.
+_VISIBILITY_WARNED = set()
 
-    Public means the tracked loader block is a publication, so private
-    sources are excluded from it -- and it is therefore also the signal
-    that something else has to carry them, which is what the standing
-    instruction's pointer and precedent_session_practices.py are for."""
+
+def repo_is_public(root):
+    """Whether this repo's tracked files are a publication.
+
+    Public means the tracked loader block and the materialized practices/
+    tree are publications, so private sources are excluded from both -- and
+    it is therefore also the signal that something else has to carry them,
+    which is what the standing instruction's pointer and
+    precedent_session_practices.py are for.
+
+    AN UNDECLARED `visibility` COUNTS AS PUBLIC, which reverses this
+    function's original default, and the reversal is the whole point. The
+    two ways of being wrong are not symmetric:
+
+      declared private, actually public -> a private source's practice TEXT
+        is committed into a world-readable repo, permanently, and no later
+        edit takes it back.
+      declared public, actually private -> a few practices do not
+        materialize. Visible immediately, fixed by one line.
+
+    The old default was the first of those, justified in precedent.json's
+    own comment as "a repo that omits this field publishes nothing by
+    accident". The opposite is true: omitting it is exactly how a public
+    repo publishes by accident. Found 2026-09-07 in a real public consumer
+    that had never declared the field and carried 10 individual-level and
+    40 team-level practices in its tracked tree, one of them a person's name
+    and email address.
+
+    Silence would be its own failure here -- a degraded path that does not
+    announce itself is worse than the crash, because the crash at least
+    tells someone -- so the undeclared case says what it assumed and how to
+    state the truth, once per root per process."""
     try:
-        return json.loads((pathlib.Path(root) / 'precedent.json').read_text(
-            encoding='utf-8')).get('visibility') == 'public'
+        declared = json.loads(
+            (pathlib.Path(root) / 'precedent.json').read_text(
+                encoding='utf-8')).get('visibility')
     except (ValueError, OSError):
+        return False              # no config at all: not a Precedent repo
+    if declared == 'public':
+        return True
+    if declared == 'private':
         return False
+    key = str(pathlib.Path(root).resolve())
+    if key not in _VISIBILITY_WARNED:
+        _VISIBILITY_WARNED.add(key)
+        print(f"build_views NOTICE: {root}/precedent.json declares no "
+              f"`visibility`, so this run assumes PUBLIC and excludes "
+              f"team- and individual-level sources from anything tracked. "
+              f"That is the safe assumption, not a guess worth trusting: "
+              f"declare \"visibility\": \"private\" to carry them, or "
+              f"\"public\" to make this explicit.", file=sys.stderr)
+    return True
 
 
 IN_FORCE_STATUS = 'active'

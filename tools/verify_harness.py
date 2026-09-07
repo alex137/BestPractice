@@ -5339,7 +5339,14 @@ def check_sync_views_cross_source():
                         'local-fixture', 'A repo-local fixture rule.',
                         occasion='doing local things')
 
+        # visibility DECLARED, not defaulted: this fixture is a PRIVATE
+        # consumer, which is the case it exercises -- all four sources
+        # materialized into one tracked tree. An undeclared visibility now
+        # counts as public (build_views.repo_is_public), which would
+        # correctly withhold the team and individual sources and make this
+        # test assert the wrong thing for the right reason.
         (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(universal)},
                         {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)},
                         {'level': 'repo-local', 'name': 'local', 'path': 'local'}]
@@ -6480,6 +6487,7 @@ def check_vendor_engine_consumer_case():
 
         (consumer / 'precedent.json').write_text(json.dumps({
             'format_version': 1,
+            'visibility': 'private',   # declared, not defaulted -- see above
             'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
                 {'level': 'team', 'name': 'precedent-team-consumer-fixture', 'path': str(team_dir)},
