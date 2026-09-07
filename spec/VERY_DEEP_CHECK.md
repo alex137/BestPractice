@@ -463,10 +463,38 @@ a failure belonging to no commit. And the count alone is genuinely
 ambiguous: `1 failed` looked identical in both cases and meant something
 self-inflicted once and something unknown the other time.
 
-**The original intermittent stays unexplained.** Seven further runs on the
-same tree: six clean, and the one failure among them accounted for above.
-The first one was not concurrent with any write this session made. Recorded
-as open rather than written off — the next occurrence will name itself.
+**The original intermittent is now root-caused and fixed, and the recap is
+what caught it.** It recurred later the same day, and this time the tail
+named the check: *the very deep check reports unlanded work before its
+passes*. Twelve isolated runs of that check passed, so the cause was
+something about a full run — and the failure detail, as written, printed
+only which of its four stated cases were false, which is the symptom.
+Extending the detail to carry what the tool actually did (its exit code and
+its output tail) produced the evidence in one run: a fixture built in a
+temporary directory, declaring exactly one universal source, was reporting
+*"FRESHNESS — declared sources … individual source `precedent-individual`"*.
+
+**The fixture was not hermetic.** `very_deep_check.py` resolves the
+individual source from a user-level config outside any repository, so the
+scratch repo silently reached the machine's real `precedent-individual`
+clone and ran the freshness gate against it. That gate is a deliberate hard
+refusal that returns before printing anything — so whenever that unrelated
+clone was behind, diverged, or slow to fetch, this check failed on a
+repository it is not testing. A test reading state it does not own is
+exactly what "green for weeks, then twice in one session, never in
+isolation" looks like. Fixed by pointing `PRECEDENT_USER_CONFIG` at a path
+inside the temp directory, so the resolver legitimately finds no individual
+source. Confirmed by direct comparison: without the isolation the run
+resolves `/root/precedent-individual`; with it, *"(no team or individual
+source resolved here)"*.
+
+Two things worth carrying forward. The recap and the richer failure detail
+are the same lesson twice — **a count is not a diagnosis, and re-running is
+what destroys the evidence** — and neither fix was more than a few lines.
+And the deeper one: this check was written to test the tool, and for weeks
+it was partly testing the machine it ran on. Any fixture that invokes a tool
+which resolves sources needs its ambient configuration pinned, not merely
+its own files written.
 
 **A self-inflicted lesson worth keeping: this pass wrote a second link
 scanner and got four false findings from it.** Checking relative links across
@@ -507,9 +535,15 @@ putting rules in force that were never about this work.** A rule that does
 not bind should be exempted with a stated reason, not softened for everyone.
 That is a per-practice judgment with a mandatory reason each, 66 of them, so
 it belongs to pass 4's catalogue work rather than being done here — recorded
-now so pass 4 inherits a defined job rather than rediscovering it. Note the
-one constraint: a `severity: blocking` practice cannot be exempted at all
-(one exists in the universal set).
+now so pass 4 inherits a defined job rather than rediscovering it. An earlier
+version of this paragraph added "note the one constraint: a
+`severity: blocking` practice cannot be exempted at all (one exists in the
+universal set)" — that was wrong, and doing the work is what caught it. The
+only `severity: blocking` practice in this checkout is
+[merge-target-is-beta-branch](../local/practices/merge-target-is-beta-branch.md),
+which is **repo-local to BestPractice**, not universal. It is not in the
+template's resolved set at all, so no constraint applies: every one of the 66
+is exemptible.
 
 Separately and genuinely: `fail-gracefully` itself has no graduation. Its
 Rule holds one uniform standard — "every degraded path announces itself

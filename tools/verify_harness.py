@@ -9112,10 +9112,33 @@ def check_unlanded_work_is_reported_before_the_passes():
         _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'declare a source')
         _git(work, 'push', '-q', 'origin', 'main')
 
+        # HERMETIC, and it was not before.
+        #
+        # very_deep_check.py resolves the INDIVIDUAL source from a user-level
+        # config outside any repo, so this fixture -- which declares one
+        # universal source and nothing else -- was silently reaching the
+        # machine's real precedent-individual clone. Its own output gave this
+        # away once the failure detail above started printing it: a run
+        # against a scratch repo was reporting "FRESHNESS -- declared
+        # sources ... individual source 'precedent-individual'".
+        #
+        # That made the fixture inherit ambient state it never declared, and
+        # the freshness gate is a HARD REFUSAL that returns before printing
+        # anything -- so whenever that real clone was behind, diverged, or
+        # slow to fetch, this check failed on a repository it is not testing.
+        # It ran green for weeks and failed twice in the session that found
+        # it, unreproducible in twelve isolated runs, which is exactly what a
+        # test reading state it does not own looks like.
+        #
+        # Pointing PRECEDENT_USER_CONFIG at a path inside the temp directory
+        # gives the resolver a config that legitimately declares no
+        # individual source, so the fixture tests the fixture.
+        env = dict(os.environ,
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
              '--repo', str(work)],
-            capture_output=True, text=True, cwd=str(work))
+            capture_output=True, text=True, cwd=str(work), env=env)
         out = r.stdout
 
         results = []
@@ -9133,9 +9156,33 @@ def check_unlanded_work_is_reported_before_the_passes():
                         'carries-work' in out.split('Pass 1 —')[0]))
 
         failed = [n for n, ok in results if not ok]
+        # SAY WHAT THE TOOL ACTUALLY DID when this fails.
+        #
+        # This check ran green for weeks and then failed twice inside one
+        # session (2026-09-07), both times reporting only which of its four
+        # stated cases were false -- which is the symptom, never the cause.
+        # It could not be reproduced in twelve isolated runs, so the cause is
+        # something about a loaded full run, and the detail as written threw
+        # away the one piece of evidence that would name it: what
+        # very_deep_check.py itself printed and exited with. `UNLANDED WORK`
+        # is printed UNCONDITIONALLY whenever the branch scan is not skipped,
+        # so its absence means the tool returned before reaching that line --
+        # most likely the freshness gate refusing, which it is designed to do
+        # as a hard refusal rather than a warning. That is a guess until a
+        # failing run says so itself, which is what this detail is for.
+        #
+        # Same lesson as the failure recap in main(): a count is not a
+        # diagnosis, and re-running is what destroys the evidence.
+        detail = ''
+        if failed:
+            tail = (out or '')[-400:].replace('\n', ' | ')
+            detail = (f"{'; '.join(failed)} "
+                      f"[very_deep_check.py exited {r.returncode}; "
+                      f"stdout tail: {tail!r}; "
+                      f"stderr tail: {(r.stderr or '')[-300:]!r}]")
         check(f'the very deep check reports unlanded work before its passes, '
               f'not after ({len(results)} stated cases)',
-              not failed, '; '.join(failed) if failed else '')
+              not failed, detail)
 
 
 def check_assumed_visibility_never_deletes_practices():

@@ -30,5 +30,104 @@
       "name": "precedent-team-tms",
       "path": "../precedent-team-tms"
     }
+  ],
+  "not_binding": [
+    {
+      "slug": "catalogue-carries-stories",
+      "reason": "Governs landing practices in bulk into a catalogue. This project consumes a catalogue and holds none of its own; the practices it captures go to precedent-team-tms, where this rule is in force."
+    },
+    {
+      "slug": "full-practice-audit",
+      "reason": "A sweep of every source's full catalogue. This project owns no catalogue to sweep; the audit belongs to whoever maintains precedent-team-tms and the universal set."
+    },
+    {
+      "slug": "very-deep-check",
+      "reason": "Reads every practice repo in force against itself, pass by pass. That is maintenance of the practice system, not of a document project's own work."
+    },
+    {
+      "slug": "routing-audit",
+      "reason": "Checks whether the practices that should have fired for recent work actually fired -- an audit of the catalogue's routing, run where the catalogue lives."
+    },
+    {
+      "slug": "practice-export-loop",
+      "reason": "Vendoring an upstream practice layer and checking improvements back in. This project vendors the engine but does not maintain it, and contributes practices through precedent-team-tms instead."
+    },
+    {
+      "slug": "cross-source-rollout",
+      "reason": "Rolling a change out to attached team, individual or repo-local sources. This project attaches no source it is responsible for keeping in step."
+    },
+    {
+      "slug": "engine-plus-host-shims",
+      "reason": "Exporting a tool across a repo boundary. This project exports no tooling; it receives a vendored engine."
+    },
+    {
+      "slug": "migration-scrubs-vocabulary",
+      "reason": "Applies to a repo migrating off an older practice system onto Precedent. A project instantiated from this template starts on Precedent, so there is no prior vocabulary to scrub."
+    },
+    {
+      "slug": "source-naming",
+      "reason": "Fixes the name of a repository that holds practices, by level. Binds whoever declares or creates a source; a project instantiated from this template has its sources chosen for it and creates none."
+    },
+    {
+      "slug": "scrub-gate",
+      "reason": "Guards the vendored, publicly-exported tree so it is public-safe at all times. This project publishes nothing upstream and has no such tree."
+    },
+    {
+      "slug": "code-cites-practice",
+      "reason": "Requires citing a practice's slug in a code comment where the code is. This project produces documents, not code."
+    },
+    {
+      "slug": "scripts-assert-properties",
+      "reason": "Requires a script to assert its own properties and the anchors a document cites from it. This project writes no scripts."
+    },
+    {
+      "slug": "computed-numbers-in-scripts",
+      "reason": "Requires computed content to live in a sync-gated generated block produced by a script. Figures here are written and checked by people, not computed."
+    },
+    {
+      "slug": "docs-track-models",
+      "reason": "Requires every script-derived figure to sit inside a generated block. Nothing here derives figures from a script."
+    },
+    {
+      "slug": "checkable-gets-checked",
+      "reason": "Requires attempting a mechanical check before leaving a new rule advisory-only. The people who write rules here cannot write checks; the attempt belongs with precedent-team-tms's maintainers, and this project's rules reach them as candidates."
+    },
+    {
+      "slug": "convention-to-audit",
+      "reason": "Promotes a costly broken convention to a script that exits non-zero. Same reason as checkable-gets-checked: writing that script is not work this project can do."
+    },
+    {
+      "slug": "build-buy-decompose",
+      "reason": "Governs a build-versus-buy decision on a software component, decomposed part by part. This project builds no software."
+    }
+  ],
+  "_not_binding_comment": [
+    "Which universal practices are IN FORCE at their source but do NOT bind a",
+    "non-technical document project. Every entry carries a mandatory reason --",
+    "an exemption nobody argued for is the same silence this mechanism replaces.",
+    "",
+    "Why this list exists at all: this template declares the full universal",
+    "catalogue (66 active practices) alongside precedent-team-tms, and",
+    "materialization flattens both, so without these entries an editorial",
+    "project receives every rule about running a code repository. Found",
+    "2026-09-07 by the very deep check. The right correction is to exempt what",
+    "was never about this work, with a reason -- NOT to soften rules for",
+    "everyone, which would cost technical adopters the loudness that works.",
+    "",
+    "DELIBERATELY CONSERVATIVE. Exempted here are only practices that are",
+    "clearly about maintaining the practice system itself, or that require",
+    "writing and running code. Anything arguable is left BINDING on purpose:",
+    "a rule that binds unnecessarily is noise a reader can skip, while a rule",
+    "wrongly exempted is a gap nobody sees. Err toward binding. Several",
+    "borderline ones were left in force on exactly that reasoning --",
+    "two-check-levels, session-bootstrap, pr-template-honest-gates,",
+    "no-rewrite-for-warnings, tabular-shared-renderer, one-formatter-per-quantity",
+    "and generated-artifact-provenance among them -- and a project that finds",
+    "one of them genuinely inapplicable should add it here with its own reason.",
+    "",
+    "An entry naming a slug nothing puts in force is reported as stale, and a",
+    "`severity: blocking` practice cannot be exempted at all. Neither bites",
+    "here: all 66 are exemptible (the only blocking practice in Precedent is",
+    "repo-local to BestPractice and is not in this project's resolved set)."
   ]
 }
