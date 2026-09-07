@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/COMPANY_BUILDING_RULES.md, version 21. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/COMPANY_BUILDING_RULES.md, version 22. -->
 
 # Rules for Building a Company Around AI
 
@@ -139,9 +139,9 @@ Y," the bolded summary nobody asked for — reads as nobody home, and
 erodes trust fast. It's evidence too: unrewritten output is output
 nobody thought about — style enforces thinking. And it's positioning:
 what you sound like is the one claim a reader can check for free. Ship
-everything rewritten in your own voice. (Enforced, not just argued for:
-a private writing-style ruleset, tried here as
-[`write-like-a-human`](RULES_NOW_TESTING.md#write-like-a-human).)
+everything rewritten in your own voice. (Argued for here, not currently enforced by any ruleset — see
+[`write-like-a-human`](RULES_NOW_TESTING.md#write-like-a-human), which is
+*Withdrawn*.)
 
 ## People
 

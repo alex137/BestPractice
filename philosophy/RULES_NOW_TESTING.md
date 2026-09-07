@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/RULES_NOW_TESTING.md, version 17. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/RULES_NOW_TESTING.md, version 18. -->
 
 # Rules Now Testing — The Current State of What We're Trying
 
@@ -34,6 +34,7 @@ adopting it elsewhere.
 - **Trial** — being tried in real work now; not yet proven enough to port.
 - **Ready to promote** — proven; the next session touching
   precedent-team-maintainers (or precedent-individual) should land it there.
+- **Withdrawn** — no longer being tried, with the reason given inline.
 - **Promoted** — already landed there. Kept here only
   as a pointer, not restated in full — full restatement would just be a
   second copy of the same rule that can drift out of sync with the first,
@@ -86,16 +87,14 @@ Before calling work done, answer all three out loud in the reply:
 
 <a id="write-like-a-human"></a>
 
-### 5. Write Like a Human, Not an LLM — *Trial*
+### 5. Write Like a Human, Not an LLM — *Withdrawn*
 
-Follow a vendored writing-style ruleset — write like a human, not an
-LLM — which governs everything written in WorkingWithAI, chat replies
-included ([AGENTS.md](https://github.com/themorgan/WorkingWithAI/blob/main/AGENTS.md)'s
-"Voice" section). That ruleset lives in a private repository and is named
-here by role only, deliberately: this is a public repository, and naming
-it — or linking the vendored copy — would disclose its existence and
-location. Still *Trial*: WorkingWithAI is the first repo applying it
-beyond the app it was written for.
+**Withdrawn 2026-09-07.** This rule pointed at a writing-style ruleset
+vendored into WorkingWithAI from a private upstream. That vendored copy,
+its manifest and its weekly sync were all removed, and the private
+repository is deliberately not named — so the rule has nothing left to
+point at and is not in force. The *idea* is still sound and may come back
+as a practice written in its own words; it is not being tried right now.
 
 <a id="dark-process-self-audit"></a>
 
