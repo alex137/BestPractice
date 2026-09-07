@@ -1340,3 +1340,45 @@ which is the failure this repointing exists to end — write
     is open.
 
     **Blocked on:** nothing but the work, for the first half.
+
+- <a id="consumers-need-refresh-after-promotion"></a>**A consumer that vendors an OLD universal catalogue loses a promoted
+  practice at its next sync, silently.** Found 2026-09-07, immediately after
+  promoting `fail-gracefully` and `bold-key-phrases` from
+  `precedent-team-maintainers` to universal.
+
+  The shape: a consuming repo vendors universal as tracked files at a pinned
+  commit, and resolves its team source live. Promotion deletes the practice
+  from the team set (correctly — that is what stops the same-level
+  collision) and adds it to universal. A consumer whose vendored universal
+  copy predates the promotion then has it in **neither** source, and the next
+  [precedent_sync_views.py](tools/precedent_sync_views.py) run rewrites
+  `practices/` from what resolves — removing both rules from its catalogue
+  with nothing reporting a loss, because a practice that no longer resolves
+  is not a violation of anything.
+
+  **Verified concrete, not predicted.** `themorgan/HavrutaBrainstorm`
+  vendors universal at `process/upstream`, pinned to `c7a1436` — the commit
+  before the promotion. Its `process/upstream/practices/` carries neither
+  practice; its materialized `practices/` still carries both, from the team
+  source that no longer has them. It has not re-synced yet, so nothing is
+  lost — the window is open, not closed.
+
+  **The remedy is a vendored-catalogue refresh in each consumer**, before
+  its next sync, not a change here. `process/upstream/tools/checkin.py
+  update <bestpractice-clone>` is the mechanism.
+
+  **The general lesson is bigger than these two practices**: promoting or
+  moving a practice between levels is a change every consumer must be
+  brought forward for, and today nothing tells a consumer that the ground
+  moved. Worth considering whether
+  [precedent_sync_views.py](tools/precedent_sync_views.py) should refuse —
+  or at minimum say loudly — when a sync would DELETE a practice that its
+  committed `MANIFEST.json` records as present, rather than doing it
+  quietly. That is the same "could not check versus checked and found
+  nothing" line [fail-gracefully](practices/fail-gracefully.md) draws.
+
+  **Blocked on:** the refresh itself belongs in each consumer, run under
+  that repo's own gates — HavrutaBrainstorm has an open session and its own
+  deep check, and doing it from here would be the unreviewed cross-repo
+  change this run has been finding all day. The engine-side question (should
+  a sync refuse to delete) is blocked on nothing but the work.

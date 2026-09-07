@@ -684,7 +684,13 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   `python3 -c "import json,pathlib;print(json.load(open(pathlib.Path('~/.config/precedent/config.json').expanduser()))['individual']['path'])"`
   against where you are actually working, before concluding a tool is
   broken — and `git -C <that path> rev-list --count HEAD..origin/main` before
-  trusting anything it produced.
+  trusting anything it produced. **Resolved for this machine 2026-09-07**
+  by repointing the config at `/home/user/precedent-individual`, the clone
+  the session actually works in, with the reason recorded inline in the
+  config itself. The stale `/root/` clone is left on disk rather than
+  deleted -- nothing reads it now, and deleting a checkout to fix a path is
+  a heavier action than the problem warrants -- so the check above is still
+  what to run if any of this recurs.
 
 ## Working in this repo
 
