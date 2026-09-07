@@ -270,7 +270,22 @@ def live_workflow_triggers(rel):
     return sorted(set(live))
 
 
-def audit(path, exempt):
+def audit(path, exempt, siblings=()):
+    """`siblings` are the OTHER paths being retired in this same invocation.
+
+    They matter because a reference from a file that is itself about to be
+    deleted is not a reason to refuse. Retiring `process/personal` and
+    `process/manifest_personal.json` together, every file in the tree names
+    the manifest and the manifest names the tree -- so auditing each path
+    alone reported eighteen blockers, all of them mutual references between
+    two things going in the same commit, and there was no flag to get past
+    it. Found 2026-09-07 doing exactly that retirement for real.
+
+    The fix is narrow on purpose: only paths named in THIS invocation are
+    forgiven. A reference from a file nobody is deleting still blocks, which
+    is the whole point of the audit.
+    """
+
     """Blockers and evidence for one path. Blockers empty == safe to delete."""
     rel = path.rstrip('/')
     blockers, evidence = [], []
@@ -289,7 +304,10 @@ def audit(path, exempt):
             f'first. Git history holds a deleted file forever; it holds '
             f'nothing that was never committed')
 
-    hits, skipped = find_references([rel], exempt)
+    # Everything going in this invocation, so a mutual reference between
+    # two paths being retired together is not read as a survivor.
+    hits, skipped = find_references([rel] + [s.rstrip('/') for s in siblings],
+                                    exempt)
     for h in hits:
         blockers.append(
             f'{h[0]}:{h[1]} still references {h[2]!r} (by {h[3]}) -- '
@@ -362,7 +380,8 @@ def main(argv=None):
 
     blocked = False
     for p in args.paths:
-        blockers, evidence = audit(p, cfg['exempt_files'])
+        others = [q for q in args.paths if q != p]
+        blockers, evidence = audit(p, cfg['exempt_files'], siblings=others)
         print(f'\n=== {p}')
         for e in evidence:
             print(f'  - {e}')
