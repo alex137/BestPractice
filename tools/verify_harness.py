@@ -6409,6 +6409,88 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_repo_reference_allowlist():
+    """A private repo name cannot reach a public tree by nobody predicting it.
+
+    The vocabulary layer is a list of literal strings, so it blocks the names
+    somebody remembered and nothing else. On 2026-09-07 that failed in both
+    directions in one day: it missed a private repository nobody had listed,
+    and it blocked two names that had since become public, forcing 88 hits
+    clearable only by deleting content about public files.
+
+    So for REPOSITORY REFERENCES the default is inverted. An owner is declared
+    private-by-default and every `owner/name` mention is refused unless an
+    `allow` line gives a reason. The set of names you may mention is small and
+    known; the set of repositories you might create is unbounded. Inverting
+    puts the work where the knowledge is.
+
+    It runs in the PUSH gate, offline, which is the whole reason it is a
+    declaration rather than an API call -- very_deep_check.py's visibility
+    audit asks GitHub, and a push gate cannot.
+
+    Proven on its first real run: it caught an abandoned private fork named in
+    this public tree that nobody had ever blocklisted, and its own manual's
+    example, which had used a real account name.
+    """
+    import tempfile
+    gate = ROOT / 'tools' / 'leak_gate.py'
+    if not gate.exists():
+        not_applicable('the repo-reference allowlist refuses an undeclared name',
+                       'tools/leak_gate.py is not present here')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import importlib
+    lg = importlib.import_module('leak_gate')
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        bl = pathlib.Path(td) / 'blocklist.txt'
+        bl.write_text(
+            '# visibility-audit: private-owner acct -- repos private by default\n'
+            '# visibility-audit: allow acct/named-on-purpose -- declared source\n'
+            r'\bSomeSecretTerm\b' + '\n', encoding='utf-8')
+        owners, allowed = lg.parse_repo_policy(bl)
+
+        cases.append(('the private-owner declaration parses',
+                      owners.get('acct', '').startswith('repos private')))
+        cases.append(('the allow declaration parses, with its reason',
+                      allowed.get('acct/named-on-purpose') == 'declared source'))
+
+        def refs(text):
+            return [r for _n, r in lg.repo_ref_hits(text, owners, allowed)]
+
+        cases.append(('an UNDECLARED repo under that owner is refused',
+                      refs('see acct/secret-thing for details')
+                      == ['acct/secret-thing']))
+        cases.append(('a github.com URL form is refused too',
+                      refs('https://github.com/acct/other-thing')
+                      == ['acct/other-thing']))
+
+        # The must-not-fire cases: without these the rule is unusable.
+        cases.append(('an ALLOWED repo passes',
+                      refs('see acct/named-on-purpose here') == []))
+        cases.append(('another owner is untouched',
+                      refs('see someoneelse/anything here') == []))
+        cases.append(('a fraction or ratio is not a repo reference',
+                      refs('16px/1.45 and 287/290 and 10/10') == []))
+        cases.append(('a path segment is not a reference',
+                      refs('vendor/acct/thing and a/b/c') == []))
+        cases.append(('NO owner declared means the rule is inert',
+                      lg.repo_ref_hits('acct/secret-thing', {}, {}) == []))
+
+        # And it reaches the gate's own scan, not just the helper.
+        units = [('f.md', 'f.md', 'text naming acct/undeclared-one here')]
+        hits = lg.scan(units, [], (owners, allowed))
+        cases.append(('scan() surfaces it as a hit',
+                      any('acct/undeclared-one' in str(h) for h in hits)))
+        cases.append(('and the hit says how to declare it',
+                      any('visibility-audit: allow' in str(h) for h in hits)))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the repo-reference allowlist refuses an undeclared private name '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_views_cross_source():
     """tools/precedent_sync_views.py -- the one-command glue over
     precedent_materialize.py + build_views.py --agents-only that a
@@ -10596,6 +10678,7 @@ def main():
     check_commit_identity_derives_declared_timezone()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
+    check_repo_reference_allowlist()
     check_update_refuses_while_a_branch_is_pinned()
     check_leftover_pack_is_flagged_after_migration()
     check_detect_restated_fires()

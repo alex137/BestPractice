@@ -220,8 +220,9 @@ run prompted on every single run.
    **job** name, which is still `Markdown lint`, so no adopter's required
    check changes identity.
 
-2. **`themorgan/Precedent`** (private, created 2026-08-31, last pushed the
-   same day) is an abandoned early fork. The restructuring it was for is
+2. **An abandoned early fork under the same account** (private, created
+   2026-08-31, last pushed the same day) is not named here: it is private, and
+   the repo-reference allowlist refuses an undeclared private name. The restructuring it was for is
    what `precedent-beta-v01` in this repository now holds, and nothing
    anywhere references the fork. Morgan is deleting it by hand.
 

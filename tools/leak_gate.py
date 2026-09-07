@@ -312,6 +312,85 @@ def is_texty(rel):
     return p.suffix.lower() in TEXT_SUFFIXES and not any(d in p.parts for d in SKIP_DIRS)
 
 
+# --------------------------------------------------------------------------
+# Repo references: an ALLOWLIST, because a blocklist cannot block what nobody
+# typed into it
+# --------------------------------------------------------------------------
+#
+# The vocabulary layer is a list of literal strings, so it blocks exactly the
+# names somebody remembered. That is the wrong default for repository names
+# specifically, and it failed in both directions on one day, 2026-09-07: it
+# missed a private repository nobody had listed, and it blocked two names
+# that had since become public. Detection after the fact now exists
+# (very_deep_check.py's visibility audit, which asks the GitHub API), but a
+# push gate cannot ask the network -- it has to work offline and in CI.
+#
+# So for repository references the default is inverted. Declare an OWNER
+# whose repositories are private unless stated otherwise, and every
+# `owner/name` mention is refused unless it carries a reason:
+#
+#     # visibility-audit: private-owner <account> -- repos private by default
+#     # visibility-audit: allow <account>/<repo> -- why this one may be named
+#
+# The example uses placeholders on purpose: this file is public, and writing
+# a real account into it would be the rule leaking through its own manual.
+#
+# The set of names you may mention is small, stable and known to you. The set
+# of repositories you might create is unbounded and grows without anyone
+# thinking about the blocklist. Inverting the default puts the work where the
+# knowledge is: naming a new private repo in a public tree now requires one
+# line saying why, instead of requiring that somebody once predicted it.
+#
+# Both declarations live as COMMENTS in the private blocklist file, which is
+# already the per-person place where "which names matter" is decided, and are
+# read by very_deep_check.py's audit from the same file -- one declaration,
+# two consumers, rather than a second file to keep in sync.
+PRIVATE_OWNER_RE = re.compile(
+    r'#\s*visibility-audit:\s*private-owner\s+([A-Za-z0-9][\w-]*)\s*--\s*(.+)$')
+ALLOW_REF_RE = re.compile(
+    r'#\s*visibility-audit:\s*allow\s+([A-Za-z0-9][\w-]*/[\w.-]+)\s*--\s*(.+)$')
+
+
+def parse_repo_policy(path):
+    """-> (private_owners, allowed_refs) from a blocklist file's comments."""
+    owners, allowed = {}, {}
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return owners, allowed
+    for line in text.splitlines():
+        line = line.strip()
+        m = PRIVATE_OWNER_RE.match(line)
+        if m:
+            owners[m.group(1).lower()] = m.group(2).strip()
+            continue
+        m = ALLOW_REF_RE.match(line)
+        if m:
+            allowed[m.group(1).lower()] = m.group(2).strip()
+    return owners, allowed
+
+
+def repo_ref_hits(text, owners, allowed):
+    """-> [(line_no, owner/name)] for references that are not allowed."""
+    if not owners:
+        return []
+    alt = '|'.join(re.escape(o) for o in sorted(owners))
+    # Two entry points, and missing the second made the rule nearly useless:
+    # the lookbehind that keeps `a/acct/x` from matching ALSO rejected
+    # `github.com/acct/x`, because the character before the owner is `/`
+    # there too -- and a URL is the likeliest way a repository name ever
+    # appears. Caught by the stated case for it, not by reading.
+    pat = re.compile(r'(?:github\.com/|(?<![\w./-]))(' + alt + r')/([A-Za-z][\w.-]*?)'
+                     r'(?=[\s)\]"\'`,;:]|\.git\b|/|$)', re.I)
+    out = []
+    for m in pat.finditer(text):
+        ref = f'{m.group(1)}/{m.group(2)}'
+        if ref.lower() in allowed:
+            continue
+        out.append((text.count('\n', 0, m.start()) + 1, ref))
+    return out
+
+
 def _parse_blocklist(path, allow_inside_repo=False):
     """Compile one blocklist file to patterns. Shared by both halves so the
     default list and a private one cannot drift in how they are read."""
@@ -396,7 +475,8 @@ def load_blocklist():
             True)
 
 
-def scan(units, blocklist):
+def scan(units, blocklist, repo_policy=(None, None)):
+    owners, allowed = repo_policy
     hits = []
     for display, rel, text in units:
         if rel is not None and rel not in ALLOWED_PATHS:
@@ -414,6 +494,12 @@ def scan(units, blocklist):
                 line_no = text.count('\n', 0, m.start()) + 1
                 hits.append((display, line_no, f'blocklist /{pat.pattern}/',
                              m.group(0).strip()[:70]))
+        for line_no, ref in repo_ref_hits(text, owners or {}, allowed or {}):
+            hits.append((display, line_no,
+                         'undeclared repo reference (owner is private by '
+                         'default; add a `# visibility-audit: allow ' + ref +
+                         ' -- why` line to the blocklist if this may be named)',
+                         ref))
     return hits
 
 
@@ -461,7 +547,14 @@ def main():
     require_vocab = '--require-vocabulary' in args or _require_vocabulary_configured()
     blocklist, source, configured = load_blocklist()
     units = units_to_scan(mode, rev_range)
-    hits = scan(units, blocklist)
+    # The repo-reference allowlist is read from the SAME private file as the
+    # vocabulary patterns, so a clone with no private blocklist configured
+    # gets no owner policy either -- and says so through the existing
+    # PARTIAL reporting, rather than silently enforcing nothing.
+    _raw_bl = os.environ.get(BLOCKLIST_ENV, '').strip()
+    _policy = (parse_repo_policy(pathlib.Path(_raw_bl).expanduser())
+               if _raw_bl else ({}, {}))
+    hits = scan(units, blocklist, _policy)
 
     for display, line, why, sample in hits:
         where = f"{display}:{line}" if line else display
