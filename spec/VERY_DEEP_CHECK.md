@@ -584,11 +584,25 @@ be built, not borrowed.
   correctly carried; one future-looking date that is an example filename
   inside a code block, not a claim about the world.
 
-**Not done:** the coherence read proper, across all four repos —
-contradictions, misdirected-but-resolving links, fragments, disproportion,
-rules that no longer make sense, cost that is not earned. This is the
-largest single piece of unfinished work in the run, and it is a reading
-task rather than a checking one: nothing above substitutes for it.
+**Pass 3 is now done, with its limits stated.** The mechanical categories
+are swept and recorded above and came back clean where they came back clean.
+The cross-repo reading found what is recorded in this section — a stale
+`visibility` comment contradicting its own code, five engine files citing a
+rule no reader here can resolve, a completed item still filed as open with
+three false figures, a fixture reading a repo it does not own, a template
+putting 66 developer rules on an editorial project, a resolver refusal
+latent in today's own duplication — and the private sets' own documents came
+back clean on formatting, links, slug integrity, override targets and
+same-slug collisions.
+
+**What pass 3 did NOT do, stated rather than implied:** a line-by-line
+reading of all 122 practice files for prose quality — disproportion, dead
+rules, a paragraph that over-explains a minor point. The findings above came
+from targeted reads and from mechanical sweeps that then had their results
+judged, not from reading every file end to end. That fuller read is the kind
+of work [full-practice-audit](../practices/full-practice-audit.md) exists
+for, and the 54% measurement in pass 4 is the reason to be honest about what
+it would be worth.
 
 ### Pass 4 — catalogue, backlog, and branches
 
@@ -637,11 +651,54 @@ what [checkable-gets-checked](../practices/checkable-gets-checked.md) asks
 for — it wants an attempt and a recorded reason, not a check at any cost. A
 `checked_by: null` count is not a defect count.
 
+**The long tail is not a backlog — it is already done, and the previous
+paragraph's recommendation to "convert" it was wrong.** Measured across all
+**39** practices carrying `checked_by: null` in the two private sets: none
+has an empty `## Install`, the shortest is 177 characters, the median is
+393, and **not one** uses the "too hard to check" shape that
+[checkable-gets-checked](../practices/checkable-gets-checked.md) explicitly
+forbids. Every one records a considered, specific no — *"telling connected
+reasoning reformatted as bullet fragments apart from a genuine enumeration
+is precisely the semantic call the rule's own Detail describes"*; *"the
+actual rule is about which calls were correctly sized as small enough to
+just make, and that sizing is the judgment itself, not observable after the
+fact from the commit"*. That practice asks for an attempt and a recorded
+reason, not a check at any cost, and the standard is met.
+
+One case read as unreasoned to a keyword scan and is the opposite:
+`catalogue-carries-stories` **is** checked mechanically — by the universal
+catalogue's own `precedent_check.py`, which reaches source sets — and its
+`checked_by` is `null` precisely so this set does not carry a second
+implementation of one rule. So the corrected count is 39 of 39 accounted
+for. **A `checked_by: null` count is not a defect count**, twice over now:
+first for `precedent-team-tms`'s 0 of 2, then across the whole tail.
+
+**The duplication landed today is a hard refusal, not an inconsistency.**
+Landing `fail-gracefully` in both team sets produced the only same-slug
+collision between two sources at the **same level** — and resolving a list
+containing both raises `ResolveError` outright: *"nothing orders two sources
+at the same level, so there is no answer to which one wins."* Any repository
+declaring both team sources would fail to resolve at all. Checked rather than
+assumed: every reachable `precedent.json` declares exactly one team source
+today, so nothing is broken — the defect is latent and fires the first time
+one repository wants both. The refusal is the correct engine behaviour (it is
+`fail-gracefully` clause 1, with the message naming its own remedies); the
+cost sits on the catalogue decision. Recorded against
+[`practice-consistency-across-team-repos`](../TODO.md#practice-consistency-across-team-repos),
+which Morgan parked deliberately.
+
+The other three same-slug collisions were read and are all deliberate and
+documented: `audience-register` (individual vs team-tms, team ranks above
+individual, said so in its own Install), `bestpractice-sync` (one side
+`status: deduplicated`), and `catalogue-carries-stories` (universal plus a
+team file that puts it in force). Slug-link integrity across all four repos:
+**0 findings** — no label disagreeing with its target, no link to a slug
+nothing defines, no stale `overrides:` or `supersedes:` target.
+
 **What is left in this pass:** the sequential per-practice judging of the 53,
-one at a time, and the backlog read. Both are deliberately still open. Given
-the 54% measurement, a session picking this up should weigh converting the
-long tail (32 of 40 in the team set, 7 of 15 in the individual set still
-carry `checked_by: null`) above judging it.
+one at a time, and the backlog read. Both are deliberately still open —
+though the enforcement half of the motivation for the judging is now weaker
+than it looked, since the tail it would have fed is already reasoned.
 
 ### Pass 4 — branches
 

@@ -1212,5 +1212,33 @@ which is the failure this repointing exists to end — write
   already exists; and `severity: blocking` is the only cross-source
   relationship the resolver currently models.
 
+  **It is not merely untidy — it is a hard refusal, verified 2026-09-07.**
+  Resolving a source list containing both team sets raises `ResolveError`:
+
+  > `precedent-team-tms` and `precedent-team-maintainers` are both
+  > team-level sources and both define the practice `fail-gracefully` …
+  > Slugs are identities; nothing orders two sources at the same level, so
+  > there is no answer to which one wins — rename one of them, retire one,
+  > or move one to a different level.
+
+  So **any repository that declares both team sources fails to resolve at
+  all** — not a warning, a refusal, and every session in such a repo would be
+  broken. That refusal is the *right* engine behaviour (it is
+  `fail-gracefully` clause 1: a degraded result must never look complete, and
+  the message names its own remedies). The cost sits on the catalogue
+  decision, not the resolver.
+
+  **Nothing is broken today**, checked rather than assumed: every
+  `precedent.json` reachable from here declares exactly one team source —
+  BestPractice and `workingwithai` name `precedent-team-maintainers`, the
+  non-technical template names `precedent-team-tms`. The defect is latent,
+  and it fires the first time one repository wants both — which is the
+  direction "put the rule in the various team repos" points.
+
+  The three remedies the resolver itself names are the shape of the answer:
+  rename one, retire one, or move one to a different level. A fourth would be
+  a new one — teaching the resolver to order two same-level sources, which is
+  a real design change and the reason this is parked rather than patched.
+
   **Blocked on:** nothing but a decision about what shape the answer takes.
   Explicitly parked at Morgan's request — do not design it in passing.
