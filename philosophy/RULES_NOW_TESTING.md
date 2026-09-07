@@ -89,10 +89,10 @@ Before calling work done, answer all three out loud in the reply:
 ### 5. Write Like a Human, Not an LLM — *Trial*
 
 Follow [process/voice/HUMAN_VOICE_RULES.md](https://github.com/themorgan/WorkingWithAI/blob/main/process/voice/HUMAN_VOICE_RULES.md),
-vendored from [SoundHuman](https://github.com/themorgan/SoundHuman)
+vendored from a private upstream voice repository
 and synced automatically ([AGENTS.md](https://github.com/themorgan/WorkingWithAI/blob/main/AGENTS.md)'s "Voice" section) —
 governs everything written here, chat replies included. Still *Trial*:
-first repo applying it beyond WriteLike.
+the first repo applying it beyond the private one it came from.
 
 <a id="dark-process-self-audit"></a>
 
