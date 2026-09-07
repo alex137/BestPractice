@@ -1,13 +1,21 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session -->
-
+---
+title:         Brief — Populating the Two Private Sets
+kind:          brief
+status:        closed
+opened:        2026-08-31
+closed:        2026-09-01
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What populating the two private practice sets was handed, kept for how it was done rather than as a live work list.
+---
 # Brief — Populating the Two Private Sets
 
-**Done, 2026-09-01 — reported by Morgan, from a session opened directly
-against the two private repos. Phase 3 is closed** (see
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s Sequence table and
-"What Phase 3 Built, and What It Could Not"). Kept below, unaltered, as the
-record of what that session was handed and why it had to run from outside
-Precedent — not as an open task.
+Reported by Morgan, from a session opened directly against the two private
+repos (see [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s Sequence
+table and "What Phase 3 Built, and What It Could Not"). Kept below,
+unaltered, as the record of what that session was handed and why it had to
+run from outside Precedent.
 
 **Note added 2026-09-01:** the isolation rule this brief was written under is
 relaxed for active development —

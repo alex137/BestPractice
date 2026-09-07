@@ -1,8 +1,16 @@
-<!-- Last updated: 2026-09-02 (Buenos Aires) by the phase-5 build session -->
-
+---
+title:         Phase 5 Brief — The Creation Pipeline
+kind:          brief
+status:        closed
+opened:        2026-09-02
+closed:        2026-09-02
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What phase 5 was handed for the creation pipeline, what it built stage by stage, and what it deferred to phase 6.
+---
 # Phase 5 Brief — The Creation Pipeline
 
-**Status: phase 5's tooling is built and harness-tested, as of 2026-09-02.**
 Read [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "How a Practice
 Comes Into Existence" section first — this brief is the implementation note,
 in the same relationship [spec/ENFORCEMENT.md](ENFORCEMENT.md) has to phase

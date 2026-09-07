@@ -10,7 +10,9 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | deep check | [two-check-levels](practices/two-check-levels.md) |
+| document kind | [document-status-header](practices/document-status-header.md) |
 | document reference | [doc-references-are-links](practices/doc-references-are-links.md) |
+| document status | [document-status-header](practices/document-status-header.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | go merge | [merge-authorization-keyword](practices/merge-authorization-keyword.md) |

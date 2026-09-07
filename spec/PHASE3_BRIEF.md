@@ -9,12 +9,9 @@ supersedes:    []
 audience:      session
 summary:       What phase 3 was handed — splitting the one practice set into universal, team and individual sources — and which of its items a session working inside Precedent could not do.
 ---
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session -->
-
 # Phase 3 Brief — Split the Sources
 
-**Status: phase 3 is fully closed, as of 2026-09-01.** This is kept as the
-record of what phase 3 was handed, not as a live work list. What phase 3
+This is the record of what phase 3 was handed, not a live work list. What phase 3
 actually built and what it deliberately left for a different session are in
 [spec/SOURCES.md](SOURCES.md) and in the plan's
 [What Phase 3 Built, and What It Could Not](../PRACTICE_ENGINE_PLAN.md#what-phase-3-built-and-what-it-could-not).

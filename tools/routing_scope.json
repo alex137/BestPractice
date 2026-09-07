@@ -164,6 +164,14 @@
       "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
       "decided": "phase 1"
     },
+    "document-status-header": {
+      "globs": [
+        "spec/**/*.md",
+        "record/**/*.md"
+      ],
+      "why": "Its own applies_to, and the path IS the distinguishing condition: the standard is scoped to those two trees by definition, so a glob over them is exactly the practice's own scope rather than an approximation of it. Deliberately not '**/*.md' -- a document at the repository root or in documentation/ is out of scope, and surfacing the Rule there would be telling a reader to stamp a file the check will never look at.",
+      "decided": "2026-09-07, when the practice was added"
+    },
     "engine-plus-host-shims": {
       "globs": [
         "process/upstream/**",

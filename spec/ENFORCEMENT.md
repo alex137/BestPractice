@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by the phase-4 build session -->
-
+---
+title:         The Enforced Channel (Phase 4)
+kind:          reference
+status:        current
+opened:        2026-08-31
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       "Phase 4's enforced channel: which practices carry a mechanical check, and what each check is blind to."
+---
 # The Enforced Channel (Phase 4)
 
 What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
@@ -67,6 +76,7 @@ being checked by it.
 | `doc-references-are-links` | change | a changed document must not render an accidental strikethrough span — use the approximately sign, never a tilde |
 | `docs-are-current-state` | change | a changed document does not carry an in-document revision annotation -- an "(added <date>)" / "(rewritten <date>)" tag, or a "Rev N" heading ladder -- since version control already carries that losslessly |
 | `docs-track-models` | tree | a figure a script declares it owns is not hand-typed into the prose around its generated block |
+| `document-status-header` | tree | every document under spec/ and record/ that CARRIES a lifecycle frontmatter header declares a legal kind/status pair, a title matching its own first heading, a `closed:` date exactly when it is closed, a `superseded_by:` that resolves exactly when it is superseded, and no competing hand-maintained `Last updated:` comment |
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
@@ -94,7 +104,7 @@ being checked by it.
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-35 of 69 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+36 of 70 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

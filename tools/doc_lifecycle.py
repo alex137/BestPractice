@@ -17,11 +17,13 @@ makes a reader distrust the wrong one.
 practice: checkable-gets-checked -- this convention is straightforwardly
 checkable, so it is not left advisory.
 
-WARN-ONLY BY DEFAULT while the backfill is in progress (phase 1 of that
-spec's migration). `--blocking` makes an unstamped file a failure; without
-it, unstamped files are reported and exit stays 0, so the check can be
-registered and read before the tree satisfies it. Flip the default at phase
-2, when every spec file is stamped.
+BLOCKING SINCE PHASE 2 (2026-09-07), when the backfill stamped all 24 spec
+documents. An unstamped file is now a failure. `--warn-only` restores the
+phase-1 behaviour -- report unstamped files, exit 0 -- which is what a repo
+part-way through its own backfill wants, and is the mode this check was
+introduced in so that a standard could be registered and read before any
+tree satisfied it. Failing 22 files on the commit that introduces a
+convention makes the convention something to switch off rather than satisfy.
 """
 import datetime
 import pathlib
@@ -196,7 +198,9 @@ def main(argv):
     if '--help' in argv or '-h' in argv:
         print(__doc__)
         return 0
-    blocking = '--blocking' in argv
+    # `--blocking` is still accepted so that anything wired against the
+    # phase-1 spelling keeps working; it is now the default and a no-op.
+    blocking = '--warn-only' not in argv
     findings, unstamped, stamped = scan()
     for f in findings:
         print(f'  {f}')
@@ -207,8 +211,8 @@ def main(argv):
     verdict = 'FAIL' if (findings or (blocking and unstamped)) else 'OK'
     print(f'doc_lifecycle {verdict}: {stamped} stamped, {len(unstamped)} '
           f'unstamped, {len(findings)} finding(s)'
-          + ('' if blocking else ' (warn-only: unstamped files do not fail '
-                                'until --blocking)'))
+          + ('' if blocking else ' (--warn-only: unstamped files reported, '
+                                'not failed)'))
     return 1 if (findings or (blocking and unstamped)) else 0
 
 

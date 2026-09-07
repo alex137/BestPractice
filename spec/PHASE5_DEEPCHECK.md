@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-02 (Buenos Aires) by the phase-5 deep-check session -->
-
+---
+title:         Phase 5 Deep-Check — What Was Actually Found
+kind:          record
+status:        closed
+opened:        2026-09-02
+closed:        2026-09-02
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       "What the deep check before phase 6 actually found: real bugs fixed, real candidates landed, and the questions it left open."
+---
 # Phase 5 Deep-Check — What Was Actually Found
 
 [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md)'s own "For the session that

@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-06 (Buenos Aires) by the deduplication-vocabulary session, to version 4 -->
-
+---
+title:         The Practice File Format
+kind:          reference
+status:        current
+opened:        2026-08-31
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       The per-practice file format phase 1 converted the catalogue into, including where the conversion had to make a call the plan left open.
+---
 # The Practice File Format
 
 This is the format [`tools/split_practices.py`](../tools/split_practices.py) converts BestPractice's

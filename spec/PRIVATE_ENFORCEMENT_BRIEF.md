@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session -->
-
+---
+title:         Brief — Bringing Mechanical Checks to the Private Sets
+kind:          brief
+status:        blocked
+opened:        2026-09-01
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       Bringing mechanical checks to the two private sets' practices, blocked because it cannot be run from this repository.
+---
 # Brief — Bringing Mechanical Checks to the Private Sets
 
 **Read this if you are a session opened against

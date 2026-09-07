@@ -4461,7 +4461,7 @@ def check_precedent_check_fires():
 
         case('declared-base-branch', _plant_unguarded_branch_inference)
 
-        # document-lifecycle-header -- a stamped document whose declared
+        # document-status-header -- a stamped document whose declared
         # status is illegal for its declared kind. The fixture must stamp a
         # SECOND file legally as well: the check raises NotApplicable when
         # nothing at all is stamped (a tree that has not adopted the header
@@ -4498,7 +4498,7 @@ def check_precedent_check_fires():
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'lifecycle baseline')
 
-        case('document-lifecycle-header', _plant_bad_lifecycle_status,
+        case('document-status-header', _plant_bad_lifecycle_status,
              setup=_setup_lifecycle)
 
         # --- and the registry must not contain an untested claim ------------

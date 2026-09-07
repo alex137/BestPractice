@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-06 (Buenos Aires) by the loader empty-channel session, recording why the generated block stays silent about channels a source does not fill -->
-
+---
+title:         The Loader (Phase 2)
+kind:          reference
+status:        current
+opened:        2026-08-31
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What phase 2's loader built, how the resident set was curated, and what the behavioural replay does and does not prove.
+---
 # The Loader (Phase 2)
 
 What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "How an Agent
@@ -166,14 +175,14 @@ a number in a sentence. That is `docs-track-models`, happening here.
 <!--gen:catalogue-->
 | | |
 |---|---|
-| Practices in the catalogue | 69 |
-| Resident, loaded every session | 7 of 69 practices |
+| Practices in the catalogue | 70 |
+| Resident, loaded every session | 7 of 70 practices |
 | Resident block size | ≈377 tokens of a 2000-token hard cap |
 | `## Rule` share of the catalogue | 18% of the catalogue |
-| Rules still over 150 words | 12 |
+| Rules still over 150 words | 13 |
 | Carrying a `## Detail` | 30 |
-| Carrying a `## Story` | 69 |
-| Enforced by a check | 35 of 69 practices carry a `checked_by` |
+| Carrying a `## Story` | 70 |
+| Enforced by a check | 36 of 70 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py

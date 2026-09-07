@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-07, run in progress -->
-
+---
+title:         Very deep check — run record
+kind:          record
+status:        closed
+opened:        2026-09-06
+closed:        2026-09-07
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       "The run record of the very deep check: four ordered passes over every repository in force, and what each one found."
+---
 # Very deep check — run record
 
 The state of the current [very deep check](../practices/very-deep-check.md),

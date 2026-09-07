@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session -->
-
+---
+title:         The Three Sources (Phase 3)
+kind:          reference
+status:        current
+opened:        2026-08-31
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       "Phase 3's three sources: the resolver, the precedence order, and what could not be built from inside this repository."
+---
 # The Three Sources (Phase 3)
 
 What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s

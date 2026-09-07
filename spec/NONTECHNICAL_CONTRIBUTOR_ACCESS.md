@@ -1,10 +1,17 @@
-<!-- Last updated: 2026-09-04 by the session that drafted this plan, from a
-     brainstorm conversation with Morgan. Not yet executed against a real
-     repo or a real person — see "Status" below. -->
-
+---
+title:         "Plan: a locked-down access pattern for non-technical contributors"
+kind:          proposal
+status:        drafted
+opened:        2026-09-04
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       A locked-down access pattern letting a non-technical contributor raise practice candidates without repository write access.
+---
 # Plan: a locked-down access pattern for non-technical contributors
 
-**Status: drafted, not executed.** This is a self-contained implementation
+This is a self-contained implementation
 plan, written so a fresh session (with no memory of the conversation that
 produced it) can pick it up and carry it out. It has not been run against a
 real employee or a real repo yet — doing so for the first time doubles as

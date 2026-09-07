@@ -1,8 +1,17 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by the follow-up session that also built INSTALL.md §0 -->
-
+---
+title:         Phase 6 Brief — Migrating Consumer Repos
+kind:          brief
+status:        open
+opened:        2026-09-03
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What phase 6 was handed for migrating consumer repositories, what is closed, and what is blocked on a repository being attached.
+---
 # Phase 6 Brief — Migrating Consumer Repos
 
-**Status: opened 2026-09-03, not closed.** [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
+[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
 Sequence row 6 already marks this "underway" from `themorgan/WorkingWithAI`'s
 2026-09-02 migration; this brief is the session that picked phase 6 up
 afterward, closed two of its named gaps for real, and is honest about what

@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-02 (Buenos Aires) by the phase-5 build session -->
-
+---
+title:         The Candidate File Format (Phase 5, Stage 2)
+kind:          reference
+status:        current
+opened:        2026-09-02
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       The candidate file format phase 5 stage 2 defines, and why a universal candidate is a GitHub Issue rather than a file.
+---
 # The Candidate File Format (Phase 5, Stage 2)
 
 What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s

@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-06 by the pre-launch audit session -->
-
+---
+title:         The Pre-Launch Audit — 2026-09-06
+kind:          record
+status:        closed
+opened:        2026-09-06
+closed:        2026-09-06
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What a real from-scratch install, a real migration and a real two-team resolve broke on 2026-09-06, what was fixed, and what stayed open.
+---
 # The Pre-Launch Audit — 2026-09-06
 
 Morgan asked for a very deep check plus a full practice audit across

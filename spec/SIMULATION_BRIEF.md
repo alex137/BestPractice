@@ -1,9 +1,19 @@
-<!-- Last updated: 2026-09-04, phase 4 landed -->
-
+---
+title:         The Practice Simulation (Brief)
+kind:          brief
+status:        open
+opened:        2026-09-04
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       "The practice simulation: what it measures, which of its own phases are built, and what remains."
+---
 # The Practice Simulation (Brief)
 
-**Status: approved; phases 1-4 (rough phasing, below) are built.** Written up
-per Morgan's request to have a plan to approve before implementation starts.
+Written up per Morgan's request to have a plan to approve before
+implementation starts; the rough phasing below records which of its own
+phases are built.
 Treat this the way `spec/PHASE5_BRIEF.md` and friends were treated
 — a brief a phase is built from, updated in place as it's actually built,
 never left to drift out of sync with a second, separate copy.
