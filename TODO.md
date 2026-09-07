@@ -829,35 +829,49 @@ which is the failure this repointing exists to end — write
   and that is the point — reopening this means someone arguing the imposition
   is worth it for every adopter, which is a decision rather than a task.
 
-41. <a id="gates-absent-from-main"></a>**Decide what guards `main` before the beta branch merges back.**
-    `main` carries only
-    [.github/workflows/docs.yml](.github/workflows/docs.yml). Neither the
-    deep check nor the leak gate exists there: both were added on
-    `precedent-beta-v01` (leak gate 2026-08-31, deep check 2026-09-03) and
-    `main` has never had either. Verified 2026-09-07 by listing
-    `.github/workflows/` on `origin/main`, which returns that one file, and
-    the branches have diverged — `main` is not an ancestor of the beta
-    branch and sits 269 commits behind it. **This is not urgent and the
-    entry says why:** nothing has pushed to `main` since 2026-09-03, and its
-    tree passes the structural leak gate today — 59 units, exit 0, checked
-    2026-09-07 by running this branch's
-    [tools/leak_gate.py](tools/leak_gate.py) from inside a worktree of
-    `origin/main` (from *inside*: `ROOT` there resolves through `__file__`,
-    so running the script by absolute path from elsewhere silently scans
-    this checkout instead and reports a confident, wrong pass — 799 units,
-    the beta tree's own figure). The private vocabulary half did not run, as
-    always in an environment without the blocklist.
-    **What actually has to be decided**, rather than done: whether `main`
-    gets these gates *now*, or whether it inherits them at the merge-back
-    and the gap is simply accepted until then. The argument for now is that
-    `main` is the default branch — the one a visitor lands on and the one
-    every dependent repo's installer reads — and the leak gate's own premise
-    is that on a public repo a push is a publication, with no grace period;
-    an unguarded default branch reads backwards against that. The argument
-    for waiting is that the merge-back closes it for free and no other path
-    writes to `main` today. **Blocked on:** Morgan's call, which is why this
-    is filed rather than fixed. If the answer is "now", it is a small PR to
-    `main` carrying the two workflow files as they stand on this branch,
-    `pull_request:` already dropped from both (ff13345, d11394c). If the
-    answer is "at merge-back", nothing needs doing and this item closes when
-    the beta branch lands.
+41. <a id="gates-absent-from-main"></a>**Put the leak gate on `main`; the deep
+    check cannot go there until the merge-back.** **Deferred by Morgan
+    2026-09-07 — worth doing, not now.** `main` carries only
+    [.github/workflows/docs.yml](.github/workflows/docs.yml), so the official
+    branch — the one a visitor lands on and every installer reads — is guarded
+    by the markdown lint alone. Neither other gate has ever existed there:
+    both were built on `precedent-beta-v01` (leak gate 2026-08-31, deep check
+    2026-09-03), and the branches have diverged, with `main` 269 commits
+    behind. Verified 2026-09-07 by listing `.github/workflows/` on
+    `origin/main`.
+
+    **The two halves are not the same job, which is what turned this from a
+    question into a task.** The deep check *cannot* be ported: `main` has no
+    [tools/verify_harness.py](tools/verify_harness.py) and no
+    [tools/precedent_check.py](tools/precedent_check.py), so copying the
+    workflow there would install a check that fails on its first run and every
+    run after it. Porting those tools with it is not the fix either — they
+    exercise the practice engine `main` does not have, against a `practices/`
+    directory it does not have. That half waits for the merge-back as a matter
+    of fact, not preference. The leak gate is the opposite:
+    [tools/leak_gate.py](tools/leak_gate.py) is self-contained, is not among
+    the files [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    copies downstream, and `main`'s tree **already passes it** — 59 units,
+    exit 0, checked 2026-09-07 from inside a worktree of `origin/main`. (From
+    *inside*: `ROOT` there resolves through `__file__`, so running the script
+    by absolute path from another checkout silently scans the script's own
+    repo and reports a confident, wrong pass — 799 units, this branch's
+    figure. The next person auditing another branch will reach for exactly
+    that command.) The private vocabulary half did not run, as always without
+    the blocklist.
+
+    **What it takes when it is done:** a small pull request to `main` carrying
+    [tools/leak_gate.py](tools/leak_gate.py),
+    [tools/leak-blocklist.default.txt](tools/leak-blocklist.default.txt) and
+    [.github/workflows/leak-gate.yml](.github/workflows/leak-gate.yml) as they
+    stand on this branch, with `pull_request:` already dropped (d11394c) so it
+    does not arrive carrying the double-run this branch just removed.
+
+    **Why deferring is defensible, stated so the deferral can be re-judged
+    rather than re-argued:** nothing has pushed to `main` since 2026-09-03 and
+    its tree is clean today, so the exposure is a branch nobody writes to.
+    **What would make it urgent:** any push to `main` before the merge-back —
+    at which point the gate is missing exactly when it is needed, because the
+    scanner's whole premise is that on a public repo a push is a publication
+    with no grace period. **What closes it for free:** the merge-back landing
+    first, which brings both gates to `main` in one move.
