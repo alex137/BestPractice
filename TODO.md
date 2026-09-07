@@ -1269,6 +1269,34 @@ which is the failure this repointing exists to end — write
   a new one — teaching the resolver to order two same-level sources, which is
   a real design change and the reason this is parked rather than patched.
 
+  **Partly resolved 2026-09-07, by removing the collision rather than solving
+  it.** `fail-gracefully` and `bold-key-phrases` were promoted to the
+  universal catalogue and deleted from both team sets, on Morgan's decision.
+  Two different teams wanting the identical rule is what a universal rule
+  looks like, so the duplication was the catalogue reporting a misplaced
+  level. Both team sources now resolve together; verified.
+
+  **What that does NOT solve, and is the reason this item stays open.**
+  Promotion works only while the two teams want the *same* rule. The real
+  question is what happens when they want the same *slug* to mean different
+  things — a rule genuinely local to each team, under a name both reach for
+  — and every remedy available today is a workaround for that case:
+
+  - **Rename one.** Cheap, and wrong as a habit: the slug is the identity a
+    session searches by, so two names for one concept is the folklore
+    problem in a different place.
+  - **Retire one.** Only honest when one team was wrong.
+  - **Move one to another level.** There is no level below team but
+    repo-local, which does not reach a team's other repositories.
+  - **Promote, as done here.** Requires the rule to be genuinely shared.
+
+  So a rule two teams both want, differently, has no home. Precedence is
+  defined *between* levels; nothing orders two sources *at* one. Options
+  worth weighing when this is picked up: an explicit tie-break a consuming
+  repo declares (it knows which team it belongs to, which neither source
+  does); source-qualified slugs at the point of use; or accepting the
+  refusal and requiring one repo never to declare two team sources.
+
   **Blocked on:** nothing but a decision about what shape the answer takes.
   Explicitly parked at Morgan's request — do not design it in passing.
 

@@ -54,7 +54,9 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~312 of 2000 token budget, 6 of 67 practices (6 universal))
+## Resident block (~377 of 2000 token budget, 7 of 69 practices (7 universal))
+
+**bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -194,6 +196,8 @@ When writing an outward-facing summary of claims:
   outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
 When writing code because a specific practice requires it:
   code-cites-practice — cite the practice's slug in a comment, right where the code is
+When writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one:
+  fail-gracefully — keep going, never look complete — match the telling to stake and reader
 When writing or editing a document:
   acronyms-glossary — expand acronyms on first use; keep one central glossary
   doc-references-are-links — reference repo files as relative links; use ≈, never ~

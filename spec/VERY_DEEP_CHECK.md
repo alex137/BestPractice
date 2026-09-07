@@ -557,6 +557,41 @@ not: `severity: blocking` is about *override protection* (no higher-ranked
 source may turn the practice off), not about report volume. The axis has to
 be built, not borrowed.
 
+**Promotion closed the collisions, and the gates immediately found four more
+things — which is the promotion working, not going wrong.** Moving
+`fail-gracefully` and `bold-key-phrases` to universal and deleting them from
+both team sets made every gate re-derive: `routing_scope.json` had no entry
+for either (a practice whose routing nobody decided), `fail-gracefully`'s
+`index_clause` was 83 characters against an 80 limit, and two generated
+figure blocks drifted because the catalogue went from 66 to 68 and the
+resident set from 6 to 7. All four are the enforced channel doing exactly
+what it is for.
+
+The fourth was a real defect and not in the promotion at all. The harness
+plants one violation per enforced practice and asserts each fires; the
+`docs-track-models` plant **hardcoded** *"6 of {n} practices"* — the resident
+count on the day it was written. `docs-track-models` fires on a restatement
+of a string a script *declares it owns*, and the owned string was now
+*"7 of 68 practices"*, so the plant landed, matched nothing, and the harness
+reported the **check** as broken when it was the **fixture**. Fixed by
+deriving the planted phrase from `doc_sync.owned_figures()` — the plant is
+now whatever the check is currently looking for, and the two cannot drift
+apart. Third fixture this run found reading a value it does not own, after
+the hermetic-fixture fix and the `'Story'`/`'story'` key.
+
+**The within-source conflict scan is built** (Morgan, 2026-09-07), in
+[very_deep_check.py](../tools/very_deep_check.py) rather than as a gate,
+since this check is on-demand. Deliberately narrow: two practices in one
+catalogue claiming the same `defines:` term (GLOSSARY.md can show only one,
+so one silently wins), and an `overrides:` or `in_force_at:` naming a
+sibling in its own source (precedence orders levels, not siblings). A shared
+`occasion:` was measured first and rejected as a signal — four universal
+practices share *"writing or editing a document"* and are complementary. Its
+own first version iterated `defines:` as characters and reported that 67
+practices all define `'['`; it now uses `build_views._json_list`, the same
+parser that builds the glossary. Positive and negative controls both pass;
+current result across every source in force is **none**.
+
 **Checked and clean, so the next run need not redo them:**
 
 - **Formatting drift and relative links in the three private sets.** Zero

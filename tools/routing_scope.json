@@ -26,6 +26,13 @@
       "why": "No locus. 'A mechanism that makes something reachable' is a property of what you built, not of where you built it.",
       "decided": "phase 4 routing pass"
     },
+    "bold-key-phrases": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Its own applies_to. The occasion is writing any document meant to be read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the path glob is a second reminder rather than the only one.",
+      "decided": "promoted to universal 2026-09-07"
+    },
     "build-buy-decompose": {
       "globs": [
         "**"
@@ -37,7 +44,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place \u2014 routed by the `merge` gate instead.",
+      "why": "A moment, not a place — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -100,7 +107,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `review` gate instead.",
+      "why": "A moment — routed by the `review` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -129,7 +136,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `reply` gate instead.",
+      "why": "A moment — routed by the `reply` gate instead.",
       "decided": "follow-up session, 2026-09-03",
       "gates": [
         "reply"
@@ -164,6 +171,13 @@
       ],
       "why": "The occasion is EXPORTING a tool across a repo boundary, which happens in the vendored tree and the host shims -- not in tools/, where the engine is merely authored. A first draft of this pass used tools/** and surfaced the practice on 10 of 20 eval cases against 3 it applies to; re-reading the occasion is what narrowed it, not the cost figure, though the cost figure is what prompted the re-read.",
       "decided": "phase 4 routing pass"
+    },
+    "fail-gracefully": {
+      "globs": [
+        "**"
+      ],
+      "why": "DELIBERATELY UNROUTED, and the reason is the practice's own scope. It governs code that depends on anything outside its own control -- any language, any file, plus setup and configuration that is not code at all. No glob narrower than ** would be honest: restricting it to tools/**/*.py would silence it for shell hooks, templates and workflow files, which are exactly where the container's defaults bite. Its own Install already records that the general form floods a mechanical check (67 hits against this repo's tools/, mostly legitimate), so the occasion index and review carry it rather than the path channel.",
+      "decided": "promoted to universal 2026-09-07"
     },
     "frame-from-audience-question": {
       "globs": [
@@ -246,7 +260,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -257,7 +271,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -275,7 +289,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
+      "why": "A moment — routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -293,7 +307,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `push` gate, and enforced by a turn-end check.",
+      "why": "A moment — routed by the `push` gate, and enforced by a turn-end check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "push"
@@ -375,7 +389,7 @@
       "globs": [
         "**"
       ],
-      "why": "Genuinely unroutable \u2014 see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
+      "why": "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
       "decided": "phase 4 routing pass"
     },
     "rename-updates-links": {
@@ -440,7 +454,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -482,7 +496,7 @@
       "globs": [
         "TODO.md"
       ],
-      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself \u2014 the only place the practice's rule is ever violated.",
+      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated.",
       "decided": "post-phase-4, converting Alex's practice 53",
       "gates": [
         "merge"
@@ -541,7 +555,7 @@
     ],
     "merge": "merging a branch",
     "review": "reviewing work, or a review finding a defect",
-    "push": "before pushing \u2014 the pre-push hook",
-    "reply": "ending a turn and writing the reply \u2014 the stop hook"
+    "push": "before pushing — the pre-push hook",
+    "reply": "ending a turn and writing the reply — the stop hook"
   }
 }

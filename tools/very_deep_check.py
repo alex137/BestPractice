@@ -110,6 +110,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import parse_check as pcheck  # noqa: E402
 import precedent_bootstrap_source as bootstrap_source  # noqa: E402
 import split_practices as sp  # noqa: E402
+import build_views as bv  # noqa: E402
 
 # The passes the invoking session actually works are read from the practice
 # file's own `## Detail` section at run time, not kept as a second copy here.
@@ -737,6 +738,79 @@ def main():
     # Source shape. bootstrap only ever ran for sources it CREATED; a
     # source migrated into place from an older system never passed through
     # it, and nothing afterwards asked whether it came out the right shape.
+    # CONFLICTING PRACTICES WITHIN ONE SOURCE (practice: very-deep-check,
+    # pass 3). Requested by Morgan 2026-09-07, after two sessions landed the
+    # same practice into both team sets on the same day.
+    #
+    # The CROSS-source half is already a hard refusal -- precedent_resolve
+    # raises on two same-level sources defining one slug -- so this is the
+    # within-source half, which nothing detected at all.
+    #
+    # DELIBERATELY NARROW, and the narrowness is the point. "Two rules that
+    # contradict each other" is a reading task; a scanner that guessed at it
+    # would flood. What IS decidable: two practices in one catalogue that
+    # claim the SAME DEFINED TERM (GLOSSARY.md is built from `defines:`, so
+    # a collision makes the glossary ambiguous and one entry silently win),
+    # and a practice whose `overrides:` or `in_force_at:` names a sibling in
+    # its OWN source (precedence orders LEVELS -- naming a same-source
+    # sibling is either a no-op or a statement the resolver cannot honour).
+    #
+    # Measured against a shared `occasion:` first and rejected as a signal:
+    # four universal practices share "writing or editing a document" and are
+    # complementary, not conflicting. An occasion is a routing key, not a
+    # claim of exclusivity.
+    print("WITHIN-SOURCE CONFLICTS -- one catalogue disagreeing with itself\n")
+    _conf_any = False
+    for _src in [{'name': 'this checkout', 'path': str(repo_root)}] + [
+            {'name': s['name'], 'path': s['path']} for s in data['sources']]:
+        _pdir = pathlib.Path(_src['path']) / 'practices'
+        if not _pdir.is_dir():
+            continue
+        _defs, _slugs, _fm_by = {}, set(), {}
+        for _f in sorted(_pdir.glob('*.md')):
+            try:
+                _fm, _ = sp._read_practice_file(_f)
+            except Exception:
+                continue
+            if (_fm.get('status') or '').strip('" ') != 'active':
+                continue
+            _slugs.add(_f.stem)
+            _fm_by[_f.stem] = _fm
+            # `defines:` is a RAW STRING holding a JSON list, not a list.
+            # The first version of this scan iterated it directly and so
+            # iterated its CHARACTERS -- reporting that 67 practices all
+            # "define '['". Absurd output is what caught it; a subtler
+            # field would not have. bv._json_list is what build_views uses
+            # to build GLOSSARY.md from this same field, so the scan and
+            # the glossary cannot disagree about what a term is.
+            for _term in bv._json_list(_fm.get('defines', '[]')):
+                _term = str(_term).strip().lower()
+                if _term:
+                    _defs.setdefault(_term, []).append(_f.stem)
+        _found = []
+        for _term, _owners in sorted(_defs.items()):
+            if len(_owners) > 1:
+                _found.append(f"two practices define {_term!r}: "
+                              f"{', '.join(_owners)} -- GLOSSARY.md can only "
+                              f"show one")
+        for _slug, _fm in sorted(_fm_by.items()):
+            for _field in ('overrides', 'in_force_at'):
+                _v = (_fm.get(_field) or 'null')
+                _v = str(_v).strip('" ').strip()
+                if _v and _v != 'null' and _v in _slugs:
+                    _found.append(f"{_slug}'s `{_field}:` names {_v}, a "
+                                  f"practice active in this same source -- "
+                                  f"precedence orders levels, not siblings")
+        if _found:
+            _conf_any = True
+            print(f"  {_src['name']}:")
+            for _msg in _found:
+                print(f"      {_msg}")
+    if not _conf_any:
+        print("  none -- no duplicate `defines:` term, and no `overrides:` or\n"
+              "  `in_force_at:` naming a sibling, in any source in force.")
+    print()
+
     print("SOURCE SHAPE -- files each level's skeleton ships\n")
     _shape_any = False
     for _s in data['sources']:

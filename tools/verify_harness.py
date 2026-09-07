@@ -3963,11 +3963,27 @@ def check_precedent_check_fires():
         case('computed-numbers-in-scripts', _plant_cnis)
 
         # docs-track-models -- an owned figure restated in the prose
+        #
+        # THE FIGURE IS DERIVED, not typed. This plant used to hardcode
+        # "6 of {n} practices" -- the resident-set count on the day it was
+        # written. `docs-track-models` fires on a restatement of a string a
+        # script DECLARES it owns, so the moment the resident set grew to 7
+        # (2026-09-07, promoting bold-key-phrases to universal) the planted
+        # sentence said "6 of 68" while the owned string was "7 of 68": the
+        # plant landed, matched nothing, and the harness reported the CHECK
+        # as broken. It was the fixture. Asking doc_sync for the owned
+        # string means the plant is whatever the check is currently looking
+        # for, and neither can drift from the other.
         def _plant_dtm(repo):
-            n = len(list((repo / 'practices').glob('*.md')))
+            import doc_sync as _ds
+            owned = [f for _d, _n, s in _ds.PAIRS for f in _ds.owned_figures(s)]
+            phrase = next((v[0] for name, v in owned
+                           if name == 'resident set' and v), None)
+            if phrase is None:                      # nothing owned to restate
+                return
             rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
                 '## The resident set, and why these six',
-                f'The resident block is 6 of {n} practices.\n\n'
+                f'The resident block is {phrase}.\n\n'
                 '## The resident set, and why these six'))
         case('docs-track-models', _plant_dtm)
 
