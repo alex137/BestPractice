@@ -1300,6 +1300,71 @@ _ENGINE_REF_ABSENT_OK = {
 # target that isn't actually there, so the same class of gap (a vendored
 # engine file naming a companion that never got copied) surfaces mechanically
 # on the next `precedent_check.py` run instead of via a downstream crash.
+# cite-the-incident, 2026-09-07: promoting two practices to the universal
+# catalogue did every part of the job except the job. `git commit -a` does
+# not stage an untracked file, so `practices/fail-gracefully.md` and
+# `practices/bold-key-phrases.md` were written, regenerated into every view,
+# given routing entries, deleted from both team sets -- and never added.
+#
+# For one pushed commit the two rules were in force NOWHERE: gone from both
+# team sets, absent from the repository they had been promoted into. EVERY
+# GATE PASSED, in both directions, and neither is a bug: locally the files
+# were on disk, so the loader and every check read them and were right; in
+# the pushed tree they did not exist, and a practice that does not exist
+# violates nothing. The catalogue can lose a rule without anything saying so.
+#
+# The cheap, decidable half of that is this check. It does not attempt the
+# general problem (did the catalogue silently shrink -- that needs a baseline
+# to compare against, and is filed as `consumers-need-refresh-after-promotion`
+# for the consumer-side version of the same shape). It asserts only that what
+# a session can SEE is what the repository actually HAS.
+@check('tracked-practice-files', 'tree',
+       'every practice file, check script and routing record in the working '
+       'tree is tracked by git -- what a session reads locally is what the '
+       'repository actually carries',
+       'the opposite direction: a practice that is tracked but should not be, '
+       'and a practice DELETED from the tree, which leaves nothing behind to '
+       'notice. It compares the working tree against the index, so it cannot '
+       'see a rule that was never written or one removed in the same commit; '
+       'catching a silently shrinking catalogue needs a baseline this check '
+       'does not have.',
+       practice_backed=False)
+def _tracked_practice_files(ctx):
+    watched = []
+    for pat in ('practices/*.md', 'local/practices/*.md',
+                'tools/checks/*.py', 'tools/routing_scope.json'):
+        watched.extend(sorted(ROOT.glob(pat)))
+    if not watched:
+        raise NotApplicable('no practice files, check scripts or routing '
+                            'record in this tree')
+    rels = [str(f.relative_to(ROOT)) for f in watched]
+    r = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '--error-unmatch',
+                        '-z', '--'] + rels,
+                       capture_output=True, text=True)
+    tracked = {x for x in r.stdout.split('\0') if x}
+    # NOTHING TRACKED AT ALL is a repository that has not committed yet, not
+    # a lost rule -- a freshly bootstrapped source set, or a scratch fixture.
+    # The first version of this check flagged every file in exactly that
+    # state, and the harness caught it as "a check that fires on a correct
+    # fresh install", which is the failure this whole registry exists to
+    # avoid. The state worth reporting is MIXED: this kind of file is tracked
+    # here, and one of them is not, which is the shape a forgotten `git add`
+    # actually leaves.
+    if not tracked:
+        raise NotApplicable(
+            'nothing of this kind is tracked yet -- an uncommitted or freshly '
+            'bootstrapped repository, not a file left out of one')
+    out = []
+    for rel in rels:
+        if rel not in tracked:
+            out.append(Finding(rel,
+                               'is in the working tree but NOT tracked by '
+                               'git -- every local check reads it and passes, '
+                               'and the pushed repository does not have it '
+                               '(`git add` it, or delete it)'))
+    return out
+
+
 @check('vendored-engine-file-refs-resolve', 'tree',
        "every hardcoded `_ENGINE_DIR / '<name>'` or `ROOT / 'tools' / '<name>'` "
        "path inside a tools/*.py file names a file that actually exists under "

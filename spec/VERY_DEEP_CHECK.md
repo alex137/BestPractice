@@ -592,6 +592,35 @@ practices all define `'['`; it now uses `build_views._json_list`, the same
 parser that builds the glossary. Positive and negative controls both pass;
 current result across every source in force is **none**.
 
+**The promotion's own near-miss is now a check.** `git commit -a` does not
+stage an untracked file, so the commit that promoted both practices did
+everything except add them: regenerated views, routing entries, figure
+blocks, the deletions from both team sets — and for one pushed commit the
+two rules were in force **nowhere**. Every gate passed in both directions,
+and neither was wrong: locally the files were on disk, so the loader and
+every check read them correctly; in the pushed tree they did not exist, and
+a practice that does not exist violates nothing. **The catalogue can lose a
+rule without anything saying so.**
+
+`tracked-practice-files` (`practice_backed=False`, the sanctioned shape for
+an engine property) now asserts that every practice file, check script and
+routing record in the working tree is tracked by git — that what a session
+reads locally is what the repository actually carries. Its first version
+flagged every file in a **bare source set**, where nothing is committed yet,
+and the harness caught it as *"a check that fires on a correct fresh
+install"* — the exact failure that registry exists to prevent. Refined to
+report only the MIXED state, which is the shape a forgotten `git add`
+actually leaves; a repository with nothing of that kind tracked is
+`NOT APPLICABLE`, not a finding. Both controls fire, the clean tree passes,
+and it has its planted case in the harness like every other registered
+check.
+
+It does **not** attempt the general problem — did the catalogue silently
+shrink — which needs a baseline to compare against. That is the same shape
+as the consumer-side hazard filed at
+[`consumers-need-refresh-after-promotion`](../TODO.md#consumers-need-refresh-after-promotion),
+and both are named in that check's `blind_to` rather than implied.
+
 **Checked and clean, so the next run need not redo them:**
 
 - **Formatting drift and relative links in the three private sets.** Zero

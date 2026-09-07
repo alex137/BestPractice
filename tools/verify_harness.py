@@ -3962,6 +3962,17 @@ def check_precedent_check_fires():
                 f'| Practices in the catalogue | {n + 9} |'))
         case('computed-numbers-in-scripts', _plant_cnis)
 
+        # tracked-practice-files -- a practice file left out of the index
+        def _plant_tpf(repo):
+            src = next((repo / 'practices').glob('*.md'))
+            (repo / 'practices' / 'zz-forgotten-add.md').write_text(
+                src.read_text(encoding='utf-8').replace(
+                    'slug:        ' + src.stem,
+                    'slug:        zz-forgotten-add'),
+                encoding='utf-8')
+            # deliberately NOT `git add`ed -- that is the whole violation
+        case('tracked-practice-files', _plant_tpf)
+
         # docs-track-models -- an owned figure restated in the prose
         #
         # THE FIGURE IS DERIVED, not typed. This plant used to hardcode
