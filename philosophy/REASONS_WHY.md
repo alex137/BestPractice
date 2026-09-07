@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/REASONS_WHY.md, version 24. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document into philosophy/; source: the project's own prior notes repository, content/REASONS_WHY.md, version 24 -- that repository was made private and is being deleted, so philosophy/ is this document's home now, not a copy of one. -->
 
 # Reasons Why
 

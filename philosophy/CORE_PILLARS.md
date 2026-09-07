@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/CORE_PILLARS.md, version 7. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document into philosophy/; source: the project's own prior notes repository, content/CORE_PILLARS.md, version 7 -- that repository was made private and is being deleted, so philosophy/ is this document's home now, not a copy of one. -->
 
 # Core Pillars
 

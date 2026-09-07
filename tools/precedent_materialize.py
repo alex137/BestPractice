@@ -210,7 +210,7 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=(),
     that its existence and location cannot leak to everyone who can read the
     repo. Minting `https://github.com/<owner>/<private repo>/blob/...` into
     a tracked practices/ tree hands over exactly what that refusal protects,
-    and a consuming repo can be public -- themorgan/WorkingWithAI is. Caught
+    and a consuming repo can be public -- the project's own prior notes repository is. Caught
     2026-09-06 by a consuming repo's own private-repo-scrub check, on a link
     this rewriter had just created. The link is left as it was written
     instead: a relative link that does not resolve is a smaller failure than

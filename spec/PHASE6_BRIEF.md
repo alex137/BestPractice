@@ -12,7 +12,7 @@ summary:       What phase 6 was handed for migrating consumer repositories, what
 # Phase 6 Brief — Migrating Consumer Repos
 
 [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
-Sequence row 6 already marks this "underway" from `themorgan/WorkingWithAI`'s
+Sequence row 6 already marks this "underway" from the project's own prior notes repository's
 2026-09-02 migration; this brief is the session that picked phase 6 up
 afterward, closed two of its named gaps for real, and is honest about what
 still needs the actual target repo attached to finish. Read the plan's
@@ -24,7 +24,7 @@ inherits" section first — this brief does not restate them.
 1. **The path-triggered channel's consumer-repo integration.**
    [`spec/LOADER.md`](LOADER.md)'s own status table named this precisely:
    `tools/precedent_paths.py` worked as a command but nothing called it
-   automatically — real cost, not theoretical: `themorgan/WorkingWithAI` hit
+   automatically — real cost, not theoretical: the project's own prior notes repository hit
    a missed `header-caps` practice and patched around it locally, at commit
    time only. Built: `templates/harness/claude-code/hooks/precedent-paths.sh`,
    a `PreToolUse` hook wired into `templates/harness/claude-code/settings.json`,

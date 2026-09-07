@@ -20,7 +20,7 @@ authority.
 ## This Is the Only Copy
 
 **These documents live here and nowhere else.** They were written in a
-separate working notebook, `themorgan/WorkingWithAI`, which was retired on
+separate working notebook, the project's own prior notes repository, which was retired on
 2026-09-07 — this directory is not a mirror of it, and there is no
 upstream to sync with. The provenance line at the top of each file records
 which document it came from and the version it was taken at; that is a

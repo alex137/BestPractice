@@ -98,7 +98,7 @@ and [spec/SOURCES.md](spec/SOURCES.md).
 **What changed.** The entry above formalized repo-local as a real source
 but left its subdirectory placement as a *recommendation*: `path: "."` or a
 subdirectory both resolved, with a subdirectory only ever "the better
-choice." Raised by a dependent-repo comparison (`WorkingWithAI` has no
+choice." Raised by a dependent-repo comparison (the project's own prior notes repository has no
 repo-local practices at all and so no `local/`; `TodoMorgan` does, at
 `local/practices/`, following the recommendation) — the two repos are not
 actually inconsistent with each other, but the convention itself was only
@@ -450,7 +450,7 @@ at this tree for the first time — the layer existed and had never been run
 with a real blocklist.
 
 **What was deliberately NOT scrubbed**, and this is the more useful half:
-the other 33 hits were all one name, `WorkingWithAI`, which was checked and
+the other 33 hits were all one name, the project's own prior notes repository, which was checked and
 **is a public repository**. Scrubbing it would have deleted genuinely useful
 worked-example links from outward-facing documents to protect a fact that is
 already public, while leaving the gate permanently red for a reason nobody

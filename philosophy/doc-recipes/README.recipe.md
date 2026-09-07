@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying WorkingWithAI's content/ into philosophy/; source: adapted from themorgan/WorkingWithAI doc-recipes/README.recipe.md, version 1. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying that content into philosophy/; source: adapted from the project's own prior notes repository, doc-recipes/README.recipe.md, version 1 -- that repository was made private and is being deleted. -->
 
 # Recipe: philosophy/README.md
 

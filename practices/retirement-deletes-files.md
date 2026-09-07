@@ -95,7 +95,7 @@ carry none of them passes silently, and nothing anywhere asserted that a
 path should no longer exist.
 
 The precedent for the harm is already recorded in that practice's own
-Story — `themorgan/WorkingWithAI`'s migration left the old pack's name, a
+Story — the project's own prior notes repository's migration left the old pack's name, a
 retired secret name and a paragraph about a dead workflow scattered across
 five documents and three workflow headers, and it took a separate question
 a day later before anyone noticed. That was the vocabulary; the files

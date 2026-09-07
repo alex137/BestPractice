@@ -1119,7 +1119,7 @@ def check_practice_audit_fires():
     throwaway manifest (practice: mistakes-become-rules).
 
     Regression case, found in the wild via a dependent repo's check-in
-    (themorgan/WorkingWithAI, 2026-09-04): a 'diverged' manifest entry
+    (the project's own prior notes repository, 2026-09-04): a 'diverged' manifest entry
     marks a file as a deliberate, permanent customization that must never
     be proposed for export -- the whole point of the status. Before this
     fix, --update-baseline read ANY hash mismatch against the recorded
@@ -3731,7 +3731,7 @@ def check_precedent_check_fires():
 
         # vendored-engine-file-refs-resolve -- delete a file precedent_gate.py
         # hardcodes a reference to (_ENGINE_DIR / 'routing_scope.json'),
-        # reproducing the themorgan/WorkingWithAI incident this check exists for
+        # reproducing the the project's own prior notes repository incident this check exists for
         case('vendored-engine-file-refs-resolve',
              lambda repo: (repo / 'tools' / 'routing_scope.json').unlink())
 

@@ -323,7 +323,7 @@ run prompted on every single run.
    refuses an individual source declared in a shared repo's tracked
    config precisely so its existence and location cannot leak to everyone
    who can read the repo — and a consuming repo can be public, as
-   `themorgan/WorkingWithAI` is. An individual source's links are now left
+   the project's own prior notes repository is. An individual source's links are now left
    as written; a relative link that does not resolve is a smaller failure
    than a disclosure that cannot be taken back.
 7. ~~**Ten practice files' frontmatter was not valid YAML.**~~ **Done.**
@@ -364,7 +364,7 @@ run prompted on every single run.
 These are decisions about his own repositories, not defects in Precedent,
 so this session reported them rather than acting on them.
 
-- **`themorgan/WorkingWithAI` is public and names the private individual
+- **the project's own prior notes repository is public and names the private individual
   source about forty times** — its `AGENTS.md` alone ten, plus `README.md`,
   `GETTING_STARTED.md`, `MAP.md`, `TODO.md`, three `content/` documents,
   and `.claude/hooks/`, several as full `https://github.com/themorgan/precedent-individual/blob/...`
@@ -389,7 +389,7 @@ so this session reported them rather than acting on them.
   sentence true again.
 - **Both consumer repos mirror engine files by hand rather than with
   [precedent_vendor_engine.py](../tools/precedent_vendor_engine.py).**
-  That is how `WorkingWithAI` ended up with three root copies OLDER than
+  That is how the project's own prior notes repository ended up with three root copies OLDER than
   its own vendored tree — including a `precedent_materialize.py` with no
   self-referential-source guard, the check that stops a sync destroying a
   hand-authored repo-local source — and a `precedent_check.py` sitting
@@ -755,7 +755,7 @@ against the actual state of all six repos.
 
 ### Violations found and fixed
 
-- **`automation-issues`** — `workingwithai`'s `voice-guidelines-sync.yml` is a
+- **`automation-issues`** — `the project's own prior notes repository`'s `voice-guidelines-sync.yml` is a
   scheduled unattended job with two blockers (a missing private-source token,
   a missing Claude credential) and reported both on a CI annotation only.
   Its sibling `bestpractice-upstream-sync.yml` has opened a tracked issue for

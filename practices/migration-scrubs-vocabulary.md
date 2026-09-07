@@ -69,7 +69,7 @@ about that gap required the second question; the first migration had
 every fact it needed to do the scrub itself, in the same sitting.
 
 ## Story
-`themorgan/WorkingWithAI`'s migration off RepoPersonalPreferences
+the project's own prior notes repository's migration off RepoPersonalPreferences
 (2026-09-02) split the old vendored pack into the new team/individual
 sources correctly, but left the old pack's name, its retired secret
 (`PERSONAL_PACK_TOKEN`), and a paragraph explaining what the old
