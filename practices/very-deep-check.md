@@ -582,8 +582,8 @@ work rather than finding it — moves to step 4 of the order of operations,
 before any pass. The verdicts — expensive, and judgment — stay in pass 4.
 [tools/very_deep_check.py](../tools/very_deep_check.py) prints the
 unlanded-work block before the checklist a session works from, and
-verify_harness.py asserts that ORDER, since a block that exists but prints
-last is exactly the failure being fixed.
+verify_harness.py asserts that ordering specifically, since a block that
+exists but prints last is exactly the failure being fixed.
 
 Extended 2026-09-07, on Morgan's direct request, during the first run of
 this practice: he asked for a summary, a link, a date and a recommendation

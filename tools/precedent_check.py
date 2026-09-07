@@ -1965,6 +1965,22 @@ def _rename_updates_links(ctx):
     r = _git('diff', '--name-status', '--find-renames', f'{base}...HEAD')
     if r.returncode != 0:
         raise NotApplicable(f'could not diff against {base}')
+    # A practice a PUBLIC repo withholds is a third state this check had no
+    # way to see. It was not renamed and it was not deleted: it is published
+    # in a private source and deliberately kept out of this tree, so a
+    # document that links to it is not a stale reference to repoint -- there
+    # is nothing here to repoint it at. Found 2026-09-07: closing a public
+    # consumer's disclosure produced 26 such findings in one repo, six of
+    # them inside a vendored tree nobody can edit there, and every one of
+    # them unactionable. MANIFEST.json's `withheld` list records exactly
+    # this, written by precedent_materialize.py.
+    withheld = set()
+    try:
+        _m = json.loads((ROOT / 'MANIFEST.json').read_text(encoding='utf-8'))
+        withheld = {f"practices/{slug}.md" for slug in (_m.get('withheld') or [])}
+    except (ValueError, OSError):
+        pass
+
     old_paths = []
     for line in r.stdout.splitlines():
         parts = line.split('\t')
@@ -1989,6 +2005,8 @@ def _rename_updates_links(ctx):
         for rel in tracked:
             if rel == new_path or rel == old:
                 continue
+            if old in withheld:
+                continue      # withheld, not deleted -- see the note above
             f = ROOT / rel
             if not f.is_file():
                 continue

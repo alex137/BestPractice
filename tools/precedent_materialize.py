@@ -418,7 +418,7 @@ def _plan_checks(sources, res=None):
     return plan
 
 
-def materialize(sources, res, out_dir, dry_run=False):
+def materialize(sources, res, out_dir, dry_run=False, withheld=None):
     """Reads every resolved practice file and every source's check/test
     file INTO MEMORY before deleting or writing anything in out_dir.
 
@@ -517,14 +517,26 @@ def materialize(sources, res, out_dir, dry_run=False):
             f"materializing an over-budget set. Demote or retire a "
             f"resident practice in one of the sources first.")
 
-    manifest = _build_manifest(sources, written, checks_written, rstats)
+    manifest = _build_manifest(sources, written, checks_written, rstats,
+                               withheld=withheld)
     if not dry_run:
         (out_dir / 'MANIFEST.json').write_text(
             json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
     return written, checks_written, rstats
 
 
-def _build_manifest(sources, written, checks_written, rstats):
+def _build_manifest(sources, written, checks_written, rstats, withheld=None):
+    """`withheld` names the slugs a PUBLIC repo's visibility keeps out of this
+    tree -- recorded because "absent" and "never existed" look identical on
+    disk, and several checks turn that difference into a finding.
+
+    Without it, `rename-updates-links` reads a document's link to a withheld
+    practice as a reference to a file "this branch deleted" and asks for it to
+    be repointed -- at something that cannot exist here. Found 2026-09-07:
+    excluding a public consumer's private practices produced 26 such findings
+    in one repo, six of them inside a vendored tree nobody can edit there. The
+    practices were not renamed or deleted; they are published elsewhere and
+    withheld here, which is a third state those checks had no way to see."""
     return {
         'generated_by': 'tools/precedent_materialize.py',
         'generated_at_utc': datetime.datetime.now(datetime.timezone.utc)
@@ -538,6 +550,7 @@ def _build_manifest(sources, written, checks_written, rstats):
         'resident': rstats,
         'practices': written,
         'checks': checks_written,
+        'withheld': sorted(withheld or []),
     }
 
 

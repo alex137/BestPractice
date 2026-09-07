@@ -175,9 +175,17 @@ def sync(repo, user_config=None, check=False, allow_missing=False):
             # individual practice overrode it, so a public consumer would
             # have silently shipped one practice fewer than its own
             # universal source defines.
+            withheld_slugs = sorted(
+                slug for slug, pr_ in res['practices'].items()
+                if pr_['level'] in bv.PRIVATE_LEVELS)
             sources = [s for s in sources
                        if s['level'] not in bv.PRIVATE_LEVELS]
             res = pr.resolve(sources)
+            # A slug that a publishable source ALSO defines is not withheld --
+            # the re-resolve above brings it back, from text this repo may
+            # carry. Only what is genuinely absent here gets recorded.
+            withheld_slugs = [x for x in withheld_slugs
+                              if x not in res['practices']]
             print(f"precedent_sync_views: {', '.join(omitted)}-level "
                   f"practice text is NOT materialized here -- this repo "
                   f"declares visibility: public and practices/ is tracked. "
@@ -186,7 +194,8 @@ def sync(repo, user_config=None, check=False, allow_missing=False):
                   file=sys.stderr)
 
     written, checks_written, rstats = pm.materialize(
-        sources, res, pathlib.Path(repo), dry_run=check)
+        sources, res, pathlib.Path(repo), dry_run=check,
+        withheld=locals().get('withheld_slugs'))
     tree_drift = pm.drift(sources, res, pathlib.Path(repo)) if check else []
 
     # Render the loader block from the SAME resolved practices materialize()
