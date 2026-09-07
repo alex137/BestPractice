@@ -3879,6 +3879,25 @@ def check_precedent_check_fires():
             git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
         case('merge-target-is-beta-branch', _plant_mtib)
 
+        # philosophy-is-not-repo-policy -- a practice whose ## Rule leans on
+        # an essay for its authority, which is exactly the drift the
+        # philosophy/ copy created the risk of. Planted in the EXPORTED
+        # catalogue, since that is the costlier of the two directions.
+        def _plant_pinrp(repo):
+            rewrite(repo, 'practices/quick-index.md', lambda s: s.replace(
+                '## Rule\n',
+                '## Rule\nFollow philosophy/OUR_PHILOSOPHY.md when you write.\n',
+                1))
+        case('philosophy-is-not-repo-policy', _plant_pinrp)
+
+        # philosophy-declares-its-source -- a document dropped into
+        # philosophy/ with no provenance line, so nobody can tell whether it
+        # is a copy that has fallen behind WorkingWithAI or native content.
+        def _plant_pdis(repo):
+            (repo / 'philosophy' / 'ORPHAN.md').write_text(
+                '# An Orphan\n\nWith no provenance line.\n', encoding='utf-8')
+        case('philosophy-declares-its-source', _plant_pdis)
+
         # environment-gotchas -- an entry that is a bare fix
         def _plant_eg(repo):
             rewrite(repo, 'AGENTS.md', lambda t: t.replace(
