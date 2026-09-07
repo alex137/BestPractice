@@ -1974,6 +1974,15 @@ def _rename_updates_links(ctx):
     # them inside a vendored tree nobody can edit there, and every one of
     # them unactionable. MANIFEST.json's `withheld` list records exactly
     # this, written by precedent_materialize.py.
+    # Files this repo received rather than wrote (see the skip below).
+    _vendored_engine = set()
+    try:
+        _em = json.loads(
+            (ROOT / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+        _vendored_engine = {f"tools/{f}" for f in (_em.get('files') or [])}
+    except (ValueError, OSError):
+        pass
+
     withheld = set()
     try:
         _m = json.loads((ROOT / 'MANIFEST.json').read_text(encoding='utf-8'))
@@ -2007,6 +2016,12 @@ def _rename_updates_links(ctx):
                 continue
             if old in withheld:
                 continue      # withheld, not deleted -- see the note above
+            # A file the consuming repo RECEIVED cannot be repointed there:
+            # the vendored upstream tree and the vendored engine are mirrored
+            # wholesale from a published commit, and an edit is overwritten by
+            # the next refresh. The reference is upstream's, and so is the fix.
+            if rel.startswith('process/upstream/') or rel in _vendored_engine:
+                continue
             f = ROOT / rel
             if not f.is_file():
                 continue
