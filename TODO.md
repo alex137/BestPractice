@@ -180,6 +180,31 @@ which is the failure this repointing exists to end — write
     the shared engine.) **Blocked on:** Alex's review
     and approval of `precedent-beta-v01` for the real phase-7 merge into
     `main` — not something to anticipate or do early.
+
+    **What that merge will actually look like, rehearsed 2026-09-07 in a
+    throwaway worktree and thrown away.** Two things worth not
+    re-deriving under time pressure:
+
+    - **Expect ≈125 conflicting files, and read them as divergence rather
+      than damage.** `main` is still the pre-restructuring tree and lacks
+      roughly 84,000 lines, so on nearly every one of them `precedent-beta-v01`
+      is the correct side. The count is a snapshot and will drift — beta
+      moved twice during the hour this was measured — but the shape will
+      not. Newer work merges cleanly precisely because `main` has never
+      seen it: of everything `philosophy/` and its repo-local practices
+      added, only [tools/routing_scope.json](tools/routing_scope.json)
+      conflicted.
+    - **The revert trap was checked and does not fire — but check it
+      again if this ever recurs.** `main` merged PR #89 and then reverted
+      it; `precedent-beta-v01` merged *the same branch* as PR #91. That
+      makes those commits ancestors of **both** branches with `main`
+      holding the later revert, which is the textbook setup for content
+      silently failing to come back at merge time. It does not happen
+      here: [tools/routing_audit.py](tools/routing_audit.py) and
+      [practices/routing-audit.md](practices/routing-audit.md) are both
+      present after a simulated merge, because beta's later commits
+      touched those paths again and re-established them. A rehearsal is
+      the only way to know that, since the failure would be silent.
 14. <a id="nontechnical-contributor-access"></a>**Run the non-technical-contributor access plan for real.**
     [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
     is drafted but not executed — it doubles as item 9's neighbor,
