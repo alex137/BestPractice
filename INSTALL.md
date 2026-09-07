@@ -906,6 +906,49 @@ public upstream but too general to be one repo's local rules. Mechanics:
    and check-in (§4) all apply per pack, against the pack's own tree,
    manifest, and (eventual) upstream repo.
 
+## 8. Per-Machine Setup — What Each Person Sets, on Each Machine
+
+Everything above installs Precedent into a *repository*, once. This section
+is the other axis: settings that belong to **a person on a computer**, and
+therefore have to be set again on every machine they work from. None of it
+lives in any repository — that is the point of it — so nothing in a fresh
+clone will remind you, and most of it fails **quietly** when absent.
+
+Written down because it kept being rediscovered. On 2026-09-07 a session
+found the individual source's clone URL living in a public repository's
+tracked hook, moved it to the private per-person config where it belongs,
+and then had nowhere to say so.
+
+### Required, and Silent When Missing
+
+| Setting | Where | What happens without it |
+|---|---|---|
+| `individual.name`, `individual.path`, `individual.repo_url` | `~/.config/precedent/config.json` (or wherever `PRECEDENT_USER_CONFIG` points) | Your individual practices do not resolve. The session says so on stderr and runs with team and universal only — easy to miss in a long startup. `repo_url` specifically is what the session-start hook clones from; without it the hook cannot fetch your set. |
+| `PRECEDENT_LEAK_BLOCKLIST` **and** `git config precedent.requireVocabulary true` | shell profile, and git config per checkout | The leak gate's vocabulary layer **fails open**: it prints `PARTIAL`, exits 0, and the push goes through with only the structural rules applied. Both are needed — the variable alone is not enough. |
+| `pip install cmarkgfm markdown` | the machine | `doc_lint.py`'s strikethrough check stops running and says so in one line, and `doc_html.py` cannot import. A session-start hook installs these where one runs; a repo attached mid-session never runs its own hook, so do it by hand there. |
+
+`tools/precedent_bootstrap_source.py` writes all three `individual` fields
+for you when it creates a set, and
+`tools/precedent_source_bootstrap.py` keeps them current at session start.
+Filling them in by hand is for a machine where neither has run — copy
+[templates/practice-set-individual/config.json.sample](templates/practice-set-individual/config.json.sample),
+which carries the same explanation.
+
+### Optional, and Each One an Escape Hatch
+
+| Setting | Where | Effect |
+|---|---|---|
+| `git config precedent.freshness.intervalSeconds` | per checkout | How long the freshness guard's `user-prompt` mode stays quiet between checks. Default 600. |
+| `git config precedent.freshness.override true` | per checkout | Stops the guard refusing a write on a stale checkout. Deliberate override; the guard prints this remedy itself when it blocks. |
+| `PRECEDENT_INDIVIDUAL_REPO` | environment | Overrides `individual.repo_url` for one session — for an environment that sets per-session variables and would rather not touch the config file. |
+| `PRECEDENT_COMMIT_NAME` / `_EMAIL` / `_TZ` | environment | The commit-identity layer that reaches a repository attached mid-session, which no hook can. Normally derived from your individual set's `identity.json` by the harness adapter's `env` block rather than set by hand. |
+| `PRECEDENT_ALLOW_ANY_AUTHOR=1` | one command | Lets a single commit through the author check. For a commit deliberately authored by someone else. |
+| `PRECEDENT_USER_CONFIG` | environment | Points at a user config somewhere other than the default path. Useful for testing an empty-neighbourhood case without disturbing your own. |
+
+`PRECEDENT_CHECK_ROOT` and `PRECEDENT_VENDOR_ENGINE_SECOND_PASS` are
+deliberately omitted: both are internal to a check or a tool's own test
+harness, and neither is a person's setting.
+
 ## For Approvers: Your Checklist
 
 Everything above is written for the assistant doing the work. Stripped

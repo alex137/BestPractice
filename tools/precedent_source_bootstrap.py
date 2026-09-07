@@ -108,7 +108,7 @@ def _load_json(path):
     return None
 
 
-def _write_config(config_path, level, name, clone_path):
+def _write_config(config_path, level, name, clone_path, repo_url=None):
     """Merge — never clobber — so a config file that later grows a second
     key (or a second person's individual set were this ever multi-tenant)
     isn't silently overwritten by a hook that only knows about its own
@@ -118,7 +118,17 @@ def _write_config(config_path, level, name, clone_path):
     action; this one runs unattended, every session, and the two should
     not have to change together by accident."""
     data = _load_json(config_path) or {'format_version': 1}
-    data[level] = {'name': name, 'path': str(clone_path)}
+    entry = {'name': name, 'path': str(clone_path)}
+    # RECORD THE URL, because this file is the only place it can privately
+    # live. A shared repo's tracked hook must not carry a private source's
+    # clone URL (2026-09-07: one public consumer did, five lines from its own
+    # sentence saying that naming it "would leak its existence and location"),
+    # so the hook reads `repo_url` from here instead -- and this tool already
+    # had it in hand and dropped it, which is why every new machine needed a
+    # human to type it back in.
+    if repo_url:
+        entry['repo_url'] = repo_url
+    data[level] = entry
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
 
@@ -154,7 +164,8 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
     for attempt in range(1, attempts + 1):
         ok, last_output = _try_sync(repo_url, clone_path)
         if ok:
-            _write_config(pathlib.Path(config_path), level, name, clone_path)
+            _write_config(pathlib.Path(config_path), level, name, clone_path,
+                          repo_url=repo_url)
             return True, None
         if attempt < attempts:
             sleep(retry_delay)

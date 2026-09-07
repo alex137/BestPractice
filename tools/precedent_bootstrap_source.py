@@ -474,7 +474,7 @@ def _load_json(path):
     return None
 
 
-def write_user_config(dest, name, force=False):
+def write_user_config(dest, name, force=False, repo_url=None):
     """Merge the individual source into the user-level config -- never a
     shared project's own tracked file, per PRACTICE_ENGINE_PLAN.md's
     'THE PERSON declares their own individual set in their USER-LEVEL
@@ -488,7 +488,14 @@ def write_user_config(dest, name, force=False):
             f"{config_path} already names a different individual set "
             f"({existing.get('name')!r}) -- pass --force true to replace it, "
             f"or edit {config_path} yourself if that was deliberate")
-    data['individual'] = {'name': name, 'path': str(dest)}
+    entry = {'name': name, 'path': str(dest)}
+    # The URL belongs here and nowhere shared: the session hook that clones
+    # this set reads it from this private file rather than carrying it in a
+    # consuming repo's tracked tree, where it would publish the existence and
+    # location of a private repository (2026-09-07).
+    if repo_url:
+        entry['repo_url'] = repo_url
+    data['individual'] = entry
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     return config_path
@@ -642,7 +649,8 @@ def main():
     try:
         if level == 'individual':
             if args.get('--write-user-config', 'false').lower() == 'true':
-                config_path = write_user_config(dest_path, name, force=force)
+                config_path = write_user_config(dest_path, name, force=force,
+                                                repo_url=args.get('--repo-url'))
                 print(f"WROTE user config: {config_path}")
             else:
                 print("Next step -- copy this into your own user-level config "

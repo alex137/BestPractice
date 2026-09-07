@@ -6,10 +6,21 @@
     "wherever $PRECEDENT_USER_CONFIG points -- so it names your personal",
     "set, which nobody else can read.",
     "A shared project declares only universal and team sources, in its own",
-    "tracked precedent.json; the tools refuse a personal set declared there."
+    "tracked precedent.json; the tools refuse a personal set declared there.",
+    "",
+    "`repo_url` is what the session-start hook clones your set FROM. It",
+    "lives here, in this private per-machine file, and not in any shared",
+    "project's tracked hook -- a URL committed there would publish the",
+    "existence and location of a private repository to everyone who can",
+    "read that project. Set it on EVERY machine you work from: without it",
+    "the hook cannot fetch your set, says so, and the session runs with",
+    "your team and universal practices only.",
+    "tools/precedent_bootstrap_source.py writes all three fields for you",
+    "when it creates the set; this sample is for filling one in by hand."
   ],
   "individual": {
     "name": "{{NAME}}",
-    "path": "{{DEST_PATH}}"
+    "path": "{{DEST_PATH}}",
+    "repo_url": "{{SOURCE_REPO_URL}}"
   }
 }

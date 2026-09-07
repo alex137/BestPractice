@@ -276,6 +276,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The loader — resident block, occasion index, path-trigger channel | This file's generated block above; engine at [tools/build_views.py](tools/build_views.py), [tools/precedent_paths.py](tools/precedent_paths.py) |
 | Loader premise, measured against this repo's own history | [tools/behavioral_replay.py](tools/behavioral_replay.py) |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) |
+| What each person sets on each machine (individual source, leak blocklist, the optional overrides) | [INSTALL.md](INSTALL.md) §8 |
 | Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
 | Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
 | Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
