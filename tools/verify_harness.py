@@ -7284,6 +7284,34 @@ def check_loader_block_covers_every_declared_source():
     named |= set(re.findall(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', block, re.M))
 
     public = cfg.get('visibility') == 'public'
+
+    # Slugs a PUBLISHABLE source (universal, or repo-local, which lives in
+    # this repo's own tree) has active. A slug in both a publishable source
+    # and a private one is NOT evidence of a leak: build_views.py excludes
+    # private-level sources from a public repo's block, so the entry the
+    # block carries is the publishable source's own text, and only the SLUG
+    # is shared. Without this the guard fired on the first same-slug
+    # override to exist (catalogue-carries-stories, 2026-09-07 -- landed at
+    # universal, and the team source that had authored it first kept a copy
+    # to put the rule in force on itself, since a source repo consumes no
+    # catalogue). Verified by reading the rendered line: it was universal's
+    # index_clause, not the team's. A finding nobody can act on without
+    # deleting a legitimate practice is one people learn to ignore.
+    publishable = set()
+    for s in declared:
+        if s['level'] in ('team', 'individual'):
+            continue
+        d = pathlib.Path(s['path']) / 'practices'
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sec = sp._read_practice_file(f)
+            except Exception:
+                continue
+            if (fm.get('status') or 'active').strip('" ') == 'active':
+                publishable.add(fm.get('slug', f.stem))
+
     missing, leaked = [], []
     for s in declared:
         d = pathlib.Path(s['path']) / 'practices'
@@ -7301,7 +7329,7 @@ def check_loader_block_covers_every_declared_source():
             continue
         present = [a for a in active if a in named]
         if public and s['level'] in ('team', 'individual'):
-            leaked += present
+            leaked += [a for a in present if a not in publishable]
         elif not present:
             missing.append(f"{s['level']}/{s['name']} ({len(active)} active "
                            f"practices, none in {name})")
