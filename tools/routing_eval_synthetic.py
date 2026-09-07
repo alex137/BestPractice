@@ -306,6 +306,12 @@ def cmd_score():
 
 def main():
     args = sys.argv[1:]
+    # --help is a request, not a usage error: it prints to stdout and exits 0.
+    # `sys.exit(__doc__)` printed to STDERR and exited 1, which is the right
+    # answer for a bare invocation and the wrong one for an explicit --help.
+    if '--help' in args or '-h' in args:
+        print(__doc__.strip())
+        return 0
     if '--emit-hop2' in args:
         return cmd_emit_hop2()
     if '--emit' in args:

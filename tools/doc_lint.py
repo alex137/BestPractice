@@ -197,7 +197,19 @@ CODE_SPAN_RE = re.compile(r'`[^`]*`')
 #                  the DECK root, not the slide's own directory, so
 #                  `assets/loop.svg` is right for the builder and wrong for a
 #                  reader browsing the raw file. The builder is the audience.
-LINK_CHECK_EXEMPT_DIRS = ('templates/', 'deck/')
+#   evals/     -- an eval fixture is a RECORD of what a model was shown and
+#                  answered, not this repo's own prose. A prompt embeds a
+#                  snapshot of the generated loader block, whose links are
+#                  written for the repo root the fixture describes, not for
+#                  the fixture's own directory; and the snapshot is frozen at
+#                  the catalogue it was taken from, so a link that has since
+#                  moved is correct history, not rot. Editing one to satisfy
+#                  a link check would falsify the record the eval rests on --
+#                  the same reason a vendored practices/ tree is exempt from
+#                  headline capitalization. Found 2026-09-07: merging one
+#                  such eval put 80 "broken" links into a gate that had been
+#                  clean, none of them fixable without rewriting evidence.
+LINK_CHECK_EXEMPT_DIRS = ('templates/', 'deck/', 'evals/')
 
 
 # Anchors. A link's fragment is as breakable as its path and breaks more
@@ -672,8 +684,16 @@ RECORD_NAME_RE = re.compile(
 # decision record IS the apparatus this check routes things into, so linting
 # one as a deliverable flags it for containing exactly its own subject matter.
 # (practice: deliverables-look-like-output)
+# `evals` joins them for a different reason worth stating: an eval fixture is
+# not a document at all, it is a RECORD of what a model was shown. Its prompts
+# quote the practice catalogue verbatim -- including the catalogue's own words
+# about claims-to-source tables and verification records -- so a residue check
+# reads the QUOTED text as this repo's own apparatus. Editing the quote to
+# satisfy the check would change what the model was shown and invalidate the
+# recorded answers beside it. Found 2026-09-07, merging one such eval: 40
+# residue findings, every one of them inside quoted catalogue text.
 RECORD_DIR_RE = re.compile(
-    r"(^|/)(process|archive|sent|templates|deck|practices|spec|decisions)(/|$)")
+    r"(^|/)(process|archive|sent|templates|deck|practices|spec|decisions|evals)(/|$)")
 RESIDUE_PATTERNS = [
     (re.compile(r"\[verify\b", re.I),
      "verify-later flag -- verify now, or record the externally-blocked "

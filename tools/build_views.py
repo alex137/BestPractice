@@ -826,6 +826,7 @@ TOOLS_DESCRIPTIONS = {
     'resplit_sections.py': "The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json",
     'routing_audit.py': "The routing audit — mechanical coverage check plus a rotating deep-read slice",
     'routing_eval.py': "Measures whether trigger-based loading actually beats carrying the whole catalogue",
+    'routing_eval_synthetic.py': "Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits",
     'split_practices.py': "PRACTICES.md ↔ practices/ converter",
     'table_fmt.py': "One formatter per quantity kind — the engine",
     'title_case.py': "Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix",

@@ -117,6 +117,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json |
 | [tools/routing_audit.py](tools/routing_audit.py) | The routing audit — mechanical coverage check plus a rotating deep-read slice |
 | [tools/routing_eval.py](tools/routing_eval.py) | Measures whether trigger-based loading actually beats carrying the whole catalogue |
+| [tools/routing_eval_synthetic.py](tools/routing_eval_synthetic.py) | Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits |
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |
 | [tools/title_case.py](tools/title_case.py) | Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix |
