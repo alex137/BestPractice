@@ -8,9 +8,9 @@ occasion:    "the user gives a standing merge instruction"
 gates:       ["merge"]
 index_clause: "one fixed word means \"merge as agreed\"; document it exactly"
 checked_by:  null
-defines:     ["go merge"]
-status:      active
-in_force_at: null
+defines:     []
+status:      retired
+in_force_at: none
 supersedes:  []
 overrides:   null
 added:       null
@@ -60,6 +60,27 @@ ordinary language that happens to contain the same word for an unrelated
 reason.
 
 ## Story
+**Retired 2026-09-07, by Morgan, as a universal rule.** "Go merge" is his
+own phrase, and a rule at the universal level was telling every adopting
+repository to go adopt a merge keyword of its own — a preference dressed
+as a practice. Nobody wants it *here*, which is what `status: retired`
+means; the thing itself survives one level down, as `go-merge` in his own
+individual set, where a personal phrase belongs.
+
+`in_force_at: none` rather than `in_force_at: go-merge`, deliberately and
+despite `go-merge` being real: that slug lives in a **private** individual
+set, so it resolves for exactly one person. A `deduplicated` status
+pointing at it would pass on his machine and fail in CI and in every other
+adopter's checkout, naming a forwarding address they cannot follow — the
+same shape as a check that is green only where it was written. Retired is
+the honest label for a universal catalogue that no longer carries this.
+
+What that costs, said plainly: an adopter who *would* have wanted a
+standing merge word now has to invent the idea rather than find it. That
+is the trade Morgan chose, and it is the right way round — a catalogue
+that ships one person's conversational habits to everyone is worse than
+one that omits a good idea.
+
 Morgan closed two consecutive messages with "Go merge" before this
 keyword was formally adopted, the second one making the intent explicit
 ("register it in the glossary... And then, Go Merge"). Formalized here,

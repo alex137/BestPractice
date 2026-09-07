@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session that measured the merge-back's revert trap, adding the closing section on it -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session that retired `merge-authorization-keyword`, adding the "Retired outright" section -->
 <!--record-doc--> This file quotes practice Rules verbatim to say what changed in them, so it names the apparatus doc_lint.py check 6 keeps out of deliverables. It is a record document, not a deliverable.
 
 # Changes to tell Alex
@@ -24,13 +24,51 @@ noted here too, briefly, for completeness, but is not a behavior change.
 and this file is where the phase-7 conversation starts, so it is recorded
 here rather than left to be discovered during the merge.
 
-Nothing here is unilateral: everything below is either a rewrite that keeps
-the original decision rule intact (marking a superseded *mechanism*, not a
-disagreement with the practice), or a fix based on the base-repo drift this
-session found for [Alex's practice 53](#alexs-real-time-additions) below.
+Almost nothing here is unilateral: nearly everything below is either a
+rewrite that keeps the original decision rule intact (marking a superseded
+*mechanism*, not a disagreement with the practice), or a fix based on the
+base-repo drift this session found for
+[Alex's practice 53](#alexs-real-time-additions) below. **The one
+exception is the section immediately following**, which retires a practice
+outright — a real disagreement with it, made by Morgan, and the first entry
+Alex should read.
 None of it changes what a plain BestPractice-vendoring consumer repo
 (pre-migration) sees — the pre-migration path each affected practice
 describes is kept working in every case.
+
+## Retired outright — the strongest change on this branch
+
+### `merge-authorization-keyword` (BestPractice practice 45) — retired 2026-09-07
+
+**What changed.** `status: retired`, `in_force_at: none`, `defines: []`.
+The practice is still in the tree with its Rule intact, as a retirement
+record; it no longer resolves in force, no longer appears in the occasion
+index, and no longer defines a glossary term.
+
+**Why.** Its Rule told every adopting repository to pick one fixed word
+meaning "merge as agreed" and document it. That is Morgan's own working
+preference — his phrase is "Go merge" — generalized into a universal rule
+that nobody else had asked for. Morgan retired it himself on 2026-09-07,
+in exactly those terms: the phrase should be personal, and the universal
+practice should go. The behaviour it described did not disappear; it moved
+down a level, to `go-merge` in his individual set, where a preference
+belongs and where it binds only his own work.
+
+**What this costs a consumer repo.** Nothing mechanical: `checked_by` was
+already `null`, so no check stops running, and no other practice depended
+on it. Two documents that cited it were rewritten in the same commit —
+[`practices/merge-runbook.md`](practices/merge-runbook.md)'s Rule now says
+authorization is the user saying so *in whatever words they use*, with the
+fixed-phrase option demoted to a suggestion for a project's own
+instructions file; and this repo's [`AGENTS.md`](AGENTS.md) banner now
+states plainly that "Go merge" is Morgan's phrase, defined in a private
+set, and that a session which did not load that set must ask rather than
+infer the meaning from the banner.
+
+**For the phase-7 conversation.** This is the one entry in this file that
+removes a practice rather than adjusting one, so it is the one most worth
+Alex disagreeing with. If he wants the universal rule back, restoring it is
+a three-field edit to the frontmatter — nothing was deleted.
 
 ## Changed mechanism, decision rule kept
 
@@ -215,6 +253,10 @@ it already was, from the unrelated 2026-09-01 slug-link sweep below, but
 that entry doesn't disclose *this* change, so it needed its own.
 
 ### `merge-authorization-keyword` (BestPractice practice 45) — 2026-09-06
+
+**Superseded by the retirement above, 2026-09-07.** Kept because it records
+what the practice said while it was in force, which is what makes the
+retirement legible.
 
 **What changed.** `## Detail` and `## Story` were both empty in this
 practice since phase 1 — it describes a mechanism a repo *can* adopt, but

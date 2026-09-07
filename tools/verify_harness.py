@@ -4057,6 +4057,25 @@ def check_precedent_check_fires():
                  '# New Doc\n\nThis document is the successor to the old one.\n',
                  encoding='utf-8'))
 
+        # ...and the exemption added 2026-09-07 is not a blanket one. The
+        # case above plants the phrase in a plain document and must still
+        # fail; this plants the SAME phrase in a document carrying the
+        # <!--record-doc--> marker and must pass. Both halves are needed:
+        # an exemption tested only by the thing it exempts proves nothing
+        # about what it still catches, and the failure mode of a widened
+        # skip rule is silence, which no single case can see.
+        # (practice: control-asserts-which-failure)
+        _rd = fresh('index-remembers-past-record-doc')
+        (_rd / 'planted-lineage-record.md').write_text(
+            '<!--record-doc--> A dated log, kept for one future '
+            'conversation.\n\n# Log\n\nThe 2026-01-01 entry is '
+            'superseded by the one above.\n', encoding='utf-8')
+        _rc_rd, _out_rd = run(_rd, 'index-remembers-past')
+        cases.append(('index-remembers-past: the same phrase in a '
+                      '<!--record-doc--> document does NOT fail -- a '
+                      'historical record is where lineage belongs',
+                      _rc_rd == 0 and 'VIOLATION' not in _out_rd))
+
         # deliverables-look-like-output -- process residue in a deliverable
         case('deliverables-look-like-output',
              lambda repo: (repo / 'report.md').write_text(
@@ -10476,7 +10495,20 @@ def check_public_consumer_does_not_materialize_private_text():
         pub_tree = sorted(f.name for f in (pub / 'practices').glob('*.md'))
         pub_text = '\n'.join(
             f.read_text(encoding='utf-8') for f in (pub / 'practices').glob('*.md'))
-        universal = sorted(f.name for f in PRACTICES_DIR.glob('*.md'))
+        # Every universal practice that is IN FORCE, not every file on
+        # disk. A `status: retired` or `deduplicated` practice stays in the
+        # tree as its own retirement record and is deliberately not
+        # materialized -- precedent_materialize.py resolves the in-force
+        # set, it does not copy a directory. Comparing against the raw glob
+        # was correct only while the catalogue happened to hold no retired
+        # practice; it failed the moment one did (2026-09-07,
+        # merge-authorization-keyword), reporting a real, intended omission
+        # as private-text filtering. (practice: verify-decomposition -- the
+        # count was right, what it counted was not.)
+        universal = sorted(
+            f.name for f in PRACTICES_DIR.glob('*.md')
+            if not re.search(r'^status:\s*(retired|deduplicated)\s*$',
+                             f.read_text(encoding='utf-8'), re.M))
 
         results.append(('a public consumer materializes no private practice file',
                         'private-only.md' not in pub_tree))
@@ -10485,6 +10517,18 @@ def check_public_consumer_does_not_materialize_private_text():
         results.append(('and loses nothing the universal source defines -- the '
                         'set is re-resolved, not filtered',
                         set(universal) <= set(pub_tree)))
+        # The other side of the same property, so relaxing the assertion
+        # above cannot quietly become "materialize whatever you like": a
+        # practice the catalogue has retired must be ABSENT. Conditional
+        # because a catalogue with nothing retired has nothing to assert,
+        # and a vacuous case that always passes is worse than no case.
+        retired = sorted(set(f.name for f in PRACTICES_DIR.glob('*.md'))
+                         - set(universal))
+        if retired:
+            results.append((f'and materializes no retired practice '
+                            f'({len(retired)} in the catalogue) -- a '
+                            f'retirement record is not an in-force rule',
+                            not (set(retired) & set(pub_tree))))
         # The real property: regenerating with build_views.py must not change
         # the AGENTS.md that sync just wrote. That byte-comparison IS what
         # generated-artifact-provenance's check performs.

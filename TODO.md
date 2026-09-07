@@ -1739,10 +1739,16 @@ which is the failure this repointing exists to end — write
      and the reason this is not just "use judgment".
 
   **Where the answer goes**, whichever it is: [AGENTS.md](AGENTS.md)'s
-  "Go merge" paragraph and
-  [practices/merge-authorization-keyword.md](practices/merge-authorization-keyword.md).
-  Not into a chat thread — a rule agreed in one session binds one session,
-  which is the whole failure this item describes
+  "Go merge" paragraph, and the `go-merge` practice in Morgan's individual
+  set (private, so named rather than linked). **Not**
+  `practices/merge-authorization-keyword.md`, which this item originally
+  named — that universal practice was retired hours later, on 2026-09-07,
+  because the phrase is Morgan's own preference and does not belong at a
+  level that binds every adopter. The retirement does not answer this
+  item: what the keyword's *absence* means is still undecided, and is now
+  a question about his individual practice rather than a universal one.
+  Not into a chat thread either — a rule agreed in one session binds one
+  session, which is the whole failure this item describes
   ([repo-is-memory](practices/repo-is-memory.md)).
 
   **Blocked on:** Morgan. This is a question about what he wants from his

@@ -26,15 +26,19 @@ origin incident happened. Full story, the mechanical check, and the
 retirement condition:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
 
-**This repo's standing merge-authorization keyword is "Go merge"** —
-standing alone (its own line, or set off by a preceding sentence-ending
-punctuation mark; case-insensitive), it means: commit and push what the
-thread just agreed on to `precedent-beta-v01`, per the paragraph above,
-after the usual checks, without asking again — and then fetch and confirm
-local `HEAD` and `origin/precedent-beta-v01` actually match before calling
-it done ([verify-postcondition](practices/verify-postcondition.md)). See
-[practices/merge-authorization-keyword.md](practices/merge-authorization-keyword.md)
-for the full rule and what does *not* count as standing alone.
+**"Go merge" is Morgan's own phrase, not a rule of this repository.** It
+is defined in his individual practice set as `go-merge`, and it reaches a
+session only through `.precedent/SESSION_PRACTICES.md` — so a session that
+did not attach the private sources (see the banner below) has not read the
+definition, and must **ask what is meant rather than guess from these two
+sentences**. What the repository itself contributes is only the
+destination: an authorization to merge, in whatever words it arrives, means
+`precedent-beta-v01` per the paragraph above, and is not done until a fetch
+confirms the pushed content is actually there
+([verify-postcondition](practices/verify-postcondition.md)). The universal
+practice that used to sit here, `merge-authorization-keyword`, was retired
+on 2026-09-07: it was telling every adopting repository to go adopt a merge
+keyword of its own, which is one person's preference dressed as a practice.
 
 **FIRST TOOL CALL OF EVERY SESSION, before reading or running anything
 else: `add_repo` (read access) for this account's `precedent-individual`,
@@ -73,7 +77,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~552 of 2000 token budget, 8 of 75 practices (8 universal))
+## Resident block (~552 of 2000 token budget, 8 of 74 practices (8 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -211,8 +215,6 @@ When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
-When the user gives a standing merge instruction:
-  merge-authorization-keyword — one fixed word means "merge as agreed"; document it exactly
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When writing a README or other project-facing entry document:

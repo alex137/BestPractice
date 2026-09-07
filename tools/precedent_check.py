@@ -2002,6 +2002,37 @@ def _docs_are_current_state(ctx):
 # intentional usage; add a file here only with the same kind of stated
 # reason, never to silence a real finding.
 INLINE_LINEAGE_SKIP_FILES = {'spec/LOADER.md'}
+
+
+def _is_historical_record(f):
+    """True when f's own stated purpose is a historical record.
+
+    Two ways to qualify. The hardcoded set above is one file that declares
+    it in prose and nowhere a script can read. The general way is
+    doc_lint's own `is_record_doc()` -- a `<!--record-doc-->` marker, a
+    record-shaped filename, or a records directory -- which any repo can
+    use and this check should honour rather than making every record
+    document earn its own line here.
+
+    2026-09-07: CHANGES_TO_TELL_ALEX.md is the case that forced the
+    generalization. It is a dated log of what changed in each inherited
+    practice, kept for one future conversation, and it carries the
+    `<!--record-doc-->` marker on line 2. Retiring a practice meant marking
+    an earlier dated entry in that same log as superseded by a later one --
+    structurally identical to spec/LOADER.md's superseded measurement runs,
+    and flagged for the same phrase. Rewording to dodge the regex would
+    have been gaming the check; hardcoding a second filename would have
+    left the third one to rediscover this.
+    """
+    if f in INLINE_LINEAGE_SKIP_FILES:
+        return True
+    try:
+        return _doc_lint().is_record_doc(f)
+    except NotApplicable:
+        # doc_lint did not import. Fail toward reporting, never toward a
+        # silent pass -- a missed exemption is a false finding a human
+        # reads, a missed finding is one nobody ever sees.
+        return False
 INLINE_LINEAGE_RE = re.compile(
     r'\bsuccessor to\b|\bsupersede[sd]?\s+by\b|\bsuperseded\s+by\b'
     r'|\breplaces?\s+the\s+(?:older|previous|prior)\b', re.I)
@@ -2014,14 +2045,17 @@ INLINE_LINEAGE_RE = re.compile(
        'the other half of the practice entirely: whether the INDEX actually '
        'carries the lineage row this check pushes the language out of. It '
        'only prevents the wrong home, never confirms there is a right one. '
-       'Also blind to any file listed in INLINE_LINEAGE_SKIP_FILES, whose '
-       'stated purpose is a historical record rather than a current-state '
-       'document -- currently just spec/LOADER.md, which keeps prior '
-       'measurement runs as a deliberate, correct appendix.')
+       'Also blind to any file whose stated purpose is a historical record '
+       'rather than a current-state document: the INLINE_LINEAGE_SKIP_FILES '
+       'set (spec/LOADER.md, which keeps prior measurement runs as a '
+       'deliberate, correct appendix) plus anything doc_lint calls a record '
+       'doc -- a <!--record-doc--> marker, a record-shaped filename, or a '
+       'records directory. A document that wrongly claims to be a record '
+       'buys itself silence here, and nothing checks that claim.')
 def _index_remembers_past(ctx):
     out = []
     for f in _md_in_scope(ctx):
-        if f in INLINE_LINEAGE_SKIP_FILES:
+        if _is_historical_record(f):
             continue
         cur = {(i, m.group(0)) for i, line in enumerate(ctx.read(f).splitlines(), 1)
                for m in INLINE_LINEAGE_RE.finditer(line)}
