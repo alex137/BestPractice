@@ -54,6 +54,7 @@ import precedent_materialize as pm  # noqa: E402
 import build_views as bv  # noqa: E402
 
 
+
 def sync(repo, user_config=None, check=False):
     """-> (written, checks_written, rstats, agents_md_path, changed: bool,
     tree_drift: [str]).  tree_drift is always empty unless check=True.
@@ -112,6 +113,45 @@ def sync(repo, user_config=None, check=False):
             f"so a source that deliberately retired everything does not trip "
             f"this.")
 
+    # A PUBLIC repo's materialized practices/ tree is a TRACKED, published
+    # artifact, so a private source's practice TEXT may not go into it.
+    # build_views.py already refuses to render a private source into a
+    # public repo's loader block for exactly this reason, and
+    # precedent_materialize.py already refuses to mint a private repo's URL
+    # into the same tree -- but the whole file was copied in regardless,
+    # which is a larger disclosure than the link that was so carefully
+    # withheld. Reproduced against a real fresh install: 13 individual-level
+    # practices, one of them carrying a person's name and email address,
+    # materialized into a `visibility: public` consumer's tracked tree.
+    #
+    # The private practices still BIND the session -- they reach it through
+    # .precedent/SESSION_PRACTICES.md, untracked and regenerated per
+    # session, which is the channel that exists for precisely this case.
+    public = bv.repo_is_public(pathlib.Path(repo))
+    omitted = []
+    if public:
+        omitted = sorted({p['level'] for p in res['practices'].values()
+                          if p['level'] in bv.PRIVATE_LEVELS})
+        if omitted:
+            # RE-RESOLVE without the private sources rather than filtering
+            # them out of the finished result. A private practice can WIN a
+            # slug a publishable source also declares, and deleting the
+            # winner from a resolved set does not promote the runner-up --
+            # it drops the slug entirely. Caught here: filtering lost
+            # `merge-authorization-keyword` (universal) because an
+            # individual practice overrode it, so a public consumer would
+            # have silently shipped one practice fewer than its own
+            # universal source defines.
+            sources = [s for s in sources
+                       if s['level'] not in bv.PRIVATE_LEVELS]
+            res = pr.resolve(sources)
+            print(f"precedent_sync_views: {', '.join(omitted)}-level "
+                  f"practice text is NOT materialized here -- this repo "
+                  f"declares visibility: public and practices/ is tracked. "
+                  f"Those practices still bind: they reach a session through "
+                  f".precedent/SESSION_PRACTICES.md, which is untracked.",
+                  file=sys.stderr)
+
     written, checks_written, rstats = pm.materialize(
         sources, res, pathlib.Path(repo), dry_run=check)
     tree_drift = pm.drift(sources, res, pathlib.Path(repo)) if check else []
@@ -124,7 +164,13 @@ def sync(repo, user_config=None, check=False):
     triples = [(p['fm'], p['sections'], pathlib.Path(p['file']))
                for p in res['practices'].values()]
     levels = {slug: p['level'] for slug, p in res['practices'].items()}
-    block, _tokens, _n = bv.build_loader_block(triples, source_levels=levels)
+    # omits_private must match what this run actually left out, or the
+    # standing instruction disagrees with build_views.py's own render of the
+    # same repo -- and `generated-artifact-provenance` then reports the file
+    # the documented install step just wrote as hand-edited, with no state of
+    # the repo able to satisfy it. Found exactly that way.
+    block, _tokens, _n = bv.build_loader_block(
+        triples, source_levels=levels, omits_private=bool(omitted))
 
     agents_md = pathlib.Path(repo) / 'AGENTS.md'
     if not agents_md.exists():

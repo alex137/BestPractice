@@ -8756,6 +8756,115 @@ def check_branch_scan_sees_every_branch():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_public_consumer_does_not_materialize_private_text():
+    """A public consumer repo's TRACKED practices/ tree must not carry a
+    private source's practice text (practice: very-deep-check, found by it).
+
+    build_views.py already refuses to render a private source into a public
+    repo's loader block, and precedent_materialize.py already refuses to
+    mint a private repo's URL into the materialized tree -- but the whole
+    practice FILE was copied in regardless, which discloses strictly more
+    than the link so carefully withheld. Reproduced on a real fresh install
+    built from INSTALL.md section 0: thirteen individual-level practices
+    landed in a `visibility: public` consumer's tracked tree, one of them
+    carrying a person's name and email address.
+
+    Three properties, because fixing the first alone breaks the others:
+
+    1. No private-level text in a public consumer's tree.
+    2. NOTHING ELSE IS LOST. The private sources are dropped and the set
+       RE-RESOLVED, not filtered out of a finished result -- a private
+       practice can win a slug a publishable source also declares, and
+       deleting the winner does not promote the runner-up. Filtering lost
+       a universal practice exactly this way.
+    3. The two renderers agree. precedent_sync_views.py must pass the same
+       `omits_private` build_views.py computes for itself, or the standing
+       instruction differs between them and `generated-artifact-provenance`
+       reports the file the documented install step just wrote as
+       hand-edited -- with no state of the repo able to satisfy it.
+
+    A PRIVATE consumer is the control: nothing may be withheld there."""
+    import tempfile, shutil
+    import json as _json
+    import precedent_sync_views as psv
+    import build_views as bv
+
+    def _consumer(tmp, visibility):
+        repo = tmp / f'consumer-{visibility}'
+        (repo / 'precedent' / 'universal').mkdir(parents=True)
+        shutil.copytree(PRACTICES_DIR, repo / 'precedent' / 'universal' / 'practices')
+        (repo / 'AGENTS.md').write_text(
+            f'# Consumer\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n',
+            encoding='utf-8')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main',
+            'visibility': visibility,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': 'precedent/universal'}]}), encoding='utf-8')
+        return repo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        # A stand-in individual source, declared the only way one may be:
+        # in a user-level config, never in the repo's own tracked file.
+        ind = tmp / 'precedent-individual'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'practices' / 'private-only.md').write_text(
+            '---\nslug: private-only\ntitle: A private rule\ntier: on-demand\n'
+            'severity: default\napplies_to: ["**"]\noccasion: "x happens"\n'
+            'index_clause: "do the private thing"\nstatus: active\n---\n'
+            '## Rule\nSECRET-CANARY-VALUE applies.\n\n## Story\nBecause.\n',
+            encoding='utf-8')
+        user_cfg = tmp / 'user.json'
+        user_cfg.write_text(_json.dumps(
+            {'format_version': 1,
+             'individual': {'name': 'precedent-individual',
+                            'path': str(ind)}}),
+            encoding='utf-8')
+
+        results = []
+        pub = _consumer(tmp, 'public')
+        psv.sync(str(pub), user_config=str(user_cfg))
+        pub_tree = sorted(f.name for f in (pub / 'practices').glob('*.md'))
+        pub_text = '\n'.join(
+            f.read_text(encoding='utf-8') for f in (pub / 'practices').glob('*.md'))
+        universal = sorted(f.name for f in PRACTICES_DIR.glob('*.md'))
+
+        results.append(('a public consumer materializes no private practice file',
+                        'private-only.md' not in pub_tree))
+        results.append(('nor any of its text',
+                        'SECRET-CANARY-VALUE' not in pub_text))
+        results.append(('and loses nothing the universal source defines -- the '
+                        'set is re-resolved, not filtered',
+                        set(universal) <= set(pub_tree)))
+        # The real property: regenerating with build_views.py must not change
+        # the AGENTS.md that sync just wrote. That byte-comparison IS what
+        # generated-artifact-provenance's check performs.
+        after_sync = (pub / 'AGENTS.md').read_text(encoding='utf-8')
+        # Run it the way the check does -- as its own process, against the
+        # consumer's own root -- rather than reaching into an internal.
+        shutil.copy(ROOT / 'tools' / 'build_views.py', pub / 'tools_bv.py')
+        subprocess.run([sys.executable, str(pub / 'tools_bv.py'), '--agents-only'],
+                       cwd=str(pub), capture_output=True, text=True)
+        (pub / 'tools_bv.py').unlink(missing_ok=True)
+        results.append(('build_views.py regenerates byte-identically to what '
+                        'sync wrote, so generated-artifact-provenance can pass',
+                        (pub / 'AGENTS.md').read_text(encoding='utf-8') == after_sync))
+
+        priv = _consumer(tmp, 'private')
+        psv.sync(str(priv), user_config=str(user_cfg))
+        priv_tree = sorted(f.name for f in (priv / 'practices').glob('*.md'))
+        results.append(('CONTROL: a private consumer still gets the private '
+                        'practice -- nothing is withheld where the tree is not '
+                        'published', 'private-only.md' in priv_tree))
+
+        failed = [n for n, ok in results if not ok]
+        check(f'a public consumer repo never materializes private practice '
+              f'text into its tracked tree ({len(results)} stated cases, a '
+              f'private consumer being the control)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -8785,6 +8894,7 @@ def main():
     check_freshness_gate_fires()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
+    check_public_consumer_does_not_materialize_private_text()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()

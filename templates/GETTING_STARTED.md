@@ -1,4 +1,4 @@
-# Getting started with `<project name>`
+# Getting Started With `<project name>`
 
 <!-- Template AND rendered sample: this file is readable as-is on GitHub
      (linked from the Precedent README as the sample members' page)
@@ -19,7 +19,7 @@ it becomes shared. Decisions don't get lost in chat history, nobody
 overwrites anyone's work, and a person who joins today can be useful
 within the hour. You do not need to be a programmer.
 
-## How contributing works — five steps
+## How Contributing Works — Five Steps
 
 One difference from tools like Google Docs matters here: in Google Docs,
 your edits appear for everyone instantly. In this project, **your changes
@@ -44,7 +44,7 @@ work at the same time. The whole loop:
    Until that happens, nobody else sees your change: unlike Google Docs,
    nothing becomes shared automatically.
 
-## How the project remembers new rules
+## How the Project Remembers New Rules
 
 You don't have to ask for this by name — it happens as part of ordinary
 conversation. If you say something like *"always name these a certain
@@ -57,13 +57,13 @@ becomes official until it's reviewed and approved the same way any other
 change is (see the five steps above) — you're never signing up for
 something without seeing it first.
 
-## Setting up your AI tool
+## Setting Up Your AI Tool
 
 Before any of it works, an administrator must have given your GitHub
 account access to `<OWNER/REPOSITORY>` — if you don't have access yet,
 ask `<administrator contact>`. Then follow the section for your tool:
 
-### Claude users (Claude Code)
+### Claude Users (Claude Code)
 
 The most complete experience, on web, desktop, or phone. *(As of
 2026-08.)*
@@ -78,7 +78,7 @@ The most complete experience, on web, desktop, or phone. *(As of
 Claude Code reads the project's instruction files automatically. Nothing
 else to set up.
 
-### Codex users
+### Codex Users
 
 *(As of 2026-08.)*
 
@@ -87,7 +87,7 @@ else to set up.
 2. Codex follows the project's instruction files automatically.
 3. Give it a task or a question, the same way as any coding session.
 
-### ChatGPT users
+### ChatGPT Users
 
 A plain ChatGPT conversation with the GitHub connector can **read** this
 project and answer questions dependably. **Making changes** from a plain
@@ -107,7 +107,7 @@ Working from an iPhone a lot? This project includes an iPhone Shortcut
 recipe that prepares this starting message for you — see the phone guide
 at `process/upstream/MOBILE.md`.
 
-### Gemini users
+### Gemini Users
 
 The Gemini CLI (a desktop tool) is already wired to this project's
 instructions — nothing for you to configure. *(As of 2026-08; a
@@ -116,7 +116,7 @@ rather than the CLI, follow the "Any other assistant" line below for
 reading and questions, and hand changes to a teammate who uses Claude
 Code or Codex.
 
-### Grok users
+### Grok Users
 
 Not yet verified with this workflow *(as of 2026-08)*. If Grok can reach
 the repository, use the same starting instruction as ChatGPT users above.
@@ -124,7 +124,7 @@ Otherwise, treat Grok as a disconnected assistant: paste in the documents
 you're discussing, work out what you want changed, and hand the change
 request to a teammate who uses Claude Code or Codex.
 
-### Any other assistant
+### Any Other Assistant
 
 Any assistant that can read this repository understands the same one-line
 opener:
@@ -132,7 +132,7 @@ opener:
 > Work on `<OWNER/REPOSITORY>`. Start with its README and follow the
 > repository's agent instructions before answering.
 
-## Tips while you work
+## Tips While You Work
 
 - **Ask before hunting.** The fastest way to learn anything about this
   project is to ask your assistant — it reads the project's map and
@@ -173,7 +173,7 @@ opener:
   quality tracks the clarity of what you hand it. (More habits like this
   in the project's method guide: `process/upstream/METHOD.md`.)
 
-## For the administrator: approving changes
+## For the Administrator: Approving Changes
 
 Members draft changes on their own private copies; nothing joins the
 shared project until you approve it. Your side of the loop is also just
@@ -195,7 +195,7 @@ conversation:
   because it reworks someone's writing, collides with other work, or
   touches something you've pushed back on before.
 
-### Automatic checks installed for this project
+### Automatic Checks Installed for This Project
 
 <!-- Standing note (INSTALL.md §1 step 8 / practice `github-setup-disclosed`): every
      GitHub-specific requirement this project depends on gets a line
