@@ -245,36 +245,46 @@ across every source) and the backlog read are **not done**.
 The branch sweep ran, after its own bug was fixed. Every branch below needs
 a verdict and most do not have one yet.
 
-**`alex137/BestPractice`** (integration branch `precedent-beta-v01`): 34
-branches merged and not deleted; 2 not merged —
+**No pull request exists for any of the four.** All three repos land work by
+direct push, so there is no PR page to link and no one-click **Delete
+branch** control on one. Each row below links the branch's own compare view
+instead. That is a gap in the sweep's assumptions, now written into
+[very-deep-check](../practices/very-deep-check.md): a link is required, but
+it is the PR's *when there is one*.
 
-- `claude/file-sharing-service-spec-0m9c7p` — 3 commits ahead, last moved
-  2026-07-26, 3 unlanded. **Needs a verdict from Alex or Morgan:** six weeks
-  cold and its intent is not legible from the diff alone.
-- `claude/missed-practices-simulation-v0wszw` — 1 commit ahead, last moved
-  2026-09-01, 1 unlanded. **Needs a verdict.**
+**The engine check is what changed the verdicts.** Both
+`pre-launch-audit-fixes` branches sit on a vendored engine 41 commits behind
+their own `main` (`82b4722` against `d0cbdb4`), so merging either would
+revert the engine wholesale in order to land a handful of files. Both are
+cherry-picks, not merges — and the naive reading of "19 unlanded commits"
+would have said merge.
+
+**`alex137/BestPractice`** (integration branch `precedent-beta-v01`): 34
+branches merged and not deleted; 2 not merged.
+
+| Branch | What it is | Last moved | Recommendation |
+|---|---|---|---|
+| [`claude/file-sharing-service-spec-0m9c7p`](https://github.com/alex137/BestPractice/compare/precedent-beta-v01...claude/file-sharing-service-spec-0m9c7p) | A 653-line specification and delivery plan for a file-sharing service — `share/SPEC.md`, `share/PLAN.md`, one AGENTS.md line. Pure documents, no engine code. Its last commit switches the design to a thin gateway over object storage on Cloudflare Workers. Nothing in Precedent depends on it. | 2026-07-26 | **Close, unless the service is still planned.** Six weeks cold, and it is a product spec that happens to live in the practice repo rather than anything Precedent needs. If it is still wanted it belongs in its own repo — cheap to re-push from this branch, which is why closing costs nothing. **Alex's call**, since it is his subject matter, not a Precedent question. |
+| [`claude/missed-practices-simulation-v0wszw`](https://github.com/alex137/BestPractice/compare/precedent-beta-v01...claude/missed-practices-simulation-v0wszw) | One commit adding `tools/routing_eval_synthetic.py` (319 lines) plus 66 generated prompt fixtures — a synthetic occasion-routing stress test, complementary to the existing `routing_eval.py`. 14,539 insertions, almost all generated fixture text. | 2026-09-01 | **Merge, after checking the fixtures belong in git.** The tool is real and complements a mechanism this repo already relies on, and [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md) is explicit that routing quality is under-measured. The one hesitation is 14k lines of generated prompts as tracked files; if they are reproducible from the script, generate them instead and merge the script alone. |
 
 **`themorgan/precedent-individual`** (integration branch `main`): 10 merged
-and not deleted; 1 not merged —
+and not deleted; 1 not merged.
 
-- `claude/pre-launch-audit-fixes-7wumzx` — 20 ahead, 19 unlanded, last moved
-  2026-09-06. **Needs a verdict.**
+| Branch | What it is | Last moved | Recommendation |
+|---|---|---|---|
+| [`claude/pre-launch-audit-fixes-7wumzx`](https://github.com/themorgan/precedent-individual/compare/main...claude/pre-launch-audit-fixes-7wumzx) | 20 commits, 19 unlanded, from the 2026-09-06 pre-launch audit. Most are vendored-engine re-seeds that later work on `main` has since gone past. Four things are genuinely absent from `main`: `config.json.sample`, `practices/my-identity-is-not-private.md`, `tools/checks/check_my_identity_is_not_private.py` and its test. | 2026-09-06 | **Cherry-pick those four, then close.** Do NOT merge: the branch's engine is 41 commits behind `main`'s, so a merge reverts it to land four files. The `config.json.sample` is one of the two gaps this very run rediscovered independently and filed as an open item — the fix was already written and simply never landed. |
 
 **`themorgan/precedent-team-maintainers`** (integration branch `main`): 10
-merged and not deleted; 1 not merged —
+merged and not deleted; 1 not merged.
 
-- `claude/pre-launch-audit-fixes-7wumzx` — 16 ahead, 16 unlanded, last moved
-  2026-09-06. **Needs a verdict.**
-
-The two `pre-launch-audit-fixes` branches share a name across two repos and
-both carry substantial unlanded work from the day before this run. That is
-either a real body of fixes that never landed, or a branch whose work
-reached `main` by another route; the diff does not say which, and guessing
-would train the reader to wave the list through. **Asked rather than decided.**
+| Branch | What it is | Last moved | Recommendation |
+|---|---|---|---|
+| [`claude/pre-launch-audit-fixes-7wumzx`](https://github.com/themorgan/precedent-team-maintainers/compare/main...claude/pre-launch-audit-fixes-7wumzx) | 16 commits, 16 unlanded, the team-set half of the same audit. Nearly all of its check work (`check_no_stale_counts.py`, `check_light_check.py`, the tests) is already on `main` by another route. `leak-blocklist.txt` is not, nor are the `practices/fail-gracefully.md` and `CODEOWNERS` edits. | 2026-09-06 | **Cherry-pick `leak-blocklist.txt`, review the other two, then close.** Same engine-revert reason as above. The blocklist is the other gap this run rediscovered: until it exists, the leak gate's vocabulary layer has nothing of this set's own to check, and an absent blocklist is a gap where an empty one would be a deliberate state. |
 
 Deleting the 54 merged branches is a mechanical follow-up this session did
-not do: the practice asks for each to be reported with a link to its most
-recent PR, which needs GitHub history this offline scan does not have.
+not do. The practice asks for a link to each one's most recent PR, and the
+same finding applies: these repos push directly, so most have no PR page
+and no one-click delete control.
 
 ## Runs so far
 

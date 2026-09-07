@@ -932,6 +932,18 @@ which is the failure this repointing exists to end — write
   an empty one is a deliberate state (`blank-blocklist`), and until it
   exists the leak gate's vocabulary layer has nothing of that set's own to
   check against.
+  **Both fixes already exist, unlanded.** Found 2026-09-07 while writing up
+  the branch sweep: `claude/pre-launch-audit-fixes-7wumzx` carries
+  "Add the `config.json.sample` this set never got, being migrated not
+  bootstrapped" in the individual set and "Add the `leak-blocklist.txt` this
+  set never got, being migrated rather than bootstrapped" in the team set,
+  both dated 2026-09-06. This item and that branch are the same finding,
+  rediscovered a day apart because nothing asked what was sitting unmerged.
+  **Do not merge those branches to close this** — both sit on a vendored
+  engine 41 commits behind their own `main`, so merging would revert the
+  engine to land two files. Cherry-pick the two files (and, in the
+  individual set, `practices/my-identity-is-not-private.md` with its check
+  and test, which are also unlanded), then close the branch.
   **Blocked on:** nothing but the work — both repos are reachable and
   pushable from a session that has them attached.
 

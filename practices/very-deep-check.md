@@ -27,7 +27,9 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   mechanical 2026-09-07, Morgan F — every repo in force must be provably
   current before the check reads anything; extended same day, Morgan F, so
   the branch sweep reports an unmerged branch with a merge-or-close verdict,
-  not only a merged one awaiting deletion"
+  not only a merged one awaiting deletion; extended 2026-09-07, Morgan F,
+  so each unmerged branch is written up with what it changes, a link, its
+  date and a reasoned recommendation, rather than handed back as a name"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -390,6 +392,33 @@ Last because none of it strands an adopter, and none of it is cheap.
   intent isn't legible from the diff — say so by name and ask, rather than
   leaving it unlisted.
 
+  **Asking is not the same as listing.** A branch handed back to a person
+  as a bare name and a commit count hands them the whole investigation
+  too, which is how it gets postponed again. So every unmerged branch is
+  written up with four things, in the reply and in the run record:
+
+  1. **What the change is** — read the diff and say what the branch does,
+     in a sentence or two. Not the commit subjects copied out: those say
+     what each step did, not what landing it would mean.
+  2. **A link.** Its most recent pull request (PR), when there is one.
+     When there is **not** — a repo that lands work by direct push often
+     has none at all — say so and link the branch's own compare view
+     instead, rather than omitting the row or implying a PR exists.
+  3. **The date it last moved**, so age is visible without asking.
+  4. **A recommendation, with its reason** — merge, cherry-pick a named
+     subset, or close. This is the part that makes the list decidable:
+     check what the branch would actually do to the integration branch
+     before recommending it, because a branch that is behind on shared or
+     vendored files does not merely add its own work — merging it
+     **reverts** theirs. Verified, not assumed: compare the vendored
+     engine's recorded commit (or any generated artifact's manifest) on
+     both sides. A branch carrying three genuinely-unlanded files on top
+     of a forty-commit-old engine is a cherry-pick, never a merge, and
+     saying "merge it" would have undone six weeks of work.
+
+  Where a recommendation cannot be made honestly, say which of the four
+  is missing and what would settle it.
+
 ## Why
 The mechanical audits ([doc_lint.py](../tools/doc_lint.py),
 [leak_gate.py](../tools/leak_gate.py),
@@ -515,6 +544,25 @@ this run introduced from drift that was already there. Two positional
 cross-references ("pass 2 item 10") were replaced with names in the same
 pass, since citing a list position as if it were a name is a defect pass 3
 tells the reader to report.
+
+Extended 2026-09-07, on Morgan's direct request, during the first run of
+this practice: he asked for a summary, a link, a date and a recommendation
+for each unmerged branch, so that he could actually decide about them. The
+run that prompted it had reported four unmerged branches correctly and left
+him with four names and four commit counts — which restates the finding
+rather than resolving it, since the investigation each one needs was still
+entirely undone.
+
+The recommendation item earned its emphasis immediately. Two of those four
+branches carried genuinely unlanded work — including, in both private sets,
+the very files that same run had independently rediscovered as missing and
+filed as open TODO items. The obvious recommendation was “merge them”. It
+was wrong: both branches sat on a vendored engine 41 commits behind their
+own `main`, so merging either would have reverted the engine wholesale in
+order to land three files. Checking what a merge would *do* to the
+integration branch, rather than only what the branch contains, is the
+difference between a useful recommendation and a damaging one, and nothing
+here had asked for it.
 
 Made mechanical 2026-09-07, on Morgan's question of whether the check should
 force a fetch before anything else. It should, and prose was never going to
