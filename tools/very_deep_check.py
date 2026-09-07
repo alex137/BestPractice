@@ -55,6 +55,15 @@ this offline scan has no GitHub access, so it can prove "merged" but never
 "who opened this" or "which PR", the same limits practice: next-steps-after-
 commit already lays out for that lookup.
 
+Rehearses the ENDGAME MERGE, too (practice: very-deep-check, pass 4): the
+integration branch merged into its base in a throwaway worktree, reporting
+conflicting paths and silently-dropped paths as two separate sets. The
+second set is the one that matters and the one nothing else here would ever
+show -- a path that does not arrive raises no conflict and prints no line.
+History surgery on the base branch (a reverted merge, a cherry-pick, a
+force-push) is what fills it. `--skip-endgame-merge` skips it; `--json`
+gives the full list.
+
 FIRST, before it reads anything: every repo in force must be provably
 current against its origin -- this checkout and every declared team or
 individual source. Not provably current FAILS the run (--allow-stale for a
@@ -535,6 +544,119 @@ def scan_branches(repo_dir, target=None, exclude=()):
             'path': str(repo_dir)}
 
 
+# --- the endgame merge, rehearsed (practice: very-deep-check, pass 4) ----
+# A repo pinned to an integration branch is aimed at one merge it has never
+# performed, that gets one attempt, usually under time pressure and usually
+# by whoever approves it rather than whoever built it. This rehearses it and
+# reports the two outcomes SEPARATELY, because they have opposite
+# visibilities: a conflict stops the merge and will be dealt with, while a
+# path that simply does not arrive produces no conflict, no message and no
+# line of output at all.
+#
+# THE INCIDENT (2026-09-07). `main` here merged this branch by accident and
+# reverted it. The revert undid the files and left the commits in main's
+# log, so git treats that work as already merged and then honours the
+# deletion: a straight merge back would raise 125 conflicts and drop 507
+# files in silence. A rehearsal the same day checked two files, found both
+# present, and recorded that the trap did not fire -- both were files that
+# session had just edited, which is precisely the class that survives.
+# Hence a whole-tree set difference here rather than a sample
+# (practice: very-deep-check, pass 2, "does a verification enumerate, or
+# does it sample?").
+def endgame_merge(repo_dir, target=None, base=None, keep=False):
+    """-> None when no endgame merge is pending (no declared integration
+    branch, or it IS the default branch), else a dict:
+
+        {'target', 'base', 'status', 'conflicts': [...], 'dropped': [...],
+         'shallow': bool, 'note': str|None}
+
+    status: findings | clean | cannot-tell | error. `dropped` is the set
+    that matters -- paths present on the integration branch and absent from
+    the merge result, with no conflict raised about them.
+
+    Never mutates the caller's working tree: the merge happens in a
+    throwaway worktree checked out detached, nothing is committed, and the
+    worktree is removed on every exit path. (A tool that checks out inside
+    a clone handed to it is its own entry in AGENTS.md's gotchas.)"""
+    import tempfile, shutil
+    repo_dir = pathlib.Path(repo_dir)
+    if not (repo_dir / '.git').exists():
+        return None
+    target = target or _declared_base_branch(repo_dir)
+    base = base or _default_remote_branch(repo_dir)
+    if not target or not base or target == base:
+        return None
+    out = {'target': target, 'base': base, 'status': 'cannot-tell',
+           'conflicts': [], 'dropped': [], 'shallow': False, 'note': None}
+    # --verify --quiet, never the bare form: `git rev-parse <missing-ref>`
+    # exits non-zero but PRINTS the ref name, so the plain call hands a ref
+    # name to anything expecting a hash (AGENTS.md, gotchas).
+    for ref in (f'origin/{base}', f'origin/{target}'):
+        rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)
+        if rc != 0:
+            out['note'] = (f'{ref} does not exist in this clone -- fetch it '
+                           f'(`git fetch origin {ref.split("/", 1)[1]}`) and '
+                           f're-run.')
+            return out
+    rc, _, _ = _run_git(repo_dir, 'merge-base', f'origin/{base}', f'origin/{target}')
+    if rc != 0:
+        out['note'] = ('the two branches have no common ancestor in this '
+                       'clone. On a shallow clone that is usually the fetch '
+                       'depth, not the history: `git fetch --unshallow origin` '
+                       '(or a deep bounded fetch) and re-run. Reported as '
+                       'CANNOT TELL rather than clean -- an under-fetched '
+                       'history yields an empty difference that reads exactly '
+                       'like a good result.')
+        return out
+    rc, shallow, _ = _run_git(repo_dir, 'rev-parse', '--is-shallow-repository')
+    out['shallow'] = (rc == 0 and shallow.strip() == 'true')
+
+    rc, expected, _ = _run_git(repo_dir, 'ls-tree', '-r', '--name-only',
+                               f'origin/{target}')
+    if rc != 0:
+        out['note'] = f'could not list origin/{target}: {expected}'
+        out['status'] = 'error'
+        return out
+    expected = {ln for ln in expected.splitlines() if ln}
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-endgame-'))
+    work = tmp / 'merge'
+    try:
+        rc, _, err = _run_git(repo_dir, 'worktree', 'add', '--detach',
+                              str(work), f'origin/{base}')
+        if rc != 0:
+            out['status'] = 'error'
+            out['note'] = f'could not create a throwaway worktree: {err}'
+            return out
+        # Conflicts are the expected outcome, so the return code says
+        # nothing here -- what the merge DID is read out of the index.
+        # No identity is set for this: `--no-commit` never writes a
+        # commit, so git never asks for one -- and an address literal here
+        # is a leak-gate finding in a public tree (caught by that gate the
+        # first time this ran).
+        _run_git(work, 'merge', '--no-commit', '--no-ff', f'origin/{target}')
+        rc, conflicted, _ = _run_git(work, 'diff', '--name-only',
+                                     '--diff-filter=U')
+        conflicts = {ln for ln in conflicted.splitlines() if ln} if rc == 0 else set()
+        rc, staged, _ = _run_git(work, 'ls-files', '--stage')
+        present = set(conflicts)
+        if rc == 0:
+            for line in staged.splitlines():
+                meta, _, path = line.partition('\t')
+                if path and meta.split()[-1] == '0':
+                    present.add(path)
+        out['conflicts'] = sorted(conflicts)
+        out['dropped'] = sorted(expected - present)
+        out['status'] = 'findings' if out['dropped'] else 'clean'
+        return out
+    finally:
+        _run_git(work, 'merge', '--abort')
+        if not keep:
+            _run_git(repo_dir, 'worktree', 'remove', '--force', str(work))
+            _run_git(repo_dir, 'worktree', 'prune')
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def enumerate_scope(repo=None, user_config=None):
     """-> {'checkout': {...}, 'sources': [...], 'missing': [...]}"""
     repo_root = pathlib.Path(repo or ROOT).resolve()
@@ -594,6 +716,7 @@ def main():
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    skip_endgame = '--skip-endgame-merge' in args
     allow_stale = '--allow-stale' in args
     do_freshen = '--freshen' in args
 
@@ -719,8 +842,11 @@ def main():
                 branch_scans[s['name']] = scan_branches(
                     s['path'], exclude=(src_branch,) if src_branch else ())
 
+    endgame = None if skip_endgame else endgame_merge(repo_root, checkout_target)
+
     if as_json:
         data['branches'] = branch_scans
+        data['endgame_merge'] = endgame
         print(json.dumps(data, indent=2, sort_keys=True))
         return 0
 
@@ -927,6 +1053,51 @@ def main():
                 print(f"    -> git -C {scan.get('path', '<repo>')} fetch "
                       f"--depth=50 origin   # then re-run")
             print()
+
+    # THE ENDGAME MERGE (practice: very-deep-check, pass 4). Printed with
+    # the branch material because it is the same question one level up: the
+    # branch sweep asks which branches never landed, this asks what happens
+    # when the branch everything lands ON finally lands itself.
+    if endgame is not None:
+        print(f"ENDGAME MERGE -- rehearsing origin/{endgame['target']} into "
+              f"origin/{endgame['base']}\n")
+        if endgame['status'] in ('cannot-tell', 'error'):
+            print(f"  CANNOT TELL: {endgame['note']}")
+            print(f"  Reported as unknown, never as clean -- an empty "
+                  f"difference from a check that could not run reads exactly "
+                  f"like a good result.\n")
+        else:
+            print(f"  conflicting paths:              {len(endgame['conflicts'])}"
+                  f"   (loud -- whoever runs the merge will see these)")
+            print(f"  present on the branch, ABSENT\n"
+                  f"  from the merge result:          {len(endgame['dropped'])}"
+                  f"   (silent -- no conflict is raised)")
+            if endgame['dropped']:
+                print(f"\n  FINDING: {len(endgame['dropped'])} path(s) would "
+                      f"disappear when this merge lands, with nothing said "
+                      f"about them.\n  The cause is history surgery on "
+                      f"origin/{endgame['base']} -- a reverted merge, a "
+                      f"cherry-pick, a force-push --\n  which leaves the "
+                      f"commits in its log while the tree no longer has the "
+                      f"files, so git\n  treats the work as already merged "
+                      f"and honours the deletion. First few:\n")
+                for path in endgame['dropped'][:10]:
+                    print(f"      {path}")
+                if len(endgame['dropped']) > 10:
+                    print(f"      ... and {len(endgame['dropped']) - 10} more "
+                          f"(--json for the full list)")
+                print()
+            else:
+                print(f"\n  Nothing disappears silently. Note what this does "
+                      f"NOT say: a path present in\n  the merge result can "
+                      f"still carry the wrong side's content, which only the\n"
+                      f"  conflict set, read by a person, will catch.\n")
+            if endgame['shallow']:
+                print(f"  CAVEAT: this clone is shallow, so the merge base "
+                      f"may not be the real one.\n  Deepen "
+                      f"(`git fetch --unshallow origin`, or a bounded "
+                      f"--depth=N) and re-run before\n  trusting an empty "
+                      f"result.\n")
 
     return 0
 

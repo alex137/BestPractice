@@ -33,7 +33,10 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   split same day, Morgan F, so the unmerged-branch INVENTORY is read
   before any pass and only the verdicts stay in pass 4;
   extended same day, Morgan F, so pass 1 tests an UPDATE and not only an
-  install, against a real consumer repository and not only a fixture"
+  install, against a real consumer repository and not only a fixture;
+  extended 2026-09-07, Morgan F, with pass 2's enumerate-rather-than-sample
+  question and pass 4's whole-tree rehearsal of the endgame merge, after a
+  sampled rehearsal of the phase-7 merge-back returned the wrong verdict"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -334,6 +337,23 @@ confidently.
     in a hook or a checked-in file. *(Found: commit identity unset in four
     clones, so commits landed under the wrong author and tripped the repo's
     own check.)*
+14. **Does a verification enumerate, or does it sample?** For any check
+    whose failure mode is something *absent* — a file, a term, a link, a
+    row, a practice — ask how it concluded nothing was missing. If it can
+    name the items it looked at, it is reporting its own coverage and not
+    the property: **a sample proves presence and can never prove absence.**
+    Worse, the items a session reaches for are the ones it has just been
+    working on, which is systematically the class that cannot fail. Rebuild
+    it as a set difference — the whole expected set, the whole actual set,
+    report everything in the first and not the second — and where the whole
+    set genuinely cannot be enumerated, say the check is partial rather
+    than letting a clean sample read as a clean result. *(Found: a
+    rehearsal of the phase-7 merge-back simulated the merge, checked that
+    two files survived it, and recorded that the revert trap "was checked
+    and does not fire". Both files had been edited by that same session
+    days before, which is exactly what put them in the surviving class. The
+    set difference, run against the whole tree the next day, was 507
+    files.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
@@ -487,6 +507,38 @@ Last because none of it strands an adopter, and none of it is cheap.
 
   Where a recommendation cannot be made honestly, say which of the four
   is missing and what would settle it.
+
+- **The endgame merge, rehearsed against the whole tree.** A repo whose work
+  is pinned to an integration branch is aimed at one merge it has never
+  performed — this repo's phase-7 fold-in of `precedent-beta-v01` into
+  `main` is the case — and that merge gets exactly one attempt, usually
+  under time pressure, usually by whoever approves it rather than whoever
+  built it. Rehearse it here, every run:
+  [tools/very_deep_check.py](../tools/very_deep_check.py) merges the
+  integration branch into its base in a throwaway worktree, commits nothing,
+  and reports **two sets, separately**. *Conflicting paths* are loud, and
+  whoever runs the real merge will deal with them. *Paths present on the
+  integration branch and absent from the merge result* are silent — no
+  conflict, no message, no line in the merge output — and **that set must be
+  empty.** Anything in it is a file that will disappear when the merge lands
+  and that nobody will be told about.
+
+  **What puts entries in it is history surgery on the base branch**, not
+  anything wrong with the integration branch: a reverted merge, a
+  cherry-pick, a force-push. Git decides what to replay from *history*, so a
+  revert that undid the files while leaving the commits in the base's log
+  makes git treat that work as already merged and then honour the deletion.
+  Re-run the rehearsal whenever the base branch moves — a clean result last
+  month says nothing about a base that has been touched since.
+
+  **Two honest limits, both of which must be reported rather than assumed
+  away.** On a shallow clone the merge base resolves wrongly or not at all,
+  and an under-fetched history yields an empty difference that reads exactly
+  like a clean one — so the rehearsal proves its history reaches the base or
+  reports that it could not run. And an empty set means nothing *vanished*,
+  not that the merge is *correct*: a file present in the result can still
+  carry the wrong side's content, which only the conflict set read by a
+  person will catch.
 
 ## Why
 The mechanical audits ([doc_lint.py](../tools/doc_lint.py),
@@ -739,7 +791,7 @@ already-built sibling this one deliberately does not replace, and
 [spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md) for the decision
 record this practice's own build closes out.
 
-Five parts of the check *are* mechanical, as far as a mechanical check can
+Six parts of the check *are* mechanical, as far as a mechanical check can
 reach (`checkable-gets-checked`): every repo in force is fetched and
 compared against its origin before the tool reads a line, and anything but
 provably-current exits non-zero (`--allow-stale` for a deliberately offline
@@ -758,7 +810,20 @@ against each repo's own `origin/HEAD` (or an explicit `--target` for this
 checkout when its integration branch isn't its default one, this repo's own
 `precedent-beta-v01` being exactly that case) for merged-and-undeleted, and
 `git cherry` for how many of an unmerged branch's commits have no
-patch-equivalent on that target.
+patch-equivalent on that target. Sixth, the endgame merge is rehearsed: the
+integration branch is merged into its base in a throwaway worktree (detached,
+nothing committed, removed on every exit path), and the paths present on the
+branch but absent from the result are reported separately from the
+conflicting ones — `--skip-endgame-merge` to skip it, `--json` for the full
+list rather than the first ten. It reports CANNOT TELL, never clean, when
+the two branches have no common ancestor in this clone: an under-fetched
+history yields an empty difference that reads exactly like a good result.
+Its negative control is
+[tools/verify_harness.py](../tools/verify_harness.py)'s
+`check_endgame_merge_finds_the_silent_drop`, which plants one file of each
+class and asserts *which path lands in which set by name* — a count would
+have passed while reproducing the original miss
+([control-asserts-which-failure](control-asserts-which-failure.md)).
 
 What stays a session step, deliberately: the branch sweep's other half —
 turning a mechanically-merged branch into a *reported* one requires knowing
