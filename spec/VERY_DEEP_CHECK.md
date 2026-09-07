@@ -484,6 +484,45 @@ double-check it reproduced a known bug and manufactured four findings.
 [search-by-purpose](../practices/search-by-purpose.md) names this, and it is
 worth noting that the failure mode here was *inventing* work, not missing it.
 
+**The shipped non-technical template puts 66 developer-oriented rules in
+force for an editorial project, and exempts none of them.** Raised by Morgan
+2026-09-07 as a question about `fail-gracefully`'s volume, and the catalogue
+half of it turned out to be the larger finding.
+[templates/nontechnical-document-project/precedent.json](../templates/nontechnical-document-project/precedent.json)
+declares two sources: the full universal catalogue, and
+`precedent-team-tms`, which holds exactly one practice
+(`audience-register`). Materialization flattens both, so a non-technical
+document project receives all 66 active universal practices — among them
+`very-deep-check`, `scrub-gate`, `practice-export-loop`,
+`merge-authorization-keyword`, `computed-numbers-in-scripts` and
+`cross-source-rollout`, every one of them about running a code repository.
+There is no `not_binding` entry anywhere in the template, and its
+`AGENTS.md` does not say which universal practices do not apply.
+
+`not_binding` was built for exactly this — [precedent.json](../precedent.json)'s
+own comment describes it as "a rule about a different KIND of repo" — and is
+unused here. **The right answer to "these rules are too loud for a
+non-technical reader" is mostly not to make the rules quieter: it is to stop
+putting rules in force that were never about this work.** A rule that does
+not bind should be exempted with a stated reason, not softened for everyone.
+That is a per-practice judgment with a mandatory reason each, 66 of them, so
+it belongs to pass 4's catalogue work rather than being done here — recorded
+now so pass 4 inherits a defined job rather than rediscovering it. Note the
+one constraint: a `severity: blocking` practice cannot be exempted at all
+(one exists in the universal set).
+
+Separately and genuinely: `fail-gracefully` itself has no graduation. Its
+Rule holds one uniform standard — "every degraded path announces itself
+where the human running the session will see it" — with no axis for how much
+the degradation costs or who is reading. Its own `## Install` already
+measured the consequence from the enforcement side: a mechanical check for
+that clause produced **67 hits against Precedent's own `tools/`, the large
+majority legitimate**, which is the same signal-to-noise problem seen from
+the other end. The field that looks like it would carry the graduation does
+not: `severity: blocking` is about *override protection* (no higher-ranked
+source may turn the practice off), not about report volume. The axis has to
+be built, not borrowed.
+
 **Checked and clean, so the next run need not redo them:**
 
 - **Formatting drift and relative links in the three private sets.** Zero
