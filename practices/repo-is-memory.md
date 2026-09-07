@@ -29,6 +29,24 @@ Repos that kept context in threads paid a re-derivation tax every session —
 re-finding files, re-learning environment quirks, re-making settled decisions.
 
 ## Story
+No single dated incident was recorded, because the failure this prevents is
+continuous rather than punctual: **repos that kept context in threads paid a
+re-derivation tax every session.**
+
+The tax is concrete and itemisable -- re-finding files, re-learning
+environment quirks, re-making decisions that were already settled once. Each
+individual instance looks like ordinary startup work rather than like loss,
+which is exactly why it can run indefinitely without anyone costing it.
+
+The rule's sharpest clause is the one that makes it actionable: **if
+knowledge exists only in a thread, it is already lost.** Not "at risk of
+being lost" -- already, because nothing about a thread's contents is
+reachable by the next session, and the moment of loss has therefore already
+passed by the time anyone would think to look.
+
+Agent sessions start cold every time, and a human returning after a month is
+in the same position. That symmetry is why this is not an agent-specific
+accommodation.
 
 ## Install
 The three living documents below (MAP, TODO, GLOSSARY) plus a

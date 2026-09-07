@@ -367,7 +367,7 @@ which is the failure this repointing exists to end — write
     should be replaced by them.
 
 24. <a id="consumer-source-names"></a>~~**Check the consumer repos' own source names against the convention.**~~
-    **Done (2026-09-06.)** `themorgan/HavrutaBrainstorm` — the one consumer
+    **Done (2026-09-06.)** A private consumer repo — the one consumer
     that declares sources and was not attached when
     [practices/source-naming.md](practices/source-naming.md) landed — was
     refreshed from its own session and merged. Its repo-local source was
@@ -547,7 +547,7 @@ which is the failure this repointing exists to end — write
     [tools/model_audit.py](tools/model_audit.py)'s `INSTRUMENTED` names
     [tools/catalogue_stats.py](tools/catalogue_stats.py). None of those
     exist in a consuming repo, and both files became consumer-vendored on
-    2026-09-06 — so the first real consumer refresh (HavrutaBrainstorm, the
+    2026-09-06 — so the first real consumer refresh (that private consumer repo, the
     same day) inherited BestPractice's own registry and reported
     `scripts-assert-properties` violated with `computed-numbers-in-scripts`
     and `docs-track-models` skipped. Nothing is broken; the consumer's
@@ -875,3 +875,43 @@ which is the failure this repointing exists to end — write
     scanner's whole premise is that on a public repo a push is a publication
     with no grace period. **What closes it for free:** the merge-back landing
     first, which brings both gates to `main` in one move.
+
+- **`precedent_check.py` is not vendored, so a practice set enforces nothing
+  of the universal catalogue.** Established 2026-09-07 while closing the
+  Story backfill, and it is the root cause behind two separate items already
+  filed: `cite-the-incident`'s check never ran in the private sets, and
+  neither did the status-contract check
+  ([`convert-team-set-retired-statuses`](TODO.md#convert-team-set-retired-statuses)
+  records the same shape). Both were assumed to be running. **A gap declared
+  in a repo that cannot check for it is indistinguishable from one nobody
+  declared** — which is exactly how 34 empty Stories sat in a team source for
+  a week with its own gates green.
+  Not fixed in that pass because it is a real engine change rather than a
+  one-line addition:
+  [tools/precedent_check.py](tools/precedent_check.py) lazily imports
+  `doc_lint`, `title_case` and `doc_sync`, none of which is in
+  `ENGINE_FILES`, so vendoring it means either bringing those along or
+  proving each affected check degrades honestly (a named skip, never a silent
+  pass) when its import is missing. That needs harness cases with negative
+  controls, in the repo that owns the engine.
+  **Interim state, so nobody assumes it is covered:** the team source carries
+  its own `check_catalogue_stories.py` as the only enforcement that actually
+  runs inside a set, and its practice record says to retire that script once
+  this lands. **Blocked on:** nothing but the work.
+
+- **Nine practices carry an empty `## Why`.** Found 2026-09-07 by the Story
+  backfill, which was scoped to `## Story` and deliberately did not widen:
+  `docs-are-current-state`, `environment-gotchas`,
+  `generated-artifact-provenance`, `label-describes-content`,
+  `layered-practice-packs`, `lead-with-what-it-is`, `merge-runbook`,
+  `one-formatter-per-quantity`, `parallel-artifact-ledger`. A tenth,
+  `reply-links-files`, had an empty Why *and* an empty Story and was fixed in
+  that pass, which is how the rest were noticed.
+  This is a different gap from the Story one and probably has a different
+  cause: `## Why` is reasoning the converter *did* carry across, so an empty
+  one suggests the source practice stated a rule with no separate rationale
+  rather than that anything was lost. Worth confirming against
+  `PRACTICES.md` before writing anything — and note that
+  [catalogue-carries-stories](practices/catalogue-carries-stories.md)
+  deliberately checks Story only, so nothing currently reports these.
+  **Blocked on:** nothing but the work.

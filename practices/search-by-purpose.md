@@ -65,6 +65,29 @@ result says *"this wants a measurement we do not have"*, ask who else would have
 needed the same measurement, and search for **their** reason for needing it.
 
 ## Story
+No dated incident was recorded. The rule is written from a failure
+signature, and the signature is worth more than an anecdote would be here,
+because the whole difficulty is that the failure is invisible.
+
+**Prior work is usually filed under the author's reason for doing it, not
+under the machinery it used.** A search keyed on the mechanism misses a
+document describing the same mechanism under a different mission, and the
+reverse misses just as reliably. The two vocabularies rarely co-occur in one
+document's prose, so **each search returns a clean, plausible,
+complete-looking result set with the other half absent.**
+
+It also survives the checks that normally catch bad work. An adversarial
+pass verifying every claim against its source passes, because each claim
+really is supported. A consistency check across the documents you did find
+passes, because those really are consistent. The failure is not a wrong
+claim but an unexamined duplication -- and if your independently derived
+number differs from the one that already existed, the contradiction lands
+silently in the repository for a later reader to trip over.
+
+**The tell is an open item that seems too basic to be open**: a quantity so
+central that somebody would surely have needed it already. When a result
+says the work wants a measurement nobody has, ask who else would have needed
+that same measurement, and search for their reason for needing it.
 
 ## Install
 **Related:** [outward-summary-discipline](outward-summary-discipline.md) (read the primary, not the summary) is the sibling

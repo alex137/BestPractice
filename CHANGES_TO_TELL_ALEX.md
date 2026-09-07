@@ -307,6 +307,85 @@ own patterns are untouched — verified still firing on an unattributed "user
 decision" with no record link, and still not exempting an ordinary document
 link.
 
+## Content added to practices, not just re-linked
+
+### Story backfill across the catalogue — 2026-09-07
+
+**What changed.** 30 of the 65 practices carried an empty `## Story`, and one
+of them — [reply-links-files](practices/reply-links-files.md) — carried an
+empty `## Why` as well. All are now written. **No Rule, Detail, Why (except
+that one), `checked_by`, `severity` or `status` changed**: this is added
+provenance only, in the section the format already reserved for it.
+
+**Why they were empty, which is not the obvious reason.**
+[split_practices.py](tools/split_practices.py) declines to populate `## Story`
+deliberately and documents why in its own docstring: separating the incident
+from the reasoning is editorial judgment, and doing it unreviewed for a whole
+catalogue in one pass risked mischaracterizing exactly the content the
+conversion existed to preserve faithfully. It left the section present and
+empty as a **declared** gap. The converter did the right thing; nothing ever
+came back for the gap.
+
+It survived here for a specific mechanical reason worth knowing:
+[cite-the-incident](practices/cite-the-incident.md)'s check fires on
+authorship of a *changed* Rule, and a Story that was empty from the beginning
+is never a change. Its own practice file was among the 30.
+
+**Where the text came from.** Each Story is written from what this repo
+already recorded — the practice's own `## Why`, the spec documents, the
+decision records. Several are real incidents that were already in the prose
+and simply not separated out: the parking-lot document that lost staged
+content for a full cycle; the comparison table that lagged its scripts until
+the repo owner asked; the three audits that each exist because a written
+convention was broken once; the day spent patching three forked tools before
+they were collapsed to shims.
+
+**Where no incident existed, the Story says so** rather than inventing one.
+Roughly half are this kind. That distinction is deliberate and load-bearing:
+an empty section is a visible gap, and a fabricated incident is a false
+record that gets trusted.
+
+**A new practice came with it**, at universal level:
+[catalogue-carries-stories](practices/catalogue-carries-stories.md), enforced
+by a tree-scoped check in
+[tools/precedent_check.py](tools/precedent_check.py). It asserts that every
+`status: active` practice carries a non-empty Story, across the whole
+catalogue rather than only across changed files — which is what makes a bulk
+landing (a migration, an import) unable to pass it, and a gap left behind
+unable to go quiet later.
+
+**Fidelity checks.** Every affected slug is registered in
+`AMENDED_POST_CONVERSION`, so the word-multiset and sentence-preservation
+checks against `PRACTICES.md` still run against everything else. A Story is by
+definition text the frozen original does not contain.
+
+Most of the 30 were already registered there for the earlier citation and
+link sweeps. The slugs newly registered by this change are
+[cite-the-incident](practices/cite-the-incident.md),
+[no-version-suffix](practices/no-version-suffix.md), and — for the scrub
+below rather than for a Story —
+[migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md).
+
+### A private repo name was scrubbed from this tree — 2026-09-07
+
+**What changed.** 19 occurrences of a private repository's name, across
+`README.md`-adjacent documents, `AGENTS.md`, `INSTALL.md`, four spec
+documents, five tools and two practice files, replaced with general
+descriptions ("a private consumer repo") that keep every incident intact.
+
+**Why.** This repo is public, and that repo is private, so its name here was
+a real disclosure. Found by pointing the leak gate's private vocabulary half
+at this tree for the first time — the layer existed and had never been run
+with a real blocklist.
+
+**What was deliberately NOT scrubbed**, and this is the more useful half:
+the other 33 hits were all one name, `WorkingWithAI`, which was checked and
+**is a public repository**. Scrubbing it would have deleted genuinely useful
+worked-example links from outward-facing documents to protect a fact that is
+already public, while leaving the gate permanently red for a reason nobody
+could act on. That pattern was removed from the blocklist instead, with the
+evidence recorded there.
+
 ## Cross-referenced only, not a behavior change
 
 **A scope note on the entry below, added 2026-09-03**: "no `checked_by`

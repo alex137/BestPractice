@@ -39,6 +39,25 @@ member merges bypassed the capture and export gates exactly this way,
 the form that binds every path to the default branch.
 
 ## Story
+**Every audit in the originating repo exists because its rule was broken
+once despite being written down.** Three of them, each a different shape of
+the same failure: a status flag that was not flipped, which made a generated
+bundle silently drop updated content; a renumbering that left stale
+cross-references undetected for weeks; and a markdown footgun that garbled
+an external document. None of the three recurred after being promoted to an
+audit, which is the evidence the rule rests on.
+
+**The binding layer turned out to matter as much as the check**, and that
+was learned separately and later. A gate living only in a merge runbook
+binds only the sessions that actually run the runbook -- a pull request
+merged through the hosting platform's web interface skips it entirely. A
+dependent repo's first member merges bypassed the capture and export gates
+exactly that way in 2026-08.
+
+That is why the rule names a required continuous-integration check as the
+form to reach for rather than any non-zero exit: it is the only form that
+binds every path to the default branch, including the paths that do not
+involve a session at all.
 
 ## Install
 [tools/doc_lint.py](../tools/doc_lint.py) and

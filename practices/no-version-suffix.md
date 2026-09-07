@@ -41,6 +41,24 @@ Naming for identity instead keeps one stable handle per document and lets the
 tool whose job is versioning do the versioning.
 
 ## Story
+No dated incident was recorded; this is a named anti-pattern rather than one
+repo's scar.
+
+The specific charge against `_v1` is that **it does not merely duplicate the
+version-control history, it eventually contradicts it.** A `_v1` file edited
+fifty times still says `_v1`, so the label is not redundant any more -- it is
+lying, and unlike the history it will never correct itself.
+
+The second-order costs are what make it worth a rule rather than a
+preference. Naming for version invites a rename on every real revision,
+which churns every reference to the file; or, worse, it invites a `_v2`
+copy, which forks the document and splits its history in two so neither half
+tells the whole story.
+
+Naming for identity keeps one stable handle per document and leaves
+versioning to the tool whose job that is. The carve-out is narrow and
+deliberate: a suffix earns its place only when two versions genuinely
+coexist and a reader has to tell them apart.
 
 ## Install
 A naming convention; no tooling needed. The one judgment call —

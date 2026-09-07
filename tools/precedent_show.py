@@ -148,7 +148,7 @@ def _materialize_manifest(root):
     repo resolving universal/team/individual/repo-local together) -- None
     for a source repo's own hand-authored practices/, which never has one.
     Same detection this codebase already uses elsewhere for the identical
-    question (HavrutaBrainstorm's tools/checks/check_light_check.py's
+    question (a consumer repo's tools/checks/check_light_check.py's
     _practices_are_materialized): keyed off MANIFEST.json's own
     `generated_by`, not a path guess -- so this never fires, and never has
     to be told not to, for BestPractice checking itself or for an

@@ -37,6 +37,23 @@ survives into the draft even though almost no reader will ever hit the edge
 case — they just have to read past it every time.
 
 ## Story
+No dated incident was recorded. The rule names a specific mechanism by
+which good documents drift, and the mechanism is what makes it checkable.
+
+**A document is drafted in the order its author thought it through, which is
+rarely the order its reader needs it in.** In the author's head an edge case
+sits next to the common case that motivated it, because that is when they
+thought of it -- and that adjacency survives into the draft.
+
+The cost lands entirely on the reader, and lands repeatedly. Almost nobody
+will ever hit the edge case, but everybody has to read past it, every time,
+to reach the section they opened the document for.
+
+The escape hatch is deliberate and narrow: where the subject matter itself
+dictates an order -- steps that must be followed in sequence, a narrative
+that only makes sense forward -- that order wins. The rule is about
+frequency governing order where nothing else already does, not about
+frequency overriding logic.
 
 ## Install
 A writing convention, checked in review with the question

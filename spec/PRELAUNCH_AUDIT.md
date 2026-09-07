@@ -273,7 +273,7 @@ run prompted on every single run.
    nine are fixed; the whole tree resolves. practice: `convention-to-audit`.
 5. ~~**`precedent_sync_views.py --check` wrote to the working tree.**~~
    **Done.** Found by running the real consumer repos rather than
-   fixtures — `themorgan/HavrutaBrainstorm`, a four-source install whose
+   fixtures — a private four-source install whose
    own `AGENTS.md` tells every session to run this at session start.
    `--check` guarded only the `AGENTS.md` write; `materialize()` ran
    underneath it unconditionally, deleting and rewriting `practices/`,
@@ -608,7 +608,7 @@ was committed before this pass: reported stale.
 ### What only a consuming repo could show
 
 Three findings that this repo's own green could not have produced, found by
-taking the refreshed engine into `havrutabrainstorm` and `workingwithai`
+taking the refreshed engine into the two real consumer repos
 rather than stopping at a clean local run:
 
 - **`--help` that runs the tool passed every property the new check

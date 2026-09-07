@@ -49,6 +49,21 @@ invisible to readers, and the block boundaries make regeneration deterministic
 (no fuzzy matching against drifting prose).
 
 ## Story
+**Found by the repo owner having to ask.** In a dependent repo a headline
+comparison table lagged the scripts that computed it, and the way this
+surfaced was a person asking "did you update the table?" -- which is the
+whole problem in one sentence. Nothing had broken. Derived numbers quoted in
+prose simply lag their source silently, and a human has to *notice*.
+
+The reminder itself was the bug. Consistency between a computing script and
+the documents quoting it is mechanical to check and embarrassing to miss,
+which is exactly the profile `convention-to-audit` says must stop being a
+convention and become an audit.
+
+Two details of the sentinel form are deliberate. HTML comments render as
+nothing on hosted markdown, so the plumbing stays invisible to readers, and
+explicit block boundaries make regeneration deterministic rather than a
+fuzzy match against prose that keeps drifting.
 
 ## Install
 Copy `tools/doc_sync.py`; register pairs in its `PAIRS` list; wrap

@@ -46,6 +46,26 @@ sweep is a different cognitive act (reading for omissions) from drafting
 lost idea.
 
 ## Story
+**An owner-prompted sweep found two real gaps in a single day's work.**
+Somebody asked "did we miss capturing anything?" of work that had already
+been drafted, reviewed and considered finished, and the answer was yes
+twice: a cross-artifact transfer that had been waved off, and a
+competitor-inspired idea noted in passing but never landed anywhere durable.
+
+The drafting passes had individually missed both. That is the finding, not
+the two gaps themselves.
+
+**The production mindset cannot audit itself: while drafting, every idea
+feels captured because it was thought.** Thinking an idea and landing it in
+a durable artifact are different acts that feel identical from the inside at
+the moment of writing, which is why no amount of care within the drafting
+pass substitutes for a separate one.
+
+Hence the insistence that it is a separate step rather than a final section
+of the production flow. Reading for omissions is a different cognitive act
+from writing for completeness, and it only works when it is performed as
+that different act. The cost argument closes it: minutes, against the cost
+of an idea that is simply gone.
 
 ## Install
 Add the checklist to the session-end or pre-merge ritual, before
