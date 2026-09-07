@@ -891,8 +891,37 @@ which is the failure this repointing exists to end — write
     with no grace period. **What closes it for free:** the merge-back landing
     first, which brings both gates to `main` in one move.
 
-42. <a id="bold-rule-for-heading-dense-pages"></a>**`bold-key-phrases` needs a weak
-    counter-clause for heading-dense pages.** Morgan, 2026-09-07, on
+42. <a id="bold-rule-for-heading-dense-pages"></a>~~**`bold-key-phrases` needs a weak
+    counter-clause for heading-dense pages.**~~ **Done 2026-09-07**, in the team set,
+    on branch `claude/bold-phrases-density-clause-mo6m33`. The clause went to
+    `## Detail`, not `## Rule`: the practice is `tier: resident`, and a suggestion
+    named deliberately weak does not earn text every session carries whether or not
+    the occasion fires — the counterweight it qualifies ("emphasis is a budget", the
+    two rough tests) was already in Detail, so the qualifier sits with what it
+    qualifies. The resident block is unchanged at ≈248 tokens. No `checked_by`, for
+    the reason this item gave. The Story carries the incident: the audit sweep was
+    right for the page as it then stood, the page grew, the same emphasis stopped
+    signalling — both halves kept, because the rule was right the first time and
+    wrong the second on the same document.
+
+    **The four-step runbook below was followed as written and every step held**,
+    including the two the item could only predict: `add_repo` accepted both sibling
+    `themorgan/*` sets from a session already holding one (the cross-tier rule keys
+    on owner, as [AGENTS.md](AGENTS.md)'s gotcha says), and a plain `git clone` of the
+    public upstream needed no credentials. Kept unstruck as a working recipe for the
+    next cross-set edit.
+
+    **Follow-on, 2026-09-07: landing it in BOTH team sets made the resolver refuse.**
+    `bold-key-phrases` now exists in `precedent-team-maintainers` and
+    `precedent-team-tms`, and so does `fail-gracefully` — two same-slug practices at
+    the same level, landed the same day by two sessions each doing the obviously
+    right thing. `precedent_resolve` raises `ResolveError` on a source list holding
+    both: *"nothing orders two sources at the same level, so there is no answer to
+    which one wins."* Any repository declaring both team sources fails to resolve
+    entirely. Nothing is broken today (no repository declares both), and the
+    question is filed at
+    [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos)
+    with a recommendation. Morgan, 2026-09-07, on
     [documentation/WHAT_IS_THIS_AND_BENEFITS.md](documentation/WHAT_IS_THIS_AND_BENEFITS.md):
     "this page has a lot of headings and short lists, so that would make it too
     bold". He asked for the one-line lead-in under each `##` to carry no bold
@@ -1242,3 +1271,44 @@ which is the failure this repointing exists to end — write
 
   **Blocked on:** nothing but a decision about what shape the answer takes.
   Explicitly parked at Morgan's request — do not design it in passing.
+
+43. <a id="loader-comment-names-an-unvendored-check"></a>**The generated loader block
+    tells every source set that a check catches drift, in exactly the repos where that
+    check does not exist.** [tools/build_views.py](tools/build_views.py) writes `do not
+    hand-edit this block, tools/verify_harness.py's regeneration check fails on drift.`
+    into the generated block unconditionally. But `verify_harness.py` is deliberately
+    not vendored into a SOURCE set —
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py) says so twice,
+    each time as a known consequence it is working around. So the one line telling a
+    session the block is protected is false in every private set, and it is the line a
+    session reads instead of checking.
+
+    **This is [precedent_check.py](tools/precedent_check.py)'s own finding, one level
+    up.** That module exists because `checked_by:` was "a claim: a string naming a script
+    that existed", and its header states the principle: *"A claim nobody tested is worth
+    less than no claim, because it reads as coverage."* A generated comment naming a
+    check that cannot run in the repo it is generated into is the same shape, in a
+    comment rather than a frontmatter field, and nothing tests it either.
+
+    **Evidence, found 2026-09-07 in the team set.** `AGENTS.md`'s occasion index and
+    `MAP.md` had been stale since `b9fae5a` rewrote `fail-gracefully`'s `occasion` and
+    `index_clause` without regenerating. Nothing reported it; it was caught by hand, by
+    running `build_views.py` for an unrelated practice edit and reading the diff.
+    Verified identical in all three private sets: each carries the same generated line,
+    none has `tools/verify_harness.py`.
+
+    **Two fixes, and they are not the same size.** The honest one is to make the comment
+    conditional — name `verify_harness.py` only where it is vendored, and elsewhere say
+    plainly that regeneration is on the author and nothing here checks it. The better one
+    is to make the claim true: `build_views.py` is deterministic and idempotent (verified
+    — a second run on a clean tree is a no-op), so "regenerate into a temp dir and diff"
+    is a cheap check, and `precedent_check.py` is now vendored into source sets and could
+    host it. That one is not free: that registry is deliberately one entry per *enforced
+    practice*, each owing a failure message that IS some practice's `## Rule` and a test
+    that proves it fires. A regeneration check owns no practice, so it needs either a
+    practice to belong to or a considered exception to that shape — which is a design
+    call, not a fix. **Recommend doing the honest one now and filing the better one
+    separately**, rather than letting a comment stay false while the design question
+    is open.
+
+    **Blocked on:** nothing but the work, for the first half.

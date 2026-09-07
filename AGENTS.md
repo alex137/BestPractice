@@ -664,6 +664,24 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   on the clone — a later session running the harness will hit this again with
   no idea why.
 
+- **The individual source resolves to a clone you are probably not editing,
+  and it can be many commits stale.** `~/.config/precedent/config.json`
+  names an absolute path, and on 2026-09-07 that path was
+  `/root/precedent-individual` while every repo this session had attached,
+  edited and pushed lived under `/home/user/`. Two clones of the same
+  repository, and **everything that resolves the individual source at
+  runtime reads the one in the config** — which was 6 commits behind, so it
+  did not carry work committed and pushed an hour earlier from the other.
+  It cost two separate confusions before the cause was found: a harness
+  fixture that failed intermittently because it was reading that clone's
+  freshness (not its own), and a SessionStart hook that installed one of the
+  two commit hooks it should have, because the script it executed was the
+  stale copy. Neither symptom pointed at a path. Check
+  `python3 -c "import json,pathlib;print(json.load(open(pathlib.Path('~/.config/precedent/config.json').expanduser()))['individual']['path'])"`
+  against where you are actually working, before concluding a tool is
+  broken — and `git -C <that path> rev-list --count HEAD..origin/main` before
+  trusting anything it produced.
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**

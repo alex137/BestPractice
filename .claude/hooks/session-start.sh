@@ -110,6 +110,81 @@ if [ -f tools/precedent_refresh_sources.py ]; then
   python3 tools/precedent_refresh_sources.py 2>/dev/null || true
 fi
 
+# ---- commit identity, for EVERY Precedent repo in the session
+#
+# practice: session-bootstrap, and the incident is this repo's own.
+#
+# A SessionStart hook fires for the session's PRIMARY repo only. A sibling
+# attached with `add_repo` is just a directory on disk -- AGENTS.md's
+# gotchas already say every guarantee that hook provides is absent there.
+# The consequence nobody had joined up: the mechanism that sets a commit's
+# AUTHOR and TIMEZONE lives in the individual practice set's own
+# `bootstrap/commit-identity.sh`, so in a session whose primary repo is
+# THIS one, no attached set gets an identity at all. Each one silently
+# keeps the container's bot account and its UTC clock.
+#
+# 2026-09-07 it produced both halves in one turn: a commit authored as the
+# container's agent (caught before it was pushed) and, an hour later, a
+# merge commit stamped +0000 that reached main and had to be grandfathered
+# by SHA. Setting it by hand had been the workaround all session, which is
+# exactly the "instruction competing with a default, on every commit,
+# forever" that commit-identity.sh's own header says not to rely on.
+#
+# THE INFORMATION STAYS IN ONE PLACE. This does not copy a name, an address
+# or a zone anywhere: it runs the individual set's own script, which reads
+# that set's `identity.json` -- still the single declaration
+# (registry-source-of-truth). All this adds is REACH: the same script, once
+# per repo, with CLAUDE_PROJECT_DIR pointing at each. The script is built
+# for exactly this (it is meant to be installed in shared repositories that
+# name no person) and is idempotent, so re-running costs nothing.
+#
+# Reports and never gates, like everything else here.
+_ident_script=""
+_indiv="$(python3 - <<'PYIND' 2>/dev/null || true
+import json, os, pathlib
+cfg = pathlib.Path(os.environ.get("PRECEDENT_USER_CONFIG",
+                                  "~/.config/precedent/config.json")).expanduser()
+try:
+    d = json.loads(cfg.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit
+for key in ("individual", "sources"):
+    v = d.get(key)
+    if isinstance(v, dict) and v.get("path"):
+        print(v["path"]); raise SystemExit
+    if isinstance(v, list):
+        for e in v:
+            if isinstance(e, dict) and e.get("level") == "individual" and e.get("path"):
+                print(e["path"]); raise SystemExit
+PYIND
+)"
+if [ -n "$_indiv" ] && [ -f "$_indiv/bootstrap/commit-identity.sh" ]; then
+  _ident_script="$_indiv/bootstrap/commit-identity.sh"
+fi
+
+if [ -n "$_ident_script" ]; then
+  _here="$(pwd -P)"
+  for _repo in "$_here" "$_here"/../*/; do
+    [ -d "$_repo/.git" ] || continue
+    _abs="$(cd "$_repo" 2>/dev/null && pwd -P)" || continue
+    # Only repos this system actually owns the identity rule for. Never a
+    # stranger's checkout that happens to sit alongside.
+    #
+    # THREE MARKERS, NOT ONE, and the first version had only the first two:
+    # a CONSUMER declares `precedent.json`, an INDIVIDUAL set declares
+    # `identity.json` -- and a TEAM set has NEITHER. It is a practice
+    # repository, so what it has is `practices/`. Tested by breaking all
+    # four checkouts' git config and re-running: the two team sets were
+    # silently skipped, which is the exact failure this block exists to
+    # stop, reproduced by the block itself.
+    if [ -f "$_abs/precedent.json" ] || [ -f "$_abs/identity.json" ] \
+       || [ -d "$_abs/practices" ]; then
+      CLAUDE_PROJECT_DIR="$_abs" bash "$_ident_script" 2>/dev/null || \
+        echo "WARN: commit-identity could not be applied to $_abs -- commits there may carry the container's identity" >&2
+    fi
+  done
+fi
+
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` above would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.

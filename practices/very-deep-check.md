@@ -387,6 +387,19 @@ first so this pass spends its attention on what they cannot see.
   in the same pass (per [cross-source-rollout](cross-source-rollout.md)) if
   it's attached; if a `blocked-on` TODO for it already exists, confirm it's
   still accurate rather than adding a second one.
+- **Conflicting practices inside one source, and same-slug practices across
+  two** — two rules in the same catalogue that cannot both be followed, and
+  the same slug defined by two sources at the same level. Requested by
+  Morgan 2026-09-07 and **not yet built as a mechanical step**: the
+  cross-source half is already a hard `ResolveError`
+  (`precedent_resolve.py` refuses a source list where two same-level
+  sources define one slug), so what this pass adds is the *within-source*
+  half, which nothing detects at all — two practices in one catalogue whose
+  Rules pull opposite ways. The occasion for adding it was real: on
+  2026-09-07 two sessions landed `fail-gracefully` and `bold-key-phrases`
+  into both team sets on the same day, each doing the obviously right
+  thing, and the collision surfaced only because this check happened to
+  resolve all four sources by hand.
 - **Anything else the read turns up** — if something is wrong and none of the
   categories above name it, it is still a finding.
 
