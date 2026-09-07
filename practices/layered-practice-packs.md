@@ -63,6 +63,11 @@ the domain's rules apply, so an agent loads them exactly when doing that
 domain's work instead of carrying them in every session.
 
 ## Why
+**Both misfilings are silent, which is why a middle scope has to exist rather than being approximated by the two ends.**
+
+A domain rule filed as generic carries its vocabulary into an upstream that may be public, and the scrub gate is the only thing standing between it and publication. A domain rule filed as repo-local is safe but stranded: the next repo running the same kind of program needs every one of those rules and has no way to know they already exist, so it re-derives them, differently.
+
+Neither failure announces itself. The first looks like a generous contribution and the second like tidy scoping, and the cost of each shows up somewhere other than where the decision was made. That is what the single decision question is for — *would this hold in an unrelated repo?* — since it can be answered at the moment of writing, by the person who has the context.
 
 ## Story
 A domain program inside a dependent repo accumulated rules that

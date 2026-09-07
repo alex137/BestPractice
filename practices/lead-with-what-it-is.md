@@ -27,6 +27,11 @@ arriving cold learns *what this is* before *how to work with it*.
 ## Detail
 
 ## Why
+A reader arriving cold has **no frame, so the first thing they read becomes the frame.** Process description read first does not register as background about how the project is maintained; it registers as what the project *is*. Everything after is then interpreted through it.
+
+That is why this is an ordering rule rather than a completeness one. Nothing is missing from a README that opens with its process — every fact may be present and accurate — and it still misinforms, because the reader has already decided what kind of thing they are looking at before reaching the sentence that would have told them.
+
+Ordering is also the cheapest possible fix: the same sentences, moved.
 
 ## Story
 A newly created project's README once opened with a sentence about

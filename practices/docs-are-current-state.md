@@ -33,6 +33,11 @@ historical.
 ## Detail
 
 ## Why
+An in-document annotation is a **second copy** of something version control already holds losslessly — and unlike the history, the copy does not update itself. So it does not merely fail to help; it decays into being wrong, and a "Rev 3" pointer outliving Rev 5 is worse than no pointer at all.
+
+That makes the annotations a drift surface layered on top of the content they annotate, with the same maintenance cost as the content and none of its value. The reader pays as well: every one of them is text to read past on the way to what is currently true, forever, in exchange for an answer `log` and `blame` give better on demand.
+
+The exemptions are narrow for the same reason the rule is broad — they cover the cases where the date or the prior state *is* the content, rather than a note about it.
 
 ## Story
 A working document set accreted so many added/rewritten/Rev-N

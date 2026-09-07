@@ -25,6 +25,9 @@ failed and why, not just the fix.
 ## Detail
 
 ## Why
+**The fix alone is a fact a later session cannot judge.** Told only "install this package", a session that finds the package already present, or the symptom slightly different, has no way to decide whether the note still applies — so it either works around a note that is still correct, or trusts one that has gone stale. The story is what makes the note re-judgeable.
+
+The cost being defended against is unusual in that it is paid in *confusion* rather than in breakage. A tool that fails with a misleading error does not announce that the environment is at fault, so a session spends its time on the wrong hypothesis and reaches a plausible wrong conclusion. That is expensive, invisible in the diff, and repeats exactly as often as the environment is rebuilt.
 
 ## Story
 A build tool once failed on every input with a misleading error; two

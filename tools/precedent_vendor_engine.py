@@ -192,6 +192,22 @@ ENGINE_FILES = [
     # verify_harness.py is deliberately not vendored, so
     # check_status_contract never runs there.
     'precedent_migrate_status.py',
+    # The enforced channel itself (added 2026-09-07). Until then a SOURCE set
+    # enforced nothing mechanically: this file was in CONSUMER_ENGINE_FILES
+    # but not here, so a consuming repo got the checks and a practice set --
+    # exactly where a migrated catalogue lands -- never did. That is why
+    # cite-the-incident's demand for a ## Story did not reach the sets that
+    # were migrated in with 36 empty ones, and why the status-contract check
+    # was unreachable there too (TODO.md's convert-team-set-retired-statuses
+    # records that half).
+    #
+    # A source set does NOT get this file's four optional dependencies:
+    # doc_lint.py, doc_sync.py, title_case.py and precedent_resolve.py are
+    # CONSUMER_ENGINE_FILES only, since a source set resolves no catalogue
+    # and vendors no upstream tree. Every check needing one raises
+    # NotApplicable by name, so those report SKIPPED with the missing module
+    # named -- never ERRORED, and never a silent pass.
+    'precedent_check.py',
     'precedent_vendor_engine.py',
 ]
 
