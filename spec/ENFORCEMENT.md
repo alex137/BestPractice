@@ -265,6 +265,53 @@ the path channel surfaced it and the session declined it anyway.** Reach was a
 real problem and is now fixed for this practice. What is left is not a reach
 problem.
 
+## A materialized check cannot carry per-repo data
+
+Found 2026-09-07, from a real consumer install rather than from reading.
+[precedent_materialize.py](../tools/precedent_materialize.py) copies each
+source's `tools/checks/check_*.py`
+byte-identically into the consuming repo's own `tools/checks/`, and deletes
+and rewrites that whole directory on every
+[precedent_sync_views.py](../tools/precedent_sync_views.py) run. Two
+consequences follow, and only the first is already written down (in
+[AGENTS.md](../AGENTS.md)'s gotchas): a check script hand-added there
+survives until the next sync, so it belongs under its source's own declared
+`path`.
+
+The second is about the script's *contents*, and is easy to miss because the
+file is in the right place and the check works. **A check that keeps
+repo-specific data as a constant in the script can never be extended by the
+repo it runs in.** The consumer cannot edit the materialized copy — it is
+overwritten. Editing the source instead means putting one consumer's data
+into a team or individual set that several repos share, which is worse. The
+data has nowhere correct to live.
+
+The case that surfaced it: `check_commit_author.py` and
+`check_buenos_aires_dates.py` in `precedent-individual` both held a
+`GRANDFATHERED_SHAS` constant listing commits exempt from the rule. Those
+SHAs are `precedent-individual`'s own history. A consuming repo with its own
+pre-mechanism commits to grandfather had no way to say so — the exemption
+existed, and was unreachable from the only place that needed it. The fix was
+to move the list into a per-repo `identity.json` the checks read at runtime,
+unioned with whatever the script still hardcodes.
+
+**So: a check's LOGIC materializes; a check's DATA must not.** Anything that
+varies per repository — exempt commits, a repo's own branch names, paths,
+people — is read at runtime from a file in the repo being checked, never
+baked into the script that the sync will overwrite. A useful test while
+writing one: *if a second repository installed this check tomorrow, is there
+anything it would need to change inside the file itself?* If yes, that thing
+is data, and it belongs in config.
+
+The same audit carried a second lesson worth stating beside it. The
+grandfather list was assembled from what an open item had recorded — two
+commits. Auditing the branch's actual history found **eight**, none of them
+overlapping the recorded two. A written record of which commits violate a
+rule is a summary of a past reading, not the reading; the history itself is
+the source of truth, and this is
+[verify-decomposition](../practices/verify-decomposition.md) ("check the
+parts, not the total") in the one form that costs real work to get right.
+
 ## What is still not enforced, and why not
 
 Three practices in the remaining miss set carry no check, deliberately:

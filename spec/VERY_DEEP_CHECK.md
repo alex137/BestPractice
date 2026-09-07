@@ -364,7 +364,54 @@ of what the code does — exactly the class of drift this pass exists to
 catch, and the first one it found by reading rather than by running
 something.
 
+**A seam finding, queued rather than fixed: universal engine code depends on
+a rule the universal catalogue does not have.** Five files in this repo's own
+[tools/](../tools/) — `routing_audit.py`, `precedent_source_bootstrap.py`
+(twice), `precedent_show.py`, `precedent_vendor_engine.py` — name
+`fail-gracefully` to explain why they degrade rather than fail.
+`precedent_show.py fail-gracefully` exits 1: the practice lives in the
+private team set, so no reader of this public repo, and no consumer that
+vendors this engine, can look it up. Nothing in
+[practices/](../practices/) covers graceful degradation. All five use an
+*unanchored* mention, which
+[code-cites-practice](../practices/code-cites-practice.md)'s own Rule
+already forbids and its check cannot see — and rewriting one to the
+sanctioned form was tried, taking `precedent_check.py` from `1 passed` to
+`1 violated`, because the slug resolves nowhere here. The sanctioned form is
+*unavailable*, so the rule pushes its own users into the unchecked form. The
+blindness is now declared in that check's `blind_to`; the level decision is
+Morgan's and needs a session rooted at the private set, so it is queued as
+[`universal-code-cites-team-slug`](../TODO.md#universal-code-cites-team-slug)
+with a recommendation to promote. This is the kind of finding the practice
+means by "as likely to be in the seam between two repos as inside any one":
+neither repo is wrong on its own.
+
+**A constraint of the materialization model, learned from a consumer and
+written down here.** A second consumer report (`HavrutaBrainstorm`, installing
+the identity mechanism) found that `check_commit_author.py` and
+`check_buenos_aires_dates.py` held their exempt-commit list as a constant in
+the script. Those scripts materialize byte-identically into every consumer,
+and `tools/checks/` is deleted and rewritten on every sync — so a consuming
+repo with its own pre-mechanism commits to grandfather had no way to say so.
+The exemption existed and was unreachable from the only place that needed
+it. The general rule — **a check's logic materializes; a check's data must
+not** — is now a section in
+[spec/ENFORCEMENT.md](ENFORCEMENT.md), with the test to apply while writing
+one. The same audit found the list assembled from an open item's record (two
+commits) where the branch's actual history held eight, none of them the
+recorded two: [verify-decomposition](../practices/verify-decomposition.md) in
+the form that costs real work. The fixes themselves are in that repo's own
+pull requests, not here.
+
 **Checked and clean, so the next run need not redo them:**
+
+- **Formatting and spacing drift.** Swept mechanically across every tracked
+  markdown file: no tabs, no mixed list markers, and the seven
+  trailing-whitespace lines are all deliberate — three fill-in-the-blank
+  labels in an issue template, four inside captured eval prompts, which are
+  experimental records and must not be edited.
+- **Practice-link labels.** No markdown link to a `practices/*.md` file
+  carries a label that disagrees with the slug it points at.
 
 - **Catalogue figures in prose.** `spec/LOADER.md` states both 52 and 66
   practices; both are correct. The 52s are a phase-2 planning table and the

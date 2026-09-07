@@ -2544,7 +2544,17 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        "happened to source_practice_number's old position-based citations "
        "(three tool comments cited a stale practice NUMBER after a "
        "renumbering -- fixed once by hand in 2026-08; this check is what "
-       "makes sure that fix never has to happen by hand again).")
+       "makes sure that fix never has to happen by hand again). It is also "
+       "blind to an UNANCHORED mention -- a bare `(some-slug)` or "
+       "`# some-slug` with no `practice:` before it -- which this practice's "
+       "own Rule already forbids as \"a bare mention of the practice's "
+       "subject with no way to look it up\", and which no scanner can tell "
+       "from ordinary hyphenated prose. That blindness is not theoretical: "
+       "five citations of `fail-gracefully` sit in this repo's own tools/ in "
+       "exactly that form, naming a slug that resolves nowhere here, and the "
+       "anchored form would make this check FAIL rather than fix them, "
+       "because the practice lives in a private team set. See TODO.md's "
+       "`universal-code-cites-team-slug`.")
 def _code_cites_practice(ctx):
     known = {}
     for d in ((ROOT / 'practices'), (ROOT / 'local' / 'practices')):
