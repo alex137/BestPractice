@@ -1378,8 +1378,45 @@ which is the failure this repointing exists to end — write
   quietly. That is the same "could not check versus checked and found
   nothing" line [fail-gracefully](practices/fail-gracefully.md) draws.
 
+  **CORRECTION, 2026-09-07: the loss is not silent, and this item said it
+  was.** `precedent_sync_views.py --check` already names each one precisely —
+  *"practices/fail-gracefully.md is not produced by any declared source — a
+  sync would delete it (practice)"* — verified by running it against the real
+  consumer. What is true is narrower: a **real** sync (`materialize()` does
+  `shutil.rmtree(practices_dir)` and rewrites) announces nothing, so a
+  session that syncs without `--check` and does not read the resulting
+  `git status` sees no notice. The removal is visible; nothing puts it in
+  front of you at the moment it happens.
+
+  **The obvious fix was attempted and backed out, and that is worth knowing
+  before someone tries it again.** Making `sync_views` refuse a removal
+  unless `--allow-removals` is passed: implemented, tested against the real
+  consumer (refused, naming both practices, nothing written; proceeded with
+  the flag). It then failed the harness in **three separate legitimate
+  flows** — a repo declaring `visibility: public`, which withholds
+  private-source practices by design; a sync already carrying
+  `--allow-missing-sources`, which is the same acknowledgement asked twice;
+  and a cross-source fixture that re-syncs after its sources change. Each was
+  fixable in isolation and a fourth appeared each time. That is the "fires on
+  correct work" failure this project has measured the cost of, so the guard
+  was reverted rather than shipped tired.
+
+  What the attempt established, for whoever picks it up: the signal exists
+  and is exact (`drift()` already computes it), the flag plumbing is simple,
+  and **the whole difficulty is telling a stale-source removal from a
+  deliberate one**. Withholding, a dropped source, and an upstream retirement
+  are all legitimate removals that look identical to the tree. A workable
+  version probably compares against the *committed* `MANIFEST.json` rather
+  than the working tree, so it asks "did the repository lose a rule it had
+  recorded?" instead of "does the tree differ from the plan?" — that was not
+  tried.
+
+  **Interim, and it is automatic enough to rely on:** `--check` reports
+  removals by name and writes nothing, so running it before a sync is the
+  guard, today, with no new code.
+
   **Blocked on:** the refresh itself belongs in each consumer, run under
   that repo's own gates — HavrutaBrainstorm has an open session and its own
   deep check, and doing it from here would be the unreviewed cross-repo
-  change this run has been finding all day. The engine-side question (should
-  a sync refuse to delete) is blocked on nothing but the work.
+  change this run has been finding all day. The engine-side guard is blocked
+  on a design call (which baseline to compare against), not on the work.
