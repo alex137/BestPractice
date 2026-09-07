@@ -1365,24 +1365,24 @@ def _tracked_practice_files(ctx):
     return out
 
 
-@check('document-lifecycle-header', 'tree',
+@check('document-status-header', 'tree',
        "every document under spec/ and record/ that CARRIES a lifecycle "
        "frontmatter header declares a legal kind/status pair, a title "
        "matching its own first heading, a `closed:` date exactly when it is "
        "closed, a `superseded_by:` that resolves exactly when it is "
        "superseded, and no competing hand-maintained `Last updated:` comment",
-       "an UNSTAMPED document -- during the spec/DOCUMENT_LIFECYCLE.md "
-       "backfill (phase 1 of its migration) a file with no frontmatter at "
-       "all is reported by `python3 tools/doc_lifecycle.py` and is "
-       "deliberately NOT a finding here, because failing 22 files on the "
-       "commit that introduces the standard makes the check something to "
-       "switch off rather than satisfy. Phase 2 stamps them and flips this "
-       "to fail on an unstamped file; until then a clean run here means "
-       "'nothing stamped is wrong', NOT 'every document is stamped'. It is "
-       "also blind to whether a declared status is TRUE -- that a brief "
-       "marked `open` really is open is a judgment no field can carry.",
-       practice_backed=False)
-def _document_lifecycle_header(ctx):
+       "whether a declared status is TRUE. That a brief marked `open` really "
+       "is open, or that a reference marked `current` still describes the "
+       "system, is a judgment no field can carry and no check can make -- "
+       "this verifies the claim is well-formed and internally consistent, "
+       "not that it is honest. It is also blind to a document OUTSIDE spec/ "
+       "and record/: the standard is scoped to those two trees, so a status "
+       "declared in prose at the repository root is not reached. A repo "
+       "part-way through its own backfill wants "
+       "`python3 tools/doc_lifecycle.py --warn-only`, which reports "
+       "unstamped files without failing; that was this check's own mode "
+       "until the 2026-09-07 backfill stamped all 24 documents.")
+def _document_status_header(ctx):
     try:
         import doc_lifecycle as dl
     except Exception as e:
@@ -1401,6 +1401,14 @@ def _document_lifecycle_header(ctx):
     for f in findings:
         rel, _, msg = f.partition(': ')
         out.append(Finding(rel, msg))
+    # Blocking since the phase-2 backfill: a document with no header at all
+    # is the failure this standard exists to prevent, not a lesser state.
+    # Before the backfill this was deliberately silent -- see blind_to.
+    for rel in unstamped:
+        out.append(Finding(
+            rel, 'carries no lifecycle frontmatter -- a reader cannot tell '
+                 'from the file whether it is a live reference or the record '
+                 'of something finished (see spec/DOCUMENT_LIFECYCLE.md)'))
     return out
 
 

@@ -1,6 +1,14 @@
-<!-- Last updated: 2026-09-06 (Buenos Aires) by the session that landed the
-     convention, from a brainstorm with Morgan. -->
-
+---
+title:         How a practice-set source is named
+kind:          reference
+status:        current
+opened:        2026-09-06
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       How a practice-set source is named, what refuses versus what warns, and what a session must say before anyone picks a name.
+---
 # How a practice-set source is named
 
 A source's name is fixed by its level, not chosen. This document carries the

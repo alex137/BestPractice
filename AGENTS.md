@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~377 of 2000 token budget, 7 of 71 practices (7 universal))
+## Resident block (~377 of 2000 token budget, 7 of 72 practices (7 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -131,6 +131,8 @@ When committing anything that touches the vendored/public tree:
   scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
+When creating, migrating, closing or superseding a document under spec/ or record/:
+  document-status-header — kind and status in frontmatter; a reader must not have to infer either
 When deciding where a new rule belongs:
   layered-practice-packs — generic, domain, repo-local — each rule to its own layer
 When deciding whether to build or buy a component:

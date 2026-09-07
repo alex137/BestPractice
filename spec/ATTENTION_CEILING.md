@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-04 (Buenos Aires) by the session that ran the audit-judgment result -->
-
+---
+title:         The Attention Ceiling — What Six Runs Measured, and What To Do About It
+kind:          record
+status:        closed
+opened:        2026-08-31
+closed:        2026-09-04
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What six simulation runs measured about the practice miss rate, and what the plan for it is.
+---
 # The Attention Ceiling — What Six Runs Measured, and What To Do About It
 
 Written for the session that takes this on next. It carries a finding, the

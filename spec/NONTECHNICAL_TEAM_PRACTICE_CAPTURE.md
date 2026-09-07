@@ -1,11 +1,17 @@
-<!-- Last updated: 2026-09-04 by the session that drafted this plan, from a
-     follow-up brainstorm with Morgan after
-     spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md. Not yet executed — see
-     "Status" below. -->
-
+---
+title:         "Plan: team-level practice capture for non-technical document work"
+kind:          proposal
+status:        accepted
+opened:        2026-09-04
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       Team-level practice capture for non-technical document work at scale, with steps 1 and 2 executed and the pilot deliberately not started.
+---
 # Plan: team-level practice capture for non-technical document work
 
-**Status: drafted, not executed.** Self-contained, so a fresh session can
+Self-contained, so a fresh session can
 pick it up without the conversation that produced it. This plan does not
 invent a pilot project or a pilot person — Morgan does not have one yet by
 design (see "Sequencing," below) — so this session's scope is the team

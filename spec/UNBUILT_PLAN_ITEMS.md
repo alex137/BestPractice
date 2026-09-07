@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-04 (Buenos Aires) by the session that answered Part 1 and pre-registered Part 2 -->
-
+---
+title:         Unbuilt Plan Items — What Else the Plan Approved and the Tree Doesn't Show
+kind:          record
+status:        live
+opened:        2026-09-03
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       The running gap between what the restructuring plan approved and what the tree actually shows.
+---
 # Unbuilt Plan Items — What Else the Plan Approved and the Tree Doesn't Show
 
 This document exists because of one concrete miss, found by accident rather

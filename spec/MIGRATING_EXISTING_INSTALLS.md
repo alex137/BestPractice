@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-05 (Buenos Aires) -- step 7's engine vendoring now uses precedent_vendor_engine.py's 'consumer' kind instead of a hand-copy, piloted against a private four-source consumer repo; before that, 2026-09-03 by a follow-up session, after old-system vocabulary was found lingering in WorkingWithAI a day past its own migration -->
-
+---
+title:         Migrating a repo that already has BestPractice installed
+kind:          procedure
+status:        current
+opened:        2026-09-02
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       How a repository that already had BestPractice installed migrates onto Precedent's three-source model.
+---
 # Migrating a repo that already has BestPractice installed
 
 [INSTALL.md](../INSTALL.md) describes installing BestPractice fresh, and

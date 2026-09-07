@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-05 (Buenos Aires) by the session that closed the source-repo vendored-engine gap this document names, and again the same day by the session that closed its consumer-repo sibling gap (see "The four-source CONSUMER case" below) -->
-
+---
+title:         Bootstrapping a Brand-New Individual or Team Set
+kind:          procedure
+status:        current
+opened:        2026-09-04
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       The generalized procedure for bootstrapping a brand-new individual or team practice set from zero.
+---
 # Bootstrapping a Brand-New Individual or Team Set
 
 This is the generalized, repeatable procedure for the case

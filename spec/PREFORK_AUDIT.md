@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by the phase-6 pre-fork audit session -->
-
+---
+title:         Pre-Fork Catalogue Audit
+kind:          record
+status:        closed
+opened:        2026-09-03
+closed:        2026-09-03
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       The verdict recorded for each inherited practice against the architecture the restructuring plan approved.
+---
 # Pre-Fork Catalogue Audit
 
 One row per practice inherited from pre-fork BestPractice (the original 52,

@@ -12,15 +12,21 @@ summary:       Gives every non-practice document a machine-readable kind and sta
 
 # Document lifecycle — a standard status header, and the migration onto it
 
-**Status: accepted; phase 1 is built, phases 2-6 are not.** Self-contained,
+Self-contained,
 so a session (or another system) with no memory of the conversation that
-produced it can carry it out. Phase 1 landed on 2026-09-07:
-[tools/doc_lifecycle.py](../tools/doc_lifecycle.py) exists, is registered as
-the `document-lifecycle-header` check, and this file plus
-[PHASE3_BRIEF.md](PHASE3_BRIEF.md) are stamped — 22 documents are not, and
-the check is warn-only until phase 2 stamps them. Where this document names
-a file, a count or a command, those were read off the tree on 2026-09-07 at
-commit `9e25dca`; re-check them before relying on them.
+produced it can carry it out. **Phases 1 and 2 landed on 2026-09-07;
+phases 3-6 have not.** All 24 documents are stamped, every prose status
+sentence and `Last updated:` comment is retired,
+[tools/doc_lifecycle.py](../tools/doc_lifecycle.py) is registered as the
+blocking `document-status-header` check, and the rule is now a universal
+practice at [practices/document-status-header.md](../practices/document-status-header.md),
+routed on `spec/**/*.md` and `record/**/*.md` so a session editing either
+tree is handed it without asking. Still to come: the generated indexes
+(phase 3), the `record/` directory and the 14 moves (phase 4), and the
+`doc-status` banners, which phase 2 deliberately did not build — see
+"What phase 2 left" below. Where this document names a file, a count or a
+command, those were read off the tree on 2026-09-07 at commit `9e25dca`;
+re-check them before relying on them.
 
 **The one-sentence version:** `practices/` already solved "a catalogue that
 must grow without costing the reader" with per-file frontmatter plus
@@ -416,6 +422,24 @@ two broke a link.
 
 *Done when:* the new lifecycle check passes on the unplanted tree,
 and no document under [spec/](.) declares a status in prose.
+
+### What phase 2 left
+
+Phase 2's *Done when* had two clauses and this landing satisfies one and a
+half. Every document is stamped and no document declares a status in prose —
+that half is done and the check is blocking. **The `doc-status` banners are
+not built.** They are generated presentation, and generating them belongs
+with the other generated views in phase 3 rather than hand-rolled here;
+building them in phase 2 would have meant a second emitter that phase 3 then
+replaces. The frontmatter they would render from is in place, so nothing
+blocks it.
+
+One judgment was left standing rather than reversed.
+[SIMULATION_BRIEF.md](SIMULATION_BRIEF.md) is stamped `open`, as the table
+below says, but all four of its own rough phases now report **Built** and it
+records an end-to-end validation. Whether the simulation programme itself is
+finished is a call for Morgan, not a fact a session can read off the tree, so
+the spec's own verdict stands until he makes it.
 
 ### Phase 3 — the generated indexes
 

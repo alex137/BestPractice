@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-06 (Buenos Aires) by the deduplication-vocabulary session -->
-
+---
+title:         Moving an existing practice between levels
+kind:          procedure
+status:        current
+opened:        2026-09-03
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       Moving an existing, still-wanted practice from one level to another, as distinct from creating or retiring one.
+---
 # Moving an existing practice between levels
 
 [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s Stage 3–5 describe
