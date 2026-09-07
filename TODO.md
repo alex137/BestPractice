@@ -931,9 +931,28 @@ which is the failure this repointing exists to end — write
     supported in v1: requested themorgan/precedent-individual but session
     already has repos from owner(s) [alex137]"* — while `list_repos` shows all
     three private sets with `can_push: true`, so this is the session's shape,
-    not the account's rights. **What closes it:** a session whose INITIAL
-    source is `themorgan/precedent-team-maintainers`; BestPractice is public,
-    so that session clones this repo directly with no second `add_repo`.
+    not the account's rights.
+
+    **How to run it,** in this order — the order is the whole trick:
+
+    1. Start a session whose **initial source** is
+       `themorgan/precedent-team-maintainers`. This is the only step that
+       cannot be done from inside another session.
+    2. `add_repo` `themorgan/precedent-individual` and
+       `themorgan/precedent-team-tms` from there — same owner, so the
+       cross-tier rule does not fire. Only needed if the work turns out to
+       touch them; the practice itself is in the first repo.
+    3. Reach BestPractice with a plain `git clone` of
+       `https://github.com/alex137/BestPractice` (branch
+       `precedent-beta-v01`), **not** `add_repo` — the same cross-tier rule
+       refuses it in that direction too, and this repo is public, so a clone
+       needs no credentials.
+    4. Edit `practices/bold-key-phrases.md` in the team set, follow that
+       repo's own AGENTS.md for branch and checks, and push there.
+
+    **What that session cannot do:** push to this repo. Its git credentials
+    cover `themorgan/*` only, so striking this item through is a separate
+    one-line follow-up from a BestPractice session, after the clause lands.
 
 - ~~**`precedent_check.py` is not vendored into source sets, so a practice
   set enforces nothing of the universal catalogue.**~~ **Done 2026-09-07**, in
