@@ -51,7 +51,7 @@ matter beyond where it began.
 **Every change is worked out with an assistant that argues back** — and
 nothing lands until a person says so.
 
-### AI Does All Creation, No Matter How Small: You Figure Out With It What to Do
+### You Work Through Your Agents
 
 There's no separate track for "small" changes that you just make yourself —
 **even a one-word edit goes through the assistant**, so every change is
