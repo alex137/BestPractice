@@ -939,9 +939,23 @@ which is the failure this repointing exists to end — write
        `themorgan/precedent-team-maintainers`. This is the only step that
        cannot be done from inside another session.
     2. `add_repo` `themorgan/precedent-individual` and
-       `themorgan/precedent-team-tms` from there — same owner, so the
-       cross-tier rule does not fire. Only needed if the work turns out to
-       touch them; the practice itself is in the first repo.
+       `themorgan/precedent-team-tms` from there if you want them — same
+       owner, so the cross-tier rule does not fire. **Neither is part of this
+       job.** `bold-key-phrases` is in `precedent-team-maintainers` only:
+       `precedent-team-tms` holds exactly one practice, `audience-register`
+       ([spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md), 2026-09-07), and
+       team sets are siblings rather than a hierarchy, so nothing propagates
+       between them. Sharpened 2026-09-07 after Morgan asked whether this was
+       one team set or all `precedent-team-*`.
+
+       **The consequence is worth seeing, and is a separate question:** the
+       clause will not reach editorial document projects, which are the
+       heading-dense prose pages it most describes. They do not carry
+       `bold-key-phrases` at all —
+       [templates/nontechnical-document-project/precedent.json](templates/nontechnical-document-project/precedent.json)
+       declares universal plus `precedent-team-tms`, not `-maintainers`.
+       Wanting the rule there is a level decision (promote to universal, or
+       copy to `-tms`), for Morgan, not something this item's clause does.
     3. Reach BestPractice with a plain `git clone` of
        `https://github.com/alex137/BestPractice` (branch
        `precedent-beta-v01`), **not** `add_repo` — the same cross-tier rule
