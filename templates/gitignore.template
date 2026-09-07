@@ -7,3 +7,16 @@ __pycache__/
 *.py[cod]
 .DS_Store
 *.swp
+
+# Written at session start by tools/precedent_session_practices.py: the
+# practices in force from the TEAM and INDIVIDUAL sources. Untracked on
+# purpose and not negotiable. In a PUBLIC repo that text is private and
+# committing it would publish every private practice in one file, on the
+# commit that added the convenience. In a private repo it is still derived,
+# regenerated per session, and has no business in history.
+#
+# This repo's own .gitignore has carried this rule since the channel
+# existed; the template shipped to adopters did not, so every install from
+# it got the channel without the guard (found 2026-09-07, in a real public
+# consumer).
+.precedent/
