@@ -25,9 +25,8 @@ the pitch, then jump to the how-to guide for your situation:
 ## The Philosophy Behind This Project
 
 Precedent is one working expression of a broader philosophy about how
-people and AI should work together, developed in
-**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. **That
-theory now lives here too, in [philosophy/](philosophy/)** — start at
+people and AI should work together. **That theory lives in
+[philosophy/](philosophy/)** — start at
 [philosophy/README.md](philosophy/README.md). It is argument and
 observation: none of it binds work anywhere else in this repository, which
 is what [practices/](practices/) is for.

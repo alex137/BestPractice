@@ -4,7 +4,7 @@
 
 One entry per idea, prompt, workflow, or observation. Loosely grouped;
 reorganize once a group gets big enough to need its own document (link it
-from [MAP.md](https://github.com/themorgan/WorkingWithAI/blob/main/MAP.md) when that happens).
+from [README.md](README.md) when that happens).
 
 **How to use this file (proposed — see the meta-note at the bottom):** each
 entry below is raw material dropped in from a session, lightly organized.
@@ -68,12 +68,12 @@ about* why *it works, not just that it does.*
    effectively, while still keeping the conversations themselves private.
    - **3a.** Corollary of #2 + #3 together: it doesn't just put learnings
      into the shared GitHub repo — it purposefully extracts *the rules*
-     (this repo's own [AGENTS.md](https://github.com/themorgan/WorkingWithAI/blob/main/AGENTS.md)/`process/` layer is itself an
+     (the practice layer these essays came from is itself an
      instance of that), which amounts to automatic documentation generated as a
      side effect of doing the work.
    - **3b.** Consequence of 3a: it also extracts the TODOs, which
      otherwise get lost constantly unless someone is unusually organized.
-     (Compare [TODO.md](https://github.com/themorgan/WorkingWithAI/blob/main/TODO.md)'s push-time gate in this repo — that's
+     (Compare a push-time gate in a real repo — that's
      this exact mechanism, installed.)
 4. Multiple people can work the same issue simultaneously — version
    control plus AI-assisted merging beats one-person-at-a-time editing.
@@ -177,7 +177,7 @@ someone else to contribute a practice back.
 For points 2 and 3: "normie" employees might default to the shallow use —
 simple prompting — and never discover the deeper mode, unless something
 pushes them there. Candidate mechanisms, none decided yet (this is a
-**decision**-class item, see [TODO.md](https://github.com/themorgan/WorkingWithAI/blob/main/TODO.md)):
+**decision**-class item, see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)):
 
 - Have AI Assistant push back harder than its default on direct instructions —
   question them instead of just complying.
@@ -288,7 +288,7 @@ Proposal, not yet decided (flag any of this you don't want — this is your
 call as much as mine):
 
 - **One entry per session, appended, not rewritten.** Keep the append-only
-  discipline this repo already uses for [TODO.md](https://github.com/themorgan/WorkingWithAI/blob/main/TODO.md); resist the urge
+  discipline a good open-items list already uses; resist the urge
   to silently smooth over an earlier, rougher version of an idea — better to
   add a dated follow-up entry that supersedes it, so the disagreement with
   your past self stays visible instead of vanishing.
@@ -344,7 +344,7 @@ idea that doesn't actually hold up. The fix wasn't a new rule, it was
 naming the stage that was missing: [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md),
 sitting between the essays here and RepoPersonalPreferences, holding
 whatever's currently on trial. See [README.md](README.md)'s new pipeline
-section and [TODO.md](https://github.com/themorgan/WorkingWithAI/blob/main/TODO.md) for the decision record.
+section and [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for what is still open.
 
 ## Ideas Set Aside, Not Carried Forward
 

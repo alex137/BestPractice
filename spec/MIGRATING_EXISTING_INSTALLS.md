@@ -26,7 +26,7 @@ actually done it once, on a real repo, for the first time.
 what that repo's own migration actually did on 2026-09-02, first tested
 against the real `precedent-team-maintainers` and `precedent-individual`
 repos rather than fixtures. Its own record —
-[process/PRECEDENT_MIGRATION.md](https://github.com/themorgan/WorkingWithAI/blob/main/process/PRECEDENT_MIGRATION.md)
+`process/PRECEDENT_MIGRATION.md`
 (dependent repo, private; not fetchable from a BestPractice-only session) —
 covers repo-specific detail this document deliberately leaves out; treat
 this document as the pattern, that one as the instance. Its `TODO.md`

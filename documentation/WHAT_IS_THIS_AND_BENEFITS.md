@@ -14,10 +14,9 @@ and turns that into written rules** that every future conversation follows
 automatically, without anyone having to write a policy document by hand.
 
 This grew out of a broader philosophy about how people and AI should work
-together, developed in
-**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. What
-follows are the practical things Precedent does that put that
-philosophy to work, in five groups.
+together, written up in **[philosophy/](../philosophy/)**. What follows
+are the practical things Precedent does that put that philosophy to work,
+in five groups.
 
 ## Human Collaboration First
 
@@ -177,8 +176,7 @@ PowerPoint deck goes in at the start and comes back out at the end.
 ## Learn More
 
 The philosophy behind all of this lives in
-[WorkingWithAI](https://github.com/themorgan/WorkingWithAI). For how to
-actually use Precedent: [a technical
+[philosophy/](../philosophy/). For how to actually use Precedent: [a technical
 how-to](HOW_TO_USE_THIS_TECHNICAL.md) or [a non-technical
 how-to](HOW_TO_USE_THIS_NONTECHNICAL.md) — or explore [this
 repo](https://github.com/alex137/BestPractice).

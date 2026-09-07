@@ -5,20 +5,18 @@ local/practices/philosophy-declares-its-source.md.
 # practice: philosophy-declares-its-source
 
 Scope: tree. Every markdown file under philosophy/ opens with an HTML
-comment naming where the document came from -- the upstream document and
-the version it was copied at, or that it was written here.
+comment naming where its text originally came from -- the document and
+version it was taken from, or that it was written here.
 
-The philosophy/ tree is a COPY of themorgan/WorkingWithAI's content/, with
-no sync workflow in either direction. A copy that does not say what it is
-a copy of diverges silently, and nobody can later tell an improvement to
-carry back from an edit made here from upstream text never re-pulled.
+The philosophy/ tree is the ONLY copy of these essays. They were written
+in a separate notebook repository which was retired on 2026-09-07, so
+there is no upstream, nothing to sync, and nothing to diff against.
 
-What this deliberately does NOT do is verify the version number against
-WorkingWithAI. This repository has no guaranteed access to that clone at
-check time, and a check that skips whenever a sibling happens to be
-missing teaches a session to ignore it. The enforced property is that the
-question is ANSWERABLE: the reader knows which file and which version to
-diff against.
+The line is therefore a HISTORICAL record, and this check cannot verify a
+version number against anything -- deliberately, and permanently. What it
+enforces is that the question "where did this text come from?" has an
+answer on the page. That is what stops an essay argued out over forty
+revisions from reading, later, as though someone typed it once.
 
 Contract, shared with every other per-source check script: no arguments;
 ROOT derived from this file's own location; exit 0 and print nothing when
