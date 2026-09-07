@@ -5918,6 +5918,121 @@ def check_commit_identity_copies_are_identical():
                     f'{d[:12]}' for p, d in digests.items()))
 
 
+def check_update_refuses_while_a_branch_is_pinned():
+    """`checkin.py update` enforces the hold its own document already states.
+
+    spec/MIGRATING_EXISTING_INSTALLS.md's "The default-branch gotcha" has
+    said since 2026-09-06, in as many words, *"Do the vendor as a one-off
+    manual mirror ... not `checkin.py update`."* Nothing enforced it. The
+    document mandated a procedure and the tool cheerfully did the forbidden
+    thing -- the advisory-only state checkable-gets-checked exists to end,
+    and the reason a session on 2026-09-07 reasoned its way to the manual
+    mirror from a paragraph rather than being stopped.
+
+    THE REFUSAL CONDITION IS THE HOLD'S OWN CONDITION, which is what makes
+    it safe to add: it fires exactly while a non-default branch is pinned,
+    so when precedent-beta-v01 merges and each consumer's manifest is
+    repointed, it stops firing with no edit. A temporary guard that has to
+    be remembered is a temporary guard that outlives its reason.
+
+    THE FIXTURE MUST RUN THE CONSUMER'S OWN VENDORED COPY. checkin.py
+    resolves ROOT from its own location's git toplevel, not the caller's
+    cwd, so invoking the upstream script from a consumer directory resolves
+    ROOT back to BestPractice and tests nothing. The first version of this
+    fixture did exactly that: it saw a non-zero exit and scored a pass,
+    while the real message was an unrelated "no upstream.commit recorded".
+    A refusal is only evidence if you read WHY it refused.
+    """
+    import tempfile, json as _json, shutil as _shutil
+    src = ROOT / 'tools' / 'checkin.py'
+    if not src.exists():
+        not_applicable('update refuses while a branch is pinned',
+                       'tools/checkin.py is not present in this tree')
+        return
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d)] + list(a),
+                              capture_output=True, text=True)
+
+    def _clone(base):
+        origin, clone = base / 'origin', base / 'clone'
+        (origin / 'tools').mkdir(parents=True)
+        _git(origin, 'init', '-q', '-b', 'main')
+        for c in (['config', 'user.email', 'harness@example.com'],
+                  ['config', 'user.name', 'Harness']):
+            _git(origin, *c)
+        (origin / 'tools' / 'x.py').write_text('# main\n')
+        _git(origin, 'add', '-A'); _git(origin, 'commit', '-qm', 'main')
+        _git(origin, 'checkout', '-q', '-b', 'precedent-beta-v01')
+        (origin / 'tools' / 'x.py').write_text('# beta\n')
+        _git(origin, 'add', '-A'); _git(origin, 'commit', '-qm', 'beta')
+        _git(origin, 'checkout', '-q', 'main')
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)],
+                       capture_output=True)
+        _git(clone, 'remote', 'set-head', 'origin', 'main')
+        return clone
+
+    def _consumer(base, branch):
+        repo = base / 'consumer'
+        (repo / 'process' / 'upstream' / 'tools').mkdir(parents=True)
+        up = {'repo': 'x/y', 'commit': 'deadbeef'}
+        if branch:
+            up['branch'] = branch
+        (repo / 'process' / 'manifest.json').write_text(
+            _json.dumps({'upstream': up, 'practices': []}), encoding='utf-8')
+        _git(repo, 'init', '-q')
+        _shutil.copy2(src, repo / 'process' / 'upstream' / 'tools' / 'checkin.py')
+        return repo
+
+    def _run(repo, clone, override=False):
+        env = dict(os.environ)
+        env.pop('PRECEDENT_ALLOW_PINNED_UPDATE', None)
+        if override:
+            env['PRECEDENT_ALLOW_PINNED_UPDATE'] = '1'
+        script = repo / 'process' / 'upstream' / 'tools' / 'checkin.py'
+        r = subprocess.run([sys.executable, str(script), 'update', str(clone)],
+                           capture_output=True, text=True, cwd=str(repo),
+                           env=env, timeout=180)
+        return r.returncode, r.stdout + r.stderr
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td)
+        clone = _clone(base / 'up')
+
+        repo = _consumer(base / 'a', 'precedent-beta-v01')
+        rc, out = _run(repo, clone)
+        # Non-zero alone proves nothing -- see the docstring. Each of these
+        # reads the message.
+        cases.append(('a pinned install refuses `update`',
+                      rc != 0 and 'is PINNED to' in out))
+        cases.append(('and names the pinned branch',
+                      'precedent-beta-v01' in out))
+        cases.append(('and prescribes the manual mirror instead',
+                      'manual mirror' in out))
+        cases.append(('and says the hold lifts by itself once repointed',
+                      'repointed' in out))
+        cases.append(('and names its own override',
+                      'PRECEDENT_ALLOW_PINNED_UPDATE=1' in out))
+
+        _, out = _run(repo, clone, override=True)
+        cases.append(('the override gets past the hold',
+                      'is PINNED to' not in out))
+
+        # The self-retiring cases: nothing to hold once the pin agrees with
+        # the default, or when there is no pin at all.
+        _, out = _run(_consumer(base / 'b', 'main'), clone)
+        cases.append(('an install pinned to the DEFAULT branch is not held',
+                      'is PINNED to' not in out))
+        _, out = _run(_consumer(base / 'c', None), clone)
+        cases.append(('an install with no pin recorded is not held',
+                      'is PINNED to' not in out))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'checkin.py update refuses while a non-default branch is pinned '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_views_cross_source():
     """tools/precedent_sync_views.py -- the one-command glue over
     precedent_materialize.py + build_views.py --agents-only that a
@@ -10103,6 +10218,7 @@ def main():
     check_doc_lifecycle_fires_and_clears()
     check_commit_identity_derives_declared_timezone()
     check_commit_identity_copies_are_identical()
+    check_update_refuses_while_a_branch_is_pinned()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()

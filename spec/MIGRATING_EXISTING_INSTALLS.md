@@ -397,9 +397,32 @@ has run through real sync cycles. Treat this as **not yet**, not as
 owner, tracked as
 [TODO.md's `relax-the-pinned-branch-hold` item](../TODO.md#relax-the-pinned-branch-hold).
 
+**The hold is enforced, since 2026-09-07 — it is no longer only written
+here.** `checkin.py update` refuses outright while `upstream.branch` names a
+branch other than the clone's default, printing the manual procedure below.
+The refusal condition *is* the hold's own condition, so it retires itself:
+when the pinned branch merges into the default and a repo's
+[process/manifest.json](../templates/) is repointed, the guard stops firing
+with nothing to remember to delete. Override for one run with
+`PRECEDENT_ALLOW_PINNED_UPDATE=1`. Eight cases in
+[tools/verify_harness.py](../tools/verify_harness.py) assert it, with a
+negative control.
+
+**What that guard cannot reach, and why the manual mirror is still the entry
+point.** A consumer still carrying a *pre-fix* vendored copy of
+[tools/checkin.py](../tools/checkin.py) has no guard in it — that copy
+resolves the remote's default branch unconditionally and would mirror the
+default over a deliberately-pinned tree, a silent wholesale revert. A guard
+shipped inside the tree it guards is missing from precisely the copies that
+need it, the same shape as the freshness-guard incident in
+[AGENTS.md](../AGENTS.md)'s gotchas. Such a repo is protected only *after*
+one manual mirror brings the current file in. So: mirror by hand first, and
+the tool defends the pin from then on.
+
 **Handle it explicitly, don't let it surprise the next sync:**
 - Do the vendor as a one-off manual mirror (replace the tree wholesale from
-  a checkout of the named branch), not `checkin.py update`.
+  a checkout of the named branch), not `checkin.py update` — which now
+  refuses anyway, rather than leaving this to be read and remembered.
 - Record the branch name in `process/manifest.json` (add an `upstream.branch`
   field; the schema doesn't have one by default, but the field costs
   nothing and every subsequent session needs to see it) alongside a `_note`

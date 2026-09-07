@@ -73,7 +73,7 @@ Run:  python3 process/upstream/tools/checkin.py fresh
       python3 process/upstream/tools/checkin.py push   ../BestPractice
       python3 process/upstream/tools/checkin.py record ../BestPractice --note "PR #4"
 """
-import datetime, filecmp, io, json, pathlib, shutil, subprocess, sys, tarfile, tempfile
+import datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
 HERE = pathlib.Path(__file__).resolve()
 _top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=HERE.parent,
@@ -401,11 +401,71 @@ def _tracked_branch(clone):
     return recorded or _default_branch(clone)
 
 
+def _pinned_branch_hold(clone):
+    """Refuse `update` while this install is pinned to a non-default branch.
+
+    spec/MIGRATING_EXISTING_INSTALLS.md's "The default-branch gotcha" has
+    said, since 2026-09-06, in as many words: *"Do the vendor as a one-off
+    manual mirror ... not `checkin.py update`."* Until now nothing enforced
+    it. The document mandated a procedure and the tool cheerfully did the
+    thing the document forbade -- exactly the advisory-only state
+    checkable-gets-checked exists to end, and the reason a session on
+    2026-09-07 had to reason its way to the manual mirror from a paragraph
+    instead of being stopped by a guard.
+
+    THE CONDITION IS THE HOLD'S OWN CONDITION, so this retires itself. The
+    hold applies "while a non-default branch is pinned"; this fires exactly
+    when the manifest's `upstream.branch` differs from the clone's default.
+    When precedent-beta-v01 merges to main and each consumer's manifest is
+    repointed, pinned == default and the guard stops firing on its own --
+    nobody has to remember to delete it, which is how a temporary guard
+    usually outlives its reason.
+
+    WHAT IT CANNOT REACH, and this is the important limit: a consumer still
+    carrying a PRE-FIX vendored copy of this file. That copy has no guard,
+    resolves the remote's default branch unconditionally, and would mirror
+    `main` over a beta-vendored tree -- a silent wholesale revert. A guard
+    shipped inside the tree it guards is missing from precisely the copies
+    that need it, the same shape as the freshness-guard incident in
+    AGENTS.md's gotchas. Such a consumer is only covered after one manual
+    mirror brings this file in; the manual mirror is therefore still the
+    entry point, not an alternative to it.
+
+    An unknown default branch REFUSES rather than proceeding. The asymmetry
+    is the hold's own, recorded by Morgan 2026-09-06: guessing wrong here
+    costs a silent overwrite of a repo's practices, and refusing wrongly
+    costs one manual mirror.
+    """
+    if os.environ.get('PRECEDENT_ALLOW_PINNED_UPDATE') == '1':
+        return
+    pinned = (_manifest().get('upstream', {}) or {}).get('branch')
+    if not pinned:
+        return
+    default = _default_branch(clone)
+    if default and pinned == default:
+        return
+    named = f"the clone's default branch ({default})" if default else         "this clone's default branch, which could not be determined"
+    sys.exit(
+        f"checkin FAIL: this install is PINNED to {pinned!r}, which is not "
+        f"{named}.\n"
+        f"  spec/MIGRATING_EXISTING_INSTALLS.md's \"The default-branch "
+        f"gotcha\" holds `checkin.py update` while a non-default branch is "
+        f"pinned: vendor as a one-off manual mirror instead -- replace the "
+        f"vendored tree wholesale from a checkout of {pinned!r} -- and leave "
+        f"the scheduled sync's `schedule:` block commented out.\n"
+        f"  The hold lifts when {pinned!r} merges into the default branch and "
+        f"this repo's process/manifest.json is repointed there; this guard "
+        f"then stops firing by itself.\n"
+        f"  Deliberate override, for one run: "
+        f"PRECEDENT_ALLOW_PINNED_UPDATE=1 checkin.py update ...")
+
+
 def update(clone, force=False):
     """INSTALL.md §2 step 5: mirror the clone's tree at the branch this
     install tracks into the vendored tree, refusing to clobber unexported
     local work. Reads the clone; never checks it out, pulls in it, or moves
     its HEAD."""
+    _pinned_branch_hold(clone)
     branch = _tracked_branch(clone)
     # Fetch updates remote-tracking refs only -- it does not touch the
     # clone's working tree, HEAD, or any local branch.

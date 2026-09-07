@@ -813,6 +813,25 @@ which is the failure this repointing exists to end — write
     consumer's `bestpractice-upstream-sync.yml` — never one of the three
     without the others, since a half-relaxed hold is what makes an
     unattended job run against advice nobody re-read.
+    **Enforced 2026-09-07, which changes what relaxing it costs.**
+    `checkin.py update` now refuses while a non-default branch is pinned
+    (`_pinned_branch_hold`), printing the manual procedure and naming
+    `PRECEDENT_ALLOW_PINNED_UPDATE=1` as the one-run override; eight harness
+    cases with a negative control. Until then the hold existed only as a
+    paragraph in a document, so every session had to read and obey it — the
+    advisory-only state `checkable-gets-checked` exists to end. Note what
+    this does to the relaxation above: the guard's condition IS the hold's
+    condition, so repointing a manifest to the default branch lifts it for
+    that repo automatically. The three-part change listed above therefore
+    has a fourth part that needs no work — but do confirm the guard has
+    stopped firing rather than assuming it, since a repo left pinned keeps
+    it, correctly.
+    **Still open, and NOT closed by that guard:** a consumer carrying a
+    pre-fix vendored copy has no guard at all, and nothing upstream can
+    reach it — the manual mirror is what brings the current file in. Whether
+    that is worth closing with a consumer-side check outside the vendored
+    tree (a CI check refusing a commit that reverts the tree against its
+    pin) is a real question and nobody has decided it.
 
 39. <a id="background-freshness-fetch"></a>**Consider making the freshness check's fetch asynchronous.**
     [.claude/hooks/freshness-guard.sh](.claude/hooks/freshness-guard.sh)'s
