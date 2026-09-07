@@ -15,7 +15,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | document status | [document-status-header](practices/document-status-header.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
-| go merge | [merge-authorization-keyword](practices/merge-authorization-keyword.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |

@@ -282,12 +282,13 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `merge` gate instead.",
+      "why": "RETIRED 2026-09-07 -- kept here because the routing check still reads every on-demand practice file, and an entry that vanishes reads as one nobody decided. It routes nothing: a retired practice is not in force. Was: a moment, routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
       ],
-      "gates_why": "Fires when the standing merge instruction is used."
+      "gates_why": "Fires when the standing merge instruction is used.",
+      "retired": "2026-09-07 -- see practices/merge-authorization-keyword.md ## Story"
     },
     "merge-runbook": {
       "globs": [

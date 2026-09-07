@@ -27,8 +27,9 @@ elsewhere); **generated outputs are never hand-merged** (the side matching
 the committed manifest wins; unshipped builds are deleted and rebuilt). The
 audits ([convention-to-audit](convention-to-audit.md)) must pass before the merge commits — the audit, not
 re-inspection, is what makes fast mechanical resolution safe. Authorization
-to actually run this runbook is the user saying so; this repo's standing
-shorthand for that is documented in [merge-authorization-keyword](merge-authorization-keyword.md).
+to actually run this runbook is the user saying so, in whatever words they
+use; a project where one fixed phrase carries that meaning should say so in
+its own instructions file, where the people who use it will read it.
 
 ## Detail
 
