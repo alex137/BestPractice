@@ -224,6 +224,31 @@ wiring and — in the individual set — its installable snippet, so a project
 adopting it gets all three firing points rather than the two it would have
 got yesterday.
 
+**Every source's vendored engine was stale, and is now current.** After the
+merge, [precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
+reported all four attached sources sitting on `d0cbdb4` while
+`precedent-beta-v01` had moved to `b2ca5f3` — so none of them carried this
+run's own fixes, including the branch sweep that reported a false all-clear
+and the refusal to rewrite a tracked tree from an incomplete source set,
+both of which live in the engine a source vendors. Refreshed, checked
+against each repo's own gates, and merged to each `main`.
+
+That refresh surfaced two more, both caused by this session's own commits
+and both real:
+
+- **`buenos-aires-dates`**: commits carried a `+0000` offset where
+  `identity.json` declares `-0300`. Same root cause as the commit-identity
+  finding above — the hook that exports `TZ` never ran, because none of
+  these repos is the session's primary. Fixed on the unpushed commits by
+  amending under the right `TZ`; two already-published commits cannot be
+  fixed that way ([no-rewrite-for-warnings](../practices/no-rewrite-for-warnings.md))
+  and are **open**, needing a grandfathering decision that is Morgan's to
+  make, not a session's.
+- **`session-trailer`**: the engine-refresh commit
+  `precedent_refresh_sources.py --commit` writes carried no `Session:`
+  trailer. Fixed here by rewriting the unpushed commit, but the tool will
+  produce the same commit next time — **open**.
+
 **Two findings in [INSTALL.md](../INSTALL.md), both fixed.** §0 claimed a
 fresh install "comes back clean — 15 checks passed, 0 violated"; the count
 was stale and the claim was false as written, in the document adopters

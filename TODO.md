@@ -977,3 +977,29 @@ which is the failure this repointing exists to end — write
   **Blocked on:** Alex or Morgan. The practice is explicit that a session
   which cannot tell says so by name and asks rather than guessing, because
   waving one through trains the reader to wave the whole list through.
+
+- **Two published commits carry the wrong timezone offset, and
+  `precedent_refresh_sources.py --commit` writes a commit with no session
+  trailer.** Both found 2026-09-07 by the
+  [very deep check](spec/VERY_DEEP_CHECK.md) after refreshing every source's
+  vendored engine, and both are this-session-caused rather than latent.
+  `themorgan/precedent-individual` commits `7e62667` and `3bbfead` carry
+  `+0000` where that set's `identity.json` declares `-0300`. They are already
+  on `main`, so
+  [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) says fix
+  forward rather than rewrite. The set's own mechanism for this is
+  `check_buenos_aires_dates.py`'s grandfathering list, and its sibling
+  `commit-author` practice is explicit that entries went in **on Morgan's
+  explicit instruction** — so a session adding itself to that list would be
+  deciding something the practice reserves to a person.
+  The underlying cause is the same one filed above: the hook that exports
+  `TZ` and sets the commit identity never runs in a repo that is not the
+  session's primary, so both the identity and the timezone halves fail
+  together and silently.
+  Separately, the engine-refresh commit that
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  writes with `--commit` has no `Session:` trailer, which the maintainers'
+  team set requires of every commit. Rewritten by hand this time; the tool
+  will produce the same commit next time, so the trailer belongs in the tool.
+  **Blocked on:** Morgan, for the grandfathering decision only. The tool's
+  missing trailer is not blocked on anything.
