@@ -55,3 +55,36 @@
 \bexample-client-name-goes-here\b
 \bexample-code-word-goes-here\b
 \bEXAMPLE-TICKET-\d+\b
+
+# --- REPOSITORY REFERENCES: an allowlist, and you must switch it on --------
+#
+# The patterns above are a BLOCKLIST: they block the terms you remembered to
+# write down. That is the wrong default for repository names, and it failed
+# in both directions in a single day (2026-09-07, upstream): a private
+# repository nobody had listed was named in a public tree, and two names on a
+# blocklist had since become public, forcing dozens of hits clearable only by
+# deleting content about public files.
+#
+# So repository references are an ALLOWLIST instead. Uncomment the line below
+# and put YOUR OWN GitHub account in it. Until you do, this half of the gate
+# does nothing at all -- and it says so on every run rather than passing
+# quietly, because a check that is off and silent is worse than one that is
+# absent.
+#
+# visibility-audit: private-owner YOUR-GITHUB-ACCOUNT -- personal account; every repo under it is private unless allowed below
+#
+# With that line, every `YOUR-ACCOUNT/<name>` mention in a scanned tree is
+# refused unless an allow line permits it, with a reason:
+#
+# visibility-audit: allow YOUR-ACCOUNT/precedent-team-<name> -- declared as a team source in precedent.json
+#
+# WHAT NOT TO PUT HERE, and it is the one that looks like it belongs.
+# Do NOT pre-allow your INDIVIDUAL source. A shared repository is forbidden
+# from declaring one -- tools/precedent_resolve.py refuses it by name, because
+# naming it tells everyone with read access that it exists -- so an allow line
+# for it hands out permission for the exact thing the architecture refuses.
+# Add one only if a specific repository genuinely has to name it (upstream
+# does, because it documents the model), and write the reason down.
+#
+# A REASON IS MANDATORY on every allow line. An accepted exposure nobody
+# argued for is the same silence this whole file exists to replace.

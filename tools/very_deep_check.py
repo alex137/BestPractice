@@ -97,7 +97,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import json, pathlib, subprocess, sys
+import json, os, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -691,6 +691,245 @@ def enumerate_scope(repo=None, user_config=None):
     return {'checkout': checkout, 'sources': source_rows, 'missing': missing}
 
 
+# --------------------------------------------------------------------------
+# Repository-visibility audit: the one check that needs the outside world
+# --------------------------------------------------------------------------
+#
+# The leak gate's vocabulary layer is a hand-written list of literal strings.
+# It cannot know a repository is private -- it only knows what somebody typed
+# into it -- so it fails in BOTH directions, and did, twice on 2026-09-07:
+#
+#   MISSED. The philosophy import named four repositories. The gate caught
+#   one of them and missed another, both private, both named from this public
+#   tree, for the only reason a blocklist ever misses anything: it had never
+#   been told about the second. Nothing offline could have found that.
+#   (Neither is named here. This comment block named one of them in its first
+#   draft, and THIS AUDIT caught it on its own first run -- the check's own
+#   rationale leaking the name the check exists to protect.)
+#
+#   STALE. `COMPANY_BUILDING_RULES` and `HUMAN_VOICE_RULES` were blocked while
+#   naming files that are public, forcing 88 hits clearable only by deleting
+#   content about public files -- so the entries came off, and the note left
+#   behind said: "Re-check visibility before removing any other repo-name
+#   pattern here -- the check is one API call and it is the whole argument."
+#   That instruction had no mechanism. Hours later the same day a repository
+#   went private and the tree named it 58 times.
+#
+# This makes that instruction a check. It runs here rather than in the leak
+# gate on purpose: the gate is a PUSH gate and must work offline and in CI,
+# where a network call would either fail the push or fail open. very-deep-check
+# is invoked by a person, on request, and can afford the network.
+#
+# SCOPE IS WHAT THIS TREE NAMES, not what the account owns. Enumerating an
+# account's private repositories is unavailable here anyway -- `/user/repos`
+# answers "sessions are bound to their configured repositories" -- but the
+# narrower scope is the better one regardless: a private repository this tree
+# never mentions is not a leak, and a mention is exactly what makes one.
+#
+# NEVER WRITES A PRIVATE NAME ANYWHERE. Findings go to the session's own
+# output. Writing them into a report in this tree would publish the names the
+# audit exists to protect, which is the failure it is looking for.
+
+# A GitHub owner login: letters, digits and single hyphens, <=39 chars.
+_OWNER = r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})'
+# Only a github.com URL proves an `owner/name` IS a repository reference.
+# Those URLs are then what tells us which owners to look for in bare prose.
+_URL_REF_RE = re.compile(r'github\.com/(' + _OWNER + r')/([A-Za-z][\w.-]*?)'
+                         r'(?=[\s)\]"\'`,;:]|\.git\b|/|$)')
+
+# A first attempt matched any `x/y` and produced 389 candidates from this
+# tree -- fractions, ratios, CSS line-heights, "10/10", "287/290". Anchoring
+# to owners actually seen in a github.com URL is what makes the bare-prose
+# half safe: an `owner/name` under a known owner is a repository reference,
+# `16px/1.45` is not, and no cleverness about the right-hand side tells them
+# apart.
+def _bare_ref_re(owners):
+    if not owners:
+        return None
+    alt = '|'.join(re.escape(o) for o in sorted(owners))
+    return re.compile(r'(?<![\w./-])(' + alt + r')/([A-Za-z][\w.-]*?)'
+                      r'(?=[\s)\]"\'`,;:]|\.git\b|/|$)')
+
+
+_NOT_A_REPO_NAME = re.compile(
+    r'.*\.(?:md|py|json|txt|sh|yml|yaml|html|template|jsonl)$', re.I)
+
+
+def _api_json(path, timeout=20):
+    """-> (parsed, error). Never raises: the caller reports, it does not crash."""
+    try:
+        r = subprocess.run(
+            ['curl', '-s', '--max-time', str(timeout),
+             '-H', 'Accept: application/vnd.github+json',
+             f'https://api.github.com/{path.lstrip("/")}'],
+            capture_output=True, text=True, timeout=timeout + 10)
+    except Exception as e:                      # noqa: BLE001 -- reported
+        return None, f'curl failed: {e}'
+    if r.returncode != 0:
+        return None, f'curl exited {r.returncode}: {r.stderr.strip()[:120]}'
+    try:
+        return json.loads(r.stdout), None
+    except ValueError:
+        return None, f'not JSON: {r.stdout.strip()[:120]}'
+
+
+def _tracked_text_files(repo_dir):
+    # _run_git returns (rc, stdout, stderr) -- the tuple, not the text. A
+    # bare `out or ''` here read as a string and crashed on .splitlines().
+    rc, out, _err = _run_git(repo_dir, 'ls-files')
+    if rc != 0:
+        return
+    for rel in out.splitlines():
+        if not rel.strip():
+            continue
+        if rel.startswith(('process/upstream/', '.git/')):
+            continue      # vendored: another repo's tree, not this one's text
+        p = pathlib.Path(repo_dir) / rel
+        if p.suffix.lower() not in ('.md', '.py', '.json', '.txt', '.sh',
+                                    '.yml', '.yaml', '.template'):
+            continue
+        try:
+            yield rel, p.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+
+
+def _referenced_repos(repo_dir):
+    """-> {(owner, name): [files that mention it]} for this tree's own text.
+
+    Two passes, and the first is what makes the second safe: only a
+    `github.com/owner/name` URL PROVES an `owner/name` pair is a repository,
+    so those URLs supply the owner names, and only those owners are then
+    looked for in bare prose.
+    """
+    texts = list(_tracked_text_files(repo_dir))
+    found, owners = {}, set()
+    for rel, text in texts:
+        for owner, name in _URL_REF_RE.findall(text):
+            if _NOT_A_REPO_NAME.match(name):
+                continue
+            owners.add(owner)
+            found.setdefault((owner, name), []).append(rel)
+    bare = _bare_ref_re(owners)
+    if bare:
+        for rel, text in texts:
+            for owner, name in bare.findall(text):
+                if _NOT_A_REPO_NAME.match(name):
+                    continue
+                found.setdefault((owner, name), []).append(rel)
+    return found
+
+
+def repo_visibility_audit(repo_dir, blocklist_path=None, out=sys.stdout):
+    """-> (findings, notes). Findings are real; notes are what could not run.
+
+    A repository this PUBLIC tree names, which is PRIVATE, is a finding
+    whether or not anybody blocklisted it -- that is the Write-Like case. A
+    blocklist entry naming a repository that is now PUBLIC is the opposite
+    finding: it costs false positives and pressure to delete real content.
+    """
+    findings, notes = [], []
+
+    probe, err = _api_json('user')
+    if err or not isinstance(probe, dict) or not probe.get('login'):
+        notes.append(
+            'the GitHub API could not be reached, so NO repository visibility '
+            'was checked. This is not a clean result -- it is an unrun check '
+            f'({err or "no login in response"}).')
+        return findings, notes
+
+    refs = _referenced_repos(repo_dir)
+    # A repository whose name is DELIBERATELY public here -- named on purpose,
+    # with the exposure accepted -- is declared in the blocklist file itself,
+    # as a comment the audit reads:
+    #
+    #     # visibility-audit: allow owner/name -- why the exposure is accepted
+    #
+    # It lives there rather than in a new file because that file is already
+    # the private, per-person place where "which names matter" is decided, and
+    # a second file would be a second thing to keep in sync. A REASON is
+    # required: an accepted exposure nobody argued for is the same silence the
+    # blocklist exists to replace, and without one the audit keeps reporting.
+    #
+    # Needed because the alternative is a permanent nag. This account
+    # deliberately names one private repository throughout its public tree --
+    # the retired personal pack, whose name Morgan has said plainly he does
+    # not mind being public -- and an audit that reports it on every run is an
+    # audit people learn to skim.
+    blocked, allowed = set(), {}
+    if blocklist_path and pathlib.Path(blocklist_path).exists():
+        try:
+            for line in pathlib.Path(blocklist_path).read_text(
+                    encoding='utf-8').splitlines():
+                line = line.strip()
+                m = re.match(r'#\s*visibility-audit:\s*allow\s+(\S+/\S+)\s*--\s*(.+)$',
+                             line)
+                if m:
+                    allowed[m.group(1).lower()] = m.group(2).strip()
+                    continue
+                if line and not line.startswith('#'):
+                    blocked.add(re.sub(r'^\\b|\\b$', '', line).lower())
+        except OSError as e:
+            notes.append(f'blocklist at {blocklist_path} could not be read ({e}) '
+                         '-- the stale-entry half of this audit did NOT run.')
+    else:
+        notes.append('no blocklist path given, so the stale-entry half of this '
+                     'audit did NOT run; only referenced repositories were '
+                     'checked.')
+
+    checked = 0
+    for (owner, name), files in sorted(refs.items()):
+        data, err = _api_json(f'repos/{owner}/{name}')
+        if err:
+            notes.append(f'{owner}/{name}: visibility not checked ({err})')
+            continue
+        if not isinstance(data, dict) or 'private' not in data:
+            msg = (data or {}).get('message', 'no visibility in response')
+            if 'Not Found' in str(msg):
+                notes.append(
+                    f'{owner}/{name}: the API reports Not Found -- deleted, '
+                    f'renamed, or not visible to this session. Named in: '
+                    f'{", ".join(sorted(set(files))[:3])}. A dead reference, '
+                    f'not necessarily a leak.')
+            else:
+                notes.append(f'{owner}/{name}: visibility not checked ({msg})')
+            continue
+        checked += 1        # only now is the visibility actually KNOWN
+        if data.get('private'):
+            why = allowed.get(f'{owner}/{name}'.lower())
+            if why:
+                notes.append(f'{owner}/{name} is private and named here on '
+                             f'purpose: {why}')
+                continue
+            findings.append(
+                f'{owner}/{name} is PRIVATE and is named in this tree '
+                f'({len(set(files))} file(s), e.g. '
+                f'{", ".join(sorted(set(files))[:3])}). Either scrub the name '
+                f'or, if it must appear, say why -- and add it to the leak '
+                f'blocklist so the push gate catches the next one. Nothing '
+                f'offline can find this: the gate blocks what it was told.')
+        elif name.lower() in blocked:
+            findings.append(
+                f'{owner}/{name} is PUBLIC but its name is on the leak '
+                f'blocklist. A stale entry costs real content: it forces hits '
+                f'clearable only by deleting text about a public repository. '
+                f'Re-check and remove the entry, recording the evidence.')
+
+    # `checked` counts repositories whose visibility was actually
+    # DETERMINED. It used to increment on any non-error API response,
+    # including "access to this repository is not enabled for this session",
+    # and so reported "14 of 14 checked" when 11 were unresolvable -- a check
+    # overstating its own coverage, which is the shape this audit exists to
+    # catch in the blocklist.
+    unresolved = len(refs) - checked
+    print(f'  repository visibility: {checked} of {len(refs)} referenced '
+          f'repositories had their visibility determined'
+          + (f'; {unresolved} could NOT be checked (this session only reaches '
+             f'repositories attached to it) -- see the notes, they are not '
+             f'passes' if unresolved else ''), file=out)
+    return findings, notes
+
+
 def _exit(message):
     print(message, file=sys.stderr)
     return 1
@@ -716,6 +955,7 @@ def main():
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    skip_visibility = '--skip-visibility' in args
     skip_endgame = '--skip-endgame-merge' in args
     allow_stale = '--allow-stale' in args
     do_freshen = '--freshen' in args
@@ -1003,6 +1243,19 @@ def main():
             print("  No branch carries unlanded work. (A branch reported unmerged\n"
                   "  but carrying nothing was rebased or squash-merged in -- pass 4\n"
                   "  still gives it a deletion verdict.)\n")
+
+    if not skip_visibility:
+        print()
+        print("REPOSITORY VISIBILITY -- private names in a public tree\n")
+        _bl = os.environ.get('PRECEDENT_LEAK_BLOCKLIST')
+        _vf, _vn = repo_visibility_audit(repo_root, _bl)
+        for f in _vf:
+            print(f'  FINDING: {f}')
+        for n in _vn:
+            print(f'  note: {n}')
+        if not _vf and not _vn:
+            print('  nothing referenced, nothing to check')
+        print()
 
     print(checklist())
 

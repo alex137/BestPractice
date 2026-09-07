@@ -882,6 +882,30 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   source count where you expected four is the same signal in a different
   shape.
 
+- **A private repo name reaches a public tree by nobody having predicted
+  it, so repo references are an ALLOWLIST now, not a blocklist.** The
+  vocabulary layer blocks the literal strings somebody typed, which failed in
+  both directions on 2026-09-07: it missed a private repository nobody had
+  listed, and it blocked two names that had become public, forcing 88 hits
+  clearable only by deleting content about public files. Declare an owner
+  private-by-default in the private blocklist file
+  (`# visibility-audit: private-owner <account> -- reason`) and every
+  `owner/name` mention is refused unless an `allow` line gives a reason. It
+  caught an abandoned private fork on its first run, plus its own manual's
+  example, which had used a real account name. The set of names you may
+  mention is small and known; the set of repos you might create is unbounded.
+  **The URL form is the case that matters and is easy to miss**: the
+  lookbehind keeping `a/acct/x` from matching also rejects
+  `github.com/acct/x`, because the character before the owner is `/` there
+  too — a stated test case caught that, reading it did not.
+  [tools/very_deep_check.py](tools/very_deep_check.py) does the other half on
+  request, asking the GitHub API whether each referenced repo is actually
+  private and whether a blocklisted name has since gone public; the push gate
+  cannot, because it must work offline and in continuous integration (CI).
+  Its reach is limited to repos the session can see — `/user/repos` answers
+  *"sessions are bound to their configured repositories"* — so it reports how
+  many it could NOT determine rather than counting those as passes.
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
