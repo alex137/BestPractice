@@ -29,7 +29,7 @@ Working branch `claude/bestpractice-precedent-deep-check-4rmlee` in each.
 | Pass | Status | Date | Notes |
 |---|---|---|---|
 | 1 — adopter installs | done | 2026-09-07 | fresh install and migration both built and run; 6 defects found, all fixed |
-| 2 — mechanisms | partial | 2026-09-07 | questions 1-3, 6-13 worked; 4 and 5 not yet |
+| 2 — mechanisms | done | 2026-09-07 | all thirteen questions worked; 8 defects found, all fixed |
 | 3 — coherence read | partial | 2026-09-07 | mechanical sweep clean; cross-source staleness rolled out; full read not done |
 | 4 — catalogue and housekeeping | partial | 2026-09-07 | branch sweep done with verdicts; catalogue enumerated (119 active across 4 sources, 53 judgment-only) but the per-practice judging pass not run; backlog read partial |
 
@@ -253,7 +253,27 @@ both cases, so a working engine check read as a broken install. Seen in the
 wild during this run, in a consuming repo's output. It now says which of the
 two it is.
 
-**Not done:** questions 4 and 5 — output-directory dependence,
+**Question 4 (does a tool's output depend on its own output directory):
+clean, tested three ways.** `precedent_sync_views.py`, `build_views.py` and
+`precedent_session_practices.py` each produce byte-identical output whether
+their target directory was already populated or deleted first — 67 files and
+an identical hash across both states, with the manifest's timestamp
+excluded. The documented 2026-09-06 incident (link rewriting asking the
+filesystem about a file the same run was about to write) is genuinely fixed
+and stays fixed.
+
+**Question 5 (would a generated name disclose what the architecture hides):
+clean, and it is the question this run spent most of its time on.** Two
+places mint a URL. `precedent_materialize.py` guards the individual level
+explicitly and is now moot for the team level in a public repo, since that
+text is no longer materialized there at all.
+`precedent_candidate.py` prints its URL to the operator's own terminal and
+writes it into no tracked file. Verified empirically rather than argued:
+zero private-source URLs in either public tree, and the public loader block
+carries universal slugs only while the untracked channel carries all 55
+private ones.
+
+**Pass 2 is now complete.** All thirteen questions worked. — output-directory dependence,
 generated-name disclosure, string-match name boundaries, and reading each
 enforced practice's check against its own Rule. Question 11 is the
 expensive one and the only pass that ever looks at those checks.
@@ -312,10 +332,25 @@ honest note about what the second rehearsal found. Separately, `## 0` sits
 *below* `## 1` — a fresh adopter meets the legacy path first. Renumbering
 would break every link to §1-§7, so §1 now points forward to §0 instead.
 
+**Checked and clean, so the next run need not redo them:**
+
+- **Catalogue figures in prose.** `spec/LOADER.md` states both 52 and 66
+  practices; both are correct. The 52s are a phase-2 planning table and the
+  behavioral replay's own conditions — history, and changing either would
+  falsify a measurement. Only the generated block carries a current figure.
+  The same holds for the other `spec/` briefs, which this repo's own
+  convention treats as records.
+- **The two `INSTALL.md` files.** `documentation/INSTALL.md` is a
+  seven-line signpost to the root one, not a second copy.
+- **Dated claims in the four public-facing documents.** One `as of 2026-09`,
+  correctly carried; one future-looking date that is an example filename
+  inside a code block, not a claim about the world.
+
 **Not done:** the coherence read proper, across all four repos —
 contradictions, misdirected-but-resolving links, fragments, disproportion,
 rules that no longer make sense, cost that is not earned. This is the
-largest single piece of unfinished work in the run.
+largest single piece of unfinished work in the run, and it is a reading
+task rather than a checking one: nothing above substitutes for it.
 
 ### Pass 4 — branches only
 
