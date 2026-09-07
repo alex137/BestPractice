@@ -8279,6 +8279,116 @@ def check_pretooluse_hook_fires():
           not bad, '; '.join(n for n, _ in bad))
 
 
+def check_freshness_gate_fires():
+    """The very deep check's freshness gate, as stated cases against
+    throwaway repos (practice: very-deep-check).
+
+    WHY AS FIXTURES RATHER THAN AGAINST THIS TREE. A gate that refuses a
+    stale checkout is invisible when the checkout is current: running it
+    here proves only that this clone happens to be up to date, which is a
+    fact about the clone. The states that matter -- behind, diverged, dirty,
+    branch-never-pushed -- have to be built. Both halves are asserted: that
+    it refuses what it should, and that it does NOT refuse what it
+    shouldn't, since a gate that fires on correct work is worse than none.
+
+    The freshen half carries negative controls deliberately. Fast-forwarding
+    a diverged branch deletes commits nobody asked it to delete, and a dirty
+    tree left half-merged is worse than a stale one left alone -- so those
+    two are asserted to change nothing, not merely to warn."""
+    import tempfile
+    import very_deep_check as vdc
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        upstream, work = tmp / 'upstream', tmp / 'work'
+        upstream.mkdir()
+        _git(upstream, 'init', '-q', '-b', 'main')
+        _git(upstream, 'config', 'user.email', 'harness@example.com')
+        _git(upstream, 'config', 'user.name', 'Harness')
+        (upstream / 'f.txt').write_text('one\n')
+        _git(upstream, 'add', '-A'); _git(upstream, 'commit', '-qm', 'one')
+        subprocess.run(['git', 'clone', '-q', f'file://{upstream}', str(work)],
+                       capture_output=True, text=True)
+        _git(work, 'config', 'user.email', 'harness@example.com')
+        _git(work, 'config', 'user.name', 'Harness')
+
+        results = []
+        results.append(('current clone passes',
+                        vdc.freshness(work)['status'] == 'current'))
+
+        # A repo with no origin at all is not stale -- there is nothing to be
+        # behind. Refusing it would fail every fixture repo pass 1 builds.
+        solo = tmp / 'solo'; solo.mkdir()
+        _git(solo, 'init', '-q', '-b', 'main')
+        _git(solo, 'config', 'user.email', 'harness@example.com')
+        _git(solo, 'config', 'user.name', 'Harness')
+        (solo / 'f.txt').write_text('x\n')
+        _git(solo, 'add', '-A'); _git(solo, 'commit', '-qm', 'x')
+        results.append(('a repo with no origin is not reported stale',
+                        vdc.freshness(solo)['status'] == 'no-remote'))
+
+        # Not a git checkout at all: a repo-local source inside the parent.
+        plain = tmp / 'plain'; plain.mkdir()
+        results.append(('a non-checkout directory is skipped, not failed',
+                        vdc.freshness(plain)['status'] == 'not-a-checkout'))
+
+        # Behind.
+        (upstream / 'f.txt').write_text('one\ntwo\n')
+        _git(upstream, 'add', '-A'); _git(upstream, 'commit', '-qm', 'two')
+        v = vdc.freshness(work)
+        results.append(('a clone behind origin is refused',
+                        v['status'] == 'behind' and v['behind'] == 1))
+
+        # --freshen on a DIRTY tree must decline and change nothing.
+        (work / 'scratch.txt').write_text('uncommitted\n')
+        before = _git(work, 'rev-parse', 'HEAD').stdout.strip()
+        v_dirty = vdc.freshen(work, vdc.freshness(work, fetch=False))
+        after = _git(work, 'rev-parse', 'HEAD').stdout.strip()
+        results.append(('--freshen declines a dirty tree and moves nothing',
+                        v_dirty['status'] == 'behind' and before == after))
+        (work / 'scratch.txt').unlink()
+
+        # --freshen on a clean tree that is behind must actually advance it.
+        v_clean = vdc.freshen(work, vdc.freshness(work, fetch=False))
+        results.append(('--freshen fast-forwards a clean tree that is behind',
+                        v_clean['status'] == 'current'))
+
+        # Diverged: --freshen must refuse, and the local commit must survive.
+        (upstream / 'f.txt').write_text('one\ntwo\nthree\n')
+        _git(upstream, 'add', '-A'); _git(upstream, 'commit', '-qm', 'three')
+        (work / 'local.txt').write_text('mine\n')
+        _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'local only')
+        v = vdc.freshness(work)
+        mine = _git(work, 'rev-parse', 'HEAD').stdout.strip()
+        v2 = vdc.freshen(work, v)
+        results.append(('a diverged clone is refused, and --freshen leaves its '
+                        'local commit alone',
+                        v['status'] == 'diverged' and v2['status'] == 'diverged'
+                        and _git(work, 'rev-parse', 'HEAD').stdout.strip() == mine
+                        and (work / 'local.txt').exists()))
+
+        # A branch that exists only locally: the network is fine, so the
+        # verdict must say so rather than blaming the fetch.
+        _git(work, 'checkout', '-q', '-b', 'never-pushed')
+        v = vdc.freshness(work)
+        results.append(('a local-only branch reports branch-not-on-origin, '
+                        'not a fetch failure',
+                        v['status'] == 'branch-not-on-origin'))
+
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check refuses a stale repo ({len(results)} stated '
+              f'cases: a current clone, a remoteless repo, a non-checkout, a '
+              f'behind clone, --freshen against dirty and clean trees, a '
+              f'diverged clone whose commit must survive, and a local-only '
+              f'branch)',
+              not failed,
+              '; '.join(failed) if failed else '')
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -8305,6 +8415,7 @@ def main():
     check_leak_gate()
     check_leak_gate_fires()
     check_practice_audit_fires()
+    check_freshness_gate_fires()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()
