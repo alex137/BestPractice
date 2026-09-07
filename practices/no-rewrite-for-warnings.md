@@ -52,6 +52,28 @@ published, and escalate to a human if the backlog genuinely matters. A warning
 is a report, not an authorization.
 
 ## Story
+No dated incident was recorded. The rule is written from an asymmetry sharp
+enough to act on without one.
+
+**The warning's cost is that something looks untidy. Its suggested remedy's
+cost is that everyone else's clone is now wrong.** On a shared trunk, the
+`rebase --exec ... --amend` these tools recommend rewrites commits other
+people authored and have already built on, forces a divergent default
+branch, and trades a cosmetic badge for a genuine coordination failure.
+
+**The trap is that the tool is correct about the condition and merely silent
+about the context.** It is right that the commits lack the property. It does
+not know they are published, does not know which are yours, and cannot weigh
+what its remedy costs. So an agent reading that output is handed a
+confident, specific, executable instruction with the reasoning omitted --
+the shape most likely to be followed without the judgment the situation
+actually needs.
+
+Hence the deliberate generalisation past the tool that prompted it. Any
+automated warning whose suggested remedy is destructive and retroactive --
+rewriting history, mass-reformatting a shared tree, regenerating a lockfile
+everyone pins -- gets the same treatment. **A warning is a report, not an
+authorization.**
 
 ## Install
 Set the identity or configuration the tool wants, so new work stops

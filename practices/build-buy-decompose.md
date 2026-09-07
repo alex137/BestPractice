@@ -57,6 +57,19 @@ thing) was never checked, and then defending the answer with the most available
 evidence, which is whatever the supplier says about themselves.
 
 ## Story
+No originating incident was recorded, and none is invented here.
+
+The failure the rule names is precise, though, and it is not the obvious
+one. It is not choosing wrongly between two known options. It is answering a
+question whose premise -- that the thing being procured is one thing -- was
+never checked, and then defending that answer with the most available
+evidence, which is whatever the supplier says about themselves.
+
+That is why both moves are ordered the way they are. Decomposing first is
+what surfaces the disagreement between the parts, and the disagreement is
+usually the actual answer. Resting the verdict on ownership grounds rather
+than on a feature comparison is what keeps the supplier's own material from
+becoming the evidence base by default.
 
 ## Install
 Write the decomposition as a table with one verdict per part

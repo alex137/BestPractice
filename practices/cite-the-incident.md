@@ -28,6 +28,25 @@ Y because Z" sticks, and lets a reader judge whether the rule applies to their
 case. Rules without origin stories decay into cargo cult or get dropped.
 
 ## Story
+**This practice had an empty Story until 2026-09-07, which is its own
+best illustration.** The rule that exists to make every other rule carry
+the failure it prevents did not carry one, and nothing flagged that for
+weeks -- because the check that enforces it fires on authorship of a
+*changed* Rule, and a section that was empty from the start is never a
+change.
+
+No single originating incident was recorded, and this Story does not invent
+one; the reasoning is what was recorded. "Do X" invites relitigation and
+misapplication, where "do X -- we once lost Y because Z" sticks, and lets a
+reader judge whether the rule applies to their case at all. A rule without
+its origin story decays in one of two directions: it becomes cargo cult, or
+it gets dropped by somebody who cannot see what it was protecting.
+
+The empty-Story episode adds one thing the reasoning did not have. A rule
+about recording incidents needs a standing check over the whole catalogue,
+not only a gate at the moment of writing, because the gap this rule guards
+is most often created by a bulk landing that no later edit ever touches
+again.
 
 ## Install
 A writing habit, not a file. Enforced socially by example: every

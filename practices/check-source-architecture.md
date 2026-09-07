@@ -55,6 +55,20 @@ against sources will not catch it either, since the invented option has no sourc
 contradict. Only going back to the primary architecture catches it.
 
 ## Story
+No dated incident was recorded. The rule is written from the failure's
+signature, which is unusually specific and worth keeping.
+
+What makes it dangerous is that **every downstream number can be internally
+correct**. The arithmetic reconciles, the units balance, the assertions
+pass -- because the error sits upstream of all of them, in the framing. The
+work of optimising within an invented decomposition looks exactly like the
+work of optimising within a real one.
+
+It also survives the check that would normally catch a bad claim. An
+adversarial pass verifies claims against sources, and the invented option
+has no source to contradict it. Only going back to the primary architecture
+catches it, which is why the rule names that step specifically instead of
+saying "check your assumptions".
 
 ## Install
 **Related:** [variant-re-derives](variant-re-derives.md) (a variant re-derives what it inherits) is the sibling

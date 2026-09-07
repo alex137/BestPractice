@@ -56,6 +56,22 @@ if you catch yourself emitting the same table twice in different orders, the
 document wanted this practice.
 
 ## Story
+No dated incident was recorded for this rule, though half its argument is
+inherited from one that has: **N copied renderers drift independently, and
+the oldest copy is the one a reader eventually trusts** -- the same failure
+`docs-track-models` kills for numbers, and the same one
+`engine-plus-host-shims` paid for in a day of triple-patching.
+
+The other half is about what a static table can and cannot do. A wide
+cross-product is written in one canonical order, but every reader arrives
+with a different question: cheapest rows first, grouped by one factor, or
+looking for the regime boundary in another. **Static markdown forces the
+writer to guess one question and answer only that one.** A sortable render
+answers all of them with no further build.
+
+The cheap test is the useful part of this rule in practice: if you catch
+yourself emitting the same table twice in different orders, the document
+wanted this practice and you are hand-simulating it.
 
 ## Install
 **The behavior contract.** This is what the reference implementation

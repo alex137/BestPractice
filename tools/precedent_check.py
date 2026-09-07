@@ -513,6 +513,77 @@ VERSION_SUFFIX_RE = re.compile(
     r'draft|\d{4}[-_]\d{2}[-_]\d{2})$', re.I)
 
 
+_FRONTMATTER_RE = re.compile(r'\A---\n(.*?)\n---\n', re.S)
+_FM_STATUS_RE = re.compile(r'^status:\s*(\S+)', re.M)
+_STORY_RE = re.compile(r'^## Story\n(.*?)(?=\n## |\Z)', re.S | re.M)
+
+
+def _practice_status(text):
+    """Read `status:` from the FRONTMATTER only.
+
+    Anchored rather than searched: several practices discuss the status
+    vocabulary in their own prose (`status: retired` appears inside
+    sentences), and a loose search reads one of those and mis-scopes the
+    check onto a practice it should have skipped.
+    """
+    fm = _FRONTMATTER_RE.match(text)
+    if not fm:
+        return ''
+    m = _FM_STATUS_RE.search(fm.group(1))
+    return m.group(1).strip() if m else ''
+
+
+def _foreign_practice(rel):
+    """True if a COMMITTED practices/MANIFEST.json says another source owns it.
+
+    Attribution never comes from live source resolution: a bare CI checkout
+    can reach neither a team sibling clone nor a private user-level config,
+    so "did not resolve here" is not "owned here". Same mechanism, and the
+    same reasoning, as the materialized-practice guards elsewhere.
+    """
+    manifest = ROOT / 'practices' / 'MANIFEST.json'
+    if not manifest.is_file():
+        return False
+    try:
+        entries = json.loads(manifest.read_text(encoding='utf-8')).get('practices', [])
+    except (ValueError, OSError):
+        return False
+    slug = pathlib.Path(rel).stem
+    for entry in entries:
+        if entry.get('slug') == slug:
+            return entry.get('level') != 'repo-local'
+    return False
+
+
+@check('catalogue-carries-stories', 'tree',
+       'every status: active practice in this catalogue carries a non-empty '
+       '## Story',
+       'whether a Story records the RIGHT incident, or any incident at all -- '
+       'an honest "no originating incident was recorded" passes, and should. '
+       'It tests that the section says something, not that it says something '
+       'dramatic.')
+def _catalogue_carries_stories(ctx):
+    out = []
+    pdir = ROOT / 'practices'
+    if not pdir.is_dir():
+        return out
+    for path in sorted(pdir.glob('*.md')):
+        rel = str(path.relative_to(ROOT))
+        if _foreign_practice(rel):
+            continue
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        if _practice_status(text) != 'active':
+            continue
+        m = _STORY_RE.search(text)
+        if m is None:
+            out.append(Finding(rel, 'has no ## Story section at all'))
+        elif not m.group(1).strip():
+            out.append(Finding(rel, 'is status: active with an empty ## Story '
+                                    '-- the failure this rule prevents is '
+                                    'recorded nowhere'))
+    return out
+
+
 @check('no-version-suffix', 'change',
        'a file added by this change must not carry a version, date or state '
        'suffix in its name',

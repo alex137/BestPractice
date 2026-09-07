@@ -38,6 +38,28 @@ export a local commit; the cross-repo step happens only at deliberate
 check-ins.
 
 ## Story
+No dated incident was recorded; the design is argued from two failure modes
+of the obvious alternative.
+
+**Live coupling breaks sessions exactly when orientation matters most.** A
+submodule read at session start makes the practice layer a runtime
+dependency, so a missing or unreachable remote takes out the very thing a
+cold session opens first.
+
+**It also makes capture a cross-repo operation, and cross-repo operations
+get skipped.** That is the more subtle cost: `capture-gate` asks a session to
+fold in what its work implied before merging, and a gate whose action
+requires touching a second repository is one a session under time pressure
+will defer, then lose.
+
+Vendoring as plain tracked files answers both. Export becomes a local
+commit, and the cross-repo step happens only at deliberate check-ins, when
+somebody has decided to do it.
+
+The adaptive/abstractive pairing follows from that asymmetry: install goes
+generic to specific, so export must go specific to generic, and the mapping
+is recorded in the manifest so neither direction depends on anyone
+remembering what was changed.
 
 ## Install
 [INSTALL.md](../INSTALL.md) is the full playbook;

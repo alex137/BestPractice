@@ -39,6 +39,23 @@ anchor and reverting it once the rendered page proved the attribute was
 stripped.
 
 ## Story
+**All three clauses were born from real bugs, one each.**
+
+(a) Readers hunting for referenced files. A bare backticked filename is a
+dead end on a web interface, where these documents are actually read, and
+the reader is left to search for something the writer already knew the path
+to.
+
+(b) An outward-facing document that rendered with unintended strikethrough.
+Two stray tildes on one line are a markdown footgun: they are invisible in
+the source and silently garble the rendered text, which is the worst
+combination for a document going to someone outside the project.
+
+(c) A thread that spent two commits converting a link to a `target="_blank"`
+anchor and then reverting it, once the rendered page proved the attribute
+was stripped. That is the clause's real value -- not the styling preference,
+but the fact that somebody already paid to find out, so nobody has to pay
+again.
 
 ## Install
 [tools/doc_lint.py](../tools/doc_lint.py) checks all three — it

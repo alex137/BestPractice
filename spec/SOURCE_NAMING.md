@@ -99,7 +99,7 @@ clause of the Rule and not a footnote.
 
 ## What the first real consumer refresh showed
 
-`themorgan/HavrutaBrainstorm` refreshed its vendored engine from
+A private consumer repo refreshed its vendored engine from
 `precedent-beta-v01` on 2026-09-06 — the first time the refusal met a repo
 nobody had prepared for it. Worth keeping, because it is the only evidence
 that the split between the two halves behaves:

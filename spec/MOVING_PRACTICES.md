@@ -39,7 +39,11 @@ sequence, never as a silent file edit or a copy-and-delete:
    approval**, exactly as if it were new (Stage 4). Use the existing
    practice's `## Rule`, `## Detail`, `## Why`, and any real `## Story` as
    the candidate's content — this is carrying forward real, already-vetted
-   text, not re-deriving it from scratch. The destination's own owner has
+   text, not re-deriving it from scratch. **If the `## Story` is empty,
+   fill it before landing, not after**: a move is the last moment the
+   original context is reliably in front of somebody, and
+   [catalogue-carries-stories](../practices/catalogue-carries-stories.md)
+   will hold the destination red until it is filled anyway. The destination's own owner has
    to actually agree it belongs there:
    - **To an individual set**: the person's own *"yes"* — `precedent_land.py --level individual --approved-by NAME`, direct.
    - **To a team set**: a listed approver of *that* team's own say-so —

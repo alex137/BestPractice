@@ -41,6 +41,27 @@ no friction, the full one stays a deliberate, named gate that is obviously
 missing if it's skipped.
 
 ## Story
+No dated incident was recorded. The rule identifies a drift with two
+directions, and naming both is what makes the case.
+
+Without named levels, "run the checks" is ambiguous between two very
+different costs, and the ambiguity resolves itself badly one of two ways.
+**Either sessions run the expensive audit so often that it gets skipped
+when time is short** -- the gate is dropped precisely when the work is most
+rushed -- **or they run only the cheap pass, and the expensive one quietly
+stops happening before merges**, with nothing marking its absence.
+
+Both endpoints look locally reasonable while they are happening, which is
+why the fix is naming rather than discipline.
+
+Named levels keep both cadences legible. The fast one stays cheap enough to
+run on every commit path without friction, and the full one stays a
+deliberate, named gate that is obviously missing when it is skipped -- and
+"obviously missing" is the whole property being bought.
+
+The rule deliberately does not mandate the words. Any repo-chosen pair is
+fine, provided the pair is fixed and written in the repo's own glossary,
+because the value is in the distinction being nameable, not in the names.
 
 ## Install
 This repo's own [tools/doc_lint.py](../tools/doc_lint.py) is

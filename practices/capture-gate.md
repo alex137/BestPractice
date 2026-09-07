@@ -36,6 +36,24 @@ ended without folding it in. The gate that fixed it: before any merge, ask
 for known parking-lot markers, run at thread end.
 
 ## Story
+**A real miss, and the parking lot that caused it.** Deferred capture
+repeatedly lost two things at once: the rationale, because the thread doing
+the merging did not know why the matter existed, and the timestamp, because
+priority went to whoever wrote it down first rather than to whoever found
+it first.
+
+The specific failure that produced the gate was a "waiting for review"
+staging document. Content staged there sat unrecorded for a full cycle,
+because the thread that put it there ended without folding it in -- and
+nothing about a parking lot forces anyone to come back. The parking lot
+looked like the responsible thing to do, which is why it survived long
+enough to lose something.
+
+The fix is the gate, not a better parking lot: before any merge, ask
+whether this thread's work implied anything that must be captured, and grep
+for the known parking-lot markers at thread end. The prohibition on
+"for later review" staging documents is part of the rule rather than a
+stylistic aside, since re-introducing one re-opens the same hole.
 
 ## Install
 Step 0 of the runbook in
