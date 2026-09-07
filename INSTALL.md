@@ -171,6 +171,43 @@ it applies.
      base branch; it is passed explicitly because detecting it gets this repo
      itself wrong. Codex reads `AGENTS.md` natively.
      Multiple adapters can be installed side by side.
+
+     **Which of these are decisions and which are not.** A real install
+     (2026-09-07) treated all four hooks as four judgment calls and declined
+     all four; three of those calls were right and one was wrong, so the list
+     now says which is which rather than leaving a session to guess:
+
+     | Hook | Wire it? |
+     |---|---|
+     | `session-start.sh` | **Always.** It is the install. |
+     | `commit-identity.sh` | **Always, and it asks nobody anything.** See below. |
+     | `freshness-guard.sh` | **Always**, unless this repo's own bootstrap already fetches and fast-forwards — then it is duplicated work, not a conflict. |
+     | `stop-git-check.sh` | **Judgment.** It blocks ending a turn on uncommitted or unpushed work. Good discipline for a repo you own; intrusive in one shared with someone who did not choose it. |
+     | `precedent-paths.sh` | **Only with the Precedent loader.** It surfaces path-triggered practice Rules; without a resolved catalogue it has nothing to read. |
+
+     **`commit-identity.sh` names no person, and that is the whole point.**
+     The install that declined it did so because it looked like it would pin
+     one person's name into a repository two people share — the opposite of
+     what it does. It resolves *whoever is running the session*, in order: an
+     explicit `PRECEDENT_COMMIT_*` override; an `identity.json` in this
+     repository's own root; the person's own individual practice source; the
+     harness's session-owner address; **the GitHub account the session is
+     authenticated as**; and finally an already-configured local identity, as
+     long as it is not the container's bot account. It then installs a
+     `pre-commit` (and `prepare-commit-msg`) hook refusing a commit authored
+     by that bot account. Declining it is what leaves one person's name on
+     another person's commits — which is what happened.
+
+     **Timezone is the one thing guessed, deliberately.** Nothing in a GitHub
+     profile says where a person is, and a container's own clock is UTC
+     rather than anybody's local time — so a zone cannot be derived the way a
+     name can. The `env` block's `TZ` is therefore a *stated default* for
+     someone who has declared no zone anywhere, and **it is never enforced**:
+     a commit whose offset does not match a guess earns a warning. Only a
+     zone someone actually declared, in their individual set's
+     `identity.json`, is enforced — because only then is a mismatch evidence
+     of anything. Change the default to your own zone if you like; leaving it
+     costs nothing.
    - `tools/doc_lint.py` → run it from `process/upstream/tools/` in place,
      or copy to the repo's tools dir if it needs local adaptation.
    - `tools/doc_sync.py` (practice 19) and `tools/model_audit.py`
