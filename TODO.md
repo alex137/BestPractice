@@ -580,22 +580,37 @@ which is the failure this repointing exists to end — write
     folded into the thread that found the first instance, which would have
     meant deciding all of them in passing.
 
-32. <a id="migrated-practices-lost-their-stories"></a>**The RPP migration dropped every `## Story`, and that is the
-    provenance the catalogue exists to keep.** Found by the 2026-09-06
-    migration audit ([`rpp-migration-audited`](TODO.md#rpp-migration-audited)):
-    34 of 41 practices in `precedent-team-maintainers` and 3 of 10 in
-    `precedent-individual` have an empty `## Story`; `header-caps` also had
-    an empty `## Why`, and `fail-gracefully` has Detail, Why and Story all
-    empty. The incident each rule exists to prevent stayed behind in
-    RepoPersonalPreferences. Nothing is *lost* while RPP survives, but it is
-    unreachable from the rule it justifies, which is exactly what
-    [practices/cite-the-incident.md](practices/cite-the-incident.md) and
-    [practices/mistakes-become-rules.md](practices/mistakes-become-rules.md)
-    exist to prevent — and a rule whose reason nobody can see is the first
-    one someone deletes. Backfill from RPP's own text, per practice.
-    **Blocked on:** a session holding `themorgan/RepoPersonalPreferences`
-    plus the two private sets. Note the size honestly: 37 practices, each
-    needing a real incident written from the original, not a paraphrase.
+32. <a id="migrated-practices-lost-their-stories"></a>~~**The RPP migration dropped every `## Story`, and that is the
+    provenance the catalogue exists to keep.**~~ **Done — confirmed by
+    re-measurement, 2026-09-07.** The backfill happened; this item outlived
+    it and went on asserting figures that were no longer true. Every one of
+    the **57** practice files across all three private sets — 42 in
+    `precedent-team-maintainers` (40 active, 2 deduplicated), 14 in
+    `precedent-individual`, 1 in `precedent-team-tms` — now has a non-empty
+    `## Story`, at any status. So do all 57 `## Why` sections. Nine files
+    have an empty `## Detail`, which is not a violation:
+    [catalogue-carries-stories](practices/catalogue-carries-stories.md)
+    requires a Story, and Detail is optional.
+
+    The three specific claims this item carried are all now false, and each
+    was checked rather than assumed: it is not "34 of 41 and 3 of 10" (it is
+    0 of 57); `header-caps` has a `## Why`; and `fail-gracefully` has
+    substantial Detail, Why *and* Story — 1,123, 751 and 1,204 characters.
+    The counts had also drifted with the catalogue: 41 and 10 were the sizes
+    when this was written, against 42 and 14 today.
+
+    The measurement itself is worth recording, because the first attempt at
+    it was wrong in the direction this project keeps warning about. Reading
+    the sections with the key `'Story'` instead of `'story'` returned `None`
+    for every file and reported **100% empty across all three sets** — a
+    confident, precise, entirely false finding, and one that happened to
+    agree with what this stale item already claimed. It was caught only
+    because 100% is not a believable number, not because anything failed.
+    The corrected sweep therefore asserts a control first: a practice known
+    to have all three sections must come back non-empty, or the sweep
+    refuses to report. "Could not read" and "read, found nothing" must never
+    render identically — the rule is `fail-gracefully`'s second clause, and
+    the finding above is what it looks like when nothing enforces it.
 
 33. <a id="team-check-cites-retired-practice"></a>~~**`precedent-team-maintainers`' `check_deep_check.py` cites a practice
     retired in that same set.**~~ **Resolved by reversal, 2026-09-06.** The
@@ -1064,12 +1079,31 @@ which is the failure this repointing exists to end — write
   ([spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md)), then anchor all
   five citations. A rule that five pieces of *universal engine code* depend
   on is not a team preference — the team set is simply where it was first
-  written down. [tools/precedent_show.py](tools/precedent_show.py)'s own
-  comment already concedes the point, calling itself a generalization of the
-  personal-pack rule. Note it would land with Detail, Why and Story all
-  empty, per [`migrated-practices-lost-their-stories`](TODO.md#migrated-practices-lost-their-stories),
-  so the promotion and the backfill are one job.
+  written down, and
+  [tools/precedent_show.py](tools/precedent_show.py)'s own comment concedes
+  as much, calling itself a generalization of the personal-pack rule.
 
-  **Blocked on:** a session rooted at `themorgan/precedent-team-maintainers`
-  — the same blocker as [`attach-private-sources`](TODO.md#attach-private-sources),
-  and Morgan's call on the level, which is his to make and not a session's.
+  **The practice's own `## Story` already anticipated this and named the
+  condition.** It records that it was kept at team level "for a stated
+  reason — general enough to want in every project, but simple enough that a
+  persuasive, attributed upstream submission was not judged worth the effort
+  yet. That remains the outlet if it changes." That was a cost/benefit call
+  made when nothing upstream depended on the rule. Five universal engine
+  files and every consumer that vendors them now do, and each inherits a
+  citation that resolves nowhere. The condition the practice set for itself
+  has been met, so this is no longer a novel judgment — it is the outlet the
+  rule already named. It would also land complete: Detail, Why and Story are
+  all substantial (an earlier version of this item claimed they were empty,
+  copying a figure from
+  [`migrated-practices-lost-their-stories`](TODO.md#migrated-practices-lost-their-stories)
+  that was itself stale — corrected there).
+
+  **Blocked on:** Morgan's call on the level, and nothing else. An earlier
+  version of this item also named "a session rooted at
+  `themorgan/precedent-team-maintainers`" — that was wrong, and written
+  without checking: all three private sets are attached to *this* session and
+  were when it was written. The
+  [AGENTS.md](AGENTS.md) gotcha it was reasoning from says `add_repo` cannot
+  attach them *mid-session from a BestPractice-rooted session*, which is a
+  different statement from "they are unreachable". Check what is on disk
+  before recording a blocker from a remembered rule.

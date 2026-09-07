@@ -9329,6 +9329,25 @@ def main():
     check_checkin_update_never_mutates_the_clone()
     check_rendered_docs_are_current()
 
+    # RECAP THE FAILURES BY NAME, immediately before the summary line.
+    #
+    # This run prints one line per check, and there are over a hundred, so in
+    # practice everyone reads the tail: AGENTS.md's own deep-check section
+    # says "what matters is 0 failed", which is a summary-line instruction.
+    # A `tail -3` therefore captured "110 passed, 1 failed" and NOT the FAIL
+    # line hundreds of lines above it -- which happened on 2026-09-07, to a
+    # failure that then did not reproduce in five further runs on the same
+    # tree. The count said something was wrong and the output no longer
+    # existed to say what. An intermittent failure you cannot name is one you
+    # cannot fix, and re-running is exactly what destroys the evidence.
+    #
+    # Cheap, and it makes the tail self-sufficient: the last thing printed
+    # now names every failure, so the shortest reading of this tool's output
+    # that anyone actually does is enough to act on.
+    if FAILED:
+        print("\nFAILED CHECKS:")
+        for name, detail in FAILED:
+            print(f"  - {name}" + (f" -- {detail}" if detail else ""))
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0
 

@@ -403,7 +403,78 @@ recorded two: [verify-decomposition](../practices/verify-decomposition.md) in
 the form that costs real work. The fixes themselves are in that repo's own
 pull requests, not here.
 
+**A completed item still filed as open, with three false figures.**
+[`migrated-practices-lost-their-stories`](../TODO.md#migrated-practices-lost-their-stories)
+claimed 34 of 41 practices in `precedent-team-maintainers` and 3 of 10 in
+`precedent-individual` had an empty `## Story`. Re-measured: **0 of 57**,
+across all three private sets, at any status — the backfill happened and the
+item outlived it. `header-caps` has a `## Why`; `fail-gracefully` has
+substantial Detail, Why and Story. The catalogue sizes had drifted too (41
+and 10 then, 42 and 14 now). Resolved. It matters beyond tidiness because
+this item is one of those
+[`attach-private-sources`](../TODO.md#attach-private-sources) claims to
+unblock: a session would have been sent to do 37 practices' worth of
+backfill that no longer exists.
+
+**The measurement that found it was wrong first, in the way this project
+keeps warning about.** Reading each practice's sections with the key
+`'Story'` rather than `'story'` returned `None` for every file and reported
+**100% empty across all three sets** — confident, precise, false, and in
+agreement with what the stale item already said, which is the combination
+that gets a wrong figure believed. Nothing failed; it was caught only
+because 100% is not a believable number. The corrected sweep asserts a
+control first — a practice known to have all three sections must come back
+non-empty, or the sweep refuses to report. That is `fail-gracefully`'s
+second clause ("could not read" and "read, found nothing" must never render
+identically) failing in the same run that found five engine files depending
+on it, which is a coincidence worth recording rather than smoothing over.
+
+**And a blocker recorded from memory instead of from disk.** This run's own
+`universal-code-cites-team-slug` entry, written an hour earlier, said it was
+blocked on "a session rooted at `themorgan/precedent-team-maintainers`". All
+three private sets were attached to this session at the time. The
+[AGENTS.md](../AGENTS.md) gotcha it reasoned from says `add_repo` cannot
+attach them mid-session from a BestPractice-rooted session — which is not
+the same statement as "they are unreachable". Corrected; the only real
+blocker is Morgan's call on the level.
+
+**The harness's own output made a failure undiagnosable, and that is fixed.**
+One run in this pass reported `110 passed, 1 failed` on a tree that six
+further runs passed clean. The failure was never identified, because the run
+prints one line per check across more than a hundred checks and everyone
+therefore reads the tail — [AGENTS.md](../AGENTS.md)'s own deep-check
+section says "what matters is `0 failed`", which is a summary-line
+instruction. A `tail -3` captured the count and not the `FAIL` line hundreds
+of lines above it, and re-running is precisely what destroyed the evidence.
+[verify_harness.py](../tools/verify_harness.py) now recaps every failure by
+name immediately before the summary, so the shortest reading anyone actually
+does is enough to act on. Proved with a planted failure: `tail -5` names it.
+The original intermittent stays **unexplained and unreproduced** — recorded
+as such rather than written off, since the next occurrence will now say what
+it was.
+
+**A self-inflicted lesson worth keeping: this pass wrote a second link
+scanner and got four false findings from it.** Checking relative links across
+all four repos turned up four unresolved targets in BestPractice that
+[doc_lint.py](../tools/doc_lint.py) reports clean. All four were the
+scanner's fault, not the documents': three sit inside inline code spans
+(`CHANGES_TO_TELL_ALEX.md`, `spec/PRACTICE_FORMAT.md` twice — prose
+*describing* the `[slug](slug.md)` citation format), and the fourth is inside
+a fenced block in [MOBILE.md](../MOBILE.md), a template snippet for a
+dependent repo's README where the link is correct in the repo it lands in.
+Inline code spans are the exact trap
+[AGENTS.md](../AGENTS.md)'s gotchas already record for `title_case.py`, from
+a real corruption. The existing tool was right; a fresh scanner written to
+double-check it reproduced a known bug and manufactured four findings.
+[search-by-purpose](../practices/search-by-purpose.md) names this, and it is
+worth noting that the failure mode here was *inventing* work, not missing it.
+
 **Checked and clean, so the next run need not redo them:**
+
+- **Formatting drift and relative links in the three private sets.** Zero
+  trailing whitespace, zero tabs, zero mixed list markers and zero
+  unresolved relative links across `precedent-team-maintainers`,
+  `precedent-individual` and `precedent-team-tms`. All three are on `main`.
 
 - **Formatting and spacing drift.** Swept mechanically across every tracked
   markdown file: no tabs, no mixed list markers, and the seven
