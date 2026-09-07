@@ -9052,6 +9052,106 @@ def check_unlanded_work_is_reported_before_the_passes():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_assumed_visibility_never_deletes_practices():
+    """An ASSUMED visibility must never remove practice files that are
+    already in a consumer's tree (practice: very-deep-check, reported by a
+    real repo).
+
+    repo_is_public() treats an undeclared `visibility` as public, and that
+    default is right: it fails safe against publishing private practice text
+    into a world-readable repo, which is the failure that motivated it.
+
+    It fails UNSAFE in the other direction. An existing PRIVATE consumer that
+    never declared the field loses every team- and individual-level practice
+    from its tracked tree on its next sync -- silently, as a committable diff
+    that reads like a deliberate removal. Reported 2026-09-07 by a real
+    private repo updating to this engine: 15 practices would have gone, and
+    the person caught it only by checking that repo's actual visibility by
+    hand.
+
+    So the assumption is allowed to WITHHOLD, and not allowed to DELETE. A
+    declared visibility proceeds either way -- that is someone choosing.
+    Three states, all asserted, because fixing this by simply reverting the
+    default would restore the publication hazard it was written for."""
+    import tempfile, shutil
+    import json as _json
+    import precedent_sync_views as psv
+    import precedent_materialize as _pm
+    import build_views as bv
+
+    def _fixture(tmp, visibility):
+        repo, team = tmp / 'consumer', tmp / 'team-src'
+        (repo / 'precedent' / 'universal').mkdir(parents=True)
+        shutil.copytree(PRACTICES_DIR, repo / 'precedent' / 'universal' / 'practices')
+        (team / 'practices').mkdir(parents=True)
+        (team / 'practices' / 'team-only-rule.md').write_text(
+            '---\nslug: team-only-rule\ntitle: A rule only this team has\n'
+            'tier: on-demand\nseverity: default\napplies_to: ["**"]\n'
+            'occasion: "doing team things"\nindex_clause: "do the team thing"\n'
+            'status: active\n---\n## Rule\nDo it.\n\n## Story\nDecided.\n',
+            encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# c\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n', encoding='utf-8')
+        cfg = {'format_version': 1, 'base_branch': 'main',
+               'sources': [
+                   {'level': 'universal', 'name': 'precedent',
+                    'path': 'precedent/universal'},
+                   {'level': 'team', 'name': 'precedent-team-x',
+                    'path': str(team)}]}
+        if visibility:
+            cfg['visibility'] = visibility
+        (repo / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
+        return repo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        user = tmp / 'user.json'
+        user.write_text(_json.dumps({'format_version': 1}), encoding='utf-8')
+        results = []
+
+        # Seed a PRIVATE consumer that really carries the team practice.
+        repo = _fixture(tmp, 'private')
+        psv.sync(str(repo), user_config=str(user))
+        seeded = (repo / 'practices' / 'team-only-rule.md').exists()
+        results.append(('a private consumer materializes the team practice', seeded))
+
+        # Now the reported state: the declaration goes away.
+        cfg = _json.loads((repo / 'precedent.json').read_text())
+        cfg.pop('visibility', None)
+        (repo / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
+        refused = False
+        try:
+            psv.sync(str(repo), user_config=str(user))
+        except _pm.MaterializeError:
+            refused = True
+        results.append(('an ASSUMED visibility refuses rather than deleting',
+                        refused))
+        results.append(('and the practice file survives the refusal',
+                        (repo / 'practices' / 'team-only-rule.md').exists()))
+
+        # Declared private: keep it. This is the control that stops the fix
+        # from simply blocking every consumer.
+        cfg['visibility'] = 'private'
+        (repo / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
+        psv.sync(str(repo), user_config=str(user))
+        results.append(('declaring private keeps it',
+                        (repo / 'practices' / 'team-only-rule.md').exists()))
+
+        # Declared public: withhold it. The publication hazard the default
+        # exists for must still be closed.
+        cfg['visibility'] = 'public'
+        (repo / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
+        psv.sync(str(repo), user_config=str(user))
+        results.append(('declaring public still withholds it',
+                        not (repo / 'practices' / 'team-only-rule.md').exists()))
+
+        failed = [n for n, ok in results if not ok]
+        check(f'an assumed visibility withholds but never deletes '
+              f'({len(results)} stated cases: seeded, refused, survived, and '
+              f'both declared states)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -9082,6 +9182,7 @@ def main():
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_public_consumer_does_not_materialize_private_text()
+    check_assumed_visibility_never_deletes_practices()
     check_sync_refuses_to_write_from_incomplete_sources()
     check_unlanded_work_is_reported_before_the_passes()
     check_source_precedence()

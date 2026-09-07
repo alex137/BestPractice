@@ -99,6 +99,24 @@ PRIVATE_LEVELS = ('team', 'individual')
 _VISIBILITY_WARNED = set()
 
 
+def visibility_is_declared(root):
+    """True when precedent.json states `visibility` outright, either way.
+
+    repo_is_public() collapses "declared public" and "not declared at all"
+    into one answer, deliberately -- undeclared has to fail safe. But the two
+    differ where it matters most: a repo that DECLARED public is choosing to
+    withhold private practice text, while one that merely never declared is
+    having that chosen for it, and if it is actually private the choice
+    silently deletes practices it wanted. Callers that are about to remove
+    something need to tell those apart."""
+    try:
+        return json.loads(
+            (pathlib.Path(root) / 'precedent.json').read_text(
+                encoding='utf-8')).get('visibility') in ('public', 'private')
+    except (ValueError, OSError):
+        return False
+
+
 def repo_is_public(root):
     """Whether this repo's tracked files are a publication.
 

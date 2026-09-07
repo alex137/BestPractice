@@ -186,6 +186,45 @@ def sync(repo, user_config=None, check=False, allow_missing=False):
             # carry. Only what is genuinely absent here gets recorded.
             withheld_slugs = [x for x in withheld_slugs
                               if x not in res['practices']]
+
+            # REFUSE when the exclusion is ASSUMED rather than declared AND
+            # it would delete practice files that are already here. The
+            # undeclared default is public, which fails safe against
+            # publication -- but it fails UNSAFE in the other direction: an
+            # existing private consumer that never declared `visibility`
+            # loses every private practice from its tracked tree on its next
+            # sync, silently, as a committable diff that reads as deliberate.
+            #
+            # Reported 2026-09-07 from a real private repo updating to this
+            # engine: 15 individual- and team-level practices would have gone,
+            # and the session caught it only by checking the repo's actual
+            # visibility by hand. This is the same silent-deletion failure
+            # this tool already refuses for an unreachable source, arriving
+            # by a different door -- and it was introduced by the fix for the
+            # opposite hazard, hours earlier, in this same run.
+            #
+            # A DECLARED public repo is choosing this and proceeds.
+            if not bv.visibility_is_declared(pathlib.Path(repo)):
+                existing = {f.stem for f in
+                            (pathlib.Path(repo) / 'practices').glob('*.md')}
+                would_delete = sorted(
+                    slug for slug in withheld_slugs if slug in existing)
+                if would_delete:
+                    shown = ', '.join(would_delete[:5])
+                    more = (f" (+{len(would_delete) - 5} more)"
+                            if len(would_delete) > 5 else "")
+                    raise pm.MaterializeError(
+                        f"refusing to remove {len(would_delete)} practice "
+                        f"file(s) on an ASSUMED visibility: {shown}{more}. "
+                        f"{repo}/precedent.json declares no `visibility`, so "
+                        f"this run assumed PUBLIC and would withhold every "
+                        f"team- and individual-level practice -- deleting "
+                        f"those files from a tree that already carries them. "
+                        f"That assumption is right for a public repo and "
+                        f"wrong for a private one, and only you know which "
+                        f"this is. Declare it: \"visibility\": \"private\" "
+                        f"to keep them, \"public\" to withhold them "
+                        f"deliberately.")
             print(f"precedent_sync_views: {', '.join(omitted)}-level "
                   f"practice text is NOT materialized here -- this repo "
                   f"declares visibility: public and practices/ is tracked. "
