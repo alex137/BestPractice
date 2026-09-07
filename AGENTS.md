@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~377 of 2000 token budget, 7 of 73 practices (7 universal))
+## Resident block (~438 of 2000 token budget, 7 of 73 practices (7 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -71,10 +71,13 @@ each part of each deliverable. Every session reads it before doing anything.
 the repo" table: *looking for X → go to Y*, one row per thing sessions
 actually hunt for.
 
-**reply-links-files.** A session's reply that created or modified files ends with a
+**reply-links-files.** A session's reply that created, modified or deleted files ends with a
 "Files touched" list: each entry links the file on the working branch *and*
 its post-merge location, with a one-line description. The reader must be able
-to open the work from the chat, not merely learn it exists.
+to open the work from the chat, not merely learn it exists. **A deleted file
+is listed too** — its path, why it went, and a link to the commit that
+removed it. It is the one entry with nothing to open on the branch, which is
+exactly why a reader will not find it on their own.
 
 **repo-is-memory.** Everything a future session needs — orientation, open items,
 decisions, lessons — lives in committed files. A session's chat thread is
@@ -757,13 +760,15 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
 ## Conventions (every session, every reply)
 
 - **Reply convention** ([reply-links-files](practices/reply-links-files.md)):
-  every reply that created or modified
+  every reply that created, modified or deleted
   files ends with a **"Files touched"** list — for each file, the branch
   link (readable now) plus the post-merge `main` link, with a one-line
   description. The reader opens the work from the chat; they never go
-  hunting for it. A touched HTML render or picture also gets its
-  rendered-view (artifact) link when the harness offers one — a repo link
-  shows source, not the render.
+  hunting for it. **A deleted file is listed too** — its path, why it went,
+  and a link to the commit that removed it; a whole retired directory is one
+  entry, not one line per file. A touched HTML render or picture also gets
+  its rendered-view (artifact) link when the harness offers one — a repo
+  link shows source, not the render.
 - **Doc references are links** ([doc-references-are-links](practices/doc-references-are-links.md)):
   relative markdown links,
   never bare backticked filenames. Use `≈`, not `~`, for "approximately".

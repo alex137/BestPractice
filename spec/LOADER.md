@@ -177,7 +177,7 @@ a number in a sentence. That is `docs-track-models`, happening here.
 |---|---|
 | Practices in the catalogue | 70 |
 | Resident, loaded every session | 7 of 70 practices |
-| Resident block size | ≈377 tokens of a 2000-token hard cap |
+| Resident block size | ≈438 tokens of a 2000-token hard cap |
 | `## Rule` share of the catalogue | 18% of the catalogue |
 | Rules still over 150 words | 13 |
 | Carrying a `## Detail` | 30 |
