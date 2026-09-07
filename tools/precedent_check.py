@@ -1365,6 +1365,45 @@ def _tracked_practice_files(ctx):
     return out
 
 
+@check('document-lifecycle-header', 'tree',
+       "every document under spec/ and record/ that CARRIES a lifecycle "
+       "frontmatter header declares a legal kind/status pair, a title "
+       "matching its own first heading, a `closed:` date exactly when it is "
+       "closed, a `superseded_by:` that resolves exactly when it is "
+       "superseded, and no competing hand-maintained `Last updated:` comment",
+       "an UNSTAMPED document -- during the spec/DOCUMENT_LIFECYCLE.md "
+       "backfill (phase 1 of its migration) a file with no frontmatter at "
+       "all is reported by `python3 tools/doc_lifecycle.py` and is "
+       "deliberately NOT a finding here, because failing 22 files on the "
+       "commit that introduces the standard makes the check something to "
+       "switch off rather than satisfy. Phase 2 stamps them and flips this "
+       "to fail on an unstamped file; until then a clean run here means "
+       "'nothing stamped is wrong', NOT 'every document is stamped'. It is "
+       "also blind to whether a declared status is TRUE -- that a brief "
+       "marked `open` really is open is a judgment no field can carry.",
+       practice_backed=False)
+def _document_lifecycle_header(ctx):
+    try:
+        import doc_lifecycle as dl
+    except Exception as e:
+        raise NotApplicable(f'tools/doc_lifecycle.py did not import: {e}')
+    if not any((ROOT / d).is_dir() for d in dl.SCAN_DIRS):
+        raise NotApplicable('this repo has no spec/ or record/ tree to stamp')
+    findings, unstamped, stamped = dl.scan(root=ROOT)
+    if not stamped and unstamped:
+        # NOTHING stamped is a repo that has not started the backfill, not a
+        # repo doing it wrong -- the same distinction tracked-practice-files
+        # had to learn. The MIXED state is what this check is for.
+        raise NotApplicable(
+            f'{len(unstamped)} document(s) and none stamped -- this tree has '
+            f'not adopted the lifecycle header at all')
+    out = []
+    for f in findings:
+        rel, _, msg = f.partition(': ')
+        out.append(Finding(rel, msg))
+    return out
+
+
 @check('vendored-engine-file-refs-resolve', 'tree',
        "every hardcoded `_ENGINE_DIR / '<name>'` or `ROOT / 'tools' / '<name>'` "
        "path inside a tools/*.py file names a file that actually exists under "

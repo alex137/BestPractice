@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~377 of 2000 token budget, 7 of 70 practices (7 universal))
+## Resident block (~377 of 2000 token budget, 7 of 72 practices (7 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -113,6 +113,8 @@ When a tool warns about already-published git history:
   no-rewrite-for-warnings — fix the setting forward; never rewrite published history
 When adding or re-levelling a heading in any document:
   heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
+When adding or re-syncing a document under philosophy/:
+  philosophy-declares-its-source — a copied essay carries its source document and version on line one
 When an install step adds something GitHub-specific:
   github-setup-disclosed — disclose GitHub-specific setup where the project's people read
 When building a mechanism that makes something discoverable or reachable:
@@ -207,6 +209,8 @@ When writing or editing a document:
   label-describes-content — "one line" must be one line; else name it for its content
 When writing or editing a heading in an outward-facing document:
   headline-capitalization — outward-facing headings are New York Times headline case, applied by tool
+When writing or editing anything under philosophy/, or citing it from a rule:
+  philosophy-is-not-repo-policy — philosophy/ is argument; a rule that earned its way out gets written as a practice file
 When writing or filling out a pull-request description:
   pr-template-honest-gates — write the body from the diff; an unchecked box is fine
 When writing or triaging an open item:
@@ -271,6 +275,8 @@ that skips them in this repo of all places is the joke writing itself.
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
 | Precedent explained for someone adopting it (not a developer) | [ADOPTING.md](ADOPTING.md) |
 | Public-facing pitch and how-to guides, for people outside the project (marketing, technical how-to, non-technical how-to) | [documentation/](documentation/) |
+| The theory this project is built on — the essays, the brainstorm, and the rules being tried in real work (copied from WorkingWithAI 2026-09-07; **argument, not rules that bind anything here**) | [philosophy/](philosophy/), start at [philosophy/README.md](philosophy/README.md) |
+| Why `philosophy/` binds nothing outside itself, and the checks that hold that line | [local/practices/philosophy-is-not-repo-policy.md](local/practices/philosophy-is-not-repo-policy.md), [local/practices/philosophy-declares-its-source.md](local/practices/philosophy-declares-its-source.md) |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
 | An example personal practice set | [examples/practice-set/](examples/practice-set/) |
 | The private-term blocklist template (copy into your own private set) | [templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template) |
@@ -637,7 +643,8 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   **NO LONGER TRUE as written, 2026-09-07.** A session that day held
   `alex137/bestpractice` and five `themorgan/*` repositories at once —
   including all three private sets, worked in and pushed to — and `add_repo`
-  accepted a sixth (`themorgan/havrutabrainstorm`) mid-session. Mixed owners
+  accepted a sixth (a private consumer repo under the same owner)
+  mid-session. Mixed owners
   in one session is precisely what this entry says is refused. What has NOT
   been retested is a *fresh* session rooted here adding a `themorgan/*` repo
   as its first cross-owner add, so the constraint may have been lifted or may
@@ -698,7 +705,15 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   `python3 -c "import json,pathlib;print(json.load(open(pathlib.Path('~/.config/precedent/config.json').expanduser()))['individual']['path'])"`
   against where you are actually working, before concluding a tool is
   broken — and `git -C <that path> rev-list --count HEAD..origin/main` before
-  trusting anything it produced. **Resolved for this machine 2026-09-07**
+  trusting anything it produced. **The rule that resolves it, 2026-09-07:
+  the config-named clone is `git pull --ff-only`ed from origin at every
+  session start, so it can only ever be BEHIND — an attached sibling clone
+  beside the repo you are working in is what a session actually edits and
+  pushes from, and is the better evidence of what the source says.**
+  [tools/verify_harness.py](tools/verify_harness.py)'s
+  `check_commit_identity_copies_are_identical` encodes exactly that
+  preference; its first run reported drift against an uncommitted edit three
+  directories away, which is the trap in miniature. **Resolved for this machine 2026-09-07**
   by repointing the config at `/home/user/precedent-individual`, the clone
   the session actually works in, with the reason recorded inline in the
   config itself. The stale `/root/` clone is left on disk rather than

@@ -3909,6 +3909,25 @@ def check_precedent_check_fires():
             git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
         case('merge-target-is-beta-branch', _plant_mtib)
 
+        # philosophy-is-not-repo-policy -- a practice whose ## Rule leans on
+        # an essay for its authority, which is exactly the drift the
+        # philosophy/ copy created the risk of. Planted in the EXPORTED
+        # catalogue, since that is the costlier of the two directions.
+        def _plant_pinrp(repo):
+            rewrite(repo, 'practices/quick-index.md', lambda s: s.replace(
+                '## Rule\n',
+                '## Rule\nFollow philosophy/OUR_PHILOSOPHY.md when you write.\n',
+                1))
+        case('philosophy-is-not-repo-policy', _plant_pinrp)
+
+        # philosophy-declares-its-source -- a document dropped into
+        # philosophy/ with no provenance line, so nobody can tell whether it
+        # is a copy that has fallen behind WorkingWithAI or native content.
+        def _plant_pdis(repo):
+            (repo / 'philosophy' / 'ORPHAN.md').write_text(
+                '# An Orphan\n\nWith no provenance line.\n', encoding='utf-8')
+        case('philosophy-declares-its-source', _plant_pdis)
+
         # environment-gotchas -- an entry that is a bare fix
         def _plant_eg(repo):
             rewrite(repo, 'AGENTS.md', lambda t: t.replace(
@@ -4441,6 +4460,46 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'unguarded base-branch inference')
 
         case('declared-base-branch', _plant_unguarded_branch_inference)
+
+        # document-lifecycle-header -- a stamped document whose declared
+        # status is illegal for its declared kind. The fixture must stamp a
+        # SECOND file legally as well: the check raises NotApplicable when
+        # nothing at all is stamped (a tree that has not adopted the header
+        # is not a tree doing it wrong), so a single bad file would test the
+        # skip path and read as a passing plant.
+        def _plant_bad_lifecycle_status(repo):
+            spec_dir = repo / 'spec'
+            spec_dir.mkdir(exist_ok=True)
+            def stamp(name, status, heading):
+                (spec_dir / name).write_text(
+                    f'---\ntitle:         {heading}\nkind:          reference\n'
+                    f'status:        {status}\nopened:        2026-09-07\n'
+                    f'closed:        null\nsuperseded_by: null\n'
+                    f'supersedes:    []\naudience:      session\n'
+                    f'summary:       A planted case.\n---\n\n# {heading}\n',
+                    encoding='utf-8')
+            stamp('PLANTED_GOOD.md', 'current', 'Planted Good')
+            stamp('PLANTED_BAD.md', 'open', 'Planted Bad')  # `open` is a brief status
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted lifecycle status')
+
+        # The unplanted control needs the legal file too, or the clean run
+        # skips instead of passing -- and a skip is not a pass.
+        def _setup_lifecycle(repo):
+            spec_dir = repo / 'spec'
+            spec_dir.mkdir(exist_ok=True)
+            (spec_dir / 'PLANTED_GOOD.md').write_text(
+                '---\ntitle:         Planted Good\nkind:          reference\n'
+                'status:        current\nopened:        2026-09-07\n'
+                'closed:        null\nsuperseded_by: null\n'
+                'supersedes:    []\naudience:      session\n'
+                'summary:       A planted case.\n---\n\n# Planted Good\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'lifecycle baseline')
+
+        case('document-lifecycle-header', _plant_bad_lifecycle_status,
+             setup=_setup_lifecycle)
 
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
@@ -5576,6 +5635,317 @@ def check_sync_refuses_to_lose_a_recorded_practice():
     failed = [n for n, ok in cases if not ok]
     check(f'a sync refuses to lose a practice the committed manifest records '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_doc_lifecycle_fires_and_clears():
+    """tools/doc_lifecycle.py -- the document status header, checked.
+
+    checkable-gets-checked requires a firing test, not merely a check that
+    passes: plant each violation, prove it fails, remove it, prove the
+    unplanted tree passes. Every case runs against a THROWAWAY tree, never
+    against spec/ -- a check whose test mutates the repo it audits cannot be
+    run twice.
+
+    The `Last updated:` case is the one worth reading. A first version of
+    the detector was `'Last updated:' in text`, and it fired on
+    spec/DOCUMENT_LIFECYCLE.md -- the document that SPECIFIES this rule and
+    necessarily quotes the string it forbids, five times. A check that
+    fails the file explaining it teaches the first reader that the checker
+    is broken, so the two cases below pin the distinction: a real HTML
+    comment fails, the same text inside a code span does not.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import doc_lifecycle as dl
+
+    GOOD = ('---\n'
+            'title:         A Reference\n'
+            'kind:          reference\n'
+            'status:        current\n'
+            'opened:        2026-09-07\n'
+            'closed:        null\n'
+            'superseded_by: null\n'
+            'supersedes:    []\n'
+            'audience:      session\n'
+            'summary:       What the thing is.\n'
+            '---\n\n# A Reference\n\nBody.\n')
+
+    def _run(text, extra=None):
+        """-> (findings, unstamped, stamped) for a one-file throwaway tree."""
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / 'spec').mkdir()
+            (root / 'spec' / 'D.md').write_text(text, encoding='utf-8')
+            for name, body in (extra or {}).items():
+                (root / 'spec' / name).write_text(body, encoding='utf-8')
+            return dl.scan(root=root)
+
+    def _fires(name, text, needle, extra=None):
+        f, _, _ = _run(text, extra)
+        return (name, bool(f) and any(needle in x for x in f))
+
+    cases = [
+        # The unplanted control comes FIRST: a test suite where every case
+        # is a planted failure cannot tell a working check from one that
+        # returns a finding for everything.
+        ('the unplanted document passes', not _run(GOOD)[0]),
+        ('and it counts as stamped', _run(GOOD)[2] == 1),
+
+        _fires('an illegal status for the kind',
+               GOOD.replace('status:        current', 'status:        open'),
+               'is not legal for kind'),
+        _fires('an unknown kind',
+               GOOD.replace('kind:          reference', 'kind:          memo'),
+               'is not one of'),
+        _fires('a title that disagrees with the first heading',
+               GOOD.replace('# A Reference', '# Something Else'),
+               '!= first heading'),
+        _fires('a missing required field',
+               GOOD.replace('supersedes:    []\n', ''),
+               'missing required field'),
+        _fires('an unknown audience',
+               GOOD.replace('audience:      session', 'audience:      everyone'),
+               'audience'),
+        _fires('an opened date that is not YYYY-MM-DD',
+               GOOD.replace('opened:        2026-09-07', 'opened:        Sept 7'),
+               'is not YYYY-MM-DD'),
+        _fires('status closed with no closed date',
+               GOOD.replace('kind:          reference', 'kind:          brief')
+                   .replace('status:        current', 'status:        closed'),
+               'no `closed:` date'),
+        _fires('a closed date on a document that is not closed',
+               GOOD.replace('closed:        null', 'closed:        2026-09-07'),
+               'but status is'),
+        _fires('status superseded with no successor',
+               GOOD.replace('status:        current', 'status:        superseded'),
+               'no `superseded_by:`'),
+        _fires('a superseded_by that does not resolve',
+               GOOD.replace('status:        current', 'status:        superseded')
+                   .replace('superseded_by: null', 'superseded_by: spec/GONE.md'),
+               'does not exist'),
+        _fires('a summary that does not end in a period',
+               GOOD.replace('summary:       What the thing is.',
+                            'summary:       What the thing is'),
+               'does not end in a period'),
+        _fires('a real `Last updated:` comment on a reference',
+               GOOD.replace('\n# A Reference',
+                            '\n<!-- Last updated: 2026-09-07 -->\n\n# A Reference'),
+               'Last updated'),
+    ]
+
+    # The false-positive controls: the rule's own text must not trip it.
+    quoted = GOOD.replace('Body.',
+                          'A file may not carry `<!-- Last updated: x -->`.')
+    cases.append(('the same string inside a code span does NOT fire',
+                  not _run(quoted)[0]))
+    fenced = GOOD.replace('Body.', '```\n<!-- Last updated: x -->\n```')
+    cases.append(('nor inside a fenced block', not _run(fenced)[0]))
+    brief = (GOOD.replace('kind:          reference', 'kind:          brief')
+                 .replace('status:        current', 'status:        open')
+                 .replace('\n# A Reference',
+                          '\n<!-- Last updated: 2026-09-07 -->\n\n# A Reference'))
+    cases.append(('and a `brief`, whose subject IS the date, may carry one',
+                  not _run(brief)[0]))
+
+    # An unstamped file is reported but is not a finding, while the backfill
+    # is in progress. Both halves matter: reported, and not fatal.
+    f, un, st = _run(GOOD, extra={'U.md': '# Unstamped\n\nNo frontmatter.\n'})
+    cases.append(('an unstamped document is reported', un == ['spec/U.md']))
+    cases.append(('and is not itself a finding, pre-phase-2', not f))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the document lifecycle check fires on each planted violation and '
+          f'clears the unplanted tree ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
+def check_commit_identity_derives_declared_timezone():
+    """The declared timezone reaches the SESSION, not just the refusal message.
+
+    The pre-commit backstop refuses a commit whose offset contradicts a
+    declared timezone, and tells the person to rerun under `TZ=...`. Correct,
+    and on its own it is a chore with no end: a hook cannot export TZ into the
+    shells a session runs later, so the remedy gets retyped on every commit
+    forever. 2026-09-07 the person running such a session said so plainly --
+    "I'd rather a permanent fix than my having to do that manually."
+
+    So the hook derives `env.TZ` into .claude/settings.local.json, which the
+    harness reads for the whole of the NEXT session. Four properties have to
+    hold together, and the fixture must be hermetic to test any of them: an
+    early version of this test set no PRECEDENT_USER_CONFIG, so the case for
+    "no declared zone" resolved the real user config, found a real declared
+    zone, and reported a failure against completely correct behaviour.
+      1. a DECLARED zone is written; a GUESSED one never is (writing a guess
+         would enforce something nobody said).
+      2. identity.json stays the source of truth -- a stale TZ already in the
+         file is re-derived, not respected (registry-source-of-truth).
+      3. nothing else in the file is disturbed, and an unparseable one is left
+         entirely alone rather than overwritten.
+      4. the file is per-machine, so the hook warns when it is not gitignored.
+    """
+    import tempfile, json as _json
+    hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not hook.exists():
+        not_applicable('commit-identity derives the declared timezone into '
+                       'the session',
+                       '.claude/hooks/commit-identity.sh is not present here')
+        return
+
+    env = dict(os.environ)
+    # Hermetic: without this the hook resolves the REAL user config and the
+    # "no zone declared" case silently becomes a "zone declared" case.
+    env['PRECEDENT_USER_CONFIG'] = '/nonexistent/precedent-config.json'
+    env.pop('PRECEDENT_COMMIT_TZ', None)
+
+    def _repo(base, zone, settings=None, gitignore=None):
+        base.mkdir(parents=True, exist_ok=True)
+        subprocess.run(['git', '-C', str(base), 'init', '-q'],
+                       capture_output=True)
+        if zone:
+            (base / 'identity.json').write_text(_json.dumps(
+                {'name': 'T', 'email': 't@example.com', 'timezone': zone}),
+                encoding='utf-8')
+        if settings is not None:
+            (base / '.claude').mkdir(exist_ok=True)
+            (base / '.claude' / 'settings.local.json').write_text(
+                settings, encoding='utf-8')
+        if gitignore is not None:
+            (base / '.gitignore').write_text(gitignore, encoding='utf-8')
+        e = dict(env, CLAUDE_PROJECT_DIR=str(base))
+        r = subprocess.run(['bash', str(hook)], capture_output=True,
+                           text=True, env=e, timeout=120)
+        return base / '.claude' / 'settings.local.json', r
+
+    def _tz(f):
+        try:
+            return _json.loads(f.read_text(encoding='utf-8'))['env']['TZ']
+        except Exception:
+            return None
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        f, r = _repo(tmp / 'declared', 'America/Argentina/Buenos_Aires')
+        cases.append(('a declared zone lands in settings.local.json',
+                      _tz(f) == 'America/Argentina/Buenos_Aires'))
+        cases.append(('and the hook still exits 0', r.returncode == 0))
+        before = f.read_bytes()
+        e = dict(env, CLAUDE_PROJECT_DIR=str(tmp / 'declared'))
+        r2 = subprocess.run(['bash', str(hook)], capture_output=True,
+                            text=True, env=e, timeout=120)
+        cases.append(('a second run rewrites nothing', f.read_bytes() == before))
+        cases.append(('and says nothing about it',
+                      'settings.local.json' not in r2.stderr))
+
+        f, _ = _repo(tmp / 'guessed', None)
+        cases.append(('a GUESSED zone writes no file at all', not f.exists()))
+
+        f, _ = _repo(tmp / 'existing', 'Europe/Berlin',
+                     settings='{"env":{"OTHER":"keep"},'
+                              '"permissions":{"allow":["Bash(ls)"]}}')
+        try:
+            d = _json.loads(f.read_text(encoding='utf-8'))
+        except Exception:
+            d = {}
+        cases.append(('an existing file keeps its other keys',
+                      d.get('env', {}).get('TZ') == 'Europe/Berlin'
+                      and d.get('env', {}).get('OTHER') == 'keep'
+                      and d.get('permissions', {}).get('allow') == ['Bash(ls)']))
+
+        f, _ = _repo(tmp / 'stale', 'Europe/Berlin',
+                     settings='{"env":{"TZ":"UTC"}}')
+        cases.append(('a stale TZ is re-derived, not respected',
+                      _tz(f) == 'Europe/Berlin'))
+
+        f, _ = _repo(tmp / 'broken', 'Europe/Berlin', settings='not json at all')
+        cases.append(('an unparseable settings file is left untouched',
+                      f.read_text(encoding='utf-8') == 'not json at all'))
+
+        _, r = _repo(tmp / 'ignored', 'Europe/Berlin',
+                     gitignore='.claude/settings.local.json\n')
+        cases.append(('no gitignore warning when the file IS ignored',
+                      'NOT gitignored' not in r.stderr))
+        _, r = _repo(tmp / 'notignored', 'Europe/Berlin')
+        cases.append(('the gitignore warning fires when it is not',
+                      'NOT gitignored' in r.stderr))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'commit-identity derives the declared timezone into the session '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_commit_identity_copies_are_identical():
+    """The hook exists three times and every copy must be the same file.
+
+    templates/harness/claude-code/hooks/ is what an adopter instantiates,
+    .claude/hooks/ is what this repo runs on itself (a drift there is this
+    repo failing to run what it ships), and the individual practice source
+    carries a third copy that session-start.sh runs for ATTACHED repos, whose
+    own hooks never fire. 2026-09-07 the merge backstop -- the fix for git
+    not running pre-commit on a merge commit, which is how a wrong-offset
+    commit reached main in the first place -- was added to the individual
+    source's copy alone and sat there unpropagated for hours, so the repo
+    that defines the fix did not have it. parallel-artifact-ledger names this
+    exact shape; this makes it mechanical instead.
+    """
+    import hashlib as _h
+    here = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'commit-identity.sh'
+    if not (here.exists() and tmpl.exists()):
+        not_applicable('every copy of commit-identity.sh is byte-identical',
+                       'not every copy is present in this tree')
+        return
+    digests = {p: _h.sha256(p.read_bytes()).hexdigest()
+               for p in (here, tmpl)}
+    # The individual source is outside this repo and only sometimes attached,
+    # so it is compared when reachable and skipped -- named -- when not.
+    #
+    # WHICH clone of the individual source. There are routinely two on one
+    # machine and they are not interchangeable: the config-named one
+    # (~/.config/precedent/config.json), which precedent-individual-bootstrap.sh
+    # `git pull --ff-only`s from origin at every session start, and an
+    # ATTACHED sibling beside this repo, which is the one a session actually
+    # edits and pushes from. The attached one therefore wins here. Comparing
+    # against the config-named clone instead reports drift for every
+    # uncommitted edit in progress -- which this check did on its very first
+    # run, against a change being made three directories away. That is the
+    # same two-clone trap AGENTS.md's gotchas section already records; the
+    # rule that resolves it is: the pulled clone can only ever be BEHIND, so
+    # it is never the better evidence of what the source says.
+    third, note = None, ''
+    try:
+        import json as _json
+        cfg = pathlib.Path(os.environ.get(
+            'PRECEDENT_USER_CONFIG',
+            str(pathlib.Path.home() / '.config' / 'precedent' / 'config.json')))
+        path = None
+        if cfg.exists():
+            path = (_json.loads(cfg.read_text(encoding='utf-8'))
+                    .get('individual') or {}).get('path')
+        cands = []
+        if path:
+            attached = ROOT.parent / pathlib.Path(path).name
+            if attached != ROOT and attached.is_dir():
+                cands.append(attached)
+            cands.append(pathlib.Path(path))
+        for base in cands:
+            cand = base / 'bootstrap' / 'commit-identity.sh'
+            if cand.exists():
+                third = cand
+                digests[cand] = _h.sha256(cand.read_bytes()).hexdigest()
+                break
+    except Exception:
+        pass
+    if third is None:
+        note = (' (the individual source\'s copy was not reachable from here '
+                'and was NOT compared)')
+    uniq = set(digests.values())
+    check(f'every reachable copy of commit-identity.sh is byte-identical '
+          f'({len(digests)} copies){note}',
+          len(uniq) == 1,
+          '; '.join(f'{p.relative_to(ROOT) if ROOT in p.parents else p}='
+                    f'{d[:12]}' for p, d in digests.items()))
 
 
 def check_sync_views_cross_source():
@@ -9760,6 +10130,9 @@ def main():
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()
+    check_doc_lifecycle_fires_and_clears()
+    check_commit_identity_derives_declared_timezone()
+    check_commit_identity_copies_are_identical()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()

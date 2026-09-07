@@ -708,7 +708,8 @@ which is the failure this repointing exists to end — write
     very deep check that day held, simultaneously:
     `alex137/bestpractice`, `themorgan/precedent-individual`,
     `themorgan/precedent-team-maintainers`, `themorgan/precedent-team-tms`,
-    `themorgan/workingwithai` and `themorgan/havrutabrainstorm` — and
+    `themorgan/workingwithai` and one further private `themorgan/*`
+    consumer repo — and
     `add_repo` accepted the last of those *during* that session, with all
     three private sets already attached and worked in. Mixed owners in one
     session is exactly what this item and
@@ -1357,7 +1358,7 @@ which is the failure this repointing exists to end — write
   with nothing reporting a loss, because a practice that no longer resolves
   is not a violation of anything.
 
-  **Verified concrete, not predicted.** `themorgan/HavrutaBrainstorm`
+  **Verified concrete, not predicted.** A private consumer repo
   vendors universal at `process/upstream`, pinned to `c7a1436` — the commit
   before the promotion. Its `process/upstream/practices/` carries neither
   practice; its materialized `practices/` still carries both, from the team
@@ -1444,10 +1445,46 @@ which is the failure this repointing exists to end — write
   empty) — so the fixture proved the wrong thing, just as confidently.
 
   **Blocked on:** the refresh itself belongs in each consumer, run under
-  that repo's own gates — HavrutaBrainstorm has an open session and its own
+  that repo's own gates — that consumer has an open session and its own
   deep check, and doing it from here would be the unreviewed cross-repo
   change this run has been finding all day. The engine-side guard is blocked
   on a design call (which baseline to compare against), not on the work.
+
+40. <a id="philosophy-sync"></a>**Decide how `philosophy/` stays current with WorkingWithAI.**
+    [philosophy/](philosophy/) is a copy of
+    [themorgan/WorkingWithAI](https://github.com/themorgan/WorkingWithAI)'s
+    `content/` tree, taken 2026-09-07. Nothing syncs it in either
+    direction: no manifest entry, no workflow, and WorkingWithAI does not
+    know the copy exists beyond the pointer this change added to its
+    README. Each file's first line names the source document and the
+    version it was taken at
+    ([philosophy-declares-its-source](local/practices/philosophy-declares-its-source.md)),
+    so drift is *visible*; it is not *prevented*. Three options, in
+    rising cost: leave it as a dated snapshot and re-copy on request;
+    vendor it properly with a manifest and a `checkin.py`-style sync;
+    or move the originals here and make WorkingWithAI the copy. The
+    third is what the request that created this directory was reaching
+    for ("the WorkingWithAI content really should be a part of
+    BestPractice") but it retires a live pipeline in another repo,
+    which is not this session's call.
+    **Blocked on:** a decision from Morgan about which of the three, and
+    on whether WorkingWithAI's stage-2 pipeline keeps running there.
+
+41. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` differ from WorkingWithAI's originals.**
+    The default leak blocklist bans profanity in this repository's public
+    tree, and the copied essays carried it three times — in
+    [philosophy/COMPANY_BUILDING_RULES.md](philosophy/COMPANY_BUILDING_RULES.md)'s
+    `hire-for-drive` heading, in
+    [philosophy/HUMANS_AT_OUR_BEST.md](philosophy/HUMANS_AT_OUR_BEST.md)'s
+    "Drive" bullet, and inside a verbatim quotation in
+    [philosophy/RANDOM_NOTES.md](philosophy/RANDOM_NOTES.md). Each is
+    masked here and unmasked upstream, so a future diff against
+    WorkingWithAI will show three differences that are the gate's doing,
+    not drift. Masking a word inside a quotation is the part worth a
+    second look.
+    **Blocked on:** nothing mechanical — it needs Morgan to say whether
+    masking is the right call for his own quoted words, or whether the
+    blocklist should carve out `philosophy/` instead.
 
 - <a id="undeclared-deprecated-files"></a>**Nothing finds a deprecated file nobody declared.**
   [retirement-deletes-files](practices/retirement-deletes-files.md) landed
@@ -1479,3 +1516,21 @@ which is the failure this repointing exists to end — write
   [very-deep-check](practices/very-deep-check.md)'s housekeeping pass to
   look for dead paths by hand, which is where a judgment a script cannot
   make already belongs.
+
+- <a id="build-views-stdout-count"></a>**`build_views.py`'s stdout line reports a different practice count than
+  the block it just wrote.** Noticed 2026-09-07 merging
+  [precedent-beta-v01](https://github.com/alex137/BestPractice/tree/precedent-beta-v01)
+  into a feature branch: the regenerated `AGENTS.md` header read *7 of 72
+  practices* while the same run printed *resident 7/69* to stdout. 72 is
+  correct (69 universal, 3 repo-local); 69 is
+  [build_views.py](tools/build_views.py)'s `len(practices)` at its final
+  `print`, which is `load_practices(practices/)` — the universal directory
+  only — while the block's own figure comes from the multi-source resolve.
+  The **committed artifact is right and stable** (two consecutive runs are
+  byte-identical), so nothing downstream is wrong; the line a session reads
+  to confirm the run is what disagrees with it, which is the worse half to
+  have wrong. Not fixed here because it is unrelated to the change that
+  found it and sits in code merged the same day — a drive-by edit to
+  someone else's just-landed work. **Blocked on:** nothing; it is a
+  one-line fix for whoever touches that function next, worth doing with
+  the regeneration check watching.

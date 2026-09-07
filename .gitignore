@@ -16,3 +16,10 @@ evals/routing/prompts/
 # and committing it would publish private practice content on the very
 # commit that added the convenience. See that tool's docstring.
 .precedent/
+
+# Per-machine Claude Code settings. commit-identity.sh derives an `env.TZ`
+# into this file from whoever's identity.json resolved at session start, so a
+# person's declared timezone reaches the whole session instead of having to
+# be retyped on every commit. It is one contributor's environment, not the
+# repository's: .claude/settings.json is the tracked, shared one.
+.claude/settings.local.json

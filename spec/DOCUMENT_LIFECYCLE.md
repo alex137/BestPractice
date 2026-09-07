@@ -1,19 +1,26 @@
 ---
-title:         Document lifecycle — a standard status header for spec documents, and the migration onto it
+title:         Document lifecycle — a standard status header, and the migration onto it
 kind:          proposal
-status:        drafted
+status:        accepted
 opened:        2026-09-07
+closed:        null
+superseded_by: null
+supersedes:    []
 audience:      contributor
 summary:       Gives every non-practice document a machine-readable kind and status, splits the tree by audience, and migrates the existing 24 spec files onto both.
 ---
 
 # Document lifecycle — a standard status header, and the migration onto it
 
-**Status: drafted, not executed.** Self-contained, so a session (or another
-system) with no memory of the conversation that produced it can carry it
-out. Nothing below has been built. Where it names a file, a count or a
-command, those were read off the tree on 2026-09-07 at commit `9e25dca`;
-re-check them before relying on them.
+**Status: accepted; phase 1 is built, phases 2-6 are not.** Self-contained,
+so a session (or another system) with no memory of the conversation that
+produced it can carry it out. Phase 1 landed on 2026-09-07:
+[tools/doc_lifecycle.py](../tools/doc_lifecycle.py) exists, is registered as
+the `document-lifecycle-header` check, and this file plus
+[PHASE3_BRIEF.md](PHASE3_BRIEF.md) are stamped — 22 documents are not, and
+the check is warn-only until phase 2 stamps them. Where this document names
+a file, a count or a command, those were read off the tree on 2026-09-07 at
+commit `9e25dca`; re-check them before relying on them.
 
 **The one-sentence version:** `practices/` already solved "a catalogue that
 must grow without costing the reader" with per-file frontmatter plus
