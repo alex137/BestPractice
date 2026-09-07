@@ -8389,6 +8389,88 @@ def check_freshness_gate_fires():
               '; '.join(failed) if failed else '')
 
 
+def check_unmerged_branch_verdicts():
+    """The unmerged half of the very deep check's branch sweep (practice:
+    very-deep-check).
+
+    The case that carries this check is the rebased branch. `merge-base
+    --is-ancestor` reads commit identity, so a branch whose every patch was
+    replayed onto the integration branch stays "unmerged" forever while
+    carrying no work at all. Reporting that as unlanded is not a cosmetic
+    error: it is the finding that teaches a reader to wave the whole list
+    through, at which point the genuinely-unlanded branch beside it goes
+    with them. So both are asserted here, side by side in one fixture --
+    one branch that really carries work, one that only appears to."""
+    import tempfile
+    import very_deep_check as vdc
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+
+        # A branch whose one commit is genuinely not on main.
+        _git(up, 'checkout', '-q', '-b', 'real-work')
+        (up / 'feature.txt').write_text('unlanded\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'unlanded work')
+
+        # A branch whose commit is replayed onto main -- a different commit
+        # hash, an identical patch. This is the squash/rebase shape.
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'checkout', '-q', '-b', 'already-landed')
+        (up / 'landed.txt').write_text('landed\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'landed work')
+        patch = _git(up, 'format-patch', '-1', '--stdout').stdout
+        _git(up, 'checkout', '-q', 'main')
+        (tmp / 'p.patch').write_text(patch)
+        _git(up, 'am', '-q', str(tmp / 'p.patch'))
+        # Reword the replayed commit. `git am` preserves the author and the
+        # author date, so with the same message, tree and parent it produces
+        # a BYTE-IDENTICAL commit whenever both commits land in the same
+        # second -- and then the branch really is an ancestor of main and
+        # the fixture silently tests nothing. That made this case pass or
+        # fail on the clock (observed both ways within one minute). A
+        # reworded commit is also the truer shape: a squash-merge rewrites
+        # the message.
+        _git(up, 'commit', '-q', '--amend', '-m', 'landed work (squashed)')
+        _git(up, 'checkout', '-q', 'main')
+
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        scan = vdc.scan_branches(work, 'main')
+        rows = {r['name']: r for r in (scan or {}).get('unmerged', [])}
+
+        results = [
+            ('both branches are reported as not merged',
+             set(rows) == {'real-work', 'already-landed'}),
+            ('a branch carrying genuinely unlanded work is counted as such',
+             rows.get('real-work', {}).get('unique') == 1
+             and 'CARRIES' in (rows.get('real-work', {}).get('verdict') or '')),
+            ('a rebased branch is NOT reported as unlanded work',
+             rows.get('already-landed', {}).get('unique') == 0
+             and 'ALREADY LANDED' in (rows.get('already-landed', {}).get('verdict') or '')),
+            ('every unmerged branch carries a verdict, never none',
+             all(r.get('verdict') for r in rows.values())),
+            ('each row carries the evidence the verdict rests on',
+             all(r.get('ahead') is not None and r.get('last')
+                 for r in rows.values())),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check tells unlanded work from a rebased branch '
+              f'({len(results)} stated cases, the rebased one being the '
+              f'controlling case)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -8416,6 +8498,7 @@ def main():
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_freshness_gate_fires()
+    check_unmerged_branch_verdicts()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()

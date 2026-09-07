@@ -25,7 +25,9 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   duplicate-implementation question in pass 2 and an explicit
   mechanical-before-human order of operations; that order's first step made
   mechanical 2026-09-07, Morgan F — every repo in force must be provably
-  current before the check reads anything"
+  current before the check reads anything; extended same day, Morgan F, so
+  the branch sweep reports an unmerged branch with a merge-or-close verdict,
+  not only a merged one awaiting deletion"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -348,28 +350,45 @@ Last because none of it strands an adopter, and none of it is cheap.
   backlog — [todo-is-a-handoff](todo-is-a-handoff.md) queues only what is
   blocked or out of scope, so anything else there is either doable now or
   should be closed.
-- **Stale branches, one list per repo in scope.**
-  [tools/very_deep_check.py](../tools/very_deep_check.py) reports, for this checkout and for every source that is its own git
-  checkout (a repo-local source inside the parent checkout shares its
-  parent's branches and isn't swept separately), every branch fully merged
-  into that repo's integration branch and not yet deleted — a mechanical,
-  offline fact (`git merge-base --is-ancestor`), true whether or not GitHub's
-  own "merged" flag is set, which it is not for a repo that lands pull
-  requests (PRs) by direct push rather than the merge button. A branch the
-  scan cannot prove merged is still worth a look — it may be closed because a
-  later PR superseded it — but that call needs the branch's PR history, which
-  an offline check cannot reach. Apply the branch-cleanup method an
-  individual practice set may already define (one real individual set names
-  this in its own `next-steps-after-commit` practice; the repo is private, so
-  this names the practice rather than linking a page most readers cannot
-  open): identify by who opened or drove the PR — the invoking person's own
-  GitHub login, never someone else's branch — skip the repo's default branch
-  and its protected integration branch, and report each remaining one with a
-  direct link to its most recent PR's page, which is the one-click **Delete
-  branch** control GitHub already shows there. A personal practice may
-  decline to do this retroactive sweep on its own ("a separate, one-off task,
-  done only when asked for directly") — a very deep check is exactly that
-  direct ask, so this is the one place the sweep is a standing step.
+- **Branches, both directions, one verdict each.**
+  [tools/very_deep_check.py](../tools/very_deep_check.py) reports, for this
+  checkout and for every source that is its own git checkout (a repo-local
+  source inside the parent checkout shares its parent's branches and isn't
+  swept separately), two lists per repo. Neither may be left without a
+  verdict.
+
+  *Merged and not deleted* — every branch fully merged into that repo's
+  integration branch and still sitting there: a mechanical, offline fact
+  (`git merge-base --is-ancestor`), true whether or not GitHub's own
+  "merged" flag is set, which it is not for a repo that lands pull requests
+  (PRs) by direct push rather than the merge button. Apply the
+  branch-cleanup method an individual practice set may already define (one
+  real individual set names this in its own `next-steps-after-commit`
+  practice; the repo is private, so this names the practice rather than
+  linking a page most readers cannot open): identify by who opened or drove
+  the PR — the invoking person's own GitHub login, never someone else's
+  branch — skip the repo's default branch and its protected integration
+  branch, and report each remaining one with a direct link to its most
+  recent PR's page, which is the one-click **Delete branch** control GitHub
+  already shows there. A personal practice may decline to do this
+  retroactive sweep on its own ("a separate, one-off task, done only when
+  asked for directly") — a very deep check is exactly that direct ask, so
+  this is the one place the sweep is a standing step.
+
+  *Not merged* — the more expensive half, and the reason this bullet is not
+  only about deletion. A merged branch nobody deleted is clutter; a branch
+  that was meant to land and never did is lost work, and nothing in an
+  ordinary week ever asks about it again. Each one is reported with what it
+  is ahead by, when it last moved, and how many of its commits have no
+  patch-equivalent on the integration branch — `git cherry`, not the
+  ancestor test, because a branch that was rebased or squash-merged in
+  reports as unmerged forever while carrying nothing, and calling that
+  "unlanded" would train the reader to wave the whole list through. **Give
+  every one a verdict: merge it, or close it with the reason recorded.**
+  "Look at it later" is the state that produced the finding. Where the
+  session cannot decide alone — the branch is someone else's, or its
+  intent isn't legible from the diff — say so by name and ask, rather than
+  leaving it unlisted.
 
 ## Why
 The mechanical audits ([doc_lint.py](../tools/doc_lint.py),
@@ -519,6 +538,21 @@ built this failed the new gate on first run — one seven commits behind, one
 on a local-only branch — neither of which anything before this would have
 reported.
 
+Extended again 2026-09-07, on Morgan's question about branches that were
+meant to be merged and got lost in the mix. The sweep had the data and only
+half the question: it listed unmerged branches as an aside to the deletion
+report — "check each one's PR history for a superseded case" — which asks
+only whether the branch is safe to *drop*, never whether it holds work that
+should have landed. The two failures are not symmetrical, and the one the
+sweep was blind to is the expensive one. The scan now reports commits
+ahead, last-commit date, and a patch-level count via `git cherry`, which
+matters more than it sounds: `merge-base --is-ancestor` reads commit
+identity, so a rebased or squash-merged branch reads as unmerged forever
+while carrying nothing, and a report calling those "unlanded work" would
+teach the reader to wave the whole list through. On the first run it found
+a source branch nineteen commits deep, untouched since the day before, that
+nothing in this repo would otherwise have asked about again.
+
 ## Install
 [tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
@@ -549,11 +583,13 @@ proceeding without it is actually intended); every tracked JSON and YAML file is
 run, since the tool
 reads `precedent.json` to enumerate its own scope; each team and individual
 source is checked against the shape its bootstrap skeleton ships, catching a
-source migrated into place that never passed through bootstrap; and the
-merged half of the branch sweep is a real git check (`merge-base
---is-ancestor` against each repo's own `origin/HEAD`, or an explicit
-`--target` for this checkout when its integration branch isn't its default
-one — this repo's own `precedent-beta-v01` being exactly that case).
+source migrated into place that never passed through bootstrap; and both
+halves of the branch sweep are real git checks — `merge-base --is-ancestor`
+against each repo's own `origin/HEAD` (or an explicit `--target` for this
+checkout when its integration branch isn't its default one, this repo's own
+`precedent-beta-v01` being exactly that case) for merged-and-undeleted, and
+`git cherry` for how many of an unmerged branch's commits have no
+patch-equivalent on that target.
 
 What stays a session step, deliberately: the branch sweep's other half —
 turning a mechanically-merged branch into a *reported* one requires knowing
@@ -561,7 +597,9 @@ which PR it came from, who drove it, and that PR's URL, none of which an
 offline `git` check can see; a closed-but-not-provably-merged branch is the
 same story one layer out, where only the session, reading that branch's PR
 thread, can tell "superseded" from "abandoned, still someone's open
-question". Pass 1's fixtures are a session step for the same reason in a
+question" — and, on the unmerged side, whether nineteen commits nobody
+merged were meant to land at all, which is the verdict itself and the one
+thing here no scan can supply. Pass 1's fixtures are a session step for the same reason in a
 different form: building a fresh install and a migration and then judging
 what the documents failed to say is not a thing a script can assert about
 itself, and a scripted install would test the script rather than the

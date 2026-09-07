@@ -39,10 +39,15 @@ a very deep check. Pass --allow-missing-sources for the rare case where
 that is actually intended.
 
 Also scans this checkout and every team/individual source that is its own
-git checkout for branches fully merged into that repo's integration branch
-and not yet deleted (git merge-base --is-ancestor -- true regardless of
-whether GitHub's own "merged" flag is set, which it is not for a repo that
-lands PRs by direct push). Reported for the invoking session to cross-check
+git checkout for branches, in BOTH directions. Fully merged and not yet
+deleted (git merge-base --is-ancestor -- true regardless of whether
+GitHub's own "merged" flag is set, which it is not for a repo that lands
+PRs by direct push) is the cheap half. The half that costs more is the
+other one: a branch that never landed and that nobody ever decided about.
+Each of those is reported with what it is ahead by, when it last moved, and
+how many of its commits have no patch-equivalent on the integration branch
+(git cherry -- so a rebased or squash-merged branch is not mistaken for
+unlanded work), plus a verdict to act on. Reported for the invoking session to cross-check
 against each branch's PR history and report with a direct link, per
 practice: very-deep-check and the branch-cleanup method
 next-steps-after-commit (in a repo running that practice) already defines --
@@ -373,6 +378,53 @@ def _default_remote_branch(repo_dir):
     return None
 
 
+def _unmerged_row(repo_dir, name, ref, target_ref, target):
+    """-> the evidence a session needs to say MERGE or CLOSE about one
+    branch that is not an ancestor of the integration branch.
+
+    The ancestor test alone answers "can this be deleted safely", and
+    answers nothing about the opposite risk: a branch whose work was meant
+    to land and never did. Those need different evidence, so it is gathered
+    here rather than left to the session to go and run by hand -- which, in
+    practice, means per branch it does not run at all.
+
+    `git cherry` is the load-bearing part. `merge-base --is-ancestor` reads
+    commit identity, so a branch that was rebased or squash-merged onto the
+    target reports as unmerged forever even though every line of it landed.
+    `git cherry` compares patch-ids instead: a branch whose commits all show
+    `-` is content-identical to work already on the target, which is a
+    deletion candidate the ancestor test structurally cannot see. Only a `+`
+    commit is genuinely unlanded work."""
+    row = {'name': name, 'ahead': None, 'unique': None, 'last': None,
+           'verdict': None}
+    rc, out, _ = _run_git(repo_dir, 'rev-list', '--count', f'{target_ref}..{ref}')
+    if rc == 0 and out.isdigit():
+        row['ahead'] = int(out)
+    rc, out, _ = _run_git(repo_dir, 'log', '-1', '--format=%cs', ref)
+    if rc == 0 and out:
+        row['last'] = out
+    rc, out, _ = _run_git(repo_dir, 'cherry', target_ref, ref)
+    if rc == 0:
+        row['unique'] = sum(1 for ln in out.splitlines() if ln.startswith('+'))
+    if row['unique'] is None:
+        # Never guess here. On a shallow clone the patch comparison simply
+        # cannot run, and a fabricated verdict is worse than none: this is
+        # the branch someone might delete on it.
+        row['verdict'] = (f'UNKNOWN -- patch comparison could not run here '
+                          f'(shallow clone?). Deepen with `git fetch '
+                          f'--depth=5000` and re-check before acting')
+    elif row['unique'] == 0:
+        row['verdict'] = (f'ALREADY LANDED as patches -- every commit has an '
+                          f'equivalent on {target} (rebased or squash-merged '
+                          f'in), so there is nothing to merge. Deletion '
+                          f'candidate that the ancestor test cannot see')
+    else:
+        row['verdict'] = (f'CARRIES {row["unique"]} unlanded commit(s) -- '
+                          f'decide, do not skip: merge it, or close it with '
+                          f'the reason recorded')
+    return row
+
+
 def scan_branches(repo_dir, target=None, exclude=()):
     """-> None if repo_dir isn't its own git checkout (a repo-local source
     living inside the parent checkout shares the parent's branches and has
@@ -423,8 +475,12 @@ def scan_branches(repo_dir, target=None, exclude=()):
         if name == 'HEAD' or name in protected or name in exclude:
             continue
         rc, _, _ = _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, target_ref)
-        (merged if rc == 0 else unmerged).append(name)
-    return {'target': target, 'merged': sorted(merged), 'unmerged': sorted(unmerged)}
+        if rc == 0:
+            merged.append(name)
+        else:
+            unmerged.append(_unmerged_row(repo_dir, name, ref, target_ref, target))
+    return {'target': target, 'merged': sorted(merged),
+            'unmerged': sorted(unmerged, key=lambda r: r['name'])}
 
 
 def enumerate_scope(repo=None, user_config=None):
@@ -650,24 +706,32 @@ def main():
     print(checklist())
 
     if not skip_branch_scan:
-        print("\nSTALE BRANCHES -- mechanically merged, not yet deleted (still\n"
-              "needs a PR link and an authorship check before reporting any of\n"
-              "these as safe to delete -- see practices/very-deep-check.md):\n")
+        print("\nBRANCHES -- both directions. A merged branch nobody deleted is\n"
+              "clutter; an unmerged branch nobody decided about is lost work, and\n"
+              "the second costs more. Every branch below needs a verdict -- see\n"
+              "practices/very-deep-check.md:\n")
         for name, scan in branch_scans.items():
             if scan is None:
                 print(f"{name}: not its own git checkout, or integration "
                       f"branch could not be resolved -- skipped.\n")
                 continue
             print(f"{name} (integration branch: {scan['target']}):")
+            print(f"  merged, not deleted -- confirm authorship and the PR "
+                  f"link, then delete:")
             if scan['merged']:
                 for b in scan['merged']:
-                    print(f"  MERGED, undeleted: {b}")
+                    print(f"    {b}")
             else:
-                print(f"  (none)")
+                print(f"    (none)")
+            print(f"  NOT merged -- merge it or close it, one verdict each:")
             if scan['unmerged']:
-                print(f"  not mechanically provable merged -- check each "
-                      f"one's own PR history for a superseded case: "
-                      f"{', '.join(scan['unmerged'])}")
+                for r in scan['unmerged']:
+                    age = f", last commit {r['last']}" if r['last'] else ""
+                    print(f"    {r['name']} ({r['ahead']} commit(s) ahead"
+                          f"{age})")
+                    print(f"      {r['verdict']}")
+            else:
+                print(f"    (none)")
             print()
 
     return 0
