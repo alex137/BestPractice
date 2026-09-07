@@ -474,6 +474,23 @@ not this section.
    `tools/precedent_resolve.py` refuses this by name, and for good
    reason: naming a person's individual set in a repo anyone else on the
    team can read leaks its existence and location to them.
+
+   Two optional keys are worth setting in the same file, because both
+   default to the safe-but-noisy answer and only this repo knows the real
+   one. **`visibility`** (`"public"` or `"private"`) says whether this
+   repo's tracked files are a publication; omitting it counts as public,
+   so a private repo that omits it silently loses its team and individual
+   practices from the materialized tree. **`internal_paths`** is a list of
+   repo-relative path prefixes — a directory (`"notes"`), a nested one
+   (`"docs/drafts"`), or a single file (`"ROADMAP.md"`) — that are this
+   project managing itself rather than documents published to anyone. It
+   is what [tools/title_case.py](tools/title_case.py) adds to its own
+   built-in exclusions, which are Precedent's directory names and not
+   yours: without it, every working directory of yours that Precedent
+   never heard of reads as outward-facing, and the
+   `headline-capitalization` gate reports headings you do not want
+   rewritten. The key only ever *adds* exclusions — nothing a repo
+   declares here can pull a vendored `practices/` tree back into scope.
 3. **Ask the team/individual-source question** exactly as §1 step 9
    describes, and wire the individual source's own bootstrap pattern the
    same way if the person has one — this step doesn't change between the

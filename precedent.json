@@ -89,8 +89,19 @@
     "practices/ tree before build_views.py sees it, so every consumer's block",
     "was already multi-source. This repo is the only one that cannot take",
     "that route, because its practices/ IS the universal source.",
-    "A repo that omits this field publishes nothing by accident -- absent it,",
-    "no source is excluded, which is the right default for a private repo."
+    "OMITTING this field counts as PUBLIC (build_views.py's repo_is_public),",
+    "which reverses what this comment used to say. It claimed an absent",
+    "field excluded no source, 'the right default for a private repo'. That",
+    "was wrong in the direction that cannot be undone: omitting it is",
+    "exactly how a public repo publishes private practice text by accident,",
+    "permanently. Found 2026-09-07 in a real public consumer that had never",
+    "declared the field and carried 50 private-level practices in its",
+    "tracked tree, one of them a person's name and email address. The",
+    "opposite error -- declared public, actually private -- costs a few",
+    "practices that do not materialize, visible at once and fixed by one",
+    "line. A private repo should still DECLARE `visibility: private` rather",
+    "than rely on the default, and an undeclared repo is told on stderr",
+    "what was assumed."
   ],
   "sources": [
     {

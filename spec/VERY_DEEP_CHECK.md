@@ -332,6 +332,38 @@ honest note about what the second rehearsal found. Separately, `## 0` sits
 *below* `## 1` — a fresh adopter meets the legacy path first. Renumbering
 would break every link to §1-§7, so §1 now points forward to §0 instead.
 
+**Two findings from a consumer's engine update, both fixed.** A real
+consumer repo (`HavrutaBrainstorm`) took this run's engine forward and came
+back with 69 "outward-facing" headings across 10 files that are not
+outward-facing at all, and queued them rather than sweep them — the honest
+response, and a permanently noisy check. Root cause:
+[title_case.py](../tools/title_case.py) is vendored into every consumer, so
+its `INTERNAL_DIRS` / `INTERNAL_FILES` are *Precedent's* directory names,
+and an engine refresh overwrites anything an adopter edits into them. The
+exclusion default that fails safe here fails the other way there. Fixed by
+making the boundary extensible from the consumer's own `precedent.json`
+(`internal_paths`, a list of repo-relative path prefixes), additively only —
+nothing a repo declares can pull a vendored `practices/` tree back into
+scope. Documented in [INSTALL.md](../INSTALL.md) §0 step 2 alongside
+`visibility`, which has the same shape of problem (defaults to the safe
+answer; only the repo knows the real one). Separately, the same report named
+a limit the check had never declared: `--write` capitalizes a heading that
+is a *sentence* — a rule stated outright, a question, an example line — word
+by word into something correct by the rule and wrong to read. Both limits
+are now in `headline-capitalization`'s `blind_to`, where a check's limits
+belong.
+
+**One contradiction between a comment and the code it describes, fixed.**
+[precedent.json](../precedent.json)'s own `_comment` still argued that
+omitting `visibility` "publishes nothing by accident — absent it, no source
+is excluded, which is the right default for a private repo." That is the
+reasoning `build_views.repo_is_public()` was changed *earlier in this same
+run* to reject, and its docstring quotes the sentence in order to say it is
+false. Two adjacent files in the tree, one telling an adopter the opposite
+of what the code does — exactly the class of drift this pass exists to
+catch, and the first one it found by reading rather than by running
+something.
+
 **Checked and clean, so the next run need not redo them:**
 
 - **Catalogue figures in prose.** `spec/LOADER.md` states both 52 and 66

@@ -66,9 +66,64 @@ INTERNAL_FILES = (
 )
 
 
-def is_outward(rel_path):
+# The two lists above are THIS repository's names, and this file is VENDORED
+# into every consumer (precedent_vendor_engine.py's CONSUMER_ENGINE_FILES),
+# where a refresh overwrites whatever an adopter edited into them. So a
+# consumer had no way at all to say "this directory of mine is internal
+# too" -- the exclusion default that fails safe here fails the other way
+# there: every working directory nobody happened to name above reads as
+# published. 2026-09-07, a real consumer (HavrutaBrainstorm) came back from
+# an engine update with 69 outward-facing headings across 10 files, none of
+# them outward-facing; the repo queued them in its TODO rather than sweep
+# headings it did not want swept, which is the honest response and also a
+# permanently noisy check.
+#
+# `internal_paths` in a repo's own precedent.json is how it says so, without
+# touching this file. Each entry is a repo-relative path prefix -- a
+# directory name (`notes`), a nested directory (`docs/drafts`), or a single
+# file (`ROADMAP.md`) -- and matches that path and everything under it.
+# Deliberately additive only: a consumer can EXCLUDE more, never re-include
+# what the lists above exclude, so no consumer config can talk this module
+# into rewriting headings in a vendored practices/ tree.
+_EXTRA_INTERNAL = {}
+
+
+def _extra_internal(root):
+    """Repo-declared extra internal path prefixes, from precedent.json.
+
+    Fails open (empty) on anything malformed: no config, unreadable, not
+    JSON, or a value that is not a list of strings. A repo whose config is
+    broken gets this module's built-in boundary, which is the behaviour it
+    had before this key existed -- never a crash inside a heading check.
+    An entry that is absolute or contains `..` is dropped: those escape the
+    repo, and an exclusion nobody can locate is worse than none.
+    """
+    key = str(pathlib.Path(root).absolute())
+    if key in _EXTRA_INTERNAL:
+        return _EXTRA_INTERNAL[key]
+    out = []
+    try:
+        declared = json.loads(
+            (pathlib.Path(root) / "precedent.json").read_text(
+                encoding="utf-8")).get("internal_paths")
+    except (ValueError, OSError):
+        declared = None
+    if isinstance(declared, list):
+        for entry in declared:
+            if not isinstance(entry, str):
+                continue
+            norm = entry.replace("\\", "/").strip().strip("/")
+            if not norm or norm.startswith("/") or ".." in norm.split("/"):
+                continue
+            out.append(norm)
+    _EXTRA_INTERNAL[key] = out
+    return out
+
+
+def is_outward(rel_path, root="."):
     """Is a repo-relative path a document published to people outside the
-    project? True for anything not excluded above."""
+    project? True for anything not excluded above, and not named by the
+    repo's own `internal_paths` in precedent.json."""
     parts = pathlib.PurePosixPath(str(rel_path).replace("\\", "/")).parts
     if not parts or not parts[-1].endswith(".md"):
         return False
@@ -93,6 +148,10 @@ def is_outward(rel_path):
         return False
     if len(parts) == 1 and parts[0] in INTERNAL_FILES:
         return False
+    posix = "/".join(parts)
+    for entry in _extra_internal(root):
+        if posix == entry or posix.startswith(entry + "/"):
+            return False
     return True
 
 
@@ -130,7 +189,7 @@ def outward_files(root=None):
         rel = f.relative_to(base)
         if rel.parts and rel.parts[0] == ".git":
             continue
-        if is_outward(rel):
+        if is_outward(rel, root=base):
             candidates.append((f, rel))
     ignored = _ignored(base, [rel for _f, rel in candidates])
     return [f for f, rel in candidates if str(rel) not in ignored]

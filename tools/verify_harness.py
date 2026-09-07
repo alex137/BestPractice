@@ -7262,6 +7262,92 @@ def check_title_case_leaves_code_and_first_word_alone():
           f'alone ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_title_case_honours_repo_declared_internal_paths():
+    """A repo can exclude its own directories from headline capitalization
+    through precedent.json, and cannot use that key to re-include what the
+    engine excludes.
+
+    tools/title_case.py is VENDORED into every consumer, so its
+    INTERNAL_DIRS / INTERNAL_FILES lists are Precedent's names, not the
+    adopter's, and an engine refresh overwrites anything edited into them.
+    The exclusion default that fails safe upstream fails the other way in a
+    consumer: every working directory nobody happened to name reads as
+    published. 2026-09-07, a real consumer came back from an engine update
+    with 69 "outward-facing" headings across 10 files, none of them
+    outward-facing.
+
+    Two properties, and the second matters more than the first: the key
+    must ADD exclusions and must never subtract one. A consumer that could
+    re-include `practices/` would have this tool rewriting headings inside
+    a vendored upstream tree, undone by the next refresh -- the exact
+    failure is_outward's own `practices` guard was added to stop.
+    """
+    import importlib.util, tempfile
+    spec = importlib.util.spec_from_file_location(
+        '_title_case_ip', ROOT / 'tools' / 'title_case.py')
+    try:
+        tc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tc)
+    except Exception as e:
+        not_applicable('title_case honours repo-declared internal_paths',
+                       f'tools/title_case.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+
+    bad = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        (root / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'internal_paths': ['notes', 'docs/drafts', 'ROADMAP.md',
+                               '/escapes', '../escapes', 7, ''],
+            # A consumer must not be able to re-include what the engine
+            # excludes; this entry is here to prove it is ignored, since
+            # the key only ever adds.
+            'sources': [],
+        }), encoding='utf-8')
+
+        cases = [
+            # (path, expected is_outward, why)
+            ('README.md', True, 'an undeclared root document stays outward'),
+            ('documentation/pitch.md', True, 'an undeclared directory stays outward'),
+            ('notes/scratch.md', False, 'a declared directory is internal'),
+            ('notes/deep/er.md', False, 'everything under it, at any depth'),
+            ('docs/drafts/one.md', False, 'a nested declared path is internal'),
+            ('docs/published.md', True, 'its sibling is not'),
+            ('notesy/other.md', True, 'a prefix match is on path segments, not characters'),
+            ('ROADMAP.md', False, 'a declared single file is internal'),
+            ('practices/x.md', False, 'the engine exclusion still holds'),
+        ]
+        for rel, want, why in cases:
+            got = tc.is_outward(rel, root=root)
+            if got != want:
+                bad.append(f'{why}: is_outward({rel!r}) == {got}, wanted {want}')
+
+        # Malformed config fails OPEN -- the built-in boundary, never a crash.
+        broken = pathlib.Path(td) / 'broken'
+        broken.mkdir()
+        (broken / 'precedent.json').write_text('{not json at all',
+                                               encoding='utf-8')
+        try:
+            if tc.is_outward('README.md', root=broken) is not True:
+                bad.append('a malformed precedent.json changed the boundary')
+        except Exception as e:
+            bad.append(f'a malformed precedent.json raised {e!r}')
+
+        # No config at all: same.
+        empty = pathlib.Path(td) / 'empty'
+        empty.mkdir()
+        try:
+            if tc.is_outward('README.md', root=empty) is not True:
+                bad.append('a missing precedent.json changed the boundary')
+        except Exception as e:
+            bad.append(f'a missing precedent.json raised {e!r}')
+
+    check('title_case honours repo-declared internal_paths, additively only '
+          '(11 stated cases)', not bad, '; '.join(bad))
+
+
 def check_loader_block_covers_every_declared_source():
     """The loader block renders every PUBLISHABLE source `precedent.json`
     declares -- and never a private one in a public repo.
@@ -9239,6 +9325,7 @@ def main():
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
     check_title_case_leaves_code_and_first_word_alone()
+    check_title_case_honours_repo_declared_internal_paths()
     check_checkin_update_never_mutates_the_clone()
     check_rendered_docs_are_current()
 

@@ -1656,8 +1656,15 @@ def _heading_outline(ctx):
        'Times headline capitalization',
        'headings outside the practice\'s scope (practice files, specs, the '
        'repo\'s own working documents), which are deliberately sentence '
-       'case; and a phrase whose capitalization carries meaning, which only '
-       'a person can add to title_case.KEEP_PHRASES.')
+       'case; a phrase whose capitalization carries meaning, which only '
+       'a person can add to title_case.KEEP_PHRASES; a heading that is a '
+       'SENTENCE rather than a title -- a rule stated outright, a question, '
+       'an example line -- which --write capitalizes word by word into '
+       'something correct by the NYT rule and wrong to read, and which only '
+       'a person can rewrite as a title or exclude; and, in a CONSUMING '
+       'repo, the scope boundary itself, since title_case.INTERNAL_DIRS is '
+       'this repo\'s own list of directory names and a consumer\'s working '
+       'directory that nobody thought to name there reads as publishable.')
 def _headline_capitalization(ctx):
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
@@ -1671,10 +1678,13 @@ def _headline_capitalization(ctx):
         # is missing; the runner already prints that a skip is not a pass.
         raise NotApplicable(f'tools/title_case.py did not import: {e}')
     # title_case.is_outward() is the one definition of "outward-facing"
-    # -- everything except its INTERNAL_DIRS/INTERNAL_FILES. This gate
-    # asks it rather than carrying a second copy of the boundary.
+    # -- everything except its INTERNAL_DIRS/INTERNAL_FILES plus whatever
+    # this repo's own precedent.json adds under `internal_paths`. This gate
+    # asks it rather than carrying a second copy of the boundary, and passes
+    # ROOT so the repo-declared half is read from THIS repo's config rather
+    # than the process's working directory.
     scope = [f for f in ctx.changed
-             if f.endswith('.md') and title_case.is_outward(f)
+             if f.endswith('.md') and title_case.is_outward(f, root=ROOT)
              and (ROOT / f).exists()]
     if not scope:
         raise NotApplicable('no changed outward-facing document is in scope')
