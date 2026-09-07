@@ -59,6 +59,26 @@ repo-is-the-memory system, a date that isn't in the text effectively
 doesn't exist for the session reading the rule.
 
 ## Story
+No dated incident was recorded. The rule rests on an asymmetry that is easy
+to state and easy to forget: **age means opposite things in different
+domains.**
+
+A convention that has survived years of internal use is battle-tested by
+that survival. A rule about an external platform that has sat untouched for
+a year may describe a world that no longer exists -- and it looks exactly
+as settled as the first one. Teams whose whole craft is tracking a
+constantly-retuned external algorithm learn this the hard way: their
+hardest-won rules are the ones that decay fastest.
+
+The date is what lets a reader apply the right lens to a rule they did not
+write.
+
+**It must be inline, and that clause is load-bearing.** Version control does
+timestamp every line, so the date exists -- but sessions read file content,
+not commit metadata. In a system where the repo is the memory, a date that
+is not in the text effectively does not exist for the session reading the
+rule. The same reasoning is why `cite-the-incident` puts the origin story
+inline rather than in a commit message.
 
 ## Install
 A writing habit with a natural audit extension ([convention-to-audit](convention-to-audit.md)):

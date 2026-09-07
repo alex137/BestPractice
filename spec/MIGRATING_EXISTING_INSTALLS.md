@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-05 (Buenos Aires) -- step 7's engine vendoring now uses precedent_vendor_engine.py's 'consumer' kind instead of a hand-copy, piloted against themorgan/HavrutaBrainstorm; before that, 2026-09-03 by a follow-up session, after old-system vocabulary was found lingering in WorkingWithAI a day past its own migration -->
+<!-- Last updated: 2026-09-05 (Buenos Aires) -- step 7's engine vendoring now uses precedent_vendor_engine.py's 'consumer' kind instead of a hand-copy, piloted against a private four-source consumer repo; before that, 2026-09-03 by a follow-up session, after old-system vocabulary was found lingering in WorkingWithAI a day past its own migration -->
 
 # Migrating a repo that already has BestPractice installed
 
@@ -160,7 +160,7 @@ the loader.
    so an instruction telling the agent to call `add_repo` "before running
    any bootstrap script" cannot make that tool call precede a hook the
    harness has already started running, at any retry count or delay. Both
-   `HavrutaBrainstorm` and (by report) a second, independent repo hit
+   a private consumer repo and (by report) a second, independent repo hit
    exactly this: the individual source silently wasn't resolving because
    its bootstrap hook had already run and failed before `add_repo`
    completed, and nothing said so — it read as "no individual set," not
@@ -304,6 +304,53 @@ the loader.
    the same requirement step 5 already states, restated at the one point
    in this pattern that claims the migration is actually validated.
 
+9. **Backfill every `## Story` the conversion left empty, before calling the
+   migration done.** This is the step most likely to be skipped, because
+   nothing about the result looks broken: every Rule is present and
+   enforceable, and only the reason each rule exists is missing.
+
+   [split_practices.py](../tools/split_practices.py) does not populate
+   `## Story`, deliberately and for a good reason it documents in its own
+   docstring — separating an incident from its reasoning is editorial
+   judgment, and doing it unreviewed across a whole catalogue in one pass
+   risks mischaracterizing exactly the content the migration exists to
+   preserve. It leaves the section present and empty as a **declared** gap.
+   The failure is not the converter; it is that nobody comes back.
+
+   So come back here, in the migrating session, while the source system is
+   still open in front of you:
+
+   ```
+   python3 tools/precedent_check.py --only catalogue-carries-stories
+   ```
+
+   It names every `status: active` practice still carrying an empty Story
+   ([catalogue-carries-stories](../practices/catalogue-carries-stories.md)),
+   and it is a tree-scoped invariant rather than a changed-files gate
+   precisely so that a bulk landing cannot pass it and a gap left behind
+   cannot go quiet later.
+
+   **The work is transcription, not authorship.** The incidents are in the
+   system being migrated from — that is why nothing is lost by the
+   conversion, only made unreachable. Write each Story from that original
+   text. Working from the practice's own Rule instead produces
+   plausible-sounding invented incidents, which are worse than the empty
+   section they replace: an empty section is a visible gap, and a
+   fabricated one is a false record that will be trusted. Where the source
+   recorded reasoning rather than a failure, say so plainly — that is a
+   complete Story, and roughly half of them are this kind.
+
+   **Scrub while transcribing.** The source system's text names private
+   repos, real people and internal specifics freely, because it lived
+   somewhere that never shipped. A practice file ships.
+
+   **The same step applies to an update of an earlier migration**, not only
+   to a first run. A repo migrated before this step existed is carrying the
+   gap right now, and the check is what tells you whether it is: run it
+   against any already-migrated repo and it answers immediately. Do not
+   assume a later engine refresh will fix it — an engine refresh carries
+   tools, never practice text, so nothing about it can fill a Story.
+
 ## The default-branch gotcha
 
 **Still follow the manual steps below.** What changed is *why*, and the
@@ -440,12 +487,12 @@ Tested against a real four-source fixture, not just reasoned about
 (`check_sync_views_cross_source` in
 [tools/verify_harness.py](../tools/verify_harness.py)); now also run
 against a real consumer repo with real content
-(`themorgan/HavrutaBrainstorm`, 2026-09-03) — see the next section for
+(a private consumer repo, 2026-09-03) — see the next section for
 what that run found.
 
 ## Two real bugs this pattern's first real run found — closed 2026-09-03
 
-`themorgan/HavrutaBrainstorm`'s migration (2026-09-03) is this pattern's
+That private consumer repo's migration (2026-09-03) is this pattern's
 first end-to-end run against a real dependent repo with real content, not
 a fixture. It surfaced two real bugs in the tooling itself, both now
 fixed, both worth naming here so the next migration doesn't have to

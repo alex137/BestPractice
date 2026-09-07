@@ -41,6 +41,23 @@ accurate and decay (the successor gets its own successor; the note never
 updates), whereas index rows are touched every time the map is maintained.
 
 ## Story
+No single dated incident was recorded. The rule resolves a genuine tension
+between two other rules, and that tension is what it exists for.
+
+Current-state documents are not supposed to carry revision history, but a
+reader landing on a fresh document that replaced an older one still deserves
+the lineage, and the superseded document's readers deserve a pointer
+forward. Both needs are real; the question is only where the note goes.
+
+Putting it in the documents themselves fails on both ends. The fresh
+document stops opening clean, inheriting framing debt in its first
+paragraph. The superseded one gets edited into a museum label.
+
+**The economics settle it.** A provenance note inside a document starts
+accurate and decays -- the successor gets its own successor, and nothing
+updates the note. An index row is touched every time the map is maintained,
+so it stays true as a side effect of ordinary work. A document is read for
+its content; an index is read for orientation, and lineage is orientation.
 
 ## Install
 **Related.** The current-state rule (git is the history) this completes;

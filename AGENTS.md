@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~312 of 2000 token budget, 6 of 66 practices (6 universal))
+## Resident block (~312 of 2000 token budget, 6 of 67 practices (6 universal))
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is
@@ -137,6 +137,8 @@ When finishing a substantial work-product, before the merge-time capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
 When importing, creating, or declaring a repository that holds practices:
   source-naming — names are fixed by level; say the convention before anyone picks a name
+When landing practices in bulk -- a migration, an import, or a move between sources:
+  catalogue-carries-stories — no active practice sits with an empty ## Story
 When merging a branch:
   capture-gate — capture the follow-on work in the thread that created the need
 When merging a branch that improved a generic practice:
@@ -336,7 +338,7 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   their work was already safely on GitHub, and the honest-looking remedy —
   push again — changes nothing, because the push was never the problem.
   A second trap sits on top of it: `add_repo`'s clone URL is lowercased
-  (`themorgan/havrutabrainstorm`), so GitHub answers with
+  (the owner and repo name lowercased), so GitHub answers with
   `remote: This repository moved`, which reads like the cause and is not.
   Confirm with `git ls-remote origin refs/heads/<branch>` — that talks to
   the server and ignores local refs entirely — then repair the clone rather

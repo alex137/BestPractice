@@ -72,6 +72,26 @@ so *you* can find your own assets — all of them work exactly as well for someo
 else.
 
 ## Story
+No single dated incident was recorded, and the rule is written from the
+shape of the failure rather than from one instance of it.
+
+The shape is what makes it worth a rule. The mechanism gets added under a
+benign framing -- *it needs to report where it is, so we can come back for
+it* -- and inside that framing nothing looks wrong. The design review then
+checks whether the mechanism works, and it does. Nobody is prompted to ask
+what it does for a party who was not in the room, because the requirement
+that motivated it never mentioned one.
+
+So the gap is not carelessness. It is that **the framing of the requirement
+is also the framing of the review**, which is why an ordinary careful pass
+does not catch it and a specific question has to be asked on purpose.
+
+The tell is concrete enough to look for: a mechanism whose whole job is to
+make something discoverable, reachable, or distinguishable, where the thing
+is left alone, is valuable, and the discovery channel is open. Locators,
+published identifiers, default-on telemetry, convenience access paths,
+health endpoints, indexes built so you can find your own assets -- every one
+of them works exactly as well for someone else.
 
 ## Install
 **Related:** [verify-decomposition](verify-decomposition.md)(a) — compute the term whose direction is the point,

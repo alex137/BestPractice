@@ -42,6 +42,20 @@ place, reference it everywhere — and the bottom-of-document note is the local,
 low-friction form for the reader who won't leave the page.
 
 ## Story
+No originating incident was recorded for this rule, and this Story does not
+invent one. What it prevents is a cost that accrues rather than an event
+that happened: in a system where the repo is the memory, the reader arriving
+at a document is usually not its author and has none of the surrounding
+context an acronym silently assumes. One undefined initialism can make a
+paragraph unreadable, and a suite carrying dozens of coined two- and
+three-letter terms ends up navigable only to the people who wrote it, which
+is the exact failure the writing-it-down was meant to prevent.
+
+The two halves answer two different readers. The central glossary is the
+same single-source instinct as `registry-source-of-truth` -- derive an
+expansion once, reference it everywhere -- and the bottom-of-document note
+is the local, low-friction form for the reader who will not leave the
+page.
 
 ## Install
 A writing convention plus one living file (a `GLOSSARY.md` grouped

@@ -40,6 +40,26 @@ which [convention-to-audit](convention-to-audit.md) says a convention needs a lo
 cannot be un-published.
 
 ## Story
+No dated incident was recorded for this rule itself, and the argument is
+made from the conjunction of two properties rather than from a leak.
+
+**The abstraction step is a judgment call performed repeatedly by agents
+under time pressure.** That is precisely the condition `convention-to-audit`
+identifies as the point where a written convention stops being enough and
+has to become a loud, mechanical gate.
+
+**And the consequence is irreversible: public git history cannot be
+un-published.** Most rules in this catalogue guard against something
+expensive to fix. This one guards against something that cannot be fixed at
+all, which is why the requirement is *public-safe at all times* rather than
+public-safe at check-in. A tree that is only scrubbed when somebody
+remembers to check in is a tree that is unscrubbed for most of its life,
+and any push during that window is the failure.
+
+Later evidence bore the design out. Switching a private vocabulary
+blocklist on against a real tree for the first time found live hits in a
+public repo's own tracked files -- exactly what a gate that runs only at
+check-in would have let through.
 
 ## Install
 Blocklist format and gate wiring in [INSTALL.md](../INSTALL.md).

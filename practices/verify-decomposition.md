@@ -68,6 +68,27 @@ nature. *"X is impossible"* becomes the finding when the truth was *"X is
 impossible with these particular settings."*
 
 ## Story
+No dated incident was recorded. The rule names two failure modes, and both
+are written from the same observation: **they are invisible to the checks
+people actually run.**
+
+**(a) A plausible total can hide errors that cancel.** Omit one term,
+over-count another, and the sum lands in exactly the range you expected --
+after which every downstream figure looks sane. Re-running the model does
+not help, because it reproduces its own assumptions faithfully, including
+the wrong ones. Tightening the tolerance on the output does not help either;
+the output was never the problem.
+
+**(b) A negative result is often a parameterisation, not a property.** A
+model answers the question its constants encode. If the levers that would
+relieve a constraint are hard-wired to baseline values, the model can only
+ever report the blocked case -- and prose then promotes one parameterisation
+into a law of nature. *"X is impossible"* becomes the finding when the truth
+was *"X is impossible with these particular settings."*
+
+The tell follows from both: a headline number that survived several passes
+without anyone re-deriving the parts. Trust comes from how a model is built,
+not from whether its answer looks reasonable.
 
 ## Install
 **Related:** [check-source-architecture](check-source-architecture.md) (an option you invented is not a baseline) is the same

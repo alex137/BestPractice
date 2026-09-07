@@ -59,6 +59,27 @@ contract, the vendored code is the reference implementation, and a repo
 that can run it should never be writing its own.
 
 ## Story
+**One day of paying for the same change three times.** The first dependent
+repo maintained forks of the renderer, the lint and the sync gate in
+lockstep through a day of heavy feature work -- every change patched into
+each copy by hand. All three were then collapsed to thin shims over a single
+vendored implementation, with behavior verified identical before and after,
+the renderer's output byte-for-byte, and roughly 1,400 lines of duplicate
+implementation removed.
+
+**The collapse surfaced a latent bug that is the better argument.** The
+exported copy of the sync gate referenced a configuration name nobody had
+ever defined -- it had never been caught because that copy had never
+executed. A fork does not merely cost double edits; it silently accumulates
+code that is wrong in ways nothing can discover, and the stale copy is as
+likely as not to be the one actually running.
+
+The spec-only alternative was rejected on a different ground. A tool's value
+is its accumulated behavioral detail -- the sort keys that survive currency
+suffixes, the filter that survives a column move, the false-positive guards.
+A repo reimplementing from prose gets a tool that differs in a hundred small
+ways and re-learns every lesson. The spec is the contract; the vendored code
+is the reference implementation.
 
 ## Install
 Vendored tool with module-level configuration attributes and

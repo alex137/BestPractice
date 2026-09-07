@@ -21,7 +21,7 @@ Two KINDS, sharing one mechanism:
                tools — see TODO.md item 18 and this repo's own
                engine-plus-host-shims practice ("domain-neutral mechanism
                lives in the vendored tree"). Piloted 2026-09-05 against
-               themorgan/HavrutaBrainstorm — INSTALL.md §1 step 12 and §2
+               a private consumer repo — INSTALL.md §1 step 12 and §2
                step 6 document the consumer-repo procedure this closes.
 
 THE GAP 'source' CLOSED FIRST. tools/precedent_bootstrap_source.py has only
@@ -35,7 +35,7 @@ one, and precedent-team-tms's copy was simply missing outright.
 THE GAP 'consumer' CLOSES. A real consumer's own tools/ needing the same
 treatment was named explicitly as future work when 'source' shipped
 (TODO.md item 18: "not piloted... deliberately not folded into the
-source-repo fix"). themorgan/HavrutaBrainstorm — a real four-source
+source-repo fix"). A private consumer repo — a real four-source
 consumer, not a fixture — had the identical undocumented-hand-copy problem
 'source' closed for practice sets: its top-level tools/ held
 build_views.py, precedent_gate.py, precedent_paths.py, precedent_show.py,
@@ -82,7 +82,7 @@ source set or a consumer repo with a different catalogue entirely.
 `_trim_routing_scope` below keeps only the first and drops the second — the
 same trim a prior, undocumented hand-copy already applied by hand to every
 repo that needed it (precedent-individual, precedent-team-maintainers, and
-HavrutaBrainstorm's own top-level tools/routing_scope.json, all three
+and a private consumer repo's own top-level tools/routing_scope.json, all three
 confirmed byte-identical to this function's output before this tool
 existed, or was extended to the consumer kind); this tool just makes that
 trim mechanical instead of a fact only the session that did it once

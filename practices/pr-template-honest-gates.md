@@ -35,6 +35,25 @@ only paired with an explicit instruction that unchecked boxes are fine — the
 alternative trains exactly the behavior the checklist exists to catch.
 
 ## Story
+No dated incident was recorded, and the rule is unusual in that it is
+mostly a warning about its own mechanism.
+
+**A template with a fixed checklist is worth nothing the moment filling it
+in becomes reflex.** "N/A" typed into every box looks exactly like
+verification happened and means nothing did -- and it looks that way to
+reviewers too, which is what makes it worse than an absent template rather
+than merely equal to one.
+
+So the explicit permission is not politeness; it is the load-bearing half.
+The template earns its place only paired with a stated instruction that an
+unchecked box, or a "not applicable" note, is a normal and expected outcome.
+Without that, the form trains exactly the behavior the checklist exists to
+catch, because a reader who believes every box must be ticked will tick
+every box.
+
+The other half -- write the body from the actual diff -- exists for the same
+reason one level up: a template is a layout to populate from what happened,
+never a set of prompts to answer plausibly.
 
 ## Install
 [templates/pull_request_template.md.template](../templates/pull_request_template.md.template)

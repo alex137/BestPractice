@@ -122,7 +122,7 @@ never tested against the actual mechanism it was meant to fix — every
 verification at the time exercised `tools/precedent_source_bootstrap.py`
 directly, against synthetic fixtures, never inside a real `SessionStart`
 hook on a genuinely fresh Claude Code Web session. A follow-up testing
-session ran that real test, twice, in `HavrutaBrainstorm`, and confirmed
+session ran that real test, twice, in a private consumer repo, and confirmed
 directly: a `SessionStart` hook's execution window and the agent's own
 first turn (and therefore its `add_repo` call) never overlap in time, so
 retrying inside the hook is not a partial mitigation, it is inert — every

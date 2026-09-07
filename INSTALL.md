@@ -582,7 +582,7 @@ deliberate procedure below.
    ```
    python3 ../BestPractice/tools/precedent_vendor_engine.py seed . --kind consumer
    ```
-   (Confirmed the hard way 2026-09-06, refreshing `themorgan/HavrutaBrainstorm`:
+   (Confirmed the hard way 2026-09-06, refreshing a private consumer repo:
    all three commands exited 2 with "No such file or directory", which reads
    like a broken instruction and is really a missing baseline.) With a
    manifest present, `status` and `refresh` below are the whole procedure.

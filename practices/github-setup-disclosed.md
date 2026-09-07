@@ -41,6 +41,24 @@ one click to enable can sit off, silently, until someone happens to look at
 the Actions tab.
 
 ## Story
+**A check that needed one click sat off, silently.** An install turned on a
+hosted-automation workflow and recorded that fact faithfully -- in this
+repo's own technical install log, which is a document a project's
+administrator has no ordinary reason to ever reopen. Nothing pointed them at
+it from the page they actually return to, so the setting stayed unset until
+somebody happened to look at the automation tab.
+
+The failure is not that the fact went unrecorded. It was recorded,
+accurately, in a reasonable place. The failure is that **recording and
+disclosing are different acts with different audiences**, and doing the
+first well makes the second feel done.
+
+That is why the rule names the destination rather than the content: the
+document that project's own people read, not the install log, and with the
+exact detail needed to act -- what it is called, what it does, and any
+manual click required. A disclosure a reader cannot act on without asking a
+follow-up question has the same effect as no disclosure. See also
+[decisions/2026-09-03-setup-getting-started-disclosure-gap.md](../decisions/2026-09-03-setup-getting-started-disclosure-gap.md).
 
 ## Install
 [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md)'s

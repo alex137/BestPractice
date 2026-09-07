@@ -106,6 +106,20 @@ AMENDED_POST_CONVERSION = {
     'doc-references-are-links', 'github-setup-disclosed',
     'lead-with-what-it-is', 'orientation-map', 'pr-template-honest-gates',
     'quick-index', 'reply-links-files', 'section-order-by-frequency',
+    # Added 2026-09-07 by the Story backfill (see CHANGES_TO_TELL_ALEX.md,
+    # "Story backfill across the catalogue"): 30 practices carried an empty
+    # `## Story`, and one -- reply-links-files -- an empty `## Why` as well.
+    # A Story is by definition text BestPractice's frozen original does not
+    # contain, so writing one fails the word-multiset and sentence checks on
+    # every word of it. The exemption covers a real, disclosed edit rather
+    # than a conversion bug, exactly as the citation sweeps above do. Most of
+    # the 30 were already listed here for earlier sweeps; these three were
+    # not.
+    'cite-the-incident', 'no-version-suffix',
+    # Scrubbed the same day: a private repo's name replaced with a general
+    # description, after the leak gate's private vocabulary half was run
+    # against this tree for the first time.
+    'migration-scrubs-vocabulary',
 }
 
 CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'
@@ -3621,6 +3635,20 @@ def check_precedent_check_fires():
                 '## Story\n\n## Install\nNone.\n', encoding='utf-8')
         case('cite-the-incident', _plant_cite)
 
+        # catalogue-carries-stories -- an EXISTING active practice whose
+        # Story is emptied. Deliberately not a new file: cite-the-incident
+        # above already covers the new-practice case, and the whole reason
+        # this check exists is the case that one cannot see -- a gap sitting
+        # in the tree that no commit touches again.
+        def _plant_catalogue_stories(repo):
+            f = repo / 'practices' / 'orientation-map.md'
+            body = f.read_text(encoding='utf-8')
+            start = body.index('## Story')
+            end = body.index('## Install', start)
+            f.write_text(body[:start] + '## Story\n\n' + body[end:],
+                         encoding='utf-8')
+        case('catalogue-carries-stories', _plant_catalogue_stories)
+
         # no-version-suffix
         case('no-version-suffix',
              lambda repo: (repo / 'findings-v2.md').write_text('x\n', encoding='utf-8'))
@@ -6312,8 +6340,8 @@ def _write_fixture_practice(path, slug, applies_to, rule_text):
 
 def check_vendor_engine_consumer_case():
     """TODO.md item 18, tested rather than trusted: tools/precedent_vendor_
-    engine.py's 'consumer' kind (added 2026-09-05, piloted against the real
-    themorgan/HavrutaBrainstorm repo) produces a genuinely working
+    engine.py's 'consumer' kind (added 2026-09-05, piloted against a real
+    private consumer repo) produces a genuinely working
     four-source engine in a consumer repo, the same rigor
     check_bootstrap_source_engine_is_functional() already applies to the
     narrower source-set case -- not just that the right files land in the

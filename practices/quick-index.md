@@ -30,6 +30,21 @@ deliverable?"). Rows are added exactly when a session is observed searching
 for something — the index is built from real misses, not speculation.
 
 ## Story
+No dated incident was recorded, but the rule carries an unusual
+construction constraint that is worth keeping, because it is what
+distinguishes this from the map beside it.
+
+**Rows are added exactly when a session is observed searching for
+something.** The index is built from real misses, not from speculation about
+what someone might want. An index written by imagining likely lookups fills
+up with plausible rows nobody uses, and the real recurring lookups -- which
+are often oddly specific -- never get added.
+
+The division of labour with `orientation-map` is the other half. The map
+orients top-down, answering what this repo is and how it is arranged. The
+quick index answers the specific lookups that recur: where the canonical
+names live, which script builds the deliverable. Those are different
+questions, and collapsing them produces a document that serves neither.
 
 ## Install
 Part of

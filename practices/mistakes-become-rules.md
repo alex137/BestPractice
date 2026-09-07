@@ -54,6 +54,26 @@ changes), and it calibrates proportionality (a guard that would not have
 caught its own origin incident is theater).
 
 ## Story
+No single dated incident is recorded, because the evidence for this rule is
+the aggregate rather than one case: **the root-cause habit is what turned
+one dependent repo's worst misses into its strongest machinery.** Every
+audit that repo runs exists because of one specific, recorded incident.
+
+That gives the rule its own falsifiable test, which is the part worth
+keeping. The audit that would have caught the originating incident is how
+you check whether the root cause was actually found -- a guard that would
+not have caught its own origin incident is theater, however reasonable it
+looks.
+
+The alternative failure is specific too. A repo that only fixes instances
+relives its mistakes with new surface details: the systemic cause stays free
+to fire again, and each recurrence looks novel enough that nobody connects
+it to the last one.
+
+The origin incident is load-bearing twice over, which is why the rule
+insists it be recorded rather than summarised away. It tells a future reader
+what the rule protects against, so the rule can be re-judged when the world
+changes, and it calibrates proportionality.
 
 ## Install
 A habit plus a review question. The habit: end any session in

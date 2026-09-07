@@ -37,12 +37,19 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place — routed by the `merge` gate instead.",
+      "why": "A moment, not a place \u2014 routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
       ],
       "gates_why": "Its occasion IS the merge."
+    },
+    "catalogue-carries-stories": {
+      "globs": [
+        "practices/*.md"
+      ],
+      "why": "Set from the Install text, which names practices/*.md unambiguously: the check reads every practice file's frontmatter status and its ## Story. Deliberately not '**' -- nothing outside practices/ can violate it.",
+      "decided": "2026-09-07"
     },
     "check-source-architecture": {
       "globs": [
@@ -93,7 +100,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `review` gate instead.",
+      "why": "A moment \u2014 routed by the `review` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -122,7 +129,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `reply` gate instead.",
+      "why": "A moment \u2014 routed by the `reply` gate instead.",
       "decided": "follow-up session, 2026-09-03",
       "gates": [
         "reply"
@@ -239,7 +246,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `merge` gate instead.",
+      "why": "A moment \u2014 routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -250,7 +257,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `merge` gate instead.",
+      "why": "A moment \u2014 routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -268,7 +275,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
+      "why": "A moment \u2014 routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -286,7 +293,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `push` gate, and enforced by a turn-end check.",
+      "why": "A moment \u2014 routed by the `push` gate, and enforced by a turn-end check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "push"
@@ -368,7 +375,7 @@
       "globs": [
         "**"
       ],
-      "why": "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
+      "why": "Genuinely unroutable \u2014 see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
       "decided": "phase 4 routing pass"
     },
     "rename-updates-links": {
@@ -433,7 +440,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `merge` gate instead.",
+      "why": "A moment \u2014 routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -475,7 +482,7 @@
       "globs": [
         "TODO.md"
       ],
-      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated.",
+      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself \u2014 the only place the practice's rule is ever violated.",
       "decided": "post-phase-4, converting Alex's practice 53",
       "gates": [
         "merge"
@@ -534,7 +541,7 @@
     ],
     "merge": "merging a branch",
     "review": "reviewing work, or a review finding a defect",
-    "push": "before pushing — the pre-push hook",
-    "reply": "ending a turn and writing the reply — the stop hook"
+    "push": "before pushing \u2014 the pre-push hook",
+    "reply": "ending a turn and writing the reply \u2014 the stop hook"
   }
 }

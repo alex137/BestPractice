@@ -189,8 +189,8 @@ treatment — TODO.md tracked it as open, named explicitly so "the
 source-repo case is solid" was not mistaken for "the consumer case is
 solid too." It no longer is: `precedent_vendor_engine.py`'s `'consumer'`
 kind (same script, same seed/status/refresh/fresh subcommands, a larger
-CONSUMER_ENGINE_FILES list) closes it, piloted against the real
-`themorgan/HavrutaBrainstorm` repo. See
+CONSUMER_ENGINE_FILES list) closes it, piloted against a real private
+consumer repo. See
 [`INSTALL.md`](../INSTALL.md)'s §0 step 1 and its "Keep the vendored engine
 current (consumer repos)" step under §2 for the consumer-repo procedure,
 and `tools/verify_harness.py`'s `check_vendor_engine_consumer_case()` for

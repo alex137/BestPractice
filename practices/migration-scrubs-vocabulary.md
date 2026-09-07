@@ -82,7 +82,7 @@ migration record's own mentions, trim everywhere else), which is exactly
 why it belongs in the migration pattern itself and behind a real check,
 not in a person's memory of to ask about it eventually.
 
-A second, different migration (`themorgan/HavrutaBrainstorm`, 2026-09-03)
+A second, different migration (a private consumer repo, 2026-09-03)
 ran the check for real and found two bugs in the check itself, not in the
 migration: the check's own `ROOT` resolved wrong once vendored at
 `process/upstream/tools/precedent_check.py` (it silently scanned
