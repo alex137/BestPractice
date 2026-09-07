@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session that added retirement-deletes-files, adding the reply-links-files entry below -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session that measured the merge-back's revert trap, adding the closing section on it -->
 <!--record-doc--> This file quotes practice Rules verbatim to say what changed in them, so it names the apparatus doc_lint.py check 6 keeps out of deliverables. It is a record document, not a deliverable.
 
 # Changes to tell Alex
@@ -18,6 +18,11 @@ branch diverges — so the phase-7 merge-back conversation starts from a list
 instead of a diff. A practice that is only cross-referenced (a pointer added
 to its Install section, nothing about its Rule or enforcement changed) is
 noted here too, briefly, for completeness, but is not a behavior change.
+
+**One section at the end is deliberately not that.**
+[The merge-back itself has a mechanical trap in it](#not-a-practice-change--the-merge-back-itself-has-a-trap-in-it),
+and this file is where the phase-7 conversation starts, so it is recorded
+here rather than left to be discovered during the merge.
 
 Nothing here is unilateral: everything below is either a rewrite that keeps
 the original decision rule intact (marking a superseded *mechanism*, not a
@@ -609,3 +614,33 @@ substance: [practices/todo-is-a-handoff.md](practices/todo-is-a-handoff.md).
 Noted here because it's the kind of drift this file exists to catch — `main`
 had moved 3 commits past the fork point (this practice plus two unrelated
 tooling fixes) before a session checked.
+
+## Not a practice change — the merge-back itself has a trap in it
+
+Everything above is a change to what one of your practices means. This is
+not: it is the thing most likely to go wrong in the phase-7 merge, recorded
+here because this file is what that conversation opens with.
+
+**`main` still carries `97ed078`, the revert of the accidentally-merged
+PR #89** (2026-09-03 — the incident behind
+[local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)).
+That revert undid the *files*; it did not undo the *history*. `main`'s log
+still contains this branch's commits up to `1ff6a7e`, so git treats them as
+already merged. A plain `git merge precedent-beta-v01` into `main` therefore
+replays only what happened here after 2026-09-03 and honours `main`'s
+deletion of everything older: **125 modify/delete conflicts, plus 507 files
+that are absent from the result with no conflict raised at all** — measured
+2026-09-07 against `e8341e2`. The silent half is the dangerous one: someone
+who works through all 125 conflicts by hand has no signal that the other 507
+were ever in question.
+
+**The merge to run instead**, measured the same day at **0 conflicts and a
+tree byte-identical to this branch**: branch off `main`, `git revert
+97ed078`, then `git merge precedent-beta-v01`, and open *that branch* as the
+pull request. Both commits arrive in one merge, so `main` flips from
+no-Precedent to all-of-Precedent exactly once — when you approve it, never
+before.
+
+The file lists, the reason an earlier rehearsal concluded the opposite, and
+the same hazard in the reverse direction are in
+[TODO.md's `retire-merge-target-practice` item](TODO.md#retire-merge-target-practice).

@@ -194,17 +194,62 @@ which is the failure this repointing exists to end — write
       seen it: of everything `philosophy/` and its repo-local practices
       added, only [tools/routing_scope.json](tools/routing_scope.json)
       conflicted.
-    - **The revert trap was checked and does not fire — but check it
-      again if this ever recurs.** `main` merged PR #89 and then reverted
-      it; `precedent-beta-v01` merged *the same branch* as PR #91. That
-      makes those commits ancestors of **both** branches with `main`
-      holding the later revert, which is the textbook setup for content
-      silently failing to come back at merge time. It does not happen
-      here: [tools/routing_audit.py](tools/routing_audit.py) and
-      [practices/routing-audit.md](practices/routing-audit.md) are both
-      present after a simulated merge, because beta's later commits
-      touched those paths again and re-established them. A rehearsal is
-      the only way to know that, since the failure would be silent.
+    - **The revert trap DOES fire. This bullet said the opposite until
+      2026-09-07, because the rehearsal behind it sampled the one class of
+      file that survives.** `main` merged PR #89 and then reverted it
+      (`97ed078`); `precedent-beta-v01` merged *the same branch* as PR #91.
+      Those commits are therefore ancestors of **both** branches, with
+      `main` holding the later revert — the textbook setup for content
+      silently failing to come back at merge time. The consequence is that
+      `1ff6a7e` is the merge base, so a merge replays only what this branch
+      did after 2026-09-03 and takes `main`'s deletion for everything
+      older. **Two classes of file come out of that, and only one is
+      visible.** A file this branch touched again since the merge base
+      conflicts (`modify/delete`) and stops the merge — that is the ≈125
+      above. A file it has *not* touched since presents no change from this
+      side at all, so git has no disagreement to report and applies the
+      deletion **silently**. Re-measured 2026-09-07 against `e8341e2`:
+      **507 of this branch's 893 files are absent from the merge result
+      with no conflict raised** — 496 under `evals/`, plus
+      [templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template),
+      [templates/hooks/pre-push](templates/hooks/pre-push),
+      [tools/section_split.json](tools/section_split.json),
+      [tools/practice_metadata.json](tools/practice_metadata.json),
+      [decisions/README.md](decisions/README.md),
+      [decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md),
+      [.github/ISSUE_TEMPLATE/practice-candidate.md](.github/ISSUE_TEMPLATE/practice-candidate.md)
+      and the four files under
+      [examples/practice-set/](examples/practice-set/). **The miss is worth
+      understanding, because the next rehearsal will be tempted to repeat
+      it**: the earlier pass checked
+      [tools/routing_audit.py](tools/routing_audit.py) and
+      [practices/routing-audit.md](practices/routing-audit.md), which this
+      branch touched 3 and 4 times since the merge base. They are in the
+      surviving class by construction. Sampling files a rehearsal has
+      recently worked on selects for exactly the files that cannot fail —
+      the question is only answered by diffing the whole merge result
+      against this branch's tree.
+    - **The merge to run instead, measured the same day at zero
+      conflicts.** Branch off `main`, revert the revert, then merge:
+      `git checkout -b phase-7-merge main`, `git revert 97ed078`,
+      `git merge precedent-beta-v01`. That came back **0 conflicts and a
+      tree byte-identical to `e8341e2`** — an empty `git diff` against this
+      branch. Opening *that branch* as the pull request is what keeps the
+      un-revert off `main` until Alex approves: both commits arrive
+      together in one merge, so `main` flips from no-Precedent to
+      all-of-Precedent exactly once, at the moment he says yes. A straight
+      `git merge precedent-beta-v01` onto `main` is the move to avoid.
+    - **The same trap points the other way, and that half is live now
+      rather than at phase 7.** Merging `main` into `precedent-beta-v01` —
+      an ordinary-looking "sync the branch with main", which any session
+      might reach for — raises the same 125 conflicts and silently deletes
+      the same 507 files *from this branch*. Measured 2026-09-07:
+      `evals/` went from 623 files to 127, and
+      [decisions/README.md](decisions/README.md) vanished, with no conflict
+      and no message for either. Nothing on this branch needs that merge
+      before phase 7; `main`'s only three commits since the merge base are
+      the bad merge, the revert, and the revert's own pull request merge,
+      so there is nothing there to want.
 14. <a id="nontechnical-contributor-access"></a>**Run the non-technical-contributor access plan for real.**
     [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
     is drafted but not executed — it doubles as item 9's neighbor,
