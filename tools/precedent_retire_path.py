@@ -45,6 +45,14 @@ WHAT IT CHECKS, AND WHY EACH ONE BLOCKS.
                  file forever -- and uncommitted content is the one thing
                  deletion destroys outright.
 
+A reference match is a plain substring, deliberately, so retiring
+`docs.yml` also blocks on a line naming `bestpractice-docs.yml`. That is a
+false positive in the safe direction, and tightening it to a word boundary
+would trade a look at one printed line for the chance of clearing a path
+something really does point at. The report prints the matching line for
+exactly this reason: dismissing a wrong hit costs a second, and a wrong
+clear costs a cut dependency.
+
 WHAT IT IS BLIND TO. A reference built by string concatenation at runtime,
 a path named only in something this repo does not track (a GitHub branch
 protection rule, a webhook, another repo's config), and a file that nothing
@@ -96,17 +104,25 @@ def _git(*args, cwd=None):
                           capture_output=True, text=True)
 
 
-def _repo_root():
-    r = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        sys.exit('precedent_retire_path: not inside a git repository -- this '
-                 'tool audits a tracked tree, so there is nothing to run it '
-                 'against here')
-    return pathlib.Path(r.stdout.strip())
+# Resolved lazily, never at import. Doing it at import made `--help` exit 1
+# from any directory that is not a git repository -- the harness's own
+# "every tool answers --help with exit 0" case caught it immediately, and it
+# is the same shape as the failures this tool is written to prevent: a
+# dependency checked at the wrong moment, reported as the wrong thing.
+ROOT = None
 
 
-ROOT = _repo_root()
+def _require_root():
+    global ROOT
+    if ROOT is None:
+        r = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            sys.exit('precedent_retire_path: not inside a git repository -- '
+                     'this tool audits a tracked tree, so there is nothing '
+                     'to run it against here')
+        ROOT = pathlib.Path(r.stdout.strip())
+    return ROOT
 
 
 def load_registry():
@@ -328,6 +344,7 @@ def main(argv=None):
                     help='print what this repo has already retired')
     args = ap.parse_args(argv)
 
+    _require_root()
     cfg = load_registry()
     if args.list:
         if not cfg['retired']:
