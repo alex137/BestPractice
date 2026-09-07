@@ -828,3 +828,36 @@ which is the failure this repointing exists to end — write
   shape in full so nobody re-derives it. **Blocked on:** nothing mechanical,
   and that is the point — reopening this means someone arguing the imposition
   is worth it for every adopter, which is a decision rather than a task.
+
+41. <a id="gates-absent-from-main"></a>**Decide what guards `main` before the beta branch merges back.**
+    `main` carries only
+    [.github/workflows/docs.yml](.github/workflows/docs.yml). Neither the
+    deep check nor the leak gate exists there: both were added on
+    `precedent-beta-v01` (leak gate 2026-08-31, deep check 2026-09-03) and
+    `main` has never had either. Verified 2026-09-07 by listing
+    `.github/workflows/` on `origin/main`, which returns that one file, and
+    the branches have diverged — `main` is not an ancestor of the beta
+    branch and sits 269 commits behind it. **This is not urgent and the
+    entry says why:** nothing has pushed to `main` since 2026-09-03, and its
+    tree passes the structural leak gate today — 59 units, exit 0, checked
+    2026-09-07 by running this branch's
+    [tools/leak_gate.py](tools/leak_gate.py) from inside a worktree of
+    `origin/main` (from *inside*: `ROOT` there resolves through `__file__`,
+    so running the script by absolute path from elsewhere silently scans
+    this checkout instead and reports a confident, wrong pass — 799 units,
+    the beta tree's own figure). The private vocabulary half did not run, as
+    always in an environment without the blocklist.
+    **What actually has to be decided**, rather than done: whether `main`
+    gets these gates *now*, or whether it inherits them at the merge-back
+    and the gap is simply accepted until then. The argument for now is that
+    `main` is the default branch — the one a visitor lands on and the one
+    every dependent repo's installer reads — and the leak gate's own premise
+    is that on a public repo a push is a publication, with no grace period;
+    an unguarded default branch reads backwards against that. The argument
+    for waiting is that the merge-back closes it for free and no other path
+    writes to `main` today. **Blocked on:** Morgan's call, which is why this
+    is filed rather than fixed. If the answer is "now", it is a small PR to
+    `main` carrying the two workflow files as they stand on this branch,
+    `pull_request:` already dropped from both (ff13345, d11394c). If the
+    answer is "at merge-back", nothing needs doing and this item closes when
+    the beta branch lands.

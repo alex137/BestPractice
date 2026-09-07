@@ -38,8 +38,11 @@ on:
   # pushes do not fire `push` in this repo, so pull_request would be the
   # only trigger that could run this check on it, and such a PR would go
   # unchecked. Every PR to date (#83-#123, checked 2026-09-07) came from
-  # a branch inside this repo -- but AGENTS.md expects check-in PRs from
-  # dependent repos, so that may not stay true.
+  # a branch inside this repo, and the documented check-in flow keeps it
+  # that way: INSTALL.md sec.4 has a dependent repo push its branch HERE
+  # from a dual-repo session, because a single-repo session cannot write to
+  # this repo at all -- it does not fork. So the fork case is an outside
+  # contributor on a public repo, not the check-in path this repo expects.
   push:
   workflow_dispatch:
 

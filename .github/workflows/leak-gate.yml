@@ -8,8 +8,29 @@ name: Leak gate
 # just main: on this project the branch IS the published artifact.
 
 on:
+  # push only, deliberately — and this file is where the pattern started.
+  # deep-check.yml copied the every-branch scope above on 2026-09-03 and the
+  # unexamined `pull_request:` line came with it, so both workflows fired
+  # TWICE for every push to a branch with an open PR: same SHA, seconds
+  # apart. Four such pairs here on 2026-09-06 — runs #422/#423, #426/#427,
+  # #430/#431, #436/#437 — every one agreeing, because the push run tests
+  # the branch tip and the pull_request run tests head-merged-into-base, and
+  # those are the same tree whenever the branch is current with its base.
+  #
+  # The scope reasoning above is untouched. This still runs on every branch,
+  # server-side, which is the part `git push --no-verify` cannot bypass.
+  #
+  # PUT `pull_request:` BACK IF A PR EVER ARRIVES FROM A FORK — and here that
+  # matters more than it does for the deep check. A fork's pushes do not fire
+  # `push` in this repo, so a forked PR would first be scanned by the merge
+  # commit's own run, which is to say AFTER it lands; and this gate exists
+  # precisely because for a leak there is no grace period and nothing to
+  # force-push away. A failed deep check that lands is fixable forward; a leak
+  # that lands is published. What stands in for it meanwhile is human, not
+  # mechanical: INSTALL.md sec.4's reviewer and AGENTS.md's second scrub line.
+  # Every PR to date (#83-#123, checked 2026-09-07) came from a branch inside
+  # this repo.
   push:
-  pull_request:
   workflow_dispatch:
 
 permissions:
