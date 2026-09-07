@@ -90,10 +90,12 @@ Before calling work done, answer all three out loud in the reply:
 
 Follow a vendored writing-style ruleset — write like a human, not an
 LLM — which governs everything written in WorkingWithAI, chat replies
-included. That ruleset lives in a private repository and is named here
-by role only, deliberately: this is a public repository, and naming it
-would disclose its existence and location. Still *Trial*: WorkingWithAI
-is the first repo applying it beyond the app it was written for.
+included ([AGENTS.md](https://github.com/themorgan/WorkingWithAI/blob/main/AGENTS.md)'s
+"Voice" section). That ruleset lives in a private repository and is named
+here by role only, deliberately: this is a public repository, and naming
+it — or linking the vendored copy — would disclose its existence and
+location. Still *Trial*: WorkingWithAI is the first repo applying it
+beyond the app it was written for.
 
 <a id="dark-process-self-audit"></a>
 

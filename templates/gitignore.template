@@ -20,3 +20,10 @@ __pycache__/
 # it got the channel without the guard (found 2026-09-07, in a real public
 # consumer).
 .precedent/
+
+# Per-machine Claude Code settings. commit-identity.sh derives an `env.TZ`
+# into this file from whoever's identity.json resolved at session start, so a
+# person's declared timezone reaches the whole session instead of having to
+# be retyped on every commit. It is one contributor's environment, not the
+# repository's: .claude/settings.json is the tracked, shared one.
+.claude/settings.local.json

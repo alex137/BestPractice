@@ -208,6 +208,29 @@ it applies.
      `identity.json`, is enforced — because only then is a mismatch evidence
      of anything. Change the default to your own zone if you like; leaving it
      costs nothing.
+
+     **A declared zone configures itself, from the second session on.** A
+     hook cannot export `TZ` into the shells a session runs later, so for a
+     while the enforcement above was a refusal plus a remedy line
+     (`TZ="…" git commit …`) that had to be retyped on every single commit.
+     Since 2026-09-07 `commit-identity.sh` instead **derives** the resolved
+     zone into `.claude/settings.local.json`'s `env` block — the per-machine
+     settings file, which the harness reads for the whole session. Nothing to
+     configure: it happens at session start wherever an `identity.json`
+     declares a zone, it is rewritten whenever the declaration changes
+     ([registry-source-of-truth](practices/registry-source-of-truth.md) — the
+     `identity.json` is the declaration, this file is a derived copy), and a
+     *guessed* zone is never written, because propagating a guess would
+     quietly enforce something nobody said.
+
+     Two consequences worth knowing. It applies **from the next session on**,
+     because environment is read before hooks run — so the session that
+     installs it still sees the refusal once. And
+     `.claude/settings.local.json` must be gitignored: it is one
+     contributor's environment, not the repository's, and committing it
+     pushes that person's timezone onto everyone.
+     [templates/gitignore.template](templates/gitignore.template) carries the
+     line; the hook warns if your repo does not.
    - `tools/doc_lint.py` → run it from `process/upstream/tools/` in place,
      or copy to the repo's tools dir if it needs local adaptation.
    - `tools/doc_sync.py` (practice 19) and `tools/model_audit.py`

@@ -1,3 +1,14 @@
+---
+title:         Phase 3 Brief — Split the Sources
+kind:          brief
+status:        closed
+opened:        2026-08-31
+closed:        2026-09-01
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What phase 3 was handed — splitting the one practice set into universal, team and individual sources — and which of its items a session working inside Precedent could not do.
+---
 <!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session -->
 
 # Phase 3 Brief — Split the Sources

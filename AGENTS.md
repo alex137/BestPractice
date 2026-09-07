@@ -640,7 +640,8 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   **NO LONGER TRUE as written, 2026-09-07.** A session that day held
   `alex137/bestpractice` and five `themorgan/*` repositories at once —
   including all three private sets, worked in and pushed to — and `add_repo`
-  accepted a sixth (`themorgan/havrutabrainstorm`) mid-session. Mixed owners
+  accepted a sixth (a private consumer repo under the same owner)
+  mid-session. Mixed owners
   in one session is precisely what this entry says is refused. What has NOT
   been retested is a *fresh* session rooted here adding a `themorgan/*` repo
   as its first cross-owner add, so the constraint may have been lifted or may
@@ -701,7 +702,15 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   `python3 -c "import json,pathlib;print(json.load(open(pathlib.Path('~/.config/precedent/config.json').expanduser()))['individual']['path'])"`
   against where you are actually working, before concluding a tool is
   broken — and `git -C <that path> rev-list --count HEAD..origin/main` before
-  trusting anything it produced. **Resolved for this machine 2026-09-07**
+  trusting anything it produced. **The rule that resolves it, 2026-09-07:
+  the config-named clone is `git pull --ff-only`ed from origin at every
+  session start, so it can only ever be BEHIND — an attached sibling clone
+  beside the repo you are working in is what a session actually edits and
+  pushes from, and is the better evidence of what the source says.**
+  [tools/verify_harness.py](tools/verify_harness.py)'s
+  `check_commit_identity_copies_are_identical` encodes exactly that
+  preference; its first run reported drift against an uncommitted edit three
+  directories away, which is the trap in miniature. **Resolved for this machine 2026-09-07**
   by repointing the config at `/home/user/precedent-individual`, the clone
   the session actually works in, with the reason recorded inline in the
   config itself. The stale `/root/` clone is left on disk rather than
