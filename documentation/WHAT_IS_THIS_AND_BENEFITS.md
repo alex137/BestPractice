@@ -21,7 +21,7 @@ philosophy to work, in five groups.
 
 ## Human Collaboration First
 
-**Several people work on one thing at the same time**, and the tool is
+Several people work on one thing at the same time, and the tool is
 built around that rather than around one person and a chatbot.
 
 ### Designed for Multi-Person Collaboration to Shape the Output
@@ -56,7 +56,7 @@ silently picking a winner.
 
 ## Co-Creating With Your Assistant
 
-**Every change is worked out with an assistant that argues back** — and
+Every change is worked out with an assistant that argues back — and
 nothing lands until a person says so.
 
 ### You Work Through Your Agents
@@ -89,7 +89,7 @@ you would rather run it on your own machine, it still works that way too
 
 ## Automatic Protocols
 
-**How your team works gets written down as you work** — and then applied to
+How your team works gets written down as you work — and then applied to
 every conversation after it, without anyone maintaining a rulebook by hand.
 
 ### Codifies Key Universal Best Practices on Effective Work
@@ -128,7 +128,7 @@ feature offers none of that.
 
 ## Invisible Memory
 
-**The project keeps its own record as it goes**, so nothing that matters
+The project keeps its own record as it goes, so nothing that matters
 depends on anyone remembering it.
 
 ### GitHub Becomes Your Memory: Documents, Decisions, and The Why
@@ -157,8 +157,8 @@ permanent fix.
 
 ## Open Source and Open Documents
 
-**Nothing here is a format you can't read or a service that can take your
-work away.**
+Nothing here is a format you can't read or a service that can take your
+work away.
 
 ### Open Source, on GitHub — No Vendor Lock-In
 
