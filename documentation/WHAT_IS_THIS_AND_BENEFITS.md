@@ -17,7 +17,7 @@ This grew out of a broader philosophy about how people and AI should work
 together, developed in
 **[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. What
 follows are the practical things Precedent does that put that
-philosophy to work, in four groups.
+philosophy to work, in five groups.
 
 ## Human Collaboration First
 
@@ -87,10 +87,10 @@ anywhere at all** — and there is nothing to install on your own computer. If
 you would rather run it on your own machine, it still works that way too
 (*as of 2026-09*).
 
-## Automatic Protocols and Invisible Memory
+## Automatic Protocols
 
-**How your team works gets written down as you work**, and the project keeps
-its own record — without anyone maintaining either by hand.
+**How your team works gets written down as you work** — and then applied to
+every conversation after it, without anyone maintaining a rulebook by hand.
 
 ### Codifies Key Universal Best Practices on Effective Work
 
@@ -112,6 +112,24 @@ habit on the spot or a teammate signing off on a shared one.
 chat thread can only promise to follow a convention; a project set up this way
 can check it, every time, and stop the change that breaks it — so keeping to
 your own rules doesn't depend on anybody staying vigilant.
+
+### Every Decision Comes With Its Reasoning Attached
+
+**Not just what was decided, but why** — and a link back to the exact
+conversation or issue that produced it. Months later, nobody has to guess
+why a rule exists or dig through chat logs to find out.
+
+### Version Control and an Audit Trail
+
+**Every change is recorded: who made it, when, what changed, and — because the
+practices here require it — why.** Anything can be undone, and any two
+versions of anything can be compared side by side. An assistant's memory
+feature offers none of that.
+
+## Invisible Memory
+
+**The project keeps its own record as it goes**, so nothing that matters
+depends on anyone remembering it.
 
 ### GitHub Becomes Your Memory: Documents, Decisions, and The Why
 
@@ -136,19 +154,6 @@ by editing files. Nothing load-bearing lives in a hidden memory store or
 depends on a lucky recollection from an old conversation. If sessions keep
 missing something, you add a row to the map's quick index — a one-line,
 permanent fix.
-
-### Every Decision Comes With Its Reasoning Attached
-
-**Not just what was decided, but why** — and a link back to the exact
-conversation or issue that produced it. Months later, nobody has to guess
-why a rule exists or dig through chat logs to find out.
-
-### Version Control and an Audit Trail
-
-**Every change is recorded: who made it, when, what changed, and — because the
-practices here require it — why.** Anything can be undone, and any two
-versions of anything can be compared side by side. An assistant's memory
-feature offers none of that.
 
 ## Open Source and Open Documents
 
