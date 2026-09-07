@@ -1,0 +1,1 @@
+{"slugs": ["merge-authorization-keyword"], "reasoning": "This change implements exactly the standing-merge-keyword mechanism the practice describes (a fixed word in a PR comment authorizing merge without asking again), so its Rule governs the implementation details like standalone-detection and GLOSSARY.md documentation."}

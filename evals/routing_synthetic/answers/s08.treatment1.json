@@ -1,0 +1,1 @@
+{"slugs": ["name-both-sides-of-ledger"], "reasoning": "release_on_ship books one side of a transfer (crediting available) while the corresponding debit (decrementing pending) happens in a different file's function entirely, so the two sides of this pending->available transfer should be named and checked together rather than trusted to stay in sync across files."}

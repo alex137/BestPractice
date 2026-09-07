@@ -1,0 +1,85 @@
+{
+  "note": "Eight synthetic (not real-commit) tasks in a fictional small repo ('Lantern', a note-taking CLI). Deliberately targeted, not sampled: each is written to exercise one practice that is reachable ONLY through the occasion index's prose (no path glob), which spec/ATTENTION_CEILING.md names as the loader's actual weak point (34 of 46 on-demand practices). This is a stress test of the occasion-routing channel specifically, not a representative miss-rate estimate -- see PREDICTION.md for how to read the result and its limits.",
+  "cases": [
+    {
+      "id": "s01",
+      "target_occasion": "quoting or compressing someone else's figures",
+      "target_slug": "quote-discipline",
+      "task": "Update PERFORMANCE.md to summarize a vendor's benchmark report for the release notes. The report says: 'median latency dropped by approximately 30%, measured under our standard synthetic load profile; results vary by workload.' Write one sentence citing that.",
+      "files": [
+        "PERFORMANCE.md"
+      ],
+      "diff": "--- a/PERFORMANCE.md\n+++ b/PERFORMANCE.md\n@@ -3,3 +3,5 @@\n ## Query latency\n \n-(no vendor comparison yet)\n+The vendor's own benchmark shows a 30% latency drop."
+    },
+    {
+      "id": "s02",
+      "target_occasion": "a document replaces or is replaced by an earlier one",
+      "target_slug": "index-remembers-past",
+      "task": "Write ARCHITECTURE_V2.md describing the new plugin system, which replaces the old ARCHITECTURE.md design (monolithic command dispatch).",
+      "files": [
+        "ARCHITECTURE_V2.md"
+      ],
+      "diff": "--- /dev/null\n+++ b/ARCHITECTURE_V2.md\n@@ -0,0 +1,12 @@\n+# Architecture (v2): the plugin system\n+\n+Commands are now discovered from a plugins/ directory at startup instead\n+of being registered in one dispatch table. Each plugin exports a single\n+`register(cli)` function.\n+\n+## Why\n+\n+The old dispatch table (see ARCHITECTURE.md) required editing a shared\n+file for every new command, which was the main source of merge conflicts\n+in the last quarter.\n+\n+(ARCHITECTURE.md is left in the tree, unedited, describing the old design.)"
+    },
+    {
+      "id": "s03",
+      "target_occasion": "a review finds a defect",
+      "target_slug": "mistakes-become-rules",
+      "task": "A code review just found a bug: sync.py's retry loop has no backoff, so a flaky network call hammers the server up to 50 times a second. Fix it.",
+      "files": [
+        "sync.py"
+      ],
+      "diff": "--- a/sync.py\n+++ b/sync.py\n@@ -14,8 +14,11 @@ def sync_once(client):\n def sync_forever(client):\n     while True:\n         try:\n             sync_once(client)\n+            backoff = 1\n         except NetworkError:\n-            continue\n+            time.sleep(min(backoff, 30))\n+            backoff *= 2\n+            continue\n         time.sleep(POLL_INTERVAL)"
+    },
+    {
+      "id": "s04",
+      "target_occasion": "the user gives a standing merge instruction",
+      "target_slug": "merge-authorization-keyword",
+      "task": "The project owner just told you in chat: \"From now on, whenever I say the word 'ship-it' in a PR comment, merge it without asking me again.\" Wire that into bot/merge_handler.py.",
+      "files": [
+        "bot/merge_handler.py"
+      ],
+      "diff": "--- a/bot/merge_handler.py\n+++ b/bot/merge_handler.py\n@@ -20,6 +20,10 @@ def handle_comment(pr, comment):\n     if comment.body.strip().lower() == 'ship-it':\n+        merge_pr(pr)\n+        return\n     # existing review-comment handling below\n     ..."
+    },
+    {
+      "id": "s05",
+      "target_occasion": "building a permutation or configuration-sweep table",
+      "target_slug": "permutation-frontier-column",
+      "task": "Document which combinations of {cache: on/off} x {compression: gzip/none/brotli} are actually supported, in COMPAT.md, for the release notes.",
+      "files": [
+        "COMPAT.md"
+      ],
+      "diff": "--- /dev/null\n+++ b/COMPAT.md\n@@ -0,0 +1,10 @@\n+# Cache / compression compatibility\n+\n+| cache | compression | supported |\n+|---|---|---|\n+| on | gzip | yes |\n+| on | brotli | yes |\n+| on | none | yes |\n+| off | gzip | yes |\n+| off | brotli | no (needs cache warm) |\n+| off | none | yes |"
+    },
+    {
+      "id": "s06",
+      "target_occasion": "comparing an option against a baseline",
+      "target_slug": "check-source-architecture",
+      "task": "Write DECISION.md comparing \"build our own job queue\" against \"use Redis\", with a cost table, for the infra review.",
+      "files": [
+        "DECISION.md"
+      ],
+      "diff": "--- /dev/null\n+++ b/DECISION.md\n@@ -0,0 +1,14 @@\n+# Job queue: build vs. Redis\n+\n+| | build our own | Redis |\n+|---|---|---|\n+| eng-months to ship | 2 | 0 (already deployed for caching) |\n+| ongoing ops cost | ~$0 (in-process) | current Redis instance, no change |\n+| feature completeness | matches our exact needs | general-purpose, some unused features |\n+\n+Recommendation: build our own. Lower ops cost, no new dependency."
+    },
+    {
+      "id": "s07",
+      "target_occasion": "naming a new file",
+      "target_slug": "no-version-suffix",
+      "task": "The existing export.py doesn't handle CSV output. Add a second version of the export script that does.",
+      "files": [
+        "export_v2.py"
+      ],
+      "diff": "--- /dev/null\n+++ b/export_v2.py\n@@ -0,0 +1,9 @@\n+#!/usr/bin/env python3\n+\"\"\"export_v2.py -- like export.py, but with CSV output.\"\"\"\n+import csv, json, sys\n+\n+def export(notes, fmt='json'):\n+    if fmt == 'csv':\n+        ...\n+    else:\n+        return json.dumps(notes)"
+    },
+    {
+      "id": "s08",
+      "target_occasion": "a computation books a transfer between two parties",
+      "target_slug": "name-both-sides-of-ledger",
+      "task": "Add a function that moves loyalty points from a user's pending balance to their available balance when an order ships.",
+      "files": [
+        "loyalty.py"
+      ],
+      "diff": "--- a/loyalty.py\n+++ b/loyalty.py\n@@ -30,3 +30,9 @@ class Account:\n     def add_pending(self, points):\n         self.pending += points\n+\n+    def release_on_ship(self, points):\n+        self.available += points\n+        # pending balance is decremented by the caller when the order\n+        # record is closed, in orders.py::mark_shipped()"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"slugs": ["mistakes-become-rules"], "reasoning": "A code review caught a real bug (unbounded retry hammering the server up to 50x/sec) and the fix is landing now, so per the Rule the instance-fix is only half the job -- the systemic cause (no backoff strategy) should be root-caused and the prevention encoded, e.g. as a lint/rule about retry loops needing backoff."}

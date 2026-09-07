@@ -1,0 +1,1 @@
+{"slugs": ["name-both-sides-of-ledger"], "reasoning": "release_on_ship books a transfer of points from pending to available, but only credits available here while the debit to pending happens separately in orders.py::mark_shipped() with no inventory check that the two stay in sync -- exactly the split-ledger risk this rule targets."}

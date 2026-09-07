@@ -1,0 +1,1 @@
+{"slugs": ["merge-authorization-keyword"], "reasoning": "The owner gave a standing merge instruction tied to one fixed word ('ship-it') in chat, which is exactly the occasion merge-authorization-keyword covers -- document the word precisely and trust only the intended authorization channel, not just any PR comment matching it."}

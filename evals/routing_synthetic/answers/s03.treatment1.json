@@ -1,0 +1,1 @@
+{"slugs": ["mistakes-become-rules"], "reasoning": "The task is explicitly a code review finding a defect (missing backoff causing request hammering) that is being fixed, which is exactly the 'When a review finds a defect' occasion; no other listed occasion (ledgers, documents, generated artifacts, conventions, merges, etc.) matches a small in-place bug fix to a retry loop."}
