@@ -1561,20 +1561,22 @@ which is the failure this repointing exists to end — write
   look for dead paths by hand, which is where a judgment a script cannot
   make already belongs.
 
-- <a id="build-views-stdout-count"></a>**`build_views.py`'s stdout line reports a different practice count than
-  the block it just wrote.** Noticed 2026-09-07 merging
+- <a id="build-views-stdout-count"></a>**Done 2026-09-07 — `build_views.py`'s summary line reported a different
+  practice count than the block it had just written.** Found merging
   [precedent-beta-v01](https://github.com/alex137/BestPractice/tree/precedent-beta-v01)
   into a feature branch: the regenerated `AGENTS.md` header read *7 of 72
-  practices* while the same run printed *resident 7/69* to stdout. 72 is
-  correct (69 universal, 3 repo-local); 69 is
-  [build_views.py](tools/build_views.py)'s `len(practices)` at its final
-  `print`, which is `load_practices(practices/)` — the universal directory
-  only — while the block's own figure comes from the multi-source resolve.
-  The **committed artifact is right and stable** (two consecutive runs are
-  byte-identical), so nothing downstream is wrong; the line a session reads
-  to confirm the run is what disagrees with it, which is the worse half to
-  have wrong. Not fixed here because it is unrelated to the change that
-  found it and sits in code merged the same day — a drive-by edit to
-  someone else's just-landed work. **Blocked on:** nothing; it is a
-  one-line fix for whoever touches that function next, worth doing with
-  the regeneration check watching.
+  practices* while the same run printed *resident 7/69* to stdout. The
+  committed artifact was the correct half; the line a session reads to
+  confirm the run was the wrong one, which is the worse half to have wrong.
+
+  The cause was a **second** `build_loader_block()` call at the end of
+  `main()`, given the single-source catalogue where the block itself had
+  been built from the multi-source resolve — so the token count and
+  resident count were re-derived from the wrong list too, and happened to
+  agree by coincidence. Fixed by removing the second computation rather
+  than making the two agree:
+  [build_views.py](tools/build_views.py)'s `render_agents_md()` now returns
+  its own figures alongside the text, and `main()` prints those. A harness
+  case runs a real write against a copy of the tree and compares all three
+  printed figures against the `AGENTS.md` header it produced; reverting the
+  fix makes it fail with `printed (7, 70, 377), wrote (7, 73, 377)`.

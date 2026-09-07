@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 71 practice files (7 resident, 64 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 72 practice files (8 resident, 64 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -62,7 +62,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state that multiple documents need to agree on |
 | [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving, or deleting a file other files may link to |
-| [reply-links-files](practices/reply-links-files.md) | resident | ending a reply that created or modified files |
+| [reply-links-files](practices/reply-links-files.md) | resident | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [retirement-deletes-files](practices/retirement-deletes-files.md) | on-demand | retiring a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether the practices that should have fired for recent work actually fired |
@@ -81,6 +81,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
 | [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
+| [write-like-a-human](practices/write-like-a-human.md) | resident | writing anything a person will read -- a document, a reply, a commit message |
 
 ## The engine
 

@@ -115,5 +115,5 @@ asks for it by name.
   only where the platform requires a human (authorization screens,
   restricted settings, merges you cannot perform).
 - Every reply that created or modified files ends with links to those
-  files (practice 12 in
+  files, and names any file it deleted and why (practice 12 in
   [process/upstream/PRACTICES.md](PRACTICES.md)).
