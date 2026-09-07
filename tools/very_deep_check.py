@@ -50,6 +50,15 @@ this offline scan has no GitHub access, so it can prove "merged" but never
 "who opened this" or "which PR", the same limits practice: next-steps-after-
 commit already lays out for that lookup.
 
+FIRST, before it reads anything: every repo in force must be provably
+current against its origin -- this checkout and every declared team or
+individual source. Not provably current FAILS the run (--allow-stale for a
+deliberately offline one). "Stale" and "cannot prove it isn't" are the same
+verdict, because the failure mode is identical: a confident report that
+current work is missing and fixed bugs are open. It verifies rather than
+mutates; --freshen fast-forwards, and only a clean tree that is strictly
+behind.
+
 Run:
   python3 tools/very_deep_check.py [--repo PATH] [--user-config PATH]
       -- the scope to read, plus the checklist, as plain text.
@@ -63,8 +72,16 @@ Run:
       -- proceed even if a declared team/individual source isn't present.
   python3 tools/very_deep_check.py --skip-branch-scan
       -- enumerate and check sources only; skip the git merge scan.
-Exit: 1 if a declared team/individual source is missing and
---allow-missing-sources was not given; 0 otherwise.
+  python3 tools/very_deep_check.py --freshen
+      -- fast-forward any repo in force that is strictly behind on a clean
+      tree, then proceed. Never touches a diverged or dirty one: there,
+      fast-forwarding discards commits.
+  python3 tools/very_deep_check.py --allow-stale
+      -- run anyway on a tree that is not provably current. For a
+      deliberately offline run only; every finding is then provisional.
+Exit: 1 if any repo in force is not provably current (unless --allow-stale),
+or if a declared team/individual source is missing (unless
+--allow-missing-sources); 0 otherwise.
 """
 import json, pathlib, subprocess, sys
 
@@ -128,6 +145,191 @@ def _run_git(repo_dir, *args):
         return 1, '', 'git unavailable or timed out'
     return r.returncode, r.stdout.strip(), r.stderr.strip()
 
+
+
+# --- freshness gate (practice: very-deep-check) -------------------------
+# The FIRST thing the check does, before it parses or reads a line, and a
+# hard refusal rather than a warning.
+#
+# The incident this closes is in AGENTS.md's gotchas three times over: a
+# session 366 commits behind concluded that files which had landed days
+# earlier "did not exist", and the session-start guard that should have
+# caught it was itself too old to contain the check. Warning was already
+# tried and already failed -- by the time a stale session can act on a
+# warning, it has been handed stale instructions and has no way to know it.
+# A very deep check is the worst place for this: its whole product is
+# judgment about what the repo says, so a stale tree does not degrade the
+# result, it inverts it -- current work reads as missing, and fixed bugs
+# read as open.
+#
+# Every repo in force, not just this checkout: the session-start guard runs
+# for the session's PRIMARY repo only, so a sibling source attached with
+# add_repo has never been freshness-checked at all (AGENTS.md, "A repo
+# attached mid-session never runs its own SessionStart hook").
+#
+# It VERIFIES; it does not mutate, unless --freshen is passed and the tree
+# is clean and strictly behind. A tool that pulls inside a clone handed to
+# it is its own gotcha in that same section -- one silently moved a
+# session's checkout onto another branch mid-session -- so there is no
+# checkout, no pull, and nothing at all done to a diverged or dirty tree,
+# where fast-forwarding would discard someone's commits.
+FRESHNESS_CLEAN = ('current', 'ahead', 'no-remote', 'not-a-checkout')
+
+
+def freshness(repo_dir, fetch=True):
+    """-> {'status', 'branch', 'behind', 'ahead', 'remedy'}.
+
+    status: not-a-checkout | no-remote | detached | no-upstream |
+            fetch-failed | branch-not-on-origin | no-shared-history |
+            behind | diverged | ahead | current. Everything outside FRESHNESS_CLEAN is a
+    refusal: "cannot prove this is current" and "is known stale" are the
+    same verdict here, because the failure mode is a confident wrong
+    answer either way."""
+    repo_dir = pathlib.Path(repo_dir)
+    out = {'status': 'not-a-checkout', 'branch': None, 'behind': 0,
+           'ahead': 0, 'remedy': None}
+    if not (repo_dir / '.git').exists():
+        return out
+    rc, remotes, _ = _run_git(repo_dir, 'remote')
+    if rc != 0 or 'origin' not in remotes.split():
+        # Nothing to be behind. A fixture or a local-only clone is not stale.
+        out['status'] = 'no-remote'
+        return out
+    rc, branch, _ = _run_git(repo_dir, 'rev-parse', '--abbrev-ref', 'HEAD')
+    if rc != 0 or not branch or branch == 'HEAD':
+        out['status'] = 'detached'
+        out['remedy'] = 'git checkout <branch>  # HEAD is detached, so there is no upstream to compare against'
+        return out
+    out['branch'] = branch
+    if fetch:
+        # Bounded: --unshallow is blocked by some git policy hooks, and a
+        # depth-limited fetch works on a shallow and a full clone alike.
+        rc, _, err = _run_git(repo_dir, 'fetch', '--depth=500', 'origin', branch)
+        if rc != 0:
+            rc, _, err = _run_git(repo_dir, 'fetch', 'origin', branch)
+        if rc != 0:
+            # A failed fetch has two completely different causes with two
+            # completely different remedies, and reporting the wrong one
+            # sends the reader to debug a network that is fine. ls-remote
+            # asks the server directly and ignores local refs entirely
+            # (AGENTS.md's add_repo entry), so it separates them: if the
+            # server answers and simply has no such branch, the branch was
+            # never pushed.
+            rc2, heads, _ = _run_git(repo_dir, 'ls-remote', '--heads', 'origin')
+            if rc2 == 0:
+                if f'refs/heads/{branch}' in heads:
+                    out['status'] = 'no-upstream'
+                    out['remedy'] = (
+                        f"git -C {repo_dir} config --add remote.origin.fetch "
+                        f"'+refs/heads/*:refs/remotes/origin/*'; "
+                        f"git -C {repo_dir} fetch --depth=50 origin {branch}   "
+                        f"# origin has {branch}; this clone's refspec does not "
+                        f"fetch it")
+                else:
+                    out['status'] = 'branch-not-on-origin'
+                    out['remedy'] = (
+                        f'git -C {repo_dir} push -u origin {branch}   '
+                        f'# or switch this source to its integration branch. '
+                        f'origin has no {branch}: the network is fine, the '
+                        f'branch is local-only, so nothing can say whether '
+                        f'its content is current')
+                return out
+            out['status'] = 'fetch-failed'
+            out['remedy'] = (f'git -C {repo_dir} fetch origin {branch}   '
+                             f'# failed: {err.splitlines()[-1] if err else "no detail"}')
+            return out
+    # rev-parse --verify --quiet, never bare rev-parse: the bare form prints
+    # the ref NAME it was asked for and exits non-zero, so a caller that
+    # reads stdout binds a branch name where a hash belongs (AGENTS.md).
+    rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
+                        f'origin/{branch}')
+    if rc != 0:
+        out['status'] = 'no-upstream'
+        out['remedy'] = (
+            f"git -C {repo_dir} config --unset-all remote.origin.fetch; "
+            f"git -C {repo_dir} config --add remote.origin.fetch "
+            f"'+refs/heads/*:refs/remotes/origin/*'; "
+            f"git -C {repo_dir} fetch --depth=50 origin {branch}   "
+            f"# single-branch clone: origin/{branch} was never fetched")
+        return out
+    rc, counts, _ = _run_git(repo_dir, 'rev-list', '--left-right', '--count',
+                             f'HEAD...origin/{branch}')
+    if rc != 0 or len(counts.split()) != 2:
+        # Do NOT report this as a rewritten branch. On a shallow clone the
+        # real common ancestor can simply be outside the fetched depth, and
+        # that false negative reads exactly like a force-push (AGENTS.md).
+        out['status'] = 'no-shared-history'
+        out['remedy'] = (f'git -C {repo_dir} fetch --depth=5000 origin {branch}   '
+                         f'# cannot compare: either a shallow clone too shallow '
+                         f'to reach the common ancestor, or a genuinely '
+                         f'rewritten branch -- deepen first, then look')
+        return out
+    ahead, behind = (int(n) for n in counts.split())
+    out['ahead'], out['behind'] = ahead, behind
+    if behind and ahead:
+        out['status'] = 'diverged'
+        out['remedy'] = (f'git -C {repo_dir} merge origin/{branch}   '
+                         f'# {ahead} local commit(s) here are NOT on origin -- '
+                         f'never `checkout -B` or `reset --hard`, that discards them')
+    elif behind:
+        out['status'] = 'behind'
+        out['remedy'] = (f'git -C {repo_dir} merge --ff-only origin/{branch}   '
+                         f'# or re-run with --freshen')
+    elif ahead:
+        out['status'] = 'ahead'
+    else:
+        out['status'] = 'current'
+    return out
+
+
+def freshen(repo_dir, verdict):
+    """Fast-forward one repo, ONLY when strictly behind on a clean tree.
+    -> a fresh verdict. Refuses silently in every other state: a diverged
+    branch fast-forwarded is someone's work deleted, and a dirty tree left
+    half-merged is worse than a stale one left alone."""
+    if verdict['status'] != 'behind':
+        return verdict
+    rc, dirty, _ = _run_git(repo_dir, 'status', '--porcelain')
+    if rc != 0 or dirty:
+        verdict = dict(verdict)
+        verdict['remedy'] = (f'git -C {repo_dir} stash   # --freshen declined: '
+                             f'the working tree is dirty, and a half-applied '
+                             f'fast-forward is worse than a stale tree')
+        return verdict
+    rc, _, err = _run_git(repo_dir, 'merge', '--ff-only',
+                          f"origin/{verdict['branch']}")
+    if rc != 0:
+        verdict = dict(verdict)
+        verdict['remedy'] = f'--freshen failed: {err or "no detail"}'
+        return verdict
+    # verify-postcondition: re-read the state we wanted, rather than
+    # trusting that the command reported success.
+    return freshness(repo_dir, fetch=False)
+
+
+def report_freshness(label, verdict, out=sys.stdout):
+    """-> True if this repo is clean enough to read."""
+    s = verdict['status']
+    if s == 'not-a-checkout':
+        return True
+    if s in FRESHNESS_CLEAN:
+        note = {'current': 'up to date with origin',
+                'ahead': f"{verdict['ahead']} unpushed commit(s), nothing missing",
+                'no-remote': 'no origin remote -- nothing to be behind'}[s]
+        print(f"  OK: {label} ({verdict['branch'] or '-'}): {note}", file=out)
+        return True
+    detail = {'behind': f"{verdict['behind']} commit(s) BEHIND origin",
+              'diverged': f"DIVERGED: {verdict['behind']} behind, "
+                          f"{verdict['ahead']} ahead",
+              'no-upstream': 'no origin/<branch> ref -- freshness unprovable',
+              'fetch-failed': 'could not reach origin -- freshness unprovable',
+              'branch-not-on-origin': 'this branch exists only locally -- '
+                                      'freshness unprovable',
+              'no-shared-history': 'cannot compare against origin',
+              'detached': 'HEAD is detached'}[s]
+    print(f"  STALE: {label} ({verdict['branch'] or '-'}): {detail}", file=out)
+    print(f"     -> {verdict['remedy']}", file=out)
+    return False
 
 
 def _declared_base_branch(repo_dir):
@@ -259,6 +461,11 @@ def enumerate_scope(repo=None, user_config=None):
     return {'checkout': checkout, 'sources': source_rows, 'missing': missing}
 
 
+def _exit(message):
+    print(message, file=sys.stderr)
+    return 1
+
+
 def main():
     args = sys.argv[1:]
     repo, user_config, checkout_target = None, None, None
@@ -279,6 +486,31 @@ def main():
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    allow_stale = '--allow-stale' in args
+    do_freshen = '--freshen' in args
+
+    # FIRST, before the parse check and before enumerate_scope. Both of
+    # those read files, and a file read out of a stale checkout is not
+    # evidence about anything -- so proving the tree current has to precede
+    # the first read, not follow it.
+    repo_root = pathlib.Path(repo or ROOT).resolve()
+    _fresh = {}
+    _v = freshness(repo_root)
+    if do_freshen:
+        _v = freshen(repo_root, _v)
+    _fresh['checkout'] = _v
+    if not as_json:
+        print("FRESHNESS -- every repo in force, before anything is read\n")
+        report_freshness(f'this checkout ({repo_root})', _v)
+    if _v['status'] not in FRESHNESS_CLEAN and not allow_stale:
+        sys.exit(f"\nvery deep check FAIL: this checkout is not provably "
+                 f"current ({_v['status']}). Everything below would be "
+                 f"judgment about a tree that is not the one on origin -- "
+                 f"current work reads as missing and fixed bugs read as "
+                 f"open. Run the remedy above (or --freshen, for a clean "
+                 f"tree that is merely behind) and start again. "
+                 f"--allow-stale exists only for a deliberately offline "
+                 f"run, and makes every finding provisional.")
 
     # BEFORE enumerate_scope, deliberately. Enumerating reads
     # precedent.json, so a malformed one used to kill this tool with a raw
@@ -313,7 +545,6 @@ def main():
                  f"report anything else while one of them is malformed.")
 
     data = enumerate_scope(repo, user_config)
-    repo_root = pathlib.Path(repo or ROOT).resolve()
 
     fatal_missing = [m for m in data['missing'] if m['level'] in FATAL_MISSING_LEVELS]
     other_missing = [m for m in data['missing'] if m not in fatal_missing]
@@ -333,6 +564,41 @@ def main():
                  f"Pass --allow-missing-sources only if proceeding without "
                  f"it is actually intended.", file=sys.stderr)
         return 1
+
+    # Now the sources -- which needs enumerate_scope, because precedent.json
+    # is what names them, and could not have run before the checkout's own
+    # gate above. A sibling source is the likelier offender of the two: the
+    # session-start freshness guard fires for the session's primary repo
+    # only, so an attached source has never been checked by anything.
+    _stale_sources = []
+    if not as_json:
+        print("FRESHNESS -- declared sources (below the parse, because "
+              "precedent.json\nis what names them)\n")
+    for s in data['sources']:
+        if s['level'] not in FATAL_MISSING_LEVELS:
+            continue
+        v = freshness(s['path'])
+        if do_freshen:
+            v = freshen(s['path'], v)
+        _fresh[s['name']] = v
+        ok = True
+        if not as_json:
+            ok = report_freshness(f"{s['level']} source {s['name']!r} "
+                                  f"({s['path']})", v)
+        elif v['status'] not in FRESHNESS_CLEAN:
+            ok = False
+        if not ok:
+            _stale_sources.append(s['name'])
+    if not as_json:
+        print()
+    if _stale_sources and not allow_stale:
+        return _exit(f"very deep check FAIL: {len(_stale_sources)} source(s) "
+                     f"not provably current ({', '.join(_stale_sources)}). "
+                     f"The check reads these repos against this one, so a "
+                     f"stale source produces cross-source findings that are "
+                     f"pure artifact -- a convention 'not rolled out' that "
+                     f"was rolled out last week. Run each remedy above, or "
+                     f"--freshen, and start again.")
 
     branch_scans = {}
     if not skip_branch_scan:

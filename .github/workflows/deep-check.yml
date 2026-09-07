@@ -13,14 +13,37 @@ name: Deep check
 # passing doc_lint/leak_gate run would ever have caught, on a branch
 # whose own merges are all green. This closes that: the same three tools
 # a session is already supposed to run before every push or merge, now
-# bound to every push and PR the same way the other two already are.
+# bound to every push, on every branch.
 #
 # Runs on every branch, not just main -- same reasoning as leak-gate.yml:
 # on this project the branch IS the published artifact.
 
 on:
+  # push only, and deliberately so. `pull_request:` sat here from this
+  # file's first commit (2236a94, copied wholesale from leak-gate.yml
+  # along with the every-branch scope above) and fired a SECOND run of
+  # every push on any branch with an open PR: same SHA, 2-37 seconds
+  # apart. Measured 2026-09-07 over 13 fully paired runs from 2026-09-06
+  # -- the pair never once disagreed, including two pairs that failed
+  # together. That is structural rather than luck: the push run tests the
+  # branch tip, the pull_request run tests head-merged-into-base, and
+  # those are the same tree whenever the branch is current with its base,
+  # which the habit of merging the base branch in keeps true here.
+  # Nothing is lost from the PR's own view -- check runs attach to the
+  # head SHA whatever event produced them, so this workflow still reports
+  # on the PR -- and the merge commit gets its own run on the base branch
+  # afterwards, which is the only run that tests what actually landed.
+  #
+  # PUT `pull_request:` BACK IF A PR EVER ARRIVES FROM A FORK. A fork's
+  # pushes do not fire `push` in this repo, so pull_request would be the
+  # only trigger that could run this check on it, and such a PR would go
+  # unchecked. Every PR to date (#83-#123, checked 2026-09-07) came from
+  # a branch inside this repo, and the documented check-in flow keeps it
+  # that way: INSTALL.md sec.4 has a dependent repo push its branch HERE
+  # from a dual-repo session, because a single-repo session cannot write to
+  # this repo at all -- it does not fork. So the fork case is an outside
+  # contributor on a public repo, not the check-in path this repo expects.
   push:
-  pull_request:
   workflow_dispatch:
 
 permissions:

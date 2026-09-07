@@ -23,7 +23,9 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   coherence read, then catalogue and housekeeping — with the run made
   resumable across sessions; extended same day, Morgan F, with a
   duplicate-implementation question in pass 2 and an explicit
-  mechanical-before-human order of operations"
+  mechanical-before-human order of operations; that order's first step made
+  mechanical 2026-09-07, Morgan F — every repo in force must be provably
+  current before the check reads anything"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -47,6 +49,18 @@ this repo, each attached team and individual source, and any consuming repo
 the engine is vendored into. A finding is as likely to be in the seam
 between two of them as inside any one, which is the reason they are read
 together rather than one at a time.
+
+**Before anything is read, every repo in force must be provably current
+against its origin** — this checkout and every attached source.
+[tools/very_deep_check.py](../tools/very_deep_check.py) fetches and compares
+each one as its first act and refuses to go further otherwise, because a
+very deep check's whole product is judgment about what the repos say: a stale tree does not degrade
+that judgment, it inverts it — work that landed last week reads as missing,
+and bugs fixed days ago read as open. "Stale" and "cannot prove it isn't"
+get the same verdict, since a confident wrong answer is the failure mode
+either way. Fix it and start again; `--freshen` will fast-forward a clean
+tree that is merely behind, and `--allow-stale` exists only for a
+deliberately offline run, where every finding is then provisional.
 
 **Every declared team and individual source must actually be present before
 the check runs.** The ordinary loader tolerates a missing personal source and
@@ -102,9 +116,12 @@ spent on something a script already catches is judgment wasted, and a tree
 already failing its own gates makes every later finding ambiguous: you
 cannot tell a drift this run introduced from one that was there before. So:
 
-1. **Freshen the checkout, and every source's.** `git fetch` and confirm
-   local `HEAD` matches origin before reading anything — a stale clone reads
-   exactly like missing work.
+1. **Prove every repo in force is current.** The tool's own first act, and
+   a refusal rather than a warning — warning was tried and failed, because a
+   session stale enough to need the warning has already been handed stale
+   instructions to read it against. A source is the likelier offender: the
+   session-start freshness guard runs for the session's primary repo only,
+   so an attached sibling has never been checked by anything.
 2. **Run the deep check suite as it stands** — the five gates
    [AGENTS.md](../AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
@@ -480,6 +497,28 @@ cross-references ("pass 2 item 10") were replaced with names in the same
 pass, since citing a list position as if it were a name is a defect pass 3
 tells the reader to report.
 
+Made mechanical 2026-09-07, on Morgan's question of whether the check should
+force a fetch before anything else. It should, and prose was never going to
+carry it: the order of operations added the day before *said* to freshen
+first, and prose is exactly what a session skips when the thing it is stale
+about is the instructions. The evidence was already written down three
+times in [AGENTS.md](../AGENTS.md)'s gotchas — a session 366 commits behind
+that reported files landed days earlier as not existing, and a
+session-start guard that could not help because the container's copy of the
+guard predated the guard. So the tool now fetches and compares every repo
+in force as its first act and exits non-zero on anything it cannot prove
+current. Two design calls worth keeping: it *verifies* rather than mutates
+by default, since a tool that pulls inside a clone handed to it is its own
+gotcha in that same section — one silently moved a session's checkout onto
+another branch mid-session — and `--freshen` therefore declines a diverged
+or dirty tree outright, where a fast-forward would discard someone's work.
+And it separates "cannot reach origin" from "this branch was never pushed",
+because the two have unrelated remedies and the wrong one sends the reader
+to debug a network that is fine. Both source repos in the session that
+built this failed the new gate on first run — one seven commits behind, one
+on a local-only branch — neither of which anything before this would have
+reported.
+
 ## Install
 [tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
@@ -497,11 +536,15 @@ already-built sibling this one deliberately does not replace, and
 [spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md) for the decision
 record this practice's own build closes out.
 
-Four parts of the check *are* mechanical, as far as a mechanical check can
-reach (`checkable-gets-checked`): a missing declared team or individual
-source is a hard, non-zero-exit failure by default (pass
-`--allow-missing-sources` only when proceeding without it is actually
-intended); every tracked JSON and YAML file is parsed with a real parser
+Five parts of the check *are* mechanical, as far as a mechanical check can
+reach (`checkable-gets-checked`): every repo in force is fetched and
+compared against its origin before the tool reads a line, and anything but
+provably-current exits non-zero (`--allow-stale` for a deliberately offline
+run) — with `--freshen` fast-forwarding a clean tree that is strictly
+behind, and declining a diverged or dirty one, where a fast-forward
+discards commits; a missing declared team or individual source is a hard,
+non-zero-exit failure by default (pass `--allow-missing-sources` only when
+proceeding without it is actually intended); every tracked JSON and YAML file is parsed with a real parser
 (pass 2's format-claims question), and a file that does not parse stops the
 run, since the tool
 reads `precedent.json` to enumerate its own scope; each team and individual
