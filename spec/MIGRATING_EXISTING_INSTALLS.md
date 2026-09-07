@@ -202,8 +202,37 @@ the loader.
    *after* that instruction has taken effect, never by one trying harder
    *before* it has.
 
-5. **Retire the old vendored pack tree**, but salvage anything in it that
-   was never really *pack content* — a generic utility script the pack
+5. **Retire the old vendored pack tree — always, not if convenient.** The
+   pack's rules live in a team or individual source now; the tree left
+   behind is a second, unsynced copy of rules nobody reads and nothing
+   updates. Two rules follow, and the second is the one repos actually miss:
+
+   - **A repo migrating now deletes it as part of the migration.** This
+     step, not a follow-up somebody has to request
+     ([migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md)).
+   - **A repo that ALREADY migrated and still has one deletes it now.**
+     Confirmed with Morgan 2026-09-07, for `RepoPersonalPreferences`
+     specifically: its 46 rules were migrated into the private
+     individual and team sets on 2026-09-01
+     ([PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md)), and 44 of the
+     landed practices across those three sets still cite it as their
+     origin — so the content is safely elsewhere and the vendored copy is
+     pure deadweight. **This is about the vendored copy inside each
+     consuming repo, not the source repository itself**, which is a
+     separate decision with its own owner.
+
+   `python3 process/upstream/tools/precedent_check.py --only
+   migration-scrubs-vocabulary` now finds a leftover without being told to:
+   it flags any `process/manifest_<pack>.json` in a repo that carries a
+   `precedent.json`. It stays silent for a repo that has **not** migrated —
+   the pack mechanism is still supported there, per "When this applies"
+   above — and a pack whose upstream genuinely never split can record a
+   `kept_after_migration` reason in its manifest and be left alone. Nine
+   cases in [tools/verify_harness.py](../tools/verify_harness.py), including
+   both must-not-fire cases.
+
+   Salvage anything in the tree that was never really *pack content* — a
+   generic utility script the pack
    happened to carry (a light-check runner, an issue-reporter), not a rule.
    Relocate those to the consuming repo's own `tools/`, since they're
    repo-owned infrastructure now, not something with an upstream to sync

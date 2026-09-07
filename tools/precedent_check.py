@@ -2929,23 +2929,107 @@ def _exempt_matches(rel, exempt_entry):
     return rel == exempt_entry
 
 
+# The old pack mechanism's own marker file. layered-practice-packs' Install
+# section defines the pre-migration shape: the tree at `process/<pack>/`,
+# declared by `process/manifest_<pack>.json`. That manifest name belongs to
+# nothing else, which is what makes a leftover detectable without the repo
+# having to declare anything.
+OLD_PACK_MANIFEST_GLOB = 'manifest_*.json'
+
+
+def _leftover_old_packs():
+    """-> [(manifest_rel, tree_rel or None)] for a repo that MIGRATED and
+    still carries the old pack mechanism.
+
+    THE POINT IS THAT THIS NEEDS NO DECLARATION. Both existing retirement
+    checks are opt-in: migration-scrubs-vocabulary fires only once a repo
+    writes retired_vocabulary.json, and retirement-deletes-files only once
+    it records a retirement in retired_paths.json. A repo that migrated
+    WITHOUT running spec/MIGRATING_EXISTING_INSTALLS.md's step 5 declares
+    neither, so both stay silent and the leftover tree sits there
+    indefinitely -- which is exactly the state Morgan asked about on
+    2026-09-07 ("I already migrated a bunch, so even if it was migrated and
+    that still exists, it should still be deleted"). Nothing was watching
+    for it.
+
+    Scoped to a repo that has ALREADY migrated (a precedent.json at the
+    root). The pack mechanism is still supported for a repo that has not --
+    that document's own "When this applies" section says so in as many
+    words, and firing there would be telling a working install it is broken.
+    """
+    if not (ROOT / 'precedent.json').is_file():
+        return []
+    proc = ROOT / 'process'
+    if not proc.is_dir():
+        return []
+    out = []
+    for man in sorted(proc.glob(OLD_PACK_MANIFEST_GLOB)):
+        # A pack manifest may name its tree; fall back to the conventional
+        # `process/<pack>/` derived from the manifest's own suffix.
+        tree = None
+        try:
+            data = json.loads(man.read_text(encoding='utf-8'))
+            if isinstance(data, dict):
+                if data.get('kept_after_migration'):
+                    continue          # a declared, reasoned keep -- see below
+                tree = ((data.get('upstream') or {}).get('path')
+                        if isinstance(data.get('upstream'), dict) else None)
+        except (ValueError, OSError):
+            pass
+        if not tree:
+            guess = proc / man.stem.replace('manifest_', '', 1)
+            tree = guess.relative_to(ROOT).as_posix() if guess.is_dir() else None
+        out.append((man.relative_to(ROOT).as_posix(), tree))
+    return out
+
+
 @check('migration-scrubs-vocabulary', 'tree',
-       "a repo that has declared process/retired_vocabulary.json carries "
-       "none of its listed terms outside the declared exempt files/directories",
-       "NotApplicable for any repo that hasn't declared the config -- this "
-       "is opt-in per migrated repo, since the terms themselves (a specific "
-       "old repo's name, a retired secret) are never something BestPractice "
-       "could know in advance. process/upstream/ is always excluded, "
-       "vendored content never being this repo's own migration to finish.")
+       "a migrated repo carries no leftover pre-migration practice pack "
+       "(process/manifest_*.json and its tree), and -- where the repo has "
+       "declared process/retired_vocabulary.json -- none of its listed terms "
+       "outside the declared exempt files/directories",
+       "the SECOND half is opt-in: the terms themselves (a specific old "
+       "repo's name, a retired secret) are never something BestPractice "
+       "could know in advance, so a repo that has declared no config is not "
+       "scanned for words at all. The pack half needs no declaration but is "
+       "scoped to a repo that has already migrated (a precedent.json at the "
+       "root) -- the old pack mechanism is still supported for one that has "
+       "not, and firing there would call a working install broken. Neither "
+       "half can tell whether the pack's CONTENT actually reached a "
+       "Precedent source: it sees that the tree is still here, never "
+       "whether deleting it would lose a rule. process/upstream/ is always "
+       "excluded, vendored content never being this repo's own migration to "
+       "finish.")
 def _migration_scrubs_vocabulary(ctx):
+    leftover = [
+        Finding(man,
+                f'is the pre-migration practice-pack mechanism, in a repo '
+                f'that has already migrated to the Precedent loader'
+                + (f' (its tree is still at {tree}/)' if tree else '')
+                + '. A pack\'s rules live in a team or individual source '
+                  'now, so the tree is a second, unsynced copy of rules '
+                  'nobody reads. Retire it through the audit rather than by '
+                  'hand: `python3 tools/precedent_retire_path.py '
+                  + (f'{tree} {man}' if tree else man)
+                  + '` reports every file still referencing it and refuses '
+                    'while any remain; then re-run with --reason "..." '
+                    '--apply. If this pack is deliberately kept -- its '
+                    'upstream never split into Precedent sources -- record '
+                    'why with a "kept_after_migration" key in the manifest '
+                    'and this stops asking.')
+        for man, tree in _leftover_old_packs()]
+
     cfg_path = ROOT / RETIRED_VOCAB_CONFIG
     if not cfg_path.is_file():
+        if leftover:
+            return leftover
         raise NotApplicable(f'no {RETIRED_VOCAB_CONFIG} -- this repo has not '
-                            f'declared any retired vocabulary to scrub for')
+                            f'declared any retired vocabulary to scrub for, '
+                            f'and carries no leftover pre-migration pack')
     try:
         cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
     except json.JSONDecodeError as e:
-        return [Finding(RETIRED_VOCAB_CONFIG, f'not valid JSON: {e}')]
+        return leftover + [Finding(RETIRED_VOCAB_CONFIG, f'not valid JSON: {e}')]
     if not isinstance(cfg, dict):
         # Valid JSON, wrong shape (e.g. a bare `["OldName"]` array where a
         # `{"terms": [...]}` object belongs) used to reach `cfg.get(...)`
@@ -2953,7 +3037,7 @@ def _migration_scrubs_vocabulary(ctx):
         # OTHER check in the same run with it (found in a 2026-09-03
         # deep-check audit) -- a malformed config is exactly the kind of
         # thing this check exists to catch, not crash on.
-        return [Finding(RETIRED_VOCAB_CONFIG,
+        return leftover + [Finding(RETIRED_VOCAB_CONFIG,
                         f'must be a JSON object with a "terms" list (e.g. '
                         f'{{"terms": [...], "exempt_files": [...]}}), not a '
                         f'{type(cfg).__name__}')]
@@ -2961,10 +3045,12 @@ def _migration_scrubs_vocabulary(ctx):
     exempt_files = cfg.get('exempt_files') or []
     if not isinstance(terms, list) or not isinstance(exempt_files, list):
         bad = 'terms' if not isinstance(terms, list) else 'exempt_files'
-        return [Finding(RETIRED_VOCAB_CONFIG,
+        return leftover + [Finding(RETIRED_VOCAB_CONFIG,
                         f'{bad!r} must be a JSON array of strings, not a '
                         f'{type(cfg[bad]).__name__}')]
     if not terms:
+        if leftover:
+            return leftover
         raise NotApplicable(f'{RETIRED_VOCAB_CONFIG} declares no terms -- '
                             f'nothing to scrub for')
     # A directory exemption (an exempt_files entry ending in `/`) exists for
@@ -2986,7 +3072,7 @@ def _migration_scrubs_vocabulary(ctx):
     # forced dropping otherwise-real retired terms rather than exempting the
     # one directory they were colliding in.
     exempt_files = [RETIRED_VOCAB_CONFIG] + exempt_files
-    out = []
+    out = list(leftover)
     for dirpath, dirnames, filenames in os.walk(ROOT):
         rel_dir = pathlib.Path(dirpath).relative_to(ROOT).as_posix()
         rel_dir = '' if rel_dir == '.' else rel_dir

@@ -6114,6 +6114,106 @@ def check_update_refuses_while_a_branch_is_pinned():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_leftover_pack_is_flagged_after_migration():
+    """A repo that migrated but kept the old practice pack gets told so.
+
+    Both retirement checks were opt-in: migration-scrubs-vocabulary's word
+    scan fires only once a repo writes retired_vocabulary.json, and
+    retirement-deletes-files only once it records a retirement. A repo that
+    migrated WITHOUT running spec/MIGRATING_EXISTING_INSTALLS.md's step 5
+    declares neither, so both stayed silent and the dead tree sat there --
+    a second, unsynced copy of rules that now live in a team or individual
+    source. Asked on 2026-09-07 whether migration deletes the old personal
+    pack: step 5 does, and nothing was watching the repos that migrated
+    before it existed.
+
+    The case that must NOT fire is the one that makes this safe to ship. The
+    pack mechanism is still supported for a repo that has not migrated --
+    that document's own "When this applies" says so -- so the check is
+    scoped to a repo carrying a precedent.json, and a pack whose upstream
+    never split can declare `kept_after_migration` and be left alone.
+
+    practice: control-asserts-which-failure -- every case reads the message.
+    The first version of this fixture omitted practices/, so the check was
+    gated off as "not in force here" and SKIPPED; scored on exit code alone
+    all five planted cases would have read as "correctly not flagged".
+    """
+    import tempfile, shutil as _shutil
+    chk = ROOT / 'tools' / 'precedent_check.py'
+    prac = PRACTICES_DIR / 'migration-scrubs-vocabulary.md'
+    if not (chk.exists() and prac.exists()):
+        not_applicable('a leftover pre-migration pack is flagged',
+                       'precedent_check.py or the practice file is absent here')
+        return
+
+    def _repo(base, migrated, pack, manifest='{}'):
+        (base / 'process' / 'upstream' / 'tools').mkdir(parents=True)
+        (base / 'practices').mkdir()
+        subprocess.run(['git', '-C', str(base), 'init', '-q'],
+                       capture_output=True)
+        _shutil.copy2(chk, base / 'process' / 'upstream' / 'tools')
+        _shutil.copy2(prac, base / 'practices')
+        for d in ('tools', 'process/upstream/tools'):
+            sp_dst = base / d
+            sp_dst.mkdir(parents=True, exist_ok=True)
+            src = ROOT / 'tools' / 'split_practices.py'
+            if src.exists():
+                _shutil.copy2(src, sp_dst)
+        if migrated:
+            (base / 'precedent.json').write_text(
+                '{"sources":[{"level":"universal","name":"precedent",'
+                '"path":"."}]}', encoding='utf-8')
+        if pack:
+            (base / 'process' / 'personal').mkdir()
+            (base / 'process' / 'personal' / 'RULES.md').write_text(
+                '# a rule\n', encoding='utf-8')
+            (base / 'process' / 'manifest_personal.json').write_text(
+                manifest, encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable,
+             str(base / 'process' / 'upstream' / 'tools' / 'precedent_check.py'),
+             '--only', 'migration-scrubs-vocabulary'],
+            capture_output=True, text=True, cwd=str(base), timeout=180)
+        return r.stdout + r.stderr
+
+    MARK = 'pre-migration practice-pack mechanism'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        out = _repo(tmp / 'a', migrated=True, pack=True)
+        cases.append(('a migrated repo with a leftover pack is flagged',
+                      MARK in out))
+        cases.append(('and names the manifest',
+                      'process/manifest_personal.json' in out))
+        cases.append(('and names the tree it found', 'process/personal' in out))
+        cases.append(('and prescribes the retire audit, not a hand delete',
+                      'precedent_retire_path.py' in out))
+        cases.append(('and it counts as a violation', '1 violated' in out))
+
+        out = _repo(tmp / 'b', migrated=False, pack=True)
+        cases.append(('an UNMIGRATED repo with a pack is NOT flagged -- that '
+                      'mechanism is still supported', MARK not in out))
+
+        out = _repo(tmp / 'c', migrated=True, pack=False)
+        cases.append(('a migrated repo with no pack is not flagged',
+                      MARK not in out))
+
+        out = _repo(tmp / 'd', migrated=True, pack=True,
+                    manifest='{"kept_after_migration":"upstream never split"}')
+        cases.append(('a declared kept_after_migration pack stands down',
+                      MARK not in out))
+
+        out = _repo(tmp / 'e', migrated=True, pack=True,
+                    manifest='not json at all')
+        cases.append(('an unparseable pack manifest is still flagged -- '
+                      'unreadable is not absent', MARK in out))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'a leftover pre-migration practice pack is flagged after migration '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_sync_views_cross_source():
     """tools/precedent_sync_views.py -- the one-command glue over
     precedent_materialize.py + build_views.py --agents-only that a
@@ -10301,6 +10401,7 @@ def main():
     check_commit_identity_derives_declared_timezone()
     check_commit_identity_copies_are_identical()
     check_update_refuses_while_a_branch_is_pinned()
+    check_leftover_pack_is_flagged_after_migration()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
