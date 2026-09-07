@@ -1001,8 +1001,18 @@ which is the failure this repointing exists to end — write
   writes with `--commit` has no `Session:` trailer, which the maintainers'
   team set requires of every commit. Rewritten by hand this time; the tool
   will produce the same commit next time, so the trailer belongs in the tool.
-  **Blocked on:** Morgan, for the grandfathering decision only. The tool's
-  missing trailer is not blocked on anything.
+  **The grandfathering is done** — approved by Morgan 2026-09-07, both SHAs
+  exempted in `check_buenos_aires_dates.py` with the reason inline; that set
+  is now 10 passed / 0 violated and 9 of 9 of its own tests. What remains is
+  the cause, not the symptom, and it is the same one filed above: a hook
+  cannot reach a repo that is not the session's primary, so the identity and
+  timezone halves of that mechanism fail together and silently in any
+  cross-repo session. **Blocked on:** a decision about which layer carries
+  it, since the hook demonstrably cannot.
+  The engine-refresh commit's missing `Session:` trailer is a separate,
+  smaller thing and is **blocked on nothing** — the trailer belongs in
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py),
+  which writes that commit.
 
 - **The branch sweep and the source-refresh tool disagree about what is in
   scope, and the sweep is the narrower one.** Found 2026-09-07 by the

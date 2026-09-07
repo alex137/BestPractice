@@ -242,8 +242,10 @@ and both real:
   these repos is the session's primary. Fixed on the unpushed commits by
   amending under the right `TZ`; two already-published commits cannot be
   fixed that way ([no-rewrite-for-warnings](../practices/no-rewrite-for-warnings.md))
-  and are **open**, needing a grandfathering decision that is Morgan's to
-  make, not a session's.
+  and were **grandfathered on Morgan's explicit approval, 2026-09-07**, both
+  SHAs exempted with the reason inline. That set is now 10 passed / 0
+  violated, 9 of 9 tests. The cause stays open: a hook cannot reach a repo
+  that is not the session's primary.
 - **`session-trailer`**: the engine-refresh commit
   `precedent_refresh_sources.py --commit` writes carried no `Session:`
   trailer. Fixed here by rewriting the unpushed commit, but the tool will
