@@ -1176,12 +1176,37 @@ which is the failure this repointing exists to end — write
   general terms. What is new is the consequence: a practice with a real
   mechanical check goes unenforced without anything saying so, and the
   session must notice and set four git configs by hand.
-  The `env` layer in `.claude/settings.json` was built for exactly this case
-  ("a hook cannot reach a sibling repository") — so the question is why it
-  did not apply here, and whether the `pre-commit` backstop it is supposed to
-  have can be installed by something other than a hook that never fires.
-  **Blocked on:** a decision about which layer should carry this, since the
-  hook demonstrably cannot.
+  **Answered 2026-09-07, and the answer was a third layer.** The question
+  this item posed — whether the `pre-commit` backstop can be installed by
+  something other than a hook that never fires — has a yes:
+  [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh) now runs
+  the individual set's own `bootstrap/commit-identity.sh` once per attached
+  Precedent repo, with `CLAUDE_PROJECT_DIR` pointed at each. The PRIMARY
+  repo's hook does fire, so it carries the reach the sibling's own hook
+  never gets. No name, address or zone is copied anywhere — it runs that
+  set's script, which reads that set's `identity.json`, still the single
+  declaration (registry-source-of-truth). The timezone half went the same
+  way and one step further: the script now derives the declared zone into
+  `.claude/settings.local.json`'s `env` block, so it reaches the whole of
+  the next session rather than being retyped per commit (see
+  [INSTALL.md](INSTALL.md)'s commit-identity section).
+  **What is still open, and it is narrower than this item was:** all of that
+  reaches a repo only from a session whose primary repo carries the updated
+  `session-start.sh`. A repo that has not wired `commit-identity.sh` at all
+  is untouched — and at least one dependent repo declined to wire it,
+  reasoning that it "resolves an identity" where that repo's `commit-author`
+  practice fixes one. That reasoning inverts what the hook does: resolution
+  is how it avoids naming a person in a shared file, and when the answer
+  comes from a DECLARATION (an `identity.json`, or an explicit override) it
+  then ENFORCES that exact author and timezone with a `pre-commit` refusal —
+  which is the mechanical enforcement `commit-author` otherwise does not
+  have. The hook also needs no Precedent layout: it reads `identity.json`
+  from the repo root or from the individual source named by
+  `~/.config/precedent/config.json`, so a classic-layout repo can wire it
+  today without migrating anything.
+  **Blocked on:** nothing here. What remains is per-repo wiring, and a
+  correction to the declining repo's reasoning when someone next works
+  there.
 
 - **Four unmerged branches across three repos need a merge-or-close
   verdict.** Listed by name, with what each is ahead by, in
