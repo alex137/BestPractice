@@ -425,6 +425,51 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target):
     return row
 
 
+def _fetch_all_heads(repo_dir):
+    """-> (missing_heads, note). Widen a single-branch clone's refspec and
+    fetch every head, then report which heads origin has that this clone
+    still does not.
+
+    The branch scan reads `refs/remotes/origin`, which holds only what was
+    actually fetched. The harness clones single-branch (AGENTS.md's add_repo
+    entry), and the freshness gate above fetches ONE branch, so without this
+    the scan enumerates two or three refs on a repo that has forty -- and
+    reports "(none)", which reads as "clean" rather than "could not check".
+    That is the same empty-result-reads-as-pass failure AGENTS.md records for
+    the `scope: 'tree'` checks, and it is worse here: the branch sweep is the
+    whole of pass 4's branch bullet, so a false all-clear ends the only step
+    that would have found unlanded work.
+    """
+    rc, fetchspecs, _ = _run_git(repo_dir, 'config', '--get-all',
+                                 'remote.origin.fetch')
+    if rc == 0 and 'refs/heads/*' not in fetchspecs:
+        # Local config only, idempotent -- the same repair AGENTS.md
+        # describes and templates/bootstrap.sh applies at session start.
+        _run_git(repo_dir, 'config', '--add', 'remote.origin.fetch',
+                 '+refs/heads/*:refs/remotes/origin/*')
+    # Bounded: --unshallow is blocked by some git policy hooks, and a
+    # depth-limited fetch works on a shallow and a full clone alike.
+    rc, _, _ = _run_git(repo_dir, 'fetch', '--depth=50', 'origin')
+    if rc != 0:
+        _run_git(repo_dir, 'fetch', 'origin')
+    # ls-remote asks the SERVER and ignores local refs entirely, so it is the
+    # only thing that can say what this clone is still missing.
+    rc, heads, _ = _run_git(repo_dir, 'ls-remote', '--heads', 'origin')
+    if rc != 0:
+        return None, ('could not reach origin to list its branches, so this '
+                      'scan sees only what was already fetched')
+    server = set()
+    for line in heads.splitlines():
+        parts = line.split('refs/heads/', 1)
+        if len(parts) == 2:
+            server.add(parts[1].strip())
+    rc, local, _ = _run_git(repo_dir, 'for-each-ref',
+                            '--format=%(refname:short)', 'refs/remotes/origin')
+    have = {r.split('/', 1)[1] for r in local.splitlines() if '/' in r}
+    missing = sorted(server - have - {'HEAD'})
+    return missing, None
+
+
 def scan_branches(repo_dir, target=None, exclude=()):
     """-> None if repo_dir isn't its own git checkout (a repo-local source
     living inside the parent checkout shares the parent's branches and has
@@ -459,6 +504,10 @@ def scan_branches(repo_dir, target=None, exclude=()):
     # because it happens not to be an ancestor of the *other* protected
     # branch.
     protected = {target, default_branch, declared} - {None}
+    # Populate refs/remotes/origin BEFORE enumerating it -- otherwise this
+    # scan silently reports only what a single-branch clone happened to
+    # fetch (practice: very-deep-check).
+    missing_heads, reach_note = _fetch_all_heads(repo_dir)
     target_ref = f'origin/{target}'
     rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', target_ref)
     if rc != 0:
@@ -480,7 +529,9 @@ def scan_branches(repo_dir, target=None, exclude=()):
         else:
             unmerged.append(_unmerged_row(repo_dir, name, ref, target_ref, target))
     return {'target': target, 'merged': sorted(merged),
-            'unmerged': sorted(unmerged, key=lambda r: r['name'])}
+            'unmerged': sorted(unmerged, key=lambda r: r['name']),
+            'unfetched': missing_heads or [], 'unreachable': reach_note,
+            'path': str(repo_dir)}
 
 
 def enumerate_scope(repo=None, user_config=None):
@@ -716,13 +767,19 @@ def main():
                       f"branch could not be resolved -- skipped.\n")
                 continue
             print(f"{name} (integration branch: {scan['target']}):")
+            # "(none)" is only honest when the scan could actually SEE every
+            # branch origin has. An under-fetched clone would otherwise report
+            # a clean sweep it never performed (practice: very-deep-check).
+            incomplete = scan.get('unreachable') or scan.get('unfetched')
+            empty = ('(none)' if not incomplete
+                     else '(CANNOT TELL -- see the incomplete-scan note below)')
             print(f"  merged, not deleted -- confirm authorship and the PR "
                   f"link, then delete:")
             if scan['merged']:
                 for b in scan['merged']:
                     print(f"    {b}")
             else:
-                print(f"    (none)")
+                print(f"    {empty}")
             print(f"  NOT merged -- merge it or close it, one verdict each:")
             if scan['unmerged']:
                 for r in scan['unmerged']:
@@ -731,7 +788,20 @@ def main():
                           f"{age})")
                     print(f"      {r['verdict']}")
             else:
-                print(f"    (none)")
+                print(f"    {empty}")
+            if scan.get('unreachable'):
+                print(f"  INCOMPLETE SCAN: {scan['unreachable']}. Treat both "
+                      f"lists above as partial, not as clean.")
+            elif scan.get('unfetched'):
+                n = len(scan['unfetched'])
+                shown = ', '.join(scan['unfetched'][:5])
+                more = f" (+{n - 5} more)" if n > 5 else ""
+                print(f"  INCOMPLETE SCAN: {n} branch(es) on origin were "
+                      f"never fetched into this clone and so were NOT "
+                      f"judged: {shown}{more}. Treat both lists above as "
+                      f"partial, not as clean.")
+                print(f"    -> git -C {scan.get('path', '<repo>')} fetch "
+                      f"--depth=50 origin   # then re-run")
             print()
 
     return 0

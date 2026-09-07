@@ -8631,6 +8631,95 @@ def check_unmerged_branch_verdicts():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_branch_scan_sees_every_branch():
+    """The branch sweep must enumerate what ORIGIN has, not what this clone
+    happened to fetch (practice: very-deep-check).
+
+    THE CASE THAT CARRIES THIS CHECK is the single-branch clone, which is
+    not an edge case: it is what the harness hands every remote session
+    (AGENTS.md's add_repo entry), and the freshness gate above fetches only
+    the ONE branch it compares. `scan_branches` reads `refs/remotes/origin`,
+    so on such a clone it enumerated two refs on a repo with forty and
+    reported "(none)" -- which reads as a clean sweep, not as a scan that
+    never ran. That is the same empty-result-reads-as-pass failure AGENTS.md
+    records for the `scope: 'tree'` checks, and it costs more here: the
+    sweep IS pass 4's branch bullet, so a false all-clear silently ends the
+    only step that would have found unlanded work.
+
+    Both halves are asserted. The first is the fix: a narrow clone must
+    still see every branch. The second is the negative control that keeps
+    the fix honest -- when origin genuinely cannot be reached, the scan must
+    say it could not tell, NOT fall back to the empty lists that started
+    this. A repair that turns one silent wrong answer into another is not a
+    repair."""
+    import tempfile
+    import very_deep_check as vdc
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up = tmp / 'up'; up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'f.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        for b in ('landed', 'open-one', 'open-two'):
+            _git(up, 'checkout', '-q', '-b', b)
+            (up / f'{b}.txt').write_text(b + '\n')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', b)
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'merge', '-q', '--no-ff', 'landed', '-m', 'merge landed')
+
+        # Exactly what the harness produces: one branch, one refspec.
+        narrow = tmp / 'narrow'
+        subprocess.run(['git', 'clone', '-q', '--single-branch', '--branch',
+                        'main', f'file://{up}', str(narrow)],
+                       capture_output=True, text=True)
+        refs_before = len([r for r in _git(
+            narrow, 'for-each-ref', '--format=%(refname:short)',
+            'refs/remotes/origin').stdout.splitlines() if r])
+
+        scan = vdc.scan_branches(narrow, 'main') or {}
+        merged = set(scan.get('merged') or [])
+        unmerged = {r['name'] for r in (scan.get('unmerged') or [])}
+
+        results = [
+            ('the fixture really is a narrow clone (else this proves nothing)',
+             refs_before <= 2),
+            ('a merged branch on origin is found even though the clone never '
+             'fetched it', 'landed' in merged),
+            ('both unmerged branches on origin are found',
+             {'open-one', 'open-two'} <= unmerged),
+            ('the scan reports itself complete when it reached origin',
+             not scan.get('unfetched') and not scan.get('unreachable')),
+        ]
+
+        # NEGATIVE CONTROL: origin unreachable. Empty lists are now a lie, so
+        # the scan must mark itself incomplete rather than report them bare.
+        dark = tmp / 'dark'
+        subprocess.run(['git', 'clone', '-q', '--single-branch', '--branch',
+                        'main', f'file://{up}', str(dark)],
+                       capture_output=True, text=True)
+        _git(dark, 'remote', 'set-url', 'origin', 'file:///nonexistent/gone.git')
+        d = vdc.scan_branches(dark, 'main') or {}
+        results.append(
+            ('an unreachable origin is reported as "cannot tell", never as an '
+             'empty (clean) sweep',
+             not d.get('merged') and not d.get('unmerged')
+             and bool(d.get('unreachable'))))
+
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check\'s branch sweep sees every branch origin '
+              f'has, not only what this clone fetched ({len(results)} stated '
+              f'cases, the single-branch clone being the controlling case and '
+              f'an unreachable origin the negative control)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -8659,6 +8748,7 @@ def main():
     check_practice_audit_fires()
     check_freshness_gate_fires()
     check_unmerged_branch_verdicts()
+    check_branch_scan_sees_every_branch()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()
