@@ -26,8 +26,11 @@ the pitch, then jump to the how-to guide for your situation:
 
 Precedent is one working expression of a broader philosophy about how
 people and AI should work together, developed in
-**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. Read that
-repo for the theory.
+**[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. **That
+theory now lives here too, in [philosophy/](philosophy/)** — start at
+[philosophy/README.md](philosophy/README.md). It is argument and
+observation: none of it binds work anywhere else in this repository, which
+is what [practices/](practices/) is for.
 
 In short: it's an alternative to Google Docs, built on three ideas:
 

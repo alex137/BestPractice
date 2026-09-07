@@ -1449,3 +1449,39 @@ which is the failure this repointing exists to end — write
   deep check, and doing it from here would be the unreviewed cross-repo
   change this run has been finding all day. The engine-side guard is blocked
   on a design call (which baseline to compare against), not on the work.
+
+40. <a id="philosophy-sync"></a>**Decide how `philosophy/` stays current with WorkingWithAI.**
+    [philosophy/](philosophy/) is a copy of
+    [themorgan/WorkingWithAI](https://github.com/themorgan/WorkingWithAI)'s
+    `content/` tree, taken 2026-09-07. Nothing syncs it in either
+    direction: no manifest entry, no workflow, and WorkingWithAI does not
+    know the copy exists beyond the pointer this change added to its
+    README. Each file's first line names the source document and the
+    version it was taken at
+    ([philosophy-declares-its-source](local/practices/philosophy-declares-its-source.md)),
+    so drift is *visible*; it is not *prevented*. Three options, in
+    rising cost: leave it as a dated snapshot and re-copy on request;
+    vendor it properly with a manifest and a `checkin.py`-style sync;
+    or move the originals here and make WorkingWithAI the copy. The
+    third is what the request that created this directory was reaching
+    for ("the WorkingWithAI content really should be a part of
+    BestPractice") but it retires a live pipeline in another repo,
+    which is not this session's call.
+    **Blocked on:** a decision from Morgan about which of the three, and
+    on whether WorkingWithAI's stage-2 pipeline keeps running there.
+
+41. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` differ from WorkingWithAI's originals.**
+    The default leak blocklist bans profanity in this repository's public
+    tree, and the copied essays carried it three times — in
+    [philosophy/COMPANY_BUILDING_RULES.md](philosophy/COMPANY_BUILDING_RULES.md)'s
+    `hire-for-drive` heading, in
+    [philosophy/HUMANS_AT_OUR_BEST.md](philosophy/HUMANS_AT_OUR_BEST.md)'s
+    "Drive" bullet, and inside a verbatim quotation in
+    [philosophy/RANDOM_NOTES.md](philosophy/RANDOM_NOTES.md). Each is
+    masked here and unmasked upstream, so a future diff against
+    WorkingWithAI will show three differences that are the gate's doing,
+    not drift. Masking a word inside a quotation is the part worth a
+    second look.
+    **Blocked on:** nothing mechanical — it needs Morgan to say whether
+    masking is the right call for his own quoted words, or whether the
+    blocklist should carve out `philosophy/` instead.
