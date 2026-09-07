@@ -39,7 +39,7 @@ one-word tweaks, but **whole rewritten sections**. If two edits genuinely
 contradict each other, your assistant **shows you both and asks**, rather than
 silently picking a winner.
 
-### Real Sharing, Not Forwarded Transcripts
+### Real Sharing With Review
 
 **The project is shared by construction.** Everyone on it — people and their
 assistants alike — works from the same map of the project, the same list of
@@ -47,7 +47,7 @@ open items, and the same rules, and proposes changes the others can read and
 comment on before anything lands. Nobody forwards a chat transcript, and
 nobody has to hope that everyone else's assistant remembers the same things.
 
-### Practices at Different Levels of Sharing
+### Granular Permission Access & Protocol Applicability
 
 A rule can **stay just yours, apply to your whole team, or join the public
 library** everyone using Precedent starts from — you choose which, and a
