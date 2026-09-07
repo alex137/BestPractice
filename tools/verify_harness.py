@@ -4412,6 +4412,46 @@ def check_precedent_check_fires():
 
         case('declared-base-branch', _plant_unguarded_branch_inference)
 
+        # document-lifecycle-header -- a stamped document whose declared
+        # status is illegal for its declared kind. The fixture must stamp a
+        # SECOND file legally as well: the check raises NotApplicable when
+        # nothing at all is stamped (a tree that has not adopted the header
+        # is not a tree doing it wrong), so a single bad file would test the
+        # skip path and read as a passing plant.
+        def _plant_bad_lifecycle_status(repo):
+            spec_dir = repo / 'spec'
+            spec_dir.mkdir(exist_ok=True)
+            def stamp(name, status, heading):
+                (spec_dir / name).write_text(
+                    f'---\ntitle:         {heading}\nkind:          reference\n'
+                    f'status:        {status}\nopened:        2026-09-07\n'
+                    f'closed:        null\nsuperseded_by: null\n'
+                    f'supersedes:    []\naudience:      session\n'
+                    f'summary:       A planted case.\n---\n\n# {heading}\n',
+                    encoding='utf-8')
+            stamp('PLANTED_GOOD.md', 'current', 'Planted Good')
+            stamp('PLANTED_BAD.md', 'open', 'Planted Bad')  # `open` is a brief status
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted lifecycle status')
+
+        # The unplanted control needs the legal file too, or the clean run
+        # skips instead of passing -- and a skip is not a pass.
+        def _setup_lifecycle(repo):
+            spec_dir = repo / 'spec'
+            spec_dir.mkdir(exist_ok=True)
+            (spec_dir / 'PLANTED_GOOD.md').write_text(
+                '---\ntitle:         Planted Good\nkind:          reference\n'
+                'status:        current\nopened:        2026-09-07\n'
+                'closed:        null\nsuperseded_by: null\n'
+                'supersedes:    []\naudience:      session\n'
+                'summary:       A planted case.\n---\n\n# Planted Good\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'lifecycle baseline')
+
+        case('document-lifecycle-header', _plant_bad_lifecycle_status,
+             setup=_setup_lifecycle)
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
@@ -5546,6 +5586,130 @@ def check_sync_refuses_to_lose_a_recorded_practice():
     failed = [n for n, ok in cases if not ok]
     check(f'a sync refuses to lose a practice the committed manifest records '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_doc_lifecycle_fires_and_clears():
+    """tools/doc_lifecycle.py -- the document status header, checked.
+
+    checkable-gets-checked requires a firing test, not merely a check that
+    passes: plant each violation, prove it fails, remove it, prove the
+    unplanted tree passes. Every case runs against a THROWAWAY tree, never
+    against spec/ -- a check whose test mutates the repo it audits cannot be
+    run twice.
+
+    The `Last updated:` case is the one worth reading. A first version of
+    the detector was `'Last updated:' in text`, and it fired on
+    spec/DOCUMENT_LIFECYCLE.md -- the document that SPECIFIES this rule and
+    necessarily quotes the string it forbids, five times. A check that
+    fails the file explaining it teaches the first reader that the checker
+    is broken, so the two cases below pin the distinction: a real HTML
+    comment fails, the same text inside a code span does not.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import doc_lifecycle as dl
+
+    GOOD = ('---\n'
+            'title:         A Reference\n'
+            'kind:          reference\n'
+            'status:        current\n'
+            'opened:        2026-09-07\n'
+            'closed:        null\n'
+            'superseded_by: null\n'
+            'supersedes:    []\n'
+            'audience:      session\n'
+            'summary:       What the thing is.\n'
+            '---\n\n# A Reference\n\nBody.\n')
+
+    def _run(text, extra=None):
+        """-> (findings, unstamped, stamped) for a one-file throwaway tree."""
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / 'spec').mkdir()
+            (root / 'spec' / 'D.md').write_text(text, encoding='utf-8')
+            for name, body in (extra or {}).items():
+                (root / 'spec' / name).write_text(body, encoding='utf-8')
+            return dl.scan(root=root)
+
+    def _fires(name, text, needle, extra=None):
+        f, _, _ = _run(text, extra)
+        return (name, bool(f) and any(needle in x for x in f))
+
+    cases = [
+        # The unplanted control comes FIRST: a test suite where every case
+        # is a planted failure cannot tell a working check from one that
+        # returns a finding for everything.
+        ('the unplanted document passes', not _run(GOOD)[0]),
+        ('and it counts as stamped', _run(GOOD)[2] == 1),
+
+        _fires('an illegal status for the kind',
+               GOOD.replace('status:        current', 'status:        open'),
+               'is not legal for kind'),
+        _fires('an unknown kind',
+               GOOD.replace('kind:          reference', 'kind:          memo'),
+               'is not one of'),
+        _fires('a title that disagrees with the first heading',
+               GOOD.replace('# A Reference', '# Something Else'),
+               '!= first heading'),
+        _fires('a missing required field',
+               GOOD.replace('supersedes:    []\n', ''),
+               'missing required field'),
+        _fires('an unknown audience',
+               GOOD.replace('audience:      session', 'audience:      everyone'),
+               'audience'),
+        _fires('an opened date that is not YYYY-MM-DD',
+               GOOD.replace('opened:        2026-09-07', 'opened:        Sept 7'),
+               'is not YYYY-MM-DD'),
+        _fires('status closed with no closed date',
+               GOOD.replace('kind:          reference', 'kind:          brief')
+                   .replace('status:        current', 'status:        closed'),
+               'no `closed:` date'),
+        _fires('a closed date on a document that is not closed',
+               GOOD.replace('closed:        null', 'closed:        2026-09-07'),
+               'but status is'),
+        _fires('status superseded with no successor',
+               GOOD.replace('status:        current', 'status:        superseded'),
+               'no `superseded_by:`'),
+        _fires('a superseded_by that does not resolve',
+               GOOD.replace('status:        current', 'status:        superseded')
+                   .replace('superseded_by: null', 'superseded_by: spec/GONE.md'),
+               'does not exist'),
+        _fires('a summary that does not end in a period',
+               GOOD.replace('summary:       What the thing is.',
+                            'summary:       What the thing is'),
+               'does not end in a period'),
+        _fires('a real `Last updated:` comment on a reference',
+               GOOD.replace('\n# A Reference',
+                            '\n<!-- Last updated: 2026-09-07 -->\n\n# A Reference'),
+               'Last updated'),
+    ]
+
+    # The false-positive controls: the rule's own text must not trip it.
+    quoted = GOOD.replace('Body.',
+                          'A file may not carry `<!-- Last updated: x -->`.')
+    cases.append(('the same string inside a code span does NOT fire',
+                  not _run(quoted)[0]))
+    fenced = GOOD.replace('Body.', '```\n<!-- Last updated: x -->\n```')
+    cases.append(('nor inside a fenced block', not _run(fenced)[0]))
+    brief = (GOOD.replace('kind:          reference', 'kind:          brief')
+                 .replace('status:        current', 'status:        open')
+                 .replace('\n# A Reference',
+                          '\n<!-- Last updated: 2026-09-07 -->\n\n# A Reference'))
+    cases.append(('and a `brief`, whose subject IS the date, may carry one',
+                  not _run(brief)[0]))
+
+    # An unstamped file is reported but is not a finding, while the backfill
+    # is in progress. Both halves matter: reported, and not fatal.
+    f, un, st = _run(GOOD, extra={'U.md': '# Unstamped\n\nNo frontmatter.\n'})
+    cases.append(('an unstamped document is reported', un == ['spec/U.md']))
+    cases.append(('and is not itself a finding, pre-phase-2', not f))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the document lifecycle check fires on each planted violation and '
+          f'clears the unplanted tree ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 
 
 def check_sync_views_cross_source():
@@ -9730,6 +9894,7 @@ def main():
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()
+    check_doc_lifecycle_fires_and_clears()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
