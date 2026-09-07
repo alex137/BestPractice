@@ -6478,6 +6478,33 @@ def check_repo_reference_allowlist():
         cases.append(('NO owner declared means the rule is inert',
                       lg.repo_ref_hits('acct/secret-thing', {}, {}) == []))
 
+        # ...and an inert rule SAYS SO. A clone that never declared an owner
+        # would otherwise get a clean OK covering a rule that inspected
+        # nothing -- the fail-open shape the vocabulary layer already learned
+        # to announce.
+        import tempfile as _tf
+        quiet = pathlib.Path(_tf.mkdtemp()) / 'b.txt'
+        quiet.write_text('\\bsome-term\\b\n', encoding='utf-8')
+        r = subprocess.run([sys.executable, str(gate)], capture_output=True,
+                           text=True, cwd=str(ROOT), timeout=300,
+                           env=dict(os.environ, PRECEDENT_LEAK_BLOCKLIST=str(quiet)))
+        cases.append(('an undeclared owner is ANNOUNCED, not silent',
+                      'repo-reference allowlist is INERT' in (r.stdout + r.stderr)))
+
+        # The template must not hand out permission for the one thing the
+        # resolver refuses: a shared repo naming an individual source.
+        tmpl = ROOT / 'templates' / 'leak-blocklist.txt.template'
+        if tmpl.exists():
+            t = tmpl.read_text(encoding='utf-8')
+            cases.append(('the template tells an adopter to declare their own '
+                          'account', 'private-owner YOUR-GITHUB-ACCOUNT' in t))
+            cases.append(('and warns against pre-allowing an individual source',
+                          'Do NOT pre-allow your INDIVIDUAL source' in t))
+            cases.append(('and no allow line for an individual source is '
+                          'shipped uncommented',
+                          not re.search(r'^visibility-audit:\s*allow\s+\S+/precedent-individual',
+                                        t, re.M)))
+
         # And it reaches the gate's own scan, not just the helper.
         units = [('f.md', 'f.md', 'text naming acct/undeclared-one here')]
         hits = lg.scan(units, [], (owners, allowed))

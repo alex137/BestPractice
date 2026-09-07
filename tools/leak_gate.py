@@ -555,6 +555,17 @@ def main():
     _policy = (parse_repo_policy(pathlib.Path(_raw_bl).expanduser())
                if _raw_bl else ({}, {}))
     hits = scan(units, blocklist, _policy)
+    # SAY WHEN THE ALLOWLIST IS OFF. It only does anything once somebody
+    # declares an owner private-by-default, and a clone that never did would
+    # otherwise get a clean "OK" covering a rule that inspected nothing --
+    # the fail-open shape this gate's own vocabulary layer already learned to
+    # announce. Printed on every run, pass or fail.
+    if not (_policy[0] or {}):
+        print('leak gate NOTE: no `# visibility-audit: private-owner <account>` '
+              'is declared, so the repo-reference allowlist is INERT -- a '
+              'private repository named in this tree would not be caught by '
+              'it. Declare one in the private blocklist to switch it on.',
+              file=sys.stderr)
 
     for display, line, why, sample in hits:
         where = f"{display}:{line}" if line else display
