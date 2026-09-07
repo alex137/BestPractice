@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session that added retirement-deletes-files, adding the reply-links-files widening below and the preamble qualification it required -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session that added retirement-deletes-files, adding the reply-links-files entry below -->
 <!--record-doc--> This file quotes practice Rules verbatim to say what changed in them, so it names the apparatus doc_lint.py check 6 keeps out of deliverables. It is a record document, not a deliverable.
 
 # Changes to tell Alex
@@ -19,18 +19,13 @@ instead of a diff. A practice that is only cross-referenced (a pointer added
 to its Install section, nothing about its Rule or enforcement changed) is
 noted here too, briefly, for completeness, but is not a behavior change.
 
-Nothing here is unilateral, with one disclosed exception. Everything below
-is either a rewrite that keeps the original decision rule intact (marking a
-superseded *mechanism*, not a disagreement with the practice), or a fix
-based on the base-repo drift this session found for
-[Alex's practice 53](#alexs-real-time-additions) below — **except the one
-entry under [Rule widened on request](#rule-widened-on-request), which asks
-for something the original did not.** That one is called out separately
-rather than filed among the mechanism changes, because reading it as a
-mechanism change is exactly the mistake this file exists to prevent. None of
-it changes what a plain BestPractice-vendoring consumer repo (pre-migration)
-sees — the pre-migration path each affected practice describes is kept
-working in every case.
+Nothing here is unilateral: everything below is either a rewrite that keeps
+the original decision rule intact (marking a superseded *mechanism*, not a
+disagreement with the practice), or a fix based on the base-repo drift this
+session found for [Alex's practice 53](#alexs-real-time-additions) below.
+None of it changes what a plain BestPractice-vendoring consumer repo
+(pre-migration) sees — the pre-migration path each affected practice
+describes is kept working in every case.
 
 ## Changed mechanism, decision rule kept
 
@@ -312,57 +307,37 @@ own patterns are untouched — verified still firing on an unattributed "user
 decision" with no record link, and still not exempting an ordinary document
 link.
 
-## Rule widened on request
-
-The one category in this file where the practice now asks for something its
-original did not. Kept separate from the mechanism changes above on purpose:
-those preserve Alex's decision rule and swap out how it is carried out, and
-filing a genuine widening among them would hide it in the one place written
-to surface it.
-
 ### `reply-links-files` (BestPractice practice 12) — 2026-09-07
 
-**What changed.** The Rule read *"A session's reply that created or modified
-files ends with a 'Files touched' list"*. It now reads *"created, modified or
-deleted"*, and adds: a deleted file is listed too — its path, why it went,
-and a link to the commit that removed it. `## Detail` says how (the removing
-commit, not a branch link, which would 404; a whole retired directory is one
-entry, not one line per file). Nothing else changed: `tier`, `gates`,
-`severity`, `checked_by` (still `null` — this practice fires at the `reply`
-gate and has never had a mechanical check) and the two-link requirement for
-files that still exist are all untouched. **The title is deliberately
-unchanged too** — "the files it touched" already covers a file that was
-deleted, and
-[verify_harness.py](tools/verify_harness.py)'s title check compares against
-`PRACTICES.md` verbatim with no amendment exemption. Widening that exemption
-to buy a marginally better title would trade a real conversion-fidelity
-guarantee for wording; the Rule, Detail, Why, Story and this entry all state
-the change plainly, which is where it belongs.
+**What changed.** The Rule's trigger clause enumerated two verbs — *"a reply
+that created or modified files"* — and now reads *"created, modified or
+deleted"*, with one added obligation: a deleted file is listed too, with its
+path, why it went, and a link to the commit that removed it rather than a
+branch link, which would 404. `## Detail` carries the mechanics (a whole
+retired directory is one entry, not one line per file). Nothing else moved:
+`title`, `tier`, `gates`, `severity`, `checked_by` (still `null` — this one
+fires at the `reply` gate and has never had a mechanical check) and the
+two-link requirement for files that still exist are untouched.
 
-**Why it is a widening and not a clarification.** The original is not silent
-on deletions in a way that leaves them implied; it enumerates the two cases
-it covers, and deletion is a third. A session that deleted a directory and
-said nothing satisfied the old Rule completely.
+**Why it needed saying.** The addition is small but it is a real obligation
+the original did not carry, so a session that deleted a directory and said
+nothing satisfied the old Rule completely. That was harmless while deleting
+was rare; [retirement-deletes-files](practices/retirement-deletes-files.md),
+landed the same day at Morgan's request, makes it routine. The asymmetry is
+the argument: a created or modified file announces itself in the tree, so a
+reader browsing the branch trips over it either way, while a deleted one
+leaves nothing behind to trip over and the reply is the only place it is
+visible at all.
 
-**What prompted it.** Morgan's request, 2026-09-07, the same day
-[retirement-deletes-files](practices/retirement-deletes-files.md) landed.
-That practice makes deleting a deprecated file a routine act rather than a
-rare one, and the two interact badly in one direction: a rule that makes
-deletion normal, sitting beside a reply convention that never mentions
-deletion, makes *omitting* deletions from the summary normal too. The
-asymmetry is the argument — a created or modified file announces itself in
-the tree, so a reader browsing the branch trips over it whether or not the
-reply mentioned it, while a deleted one leaves nothing behind to trip over.
-The reply is the only place it is visible at all.
-
-**What a pre-migration consumer sees.** The same widened convention, and
-nothing breaks: the addition asks for one more line in a reply, needs no
-tool, no config and no vendored file, and a repo that never deletes anything
-never encounters it. The convention text in
+**What did not change.** The decision rule, which the practice states in its
+own Rule and which this serves rather than revises: *the reader must be able
+to open the work from the chat, not merely learn it exists.* A deleted file
+is a third case brought under it, not a new principle. A pre-migration
+consumer sees the same widened convention and nothing breaks — it asks for
+one more line in a reply, needs no tool, config or vendored file, and both
 [templates/AGENTS.md.template](templates/AGENTS.md.template) and
 [templates/AGENTS.md.loader.template](templates/AGENTS.md.loader.template)
-carries it, so both the classic and loader layouts pick it up on their next
-sync.
+carry it for the classic and loader layouts.
 
 ## Content added to practices, not just re-linked
 
