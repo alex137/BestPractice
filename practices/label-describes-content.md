@@ -26,6 +26,11 @@ page, name it for its content, not for a brevity it doesn't have.
 ## Detail
 
 ## Why
+A label naming a form — *in one line*, *TL;DR*, *one-pager* — is a **promise about the shape of what follows**, and a reader acts on it: they decide whether to read now, skim, or come back. Breaking it wastes the decision they just made on your behalf.
+
+The damage is disproportionate to the error because it is not local. A reader who finds one label over-promising has learned something about the document's other claims, and the discount they apply is not confined to headings. In a document whose whole job is to be trusted, that reads as spin — the same credibility leak as a number that does not match its source.
+
+The fix is cheap and always available: name the section for its content instead of for a brevity it does not have.
 
 ## Story
 "The thesis in one line" sat atop three paragraphs; "the business

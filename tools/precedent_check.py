@@ -704,7 +704,15 @@ def _generated_artifact_provenance(ctx):
 def _source_naming(ctx):
     out = []
     sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_resolve as pr
+    try:
+        import precedent_resolve as pr
+    except Exception as e:
+        # Same reason as title_case above: precedent_resolve.py is in
+        # CONSUMER_ENGINE_FILES but not ENGINE_FILES, because a source set
+        # resolves no catalogue. The reachability check further down already
+        # gave this import the same treatment; this one was still bare.
+        raise NotApplicable(f'precedent_resolve.py did not import ({e}), so '
+                            f'no declared source can be read here')
     for cfg in sorted(ROOT.rglob('precedent.json')):
         if '.git' in cfg.parts:
             continue
@@ -1258,6 +1266,16 @@ _ENGINE_REF_ABSENT_OK = {
     # saying. code-cites-practice reads it to tell a stale citation from
     # version skew in vendored code.
     'ENGINE_MANIFEST.json',
+    # A PRESENCE PROBE, not a dependency. _practice_is_reachable() asks
+    # whether the session-practices channel is wired here, and the answer
+    # for a SOURCE set is correctly "no": precedent_session_practices.py is
+    # in CONSUMER_ENGINE_FILES only, since rendering other sources'
+    # practices into a session file is a consuming repo's job. The reference
+    # is already `.is_file()`-guarded and `wired` simply becomes False.
+    # Found the moment precedent_check.py entered ENGINE_FILES (2026-09-07)
+    # and started running in source sets, where it was a false violation on
+    # every one of them -- the first real finding that vendoring produced.
+    'precedent_session_practices.py',
 }
 
 
@@ -1631,7 +1649,16 @@ def _heading_outline(ctx):
        'a person can add to title_case.KEEP_PHRASES.')
 def _headline_capitalization(ctx):
     sys.path.insert(0, str(ROOT / 'tools'))
-    import title_case
+    try:
+        import title_case
+    except Exception as e:
+        # This file is in ENGINE_FILES as of 2026-09-07, so it now runs
+        # inside SOURCE sets, which carry no title_case.py (that is
+        # CONSUMER_ENGINE_FILES only). An unguarded import turns a
+        # legitimately absent dependency into an ERRORED check, which reads
+        # as a broken tool rather than an absent one. A named skip says what
+        # is missing; the runner already prints that a skip is not a pass.
+        raise NotApplicable(f'tools/title_case.py did not import: {e}')
     # title_case.is_outward() is the one definition of "outward-facing"
     # -- everything except its INTERNAL_DIRS/INTERNAL_FILES. This gate
     # asks it rather than carrying a second copy of the boundary.

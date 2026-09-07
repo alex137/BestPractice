@@ -33,6 +33,11 @@ shorthand for that is documented in [merge-authorization-keyword](merge-authoriz
 ## Detail
 
 ## Why
+The expensive part of an ad-hoc merge is not the time it takes. It is that **conflict resolution is judgment exercised under pressure, on exactly the files that matter most** — shared registries, indexes, logs — and that is where an entry quietly gets dropped rather than where anyone expects to make a mistake.
+
+Writing the rules per file class once removes the judgment from the moment it is least reliable. A rule decided calmly, in the abstract, is applied mechanically under pressure.
+
+The audit is what makes that mechanical application *safe* rather than merely fast, and the ordering matters: the audit has to pass before the merge commits, not after. Together they make fixed-rule resolution safer than careful manual inspection, which is the claim that justifies the whole practice — otherwise this would be a speed optimization bought with risk.
 
 ## Story
 Every thread in the originating repo touched the same registry and

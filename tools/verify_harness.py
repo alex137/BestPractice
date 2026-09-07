@@ -120,6 +120,16 @@ AMENDED_POST_CONVERSION = {
     # description, after the leak gate's private vocabulary half was run
     # against this tree for the first time.
     'migration-scrubs-vocabulary',
+    # Added 2026-09-07 by the Why backfill (see CHANGES_TO_TELL_ALEX.md,
+    # "Why backfill"). Distinct from the Story backfill the same day: these
+    # nine already HAD their incident recorded in a real ## Story. What they
+    # lacked was the reasoning, because their source practice never had a
+    # paragraph opening with a **Why.** label for the converter's
+    # carry-forward walk to route there. The new text is derived from each
+    # practice's own Rule and Story, so it is invented relative to
+    # PRACTICES.md and needs this exemption. Seven of the nine were already
+    # listed above for earlier sweeps.
+    'docs-are-current-state', 'label-describes-content',
 }
 
 CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'
@@ -6338,6 +6348,100 @@ def _write_fixture_practice(path, slug, applies_to, rule_text):
         encoding='utf-8')
 
 
+def check_precedent_check_degrades_in_a_source_set():
+    """precedent_check.py entered ENGINE_FILES on 2026-09-07, so it now runs
+    inside SOURCE sets -- which deliberately do NOT carry its four optional
+    dependencies. doc_lint.py, doc_sync.py, title_case.py and
+    precedent_resolve.py are CONSUMER_ENGINE_FILES only, because a source set
+    resolves no catalogue and vendors no upstream tree.
+
+    The property under test is that this degrades HONESTLY: a check whose
+    module is absent reports SKIPPED, never ERRORED (which reads as a broken
+    tool rather than an absent one) and never a silent pass. Two of the four
+    already did that; title_case and, in _source_naming, precedent_resolve
+    were bare imports and are why this exists.
+
+    The fixture is built from THIS WORKING TREE, by copying ENGINE_FILES out
+    of tools/ by hand -- deliberately not via precedent_bootstrap_source.py,
+    which seeds from a committed git ref (that is its own guarantee: no
+    checkout, no HEAD movement). Seeding from the ref would make this check
+    permanently one commit behind the engine change it is meant to test, and
+    it would have passed for the wrong reason on the very commit that
+    introduced the guards."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-srcset-check-'))
+    cases = []
+    try:
+        dest = tmp / 'srcset'
+        (dest / 'tools').mkdir(parents=True)
+        (dest / 'practices').mkdir()
+        for name in pve.ENGINE_FILES:
+            src = ROOT / 'tools' / name
+            if src.is_file():
+                shutil.copy2(src, dest / 'tools' / name)
+        # routing_scope.json is vendored into every kind but is NOT in
+        # ENGINE_FILES, because the vendoring tool writes a TRIMMED copy
+        # rather than a byte-identical one (see precedent_vendor_engine.py's
+        # module docstring). Copying it verbatim is fine here: this fixture
+        # tests import degradation, and only the file's PRESENCE matters --
+        # omitting it made vendored-engine-file-refs-resolve fire on
+        # build_views.py, a fixture defect masquerading as a finding.
+        shutil.copy2(ROOT / 'tools' / 'routing_scope.json',
+                     dest / 'tools' / 'routing_scope.json')
+
+        cases.append(('precedent_check.py is in ENGINE_FILES, so a source set '
+                      'gets it at all',
+                      'precedent_check.py' in pve.ENGINE_FILES, ''))
+        cases.append(('and it landed in the fixture',
+                      (dest / 'tools' / 'precedent_check.py').is_file(), ''))
+
+        # Negative control on the fixture itself: if any optional module HAD
+        # come along, every assertion below would pass for the wrong reason,
+        # because the imports would simply succeed.
+        optional = ('doc_lint.py', 'doc_sync.py', 'title_case.py',
+                    'precedent_resolve.py')
+        absent = [m for m in optional if not (dest / 'tools' / m).is_file()]
+        cases.append(('the four optional modules are genuinely absent, so the '
+                      'skips below are real', len(absent) == len(optional),
+                      f'absent: {absent}'))
+
+        # Put the two practices whose checks import the previously-bare
+        # modules IN FORCE here, or the runner skips them for "practice not
+        # in force" before either import is ever attempted -- and the guards
+        # would go untested while the check reported success.
+        for slug in ('headline-capitalization', 'source-naming'):
+            src = ROOT / 'practices' / f'{slug}.md'
+            if src.is_file():
+                shutil.copy2(src, dest / 'practices' / f'{slug}.md')
+        in_force = sorted(f.stem for f in (dest / 'practices').glob('*.md'))
+        cases.append(('the two import-dependent practices are in force in the '
+                      'fixture, so their checks actually reach the import',
+                      set(in_force) >= {'headline-capitalization', 'source-naming'},
+                      f'in force: {in_force}'))
+
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py'],
+                           cwd=str(dest), capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        cases.append(('it runs in a source set without a traceback',
+                      'Traceback' not in out, out[-400:]))
+        cases.append(('nothing ERRORED -- an absent optional dependency is '
+                      'not a broken tool', ' 0 errored' in out, out[-400:]))
+        cases.append(('no VIOLATION on a bare source set -- a check that '
+                      'fires on a correct fresh install is one people learn '
+                      'to ignore', 'VIOLATION' not in out, out[-600:]))
+        cases.append(('a skip names the module that was missing, rather than '
+                      'going quiet', 'did not import' in out, out[-600:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    for name, ok, detail in cases:
+        check(f'precedent_check.py in a source set: {name}', ok,
+              '' if ok else str(detail)[:500])
+
+
 def check_vendor_engine_consumer_case():
     """TODO.md item 18, tested rather than trusted: tools/precedent_vendor_
     engine.py's 'consumer' kind (added 2026-09-05, piloted against a real
@@ -8566,6 +8670,7 @@ def main():
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_source_engine_is_functional()
+    check_precedent_check_degrades_in_a_source_set()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()

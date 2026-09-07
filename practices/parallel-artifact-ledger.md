@@ -35,6 +35,11 @@ date lacking a complete row**.
 ## Detail
 
 ## Why
+Each of the three constraints closes a different silent failure, and each one alone leaves the others open.
+
+**Decomposing by mechanism** exists because a headline verdict can be correct as a headline and wrong for something inside it — the aggregate hides the exception rather than representing it. **Per-change rather than per-session** exists because a verdict is evidence about the change it was formed on and nothing else; carrying it forward to the next batch is an assumption wearing a decision's clothes. **Ledgering** exists because without a record, *checked and does not transfer* and *never checked* look identical from the outside, forever.
+
+That last one is what makes the practice mechanical rather than advisory. A missing ledger row is a checkable fact; a missing consideration is not.
 
 ## Story
 The origin incident: a session recorded a headline-level verdict

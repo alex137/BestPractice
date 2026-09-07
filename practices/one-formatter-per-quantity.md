@@ -59,6 +59,11 @@ together, and apply it to every member. Three policy rules with teeth:
   large values as the cost of alignment.
 
 ## Why
+**An inline format string is a second copy of a policy, and copies diverge.** The policy for a quantity kind is not one number — it is decimal places, thresholds, approximation marking and unit affixes together — so every inline `f"{x:.1f} t"` is a partial restatement that will be updated in one place and not the other.
+
+Routing every emitter through one formatter object is what makes the policy a single thing that can be changed. Discipline cannot substitute: the divergence is invisible in the source, where two format strings sit in different files, and visible only in the output, in one row, to a reader who was not looking for it.
+
+That is also why the rule targets the *mechanism* rather than asking for care. A per-value helper written carefully still breaks the moment the comparison set spans its own threshold, which is the failure the Story records happening twice.
 
 ## Story
 **Origin.** A competitive-comparison table printed an incumbent's

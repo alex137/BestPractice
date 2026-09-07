@@ -876,28 +876,30 @@ which is the failure this repointing exists to end — write
     with no grace period. **What closes it for free:** the merge-back landing
     first, which brings both gates to `main` in one move.
 
-- **`precedent_check.py` is not vendored, so a practice set enforces nothing
-  of the universal catalogue.** Established 2026-09-07 while closing the
-  Story backfill, and it is the root cause behind two separate items already
-  filed: `cite-the-incident`'s check never ran in the private sets, and
-  neither did the status-contract check
+- ~~**`precedent_check.py` is not vendored into source sets, so a practice
+  set enforces nothing of the universal catalogue.**~~ **Done 2026-09-07**, in
+  the same day it was filed. It is the root cause behind two other items:
+  `cite-the-incident`'s check never ran in the private sets, and neither did
+  the status-contract check
   ([`convert-team-set-retired-statuses`](TODO.md#convert-team-set-retired-statuses)
   records the same shape). Both were assumed to be running. **A gap declared
   in a repo that cannot check for it is indistinguishable from one nobody
-  declared** — which is exactly how 34 empty Stories sat in a team source for
-  a week with its own gates green.
-  Not fixed in that pass because it is a real engine change rather than a
-  one-line addition:
-  [tools/precedent_check.py](tools/precedent_check.py) lazily imports
-  `doc_lint`, `title_case` and `doc_sync`, none of which is in
-  `ENGINE_FILES`, so vendoring it means either bringing those along or
-  proving each affected check degrades honestly (a named skip, never a silent
-  pass) when its import is missing. That needs harness cases with negative
-  controls, in the repo that owns the engine.
-  **Interim state, so nobody assumes it is covered:** the team source carries
-  its own `check_catalogue_stories.py` as the only enforcement that actually
-  runs inside a set, and its practice record says to retire that script once
-  this lands. **Blocked on:** nothing but the work.
+  declared** — which is how 34 empty Stories sat in a team source with its
+  own gates green.
+  **A correction to this item's own first draft, kept because the mistake is
+  instructive:** it said the file was in *neither* `ENGINE_FILES` nor
+  `CONSUMER_ENGINE_FILES`. That was wrong about consumers — it had been in
+  `CONSUMER_ENGINE_FILES` all along — and right about sources. The conclusion
+  survived because the repos that were actually broken are the three private
+  *source* sets, not the consumers; but the supporting claim was overstated,
+  and was asserted from reading one list rather than both.
+  **What it took:** adding it to `ENGINE_FILES` (it reaches
+  `CONSUMER_ENGINE_FILES` automatically, which is built from it), plus
+  guarding the two imports that were still bare — `title_case` and, in
+  `_source_naming`, `precedent_resolve`. A source set gets neither module,
+  and an unguarded import turns a legitimately absent dependency into an
+  ERRORED check, which reads as a broken tool rather than an absent one.
+  `doc_lint` and `doc_sync` already degraded correctly.
 
 - **Nine practices carry an empty `## Why`.** Found 2026-09-07 by the Story
   backfill, which was scoped to `## Story` and deliberately did not widen:

@@ -366,6 +366,40 @@ link sweeps. The slugs newly registered by this change are
 below rather than for a Story —
 [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md).
 
+### Why backfill: nine practices that stated a rule with no separate rationale — 2026-09-07
+
+**What changed.** Nine practices carried an empty `## Why`:
+`docs-are-current-state`, `environment-gotchas`,
+`generated-artifact-provenance`, `label-describes-content`,
+`layered-practice-packs`, `lead-with-what-it-is`, `merge-runbook`,
+`one-formatter-per-quantity`, `parallel-artifact-ledger`. All are now
+written. **No Rule, Detail, Story, `checked_by`, `severity` or `status`
+changed.**
+
+**This is a different gap from the Story backfill above, and the difference
+matters.** Those 30 were missing their *incident*. These nine already had a
+real, specific `## Story` — the incident was recorded all along. What they
+lacked was the *reasoning*, because their source practice in `PRACTICES.md`
+never had a paragraph opening with a `**Why.**` label, and
+[split_practices.py](tools/split_practices.py)'s carry-forward walk routes
+by label. Nothing was lost in conversion; there was nothing there to carry.
+
+**So this text is derived, not recovered**, and that is worth stating plainly
+because it is the one place in either backfill where new argument is being
+written rather than transcribed. Each `## Why` is reasoned from that
+practice's own Rule and Story — why the rule takes the shape it does, and why
+the obvious alternative fails — and says nothing the practice did not already
+imply. It is invented relative to `PRACTICES.md`, hence the
+`AMENDED_POST_CONVERSION` entries; seven of the nine were already listed
+there for earlier sweeps.
+
+**An earlier guess about these was wrong and is corrected here.** When they
+were first filed as an open item, the note supposed `## Why` was reasoning the
+converter *did* carry across, so an empty one probably meant the source stated
+a rule with no rationale. Reading the nine showed the second half right and
+the first half beside the point: the reasoning is in their Rule and Story, and
+the empty section is a labelling artifact rather than a loss.
+
 ### A private repo name was scrubbed from this tree — 2026-09-07
 
 **What changed.** 19 occurrences of a private repository's name, across
