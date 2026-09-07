@@ -2563,6 +2563,57 @@ def check_generated_views_regenerate():
           ok, detail)
 
 
+def check_build_views_summary_matches_what_it_wrote():
+    """build_views.py's summary line reports the block it actually wrote.
+
+    THE INCIDENT (2026-09-07). The summary re-derived its figures with a
+    second build_loader_block() call, from the single-source catalogue,
+    while the block itself had been built from the multi-source resolve. A
+    run printed "resident 7/69 practices" and wrote a file whose own header
+    said "7 of 72" -- the artifact was right and the line a session reads to
+    confirm the run was wrong, which is the worse half to have wrong. It
+    surfaced only because a merge happened to add repo-local practices and
+    somebody read both numbers in the same minute.
+
+    Runs against a COPY: this is a real write run, not --check, because the
+    disagreement lived between what was printed and what was written and
+    only a write produces both.
+    """
+    import tempfile, shutil
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-summary-'))
+    try:
+        repo = tmp / 'repo'
+        shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(
+            '.git', '__pycache__', '*.pyc', 'prompts'))
+        r = subprocess.run(
+            [sys.executable, str(repo / 'tools' / 'build_views.py')],
+            capture_output=True, text=True, cwd=str(repo))
+        if r.returncode != 0:
+            check('build_views summary reports the block it wrote', False,
+                  f'build_views exited {r.returncode}: '
+                  f'{(r.stdout + r.stderr).strip()[:300]}')
+            return
+        m_out = re.search(r'resident (\d+)/(\d+) practices, ~(\d+) tokens',
+                          r.stdout)
+        header = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        m_file = re.search(
+            r'## Resident block \(~(\d+) of \d+ token budget, '
+            r'(\d+) of (\d+) practices', header)
+        if not m_out or not m_file:
+            check('build_views summary reports the block it wrote', False,
+                  f'could not parse both figures (stdout matched: '
+                  f'{bool(m_out)}, AGENTS.md matched: {bool(m_file)})')
+            return
+        printed = (int(m_out.group(1)), int(m_out.group(2)), int(m_out.group(3)))
+        written = (int(m_file.group(2)), int(m_file.group(3)), int(m_file.group(1)))
+        check('build_views summary reports the block it wrote '
+              '(resident, total and token count all match AGENTS.md)',
+              printed == written,
+              f'printed {printed}, wrote {written}')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_legacy_status_migration():
     """A practice written under the OLD status vocabulary can be classified,
     and cannot be classified by guessing.
@@ -10224,6 +10275,7 @@ def main():
     check_glob_semantics()
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
+    check_build_views_summary_matches_what_it_wrote()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_not_binding_cannot_be_abused()

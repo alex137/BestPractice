@@ -757,16 +757,27 @@ def loader_practices(root, own_practices):
 
 def render_agents_md(practices, agents_md=None, source_levels=None,
                      omits_private=False):
+    """-> (text, stats), where stats is (resident_tokens, n_resident,
+    n_total) FROM THE BLOCK THIS RETURNED -- not re-derived.
+
+    The stats used to be discarded here and the caller recomputed them for
+    its own summary line, from a different practice list: `main()` passed
+    the single-source catalogue where the block itself had been built from
+    the multi-source resolve. So the run reported "resident 7/69" while the
+    file it had just written said "7 of 72", and neither number knew about
+    the other (found 2026-09-07). Returning them removes the second
+    computation rather than making two computations agree, which is the
+    only version of this that cannot drift again."""
     agents_md = agents_md if agents_md is not None else AGENTS_MD
     original = agents_md.read_text(encoding='utf-8')
-    block, _tokens, _n = build_loader_block(practices, source_levels=source_levels,
-                                            omits_private=omits_private)
+    block, tokens, n_resident = build_loader_block(
+        practices, source_levels=source_levels, omits_private=omits_private)
     if BEGIN_MARKER not in original or END_MARKER not in original:
         sys.exit(f"build_views FAIL: {agents_md} has no "
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
     pre = original[:original.index(BEGIN_MARKER)]
     post = original[original.index(END_MARKER) + len(END_MARKER):]
-    return pre + block + post
+    return pre + block + post, (tokens, n_resident, len(practices))
 
 
 
@@ -986,9 +997,9 @@ def main():
                  "resolvable, then re-run.")
     # A public repo's block deliberately omits the private levels, so the
     # standing instruction has to point at what carries them instead.
-    new_agents = render_agents_md(block_practices, agents_md,
-                                  source_levels=levels,
-                                  omits_private=repo_is_public(root))
+    new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
+        block_practices, agents_md, source_levels=levels,
+        omits_private=repo_is_public(root))
     targets = [(agents_md, new_agents)]
     if not agents_only:
         targets.append((map_md, render_map_md(practices)))
@@ -1010,11 +1021,12 @@ def main():
 
     for path, new_text in targets:
         path.write_text(new_text, encoding='utf-8')
-    _block, tokens, n_resident = build_loader_block(
-        practices, source_levels=source_levels_from_manifest(root))
     wrote = ', '.join(p.name for p, _t in targets)
+    # These three figures come from the block that was just written, not
+    # from a second build -- see render_agents_md's docstring for the
+    # mismatch that made this the only safe shape.
     print(f"build_views OK: wrote {wrote} (loader block regenerated, resident "
-          f"{n_resident}/{len(practices)} practices, ~{tokens} tokens)")
+          f"{n_resident}/{n_total} practices, ~{block_tokens} tokens)")
     return 0
 
 
