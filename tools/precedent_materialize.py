@@ -618,7 +618,8 @@ def drift(sources, res, out_dir, withheld=None):
     # generated_at_utc is a timestamp, not state -- comparing it would make
     # every run report drift against itself.
     mf = out_dir / 'MANIFEST.json'
-    want = _build_manifest(sources, written, checks_written, rstats)
+    want = _build_manifest(sources, written, checks_written, rstats,
+                           withheld=withheld)
     if not mf.is_file():
         found.append('MANIFEST.json is missing -- a fresh sync writes it')
     else:
