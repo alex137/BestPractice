@@ -263,6 +263,17 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # design, so the individual source simply never resolved and nothing
     # said why.
     'precedent_source_bootstrap.py',
+    # The REPLACEMENT channel for what a public repo's tracked files may not
+    # carry. build_views.py excludes team- and individual-level sources from
+    # a public repo's block and precedent_sync_views.py now keeps their text
+    # out of its materialized tree -- and this is the tool that renders them
+    # into .precedent/SESSION_PRACTICES.md instead, untracked, per session.
+    # It was never vendored, so a consumer got the exclusion with no
+    # replacement and those practices simply stopped binding there. Found
+    # 2026-09-07 repairing a real public consumer's install: half a
+    # mechanism shipped, and the missing half was the half that keeps the
+    # rules in force.
+    'precedent_session_practices.py',
     # precedent_check.py is NOT re-listed here. It was consumer-only when
     # this list was written, and was later promoted into ENGINE_FILES
     # (a source set runs the enforced channel too) without being removed
