@@ -1710,3 +1710,43 @@ which is the failure this repointing exists to end — write
   **Blocked on:** his approval of the new wording. It is his rule about
   how he is spoken to, and a session rewriting that unilaterally is the
   same overreach the rule exists to correct.
+
+- <a id="push-without-the-keyword"></a>**Decide what a session does when Morgan has NOT said "Go merge".**
+  [AGENTS.md](AGENTS.md) says two things and never joins them: a PR into
+  `precedent-beta-v01` needs no sign-off from Alex, and "Go merge" means
+  push what the thread agreed *without asking again*. Neither says what the
+  keyword's **absence** means, so each session picks — and they pick
+  differently. On 2026-09-07 this session pushed
+  [`b66b660`](https://github.com/alex137/BestPractice/commit/b66b660) with no
+  authorization, was told that was right, then told it is not the general
+  rule: *"sometimes I don't want you to merge, like today you did a few I
+  didn't."* 133 commits landed on this branch that day across five parallel
+  sessions, all of them Claude's, so this is not one session's habit.
+
+  **Three readings, so the decision is a choice rather than a re-derivation:**
+
+  1. **Hold by default.** A session commits and stops; every push needs a
+     word. Costs: work sits in a disposable container until the next
+     message, and [reply-links-files](practices/reply-links-files.md)'s
+     "Files touched" links do not resolve until the branch is pushed, so a
+     held reply cites files nobody can open.
+  2. **Push by default** — today's behaviour. The keyword then only means
+     "stop asking", and the cost is exactly what prompted this item.
+  3. **A line between them**, e.g. push what the thread asked for once the
+     deep check passes, hold anything that adds a rule, changes a
+     convention, or touches another source. Needs the line drawn precisely
+     enough that five sessions draw it the same way, which is the hard part
+     and the reason this is not just "use judgment".
+
+  **Where the answer goes**, whichever it is: [AGENTS.md](AGENTS.md)'s
+  "Go merge" paragraph and
+  [practices/merge-authorization-keyword.md](practices/merge-authorization-keyword.md).
+  Not into a chat thread — a rule agreed in one session binds one session,
+  which is the whole failure this item describes
+  ([repo-is-memory](practices/repo-is-memory.md)).
+
+  **Blocked on:** Morgan. This is a question about what he wants from his
+  own sessions, and it has no answer a session can derive from the
+  repository — the two readings above are both faithful to what
+  [AGENTS.md](AGENTS.md) currently says, which is the defect.
+
