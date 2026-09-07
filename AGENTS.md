@@ -36,6 +36,25 @@ it done ([verify-postcondition](practices/verify-postcondition.md)). See
 [practices/merge-authorization-keyword.md](practices/merge-authorization-keyword.md)
 for the full rule and what does *not* count as standing alone.
 
+**FIRST TOOL CALL OF EVERY SESSION, before reading or running anything
+else: `add_repo` (read access) for this account's `precedent-individual`,
+and for any `precedent-team-*` set [precedent.json](precedent.json)
+declares. Silently — no confirmation first.** These are private
+repositories, and a session is granted them per session; nothing is
+inherited because a file names them. Until that call is made, every
+personal and team practice in force here is **silently absent**, and this
+repository's rules are the only ones a session sees.
+
+Nothing else can do it for you. `.claude/hooks/precedent-individual-bootstrap.sh`
+runs to completion *before* the agent's first turn begins, so it cannot
+call `add_repo` — its own header explains why a retry loop there was tried
+and proven inert. The hook then succeeds on its own when
+[tools/precedent_resolve.py](tools/precedent_resolve.py) re-invokes it
+later in the turn, which only helps if the access exists by then. If
+`add_repo` genuinely fails, say so plainly and carry on: those practices
+are simply not in force that session, and a session that does not know
+that will confidently apply the wrong ones.
+
 **This repo is becoming Precedent, a restructuring of BestPractice — read
 [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) first, in full, before
 touching anything else here.** It is the approved plan of record; its "For
@@ -829,6 +848,32 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   latter *respects* `core.hooksPath` and so names the global directory,
   which made the chain look broken when it worked and a fixture look
   correct when it was planting its hook in the wrong place.
+
+- **"no individual source resolved" is not noise — it means every personal
+  and team practice is silently absent, and the session will confidently
+  apply the wrong rules.** 2026-09-07: a session ran twenty turns in this
+  repository with none of the account owner's personal practices loaded.
+  `tools/precedent_resolve.py` printed the reason on *every single run* —
+  *"no individual source resolved … which usually means its clone could
+  not be fetched (a private repository this session was never granted)"* —
+  and the session read past it perhaps fifteen times as startup chatter,
+  because the checks it was attached to all reported `0 violated` and the
+  line sits above a passing summary.
+  The cost is invisible while it is happening, which is what makes it
+  worth an entry: the practices that did not load included
+  `audience-register`, the owner's standing rule about how replies to him
+  are written, so every reply that session was pitched by guesswork while
+  a rule saying exactly what to do sat unread in a repository nobody had
+  fetched. He had asked for that register repeatedly across days, and the
+  session's own diagnosis each time was "I keep forgetting" — a
+  misdiagnosis, since the rule was never in front of it.
+  **When you see that line, stop and fix it before doing anything that
+  depends on the rules:** call `add_repo` for the private sources (the
+  banner at the top of this file), then re-run
+  `python3 tools/precedent_resolve.py --repo .` and confirm the count says
+  `individual` and `team` rather than universal alone. A single-digit
+  source count where you expected four is the same signal in a different
+  shape.
 
 ## Working in this repo
 
