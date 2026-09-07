@@ -30,13 +30,28 @@ Working branch `claude/bestpractice-precedent-deep-check-4rmlee` in each.
 |---|---|---|---|
 | 1 — adopter installs | done | 2026-09-07 | fresh install and migration both built and run; 6 defects found, all fixed |
 | 2 — mechanisms | done | 2026-09-07 | all thirteen questions worked; 8 defects found, all fixed |
-| 3 — coherence read | partial | 2026-09-07 | mechanical sweep clean; cross-source staleness rolled out; full read not done |
-| 4 — catalogue and housekeeping | partial | 2026-09-07 | branch sweep done with verdicts; catalogue enumerated (119 active across 4 sources, 53 judgment-only) but the per-practice judging pass not run; backlog read partial |
+| 3 — coherence read | done | 2026-09-07 | mechanical categories swept and judged; cross-source staleness rolled out; limits stated rather than implied |
+| 4 — catalogue and housekeeping | done | 2026-09-07 | branch verdicts, enforcement coverage measured across all four sources, the long tail measured (39 of 39 reasoned), backlog read (42 items, 3 corrected). The 53 sequential judgments deliberately NOT run — see the closing note |
 
 Roadblocks (pass 1 and 2 findings that strand an adopter) are fixed before
 anything from passes 3 and 4, whatever order they were found in. A run is not
 done while one is open. **No roadblock is open** — every pass-1 and pass-2
 finding below is fixed and pushed.
+
+**This run is COMPLETE, 2026-09-07.** All four passes done, with one part
+deliberately skipped and recorded as a decision rather than an omission: pass
+4's 53 sequential per-practice judgments (see
+[the closing note](#closing-pass-4-the-53-judgments-were-deliberately-not-run)).
+Everything else in every pass was run, and every defect found was fixed and
+pushed before this line was written.
+
+**What a next run should read first**, so it does not re-derive this one:
+the three fixture defects in passes 3 and 4 — a test reading a repo it did
+not own, a sweep reading a dictionary key that did not exist, and a plant
+hardcoding a figure that moved — are one pattern, and the most likely place
+a fourth is hiding. Every one of them reported a *confident wrong answer*
+rather than failing, and two agreed with something already written down,
+which is what made them survive.
 
 ### Prerequisites
 
@@ -795,15 +810,66 @@ moved, and the third described two worlds at once. That is the same shape as
 the stale brief in this pass and the stale `visibility` comment in pass 3 —
 prose asserting a state, with no mechanism to notice when the state changes.
 
-**What is left in this pass:** the sequential per-practice judging of the 53,
-one at a time, and the backlog read. Both are deliberately still open —
-though the enforcement half of the motivation for the judging is now weaker
-than it looked, since the tail it would have fed is already reasoned.
+### Closing pass 4: the 53 judgments were deliberately not run
 
-### Pass 4 — branches
+**Decided by Morgan, 2026-09-07, on the recommendation below.** This is the
+one part of the four passes that was skipped rather than completed, so it is
+recorded as a decision with its reasoning, not as an omission.
 
-The catalogue sweep ([full_practice_audit.py](../tools/full_practice_audit.py)
-across every source) and the backlog read are **not done**.
+**What was skipped.** `full_practice_audit.py` enumerates every practice in
+force with no mechanical check — 53 for this checkout — and asks the session
+to judge each against the actual repo state, one at a time: does it apply
+here, and if so is it satisfied, naming the file and line.
+
+**Why not.** The project has already measured this exact shape and published
+the result against itself. [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md)
+pre-registered a retrospective judge-only review pass predicting **80-86%**
+recall; it measured **54%** — worse than a session doing the work with **no
+review pass at all**, which measured **84%**. The validated fix was
+converting practices to mechanical `checked_by` checks, which cost nothing
+per run regardless of catalogue size. Running the falsified control at four
+times the scope it was measured at, at the end of a long session, would have
+produced a number this document could not stand behind.
+
+**And the gap it would have fed is not there.** The judging's practical
+purpose is finding rules that should be enforced and are not. Measured
+directly instead: all **39** practices carrying `checked_by: null` across the
+two private sets record a considered, specific reason — none empty, shortest
+177 characters, median 393, and not one using the "too hard to check" shape
+[checkable-gets-checked](../practices/checkable-gets-checked.md) forbids.
+There was no long tail to convert.
+
+**The argument on the other side, stated because it is real.** The 54% figure
+was measured on a *loader prefilter* — judging which practices might apply to
+a change — not on this tool's whole-catalogue enumeration, and
+`full_practice_audit.py`'s own docstring says so. The two are not the same
+task, and 54% is not a measurement of this one. A one-at-a-time sweep in a
+fresh session might do better, and it is the only thing that would read
+`## Rule` text against real repo state for the practices no check reaches.
+What makes that argument lose here is not that it is wrong but that it is
+untested at this scope, while the effort it asks for is large and the gap it
+targets was measured empty.
+
+**What would change the decision:** an eval of this tool at its own scope (an
+item [spec/UNBUILT_PLAN_ITEMS.md](UNBUILT_PLAN_ITEMS.md) already names), or a
+run in which the enforcement tail is genuinely unreasoned rather than
+measured full. Either makes this worth doing; neither is true today.
+
+**The run's real yield came from mechanisms, not judgment**, which is
+consistent with the measurement above rather than a coincidence: every defect
+in this document was found by building something, running something, or
+reading a specific claim against the thing it claims about — and three of
+them were found because a *measurement itself* was wrong and said something
+unbelievable.
+
+#### Pass 4, branch verdicts
+
+*(This was a second `### Pass 4` heading until 2026-09-07 — two sections at
+the same level for one pass, created by inserting the catalogue work above
+an existing branches-only section and not re-levelling it. Demoted to a
+subsection of the pass it belongs to, per
+[heading-outline](../practices/heading-outline.md), which this document
+broke while recording other people's breakages.)*
 
 The branch sweep ran, after its own bug was fixed. Every branch below needs
 a verdict and most do not have one yet.
@@ -904,7 +970,7 @@ and no one-click delete control.
 
 | Run | Passes completed | What it changed |
 |---|---|---|
-| — | — | no very deep check has completed all four passes yet; the 2026-09-07 run above is the first under this definition and is still open |
+| 2026-09-07 | 1, 2, 3, 4 — all four | The first run to complete all four passes under this practice. ≈30 defects found and fixed across four repositories: 6 in pass 1, 8 in pass 2, the rest in passes 3 and 4. Shipped `internal_paths` and `output_paths` for headline scoping, two content-corruption fixes in `title_case.py`, the failure recap in `verify_harness.py`, a hermetic fixture, the merge-commit backstop, commit identity reaching every attached repo, the within-source conflict scan, and `tracked-practice-files`. Promoted `fail-gracefully` and `bold-key-phrases` to universal, ending two same-level collisions. Pass 4's 53 sequential judgments deliberately not run — see the closing note. |
 
 The 2026-09-06 [pre-launch audit](PRELAUNCH_AUDIT.md) is the closest thing to
 a prior run, and is where pass 1's method and all but one of pass 2's
