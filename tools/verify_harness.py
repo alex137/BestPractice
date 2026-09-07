@@ -10080,6 +10080,102 @@ def check_unmerged_branch_verdicts():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_endgame_merge_finds_the_silent_drop():
+    """The endgame-merge rehearsal (practice: very-deep-check, pass 4).
+
+    THE CASE THAT CARRIES THIS CHECK is the file that disappears without a
+    conflict. A reverted merge on the base branch splits the integration
+    branch's files into two classes, and only one of them is visible: a file
+    touched again since the merge base conflicts and stops the merge, while
+    a file untouched since simply does not arrive -- no conflict, no
+    message. The 2026-09-07 rehearsal that missed this checked two files,
+    found both present, and concluded the trap did not fire; both happened
+    to be in the visible class.
+
+    So a non-zero finding count is NOT what is asserted here. The fixture
+    plants one file of each class and this check asserts WHICH path lands in
+    WHICH set by name -- a rehearsal that reported the conflicting file and
+    stayed silent about the dropped one would satisfy any count-based
+    assertion while reproducing the exact miss.
+
+    The clean case is asserted beside it, from the same fixture with the
+    revert undone: a check that cannot come back clean is one that will be
+    ignored the first time it is inconvenient."""
+    import tempfile
+    import very_deep_check as vdc
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+
+        # The integration branch, with the two classes of file on it.
+        _git(up, 'checkout', '-q', '-b', 'beta')
+        (up / 'keep.txt').write_text('one\n')
+        (up / 'drop.txt').write_text('one\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'beta work')
+
+        # The accident: beta merged into main, then reverted. The revert
+        # undoes the FILES and leaves the COMMITS in main's log, which is
+        # what makes git treat them as already merged afterwards.
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'merge', '--no-ff', '-q', '-m', 'accidental merge', 'beta')
+        merge_sha = _git(up, 'rev-parse', 'HEAD').stdout.strip()
+        _git(up, 'revert', '-m', '1', '--no-edit', merge_sha)
+
+        # Beta carries on: one of the two files is touched again (so it will
+        # conflict), one is not (so it will vanish), plus new work that
+        # never existed on main at all.
+        _git(up, 'checkout', '-q', 'beta')
+        (up / 'keep.txt').write_text('two\n')
+        (up / 'later.txt').write_text('new\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'more beta work')
+        _git(up, 'checkout', '-q', 'main')
+
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        r = vdc.endgame_merge(work, target='beta', base='main') or {}
+        dropped, conflicts = set(r.get('dropped') or []), set(r.get('conflicts') or [])
+
+        # Same fixture, revert undone: the merge must come back clean.
+        _git(up, 'revert', '--no-edit', 'HEAD')   # revert the revert
+        _git(work, 'fetch', '-q', 'origin')
+        clean = vdc.endgame_merge(work, target='beta', base='main') or {}
+
+        worktrees = _git(work, 'worktree', 'list').stdout.strip().splitlines()
+
+        results = [
+            ('the file untouched since the merge base is named as dropped',
+             'drop.txt' in dropped),
+            ('the file touched since the merge base is a CONFLICT, not a drop',
+             'keep.txt' in conflicts and 'keep.txt' not in dropped),
+            ('work newer than the merge base arrives cleanly, in neither set',
+             'later.txt' not in dropped and 'later.txt' not in conflicts),
+            ('the run is reported as carrying findings',
+             r.get('status') == 'findings'),
+            ('undoing the revert makes the same merge come back clean',
+             clean.get('status') == 'clean' and not clean.get('dropped')),
+            ('the throwaway worktree is removed, whatever the outcome',
+             len(worktrees) == 1),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the endgame-merge rehearsal names the silently-dropped path '
+              f'({len(results)} stated cases; the drop/conflict split is the '
+              f'controlling one)',
+              not failed,
+              (f"{'; '.join(failed)} -- dropped={sorted(dropped)}, "
+               f"conflicts={sorted(conflicts)}") if failed else '')
+
+
 def check_branch_scan_sees_every_branch():
     """The branch sweep must enumerate what ORIGIN has, not what this clone
     happened to fetch (practice: very-deep-check).
