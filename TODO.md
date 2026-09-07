@@ -1448,3 +1448,34 @@ which is the failure this repointing exists to end — write
   deep check, and doing it from here would be the unreviewed cross-repo
   change this run has been finding all day. The engine-side guard is blocked
   on a design call (which baseline to compare against), not on the work.
+
+- <a id="undeclared-deprecated-files"></a>**Nothing finds a deprecated file nobody declared.**
+  [retirement-deletes-files](practices/retirement-deletes-files.md) landed
+  2026-09-07 with an audit ([precedent_retire_path.py](tools/precedent_retire_path.py))
+  and a check that holds a retirement afterwards. Both work from a
+  declaration: the audit is run by a person at the moment of retirement,
+  and the check reads `process/retired_paths.json`. Neither can look at a
+  tree and say *this file is dead*. So the practice covers the moment a
+  mechanism is retired deliberately, and covers nothing at all in the case
+  Morgan actually raised it against — a repo left alone for years, where
+  the retirement moment passed without anyone noticing it was one.
+
+  **One candidate was designed and rejected, so the next session does not
+  re-derive it.** A check on `.github/workflows/`: a workflow whose only
+  trigger is `workflow_dispatch`, or whose schedule is commented out, is a
+  retirement someone started and never finished. It is mechanical, it is
+  cheap, and it targets exactly the shape this practice was raised about.
+  It was not built because it fires hardest on the one case this repo
+  *deliberately* holds — every consumer's paused `bestpractice-upstream-sync.yml`,
+  parked on `workflow_dispatch` on purpose per
+  [`relax-the-pinned-branch-hold`](TODO.md#relax-the-pinned-branch-hold) —
+  so shipping it means every consuming repo starts failing a check for
+  doing what this repo told it to do. Making it honest needs a way to
+  declare a pause with a stated condition for lifting it, which is a
+  design call rather than a check.
+
+  **Blocked on:** that design call. The cheaper half is not blocked and is
+  worth doing first — teaching
+  [very-deep-check](practices/very-deep-check.md)'s housekeeping pass to
+  look for dead paths by hand, which is where a judgment a script cannot
+  make already belongs.

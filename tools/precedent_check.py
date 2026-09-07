@@ -2137,7 +2137,12 @@ def _rename_updates_links(ctx):
             # wholesale from a published commit, and an edit is overwritten by
             # the next refresh. The reference is upstream's, and so is the fix.
             if rel.startswith('process/upstream/') or rel in _vendored_engine \
-                    or rel in received:
+                    or rel in received or rel == RETIRED_PATHS_REGISTRY:
+                # The retirement registry names every path this repo has
+                # deleted, on purpose (practice: retirement-deletes-files) --
+                # it is the record OF the deletion, not a reference left
+                # behind by one, so reading it as a stranded link would make
+                # every retirement fail the moment it was recorded.
                 continue
             f = ROOT / rel
             if not f.is_file():
@@ -2172,6 +2177,72 @@ def _rename_updates_links(ctx):
     if not out and skipped:
         print(f'  (rename-updates-links: {skipped} single-segment path(s) '
               f'skipped as too generic to search)')
+    return out
+
+
+RETIRED_PATHS_REGISTRY = 'process/retired_paths.json'
+
+
+@check('retirement-deletes-files', 'tree',
+       'every path this repo declared retired is still absent, and every '
+       'retirement carries the reason it happened',
+       'the whole positive direction -- a deprecated file nobody has '
+       'declared. Nothing here can tell a dead file from a live one, so '
+       'this catches a retirement coming UNDONE (a vendored tree mirrored '
+       'back over a deletion, a materialized directory rewritten from its '
+       'source), never one that was never made. The audit that decides a '
+       'path is safe to delete is tools/precedent_retire_path.py, run by a '
+       'person at the moment of retirement; this check is only the record '
+       'holding afterwards.')
+def _retirement_deletes_files(ctx):
+    cfg_path = ROOT / RETIRED_PATHS_REGISTRY
+    if not cfg_path.is_file():
+        raise NotApplicable(f'no {RETIRED_PATHS_REGISTRY} -- this repo has '
+                            f'retired nothing, which is the correct state '
+                            f'for a repo that has never retired a mechanism')
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        return [Finding(RETIRED_PATHS_REGISTRY, f'not valid JSON: {e}')]
+    # Same guard, and the same reason, as migration-scrubs-vocabulary's:
+    # a valid-JSON-wrong-shape config reaching `.get` below raises an
+    # uncaught AttributeError that takes down every OTHER check in the run.
+    if not isinstance(cfg, dict):
+        return [Finding(RETIRED_PATHS_REGISTRY,
+                        f'must be a JSON object with a "retired" list (e.g. '
+                        f'{{"retired": [{{"path": ..., "reason": ...}}]}}), '
+                        f'not a {type(cfg).__name__}')]
+    entries = cfg.get('retired') or []
+    if not isinstance(entries, list):
+        return [Finding(RETIRED_PATHS_REGISTRY,
+                        f"'retired' must be a JSON array of objects, not a "
+                        f'{type(entries).__name__}')]
+    if not entries:
+        raise NotApplicable(f'{RETIRED_PATHS_REGISTRY} declares no '
+                            f'retirement -- nothing to hold')
+    tracked = set(_git('ls-files').stdout.split())
+    out = []
+    for i, e in enumerate(entries):
+        if not isinstance(e, dict) or not e.get('path'):
+            out.append(Finding(f'{RETIRED_PATHS_REGISTRY}[{i}]',
+                               'every entry needs a "path"'))
+            continue
+        rel = str(e['path']).rstrip('/')
+        if not str(e.get('reason') or '').strip():
+            # The reason is the only part history does not already hold.
+            out.append(Finding(f'{RETIRED_PATHS_REGISTRY}[{i}]',
+                               f'{rel!r} was retired with no reason recorded '
+                               f'-- git history holds what the file was; '
+                               f'only this holds why it went'))
+        back = sorted(f for f in tracked
+                      if f == rel or f.startswith(rel + '/'))
+        if back:
+            out.append(Finding(
+                RETIRED_PATHS_REGISTRY,
+                f'{rel!r} is declared retired but is tracked again '
+                f'({len(back)} file(s), e.g. {back[0]}) -- a mirror or a '
+                f'materialization has undone the deletion, or the '
+                f'retirement should be withdrawn from this file on purpose'))
     return out
 
 

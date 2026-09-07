@@ -192,6 +192,13 @@ ENGINE_FILES = [
     # verify_harness.py is deliberately not vendored, so
     # check_status_contract never runs there.
     'precedent_migrate_status.py',
+    # The retirement audit (added 2026-09-07). In ENGINE_FILES rather than
+    # the consumer half because retiring a mechanism is not a consumer-only
+    # act -- a practice set retires its own tooling too, and the repo most
+    # likely to be carrying dead files is one that migrated off something.
+    # retirement-deletes-files' Install names it, so a repo resolving that
+    # practice and lacking the file has a rule it cannot obey.
+    'precedent_retire_path.py',
     # The enforced channel itself (added 2026-09-07). Until then a SOURCE set
     # enforced nothing mechanically: this file was in CONSUMER_ENGINE_FILES
     # but not here, so a consuming repo got the checks and a practice set --

@@ -3722,6 +3722,36 @@ def check_precedent_check_fires():
                 r'\n\| Looking for.*?\n\n', '\n\n', t, flags=re.S))
         case('quick-index', _plant_qi)
 
+        # retirement-deletes-files -- a path declared retired that is
+        # tracked again. The CLEAN half deliberately still declares a
+        # retirement (of a path that really is absent), so the negative
+        # control proves the check PASSES rather than merely skipping: with
+        # no registry at all it reports NotApplicable, which looks identical
+        # to a pass from outside and would have proved nothing.
+        def _retire_registry(repo, entries):
+            (repo / 'process').mkdir(exist_ok=True)
+            (repo / 'process' / 'retired_paths.json').write_text(
+                json.dumps({'retired': entries, 'exempt_files': []},
+                           indent=2) + '\n', encoding='utf-8')
+            git(repo, 'add', 'process/retired_paths.json')
+            git(repo, 'commit', '-qm', 'declare a retirement')
+
+        def _setup_retire(repo):
+            _retire_registry(repo, [
+                {'path': 'process/never-existed-here',
+                 'reason': 'the harness fixture has no such tree',
+                 'retired_at': '2026-09-07'}])
+
+        def _plant_retire(repo):
+            _retire_registry(repo, [
+                {'path': 'process/never-existed-here',
+                 'reason': 'the harness fixture has no such tree',
+                 'retired_at': '2026-09-07'},
+                {'path': 'spec/LOADER.md',
+                 'reason': 'planted -- this file is very much still here',
+                 'retired_at': '2026-09-07'}])
+        case('retirement-deletes-files', _plant_retire, setup=_setup_retire)
+
         # rename-updates-links -- a file moved, its references left behind.
         # Needs a published default branch to diff against, which the
         # pristine fixture has no remote for, so the setup gives it one
