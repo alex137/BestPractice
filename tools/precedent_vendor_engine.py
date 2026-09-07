@@ -263,17 +263,27 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # design, so the individual source simply never resolved and nothing
     # said why.
     'precedent_source_bootstrap.py',
-    # The enforced channel itself. INSTALL.md section 0 step 1 used to say
-    # "copy precedent_check.py by hand" -- on the reasoning that it belongs
-    # to phase 4's enforced-checks channel rather than to the loader engine.
-    # True as taxonomy, and exactly the undocumented hand-copy this tool
-    # exists to end: no manifest, no recorded commit, no way to tell a
-    # stale copy from a current one, which is how six of eight engine files
-    # in the first real consumer repo had silently drifted. It travels with
-    # the engine now, and the hand-copy step is gone from INSTALL.md.
-    'precedent_check.py',
+    # precedent_check.py is NOT re-listed here. It was consumer-only when
+    # this list was written, and was later promoted into ENGINE_FILES
+    # (a source set runs the enforced channel too) without being removed
+    # from here -- so it arrived in this list twice, was written twice, and
+    # landed twice in every consumer's tracked ENGINE_MANIFEST.json while
+    # the seed reported one more file than it had. Harmless to the tree,
+    # wrong in a tracked artifact, and invisible because writing a file
+    # twice looks exactly like writing it once.
     'precedent_vendor_engine.py',  # last, same reason as ENGINE_FILES above
 ]
+
+# A name in both halves would be written twice and recorded twice in the
+# manifest -- see the note above, which is the incident this guards. Cheap,
+# and at import time so no caller can miss it.
+for _lst, _nm in ((ENGINE_FILES, 'ENGINE_FILES'),
+                  (CONSUMER_ENGINE_FILES, 'CONSUMER_ENGINE_FILES')):
+    _dupes = sorted({f for f in _lst if _lst.count(f) > 1})
+    if _dupes:
+        raise AssertionError(
+            f'{_nm} lists {", ".join(_dupes)} more than once: the engine '
+            f'would be written and recorded twice')
 
 KINDS = {'source': ENGINE_FILES, 'consumer': CONSUMER_ENGINE_FILES}
 DEFAULT_KIND = 'source'  # unchanged default -- see seed()'s docstring note
