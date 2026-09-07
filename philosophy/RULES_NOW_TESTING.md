@@ -88,11 +88,12 @@ Before calling work done, answer all three out loud in the reply:
 
 ### 5. Write Like a Human, Not an LLM — *Trial*
 
-Follow [process/voice/HUMAN_VOICE_RULES.md](https://github.com/themorgan/WorkingWithAI/blob/main/process/voice/HUMAN_VOICE_RULES.md),
-vendored from [SoundHuman](https://github.com/themorgan/SoundHuman)
-and synced automatically ([AGENTS.md](https://github.com/themorgan/WorkingWithAI/blob/main/AGENTS.md)'s "Voice" section) —
-governs everything written here, chat replies included. Still *Trial*:
-first repo applying it beyond WriteLike.
+Follow a vendored writing-style ruleset — write like a human, not an
+LLM — which governs everything written in WorkingWithAI, chat replies
+included. That ruleset lives in a private repository and is named here
+by role only, deliberately: this is a public repository, and naming it
+would disclose its existence and location. Still *Trial*: WorkingWithAI
+is the first repo applying it beyond the app it was written for.
 
 <a id="dark-process-self-audit"></a>
 
