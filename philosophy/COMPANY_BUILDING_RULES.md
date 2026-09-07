@@ -140,8 +140,7 @@ erodes trust fast. It's evidence too: unrewritten output is output
 nobody thought about — style enforces thinking. And it's positioning:
 what you sound like is the one claim a reader can check for free. Ship
 everything rewritten in your own voice. (Enforced, not just argued for:
-[process/voice/HUMAN_VOICE_RULES.md](https://github.com/themorgan/WorkingWithAI/blob/main/process/voice/HUMAN_VOICE_RULES.md),
-tried here as
+a private writing-style ruleset, tried here as
 [`write-like-a-human`](RULES_NOW_TESTING.md#write-like-a-human).)
 
 ## People
