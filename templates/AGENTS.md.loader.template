@@ -222,10 +222,14 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   read, so run this as a separate pass after drafting, not while writing.
   Rule of thumb: if a term can be replaced by a plain description of five
   words or fewer, it is jargon.
-- **Reply convention** (practice `reply-links-files`): every reply that created or modified
-  files ends with a "Files touched" list — branch link + post-merge link +
-  one-line description per file — so the reader can open the work from the
-  chat. When a touched file is an HTML render or a picture and the harness
+- **Reply convention** (practice `reply-links-files`): every reply that created, modified or
+  deleted files ends with a "Files touched" list — branch link + post-merge
+  link + one-line description per file — so the reader can open the work from
+  the chat. A **deleted** file is listed too: its path, why it went, and a
+  link to the commit that removed it, since it is the one entry with nothing
+  to open on the branch and the one a reader cannot find any other way (a
+  whole retired directory is one entry, not one line per file). When a
+  touched file is an HTML render or a picture and the harness
   offers hosted private previews (artifacts), the entry also carries the
   rendered-view link — a repo link shows source, not the render; publish by
   the same file path each time so the link stays stable, and never preview

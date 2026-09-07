@@ -164,9 +164,11 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   document(s) this project produces are read by an audience outside this
   repo's own work — every term that names a category is either already the
   reader's word, a plain equivalent, or glossed inline on first use.
-- **Reply convention:** every reply that created or modified files ends
-  with a "Files touched" list — branch link + post-merge link + one-line
-  description per file.
+- **Reply convention:** every reply that created, modified or deleted files
+  ends with a "Files touched" list — branch link + post-merge link +
+  one-line description per file. A **deleted** file is listed too: its
+  path, why it went, and a link to the commit that removed it, since it is
+  the one entry with nothing left on the branch to open.
 - **Commits are credited to the human driving the session.** Set the git
   author to the contributor's name and GitHub noreply email, and name
   yourself in a `Co-Authored-By:` trailer.
