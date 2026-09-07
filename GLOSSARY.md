@@ -19,7 +19,9 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
+| negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
+| positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |

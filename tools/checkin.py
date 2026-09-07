@@ -20,9 +20,19 @@ a check-in OUT:
                             Exit 1 if the trees differ (so it can gate).
 
   update <upstream-clone> [--force]
-                            The INSTALL.md §2 direction: pull the clone's
-                            default branch and mirror it into the vendored
-                            tree. REFUSES if the vendored tree differs from
+                            The INSTALL.md §2 direction: mirror the clone's
+                            tree, at the branch THIS install tracks
+                            (manifest `upstream.branch`, else the clone's
+                            default), into the vendored tree. Reads the
+                            clone with `git archive` -- never checks it out,
+                            pulls in it, or moves its HEAD.
+                            REFUSES while `upstream.branch` names a branch
+                            other than the clone's default: that is
+                            spec/MIGRATING_EXISTING_INSTALLS.md's pinned-
+                            branch hold, and the remedy is a one-off manual
+                            mirror (override for one run with
+                            PRECEDENT_ALLOW_PINNED_UPDATE=1).
+                            Also REFUSES if the vendored tree differs from
                             the recorded upstream.commit — that difference
                             is unexported local work the mirror would
                             silently clobber; export it first (§3/§4) or

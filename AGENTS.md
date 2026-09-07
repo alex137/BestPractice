@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~377 of 2000 token budget, 7 of 73 practices (7 universal))
+## Resident block (~377 of 2000 token budget, 7 of 74 practices (7 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -196,6 +196,8 @@ When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — a rule about the outside world carries its date, inline
 When writing a script whose numbers a document will cite:
   scripts-assert-properties — scripts assert their own properties and their cited anchors
+When writing a test, fixture or control that proves a guard fires:
+  control-asserts-which-failure — a non-zero exit is not evidence; assert the message that guard prints
 When writing an outward-facing document:
   readers-vocabulary — use the reader's words; gloss inline or replace
 When writing an outward-facing summary of claims:
@@ -715,13 +717,22 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   [tools/verify_harness.py](tools/verify_harness.py)'s
   `check_commit_identity_copies_are_identical` encodes exactly that
   preference; its first run reported drift against an uncommitted edit three
-  directories away, which is the trap in miniature. **Resolved for this machine 2026-09-07**
-  by repointing the config at `/home/user/precedent-individual`, the clone
-  the session actually works in, with the reason recorded inline in the
-  config itself. The stale `/root/` clone is left on disk rather than
-  deleted -- nothing reads it now, and deleting a checkout to fix a path is
-  a heavier action than the problem warrants -- so the check above is still
-  what to run if any of this recurs.
+  directories away, which is the trap in miniature. **Do not read the next sentence as
+  done everywhere.** A session on 2026-09-07 repointed the config at
+  `/home/user/precedent-individual` and recorded that here as "resolved for
+  this machine" -- but `~/.config/precedent/config.json` is a per-container
+  file that no repository can carry, so a *different* container reading this
+  paragraph still had `/root/precedent-individual` in its config, and the
+  same paragraph's "nothing reads it now" was false there: everything reads
+  exactly it. A fix that lives outside the repository cannot be recorded
+  inside the repository as a state; only as a thing to check. **So check
+  it**, with the command above, rather than trusting this. The saving grace
+  when you find `/root/`: `precedent-individual-bootstrap.sh` pulls that
+  clone `--ff-only` at every session start, so it is normally current in
+  content even when it is the wrong path -- verified 2026-09-07, both clones
+  at the same commit. What it will not have is uncommitted work in progress
+  from the attached sibling, which is the case the preference above exists
+  for.
 
 ## Working in this repo
 
