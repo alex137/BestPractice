@@ -55,7 +55,7 @@ import build_views as bv  # noqa: E402
 
 
 
-def sync(repo, user_config=None, check=False):
+def sync(repo, user_config=None, check=False, allow_missing=False):
     """-> (written, checks_written, rstats, agents_md_path, changed: bool,
     tree_drift: [str]).  tree_drift is always empty unless check=True.
     Raises pr.ResolveError or pm.MaterializeError on failure, exactly as
@@ -73,8 +73,41 @@ def sync(repo, user_config=None, check=False):
     res = pr.resolve(sources)
     for m in res['missing']:
         print(f"precedent_sync_views: the {m['level']} source {m['name']!r} "
-              f"is not available ({m['reason']}). Syncing WITHOUT it.",
+              f"is not available ({m['reason']}).",
               file=sys.stderr)
+
+    # REFUSE TO WRITE from an incomplete source set. materialize() rebuilds
+    # practices/ by delete-and-rewrite, so a source that merely failed to
+    # resolve does not just go unrendered -- every practice it contributed
+    # is DELETED from the tracked tree, and AGENTS.md and MANIFEST.json are
+    # rewritten to match. Exit 0, one warning line, a committable diff that
+    # looks like a deliberate removal.
+    #
+    # This is the CI state by definition: a private team or individual
+    # source is unreachable in every continuous-integration checkout, which
+    # is exactly where an automated sync would run unattended.
+    #
+    # build_views.py already refuses this, in these words -- "refusing to
+    # WRITE a loader block from an incomplete source set". This tool is the
+    # one the install and migration documents actually tell an adopter to
+    # run, and it did the opposite. The half of this bug that hit --check
+    # was found and fixed on 2026-09-06 (see the note below); the writing
+    # half was left, and it is the half that deletes.
+    #
+    # Reproduced before fixing: a consuming repo with one reachable team
+    # source, synced and committed, then re-synced with the sibling clone
+    # simply absent -- practices/widget-rule.md deleted, AGENTS.md and
+    # MANIFEST.json rewritten, exit 0.
+    if res['missing'] and not check and not allow_missing:
+        names = ', '.join(f"{m['level']}/{m['name']}" for m in res['missing'])
+        raise pm.MaterializeError(
+            f"refusing to WRITE from an incomplete source set: {names} did "
+            f"not resolve. Syncing anyway would DELETE every practice those "
+            f"sources contribute from this repo's tracked tree and rewrite "
+            f"AGENTS.md to match -- a silent removal that reads as a "
+            f"deliberate one. Make them resolvable and re-run; use --check "
+            f"to inspect without writing, or --allow-missing-sources if the "
+            f"removal is genuinely what you intend.")
 
     # --check writes nothing at all -- not the materialized tree either.
     # It used to write it: --check guarded only the AGENTS.md write below
@@ -201,7 +234,8 @@ def sync(repo, user_config=None, check=False):
 def main():
     args = sys.argv[1:]
     check = '--check' in args
-    args = [a for a in args if a != '--check']
+    allow_missing = '--allow-missing-sources' in args
+    args = [a for a in args if a not in ('--check', '--allow-missing-sources')]
     repo, user_config = str(ROOT), None
     known = {'--repo', '--user-config'}
     i = 0
@@ -220,7 +254,7 @@ def main():
 
     try:
         written, checks_written, rstats, agents_md, changed, tree_drift = sync(
-            repo, user_config, check=check)
+            repo, user_config, check=check, allow_missing=allow_missing)
     except (pr.ResolveError, pm.MaterializeError) as e:
         sys.exit(f"precedent_sync_views FAIL: {e}")
 

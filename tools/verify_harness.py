@@ -8865,6 +8865,102 @@ def check_public_consumer_does_not_materialize_private_text():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_sync_refuses_to_write_from_incomplete_sources():
+    """precedent_sync_views.py must not rewrite a repo's tracked tree when a
+    declared source did not resolve (practice: very-deep-check, found by it).
+
+    materialize() rebuilds practices/ by delete-and-rewrite, so an
+    unreachable source does not merely go unrendered: every practice it
+    contributed is DELETED from the tracked tree, with AGENTS.md and
+    MANIFEST.json rewritten to match, one warning line, and exit 0. The diff
+    reads as a deliberate removal.
+
+    That is the CI state by definition -- a private team or individual
+    source is unreachable in every continuous-integration checkout, which is
+    exactly where an unattended sync would run. build_views.py already
+    refuses this in as many words; this tool, the one the install and
+    migration documents actually tell an adopter to run, did the opposite.
+    The --check half of the same bug was found and fixed on 2026-09-06; the
+    writing half was left, and it is the half that deletes.
+
+    The two escape hatches are asserted too, because a refusal with no way
+    past it would just be a different way to strand someone: --check must
+    still inspect without writing, and --allow-missing-sources must still
+    let a deliberate removal through."""
+    import tempfile, shutil
+    import json as _json
+    import precedent_sync_views as psv
+    import precedent_materialize as _pm
+    import build_views as bv
+    pm_MaterializeError = _pm.MaterializeError
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        repo, team = tmp / 'consumer', tmp / 'precedent-team-widgets'
+        (repo / 'precedent' / 'universal').mkdir(parents=True)
+        shutil.copytree(PRACTICES_DIR, repo / 'precedent' / 'universal' / 'practices')
+        (team / 'practices').mkdir(parents=True)
+        (team / 'practices' / 'widget-rule.md').write_text(
+            '---\nslug: widget-rule\ntitle: Widgets are tested on the rig\n'
+            'tier: on-demand\nseverity: default\napplies_to: ["**"]\n'
+            'occasion: "changing widget firmware"\n'
+            'index_clause: "test firmware on the rig, never the simulator"\n'
+            'status: active\n---\n## Rule\nUse the rig.\n\n## Story\nIt drifted.\n',
+            encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# Consumer\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n',
+            encoding='utf-8')
+        cfg = repo / 'precedent.json'
+        cfg.write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'visibility': 'private',
+            'sources': [
+                {'level': 'universal', 'name': 'precedent',
+                 'path': 'precedent/universal'},
+                {'level': 'team', 'name': 'precedent-team-widgets',
+                 'path': str(team)}]}), encoding='utf-8')
+        empty_user = tmp / 'user.json'
+        empty_user.write_text(_json.dumps({'format_version': 1}), encoding='utf-8')
+
+        psv.sync(str(repo), user_config=str(empty_user))
+        landed = (repo / 'practices' / 'widget-rule.md').exists()
+
+        # Now the CI state: the sibling clone is simply not there.
+        shutil.rmtree(team)
+
+        refused = False
+        try:
+            psv.sync(str(repo), user_config=str(empty_user))
+        except pm_MaterializeError:
+            refused = True
+        survived = (repo / 'practices' / 'widget-rule.md').exists()
+
+        # --check must still work: CI needs to inspect without writing.
+        checked_ok = True
+        try:
+            psv.sync(str(repo), user_config=str(empty_user), check=True)
+        except pm_MaterializeError:
+            checked_ok = False
+        survived_check = (repo / 'practices' / 'widget-rule.md').exists()
+
+        # And the deliberate removal must still be possible.
+        psv.sync(str(repo), user_config=str(empty_user), allow_missing=True)
+        removed_on_request = not (repo / 'practices' / 'widget-rule.md').exists()
+
+        results = [
+            ('the team practice lands while its source is reachable', landed),
+            ('an unreachable declared source REFUSES the write', refused),
+            ('and the tracked practice it contributed survives', survived),
+            ('--check still inspects without writing', checked_ok and survived_check),
+            ('--allow-missing-sources still permits a deliberate removal',
+             removed_on_request),
+        ]
+        failed = [n for n, ok in results if not ok]
+        check(f'precedent_sync_views refuses to rewrite a tracked tree from an '
+              f'incomplete source set ({len(results)} stated cases, the '
+              f'unreachable-in-CI source being the controlling case)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -8895,6 +8991,7 @@ def main():
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_public_consumer_does_not_materialize_private_text()
+    check_sync_refuses_to_write_from_incomplete_sources()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()
