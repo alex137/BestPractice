@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/RULES_NOW_TESTING.md, version 18. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document from WorkingWithAI into philosophy/; source: themorgan/WorkingWithAI content/RULES_NOW_TESTING.md, version 19. -->
 
 # Rules Now Testing — The Current State of What We're Trying
 
@@ -87,14 +87,18 @@ Before calling work done, answer all three out loud in the reply:
 
 <a id="write-like-a-human"></a>
 
-### 5. Write Like a Human, Not an LLM — *Withdrawn*
+### 5. Write Like a Human, Not an LLM — *Promoted*
 
-**Withdrawn 2026-09-07.** This rule pointed at a writing-style ruleset
-vendored into WorkingWithAI from a private upstream. That vendored copy,
-its manifest and its weekly sync were all removed, and the private
-repository is deliberately not named — so the rule has nothing left to
-point at and is not in force. The *idea* is still sound and may come back
-as a practice written in its own words; it is not being tried right now.
+[`write-like-a-human`](../practices/write-like-a-human.md). Nothing you
+ship may sound like it came from an AI — document, reply or commit
+message. Say the thing in your own words, at the length it earns.
+
+This rule and
+[`no-ai-voice`](COMPANY_BUILDING_RULES.md#no-ai-voice) were always the
+same point: one argued why, one pointed at what to follow. They landed
+as a single universal practice on 2026-09-07 — deliberately a short
+guiding point, replacing the long vendored ruleset this entry used to
+name.
 
 <a id="dark-process-self-audit"></a>
 

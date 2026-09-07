@@ -562,6 +562,13 @@
       ],
       "why": "The path identifies 'a rule is being written', which is necessary but not distinguishing -- the practice fires only when the rule depends on the OUTSIDE WORLD, and no path can see that. A glob on the rule locus surfaced it on 13 of 20 eval cases against 4 it applies to.",
       "decided": "phase 4 routing pass"
+    },
+    "write-like-a-human": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Its own applies_to. The occasion is writing anything a person will read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the glob is a second reminder rather than the only channel. The half no glob can reach is the chat reply, which is why it also carries the `reply` gate.",
+      "decided": "landed universal 2026-09-07"
     }
   },
   "gates": {

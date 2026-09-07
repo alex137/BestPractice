@@ -54,7 +54,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~377 of 2000 token budget, 7 of 73 practices (7 universal))
+## Resident block (~491 of 2000 token budget, 8 of 74 practices (8 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -85,6 +85,16 @@ not that the command reported success. Name the postcondition before you run
 the command — *"no unpushed commits on any branch"*, *"the gate passed"*,
 *"the file contains X"* — and then test that, independently of whatever the
 command printed.
+
+**write-like-a-human.** **Nothing you ship may sound like it came from an AI** — a document, a
+chat reply, a commit message, a pull-request body. The tells: the
+throat-clearing opener that circles before it lands, the "not just X,
+it's Y" contrast, the summary nobody asked for, the even-handed survey
+that takes no position, the caveat stack. **Say the thing, in your own
+words, at the length it earns.**
+
+Unrewritten model output is output nobody thought about — style is the
+cheapest evidence a reader has that somebody did.
 
 ## Occasion index
 
