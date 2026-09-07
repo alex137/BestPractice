@@ -131,6 +131,7 @@ HARNESS_HOOKS = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
 # because _copy_skeleton() writes text files with default permissions,
 # while a hook that is not executable is a hook that silently never runs.
 SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh')
+HARNESS_HOOKS_REL = 'templates/harness/claude-code/hooks/'
 
 
 def _install_session_hooks(dest, base_branch='main'):
@@ -253,12 +254,65 @@ def verify(level, path):
                 break
         else:
             missing.append(str(rel))
+    # The session hooks are the one part of a source's shape that does NOT
+    # come from the skeleton -- they live in the harness adapter, one copy,
+    # so say where each missing thing actually comes from rather than
+    # letting the caller assert a single origin for the whole list.
+    wired = _wired_hook_paths(path)
     for name in SESSION_HOOKS:
-        if not (path / '.claude' / 'hooks' / name).exists():
-            missing.append(str(pathlib.Path('.claude') / 'hooks' / name))
+        # What matters is that the hook is installed AND wired, not that it
+        # sits at the path bootstrap() happens to write. A source that keeps
+        # its hooks elsewhere and points settings.json at them is correct:
+        # precedent-individual wires both from bootstrap/, which its own
+        # commit-author practice documents. Checking the literal path
+        # reported that working source as broken.
+        if (path / '.claude' / 'hooks' / name).exists():
+            continue
+        if any(w.name == name and (path / w).exists() for w in wired):
+            continue
+        missing.append(f"{pathlib.Path('.claude') / 'hooks' / name} "
+                       f"(from {HARNESS_HOOKS_REL}, and unwired: no command "
+                       f"in .claude/settings.json points at a copy of it)")
     if not (path / '.claude' / 'settings.json').exists():
-        missing.append(str(pathlib.Path('.claude') / 'settings.json'))
+        missing.append(f"{pathlib.Path('.claude') / 'settings.json'} "
+                       f"(written by this tool's bootstrap, not shipped in "
+                       f"either skeleton)")
     return missing + _malformed(level, path)
+
+
+def _wired_hook_paths(path):
+    """-> [pathlib.Path] repo-relative paths a source's own
+    .claude/settings.json actually invokes as hooks.
+
+    Read rather than assumed, because the question the shape check is
+    really asking is whether the hook RUNS, and a source is free to keep it
+    somewhere other than where bootstrap() writes it."""
+    settings = path / '.claude' / 'settings.json'
+    if not settings.is_file():
+        return []
+    try:
+        data = json.loads(settings.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return []
+    out = []
+    def _walk(node):
+        if isinstance(node, dict):
+            cmd = node.get('command')
+            if isinstance(cmd, str):
+                # Strip the harness variable and any arguments: what is left
+                # is the path the hook is invoked by.
+                word = cmd.split()[0] if cmd.split() else ''
+                word = word.replace('$CLAUDE_PROJECT_DIR/', '')
+                word = word.replace('${CLAUDE_PROJECT_DIR}/', '')
+                if word:
+                    out.append(pathlib.Path(word))
+            for v in node.values():
+                _walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                _walk(v)
+    _walk(data)
+    return out
 
 
 PLACEHOLDER_RE = re.compile(r'\{\{[A-Z_]+\}\}')

@@ -48,6 +48,16 @@ it applies.
 
 ## 1. Install Into a Dependent Repo
 
+> **Two install paths, and this is the older one.** A project that has
+> never had BestPractice before can install straight onto Precedent's
+> three-source model instead — that is
+> [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using),
+> which sits *below* this section rather than above it because it was
+> added later and renumbering would have broken every link to §1-§7.
+> Most projects still use §1; read §0's own caveat before choosing it.
+> A repo that already vendored BestPractice the old way wants neither,
+> but [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
+
 > **In plain terms.** This is the one-time setup. An assistant copies
 > Precedent's files into your project, then rewrites a handful of
 > them to describe *your* project specifically — a map of where things
@@ -495,12 +505,28 @@ not this section.
 8. Commit everything on a branch, same as §1.
 
 **What has and has not been rehearsed, stated plainly rather than left to
-be discovered.** Every step here has now been walked end to end against a
-scratch repository (2026-09-06, the pre-launch audit): vendor, declare
-sources, instantiate, sync, and run the deep check on the result, which
-comes back clean — 15 checks passed, 0 violated. That pass is what found
-the eight violations a fresh install used to end on, five of which the
-installer could do nothing about, and they are fixed. **What is still
+be discovered.** Every step here has been walked end to end against a
+scratch repository twice — 2026-09-06 (the
+[pre-launch audit](spec/PRELAUNCH_AUDIT.md)) and again 2026-09-07 (the
+[very deep check](practices/very-deep-check.md)'s pass 1) — vendoring,
+declaring sources, instantiating, syncing, and running the deep check on
+the result, which comes back clean. **No count is quoted here on purpose**
+(the maintainers' team set names this `no-stale-counts`; that repo is
+private, so this names the practice rather than linking a page most
+readers cannot open): the first rehearsal
+recorded "15 checks passed", the check suite has grown since, and the
+figure was simply wrong by the second rehearsal rather than usefully
+out of date. What matters is `0 violated`, which is what to expect and
+what to report.
+
+The 2026-09-07 rehearsal is worth knowing about before trusting the first
+one: following these steps produced a repo that did **not** come back
+clean, and the four things it ended on were all defects here, not in the
+install. Two of them only bite a consumer declaring `visibility: public` —
+private practice text was materialized into its tracked tree, and the
+loader block the documented step wrote was one the enforced check then
+reported as hand-edited. All four are fixed; the run is recorded in
+[spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md). **What is still
 missing is a real project**: a scratch repository has no subject matter,
 so nothing here has been tested against an adopter actually adapting the
 templates to their own work, which [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)

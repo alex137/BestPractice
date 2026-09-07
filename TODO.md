@@ -917,3 +917,63 @@ which is the failure this repointing exists to end — write
   [catalogue-carries-stories](practices/catalogue-carries-stories.md)
   deliberately checks Story only, so nothing currently reports these.
   **Blocked on:** nothing but the work.
+
+- **Two declared sources are missing a file their level's skeleton ships.**
+  Found 2026-09-07 by the [very deep check](spec/VERY_DEEP_CHECK.md)'s
+  source-shape pass, once that check stopped reporting two false positives
+  alongside them. `themorgan/precedent-individual` has no
+  `config.json.sample`; `themorgan/precedent-team-maintainers` has no
+  `leak-blocklist.txt`. Both were migrated into place rather than
+  bootstrapped, so neither ever passed through
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),
+  which is the same cause the `verify()` docstring already records for the
+  team set's blocklist — that entry is about this one, still open.
+  The blocklist matters more than the sample: an absent one is a gap, while
+  an empty one is a deliberate state (`blank-blocklist`), and until it
+  exists the leak gate's vocabulary layer has nothing of that set's own to
+  check against.
+  **Both fixes already exist, unlanded.** Found 2026-09-07 while writing up
+  the branch sweep: `claude/pre-launch-audit-fixes-7wumzx` carries
+  "Add the `config.json.sample` this set never got, being migrated not
+  bootstrapped" in the individual set and "Add the `leak-blocklist.txt` this
+  set never got, being migrated rather than bootstrapped" in the team set,
+  both dated 2026-09-06. This item and that branch are the same finding,
+  rediscovered a day apart because nothing asked what was sitting unmerged.
+  **Do not merge those branches to close this** — both sit on a vendored
+  engine 41 commits behind their own `main`, so merging would revert the
+  engine to land two files. Cherry-pick the two files (and, in the
+  individual set, `practices/my-identity-is-not-private.md` with its check
+  and test, which are also unlanded), then close the branch.
+  **Blocked on:** nothing but the work — both repos are reachable and
+  pushable from a session that has them attached.
+
+- **The commit-identity mechanism does not reach an attached sibling
+  repo, so `commit-author` is silently unenforced in exactly the sessions
+  that do cross-repo work.** Found 2026-09-07 by the
+  [very deep check](spec/VERY_DEEP_CHECK.md)'s pass 2. All four clones in
+  that session carried `Claude <noreply@anthropic.com>`, the precise failure
+  the individual set's `commit-author` Story records as having been replaced
+  by a mechanism on 2026-09-06. The mechanism is correct; it is a
+  `SessionStart` hook, and a repo that is not the session's primary never
+  runs one — which AGENTS.md's own `add_repo` gotcha already states in
+  general terms. What is new is the consequence: a practice with a real
+  mechanical check goes unenforced without anything saying so, and the
+  session must notice and set four git configs by hand.
+  The `env` layer in `.claude/settings.json` was built for exactly this case
+  ("a hook cannot reach a sibling repository") — so the question is why it
+  did not apply here, and whether the `pre-commit` backstop it is supposed to
+  have can be installed by something other than a hook that never fires.
+  **Blocked on:** a decision about which layer should carry this, since the
+  hook demonstrably cannot.
+
+- **Four unmerged branches across three repos need a merge-or-close
+  verdict.** Listed by name, with what each is ahead by, in
+  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s pass 4. Two of them
+  are `claude/pre-launch-audit-fixes-7wumzx`, the same branch name in
+  `precedent-individual` (19 unlanded) and `precedent-team-maintainers` (16
+  unlanded), both last moved 2026-09-06. Either a real body of fixes that
+  never landed, or branches whose work reached `main` by another route — the
+  diffs do not say which.
+  **Blocked on:** Alex or Morgan. The practice is explicit that a session
+  which cannot tell says so by name and asks rather than guessing, because
+  waving one through trains the reader to wave the whole list through.

@@ -6902,6 +6902,42 @@ def check_source_shape_is_verified():
                       any('freshness-guard' in f for f in bss.verify(
                           'team', fixture('team',
                                           **{'.claude/hooks/freshness-guard.sh': None})))))
+        # A source is free to keep its hooks somewhere other than where
+        # bootstrap() writes them, as long as settings.json points at them:
+        # what the shape check is really asking is whether the hook RUNS.
+        # A real one does exactly this (its hooks live in bootstrap/), and
+        # the literal-path check reported that working source as broken.
+        _relocated = fixture('team', **{'.claude/hooks/freshness-guard.sh': None})
+        (_relocated / 'bootstrap').mkdir(exist_ok=True)
+        (_relocated / 'bootstrap' / 'freshness-guard.sh').write_text('#!/bin/sh\n')
+        (_relocated / '.claude' / 'settings.json').write_text(_json.dumps(
+            {'hooks': {'SessionStart': [{'hooks': [{'type': 'command',
+             'command': '$CLAUDE_PROJECT_DIR/bootstrap/freshness-guard.sh '
+                        'session-start main'}]}]}}))
+        cases.append(('a session hook kept outside .claude/hooks/ but wired by '
+                      'the source\'s own settings.json is NOT reported missing',
+                      not any('freshness-guard' in f
+                              for f in bss.verify('team', _relocated))))
+
+        # The negative control for that leniency: wired at a path where
+        # nothing is installed must still be reported, or the check above
+        # would accept any settings.json that merely mentions the name.
+        _dangling = fixture('team', **{'.claude/hooks/freshness-guard.sh': None})
+        (_dangling / '.claude' / 'settings.json').write_text(_json.dumps(
+            {'hooks': {'SessionStart': [{'hooks': [{'type': 'command',
+             'command': '$CLAUDE_PROJECT_DIR/bootstrap/freshness-guard.sh'}]}]}}))
+        cases.append(('a hook wired at a path where no file exists is still '
+                      'reported missing',
+                      any('freshness-guard' in f
+                          for f in bss.verify('team', _dangling))))
+
+        cases.append(('a report names the harness adapter, not the skeleton, '
+                      'for the files the skeleton has never shipped',
+                      all('templates/harness/claude-code/hooks/' in f
+                          for f in bss.verify('team', fixture(
+                              'team', **{'.claude/hooks/commit-identity.sh': None}))
+                          if 'commit-identity' in f)))
+
         cases.append(('a missing skeleton file is reported',
                       any('leak-blocklist' in f for f in bss.verify(
                           'team', fixture('team', **{'leak-blocklist.txt': None})))))
@@ -8631,6 +8667,300 @@ def check_unmerged_branch_verdicts():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_branch_scan_sees_every_branch():
+    """The branch sweep must enumerate what ORIGIN has, not what this clone
+    happened to fetch (practice: very-deep-check).
+
+    THE CASE THAT CARRIES THIS CHECK is the single-branch clone, which is
+    not an edge case: it is what the harness hands every remote session
+    (AGENTS.md's add_repo entry), and the freshness gate above fetches only
+    the ONE branch it compares. `scan_branches` reads `refs/remotes/origin`,
+    so on such a clone it enumerated two refs on a repo with forty and
+    reported "(none)" -- which reads as a clean sweep, not as a scan that
+    never ran. That is the same empty-result-reads-as-pass failure AGENTS.md
+    records for the `scope: 'tree'` checks, and it costs more here: the
+    sweep IS pass 4's branch bullet, so a false all-clear silently ends the
+    only step that would have found unlanded work.
+
+    Both halves are asserted. The first is the fix: a narrow clone must
+    still see every branch. The second is the negative control that keeps
+    the fix honest -- when origin genuinely cannot be reached, the scan must
+    say it could not tell, NOT fall back to the empty lists that started
+    this. A repair that turns one silent wrong answer into another is not a
+    repair."""
+    import tempfile
+    import very_deep_check as vdc
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up = tmp / 'up'; up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'f.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        for b in ('landed', 'open-one', 'open-two'):
+            _git(up, 'checkout', '-q', '-b', b)
+            (up / f'{b}.txt').write_text(b + '\n')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', b)
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'merge', '-q', '--no-ff', 'landed', '-m', 'merge landed')
+
+        # Exactly what the harness produces: one branch, one refspec.
+        narrow = tmp / 'narrow'
+        subprocess.run(['git', 'clone', '-q', '--single-branch', '--branch',
+                        'main', f'file://{up}', str(narrow)],
+                       capture_output=True, text=True)
+        refs_before = len([r for r in _git(
+            narrow, 'for-each-ref', '--format=%(refname:short)',
+            'refs/remotes/origin').stdout.splitlines() if r])
+
+        scan = vdc.scan_branches(narrow, 'main') or {}
+        merged = set(scan.get('merged') or [])
+        unmerged = {r['name'] for r in (scan.get('unmerged') or [])}
+
+        results = [
+            ('the fixture really is a narrow clone (else this proves nothing)',
+             refs_before <= 2),
+            ('a merged branch on origin is found even though the clone never '
+             'fetched it', 'landed' in merged),
+            ('both unmerged branches on origin are found',
+             {'open-one', 'open-two'} <= unmerged),
+            ('the scan reports itself complete when it reached origin',
+             not scan.get('unfetched') and not scan.get('unreachable')),
+        ]
+
+        # NEGATIVE CONTROL: origin unreachable. Empty lists are now a lie, so
+        # the scan must mark itself incomplete rather than report them bare.
+        dark = tmp / 'dark'
+        subprocess.run(['git', 'clone', '-q', '--single-branch', '--branch',
+                        'main', f'file://{up}', str(dark)],
+                       capture_output=True, text=True)
+        _git(dark, 'remote', 'set-url', 'origin', 'file:///nonexistent/gone.git')
+        d = vdc.scan_branches(dark, 'main') or {}
+        results.append(
+            ('an unreachable origin is reported as "cannot tell", never as an '
+             'empty (clean) sweep',
+             not d.get('merged') and not d.get('unmerged')
+             and bool(d.get('unreachable'))))
+
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check\'s branch sweep sees every branch origin '
+              f'has, not only what this clone fetched ({len(results)} stated '
+              f'cases, the single-branch clone being the controlling case and '
+              f'an unreachable origin the negative control)',
+              not failed, '; '.join(failed) if failed else '')
+
+
+def check_public_consumer_does_not_materialize_private_text():
+    """A public consumer repo's TRACKED practices/ tree must not carry a
+    private source's practice text (practice: very-deep-check, found by it).
+
+    build_views.py already refuses to render a private source into a public
+    repo's loader block, and precedent_materialize.py already refuses to
+    mint a private repo's URL into the materialized tree -- but the whole
+    practice FILE was copied in regardless, which discloses strictly more
+    than the link so carefully withheld. Reproduced on a real fresh install
+    built from INSTALL.md section 0: thirteen individual-level practices
+    landed in a `visibility: public` consumer's tracked tree, one of them
+    carrying a person's name and email address.
+
+    Three properties, because fixing the first alone breaks the others:
+
+    1. No private-level text in a public consumer's tree.
+    2. NOTHING ELSE IS LOST. The private sources are dropped and the set
+       RE-RESOLVED, not filtered out of a finished result -- a private
+       practice can win a slug a publishable source also declares, and
+       deleting the winner does not promote the runner-up. Filtering lost
+       a universal practice exactly this way.
+    3. The two renderers agree. precedent_sync_views.py must pass the same
+       `omits_private` build_views.py computes for itself, or the standing
+       instruction differs between them and `generated-artifact-provenance`
+       reports the file the documented install step just wrote as
+       hand-edited -- with no state of the repo able to satisfy it.
+
+    A PRIVATE consumer is the control: nothing may be withheld there."""
+    import tempfile, shutil
+    import json as _json
+    import precedent_sync_views as psv
+    import build_views as bv
+
+    def _consumer(tmp, visibility):
+        repo = tmp / f'consumer-{visibility}'
+        (repo / 'precedent' / 'universal').mkdir(parents=True)
+        shutil.copytree(PRACTICES_DIR, repo / 'precedent' / 'universal' / 'practices')
+        (repo / 'AGENTS.md').write_text(
+            f'# Consumer\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n',
+            encoding='utf-8')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main',
+            'visibility': visibility,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': 'precedent/universal'}]}), encoding='utf-8')
+        return repo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        # A stand-in individual source, declared the only way one may be:
+        # in a user-level config, never in the repo's own tracked file.
+        ind = tmp / 'precedent-individual'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'practices' / 'private-only.md').write_text(
+            '---\nslug: private-only\ntitle: A private rule\ntier: on-demand\n'
+            'severity: default\napplies_to: ["**"]\noccasion: "x happens"\n'
+            'index_clause: "do the private thing"\nstatus: active\n---\n'
+            '## Rule\nSECRET-CANARY-VALUE applies.\n\n## Story\nBecause.\n',
+            encoding='utf-8')
+        user_cfg = tmp / 'user.json'
+        user_cfg.write_text(_json.dumps(
+            {'format_version': 1,
+             'individual': {'name': 'precedent-individual',
+                            'path': str(ind)}}),
+            encoding='utf-8')
+
+        results = []
+        pub = _consumer(tmp, 'public')
+        psv.sync(str(pub), user_config=str(user_cfg))
+        pub_tree = sorted(f.name for f in (pub / 'practices').glob('*.md'))
+        pub_text = '\n'.join(
+            f.read_text(encoding='utf-8') for f in (pub / 'practices').glob('*.md'))
+        universal = sorted(f.name for f in PRACTICES_DIR.glob('*.md'))
+
+        results.append(('a public consumer materializes no private practice file',
+                        'private-only.md' not in pub_tree))
+        results.append(('nor any of its text',
+                        'SECRET-CANARY-VALUE' not in pub_text))
+        results.append(('and loses nothing the universal source defines -- the '
+                        'set is re-resolved, not filtered',
+                        set(universal) <= set(pub_tree)))
+        # The real property: regenerating with build_views.py must not change
+        # the AGENTS.md that sync just wrote. That byte-comparison IS what
+        # generated-artifact-provenance's check performs.
+        after_sync = (pub / 'AGENTS.md').read_text(encoding='utf-8')
+        # Run it the way the check does -- as its own process, against the
+        # consumer's own root -- rather than reaching into an internal.
+        shutil.copy(ROOT / 'tools' / 'build_views.py', pub / 'tools_bv.py')
+        subprocess.run([sys.executable, str(pub / 'tools_bv.py'), '--agents-only'],
+                       cwd=str(pub), capture_output=True, text=True)
+        (pub / 'tools_bv.py').unlink(missing_ok=True)
+        results.append(('build_views.py regenerates byte-identically to what '
+                        'sync wrote, so generated-artifact-provenance can pass',
+                        (pub / 'AGENTS.md').read_text(encoding='utf-8') == after_sync))
+
+        priv = _consumer(tmp, 'private')
+        psv.sync(str(priv), user_config=str(user_cfg))
+        priv_tree = sorted(f.name for f in (priv / 'practices').glob('*.md'))
+        results.append(('CONTROL: a private consumer still gets the private '
+                        'practice -- nothing is withheld where the tree is not '
+                        'published', 'private-only.md' in priv_tree))
+
+        failed = [n for n, ok in results if not ok]
+        check(f'a public consumer repo never materializes private practice '
+              f'text into its tracked tree ({len(results)} stated cases, a '
+              f'private consumer being the control)',
+              not failed, '; '.join(failed) if failed else '')
+
+
+def check_sync_refuses_to_write_from_incomplete_sources():
+    """precedent_sync_views.py must not rewrite a repo's tracked tree when a
+    declared source did not resolve (practice: very-deep-check, found by it).
+
+    materialize() rebuilds practices/ by delete-and-rewrite, so an
+    unreachable source does not merely go unrendered: every practice it
+    contributed is DELETED from the tracked tree, with AGENTS.md and
+    MANIFEST.json rewritten to match, one warning line, and exit 0. The diff
+    reads as a deliberate removal.
+
+    That is the CI state by definition -- a private team or individual
+    source is unreachable in every continuous-integration checkout, which is
+    exactly where an unattended sync would run. build_views.py already
+    refuses this in as many words; this tool, the one the install and
+    migration documents actually tell an adopter to run, did the opposite.
+    The --check half of the same bug was found and fixed on 2026-09-06; the
+    writing half was left, and it is the half that deletes.
+
+    The two escape hatches are asserted too, because a refusal with no way
+    past it would just be a different way to strand someone: --check must
+    still inspect without writing, and --allow-missing-sources must still
+    let a deliberate removal through."""
+    import tempfile, shutil
+    import json as _json
+    import precedent_sync_views as psv
+    import precedent_materialize as _pm
+    import build_views as bv
+    pm_MaterializeError = _pm.MaterializeError
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        repo, team = tmp / 'consumer', tmp / 'precedent-team-widgets'
+        (repo / 'precedent' / 'universal').mkdir(parents=True)
+        shutil.copytree(PRACTICES_DIR, repo / 'precedent' / 'universal' / 'practices')
+        (team / 'practices').mkdir(parents=True)
+        (team / 'practices' / 'widget-rule.md').write_text(
+            '---\nslug: widget-rule\ntitle: Widgets are tested on the rig\n'
+            'tier: on-demand\nseverity: default\napplies_to: ["**"]\n'
+            'occasion: "changing widget firmware"\n'
+            'index_clause: "test firmware on the rig, never the simulator"\n'
+            'status: active\n---\n## Rule\nUse the rig.\n\n## Story\nIt drifted.\n',
+            encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# Consumer\n\n{bv.BEGIN_MARKER} -->\n{bv.END_MARKER} -->\n',
+            encoding='utf-8')
+        cfg = repo / 'precedent.json'
+        cfg.write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main', 'visibility': 'private',
+            'sources': [
+                {'level': 'universal', 'name': 'precedent',
+                 'path': 'precedent/universal'},
+                {'level': 'team', 'name': 'precedent-team-widgets',
+                 'path': str(team)}]}), encoding='utf-8')
+        empty_user = tmp / 'user.json'
+        empty_user.write_text(_json.dumps({'format_version': 1}), encoding='utf-8')
+
+        psv.sync(str(repo), user_config=str(empty_user))
+        landed = (repo / 'practices' / 'widget-rule.md').exists()
+
+        # Now the CI state: the sibling clone is simply not there.
+        shutil.rmtree(team)
+
+        refused = False
+        try:
+            psv.sync(str(repo), user_config=str(empty_user))
+        except pm_MaterializeError:
+            refused = True
+        survived = (repo / 'practices' / 'widget-rule.md').exists()
+
+        # --check must still work: CI needs to inspect without writing.
+        checked_ok = True
+        try:
+            psv.sync(str(repo), user_config=str(empty_user), check=True)
+        except pm_MaterializeError:
+            checked_ok = False
+        survived_check = (repo / 'practices' / 'widget-rule.md').exists()
+
+        # And the deliberate removal must still be possible.
+        psv.sync(str(repo), user_config=str(empty_user), allow_missing=True)
+        removed_on_request = not (repo / 'practices' / 'widget-rule.md').exists()
+
+        results = [
+            ('the team practice lands while its source is reachable', landed),
+            ('an unreachable declared source REFUSES the write', refused),
+            ('and the tracked practice it contributed survives', survived),
+            ('--check still inspects without writing', checked_ok and survived_check),
+            ('--allow-missing-sources still permits a deliberate removal',
+             removed_on_request),
+        ]
+        failed = [n for n, ok in results if not ok]
+        check(f'precedent_sync_views refuses to rewrite a tracked tree from an '
+              f'incomplete source set ({len(results)} stated cases, the '
+              f'unreachable-in-CI source being the controlling case)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -8659,6 +8989,9 @@ def main():
     check_practice_audit_fires()
     check_freshness_gate_fires()
     check_unmerged_branch_verdicts()
+    check_branch_scan_sees_every_branch()
+    check_public_consumer_does_not_materialize_private_text()
+    check_sync_refuses_to_write_from_incomplete_sources()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()

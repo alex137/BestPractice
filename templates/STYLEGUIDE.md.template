@@ -20,7 +20,7 @@
      §3) or check-in (§4). A brand's visual identity is not a generic
      practice; nothing here is meant to travel to another project. -->
 
-# Style guide
+# Style Guide
 
 Visual rules for anything this project produces — decks, documents,
 diagrams, images. Read this before generating a deck ([deck/](deck/)),
@@ -53,12 +53,12 @@ tool's default, this file wins.
 - **Body:** <typeface, weight>
 - **Fallback stack (web/HTML output):** <font-family list>
 
-## Imagery and iconography
+## Imagery and Iconography
 
 <Photography style, illustration style, icon set, or "avoid stock photos
 entirely" — whatever the project's convention actually is.>
 
-## Tone in visuals
+## Tone in Visuals
 
 Visual tone follows [VOICE.md](VOICE.md): the same restraint applies to
 slides and charts as to prose — no decorative icons standing in for a
@@ -66,7 +66,7 @@ point that isn't made, no gradient-and-glow treatment to make a plain
 fact look like an insight. Project-specific visual tells to avoid go
 here: <e.g., "never use the corporate stock-photo handshake image">.
 
-## Formats this project produces
+## Formats This Project Produces
 
 <List the recurring outputs and where their conventions live, e.g.:>
 - **Slide decks:** built with [deck/build_deck.py](deck/build_deck.py);

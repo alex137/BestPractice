@@ -74,6 +74,23 @@ def is_outward(rel_path):
         return False
     if parts[0] in INTERNAL_DIRS:
         return False
+    # A practices/ tree at ANY depth is received content, never this repo's
+    # own outward prose: a consumer vendors the universal catalogue (INSTALL
+    # section 0 recommends precedent/universal/practices/) and
+    # precedent_materialize.py writes a resolved tree of its own. Only
+    # parts[0] was tested, so a vendored tree one level down was scanned as
+    # publishable and reported headings the adopter cannot fix -- the file
+    # came from upstream, and editing it would be undone by the next
+    # refresh. Found on a real fresh install, which failed on a heading
+    # inside a practice it had just vendored.
+    #
+    # Deliberately narrow: only `practices`, not every name in INTERNAL_DIRS
+    # at every depth. Names like `examples` or `spec` are plausible
+    # subdirectories of a genuinely outward tree (documentation/examples/),
+    # and excluding those would hide real findings -- the failure this
+    # module's own comments say to avoid, in the direction that costs more.
+    if 'practices' in parts[:-1]:
+        return False
     if len(parts) == 1 and parts[0] in INTERNAL_FILES:
         return False
     return True
