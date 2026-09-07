@@ -6013,12 +6013,25 @@ def check_commit_identity_copies_are_identical():
                 break
     except Exception:
         pass
+
+    # EVERY OTHER ATTACHED SOURCE'S COPY, and this is where the check had a
+    # hole. It compared three copies -- this repo's two and the individual
+    # source's -- and a TEAM set carries one too, at .claude/hooks/. Nothing
+    # looked there, so both team sets sat three generations behind
+    # (2026-09-07: missing the merge backstop, the timezone derivation AND
+    # the global identity fix) while this check reported every copy
+    # identical. A check that names the copies it compares is only as good
+    # as that list, so the list is now discovered rather than written down.
+    for sib in sorted(ROOT.parent.glob('precedent-team-*')):
+        cand = sib / '.claude' / 'hooks' / 'commit-identity.sh'
+        if cand.exists():
+            digests[cand] = _h.sha256(cand.read_bytes()).hexdigest()
     if third is None:
         note = (' (the individual source\'s copy was not reachable from here '
                 'and was NOT compared)')
     uniq = set(digests.values())
     check(f'every reachable copy of commit-identity.sh is byte-identical '
-          f'({len(digests)} copies){note}',
+          f'({len(digests)} copies found){note}',
           len(uniq) == 1,
           '; '.join(f'{p.relative_to(ROOT) if ROOT in p.parents else p}='
                     f'{d[:12]}' for p, d in digests.items()))
