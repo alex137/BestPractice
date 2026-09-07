@@ -1,12 +1,12 @@
 ---
 slug:        philosophy-declares-its-source
-title:       Every philosophy document says where it came from and what version it was copied at
+title:       Every philosophy document records where its text originally came from
 tier:        on-demand
 severity:    default
 applies_to:  ["philosophy/**"]
 occasion:    "adding or re-syncing a document under philosophy/"
 gates:       []
-index_clause: "a copied essay carries its source document and version on line one"
+index_clause: "an essay carries its origin on line one -- a record, not a sync pointer"
 checked_by:  "tools/checks/check_philosophy_declares_its_source.py"
 defines:     []
 status:      active
@@ -18,44 +18,57 @@ approved_by: "Morgan, 2026-09-07, with the copy that created the need"
 ---
 ## Rule
 Every markdown file under `philosophy/` opens with an HTML-comment
-provenance line naming **where the document came from**: either the
-upstream document and the version it was copied at, or, for a file written
-here, that it was written here.
+provenance line naming **where its text originally came from**: the
+document and version it was taken from, or, for a file written here, that
+it was written here.
 
     <!-- Last updated: <date> (Buenos Aires) by <who>; source:
-         themorgan/WorkingWithAI content/<FILE>, version <N>. -->
+         <origin document>, version <N>. -->
 
-Re-syncing a document from upstream means updating that version number in
-the same commit. Never delete the line to make an edit look native.
+**This is a historical record, not a sync pointer.** These essays have no
+upstream: the notebook they were written in was retired on 2026-09-07 and
+this directory is the only copy. Edit the files directly. Never delete the
+line to make text look native to this repository when it was not.
 
 ## Detail
 The check requires the first line of each `philosophy/**/*.md` file to be
-an HTML comment containing either `source:` or `written here`. It does not
-verify the version number against WorkingWithAI — this repository has no
-guaranteed access to that clone at check time, and a check that silently
-skips whenever a sibling is missing teaches nothing. What it enforces is
-that the question is *answerable*: a reader who wants to diff this copy
-against its original knows exactly which file and which version to diff
-against.
+an HTML comment containing either `source:` or `written here`. It cannot
+verify a version number against anything, and never could — the origin
+repository no longer exists. What it enforces is that the question *"where
+did this paragraph come from?"* has an answer on the page, which is the
+part that survives the upstream going away.
 
 ## Why
-A copy with no stated origin is indistinguishable from an original, and
-diverges silently. Six months on, nobody can tell whether a paragraph here
-is an improvement that should be carried back upstream, an edit made here
-for local reasons, or upstream text that has since been rewritten and
-never re-pulled.
+Text with no stated origin reads as though it was always here. That is a
+small loss while someone still remembers, and a total one afterwards: an
+essay carries more weight when a reader can see it was worked out
+somewhere, over dozens of revisions, than when it appears to have been
+typed in one sitting.
 
-Naming the version, not just the file, is what makes the drift *visible*
-rather than merely *possible to investigate*. "Version 41" against
-upstream's current version 47 is a six-revision gap a session can see at a
-glance.
+The version number is what stops the line from being decorative. "Version
+41" says this document was rewritten forty times before it settled, which
+is a fact about how much argument is behind it — and it is the only
+remaining trace of that, now the repository holding those revisions is
+gone.
 
 ## Story
-2026-09-07. WorkingWithAI's `content/` was copied into `philosophy/` as a
-copy, not a move: the originals stay where they are, and that repository's
-three-stage pipeline keeps running there. So from the first commit this
-tree has an upstream it can fall behind, and no sync workflow — nothing
-here polls WorkingWithAI, and nothing there knows this copy exists.
+2026-09-07, and the rule outlived the reason it was written for, which is
+why it is worth recording both.
+
+It was written that morning, when `themorgan/WorkingWithAI`'s `content/`
+tree was copied into `philosophy/` as a **copy**: the originals stayed
+where they were, nothing synced the two, and the version number existed so
+a later session could see how far this tree had fallen behind. By that
+afternoon Morgan had decided the opposite — one permanent home, here, and
+the notebook retired. The drift the rule guarded against became impossible
+by construction.
+
+**The rule survived the retirement; only its purpose changed.** A
+provenance line that can no longer be checked against anything is still
+the only thing telling a reader that these essays were argued out over
+dozens of revisions somewhere else first. Deleting the line because its
+original job ended would have thrown away the record along with the
+mechanism.
 
 The documents arrived already carrying a first-line header, from the
 private individual-level `file-header` practice that governs them

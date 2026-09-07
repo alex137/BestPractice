@@ -17,7 +17,7 @@ earns its way *off* — into [precedent-team-maintainers](https://github.com/the
 for the rare rule that's genuinely about Morgan the person, not the team),
 for automatic rollout to every project that resolves that source — only
 once it's actually proven itself here. See
-[TODO.md](https://github.com/themorgan/WorkingWithAI/blob/main/TODO.md) for what's currently pending that move.
+[OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for what is still unsettled.
 
 **This document does not get vendored anywhere.** Unlike `process/upstream/`
 or the team/individual practice sources, it has no manifest entry and no
@@ -124,7 +124,7 @@ need either more real testing or actual infrastructure this repo doesn't
 have yet — writing them as rules now would be systematizing before the
 third instance, exactly what
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows) warns
-against. Tracked instead as open items in [TODO.md](https://github.com/themorgan/WorkingWithAI/blob/main/TODO.md):
+against. Tracked instead in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md):
 
 - **Active/proactive resurfacing** ("you decided X six weeks ago,
   unprompted") — needs something that actively mines and ranks history,
@@ -162,14 +162,14 @@ against. Tracked instead as open items in [TODO.md](https://github.com/themorgan
    ([`new-rule-placement`](https://github.com/themorgan/precedent-team-maintainers/blob/main/practices/new-rule-placement.md)).
 3. Come back here, mark the rule **Promoted**, and cut its entry down to a
    pointer only, per the status key above.
-4. Note the move in [TODO.md](https://github.com/themorgan/WorkingWithAI/blob/main/TODO.md)'s decision record, same as any
+4. Note the move in [../TODO.md](../TODO.md)'s decision record, same as any
    other cross-repo change.
 
 *(Origin: a session on 2026-08-27 that had initially recommended landing
 these ideas directly into RepoPersonalPreferences's
 [process/personal/README.md](https://github.com/themorgan/RepoPersonalPreferences/blob/main/process/personal/README.md) —
 corrected by Morgan, who wants this repo to actually try a rule out before
-it becomes company-wide policy. See [TODO.md](https://github.com/themorgan/WorkingWithAI/blob/main/TODO.md) for the decision
+it becomes company-wide policy. See [../TODO.md](../TODO.md) for the decision
 record.)*
 
 ## See Also

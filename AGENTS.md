@@ -127,7 +127,7 @@ When a tool warns about already-published git history:
 When adding or re-levelling a heading in any document:
   heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
 When adding or re-syncing a document under philosophy/:
-  philosophy-declares-its-source — a copied essay carries its source document and version on line one
+  philosophy-declares-its-source — an essay carries its origin on line one -- a record, not a sync pointer
 When an install step adds something GitHub-specific:
   github-setup-disclosed — disclose GitHub-specific setup where the project's people read
 When building a mechanism that makes something discoverable or reachable:
@@ -292,7 +292,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
 | Precedent explained for someone adopting it (not a developer) | [ADOPTING.md](ADOPTING.md) |
 | Public-facing pitch and how-to guides, for people outside the project (marketing, technical how-to, non-technical how-to) | [documentation/](documentation/) |
-| The theory this project is built on — the essays, the brainstorm, and the rules being tried in real work (copied from WorkingWithAI 2026-09-07; **argument, not rules that bind anything here**) | [philosophy/](philosophy/), start at [philosophy/README.md](philosophy/README.md) |
+| The theory this project is built on — the essays, the brainstorm, the rules being tried in real work, and what is still unsettled. **The only copy; argument, not rules that bind anything here** | [philosophy/](philosophy/), start at [philosophy/README.md](philosophy/README.md) |
 | Why `philosophy/` binds nothing outside itself, and the checks that hold that line | [local/practices/philosophy-is-not-repo-policy.md](local/practices/philosophy-is-not-repo-policy.md), [local/practices/philosophy-declares-its-source.md](local/practices/philosophy-declares-its-source.md) |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
 | An example personal practice set | [examples/practice-set/](examples/practice-set/) |

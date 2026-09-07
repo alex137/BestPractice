@@ -1494,41 +1494,41 @@ which is the failure this repointing exists to end — write
   change this run has been finding all day. The engine-side guard is blocked
   on a design call (which baseline to compare against), not on the work.
 
-40. <a id="philosophy-sync"></a>**Decide how `philosophy/` stays current with WorkingWithAI.**
-    [philosophy/](philosophy/) is a copy of
-    [themorgan/WorkingWithAI](https://github.com/themorgan/WorkingWithAI)'s
-    `content/` tree, taken 2026-09-07. Nothing syncs it in either
-    direction: no manifest entry, no workflow, and WorkingWithAI does not
-    know the copy exists beyond the pointer this change added to its
-    README. Each file's first line names the source document and the
-    version it was taken at
-    ([philosophy-declares-its-source](local/practices/philosophy-declares-its-source.md)),
-    so drift is *visible*; it is not *prevented*. Three options, in
-    rising cost: leave it as a dated snapshot and re-copy on request;
-    vendor it properly with a manifest and a `checkin.py`-style sync;
-    or move the originals here and make WorkingWithAI the copy. The
-    third is what the request that created this directory was reaching
-    for ("the WorkingWithAI content really should be a part of
-    BestPractice") but it retires a live pipeline in another repo,
-    which is not this session's call.
-    **Blocked on:** a decision from Morgan about which of the three, and
-    on whether WorkingWithAI's stage-2 pipeline keeps running there.
+40. <a id="philosophy-sync"></a>**~~Decide how `philosophy/` stays current with the notebook it came from.~~
+    Settled 2026-09-07: there is nothing to stay current with.** The
+    question was which of three options to take — dated snapshot,
+    vendored-and-synced, or move the originals here. Morgan chose the
+    third and went further: `themorgan/WorkingWithAI` is retired, and
+    [philosophy/](philosophy/) is the only copy of these essays. No
+    manifest, no sync, no drift — by construction rather than by
+    discipline. [philosophy-declares-its-source](local/practices/philosophy-declares-its-source.md)
+    survived the change with its purpose rewritten: the provenance line
+    is now a historical record of where the text was argued out, not a
+    pointer to something live.
+    **Left over, and not this repository's to do:** the notebook itself
+    still exists until Morgan deletes it in GitHub's settings — no tool
+    available here can delete a repository. Its 220 commits of history,
+    its own `TODO.md`, its `GETTING_STARTED.md` and its migration record
+    go with it. The five content-side open questions were rescued into
+    [philosophy/OPEN_QUESTIONS.md](philosophy/OPEN_QUESTIONS.md) first.
 
-41. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` differ from WorkingWithAI's originals.**
-    The default leak blocklist bans profanity in this repository's public
-    tree, and the copied essays carried it three times — in
+41. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` are masked, and there is no longer an
+    original to compare them against.** The default leak blocklist bans
+    profanity in this repository's public tree, and the essays carried it
+    three times — in
     [philosophy/COMPANY_BUILDING_RULES.md](philosophy/COMPANY_BUILDING_RULES.md)'s
     `hire-for-drive` heading, in
     [philosophy/HUMANS_AT_OUR_BEST.md](philosophy/HUMANS_AT_OUR_BEST.md)'s
     "Drive" bullet, and inside a verbatim quotation in
-    [philosophy/RANDOM_NOTES.md](philosophy/RANDOM_NOTES.md). Each is
-    masked here and unmasked upstream, so a future diff against
-    WorkingWithAI will show three differences that are the gate's doing,
-    not drift. Masking a word inside a quotation is the part worth a
-    second look.
+    [philosophy/RANDOM_NOTES.md](philosophy/RANDOM_NOTES.md). This was
+    filed as a *divergence* from an upstream; with the notebook retired it
+    is simply an editorial decision this repository has made and now owns.
+    Masking a word inside a quotation of Morgan's own speech is the part
+    worth a second look.
     **Blocked on:** nothing mechanical — it needs Morgan to say whether
-    masking is the right call for his own quoted words, or whether the
-    blocklist should carve out `philosophy/` instead.
+    masking is right for his own quoted words, or whether the blocklist
+    should carve out `philosophy/` instead. Unmasking means changing the
+    blocklist, since the gate blocks the push either way.
 
 - <a id="undeclared-deprecated-files"></a>**Nothing finds a deprecated file nobody declared.**
   [retirement-deletes-files](practices/retirement-deletes-files.md) landed

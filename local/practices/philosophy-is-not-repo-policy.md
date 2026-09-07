@@ -77,8 +77,8 @@ for, because the incident is the change itself.
 WorkingWithAI's `content/` tree was copied into this repository's
 `philosophy/`. In its home repository that material is not inert: its
 [RULES_NOW_TESTING.md](../../philosophy/RULES_NOW_TESTING.md) is explicitly "the checklist a session in any of
-Morgan's real work is expected to follow today", and [AGENTS.md](https://github.com/themorgan/WorkingWithAI/blob/main/AGENTS.md) there
-names five of these documents as durable rule lists cited by slug from
+Morgan's real work is expected to follow today", and that repository's own instructions file
+named five of these documents as durable rule lists cited by slug from
 elsewhere. It reads, correctly for that repository, as instructions.
 
 The person asking for the copy said the condition out loud and first:
@@ -87,6 +87,12 @@ a mechanism that is a sentence in a commit message, and the sentence stops
 being read about four sessions later — the exact failure
 `repo-is-memory` and `checkable-gets-checked` exist to prevent. The
 mechanism is this practice plus its check.
+
+`themorgan/WorkingWithAI` was retired later the same day, which removes
+the *source* of the risk without removing the risk itself: these essays
+are still 22,000 lines of confident, imperative prose sitting one
+directory from a practice catalogue, and now with no other home to point
+back at. The boundary matters more once this is the only copy, not less.
 
 The second clause has its own reason, learned from
 `merge-target-is-beta-branch` twelve lines up the same directory: a check

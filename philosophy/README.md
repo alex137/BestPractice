@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying WorkingWithAI's content/ into philosophy/; written here, not copied. -->
+<!-- Last updated: 2026-09-07 (Buenos Aires) by the session making this directory the permanent home; written here, not copied. -->
 
 # The Philosophy Behind Precedent
 
@@ -14,33 +14,33 @@ That boundary is deliberate and enforced, not merely stated:
 [../local/practices/philosophy-is-not-repo-policy.md](../local/practices/philosophy-is-not-repo-policy.md)
 is a repo-local practice scoped to `philosophy/**`, and
 [../local/tools/checks/check_philosophy_is_not_repo_policy.py](../local/tools/checks/check_philosophy_is_not_repo_policy.py)
-fails the build if a document here starts issuing repo-wide instructions.
+fails the build if a rule anywhere starts leaning on these essays for its
+authority.
 
-## Where This Came From
+## This Is the Only Copy
 
-These documents were written in
-[themorgan/WorkingWithAI](https://github.com/themorgan/WorkingWithAI), a
-private-to-public working notebook for figuring out how to work well with
-AI assistants, and copied here on 2026-09-07 because the theory belongs
-beside the platform that tries to embody it. **The copy is a copy, not a
-move**: WorkingWithAI still holds the originals under `content/`, and its
-three-stage pipeline still runs there. Each file's first line records the
-source document and the version it was taken at, so a later session can
-tell whether this copy has fallen behind.
+**These documents live here and nowhere else.** They were written in a
+separate working notebook, `themorgan/WorkingWithAI`, which was retired on
+2026-09-07 — this directory is not a mirror of it, and there is no
+upstream to sync with. The provenance line at the top of each file records
+which document it came from and the version it was taken at; that is a
+**historical record of where the text originated**, not a pointer to
+something still live.
 
-Two things deliberately did **not** come across:
+Two consequences worth stating outright, because both are easy to get
+wrong later:
 
-- **WorkingWithAI's [GLOSSARY.recipe.md](https://github.com/themorgan/WorkingWithAI/blob/main/content/doc-recipes/GLOSSARY.recipe.md).** It is a rule about that
-  repository's root glossary and the vendored tooling underneath it, not
-  about any document here.
-- **The team- and individual-level practices that govern this writing** —
-  `doc-recipe`, `durable-list-anchors`, `trim-prose`, `llm-neutral` and
-  the rest. They live in private practice sources, and this repository is
-  public, so their text may not be committed here. They are not missing:
-  this repository already declares `precedent-team-maintainers` as a team
-  source in [../precedent.json](../precedent.json), so those practices are
-  already in force, and reach a session through the untracked
-  `.precedent/SESSION_PRACTICES.md`.
+- **Edit these files directly.** There is no "and also update the
+  original", because there is no original any more.
+- **Nothing did, or should, vendor these essays anywhere.** They are prose
+  belonging to this repository, not a practice source. A consuming repo
+  that vendors Precedent gets [../practices/](../practices/); it has no
+  reason to carry this directory, and carrying it would just make a
+  second copy of documents that exist to have exactly one.
+
+One thing did not survive the retirement, deliberately: a recipe governing
+that notebook's own root glossary, which was a rule about that repo's
+tooling rather than about any document here.
 
 ## How an Idea Here Becomes Policy
 
@@ -61,7 +61,9 @@ rule that has proven itself gets written as a practice file in the source
 it belongs to — [../practices/](../practices/) for a genuinely generic
 rule, a team or individual source for one specific to a group or a person.
 Marking something *Promoted* here is a pointer to work done elsewhere, not
-the work itself.
+the work itself. [`write-like-a-human`](../practices/write-like-a-human.md)
+is the worked example: it began as two halves of an argument in these
+essays and is now a universal practice.
 
 ## What's Here
 
@@ -85,6 +87,9 @@ the work itself.
 - [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) — the practical rules
   actually being tried in real work right now, and candidates for
   promotion.
+- [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) — the unfinished parts of the
+  argument: what is still unsettled, and what was already tried and
+  rejected.
 - [doc-recipes/](doc-recipes/) — standing constraints on individual
   documents here, one `.recipe.md` file per document it governs.
 
