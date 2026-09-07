@@ -708,7 +708,8 @@ which is the failure this repointing exists to end — write
     very deep check that day held, simultaneously:
     `alex137/bestpractice`, `themorgan/precedent-individual`,
     `themorgan/precedent-team-maintainers`, `themorgan/precedent-team-tms`,
-    `themorgan/workingwithai` and `themorgan/havrutabrainstorm` — and
+    `themorgan/workingwithai` and one further private `themorgan/*`
+    consumer repo — and
     `add_repo` accepted the last of those *during* that session, with all
     three private sets already attached and worked in. Mixed owners in one
     session is exactly what this item and
@@ -1357,7 +1358,7 @@ which is the failure this repointing exists to end — write
   with nothing reporting a loss, because a practice that no longer resolves
   is not a violation of anything.
 
-  **Verified concrete, not predicted.** `themorgan/HavrutaBrainstorm`
+  **Verified concrete, not predicted.** A private consumer repo
   vendors universal at `process/upstream`, pinned to `c7a1436` — the commit
   before the promotion. Its `process/upstream/practices/` carries neither
   practice; its materialized `practices/` still carries both, from the team
@@ -1444,7 +1445,7 @@ which is the failure this repointing exists to end — write
   empty) — so the fixture proved the wrong thing, just as confidently.
 
   **Blocked on:** the refresh itself belongs in each consumer, run under
-  that repo's own gates — HavrutaBrainstorm has an open session and its own
+  that repo's own gates — that consumer has an open session and its own
   deep check, and doing it from here would be the unreviewed cross-repo
   change this run has been finding all day. The engine-side guard is blocked
   on a design call (which baseline to compare against), not on the work.

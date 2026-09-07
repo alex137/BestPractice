@@ -634,7 +634,8 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   **NO LONGER TRUE as written, 2026-09-07.** A session that day held
   `alex137/bestpractice` and five `themorgan/*` repositories at once —
   including all three private sets, worked in and pushed to — and `add_repo`
-  accepted a sixth (`themorgan/havrutabrainstorm`) mid-session. Mixed owners
+  accepted a sixth (a private consumer repo under the same owner)
+  mid-session. Mixed owners
   in one session is precisely what this entry says is refused. What has NOT
   been retested is a *fresh* session rooted here adding a `themorgan/*` repo
   as its first cross-owner add, so the constraint may have been lifted or may
