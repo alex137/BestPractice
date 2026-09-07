@@ -851,14 +851,19 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
 
 - **"no individual source resolved" is not noise — it means every personal
   and team practice is silently absent, and the session will confidently
-  apply the wrong rules.** 2026-09-07: a session ran twenty turns in this
-  repository with none of the account owner's personal practices loaded.
+  apply the wrong rules.** 2026-09-07: a session ran most of a long working
+  day in this repository with none of the account owner's personal
+  practices loaded.
   `tools/precedent_resolve.py` printed the reason on *every single run* —
   *"no individual source resolved … which usually means its clone could
   not be fetched (a private repository this session was never granted)"* —
-  and the session read past it perhaps fifteen times as startup chatter,
-  because the checks it was attached to all reported `0 violated` and the
-  line sits above a passing summary.
+  and the session read past it every time as startup chatter, because the
+  checks it prefixes all reported `0 violated` and the line sits directly
+  above the summary a session is reading the output *for*. (The counts in
+  an earlier draft of this entry -- "twenty turns", "fifteen times" --
+  were impressions written as figures and neither was counted; the
+  frequency is *every run*, which is the part that matters and the part
+  that is checkable.)
   The cost is invisible while it is happening, which is what makes it
   worth an entry: the practices that did not load included
   `audience-register`, the owner's standing rule about how replies to him
