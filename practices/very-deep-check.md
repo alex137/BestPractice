@@ -31,7 +31,9 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   so each unmerged branch is written up with what it changes, a link, its
   date and a reasoned recommendation, rather than handed back as a name;
   split same day, Morgan F, so the unmerged-branch INVENTORY is read
-  before any pass and only the verdicts stay in pass 4"
+  before any pass and only the verdicts stay in pass 4;
+  extended same day, Morgan F, so pass 1 tests an UPDATE and not only an
+  install, against a real consumer repository and not only a fixture"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -144,7 +146,14 @@ cannot tell a drift this run introduced from one that was there before. So:
    that skips this rediscovers it from scratch, writes it up as a finding,
    and files it as open — three costs, all avoidable by reading one list
    first.
-5. **Then the passes, 1 through 4**, each ending with the suite from step 2
+5. **Ask for a real consumer repository, before starting pass 1.** Pass 1's
+   highest-yield item needs one attached, and attaching is the person's act,
+   not the session's — so the ask goes here, at the top, where an unanswered
+   question still leaves time to work around it. Asked at the end it is not
+   a question, it is a postponement. One sentence: name what it is for
+   (updating its vendored tree to current and running its own gates), and
+   carry on with everything else while it is outstanding.
+6. **Then the passes, 1 through 4**, each ending with the suite from step 2
    re-run — the fixes a pass makes break links of their own. Whenever a
    pass turns up a gap, check it against step 4's inventory **before**
    writing it up: if a branch already fixes it, the finding is "this is
@@ -154,9 +163,11 @@ cannot tell a drift this run introduced from one that was there before. So:
 The same rule holds inside a pass: where a mechanical check covers part of a
 bullet, run it first and read only what it cannot see.
 
-### Pass 1 — Can a new adopter get to a working install?
+### Pass 1 — Can a new adopter get to a working install, and an existing one stay in one?
 The highest-cost failures are here, because they strand someone outside this
-session who cannot see what is wrong. Reading the install documents finds
+session who cannot see what is wrong. Both halves of that sentence carry
+weight: an install happens once, an **update** happens forever, and for a
+long time only the first was ever tested. Reading the install documents finds
 almost none of them: every significant finding of the 2026-09-06 pre-launch
 audit came from **building the thing the document describes and running the
 checks on it** ([spec/PRELAUNCH_AUDIT.md](../spec/PRELAUNCH_AUDIT.md), "The
@@ -173,6 +184,33 @@ method"). Build the fixtures.
 - **A real migration**, the same way: a scratch repo on the classic
   `process/upstream/` layout, walked end to end through
   [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md).
+- **An update, not only an install.** Vendor a scratch consumer at an OLD
+  upstream commit, then bring it forward to the current one with the
+  documented tooling and run the checks. Every fixture above builds a repo
+  that has never had to move, so nothing here ever exercised drift — and
+  drift is where a consumer spends its whole life. This is the cheap half
+  and it needs nobody's permission.
+- **A REAL consumer repository, brought up to date.** Ask the person to
+  attach one, early — see the order of operations, which puts the asking
+  before pass 1 for the obvious reason that the answer may not come back.
+  Then update its vendored tree to the current upstream, re-sync, and run
+  its own gates. Where the scratch fixtures are clean rooms, this is the
+  only step that meets what a real repo accumulates: a `visibility` nobody
+  declared, an engine somebody mirrored by hand, prose that grew up
+  referencing a private source, hundreds of commits of upstream drift, and
+  a vendored copy of the update tool old enough to be dangerous.
+
+  Do not treat this as optional garnish. On 2026-09-07 the scratch fixtures
+  passed and one real consumer then produced seven defects in a row, four of
+  them in mechanisms this run had built or fixed hours earlier — including
+  one that had to be fixed twice because the second attempt failed with an
+  identical message. The pre-launch audit had already named the gap it fills
+  ("what is still missing is a real project: a scratch repository has no
+  subject matter"); it stayed named and unfilled until somebody attached one.
+
+  If no consumer can be attached, say so and record pass 1 as PARTIAL. Never
+  let it pass on the fixtures alone — that is precisely the state that held
+  while these seven defects were live.
 - **The empty neighbourhood.** A brand-new person with no individual set; a
   team with no team set yet; a consumer whose sources are declared but
   unreachable, as they are in every continuous integration (CI) checkout.
@@ -562,6 +600,36 @@ this run introduced from drift that was already there. Two positional
 cross-references ("pass 2 item 10") were replaced with names in the same
 pass, since citing a list position as if it were a name is a defect pass 3
 tells the reader to report.
+
+Extended 2026-09-07, on Morgan's proposal, after the run that prompted it
+had already demonstrated the case: he suggested adding a step where a real
+repository is attached and its vendored copy updated, because that is how
+the session had just found its bugs.
+
+It is the right idea, and the diagnosis underneath it is sharper than
+"fixtures versus reality". Every pass-1 fixture builds a repo that has
+never had to MOVE. An install happens once; an update happens forever, and
+nothing here had ever tested one. That gap splits in two, and both halves
+are now bullets: a scratch consumer vendored at an old commit and brought
+forward tests drift cheaply and needs nobody's permission, while a real
+consumer tests what only accumulation produces — an undeclared visibility,
+a hand-mirrored engine, prose that grew up naming a private source, and a
+vendored copy of the update tool old enough to be dangerous.
+
+It is deliberately NOT a fifth pass. The passes are ordered by what a miss
+costs, and a fifth one sits in the position most likely to be skipped —
+which is exactly wrong for the highest-yield step there is. It belongs in
+pass 1, where "an adopter is stranded" already lives. What does move to
+the front is the ASKING: attaching a repository is the person's act, and a
+question asked at the end of a long session is not a question, it is a
+postponement.
+
+The evidence: on 2026-09-07 the scratch fixtures passed, and one real
+consumer then produced seven defects in a row — four of them in mechanisms
+that same run had built or fixed hours earlier, one needing two attempts
+because the second failed with an identical message. The pre-launch audit
+had already named this gap in as many words and it stayed named and
+unfilled until somebody attached a repository.
 
 Split 2026-09-07, on Morgan's question — should the check look at unmerged
 branches before anything else, so a session stops rewriting what was

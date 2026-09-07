@@ -114,6 +114,35 @@ which is what the empty-neighbourhood bullet asks for.
 practices, no crash); no team set; sources declared but unreachable. The
 third is finding 6 above.
 
+**A REAL consumer repository, updated — added to the practice because of
+what it found here.** `themorgan/WorkingWithAI` was attached mid-run, its
+vendored tree brought forward 283 commits, re-synced, and run against its
+own gates. The scratch fixtures above had passed; that one repo then
+produced seven defects in a row, four of them in mechanisms this run had
+built or fixed hours earlier:
+
+- an undeclared `visibility` meant "private", so the exclusion fix would not
+  have saved the repo it was written for;
+- `precedent_session_practices.py` was in no engine list, so the exclusion
+  shipped with no replacement channel;
+- `.precedent/` was absent from the shipped `.gitignore` template, though
+  present in this repo's own;
+- the bootstrap hook template bakes the private repository's URL into a
+  tracked file by design;
+- `rename-updates-links` read "withheld" as "deleted" — 26 findings, six
+  unactionable;
+- the same check fired on received files nobody there can edit;
+- `drift()` was not told what the sync withheld, so `--check` could never
+  pass — and that one needed two attempts, the second failing with an
+  identical message.
+
+None of these was reachable from a clean-room fixture, because every fixture
+builds a repo that has never had to move. The gap was already named in the
+[pre-launch audit](PRELAUNCH_AUDIT.md) ("what is still missing is a real
+project") and stayed unfilled until a repository was actually attached.
+[very-deep-check](../practices/very-deep-check.md) now asks for this
+directly, and asks for it EARLY, since attaching is the person's act.
+
 **Not done in this pass:** the cross-repo permissions walk — who must be
 able to read or write what for a *new* repo and a *new* person, including
 the restricted GitHub roles in
