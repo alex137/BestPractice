@@ -1508,9 +1508,27 @@ which is the failure this repointing exists to end — write
     **Left over, and not this repository's to do:** the notebook itself
     still exists until Morgan deletes it in GitHub's settings — no tool
     available here can delete a repository. Its 220 commits of history,
-    its own `TODO.md`, its `GETTING_STARTED.md` and its migration record
-    go with it. The five content-side open questions were rescued into
+    its own `TODO.md` and its `GETTING_STARTED.md` go with it. The five
+    content-side open questions were rescued into
     [philosophy/OPEN_QUESTIONS.md](philosophy/OPEN_QUESTIONS.md) first.
+
+    **Its `process/PRECEDENT_MIGRATION.md` was read and deliberately not
+    rescued** (2026-09-07). A first pass flagged it as the one document
+    worth importing, because
+    [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)
+    cites it as the worked example's own record. Reading it reversed that:
+    it says outright that its own reusable half *"is written up generically
+    upstream ... so the next dependent repo doing this same migration
+    doesn't have to rediscover it"*, and its one finding of consequence —
+    that a consumer's scrub gate structurally cannot pass once the
+    blocklist term appears in legitimately-vendored upstream documents — is
+    already recorded in
+    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md), with the remedy.
+    What remains is one repository's bookkeeping about itself: its manifest
+    entries, its paused workflow, its resolver output, its own
+    "audit these entries before the beta pin lifts" note. Importing 28KB of
+    that into a public repo where nothing points at it would be a copy kept
+    for the feeling of not having thrown anything away.
 
 41. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` are masked, and there is no longer an
     original to compare them against.** The default leak blocklist bans

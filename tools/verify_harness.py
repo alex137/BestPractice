@@ -3972,8 +3972,10 @@ def check_precedent_check_fires():
         case('philosophy-is-not-repo-policy', _plant_pinrp)
 
         # philosophy-declares-its-source -- a document dropped into
-        # philosophy/ with no provenance line, so nobody can tell whether it
-        # is a copy that has fallen behind WorkingWithAI or native content.
+        # philosophy/ with no provenance line, so nothing records where its
+        # text was argued out. The essays have no upstream to fall behind:
+        # the notebook they came from was retired, which is exactly why the
+        # line is the only surviving trace of that history.
         def _plant_pdis(repo):
             (repo / 'philosophy' / 'ORPHAN.md').write_text(
                 '# An Orphan\n\nWith no provenance line.\n', encoding='utf-8')
