@@ -1504,3 +1504,52 @@ which is the failure this repointing exists to end — write
     **Blocked on:** nothing mechanical — it needs Morgan to say whether
     masking is the right call for his own quoted words, or whether the
     blocklist should carve out `philosophy/` instead.
+
+- <a id="undeclared-deprecated-files"></a>**Nothing finds a deprecated file nobody declared.**
+  [retirement-deletes-files](practices/retirement-deletes-files.md) landed
+  2026-09-07 with an audit ([precedent_retire_path.py](tools/precedent_retire_path.py))
+  and a check that holds a retirement afterwards. Both work from a
+  declaration: the audit is run by a person at the moment of retirement,
+  and the check reads `process/retired_paths.json`. Neither can look at a
+  tree and say *this file is dead*. So the practice covers the moment a
+  mechanism is retired deliberately, and covers nothing at all in the case
+  Morgan actually raised it against — a repo left alone for years, where
+  the retirement moment passed without anyone noticing it was one.
+
+  **One candidate was designed and rejected, so the next session does not
+  re-derive it.** A check on `.github/workflows/`: a workflow whose only
+  trigger is `workflow_dispatch`, or whose schedule is commented out, is a
+  retirement someone started and never finished. It is mechanical, it is
+  cheap, and it targets exactly the shape this practice was raised about.
+  It was not built because it fires hardest on the one case this repo
+  *deliberately* holds — every consumer's paused `bestpractice-upstream-sync.yml`,
+  parked on `workflow_dispatch` on purpose per
+  [`relax-the-pinned-branch-hold`](TODO.md#relax-the-pinned-branch-hold) —
+  so shipping it means every consuming repo starts failing a check for
+  doing what this repo told it to do. Making it honest needs a way to
+  declare a pause with a stated condition for lifting it, which is a
+  design call rather than a check.
+
+  **Blocked on:** that design call. The cheaper half is not blocked and is
+  worth doing first — teaching
+  [very-deep-check](practices/very-deep-check.md)'s housekeeping pass to
+  look for dead paths by hand, which is where a judgment a script cannot
+  make already belongs.
+
+- <a id="build-views-stdout-count"></a>**`build_views.py`'s stdout line reports a different practice count than
+  the block it just wrote.** Noticed 2026-09-07 merging
+  [precedent-beta-v01](https://github.com/alex137/BestPractice/tree/precedent-beta-v01)
+  into a feature branch: the regenerated `AGENTS.md` header read *7 of 72
+  practices* while the same run printed *resident 7/69* to stdout. 72 is
+  correct (69 universal, 3 repo-local); 69 is
+  [build_views.py](tools/build_views.py)'s `len(practices)` at its final
+  `print`, which is `load_practices(practices/)` — the universal directory
+  only — while the block's own figure comes from the multi-source resolve.
+  The **committed artifact is right and stable** (two consecutive runs are
+  byte-identical), so nothing downstream is wrong; the line a session reads
+  to confirm the run is what disagrees with it, which is the worse half to
+  have wrong. Not fixed here because it is unrelated to the change that
+  found it and sits in code merged the same day — a drive-by edit to
+  someone else's just-landed work. **Blocked on:** nothing; it is a
+  one-line fix for whoever touches that function next, worth doing with
+  the regeneration check watching.

@@ -425,6 +425,13 @@
       "why": "Resident; its applies_to is not this file's business.",
       "decided": "phase 4 routing pass"
     },
+    "retirement-deletes-files": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus, and `**` for the same reason rename-updates-links and no-version-suffix take it: the occasion is an action taken ON a path -- retiring the mechanism that owned it -- not a property of the file being edited. A retirement can land in any file type, and the file most in need of deleting is usually one nobody is editing at all, so a narrower glob would fire least where it matters most. Its check is scoped instead, to the paths this repo has declared retired.",
+      "decided": "2026-09-07, when the practice was added"
+    },
     "routing-audit": {
       "globs": [
         "**"

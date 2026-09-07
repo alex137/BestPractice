@@ -212,6 +212,17 @@ the loader.
    rule naming the old manifest, a CI workflow calling the old tool path)
    needs the same update.
 
+   **Delete through the audit, not by hand**
+   ([retirement-deletes-files](../practices/retirement-deletes-files.md)):
+   `python3 tools/precedent_retire_path.py process/<old-pack-tree>` reports
+   every tracked file that still references the tree — including the ones
+   this step's own list does not name — and refuses while any remain, which
+   is the same property `rename-updates-links` will otherwise fail on after
+   the fact. Re-run it until it reports `CLEAR`, then
+   `--reason "..." --apply` deletes the tree and records the retirement in
+   `process/retired_paths.json`, so a later mirror or materialization
+   putting it back is caught rather than absorbed.
+
    **Scrub the old system's whole vocabulary now, in this same migration —
    never as a separate cleanup someone has to ask for later**
    ([migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md)).
@@ -242,12 +253,28 @@ the loader.
    for a directory exemption anywhere else; a retired term in this repo's
    own hand-authored tree is real, unfinished migration work.
 
-6. **Retire the old sync workflow entirely** (there is nothing left to
-   vendor-and-sync for the team/individual sources — they resolve live).
-   Keeping the sibling clones themselves fresh becomes a session-start
-   concern (a best-effort `git pull --ff-only` for the team clone; the
-   individual clone's own bootstrap script does the same for itself), not
-   a scheduled GitHub Actions job.
+6. **Retire the old sync workflow entirely — the file is deleted, not
+   disabled** (there is nothing left to vendor-and-sync for the
+   team/individual sources — they resolve live). Keeping the sibling
+   clones themselves fresh becomes a session-start concern (a best-effort
+   `git pull --ff-only` for the team clone; the individual clone's own
+   bootstrap script does the same for itself), not a scheduled GitHub
+   Actions job.
+
+   **"Entirely" means the workflow file leaves the tree**, and this step
+   used to leave that implicit — which read as complied-with by anyone who
+   commented out a `schedule:` block, especially since the "default-branch
+   gotcha" section below spells out *pausing* mechanics exactly. Pause
+   first if the job is still live ([precedent_retire_path.py](../tools/precedent_retire_path.py) refuses to
+   retire a workflow whose `on:` block carries any trigger but
+   `workflow_dispatch`, so a retirement is never the first thing that
+   stops a running job), let one cycle pass, then run the same audit-then-
+   `--apply` sequence step 5 describes. **Not every paused workflow is
+   being retired:** a consuming repo's `bestpractice-upstream-sync.yml`
+   stays, paused deliberately, for the reason
+   [TODO.md](../TODO.md#relax-the-pinned-branch-hold)'s own item gives — a hold
+   with a stated condition for lifting it, which is exactly what
+   distinguishes one from a leftover.
 
 7. **Rewrite the consuming repo's own instructions file** (`AGENTS.md` or
    equivalent) with the same `<!-- BEGIN GENERATED: precedent-loader -->` /
