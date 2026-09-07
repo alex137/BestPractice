@@ -270,6 +270,17 @@ across every source) and the backlog read are **not done**.
 The branch sweep ran, after its own bug was fixed. Every branch below needs
 a verdict and most do not have one yet.
 
+**Session links, where a commit carries one.** Three of the four name the
+session that produced them; the fourth carries no trailer at all, which is
+itself the gap the maintainers' `session-trailer` practice exists to close.
+
+| Branch | Session |
+|---|---|
+| `claude/file-sharing-service-spec-0m9c7p` | [session_014E9mY5m9mTpT18qXbsqm6G](https://claude.ai/code/session_014E9mY5m9mTpT18qXbsqm6G) |
+| `claude/missed-practices-simulation-v0wszw` | none — the commit carries no session trailer |
+| `claude/pre-launch-audit-fixes-7wumzx` (individual) | [session_016pt9BBdccT1tLt612MC2rf](https://claude.ai/code/session_016pt9BBdccT1tLt612MC2rf) |
+| `claude/pre-launch-audit-fixes-7wumzx` (team) | [session_016pt9BBdccT1tLt612MC2rf](https://claude.ai/code/session_016pt9BBdccT1tLt612MC2rf) — the same session produced both |
+
 **No pull request exists for any of the four.** All three repos land work by
 direct push, so there is no PR page to link and no one-click **Delete
 branch** control on one. Each row below links the branch's own compare view
@@ -290,7 +301,7 @@ branches merged and not deleted; 2 not merged.
 | Branch | What it is | Last moved | Recommendation |
 |---|---|---|---|
 | [`claude/file-sharing-service-spec-0m9c7p`](https://github.com/alex137/BestPractice/compare/precedent-beta-v01...claude/file-sharing-service-spec-0m9c7p) | A 653-line specification and delivery plan for a file-sharing service — `share/SPEC.md`, `share/PLAN.md`, one AGENTS.md line. Pure documents, no engine code. Its last commit switches the design to a thin gateway over object storage on Cloudflare Workers. Nothing in Precedent depends on it. | 2026-07-26 | **Close, unless the service is still planned.** Six weeks cold, and it is a product spec that happens to live in the practice repo rather than anything Precedent needs. If it is still wanted it belongs in its own repo — cheap to re-push from this branch, which is why closing costs nothing. **Alex's call**, since it is his subject matter, not a Precedent question. |
-| [`claude/missed-practices-simulation-v0wszw`](https://github.com/alex137/BestPractice/compare/precedent-beta-v01...claude/missed-practices-simulation-v0wszw) | One commit adding `tools/routing_eval_synthetic.py` (319 lines) plus 66 generated prompt fixtures — a synthetic occasion-routing stress test, complementary to the existing `routing_eval.py`. 14,539 insertions, almost all generated fixture text. | 2026-09-01 | **Merge, after checking the fixtures belong in git.** The tool is real and complements a mechanism this repo already relies on, and [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md) is explicit that routing quality is under-measured. The one hesitation is 14k lines of generated prompts as tracked files; if they are reproducible from the script, generate them instead and merge the script alone. |
+| [`claude/missed-practices-simulation-v0wszw`](https://github.com/alex137/BestPractice/compare/precedent-beta-v01...claude/missed-practices-simulation-v0wszw) | One commit adding `tools/routing_eval_synthetic.py` (319 lines) plus 66 generated prompt fixtures — a synthetic occasion-routing stress test, complementary to the existing `routing_eval.py`. 14,539 insertions, almost all generated fixture text. | 2026-09-01 | **Merge the script and the recorded result; leave the 66 generated fixtures out.** Corrected after reading the commit body rather than the diffstat: the eval found NO improvement — "treatment landed within a hair of control" on the 6 valid cases. That makes it a pre-registered NEGATIVE result, which is worth landing precisely because [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md) needs its finding narrowed — but it should land for the finding, not for a benefit it did not demonstrate. 14k lines of tracked fixtures for a null result is not worth the weight if the script regenerates them. |
 
 **`themorgan/precedent-individual`** (integration branch `main`): 10 merged
 and not deleted; 1 not merged.

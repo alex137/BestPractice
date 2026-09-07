@@ -8961,6 +8961,89 @@ def check_sync_refuses_to_write_from_incomplete_sources():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_unlanded_work_is_reported_before_the_passes():
+    """The very deep check must surface unlanded work BEFORE its checklist,
+    not with the branch verdicts at the end (practice: very-deep-check).
+
+    THE INCIDENT. The 2026-09-07 run rediscovered two missing source files
+    from scratch, wrote them up as findings, and filed them as open TODO
+    items -- while the fixes sat finished on a branch from the previous day,
+    in both private sets, named in those branches' own commit subjects.
+    Nothing had asked what was sitting unmerged, because the branch list only
+    printed after every pass had already been worked.
+
+    The sweep's two halves have different costs and different jobs. Deciding
+    a branch's fate is judgment and stays in pass 4. Knowing what already
+    exists is a list, costs nothing, and is the only step in the whole check
+    that prevents work rather than finding it -- so it has to come first, and
+    ORDER is the property, which is what this asserts.
+
+    A branch carrying no unique commits (rebased or squash-merged in) must
+    NOT appear here: it is a deletion candidate, not unlanded work, and
+    listing it would train the reader to skim the section that exists to be
+    read."""
+    import tempfile, shutil
+    import json as _json
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'f.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+
+        # A branch carrying real, unlanded work.
+        _git(up, 'checkout', '-q', '-b', 'carries-work')
+        (up / 'fix.txt').write_text('the fix nobody landed\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'a fix that never landed')
+        _git(up, 'checkout', '-q', 'main')
+
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        _git(work, 'config', 'user.email', 'harness@example.com')
+        _git(work, 'config', 'user.name', 'Harness')
+        (work / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': '.'}]}), encoding='utf-8')
+        (work / 'practices').mkdir()
+        shutil.copy(next(PRACTICES_DIR.glob('*.md')), work / 'practices')
+        _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'declare a source')
+        _git(work, 'push', '-q', 'origin', 'main')
+
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+             '--repo', str(work)],
+            capture_output=True, text=True, cwd=str(work))
+        out = r.stdout
+
+        results = []
+        results.append(('the run produced output at all', bool(out.strip())))
+        has_block = 'UNLANDED WORK' in out
+        results.append(('unlanded work gets its own block', has_block))
+        if has_block and 'Pass 1 —' in out:
+            results.append(('it is printed BEFORE the checklist the session '
+                            'works from -- the whole point',
+                            out.index('UNLANDED WORK') < out.index('Pass 1 —')))
+        else:
+            results.append(('it is printed BEFORE the checklist the session '
+                            'works from -- the whole point', False))
+        results.append(('the branch carrying unlanded work is named',
+                        'carries-work' in out.split('Pass 1 —')[0]))
+
+        failed = [n for n, ok in results if not ok]
+        check(f'the very deep check reports unlanded work before its passes, '
+              f'not after ({len(results)} stated cases)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def main():
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -8992,6 +9075,7 @@ def main():
     check_branch_scan_sees_every_branch()
     check_public_consumer_does_not_materialize_private_text()
     check_sync_refuses_to_write_from_incomplete_sources()
+    check_unlanded_work_is_reported_before_the_passes()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()

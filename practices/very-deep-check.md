@@ -29,7 +29,9 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   the branch sweep reports an unmerged branch with a merge-or-close verdict,
   not only a merged one awaiting deletion; extended 2026-09-07, Morgan F,
   so each unmerged branch is written up with what it changes, a link, its
-  date and a reasoned recommendation, rather than handed back as a name"
+  date and a reasoned recommendation, rather than handed back as a name;
+  split same day, Morgan F, so the unmerged-branch INVENTORY is read
+  before any pass and only the verdicts stay in pass 4"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -133,8 +135,21 @@ cannot tell a drift this run introduced from one that was there before. So:
 3. **Run [tools/very_deep_check.py](../tools/very_deep_check.py)** for the
    enumeration, the machine-readable parse, the source-shape check, and the
    branch scan. A missing declared source stops the run here.
-4. **Then the passes, 1 through 4**, each ending with the suite from step 2
-   re-run — the fixes a pass makes break links of their own.
+4. **Read the unmerged-branch inventory, before any pass begins.** Not the
+   verdicts — those are pass 4's expensive half and stay there. Just the
+   list, and enough of each branch's diff to know *what already exists
+   somewhere*. This is the cheapest step in the whole check and the only
+   one that prevents work rather than finding it: a fix written last week
+   and never landed is invisible to every other step here, so a session
+   that skips this rediscovers it from scratch, writes it up as a finding,
+   and files it as open — three costs, all avoidable by reading one list
+   first.
+5. **Then the passes, 1 through 4**, each ending with the suite from step 2
+   re-run — the fixes a pass makes break links of their own. Whenever a
+   pass turns up a gap, check it against step 4's inventory **before**
+   writing it up: if a branch already fixes it, the finding is "this is
+   written and unlanded", which is a different problem with a different
+   remedy.
 
 The same rule holds inside a pass: where a mechanical check covers part of a
 bullet, run it first and read only what it cannot see.
@@ -352,7 +367,10 @@ Last because none of it strands an adopter, and none of it is cheap.
   backlog — [todo-is-a-handoff](todo-is-a-handoff.md) queues only what is
   blocked or out of scope, so anything else there is either doable now or
   should be closed.
-- **Branches, both directions, one verdict each.**
+- **Branches, both directions, one verdict each.** The *inventory* was
+  already read at step 4 of the order of operations, for a different
+  reason — to stop this run rediscovering work that exists. What is left
+  here is the expensive half: a verdict on each.
   [tools/very_deep_check.py](../tools/very_deep_check.py) reports, for this
   checkout and for every source that is its own git checkout (a repo-local
   source inside the parent checkout shares its parent's branches and isn't
@@ -544,6 +562,28 @@ this run introduced from drift that was already there. Two positional
 cross-references ("pass 2 item 10") were replaced with names in the same
 pass, since citing a list position as if it were a name is a defect pass 3
 tells the reader to report.
+
+Split 2026-09-07, on Morgan's question — should the check look at unmerged
+branches before anything else, so a session stops rewriting what was
+already written and never merged? It should, and the reason is that the
+sweep had been one thing when it is really two.
+
+Pass 4 is last because "none of it strands an adopter", which is true of
+deleting merged branches — that is clutter. It is not true of unlanded
+work, and the run that prompted this proved it: two missing files were
+rediscovered from scratch, written up as findings, and filed as open TODO
+items, while the fixes sat finished on a branch from the previous day in
+both private sets, named in those branches' own commit subjects. The cost
+of a late sweep is not untidiness. It is duplicated work and a backlog that
+records solved problems as open.
+
+So the inventory — cheap, mechanical, and the only step here that PREVENTS
+work rather than finding it — moves to step 4 of the order of operations,
+before any pass. The verdicts — expensive, and judgment — stay in pass 4.
+[tools/very_deep_check.py](../tools/very_deep_check.py) prints the
+unlanded-work block before the checklist a session works from, and
+verify_harness.py asserts that ORDER, since a block that exists but prints
+last is exactly the failure being fixed.
 
 Extended 2026-09-07, on Morgan's direct request, during the first run of
 this practice: he asked for a summary, a link, a date and a recommendation

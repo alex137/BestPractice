@@ -761,6 +761,49 @@ def main():
         print("  (no team or individual source resolved here)")
     print()
 
+    # UNLANDED WORK, printed BEFORE the checklist rather than with the rest
+    # of the branch scan at the end (practice: very-deep-check, step 4 of its
+    # order of operations).
+    #
+    # The two halves of the branch sweep have different costs and different
+    # jobs, and bundling them put the cheap one behind the expensive one.
+    # Deciding each branch's fate is judgment and belongs in pass 4. Knowing
+    # WHAT ALREADY EXISTS is a list, costs nothing, and is the only step in
+    # this whole check that prevents work instead of finding it.
+    #
+    # The 2026-09-07 run is the incident: it rediscovered two missing files
+    # from scratch, wrote them up as findings and filed them as open TODO
+    # items -- while the fixes sat finished on a branch from the previous
+    # day, in both private sets, named in the commit subjects. Nothing had
+    # asked what was sitting unmerged, because the list only appeared after
+    # every pass had already run.
+    if not skip_branch_scan:
+        _unlanded = []
+        for _name, _scan in branch_scans.items():
+            for _r in (_scan or {}).get('unmerged', []):
+                if _r.get('unique'):
+                    _unlanded.append((_name, _scan['target'], _r))
+        print("\nUNLANDED WORK -- read this BEFORE the passes, not after\n")
+        if _unlanded:
+            print("Work that was written and never landed is invisible to every\n"
+                  "other step in this check. Read each branch's diff far enough to\n"
+                  "know what it already fixes, THEN start the passes -- and check\n"
+                  "any gap a pass turns up against this list before writing it up.\n"
+                  "A finding that a branch already fixes is not a missing fix; it\n"
+                  "is an unlanded one, which is a different problem.\n")
+            for _name, _target, _r in _unlanded:
+                _age = f", last moved {_r['last']}" if _r.get('last') else ""
+                print(f"  {_name}: {_r['name']}")
+                print(f"      {_r['unique']} commit(s) with no patch-equivalent "
+                      f"on the integration branch{_age}")
+                print(f"      git log --oneline origin/{_target}..origin/{_r['name']}")
+            print(f"\n  {len(_unlanded)} branch(es) carry unlanded work. Verdicts are "
+                  f"pass 4's job;\n  reading them is this step's job, and it comes first.\n")
+        else:
+            print("  No branch carries unlanded work. (A branch reported unmerged\n"
+                  "  but carrying nothing was rebased or squash-merged in -- pass 4\n"
+                  "  still gives it a deletion verdict.)\n")
+
     print(checklist())
 
     if not skip_branch_scan:
