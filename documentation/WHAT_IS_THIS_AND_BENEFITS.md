@@ -39,6 +39,14 @@ one-word tweaks, but **whole rewritten sections**. If two edits genuinely
 contradict each other, your assistant **shows you both and asks**, rather than
 silently picking a winner.
 
+### Real Sharing, Not Forwarded Transcripts
+
+**The project is shared by construction.** Everyone on it — people and their
+assistants alike — works from the same map of the project, the same list of
+open items, and the same rules, and proposes changes the others can read and
+comment on before anything lands. Nobody forwards a chat transcript, and
+nobody has to hope that everyone else's assistant remembers the same things.
+
 ### Practices at Different Levels of Sharing
 
 A rule can **stay just yours, apply to your whole team, or join the public
@@ -72,6 +80,13 @@ team's approvers to say yes. **Permission is just as granular**: some people
 can only suggest ideas in plain language, others can approve changes
 outright — set per person, not all-or-nothing.
 
+### Everything Runs Through the Claude Code App — Desktop or Mobile
+
+**You can tell your assistant what to do by voice, while walking, or from
+anywhere at all** — and there is nothing to install on your own computer. If
+you would rather run it on your own machine, it still works that way too
+(*as of 2026-09*).
+
 ## Automatic Protocols and Invisible Memory
 
 **How your team works gets written down as you work**, and the project keeps
@@ -91,18 +106,49 @@ practices based on your instructions. Each new one **only takes effect once a
 person confirms it**, though — whether that's you approving your own
 habit on the spot or a teammate signing off on a shared one.
 
+### Enforcement Instead of Vigilance
+
+**The rules that matter are backed by small programs that fail loudly.** A
+chat thread can only promise to follow a convention; a project set up this way
+can check it, every time, and stop the change that breaks it — so keeping to
+your own rules doesn't depend on anybody staying vigilant.
+
 ### GitHub Becomes Your Memory: Documents, Decisions, and The Why
 
 Documents, the decisions made about them, and the reasoning behind each one
 are all kept together in **one place your team already owns** — so the project
-remembers itself. Nothing important lives only in someone's head or in a
-chat window that scrolls away.
+remembers itself. **A git repository is the shared file system**: a project
+folder that keeps every version of everything in it, and that every person and
+every assistant works out of.
+
+### State That Doesn't Decay
+
+**Open items, decisions, lessons about your setup, and naming conventions are
+all committed text.** A session six months from now — on a different model, in
+a different tool, or run by a different person — picks up exactly where the
+last one left off, because "where we left off" is a file.
+
+### You Control What the Assistant Knows
+
+**Every session starts by reading the project's map ([MAP.md](../MAP.md)) and
+its instructions file**, so what the assistant knows is something you decide,
+by editing files. Nothing load-bearing lives in a hidden memory store or
+depends on a lucky recollection from an old conversation. If sessions keep
+missing something, you add a row to the map's quick index — a one-line,
+permanent fix.
 
 ### Every Decision Comes With Its Reasoning Attached
 
 **Not just what was decided, but why** — and a link back to the exact
 conversation or issue that produced it. Months later, nobody has to guess
 why a rule exists or dig through chat logs to find out.
+
+### Version Control and an Audit Trail
+
+**Every change is recorded: who made it, when, what changed, and — because the
+practices here require it — why.** Anything can be undone, and any two
+versions of anything can be compared side by side. An assistant's memory
+feature offers none of that.
 
 ## Open Source and Open Documents
 
@@ -111,15 +157,22 @@ work away.**
 
 ### Open Source, on GitHub — No Vendor Lock-In
 
-Everything here is open source and built on top of GitHub, a platform you
-already control your own data in. There's **no proprietary format and no
-company that can shut down** and take your project's memory with it.
+**Git repos are your file system.** Everything here is open source and built
+on top of GitHub, a platform you already control your own data in. There's
+**no proprietary format and no company that can shut down** and take your
+project's memory with it.
 
-### Works With Any Document Type
+### Plain Text Is the Source — All Other File Types Are Inputs or Outputs
 
-**Not just prose** — specs, code, contracts, meeting notes, decks, anything
-your team produces in text. The same practices, review flow, and record
-apply across all of it.
+**Plain text is the real material** — prose, specs, contracts, meeting notes,
+code, anything your team produces in words — because text is what can be
+compared, merged line by line, and reviewed. **Every other file type is either
+an input or an output**, and usually both: a Microsoft Word document, an Excel
+spreadsheet, or a PowerPoint deck can be handed to your assistant to read in
+at the start, and any of the three can be produced back out at the end. What
+your team actually edits and keeps a history of is the text in between; the
+Word, Excel, and PowerPoint files are what goes in and what comes out. The
+same practices, review flow, and record apply across all of it.
 
 ## Learn More
 
