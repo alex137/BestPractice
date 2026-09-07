@@ -17,11 +17,11 @@ This grew out of a broader philosophy about how people and AI should work
 together, developed in
 **[WorkingWithAI](https://github.com/themorgan/WorkingWithAI)**. What
 follows are the practical things Precedent does that put that
-philosophy to work, in four groups.
+philosophy to work, in five groups.
 
 ## Human Collaboration First
 
-**Several people work on one thing at the same time**, and the tool is
+Several people work on one thing at the same time, and the tool is
 built around that rather than around one person and a chatbot.
 
 ### Designed for Multi-Person Collaboration to Shape the Output
@@ -31,6 +31,21 @@ the same time** — proposing, arguing, adding, cutting — so what finally land
 is shaped by all of them, not by whoever happened to type into the document
 last. Nobody has to wait their turn to edit.
 
+### Real Sharing With Review
+
+**The project is shared by construction.** Everyone on it — people and their
+assistants alike — works from the same map of the project, the same list of
+open items, and the same rules, and proposes changes the others can read and
+comment on before anything lands. Nobody forwards a chat transcript, and
+nobody has to hope that everyone else's assistant remembers the same things.
+
+### Granular Permission Access & Protocol Applicability
+
+A rule can **stay just yours, apply to your whole team, or join the public
+library** everyone using Precedent starts from — you choose which, and a
+rule that starts narrow can move to a wider level later if it turns out to
+matter beyond where it began.
+
 ### Automatically Merges Substantial Changes to the Same Document by Different Collaborators Simultaneously
 
 Two people can rewrite different parts of the same document at once, each on
@@ -39,24 +54,9 @@ one-word tweaks, but **whole rewritten sections**. If two edits genuinely
 contradict each other, your assistant **shows you both and asks**, rather than
 silently picking a winner.
 
-### Real Sharing, Not Forwarded Transcripts
-
-**The project is shared by construction.** Everyone on it — people and their
-assistants alike — works from the same map of the project, the same list of
-open items, and the same rules, and proposes changes the others can read and
-comment on before anything lands. Nobody forwards a chat transcript, and
-nobody has to hope that everyone else's assistant remembers the same things.
-
-### Practices at Different Levels of Sharing
-
-A rule can **stay just yours, apply to your whole team, or join the public
-library** everyone using Precedent starts from — you choose which, and a
-rule that starts narrow can move to a wider level later if it turns out to
-matter beyond where it began.
-
 ## Co-Creating With Your Assistant
 
-**Every change is worked out with an assistant that argues back** — and
+Every change is worked out with an assistant that argues back — and
 nothing lands until a person says so.
 
 ### You Work Through Your Agents
@@ -87,10 +87,10 @@ anywhere at all** — and there is nothing to install on your own computer. If
 you would rather run it on your own machine, it still works that way too
 (*as of 2026-09*).
 
-## Automatic Protocols and Invisible Memory
+## Automatic Protocols
 
-**How your team works gets written down as you work**, and the project keeps
-its own record — without anyone maintaining either by hand.
+How your team works gets written down as you work — and then applied to
+every conversation after it, without anyone maintaining a rulebook by hand.
 
 ### Codifies Key Universal Best Practices on Effective Work
 
@@ -112,6 +112,24 @@ habit on the spot or a teammate signing off on a shared one.
 chat thread can only promise to follow a convention; a project set up this way
 can check it, every time, and stop the change that breaks it — so keeping to
 your own rules doesn't depend on anybody staying vigilant.
+
+### Every Decision Comes With Its Reasoning Attached
+
+**Not just what was decided, but why** — and a link back to the exact
+conversation or issue that produced it. Months later, nobody has to guess
+why a rule exists or dig through chat logs to find out.
+
+### Version Control and an Audit Trail
+
+**Every change is recorded: who made it, when, what changed, and — because the
+practices here require it — why.** Anything can be undone, and any two
+versions of anything can be compared side by side. An assistant's memory
+feature offers none of that.
+
+## Invisible Memory
+
+The project keeps its own record as it goes, so nothing that matters
+depends on anyone remembering it.
 
 ### GitHub Becomes Your Memory: Documents, Decisions, and The Why
 
@@ -137,23 +155,10 @@ depends on a lucky recollection from an old conversation. If sessions keep
 missing something, you add a row to the map's quick index — a one-line,
 permanent fix.
 
-### Every Decision Comes With Its Reasoning Attached
-
-**Not just what was decided, but why** — and a link back to the exact
-conversation or issue that produced it. Months later, nobody has to guess
-why a rule exists or dig through chat logs to find out.
-
-### Version Control and an Audit Trail
-
-**Every change is recorded: who made it, when, what changed, and — because the
-practices here require it — why.** Anything can be undone, and any two
-versions of anything can be compared side by side. An assistant's memory
-feature offers none of that.
-
 ## Open Source and Open Documents
 
-**Nothing here is a format you can't read or a service that can take your
-work away.**
+Nothing here is a format you can't read or a service that can take your
+work away.
 
 ### Open Source, on GitHub — No Vendor Lock-In
 
@@ -164,15 +169,10 @@ project's memory with it.
 
 ### Plain Text Is the Source — All Other File Types Are Inputs or Outputs
 
-**Plain text is the real material** — prose, specs, contracts, meeting notes,
-code, anything your team produces in words — because text is what can be
-compared, merged line by line, and reviewed. **Every other file type is either
-an input or an output**, and usually both: a Microsoft Word document, an Excel
-spreadsheet, or a PowerPoint deck can be handed to your assistant to read in
-at the start, and any of the three can be produced back out at the end. What
-your team actually edits and keeps a history of is the text in between; the
-Word, Excel, and PowerPoint files are what goes in and what comes out. The
-same practices, review flow, and record apply across all of it.
+**Plain text is what your team edits and keeps a history of**, because text
+is what can be compared and merged. Every other file type is an input, an
+output, or both: a Microsoft Word document, an Excel spreadsheet, or a
+PowerPoint deck goes in at the start and comes back out at the end.
 
 ## Learn More
 

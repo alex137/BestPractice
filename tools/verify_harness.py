@@ -3740,6 +3740,112 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
         case('rename-updates-links', _plant_rename, setup=_setup_rename)
 
+        # rename-updates-links, the other direction: a stranded reference the
+        # consuming repo CANNOT repoint must leave the check silent, and the
+        # identical reference in a file it CAN edit must still fail. Both
+        # halves in one fixture, because a skip that quietly disabled the
+        # check would pass the first half on its own.
+        #
+        # This repo has no MANIFEST.json (it is the upstream, not a consumer),
+        # so the fixture writes one: that file is where
+        # precedent_materialize.py records which source produced each
+        # materialized practice and check, and attribution is by that record
+        # rather than by live resolution -- a bare CI checkout can reach
+        # universal and repo-local but never team or individual.
+        def _setup_received(repo):
+            _setup_rename(repo)
+            (repo / 'MANIFEST.json').write_text(json.dumps({
+                'sources': [
+                    {'level': 'repo-local', 'name': 'local', 'path': 'local'},
+                    {'level': 'individual', 'name': 'zzz-individual',
+                     'path': '/nowhere'},
+                ],
+                'practices': [{'slug': 'zzz-received', 'source': 'zzz-individual'}],
+                'checks': [{'path': 'tools/checks/check_zzz_received.py',
+                            'source': 'zzz-individual'}],
+                'withheld': [],
+            }, indent=1) + '\n', encoding='utf-8')
+            (repo / 'notes').mkdir(exist_ok=True)
+            (repo / 'notes' / 'ZZZ_OLD.md').write_text('placeholder\n',
+                                                       encoding='utf-8')
+            (repo / 'practices' / 'zzz-received.md').write_text(
+                'Materialized from another source; it names `notes/ZZZ_OLD.md`\n'
+                'as this convention\'s canonical example.\n', encoding='utf-8')
+            (repo / 'tools' / 'checks').mkdir(parents=True, exist_ok=True)
+            (repo / 'tools' / 'checks' / 'check_zzz_received.py').write_text(
+                '# materialized check; its docstring names notes/ZZZ_OLD.md\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'materialized output from another source')
+            git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+
+        def _plant_received_only(repo):
+            git(repo, 'mv', 'notes/ZZZ_OLD.md', 'notes/ZZZ_NEW.md')
+            git(repo, 'commit', '-qm', 'rename; only received files still name it')
+
+        repo = fresh('rename-updates-links-received')
+        _setup_received(repo)
+        _plant_received_only(repo)
+        rc, out = run(repo, 'rename-updates-links')
+        cases.append(('rename-updates-links: a stranded reference inside a '
+                      'materialized practice or check is not reported '
+                      '(the consuming repo cannot repoint it -- the next '
+                      'sync overwrites any edit)',
+                      rc == 0 and 'VIOLATION' not in out))
+
+        repo = fresh('rename-updates-links-editable')
+        _setup_received(repo)
+        (repo / 'docs-page.md').write_text(
+            'See `notes/ZZZ_OLD.md` for the details.\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'a page this repo owns names the same path')
+        git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        _plant_received_only(repo)
+        rc, out = run(repo, 'rename-updates-links')
+        cases.append(('rename-updates-links: the identical reference in a file '
+                      'the repo DOES own still fails (the skip above is a '
+                      'scope, not the check going quiet)',
+                      rc == 1 and 'VIOLATION' in out and 'docs-page.md' in out))
+
+        # ...and the generated loader block is skipped as a REGION, so a
+        # reference in the hand-written half of the same document is still
+        # reported. One fixture, both halves, same reason as above.
+        repo = fresh('rename-updates-links-generated')
+        _setup_rename(repo)
+        (repo / 'notes').mkdir(exist_ok=True)
+        (repo / 'notes' / 'ZZZ_OLD.md').write_text('placeholder\n',
+                                                   encoding='utf-8')
+        rewrite(repo, 'AGENTS.md', lambda x: x.replace(
+            '<!-- BEGIN GENERATED: precedent-loader -->',
+            '<!-- BEGIN GENERATED: precedent-loader -->\n'
+            'A regenerated line naming notes/ZZZ_OLD.md.', 1))
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'loader block names the path')
+        git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        _plant_received_only(repo)
+        rc, out = run(repo, 'rename-updates-links')
+        cases.append(('rename-updates-links: a reference inside the generated '
+                      'loader block is not reported (build_views.py rewrites '
+                      'it wholesale from the sources)',
+                      rc == 0 and 'VIOLATION' not in out))
+
+        repo = fresh('rename-updates-links-outside-block')
+        _setup_rename(repo)
+        (repo / 'notes').mkdir(exist_ok=True)
+        (repo / 'notes' / 'ZZZ_OLD.md').write_text('placeholder\n',
+                                                   encoding='utf-8')
+        rewrite(repo, 'AGENTS.md', lambda x:
+                'A hand-written line naming notes/ZZZ_OLD.md.\n' + x)
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'hand-written half names the path')
+        git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        _plant_received_only(repo)
+        rc, out = run(repo, 'rename-updates-links')
+        cases.append(('rename-updates-links: the same reference OUTSIDE the '
+                      'generated block is still reported (skipped as a '
+                      'region, not as a file)',
+                      rc == 1 and 'VIOLATION' in out and 'AGENTS.md' in out))
+
         # two-check-levels -- the light/deep check pair removed from AGENTS.md
         def _plant_tcl(repo):
             rewrite(repo, 'AGENTS.md', lambda t: t.replace(

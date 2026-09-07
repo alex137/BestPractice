@@ -333,7 +333,7 @@ honest note about what the second rehearsal found. Separately, `## 0` sits
 would break every link to §1-§7, so §1 now points forward to §0 instead.
 
 **Two findings from a consumer's engine update, both fixed.** A real
-consumer repo (`HavrutaBrainstorm`) took this run's engine forward and came
+private consumer repo took this run's engine forward and came
 back with 69 "outward-facing" headings across 10 files that are not
 outward-facing at all, and queued them rather than sweep them — the honest
 response, and a permanently noisy check. Root cause:
@@ -387,8 +387,8 @@ means by "as likely to be in the seam between two repos as inside any one":
 neither repo is wrong on its own.
 
 **A constraint of the materialization model, learned from a consumer and
-written down here.** A second consumer report (`HavrutaBrainstorm`, installing
-the identity mechanism) found that `check_commit_author.py` and
+written down here.** A second report from the same private consumer,
+installing the identity mechanism, found that `check_commit_author.py` and
 `check_buenos_aires_dates.py` held their exempt-commit list as a constant in
 the script. Those scripts materialize byte-identically into every consumer,
 and `tools/checks/` is deleted and rewritten on every sync — so a consuming

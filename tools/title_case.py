@@ -72,7 +72,7 @@ INTERNAL_FILES = (
 # consumer had no way at all to say "this directory of mine is internal
 # too" -- the exclusion default that fails safe here fails the other way
 # there: every working directory nobody happened to name above reads as
-# published. 2026-09-07, a real consumer (HavrutaBrainstorm) came back from
+# published. 2026-09-07, a real private consumer repo came back from
 # an engine update with 69 outward-facing headings across 10 files, none of
 # them outward-facing; the repo queued them in its TODO rather than sweep
 # headings it did not want swept, which is the honest response and also a

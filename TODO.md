@@ -891,6 +891,38 @@ which is the failure this repointing exists to end — write
     with no grace period. **What closes it for free:** the merge-back landing
     first, which brings both gates to `main` in one move.
 
+42. <a id="bold-rule-for-heading-dense-pages"></a>**`bold-key-phrases` needs a weak
+    counter-clause for heading-dense pages.** Morgan, 2026-09-07, on
+    [documentation/WHAT_IS_THIS_AND_BENEFITS.md](documentation/WHAT_IS_THIS_AND_BENEFITS.md):
+    "this page has a lot of headings and short lists, so that would make it too
+    bold". He asked for the one-line lead-in under each `##` to carry no bold
+    at all — done that day — and named the rule himself as **a suggestion,
+    deliberately weak**, not a gate.
+
+    The page's own history is the evidence on both sides.
+    [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md)'s round-three sweep
+    found this exact document at 0.1 bold spans per 100 words against 0.8-1.9
+    in every other outward-facing document and added seventeen, which was
+    right at the time. The document has since grown from four groups to five
+    and from twelve items to eighteen, and at that density a bold lead-in
+    under every heading marks nothing — the structure is already doing the
+    emphasis. **What to write:** an advisory clause on `bold-key-phrases`
+    saying the density is judged against running prose, and that a page whose
+    own structure carries the emphasis leaves its section lead-ins plain.
+    **Deliberately no mechanical check:** a spans-per-100-words ratio cannot
+    tell a heading-dense page from an under-emphasized one, which is the whole
+    finding — a check here would re-flag the page Morgan just fixed.
+
+    **Blocked on:** a session with the private sets on disk. `bold-key-phrases`
+    is not in this repo's `practices/` — it lives in one of the three private
+    sources, and this session resolved neither of them
+    ([tools/precedent_resolve.py](tools/precedent_resolve.py): team source
+    `../precedent-team-maintainers` absent, no individual config). Checked on
+    disk rather than recalled, per
+    [`migrated-practices-lost-their-stories`](TODO.md#migrated-practices-lost-their-stories)'s
+    own correction about blockers taken from memory.
+
+
 - ~~**`precedent_check.py` is not vendored into source sets, so a practice
   set enforces nothing of the universal catalogue.**~~ **Done 2026-09-07**, in
   the same day it was filed. It is the root cause behind two other items:
