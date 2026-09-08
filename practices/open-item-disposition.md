@@ -8,7 +8,7 @@ occasion:    "writing or triaging an open item, or deciding whether to raise one
 gates:       ["reply"]
 index_clause: "an item is raised in chat only if it says `ask`; absent means stay quiet"
 checked_by:  "tools/precedent_check.py"
-defines:     ["open-item disposition", "parked (open item)", "ask (open item)", "wait (open item)"]
+defines:     []
 status:      active
 in_force_at: null
 supersedes:  []
