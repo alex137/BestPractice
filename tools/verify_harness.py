@@ -12115,6 +12115,19 @@ def check_title_case_knows_the_files_it_ships():
                       f'headline-case it',
                       tc.is_outward(name) is False, ''))
 
+    # spec/ and record/ are twins by design -- spec/ holds current normative
+    # reference, record/ the working record -- and record/ was missing from
+    # INTERNAL_DIRS until 2026-09-08 purely because the directory did not
+    # exist when the list was written. Same shape as the VOICE.md miss above:
+    # a default derived from what the repo HAPPENED to contain. Asserted as a
+    # pair so neither can drift from the other again.
+    for pair in ('spec', 'record'):
+        cases.append((f'{pair}/ is an INTERNAL_DIRS entry -- it and its twin '
+                      f'are both working trees, never published prose',
+                      pair in tc.INTERNAL_DIRS, str(tc.INTERNAL_DIRS)))
+    cases.append(('and a document inside record/ is classified internal',
+                  tc.is_outward('record/GOTCHAS_ARCHIVE.md') is False, ''))
+
     # The other half, or "classify everything internal" would pass: files
     # that genuinely ARE published must still be in scope.
     for name in ('README.md', 'SETUP.md', 'ADOPTING.md'):
