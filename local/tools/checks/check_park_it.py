@@ -35,7 +35,7 @@ import sys
 
 SOURCE_ROOT = pathlib.Path(__file__).resolve().parents[3]
 ROOT = pathlib.Path(os.environ.get('PRECEDENT_CHECK_ROOT') or SOURCE_ROOT)
-PRACTICE_FILE = SOURCE_ROOT / 'local' / 'practices' / 'park-it.md'
+PRACTICE_FILE = SOURCE_ROOT / 'practices' / 'park-it.md'
 
 # In this repo CLAUDE.md is a one-line include of AGENTS.md, so AGENTS.md is
 # where the prose has to be. Both spellings are accepted because a consuming

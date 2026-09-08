@@ -9,8 +9,8 @@ gates:       ["merge"]
 index_clause: "one fixed word means \"merge as agreed\"; document it exactly"
 checked_by:  null
 defines:     []
-status:      retired
-in_force_at: none
+status:      deduplicated
+in_force_at: go-merge
 supersedes:  []
 overrides:   null
 added:       null
@@ -60,6 +60,17 @@ ordinary language that happens to contain the same word for an unrelated
 reason.
 
 ## Story
+**The 2026-09-07 retirement was reversed on 2026-09-08, and this is now a
+deduplication rather than a withdrawal.** `status: retired` said nobody
+wanted this rule anywhere. That was true for one day, of *this* rule -- "go
+adopt a merge keyword of your own", which is a preference dressed as a
+practice. What replaced it is not that rule: `go-merge` names ONE phrase and
+ships it, so an adopter gets a working vocabulary instead of a homework
+assignment. Morgan, 2026-09-08: *"we should have our own commands we use for
+people who live in our universe."* `in_force_at: go-merge` rather than
+`none`, because the mechanism this described is genuinely in force again --
+at a fixed phrase this time.
+
 **Retired 2026-09-07, by Morgan, as a universal rule.** "Go merge" is his
 own phrase, and a rule at the universal level was telling every adopting
 repository to go adopt a merge keyword of its own — a preference dressed
