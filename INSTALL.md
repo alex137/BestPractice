@@ -945,7 +945,7 @@ order records a hash the vendored tree doesn't match.
       "local_path": "VOICE.md",
       "granularity": "file",
       "status": "local-only",
-      "notes": "kept the shipped default ruleset as-is at install; never exported (INSTALL.md §3) — a project's voice is its own identity, not a generic practice"
+      "notes": "filled in this project's own voice at install; the template ships no general writing rules (those are the catalogue's). Never exported (INSTALL.md §3) — a project's voice is its own identity, not a generic practice"
     }
   ]
 }

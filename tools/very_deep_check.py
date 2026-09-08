@@ -564,6 +564,106 @@ def _spoken_commands(repo_dir):
     return sorted(set(found))
 
 
+# Rule-shaped prose: an imperative opener, or a modal that binds. Deliberately
+# loose. This produces a WORKLIST for a person, never a verdict, so a false
+# positive costs one glance and a false negative costs the thing this whole
+# section exists to catch (practice: fail-gracefully).
+_RULE_OPENER = re.compile(
+    r'^\s*(?:[-*]\s*|\d+\.\s*)?(?:\*\*)?'
+    r'(Never|Always|Don\'t|Do not|Avoid|Prefer|Use|Cut|No |Must|Write|Keep)\b',
+    re.I)
+_RULE_MODAL = re.compile(r'\b(must not|must always|should never|never|always)\b',
+                         re.I)
+_SHIPPED_SUFFIXES = ('.template', '.md', '.sh', '.txt')
+
+
+def _shipped_rules(repo_dir):
+    """-> [(path, rule_line_count)] for every file this repo SHIPS into
+    somebody else's repository that carries rule-shaped prose.
+
+    WHAT THIS IS FOR, and why it is an inventory rather than a check.
+
+    A template is inert here and binding there. The moment an adopter
+    instantiates it, its imperative sentences sit in their repo alongside
+    the resident practice block -- and nothing compares the two, because on
+    this side it is skeleton content and on that side it is a local file no
+    catalogue governs. So a generic rule shipped in a template can drift
+    until it CONTRADICTS a live universal practice, and every adopter
+    carries both orders at once with no way to know which wins.
+
+    That is not hypothetical. templates/VOICE.md.template shipped 205 lines
+    of general writing guidance to every project, one of which said "no bold
+    inside paragraphs, and no bolded thesis sentence" while the resident
+    practice `bold-key-phrases` said to bold key phrases by default
+    (2026-09-08). Pass 3 already said to look for contradictions and had not
+    found it in any run, because a coherence read of THIS repository reads
+    documents, and a template does not read as a document making claims.
+
+    No scan can decide whether a shipped sentence contradicts a practice --
+    that is a reading, and the reading is the session's job. What a scan can
+    do is hand it the short list instead of a directory tree.
+    """
+    root = pathlib.Path(repo_dir)
+    out = []
+    for base in ('templates',):
+        d = root / base
+        if not d.is_dir():
+            continue
+        for f in sorted(d.rglob('*')):
+            if not f.is_file() or f.suffix not in _SHIPPED_SUFFIXES:
+                continue
+            try:
+                lines = f.read_text(encoding='utf-8').splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            # A template's own HTML comment header is instructions to the
+            # INSTALLER, not a rule shipped onward -- it is stripped at
+            # instantiation. Counting it made every template look rule-heavy.
+            body, in_comment = [], False
+            for line in lines:
+                if '<!--' in line:
+                    in_comment = True
+                if in_comment:
+                    if '-->' in line:
+                        in_comment = False
+                    continue
+                s = line.strip()
+                if s and not s.startswith(('#!', '//')):
+                    body.append(line)
+            hits = [l for l in body
+                    if _RULE_OPENER.match(l) or _RULE_MODAL.search(l)]
+            if hits:
+                out.append((f.relative_to(root).as_posix(), len(hits)))
+    return sorted(out, key=lambda t: -t[1])
+
+
+def _resident_slugs(repo_dir):
+    """-> sorted slugs of the practices every session has loaded from turn one.
+
+    These are what a shipped rule has to be read against, and the reason is
+    the asymmetry: an on-demand practice reaches a session that thinks to
+    ask, so a shipped file contradicting one is a conflict the session may
+    never see both halves of. A RESIDENT practice is in front of every
+    session always -- so a shipped file contradicting one puts two live
+    orders in the same context window, every turn, in every adopter repo.
+    """
+    slugs = []
+    for sub in ('practices', 'local/practices'):
+        d = pathlib.Path(repo_dir) / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob('*.md')):
+            text = f.read_text(encoding='utf-8')
+            if not text.startswith('---'):
+                continue
+            fm = sp.parse_frontmatter_fields(text.split('---', 2)[1], decode=True)
+            if (fm.get('status') or 'active').strip() != 'active':
+                continue
+            if (fm.get('tier') or '').strip() == 'resident':
+                slugs.append(fm.get('slug', f.stem))
+    return sorted(set(slugs))
+
+
 def _doc_currency(repo_dir):
     """-> (findings, notes) for the documentation-currency sweep.
 
@@ -1752,6 +1852,35 @@ def main():
         print("  none -- no retired engine file left behind, no manifest "
               "entry the\n  current kind dropped, no unrecorded engine "
               "file, and no check\n  script whose practice is gone.")
+    print()
+
+    print("RULES WE SHIP SOMEWHERE ELSE -- inert here, binding there\n")
+    _ship = _shipped_rules(repo_root)
+    _res = _resident_slugs(repo_root)
+    if _ship:
+        print("  Each of these lands in an ADOPTER's repository carrying "
+              "imperative prose.\n  There it sits beside the resident practice "
+              "block, and nothing compares the\n  two -- on this side it is "
+              "skeleton content, on that side a local file no\n  catalogue "
+              "governs. Read each against the resident practices below and "
+              "ask:\n  does this shipped sentence state, or contradict, a rule "
+              "the catalogue\n  already owns? If it states one, it belongs in "
+              "the catalogue and not here.\n")
+        for _rel, _n in _ship:
+            print(f"  {_n:4d} rule-shaped line(s)  {_rel}")
+        print(f"\n  Read them against the {len(_res)} RESIDENT practice(s) "
+              f"first -- those are in\n  front of every session from turn one, "
+              f"so a shipped file contradicting one\n  puts two live orders in "
+              f"the same context window in every adopter repo:\n"
+              f"    {', '.join(_res)}")
+        print("\n  No scan decides this; the reading is the session's. "
+              "(2026-09-08: VOICE.md's\n  template said \"no bold inside "
+              "paragraphs\" while resident `bold-key-phrases`\n  said to bold "
+              "by default -- shipped to every adopter, unnoticed by every\n"
+              "  earlier run of this check.)")
+    else:
+        print("  none -- this repository ships no templates carrying "
+              "rule-shaped prose.")
     print()
 
     print("DOCUMENTATION CURRENCY -- what changed, against what still says "
