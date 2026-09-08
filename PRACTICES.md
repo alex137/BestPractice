@@ -1616,6 +1616,26 @@ check that asserts a negative locks the error in as an invariant and defends it
 against the next person who suspects otherwise — converting a soft mistake into
 a hard one, and putting the burden of proof on whoever is right.
 
+**(c) The rule runs in both directions.** A *favorable* lever gets the same
+treatment: when an analysis identifies "the cheap relief," the lever is not
+characterized until it is swept to saturation, reversal, or a change of
+binding constraint, with its costs charged at each point. An analysis that
+stops at the first comfortable value silently promotes that value into a
+settled operating point — the inquiry was framed as a feasibility question
+("does it close?"), so "it closes" terminated it, and nobody returned to ask
+the design question ("where should it sit?"). The tell on this side: a tuning
+constant wearing a settled-sounding name ("doctrine", "baseline", "standard")
+with no recorded decision behind it. Such a constant is an assumption in
+uniform — nobody re-opens it, because the name says someone already decided,
+and nobody did. (Origin: a geometry setting labeled as settled was picked in
+passing — a physical floor times a round margin — while the thread's
+attention was on a pass/fail verdict; it sat unexamined while carrying a
+double-digit-percent improvement, and when a reader's question finally forced
+the sweep, a same-day audit found a second identically-shaped constant on the
+same governing constraint, un-swept and worth a comparable gain. Only the
+unfavorable levers had ever been varied, because this practice's pressure
+previously ran one way.)
+
 **Related:** practice 40 (an option you invented is not a baseline) is the same
 family one level up — there the *framing* is unexamined rather than the terms.
 
@@ -2194,6 +2214,24 @@ written down and executable nowhere — the same lesson as the
 model-audit practice, recurring: prose does not fail a build; a
 ledger assertion does.
 
+**Corollary — ratings, not just quantities.** The same inventory
+discipline applies when a composed output *performs a duty* through
+equipment another part of the model *pays for*: the duty must draw on
+the equipment actually charged, at or under its rated capacity, and a
+per-row self-check asserts it. The failure mode is composition:
+component A budgets (and prices in) equipment sized for one duty class;
+component B, written separately, computes a heavier duty using its own
+default limit and never consults A's rating — so the table describes an
+operation the priced hardware cannot perform, while every number in it
+is internally correct. (Second origin incident: a work-rate integrator
+capped effort at a per-load default while the mass budget charged a
+mechanism rated for a class several times lighter; over half the
+published rows exceeded the charged rating, by up to ≈1.8×, and the
+inconsistency was caught only in cross-thread review. Fix: the
+integrator takes the charged rating as an input and caps against it;
+the self-check asserts, per row, demanded ≤ charged rating, and that
+capping lengthens the operation rather than shortening it.)
+
 ## 53. A TODO is a handoff, not a parking lot
 
 **Rule.** Before writing an open item, ask: *could this session finish it
@@ -2231,3 +2269,100 @@ finish on the spot.
 **Install.** The TODO template's header (practice 1) carries the compressed
 rule, so every new item is written against it; the periodic sweep enforces
 the stated-reason requirement on the backlog.
+
+## 54. Undecided operating constants are risk inputs, not doctrine
+
+**Rule.** No operating constant in a model carries settled status by
+label. A number nobody has decided — a margin, a cap, a rate, a floor that
+was picked because it felt plausible and then hardened by repetition — is
+an **assumption**, and it stays visible as one: an explicit, swept,
+risk-labeled *input* rather than a buried default. Three mechanics:
+
+- **A register** lists every such constant with its as-built value, the
+  lever it carries (from a sweep, not a guess), where it lives, and its
+  disposition. Two classes: settings whose stakes are safety or capability
+  and that only a field test can decide (the bet-relevant class), and
+  banded hardware/operations settings whose stakes are cycle time or kit
+  sizing. Constants that are calibrated physics or sourced hardware are
+  listed as *explicitly excluded*, with the reason, so the boundary is
+  itself reviewable.
+- **A comparison table** built on such constants evaluates every row at
+  the **conservative corner** of the bet-relevant class (the default basis
+  for any frontier or ranking) and prints the **aggressive corner beside
+  it**. A row whose case closes conservatively is robust; a row viable only
+  at aggressive settings is marked as a test bet, not a build bet.
+- **A guard** in the model audit: a module-level constant whose attached
+  comments claim a settled status (words like *doctrine*, *as built*,
+  *settled*) must be named in the register — as a risk input, a banded
+  setting, or an exclusion — or carry an explicit opt-out marker with a
+  reason. A constant leaves the register only by a dated, named decision
+  or a test result, recorded with its evidence.
+
+**Why.** The favorable-lever guard (practice 25's dual) catches a settled-
+sounding constant *when someone happens to question it*; this practice
+removes the class. The failure it prevents is quiet and expensive: a
+capital decision — which configuration to build — gets made on a table
+whose numbers depend on operating settings no one chose, so the bet
+silently inherits an aggressiveness nobody signed for, and the first field
+test discovers it. Splitting *settings the built article can still change*
+from *choices baked into the build* is what makes the corners useful: the
+former are envelope explorations, the latter are the actual bet, and the
+table should show which rows survive if the former stay conservative.
+Origin: a program preparing to commit real money to a configuration found
+that its headline capability figure moved by a quarter on one flight-
+operations cap that had been "picked as plausible" and labeled doctrine;
+an inventory found a second such number on the same gate and, once a
+mechanical guard existed, four more it had missed by hand — including the
+utilization figure dividing every unit cost in the study. The owner's
+direction became the rule: "we don't have doctrine about numbers."
+
+**Install.** Create the register next to the models it governs; add the
+guard to the model audit (comment-attached settled words → must be
+registered or opted out with a reason; attribute preceding comment blocks
+only at column zero so a previous constant's indented trailing comment
+cannot false-fire); make the conservative corner the frontier basis in any
+comparison table; route retirement of a constant through a dated decision
+record.
+
+## 55. A step that runs longer than a minute reports progress, and a heavy pure solve is memoized to disk under a source-content key
+
+**Rule.** Two mechanics, one motive — a long wait must never be blind,
+and it must never be repeated for nothing:
+
+- **Progress with an estimate.** Any step expected to run for more than
+  about a minute prints, on its error stream, a periodic line with items
+  done, elapsed time, and an estimated time remaining computed from the
+  rate so far — every N items, or on a timer — and a chained gate script
+  echoes each step's elapsed seconds into its log so the next person can
+  quote expected durations instead of rediscovering them. Record those
+  durations where the run instructions live, dated.
+- **Memoize the expensive pure function to disk.** When several gates
+  (a self-check, a drift gate that spawns one subprocess per generated
+  block, an audit) each re-derive the same expensive table, cache the
+  solved result under a gitignored directory, keyed by the **content hash
+  of the function's static, transitive in-repo import closure** — never a
+  timestamp, never the calling process's import set (a caller-dependent
+  key produces one entry per caller and never hits). Load the cache
+  lazily at **every** entry point, not only the first one written, and
+  keep an environment switch that forces a fresh solve: the cache is an
+  accelerator, never a dependency. Profile before declaring the remainder
+  "the next lever" — a two-minute profile removed the whole remainder
+  twice in the originating case.
+
+**Why.** A gate that takes twenty minutes gets skipped, run
+concurrently with its siblings (halving both), or trusted from memory;
+and a wait with nothing on the screen is indistinguishable from a hang,
+so the operator either kills a healthy run or waits on a dead one. The
+originating case ran an eleven-fold re-solve per gate pass (one per
+subprocess, nothing persisted between them); the first cache keyed on
+the process's imports and never hit; the self-check then still ran nine
+minutes because a serial block executed *before* the cache load; and
+the owner's question — "do you have an estimate of how long we should
+expect to wait?" — had no answer because nothing had ever measured it.
+
+**Install.** Memoize the solve under a source-content key with a
+bypass switch; add a progress line with an estimate to anything over a
+minute; run heavy gates sequentially; record measured durations, dated,
+in the run instructions; export the pattern to any other heavy model
+the moment it appears.
+
