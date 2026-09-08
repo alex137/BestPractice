@@ -8,7 +8,7 @@ occasion:    "Morgan says \"Park it\" about an open item or a question"
 gates:       ["reply"]
 index_clause: "\"Park it\" -- mark the item `parked` this turn, and never raise it unprompted again"
 checked_by:  "local/tools/checks/check_park_it.py"
-defines:     ["Park it"]
+defines:     []
 status:      active
 in_force_at: null
 supersedes:  []
