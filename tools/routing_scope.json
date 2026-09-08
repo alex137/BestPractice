@@ -664,6 +664,31 @@
       ],
       "gates_why": "The merge is the last moment the document and the change can still land in the same commit, which is the whole rule."
     },
+    "no-invented-specifics": {
+      "globs": [
+        "**/*.md"
+      ],
+      "why": "Every document is prose somebody could be tempted to make land with a figure that is not there. Same glob as write-like-a-human, for the same reason and the same scope.",
+      "decided": "2026-09-08, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The reply is where a number gets rounded up to sound better, and it is the one artifact no path glob reaches."
+    },
+    "fixture-owns-its-state": {
+      "globs": [
+        "**/*.py",
+        "**/*.sh",
+        "**/test_*",
+        "**/tests/**"
+      ],
+      "why": "Test code, in the two languages this project writes it in, plus anything under a tests/ directory or named test_* in any language. Deliberately NOT `**`: the rule is about fixtures, and routing it everywhere would fire on ordinary assignment in production code, which is the shape checkable-gets-checked warns teaches sessions to ignore a signal.",
+      "decided": "2026-09-08, when the practice landed",
+      "gates": [
+        "review"
+      ],
+      "gates_why": "A fixture's inherited state is visible in the diff that introduces it and nowhere else afterwards -- once it is merged it reads as a passing test."
+    },
     "filename-separator": {
       "globs": [
         "**"

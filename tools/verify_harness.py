@@ -12062,6 +12062,168 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
           '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
 
 
+def check_carry_check_never_invents_lost_content():
+    """A clone that does not contain the recorded base must refuse to answer,
+    never report the whole vendored tree as lost.
+
+    THE INCIDENT, 2026-09-08, on a real consumer repo. `checkin.py` reported
+    69 "LOST" lines across a vendored tree from which nothing had been
+    dropped. `git show <base>:<path>` exits 128 with EMPTY STDOUT for two
+    unrelated situations -- the commit is not in this clone, or the path did
+    not exist at that commit -- and the old code read stdout alone, so an
+    unanswerable question was silently answered "every line here is new".
+    Disproving it took extracting both trees and diffing them by hand, and
+    the tempting shortcut was `--accept-loss`, which would have accepted a
+    loss nobody measured: the guard against silent data loss becoming its
+    cause.
+
+    THE CASE THAT DISCRIMINATES IS 2, and it is built from a genuinely
+    shallow clone rather than a fabricated one -- `git clone --depth 1` over
+    a `file://` transport, because git IGNORES --depth on a plain path (this
+    repository lost an hour to that once already, and a test that believed
+    it had a shallow clone and did not would pass against the bug).
+
+    Case 4 is the other half and the one a careless fix breaks: a file that
+    really is new at base must still report its lines as pending, because
+    that is the check doing its job.
+    """
+    import tempfile
+
+    def git(cwd, *args, check_rc=True):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True, env=env)
+        if check_rc and r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        # -- an "upstream" with two commits ---------------------------------
+        up = tmp / 'upstream'
+        up.mkdir()
+        git(up.parent, 'init', '-q', str(up))
+        git(up, 'config', 'user.email', 'harness@example.com')
+        git(up, 'config', 'user.name', 'H')
+        (up / 'shared.md').write_text('alpha\nbeta\ngamma\n', encoding='utf-8')
+        git(up, 'add', '-A'); git(up, 'commit', '-qm', 'base')
+        base_sha = git(up, 'rev-parse', 'HEAD')
+        (up / 'shared.md').write_text('alpha\nbeta\ngamma\ndelta\n', encoding='utf-8')
+        git(up, 'add', '-A'); git(up, 'commit', '-qm', 'second')
+
+        # -- a genuinely shallow clone: file:// or --depth is IGNORED --------
+        shallow = tmp / 'shallow'
+        subprocess.run(['git', 'clone', '-q', '--depth', '1',
+                        f'file://{up}', str(shallow)],
+                       capture_output=True, text=True, check=True)
+        holds_base = subprocess.run(
+            ['git', '-C', str(shallow), 'cat-file', '-e', f'{base_sha}^{{commit}}'],
+            capture_output=True, text=True).returncode == 0
+        cases.append(('the fixture clone is genuinely shallow -- it does NOT '
+                      'hold the base commit (without this the case below '
+                      'proves nothing)', not holds_base, f'holds_base={holds_base}'))
+
+        # -- the two indistinguishable git failures, measured ---------------
+        deep = tmp / 'deep'
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(deep)],
+                       capture_output=True, text=True, check=True)
+        missing_commit = subprocess.run(
+            ['git', '-C', str(shallow), 'show', f'{base_sha}:shared.md'],
+            capture_output=True, text=True)
+        missing_path = subprocess.run(
+            ['git', '-C', str(deep), 'show', f'{base_sha}:never-existed.md'],
+            capture_output=True, text=True)
+        cases.append(('a missing COMMIT and a missing PATH are byte-identical '
+                      'on stdout and exit code, so stdout alone cannot tell '
+                      'them apart',
+                      missing_commit.returncode == missing_path.returncode
+                      and missing_commit.stdout == missing_path.stdout == '',
+                      f'{missing_commit.returncode}/{missing_commit.stdout!r} vs '
+                      f'{missing_path.returncode}/{missing_path.stdout!r}'))
+
+        # -- the guard itself ----------------------------------------------
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            'ck', ROOT / 'tools' / 'checkin.py')
+        ck = importlib.util.module_from_spec(spec)
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            spec.loader.exec_module(ck)
+        finally:
+            sys.path.pop(0)
+
+        has_guard = hasattr(ck, '_base_is_present') and hasattr(ck, '_git_rc')
+        cases.append(('checkin.py has the precondition helpers at all',
+                      has_guard, str(sorted(n for n in dir(ck) if n.startswith('_git') or 'base_is' in n))))
+        if has_guard:
+            cases.append(('_base_is_present is FALSE for a base the shallow '
+                          'clone lacks -- the case that used to read as "every '
+                          'line is new"',
+                          ck._base_is_present(shallow, base_sha) is False, ''))
+            cases.append(('_base_is_present is TRUE for a base the full clone '
+                          'holds, so the guard does not simply always refuse',
+                          ck._base_is_present(deep, base_sha) is True, ''))
+            rc_missing, out_missing = ck._git_rc(deep, 'show', f'{base_sha}:never-existed.md')
+            rc_ok, out_ok = ck._git_rc(deep, 'show', f'{base_sha}:shared.md')
+            cases.append(('_git_rc surfaces the exit code a new-at-base path '
+                          'returns, which is what lets the caller treat it as '
+                          'genuinely new rather than unanswerable',
+                          rc_missing != 0 and out_missing == '' and rc_ok == 0
+                          and 'alpha' in out_ok,
+                          f'{rc_missing} {rc_ok} {out_ok!r}'))
+
+            # -- END TO END, and this is the case that proves the guard
+            # FIRES rather than merely exists. A non-zero exit is not
+            # evidence (practice: control-asserts-which-failure), so it
+            # asserts the message: "cannot run", never "LOST".
+            consumer = tmp / 'consumer'
+            (consumer / 'process' / 'upstream').mkdir(parents=True)
+            git(consumer.parent, 'init', '-q', str(consumer))
+            git(consumer, 'config', 'user.email', 'harness@example.com')
+            git(consumer, 'config', 'user.name', 'H')
+            (consumer / 'process' / 'upstream' / 'shared.md').write_text(
+                'alpha\nbeta\ngamma\nlocal addition nobody upstream has\n',
+                encoding='utf-8')
+            (consumer / 'process' / 'manifest.json').write_text(json.dumps(
+                {'upstream': {'commit': base_sha, 'branch': 'main'}}),
+                encoding='utf-8')
+            git(consumer, 'add', '-A'); git(consumer, 'commit', '-qm', 'vendored')
+            git(consumer, 'branch', '-M', 'main')
+            git(consumer, 'remote', 'add', 'origin', str(consumer))
+            git(consumer, 'fetch', '-q', 'origin')
+
+            saved = (ck.ROOT, ck.UPSTREAM, ck.MANIFEST)
+            ck.ROOT = consumer
+            ck.UPSTREAM = consumer / 'process' / 'upstream'
+            ck.MANIFEST = consumer / 'process' / 'manifest.json'
+            try:
+                try:
+                    ck._carry_check(shallow, accept_loss=False)
+                    said = '<returned without exiting>'
+                except SystemExit as exc:
+                    said = str(exc.code)
+                cases.append(('run end to end against the shallow clone, it '
+                              'says it CANNOT RUN and names the base commit',
+                              'cannot run' in said and base_sha[:12] in said,
+                              said[:300]))
+                cases.append(('and it does NOT report anything as LOST, which '
+                              'is the false finding this whole check exists '
+                              'for', 'LOST' not in said, said[:300]))
+                cases.append(('and it refuses --accept-loss for this state by '
+                              'name, so the tempting shortcut is closed',
+                              'accept-loss does not apply' in said
+                              or '--accept-loss does not apply' in said,
+                              said[:300]))
+            finally:
+                ck.ROOT, ck.UPSTREAM, ck.MANIFEST = saved
+
+    ok = all(c[1] for c in cases)
+    check(f'the carry check refuses to answer rather than inventing lost '
+          f'content ({len(cases)} stated cases, on a real shallow clone)', ok,
+          '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
+
+
 def check_doc_currency_finds_a_stale_document():
     """The documentation-currency sweep must find a document its subject
     outran, and must not invent one (practice: change-updates-its-docs).
@@ -12445,6 +12607,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
+    check_carry_check_never_invents_lost_content()
     check_doc_currency_finds_a_stale_document()
     check_template_freshness_reads_the_skeleton_correctly()
     check_withdrawn_table_never_links_a_successor_it_does_not_have()

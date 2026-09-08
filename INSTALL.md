@@ -105,10 +105,14 @@ it applies.
      domain-appropriate name).
    - `templates/VOICE.md.template` → `VOICE.md`; `templates/STYLEGUIDE.md.template`
      → `STYLEGUIDE.md`. Unlike the files above, these are **not** rewritten
-     with the repo's subject matter — VOICE.md ships with its default
-     writing-style rules unchanged, and STYLEGUIDE.md ships as an empty
-     skeleton. Instead, **prompt the administrator explicitly**: show them
-     VOICE.md's defaults and ask if anything should change; ask whether a
+     with the repo's subject matter — **both ship as near-empty skeletons**,
+     because general writing quality is the practice catalogue's job and
+     visual identity is specific to each company. VOICE.md carries only
+     this project's own voice: its voice target, its audiences, its domain
+     vocabulary, and any deliberate departure from a catalogue rule. Every
+     section may legitimately stay `<undecided>`. Instead, **prompt the
+     administrator explicitly**: walk them through VOICE.md's sections and
+     fill in what they can answer; ask whether a
      formal brand guideline exists (a PDF, a slide deck, a design team's
      style manual) to fill in STYLEGUIDE.md from. If one exists, read it and
      transcribe the relevant rules into STYLEGUIDE.md as plain text — never
@@ -798,10 +802,15 @@ upstream can skip this section entirely:
 `VOICE.md` and `STYLEGUIDE.md` never answer yes to this question, even
 when a thread rewrites them substantially: the *files* are project/company
 identity, not practice, so their content stays local by category, not by
-judgment call. (The default ruleset the `VOICE.md.template` *ships with*
-can still improve — that's a direct edit to the template in this repo,
-made the way any of this repo's own content is edited, not something
-inferred from a dependent repo's customized copy.)
+judgment call.
+
+**But watch for the thing that is not identity.** A writing rule that would
+improve *anyone's* prose has no business in `VOICE.md`, and if a thread put
+one there, that IS a check-in — as a practice, not as template content.
+Until 2026-09-08 this template shipped 205 lines of exactly such rules to
+every project, and one of them had come to contradict the universal
+`bold-key-phrases` outright. A local copy of a generic rule does not merely
+go stale; it argues with the live one.
 
 If yes, in the **same branch**:
 
@@ -936,7 +945,7 @@ order records a hash the vendored tree doesn't match.
       "local_path": "VOICE.md",
       "granularity": "file",
       "status": "local-only",
-      "notes": "kept the shipped default ruleset as-is at install; never exported (INSTALL.md §3) — a project's voice is its own identity, not a generic practice"
+      "notes": "filled in this project's own voice at install; the template ships no general writing rules (those are the catalogue's). Never exported (INSTALL.md §3) — a project's voice is its own identity, not a generic practice"
     }
   ]
 }
@@ -1077,9 +1086,10 @@ on, across the whole lifecycle:
 - **At install (§1):** answer two questions — what the project is about,
   and what private names/words must never go public. Then look at what
   the assistant built and either approve it or ask for changes. You'll
-  also be shown `VOICE.md`'s default writing-style rules and asked
-  whether to change them, and asked whether a brand guideline exists to
-  fill in `STYLEGUIDE.md` from — both stay entirely local to your project.
+  also be walked through `VOICE.md` — your project's own voice, its
+  audiences, its vocabulary — and asked whether a brand guideline exists to
+  fill in `STYLEGUIDE.md` from. Both stay entirely local to your project,
+  and leaving either mostly blank is a perfectly good answer.
   You'll also be asked whether your team, or you personally, already have
   a practices repo of your own to wire in (§1 step 9) — most projects
   don't yet, and saying so is a complete answer. See the

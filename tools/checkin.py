@@ -608,6 +608,34 @@ def _dep_git(*args):
                           capture_output=True, text=True).stdout
 
 
+def _git_rc(cwd, *args):
+    """-> (returncode, stdout). The exit-code-aware sibling of _git/_dep_git.
+
+    Both of those return `.stdout` and drop the exit code, which is fine
+    where a command cannot meaningfully fail and catastrophic where it can.
+    `git show <commit>:<path>` is the catastrophic case: it exits 128 with
+    EMPTY STDOUT for two entirely different situations, and reading stdout
+    alone cannot tell them apart --
+
+      * the commit is not in this clone (a --depth 1 checkout, which is what
+        every mid-session `add_repo` hands you), and
+      * the path did not exist at that commit (a genuinely new file).
+
+    The first is unanswerable; the second means every line is new. Treating
+    the first as the second is what made _carry_check report a whole
+    vendored tree as LOST. (AGENTS.md's gotchas carry three separate
+    instances of this exact shape.)
+    """
+    r = subprocess.run(['git', '-C', str(cwd), *args],
+                       capture_output=True, text=True)
+    return r.returncode, r.stdout
+
+
+def _base_is_present(clone, base):
+    """-> True when `base` is a commit object this clone actually holds."""
+    return _git_rc(clone, 'cat-file', '-e', f'{base}^{{commit}}')[0] == 0
+
+
 def _carry_check(clone, accept_loss):
     """No pending vendored addition may vanish across a check-in cycle.
 
@@ -624,11 +652,43 @@ def _carry_check(clone, accept_loss):
     the landed upstream tree (same file, or anywhere in the tree to tolerate
     moves). A deliberate removal needs --accept-loss, which prints exactly
     what is being let go.
+
+    THE BASE COMMIT MUST BE PRESENT FIRST, and that precondition is the
+    whole difference between this check and a random-number generator. Read
+    `_git_rc`'s docstring for why: without it, a clone that simply does not
+    contain the recorded base reports EVERY line of the vendored tree as
+    lost. Measured 2026-09-08 on a real consumer repo -- 69 "LOST" lines,
+    all false, disprovable only by extracting both trees and diffing them by
+    hand. That manual verification is the half a session skips, and the
+    tempting shortcut is `--accept-loss`, which would accept a loss nobody
+    measured -- turning the guard against silent data loss into its cause.
     """
     base = _manifest().get('upstream', {}).get('commit')
     if not base:
         return
     _dep_git('fetch', 'origin')
+
+    # -- the precondition, before a single line is compared ---------------
+    if not _base_is_present(clone, base):
+        # One bounded deepen, then re-ask. Bounded rather than --unshallow:
+        # some git policy hooks refuse that outright, and a fetch that is
+        # refused leaves the clone exactly as shallow as before.
+        branch = _tracked_branch(clone)
+        subprocess.run(['git', '-C', str(clone), 'fetch', '--depth=1000',
+                        'origin', branch], capture_output=True, text=True)
+    if not _base_is_present(clone, base):
+        sys.exit(
+            f"checkin FAIL: the carry check cannot run -- the recorded base "
+            f"commit {base[:12]} is not in this clone of the upstream repo, "
+            f"even after deepening it.\n"
+            f"  This is NOT a report of lost content and --accept-loss does "
+            f"not apply: accepting a loss nobody measured is how the guard "
+            f"becomes the failure.\n"
+            f"  Deepen the clone and run again:\n"
+            f"    git -C {clone} fetch --depth=5000 origin\n"
+            f"  If the base commit genuinely no longer exists upstream "
+            f"(a rewritten history), re-record against a base that does.")
+
     # The DEPENDENT repo's own declared base branch first. Inferring it was
     # wrong twice over. `origin/HEAD` is unset on a great many clones --
     # every repo attached mid-session gets a --depth 1 --single-branch clone
@@ -652,8 +712,13 @@ def _carry_check(clone, accept_loss):
     for name in names:
         rel = name[len(prefix) + 1:]
         committed = _dep_git('show', f'origin/{dep_branch}:{name}')
-        base_txt = subprocess.run(['git', '-C', str(clone), 'show', f'{base}:{rel}'],
-                                  capture_output=True, text=True).stdout
+        # rc is now consulted, and it can only mean one thing: the base
+        # commit is present (asserted above), so a non-zero exit here says
+        # this path did not exist at base -- a genuinely new file, every
+        # line of which really is pending.
+        rc, base_txt = _git_rc(clone, 'show', f'{base}:{rel}')
+        if rc != 0:
+            base_txt = ''
         pending = set(committed.splitlines()) - set(base_txt.splitlines())
         pending = {l for l in pending if len(l.strip()) > 3}
         if not pending:
@@ -685,6 +750,7 @@ def _carry_check(clone, accept_loss):
              "tree -- a check-in dropped committed content (the 2026-08-19 failure). Carry "
              "them in another PR and re-record, or pass --accept-loss if the removal is "
              "deliberate; nothing recorded.")
+
 
 def record(clone, note, accept_loss=False):
     # Neither a checkout nor a pull, for the same two reasons update() no

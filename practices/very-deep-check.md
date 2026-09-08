@@ -361,6 +361,33 @@ first so this pass spends its attention on what they cannot see.
 
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
+- **Rules we ship somewhere else** — the contradiction this pass kept
+  missing, and it is missed for a structural reason rather than
+  carelessness. **A template is inert here and binding there.** Read as a
+  document, `templates/VOICE.md.template` makes no claims; instantiated
+  into an adopter's repo it is a file of standing orders sitting beside the
+  resident practice block, and nothing on either side compares the two. So
+  ask it directly, every run: **what rules does this repository ship into
+  somebody else's, and do they agree with the catalogue?**
+  [tools/very_deep_check.py](../tools/very_deep_check.py)'s "RULES WE SHIP
+  SOMEWHERE ELSE" section hands you the inventory — every shipped file
+  carrying imperative prose, with a count — so this is a read of a short
+  list, not a browse of a directory. **Read them against the RESIDENT
+  practices first:** an on-demand practice reaches a session that thought to
+  ask, so a shipped file contradicting one is a conflict nobody may ever
+  hold both halves of; a resident one is in front of every session always,
+  so a shipped file contradicting it puts two live orders in the same
+  context window, every turn, in every adopter repo. The test for each
+  shipped rule is one question — **would this improve anyone's work?** If
+  yes it is a practice in the wrong place: land it in the catalogue and cut
+  it from the template. If it is only true of that one project, it belongs
+  in the file and should say why. *(2026-09-08: `VOICE.md.template` shipped
+  205 lines of general writing guidance to every project, one of which said
+  "no bold inside paragraphs, and no bolded thesis sentence" while the
+  resident `bold-key-phrases` said to bold key phrases by default. Both had
+  been true for weeks. The bullet above this one already said to look for
+  contradictions and had never found it — a coherence read reads documents,
+  and a skeleton file does not read as a document making claims.)*
 - **Broken and misdirected references** — run
   [tools/doc_lint.py](../tools/doc_lint.py)'s broken-relative-link check
   across the whole tree first, then read for what it cannot see: a link that
