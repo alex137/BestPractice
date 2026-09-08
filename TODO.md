@@ -492,7 +492,7 @@ which is the failure this repointing exists to end — write
     that declares sources and was not attached when
     [practices/source-naming.md](practices/source-naming.md) landed — was
     refreshed from its own session and merged. Its repo-local source was
-    named `havruta-local`; it is now `local`. What the pilot actually
+    named after the repository itself; it is now `local`. What the pilot actually
     proved, beyond the rename: the refusal fired at the right moment
     (`precedent_sync_views`, before anything was written), its message was
     actionable enough that the session fixed the name without having
@@ -1756,3 +1756,23 @@ which is the failure this repointing exists to end — write
   repository — the two readings above are both faithful to what
   [AGENTS.md](AGENTS.md) currently says, which is the defect.
 
+
+- <a id="blocklist-stem-not-full-name"></a>**Put the private consumer repo's NAME STEM into the leak blocklist, not
+  its full repo name.** Found 2026-09-08: two hits of `<that repo>-local` —
+  the name its repo-local practice source carried before `source-naming`
+  renamed it — survived both the 2026-09-07 vocabulary sweep and `d167ada`'s
+  fix-forward, and sat on the public `precedent-beta-v01` for a day. The
+  blocklist held the full repo name, which the derived string does not
+  contain; the repo-reference allowlist only matches `owner/name`. Scrubbed
+  by hand in the commit carrying this item, which fixes the two instances and
+  not the cause: the next thing named after that repo leaks the same way.
+  Do the same audit for every private repo the blocklist names, since the
+  derived-name shape is not specific to this one.
+
+  **Blocked on:** the blocklist file lives outside every repository
+  (`PRECEDENT_LEAK_BLOCKLIST`, a private path), so it cannot be edited from a
+  session rooted in this public repo — and the session that found this could
+  not attach the private sources at all
+  ([AGENTS.md](AGENTS.md)'s cross-tier gotcha, retested that day). Needs a
+  session rooted in a `themorgan/*` repo, which is the same prerequisite as
+  [`attach-private-sources`](TODO.md#attach-private-sources).
