@@ -3964,6 +3964,34 @@ def check_precedent_check_fires():
         # orientation-map
         case('orientation-map', lambda repo: (repo / 'MAP.md').unlink())
 
+        # open-item-disposition -- a misspelt disposition. Deliberately not a
+        # MISSING one: absence is a defined state (`wait`, the quiet
+        # default), so planting one would assert the opposite of the rule.
+        # The dangerous case is the line that reads as parked to a person
+        # skimming and as nothing at all to a session grepping for the word.
+        case('open-item-disposition',
+             lambda repo: rewrite(repo, 'TODO.md',
+                                  lambda x: x + '\n**Disposition:** parkd (2026-09-08, Morgan)\n'))
+
+        # The other half of that grammar, asserted directly rather than
+        # through case(): a `parked` line nobody signed. case() proves only
+        # that SOMETHING failed, and this practice has two distinct
+        # violations whose messages must not be interchangeable
+        # (control-asserts-which-failure).
+        _unsigned = fresh('open-item-disposition-unsigned')
+        rewrite(_unsigned, 'TODO.md',
+                lambda x: x + '\n**Disposition:** parked\n')
+        _rc, _out = run(_unsigned, 'open-item-disposition')
+        cases.append(('open-item-disposition: a `parked` line with no date '
+                      'and no name fails, saying so',
+                      _rc == 1 and 'carries no' in _out and 'YYYY-MM-DD' in _out))
+        _wait = fresh('open-item-disposition-wait')
+        rewrite(_wait, 'TODO.md', lambda x: x + '\n**Disposition:** wait\n')
+        _rcw, _outw = run(_wait, 'open-item-disposition')
+        cases.append(('open-item-disposition: a bare `wait` line -- the quiet '
+                      'default, written out -- does not fail',
+                      _rcw == 0 and 'VIOLATION' not in _outw))
+
         # heading-outline -- a heading demoted two levels at once, so it has
         # no parent. documentation/INSTALL.md is the plant because it is a
         # short file whose only heading is its H1, so appending an h3 makes
@@ -4217,6 +4245,19 @@ def check_precedent_check_fires():
             (repo / 'philosophy' / 'ORPHAN.md').write_text(
                 '# An Orphan\n\nWith no provenance line.\n', encoding='utf-8')
         case('philosophy-declares-its-source', _plant_pdis)
+
+        # park-it -- the standing phrase stripped out of AGENTS.md, leaving
+        # the practice file in force and nothing a session reads that says
+        # what the phrase means. That is not a hypothetical: it is the state
+        # `go-merge` was in when a session met the phrase cold and went and
+        # asked Morgan what it meant, which is the interruption the phrase
+        # exists to stop. Only the phrase is removed, not the word `parked`,
+        # so the planted case also proves the check names the missing half
+        # rather than reporting a generic failure.
+        def _plant_park_it(repo):
+            rewrite(repo, 'AGENTS.md',
+                    lambda s: s.replace('Park it', 'the phrase'))
+        case('park-it', _plant_park_it)
 
         # environment-gotchas -- an entry that is a bare fix
         def _plant_eg(repo):

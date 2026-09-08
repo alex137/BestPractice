@@ -1712,6 +1712,11 @@ which is the failure this repointing exists to end — write
   same overreach the rule exists to correct.
 
 - <a id="push-without-the-keyword"></a>**Decide what a session does when Morgan has NOT said "Go merge".**
+  **Disposition:** parked (2026-09-08, Morgan) — he has no pattern yet to
+  turn into the hard rule he wants, and asked not to be asked while he finds
+  one. Parked is not closed: the item stands, and the paragraph in
+  [AGENTS.md](AGENTS.md) does not close it either. Unparking is his call
+  ([open-item-disposition](practices/open-item-disposition.md)).
   [AGENTS.md](AGENTS.md) says two things and never joins them: a PR into
   `precedent-beta-v01` needs no sign-off from Alex, and "Go merge" means
   push what the thread agreed *without asking again*. Neither says what the
@@ -1867,3 +1872,23 @@ which is the failure this repointing exists to end — write
   the narrow case of a repo named in a document but not cloned locally,
   caught at push time rather than on request. Worth doing if that case ever
   actually bites.
+
+- <a id="park-it-to-individual-set"></a>**Move `park-it` from this repo's local source to Morgan's individual
+  set.** [local/practices/park-it.md](local/practices/park-it.md) records his standing phrase "Park
+  it" — one person's preference, which by
+  [layered-practice-packs](practices/layered-practice-packs.md) belongs at the individual level beside
+  `go-merge`, not in a repo-local source that binds everyone working here.
+  It is a level too low on purpose and says so in its own text.
+
+  **Blocked on:** a session rooted in `precedent-individual`. Not on anyone's
+  decision — `add_repo` refuses every cross-owner add, measured in both
+  directions on 2026-09-07, so a session rooted in this repository cannot
+  reach that set at all. The alternative was recording the phrase nowhere.
+
+  **The procedure exists:** [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md). Carry the file
+  across, delete it here, repoint [AGENTS.md](AGENTS.md)'s "Park it" paragraph at the
+  individual copy, and re-home `local/tools/checks/check_park_it.py` with it
+  — the check is about whether the phrase is documented where a session
+  reads, which stays true at either level. Bundle it with
+  [TODO.md's `attach-private-sources` item](TODO.md#attach-private-sources),
+  which is the same trip.

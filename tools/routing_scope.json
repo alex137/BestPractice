@@ -351,6 +351,18 @@
       "why": "Fires on how a quantity is printed, not on which file prints it.",
       "decided": "phase 4 routing pass"
     },
+    "open-item-disposition": {
+      "globs": [
+        "**/TODO.md",
+        "templates/TODO.md.template"
+      ],
+      "why": "The item's disposition is written in the TODO file itself, and the template teaches the convention to every dependent repo. Nowhere else can carry one.",
+      "decided": "2026-09-08, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Half the rule fires at a moment no path reaches -- a session writing its reply, deciding whether to raise an item at all."
+    },
     "outward-summary-discipline": {
       "globs": [
         "**"

@@ -6,6 +6,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| ask (open item) | [open-item-disposition](practices/open-item-disposition.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
@@ -19,10 +20,13 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
+| open-item disposition | [open-item-disposition](practices/open-item-disposition.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
+| parked (open item) | [open-item-disposition](practices/open-item-disposition.md) |
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
+| wait (open item) | [open-item-disposition](practices/open-item-disposition.md) |
