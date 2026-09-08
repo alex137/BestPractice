@@ -60,6 +60,24 @@ somebody coming back. Where the pause is deliberate and open-ended, say so
 where the pause is — a header comment naming what has to be true before it
 resumes or goes — so the next reader can tell a hold from a leftover.
 
+## Not the same as a retired practice
+
+**This is about a MECHANISM, and its files go. A practice marked
+`status: retired` keeps its file** — the rule is withdrawn, the reasoning
+stays readable, and `precedent_show.py` prints it with a banner saying it is
+in force nowhere. Retired *vocabulary*
+([migration-scrubs-vocabulary](migration-scrubs-vocabulary.md)) is a third
+thing again: a word this repo may no longer use.
+
+The distinction is worth stating because this practice was itself called
+`retirement-deletes-files` until 2026-09-07, and Morgan read a migration
+record and asked whether practices had just been deleted. They had not, but
+nothing in the vocabulary said so — and by then `precedent_retire.py`, which
+only ever *proposes* a status change, was sitting in `tools/` beside
+`precedent_retire_path.py`, which deletes files. Renamed to
+**decommission**, the word for taking machinery permanently out of service,
+which has never been used for a rule.
+
 ## Why
 Leaving a dead file costs nothing today and a little every day after. The
 cost is not disk: it is that every later reader has to work out whether the

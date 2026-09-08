@@ -337,6 +337,31 @@ There are three, and they answer different questions with different evidence:
 | `deduplicated` | The **copy** here is redundant. The rule itself is fully in force, from another source or from the engine. | `in_force_at:` naming a slug that **resolves in force**, or the literal `engine` |
 | `retired` | Nobody wants this rule anywhere. | `in_force_at: none`, plus a `## Story` line saying why |
 
+**`retired` here is about a RULE, and the file stays.** A practice marked
+`retired` keeps its file, its `## Story` and its reasoning — the loader
+declines to put it in force, and `precedent_show.py` prints it with a
+banner saying so. Nothing deletes it, and being able to re-read a withdrawn
+rule years later is the point.
+
+That matters because two neighbouring things in this system used to be
+called "retired" too, and one of them meant the opposite fate for the file:
+
+| Sense | Where | The file |
+|---|---|---|
+| a **practice** is retired | this table | **kept** |
+| **vocabulary** is retired | [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md), `process/retired_vocabulary.json` | a banned word, no file of its own |
+| a **mechanism** is *decommissioned* | [decommission-deletes-files](../practices/decommission-deletes-files.md), `process/decommissioned_paths.json` | **deleted** |
+
+The third was called "retired" until 2026-09-07, when Morgan read a
+migration record and asked, reasonably, whether practices had just been
+thrown away. They had not — but nothing in the vocabulary distinguished
+the two, and by then `tools/precedent_retire.py` (proposes a status
+change, never acts) was sitting beside `tools/precedent_retire_path.py`
+(deletes files). The mechanism sense was renamed to **decommission**
+because it was eight days old and narrowly scoped, while `status: retired`
+is load-bearing across this schema and eight tools — and because "retired"
+is the right word for a rule withdrawn but remembered.
+
 `in_force_at:` is the field that did not exist before version 4, and its
 absence is the defect the other two rows exist to fix. `supersedes:` points
 *backwards*, from a replacement to what it replaced. Nothing pointed

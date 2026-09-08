@@ -6239,6 +6239,129 @@ def check_commit_identity_derives_declared_timezone():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_refresh_survives_an_upstream_rename():
+    """A file removed upstream must not brick every consumer's refresh.
+
+    `refresh` runs the consumer's OWN vendored copy of the vendoring tool,
+    and that copy carries the file list it was vendored with. So the first
+    refresh after upstream renames or drops an engine file asks git for a
+    path that is genuinely gone. That used to be a hard exit:
+
+      precedent_vendor_engine FAIL: precedent-beta-v01 @ <sha> has no
+      tools/precedent_retire_path.py
+
+    with no documented way forward -- the fix a consumer needs is inside the
+    very file it cannot fetch. The tool's own comments already describe this
+    shape for an ADDED file, where it merely stops one file short and the
+    second pass converges; for a REMOVED file it was fatal. Reproduced
+    2026-09-07 on a real consumer, renaming precedent_retire_path.py ->
+    precedent_decommission.py.
+
+    A missing source file is therefore a REMOVAL: skipped with a notice, and
+    left out of the manifest rather than recorded as present. The second
+    pass then runs the new list, which does not ask for it at all.
+
+    THE ONE FILE THAT STAYS FATAL is the vendoring tool itself. It is what
+    carries the corrected list, so without it there is no second pass and
+    nothing to converge on -- and a missing one really does mean a broken
+    ref rather than a removal. That distinction is the whole point of the
+    case below: skipping everything would trade a loud failure for a silent
+    one.
+    """
+    import tempfile, json as _json, shutil as _shutil, importlib
+    vend = ROOT / 'tools' / 'precedent_vendor_engine.py'
+    if not vend.exists():
+        not_applicable('refresh survives an upstream rename',
+                       'tools/precedent_vendor_engine.py is not present here')
+        return
+
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        # A throwaway "upstream" whose tools/ is MISSING one file the
+        # consumer's list still asks for -- exactly what a rename leaves.
+        up = tmp / 'upstream'
+        (up / 'tools').mkdir(parents=True)
+        _ve = importlib.import_module('precedent_vendor_engine')
+        for name in sorted(set(_ve.KINDS['consumer']) | {'routing_scope.json'}):
+            if name == 'precedent_show.py':
+                continue                      # the "renamed away" file
+            src = ROOT / 'tools' / name
+            if src.is_file():
+                _shutil.copy2(src, up / 'tools' / name)
+        subprocess.run(['git', '-C', str(up), 'init', '-q'], capture_output=True)
+        for c in (['config', 'user.email', 'h@example.com'],
+                  ['config', 'user.name', 'H']):
+            subprocess.run(['git', '-C', str(up)] + c, capture_output=True)
+        subprocess.run(['git', '-C', str(up), 'add', '-A'], capture_output=True)
+        subprocess.run(['git', '-C', str(up), 'commit', '-qm', 'upstream'],
+                       capture_output=True, env=env)
+        up_head = subprocess.run(['git', '-C', str(up), 'rev-parse', 'HEAD'],
+                                 capture_output=True, text=True).stdout.strip()
+
+        # A consumer seeded from THIS tree -- so its list still names the file
+        # the upstream above no longer has.
+        cons = tmp / 'consumer'
+        cons.mkdir()
+        subprocess.run(['git', '-C', str(cons), 'init', '-q'], capture_output=True)
+        r = subprocess.run(
+            [sys.executable, str(vend), 'seed', str(cons), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300, env=env)
+        if r.returncode != 0:
+            not_applicable('refresh survives an upstream rename',
+                           'could not seed a consumer engine here')
+            return
+        _shutil.copy2(vend, cons / 'tools' / 'precedent_vendor_engine.py')
+
+        r = subprocess.run(
+            [sys.executable, str(cons / 'tools' / 'precedent_vendor_engine.py'),
+             'refresh', str(up), '--force', '--from-ref', up_head],
+            capture_output=True, text=True, timeout=600, cwd=str(cons), env=env)
+        out = r.stdout + r.stderr
+        cases.append(('a file removed upstream does not fail the refresh',
+                      r.returncode == 0))
+        cases.append(('and the run says the file was removed or renamed, '
+                      'rather than reporting a broken clone',
+                      'removed or renamed' in out))
+        try:
+            m = _json.loads((cons / 'tools' / 'ENGINE_MANIFEST.json')
+                            .read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            m = {}
+        cases.append(('the missing file is left OUT of the manifest, not '
+                      'recorded as present',
+                      'precedent_show.py' not in (m.get('files') or [])
+                      and 'precedent_show.py' not in (m.get('sha256') or {})))
+        cases.append(('every file the manifest DOES record exists on disk',
+                      all((cons / 'tools' / f).is_file()
+                          for f in (m.get('files') or []))))
+
+        # THE MUST-STAY-FATAL CASE: the vendoring tool itself is gone.
+        up2 = tmp / 'upstream-no-tool'
+        _shutil.copytree(up, up2)
+        (up2 / 'tools' / 'precedent_vendor_engine.py').unlink()
+        subprocess.run(['git', '-C', str(up2), 'add', '-A'], capture_output=True)
+        subprocess.run(['git', '-C', str(up2), 'commit', '-qm', 'drop the tool'],
+                       capture_output=True, env=env)
+        up2_head = subprocess.run(['git', '-C', str(up2), 'rev-parse', 'HEAD'],
+                                  capture_output=True, text=True).stdout.strip()
+        r2 = subprocess.run(
+            [sys.executable, str(cons / 'tools' / 'precedent_vendor_engine.py'),
+             'refresh', str(up2), '--force', '--from-ref', up2_head],
+            capture_output=True, text=True, timeout=600, cwd=str(cons), env=env)
+        out2 = r2.stdout + r2.stderr
+        cases.append(('a missing VENDORING TOOL is still fatal -- there is no '
+                      'corrected list to converge on', r2.returncode != 0))
+        cases.append(('and says that, rather than calling it a removal',
+                      'not a removal' in out2))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'a file removed upstream does not brick a consumer refresh '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_refresh_removes_dropped_engine_files():
     """A file dropped from the engine set leaves every consumer, not just this repo.
 
@@ -11627,6 +11750,7 @@ def main():
     check_doc_lifecycle_fires_and_clears()
     check_commit_identity_derives_declared_timezone()
     check_refresh_removes_dropped_engine_files()
+    check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_copies_are_identical()

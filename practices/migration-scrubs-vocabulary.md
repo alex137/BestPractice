@@ -8,7 +8,7 @@ occasion:    "migrating a repo off an old practice system onto Precedent"
 gates:       []
 index_clause: "scrub the old system's vocabulary the same session, not on request"
 checked_by:  "tools/precedent_check.py"
-defines:     []
+defines:     ["retired vocabulary"]
 status:      active
 in_force_at: null
 supersedes:  []

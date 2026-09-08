@@ -405,7 +405,11 @@ def _remove_dropped_engine_files(dest_tools, previous_manifest, kind):
 def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND):
     if kind not in KINDS:
         raise ValueError(f"kind must be one of {sorted(KINDS)}, got {kind!r}")
-    files = KINDS[kind]
+    # Only what _source_tools_at could actually extract: a name this (possibly
+    # stale) copy's list still carries but upstream has dropped is skipped
+    # there, so it is absent here too. Recording it in `files` anyway would
+    # write a manifest asserting a file that does not exist.
+    files = [n for n in KINDS[kind] if (engine_dir / n).is_file()]
     dest_tools.mkdir(parents=True, exist_ok=True)
     written = []
     hashes = {}
@@ -735,10 +739,39 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
         blob = subprocess.run(['git', '-C', str(clone), 'show', f'{commit}:tools/{name}'],
                               capture_output=True)
         if blob.returncode != 0:
-            shutil.rmtree(tmp, ignore_errors=True)
-            sys.exit(f"precedent_vendor_engine FAIL: {SOURCE_BRANCH} @ {commit[:12]} has no "
-                     f"tools/{name} -- "
-                     f"{blob.stderr.decode('utf-8', 'replace').strip()}")
+            # A FILE UPSTREAM NO LONGER HAS IS A REMOVAL, NOT A BROKEN CLONE.
+            # KINDS here is the list in the RUNNING copy of this tool, and in a
+            # consumer that copy is the vendored, stale one. So the first
+            # refresh after upstream renames or drops an engine file asks for a
+            # path that is genuinely gone -- and this used to be a hard exit,
+            # which meant a rename upstream BRICKED every consumer's refresh
+            # with no way forward but a manual reseed. Reproduced 2026-09-07
+            # renaming precedent_retire_path.py -> precedent_decommission.py:
+            # the consumer refused with "has no tools/precedent_retire_path.py"
+            # and could not have acquired the new name by any documented route.
+            #
+            # Skipping converges instead. This pass writes what still exists
+            # (including this tool itself), the self-replacement triggers the
+            # second pass, and that pass runs the NEW list -- which does not
+            # ask for the dropped file at all, and whose
+            # _remove_dropped_engine_files then deletes the local leftover.
+            #
+            # This tool itself is the one file that must never be skipped: it
+            # is what carries the corrected list, so without it there is no
+            # second pass and no convergence, and a missing one really does
+            # mean a broken ref rather than a removal.
+            if name == HERE.name:
+                shutil.rmtree(tmp, ignore_errors=True)
+                sys.exit(f"precedent_vendor_engine FAIL: {SOURCE_BRANCH} @ "
+                         f"{commit[:12]} has no tools/{name} -- that is the "
+                         f"vendoring tool itself, so there is no corrected "
+                         f"file list to converge on. This is a broken ref, "
+                         f"not a removal.")
+            print(f"precedent_vendor_engine: {SOURCE_BRANCH} @ {commit[:12]} no "
+                  f"longer carries tools/{name} -- it was removed or renamed "
+                  f"upstream. Skipping it; the second pass runs the new file "
+                  f"list and cleans up the local copy.", file=sys.stderr)
+            continue
         out = tmp / name
         out.write_bytes(blob.stdout)          # bytes, not text: no newline munging
         if modes.get(name, '').endswith('755'):
