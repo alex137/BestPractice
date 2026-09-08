@@ -560,19 +560,29 @@ gotcha every session reads is a gotcha every session pays for.
   publication into a public repository, so the half-configured state is the
   dangerous one. See `python3 tools/leak_gate.py --explain`.
 
-- **A bare `python3 tools/leak_gate.py` REFUSES here now, and that is the
-  fix, not a break.** Since 2026-09-08 the gate derives the vocabulary
-  requirement from `precedent.json` — this repo declares a team source, so a
-  private blocklist is expected — instead of only from a per-clone git
-  config that a fresh container does not have. **The incident: a session
-  that could attach neither private source got PARTIAL, exit 0, and pushed
-  into a public repository with only the structural rules applied**, then
-  reported it accurately and too late. "The check silently did not run" and
-  "the check passed" were the same exit code.
-  So: export `PRECEDENT_LEAK_BLOCKLIST` and the gate runs whole. **If you
-  genuinely cannot — the private sources would not attach — the refusal is
-  the answer, not an obstacle: do not push.** A caller that only ever wants
-  the structural half says so by name with `--structural-only`; CI and
+- **A bare `python3 tools/leak_gate.py` refuses when a private source
+  RESOLVED and no blocklist is set — and allows, loudly, when the private
+  sources could not be attached at all.** The distinction is the whole rule
+  and it was got wrong once, in both directions, on 2026-09-08.
+  First the gate reported PARTIAL and **exit 0** for a session that could
+  attach neither private source; it pushed into a public repository with
+  only the structural rules applied and reported it afterwards. So the
+  requirement was derived from `precedent.json` DECLARING a private source.
+  **That refused every session that could not attach one** — a live,
+  intermittent condition here — and within the hour it blocked a real
+  session out of pushing at all, whose commit then "dies with the
+  container": `repo-is-memory` losing outright, in exchange for no safety.
+  **The threat model was backwards.** Private vocabulary reaches a session by
+  the session READING the private sources' text. A session that could not
+  attach them never read a word and has nothing from them to leak; the one
+  that DID attach them is the one writing to a public tree with private text
+  in context. So **resolution, not declaration, requires the list**.
+  Practically: if the sources resolved, export `PRECEDENT_LEAK_BLOCKLIST` —
+  you have the repository, so you have the file. If they did not resolve, the
+  push goes through and the gate says out loud what it could not cover: a
+  private term that reached the session some other way, most plausibly the
+  person's own messages. **Say that in the reply.** A caller that only ever
+  wants the structural half says so by name with `--structural-only`; CI and
   `verify_harness.py` both pass it, and both call themselves structural.
 
 - **Setting `git config precedent.requireVocabulary true` to satisfy the leak
