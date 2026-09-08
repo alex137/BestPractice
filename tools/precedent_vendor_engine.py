@@ -72,6 +72,20 @@ against more than one tree — but they ARE in CONSUMER_ENGINE_FILES
 (consumer), where resolving four sources into one materialized tree is the
 entire point.
 
+WHAT IS DELIBERATELY IN NEITHER LIST, said out loud because its absence is
+what makes a whole class of follow-up work unnecessary. verify_harness.py
+(noted again below), and also tools/leak_gate.py and tools/very_deep_check.py:
+both run only from a BestPractice checkout, against whatever repositories that
+session can see, so improving them reaches every repo the moment this repo's
+own copy changes. Nothing to vendor, nothing to refresh.
+
+That is worth stating because the opposite is the natural assumption. On
+2026-09-07 a change to those two tools was written up as needing a
+per-set engine refresh, and a TODO item was opened saying the sets were
+running stale copies -- of files they have never held. The reasoning came
+from cross-source-rollout, which is a real practice and simply did not apply
+here; nobody checked these lists first. Check them before costing a rollout.
+
 routing_scope.json is vendored in both kinds too, but it is not a
 byte-identical copy: precedent_gate.py's SCOPE file carries two things in
 this repo — the closed GATE vocabulary (`gates`, the moments a practice can
