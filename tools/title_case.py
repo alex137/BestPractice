@@ -48,9 +48,16 @@ import sys
 # style in it is never to be "fixed".
 INTERNAL_DIRS = (
     ".claude", ".github", ".precedent", "candidates", "decisions", "deck",
-    "evals", "examples", "local", "practices", "process", "spec", "templates",
-    "tools",
+    "evals", "examples", "local", "practices", "process", "record", "spec",
+    "templates", "tools",
 )
+# `record` joined `spec` on 2026-09-08, and it was missing for the same reason
+# VOICE.md was missing from INTERNAL_FILES: this list was written from the
+# directories the repository HAPPENED TO HAVE at the time, and record/ did not
+# exist yet -- spec/DOCUMENT_LIFECYCLE.md had planned it but nothing had
+# created it. The two are twins by design (spec/ holds current normative
+# reference, record/ holds the working record), so one being internal and the
+# other outward was never a decision anybody made.
 
 # A repository's root holds BOTH kinds, which is why directories alone cannot
 # settle this: README.md and SETUP.md are the first things an outsider reads,
