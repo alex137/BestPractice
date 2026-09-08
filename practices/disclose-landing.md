@@ -26,6 +26,29 @@ latter, who that is. This is never left to be inferred from a file path in a
 diff, a tool's stdout, or a generic "I've added a practice" with no level or
 location named.
 
+**Say WHY that level, in one clause, and decide it rather than asking.**
+[layered-practice-packs](layered-practice-packs.md) already gives the test —
+*would this hold in an unrelated repo?* → universal; *only in another repo
+running the same kind of program?* → team; *only for one person?* →
+individual; *only here?* → repo-local — and the session applies it and
+proceeds. **Do not stop to ask which level.** The person reviews the choice
+before the merge, which is the right moment for it: they can see the actual
+text by then, and a wrong level is one file move away
+([spec/MOVING_PRACTICES.md](../spec/MOVING_PRACTICES.md)), not a rewrite.
+
+**A level stated without its reason cannot be disagreed with**, which is the
+whole point of stating it. *"Universal, because nothing in it is specific to
+this project"* can be argued with; *"landed in universal"* can only be
+accepted. Morgan, 2026-09-08, describing what he wanted from this: *"you
+should make a guess (based on the type of content, and the user's permission
+levels), and TELL THE SESSION USER, and then do it."*
+
+**Permissions are part of the guess, not an obstacle to it.** A practice
+that belongs in a team set the session cannot reach still gets named as
+belonging there, with the reason it landed somewhere else instead — that is
+a disclosure, not a failure. Recording it at the wrong level silently is the
+failure.
+
 ## Detail
 `precedent_land.py` and `precedent_candidate.py` both print an explicit
 `DISCLOSE TO THE HUMAN:` line for exactly this reason — it names the level,

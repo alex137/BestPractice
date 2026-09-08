@@ -103,6 +103,24 @@
     "than rely on the default, and an undeclared repo is told on stderr",
     "what was assumed."
   ],
+  "_filename_separator_comment": [
+    "Groups where a mixed word separator is correct because NO name in the",
+    "group was chosen here (practice: filename-separator). The reason is",
+    "mandatory -- an exemption nobody argued for is the silence the check",
+    "replaces -- and the check ignores an entry without one.",
+    "",
+    "templates/*.template: each file is named after the file it GENERATES.",
+    "pull_request_template.md is GitHub's required filename, and",
+    "leak-blocklist.txt is the leak gate's. Renaming either would break the",
+    "thing that reads it, to make a folder listing tidier."
+  ],
+  "filename_separator_exempt": [
+    {
+      "path": "templates",
+      "ext": ".template",
+      "reason": "each is named after the file it generates; those names are set by GitHub and by the leak gate, not here"
+    }
+  ],
   "sources": [
     {
       "level": "universal",

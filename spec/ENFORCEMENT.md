@@ -80,6 +80,7 @@ being checked by it.
 | `document-status-header` | tree | every document under spec/ and record/ that CARRIES a lifecycle frontmatter header declares a legal kind/status pair, a title matching its own first heading, a `closed:` date exactly when it is closed, a `superseded_by:` that resolves exactly when it is superseded, and no competing hand-maintained `Last updated:` comment |
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
+| `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
 | `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named somewhere in GITHUB_ACTIONS.md, where this project's people read about GitHub-specific setup |
 | `heading-outline` | change | a changed document never jumps a heading level -- no heading is more than one level deeper than the one before it |
@@ -105,7 +106,7 @@ being checked by it.
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-37 of 77 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+38 of 78 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
