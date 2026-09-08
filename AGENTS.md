@@ -59,6 +59,23 @@ practice that used to sit here, `merge-authorization-keyword`, was retired
 on 2026-09-07: it was telling every adopting repository to go adopt a merge
 keyword of its own, which is one person's preference dressed as a practice.
 
+**"Park it" is Morgan's phrase too, coined 2026-09-08, and it means: mark the
+item `parked` and drop the subject.** The session writes
+`**Disposition:** parked (<date>, Morgan)` into the item he meant, in that
+same turn, and **no session raises that item unprompted again** — not this
+one, and not a later one that decides it has become urgent. He owes no
+explanation for parking something, so **the response is to do it and say
+which item was marked, never to ask a follow-up question about it.** The rule
+is [local/practices/park-it.md](local/practices/park-it.md). What `parked`
+then means — and the two other dispositions an open item can carry — is
+[practices/open-item-disposition.md](practices/open-item-disposition.md), whose
+one line is: **an item with no disposition is `wait`, and a session raises an
+item with him only if the item says `ask`.** Like `go-merge`, this is one
+person's standing phrase and belongs in his individual set; it is recorded
+here because a session rooted in this repository cannot attach that set at
+all (the cross-owner `add_repo` gotcha below), and the individual copy wins
+the moment it exists.
+
 **FIRST TOOL CALL OF EVERY SESSION, before reading or running anything
 else: `add_repo` (read access) for this account's `precedent-individual`,
 and for any `precedent-team-*` set [precedent.json](precedent.json)
@@ -96,7 +113,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~552 of 2000 token budget, 8 of 74 practices (8 universal))
+## Resident block (~552 of 2000 token budget, 8 of 76 practices (8 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -144,6 +161,8 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
+When Morgan says "Park it" about an open item or a question:
+  park-it — "Park it" -- mark the item `parked` this turn, and never raise it unprompted again
 When a change here has implications for how an attached team, individual, or repo-local source should work:
   cross-source-rollout — roll it out to attached sources now; else a blocked-on TODO
 When a change must propagate across several parallel artifacts:
@@ -272,6 +291,8 @@ When writing or filling out a pull-request description:
   pr-template-honest-gates — write the body from the diff; an unchecked box is fine
 When writing or triaging an open item:
   todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
+When writing or triaging an open item, or deciding whether to raise one in a reply:
+  open-item-disposition — an item is raised in chat only if it says `ask`; absent means stay quiet
 ```
 
 ## Standing instruction
@@ -298,6 +319,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
+| Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [local/practices/park-it.md](local/practices/park-it.md) |
 | Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
