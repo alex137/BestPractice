@@ -12062,6 +12062,82 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
           '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
 
 
+def check_title_case_knows_the_files_it_ships():
+    """Every root file this project INSTANTIATES into an adopter must be
+    classified correctly by title_case, including the ones upstream never
+    has itself.
+
+    THE INCIDENT, 2026-09-08, from a consumer repo taking the beta update:
+    headline-capitalization fired on that repo's VOICE.md. `INTERNAL_FILES`
+    had been built from UPSTREAM's own root names, and upstream ships
+    VOICE.md and STYLEGUIDE.md as templates it never instantiates -- so the
+    default was blind to exactly the files this project hands out, and every
+    adopter got the same false positive on a file whose own header says it
+    is LOCAL ONLY.
+
+    IT FAILS IN THE DIRECTION NOBODY CHECKS, which is what makes it worth a
+    standing control rather than a one-line fix: upstream's own gate stays
+    green because upstream does not have the file. So this check does not
+    ask "is VOICE.md classified right" -- it derives the list of shipped
+    root files from templates/ and asks it of ALL of them, so a template
+    added later is covered without anybody remembering to come back.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        'tc_ship', ROOT / 'tools' / 'title_case.py')
+    tc = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec.loader.exec_module(tc)
+    finally:
+        sys.path.pop(0)
+
+    cases = []
+
+    # Every templates/<NAME>.md.template instantiates to <NAME>.md at an
+    # adopter's root -- INSTALL.md section 1 spells the mapping out. Derived, not
+    # listed, so this cannot go stale the way the list it guards did.
+    shipped = sorted(
+        f.name[:-len('.template')]
+        for f in (ROOT / 'templates').glob('*.md.template'))
+    cases.append(('templates/ yields root files to classify at all',
+                  len(shipped) >= 3, str(shipped)))
+
+    # The two the incident was about, asserted BY NAME as well as by the
+    # derivation above: a derivation that silently produced an empty list
+    # would otherwise pass this whole check.
+    for name in ('VOICE.md', 'STYLEGUIDE.md'):
+        cases.append((f'{name} is shipped by a template',
+                      name in shipped, str(shipped)))
+        cases.append((f'{name} is INTERNAL -- its own template header says '
+                      f'LOCAL ONLY, so no adopter should be told to '
+                      f'headline-case it',
+                      tc.is_outward(name) is False, ''))
+
+    # The other half, or "classify everything internal" would pass: files
+    # that genuinely ARE published must still be in scope.
+    for name in ('README.md', 'SETUP.md', 'ADOPTING.md'):
+        cases.append((f'{name} is still OUTWARD, so the fix did not just '
+                      f'silence the check', tc.is_outward(name) is True, ''))
+
+    # And the classification an adopter gets must not depend on a
+    # precedent.json they have not written: is_outward() reads one when it
+    # is there, and the default is what every fresh install starts from.
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        cases.append(('VOICE.md is internal with NO precedent.json at all -- '
+                      'the state a fresh adopter is in before they configure '
+                      'anything', tc.is_outward('VOICE.md', root=tmp) is False,
+                      ''))
+
+    ok = all(c[1] for c in cases)
+    check(f'title_case classifies the root files this project ships into '
+          f'adopters ({len(cases)} stated cases, derived from templates/ '
+          f'rather than listed)', ok,
+          '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:800])
+
+
 def check_carry_check_never_invents_lost_content():
     """A clone that does not contain the recorded base must refuse to answer,
     never report the whole vendored tree as lost.
@@ -12607,6 +12683,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
+    check_title_case_knows_the_files_it_ships()
     check_carry_check_never_invents_lost_content()
     check_doc_currency_finds_a_stale_document()
     check_template_freshness_reads_the_skeleton_correctly()

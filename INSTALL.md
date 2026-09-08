@@ -666,6 +666,31 @@ deliberate procedure below.
    *your installed, adapted copy*. Apply upstream's changes to your installed
    files **through the adaptation** recorded in the entry's `notes` — don't
    clobber local adaptations.
+2a. **When upstream DELETES content it previously told you to keep, the
+   three-way merge above will not tell you what to rescue.** This is the one
+   update shape step 2 handles badly, because a `local-only` file has no
+   adaptation `notes` to merge through — you were told to keep the shipped
+   defaults, so nothing recorded which parts you later made decisions about.
+   Read the deleted block once and ask of each piece: *did anybody here
+   actually decide this, or was it just what shipped?* Carry the decisions,
+   drop the rest, and put each carried item where the new structure says it
+   goes rather than re-adding the old section.
+
+   **The worked example, and the reason this step exists** (2026-09-08):
+   `templates/VOICE.md.template` lost 205 lines of general writing guidance,
+   because the practice catalogue already carries all of it and one line —
+   *"no bold inside paragraphs"* — had come to contradict the resident
+   practice [bold-key-phrases](practices/bold-key-phrases.md) outright, so
+   every session in every adopter repo was holding both instructions at
+   once. A dependent repository taking that update had two things in the
+   deleted region that were genuinely its own: a note distinguishing its
+   sense of "voice" from a vendored pack's, and a sentence-case deviation.
+   Both were carried — the deviation into the new `## Overrides` section,
+   which is where a deliberate departure from a catalogue rule belongs and
+   is exactly what that section was added for. **An override nobody wrote
+   down reads as a session ignoring a rule**, so moving it was not
+   bookkeeping.
+
 3. **Instantiate anything the recorded install predates.** An update can
    introduce templates and root files that did not exist when this repo
    installed — e.g. `GETTING_STARTED.md`
