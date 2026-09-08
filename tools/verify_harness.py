@@ -4019,7 +4019,7 @@ def check_precedent_check_fires():
         def _retire_registry(repo, entries):
             (repo / 'process').mkdir(exist_ok=True)
             (repo / 'process' / 'decommissioned_paths.json').write_text(
-                json.dumps({'retired': entries, 'exempt_files': []},
+                json.dumps({'decommissioned': entries, 'exempt_files': []},
                            indent=2) + '\n', encoding='utf-8')
             git(repo, 'add', 'process/decommissioned_paths.json')
             git(repo, 'commit', '-qm', 'declare a retirement')
@@ -6418,7 +6418,7 @@ def check_retirement_record_is_not_a_stranded_link():
         (base / 'README.md').write_text(
             'Step 3: three-way-merge `process/doomed.md` before landing.\n',
             encoding='utf-8')
-        reg = {'retired': [{'path': 'process/doomed.md',
+        reg = {'decommissioned': [{'path': 'process/doomed.md',
                             'reason': 'superseded whole',
                             'decommissioned_at': '2026-09-07'}]}
         if exempt:
