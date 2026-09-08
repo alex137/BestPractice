@@ -144,7 +144,48 @@ def checks():
                 f'so branch scans see two or three refs on a repo that has '
                 f'forty and report the rest as absent'))
 
-    # 7. Freshness. Reported, never repaired here: discarding work is worse
+    # 7. The branch this session started on is still the one checked out.
+    #
+    #    THE INCIDENT, 2026-09-08. Mid-session, this checkout was moved off
+    #    its working branch onto `precedent-beta-v01` and fast-forwarded --
+    #    `checkout: moving from claude/... to precedent-beta-v01` followed by
+    #    `pull origin precedent-beta-v01: Fast-forward`, three minutes after a
+    #    commit. The commit survived on the abandoned branch; the next twenty
+    #    minutes of edits were made on the wrong one, and the loss showed up
+    #    only as a check that had silently stopped existing.
+    #
+    #    THE CAUSE IS NOT KNOWN, and this says so rather than implying it is
+    #    fixed. `precedent_vendor_engine.py seed`, `precedent_refresh_sources
+    #    --apply` and `checkin.py fresh` were each replayed against a
+    #    throwaway clone on a feature branch and NONE of them moved HEAD, so
+    #    the three obvious suspects are ruled out. Whatever did it is outside
+    #    this repo's own tools. Detection is therefore the whole remedy
+    #    available: a stamp written on the first run of a session, compared on
+    #    every later one.
+    stamp = ROOT / '.git' / 'precedent-session-branch'
+    rc, cur, _ = _git('rev-parse', '--abbrev-ref', 'HEAD')
+    if rc == 0 and cur:
+        if stamp.is_file():
+            started = stamp.read_text().strip()
+            ok = (started == cur)
+            out.append(('this session is still on the branch it started on',
+                        ok,
+                        '' if ok else
+                        f'started on {started!r}, now on {cur!r}. Work '
+                        f'committed before the move is on {started!r} and is '
+                        f'NOT lost -- `git checkout {started}` and check '
+                        f'`git reflog` for anything after it. Work done SINCE '
+                        f'the move is on the wrong branch'))
+        else:
+            try:
+                stamp.write_text(cur + '\n')
+            except OSError:
+                pass
+            out.append(('this session is still on the branch it started on',
+                        None, f'first run this session -- recorded {cur!r} as '
+                              f'the baseline to compare against later'))
+
+    # 8. Freshness. Reported, never repaired here: discarding work is worse
     #    than a stale tree, so this only ever tells (practice: fail-gracefully).
     branch = _declared_branch()
     rc, cur, _ = _git('rev-parse', '--abbrev-ref', 'HEAD')
