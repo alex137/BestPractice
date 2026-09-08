@@ -688,13 +688,27 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   still refuses on its FIRST cross-owner add.** `add_repo` for
   `themorgan/precedent-individual`, called as the session's first tool call
   exactly as the banner at the top of this file instructs, answered with the
-  same v1 message word for word. Both findings are therefore true and the
-  rule is about ORDER, not about the pair of owners: the first cross-owner
-  add from a session rooted in `alex137/BestPractice` is refused, while a
-  session that reached a mixed set another way — rooted in a `themorgan/*`
-  repo, where BestPractice is a public add — keeps adding freely. So the
-  remedy stands unchanged and is the only one: root the session in the
-  private repo.
+  same v1 message word for word.
+  **The symmetric half, measured 2026-09-07: rooting in the private repo
+  does not buy the add either.** A session rooted in
+  `themorgan/precedent-individual` asked for `alex137/bestpractice` and was
+  refused in the same words with the owners swapped — *"cross-tier adds are
+  not supported in v1: requested alex137/bestpractice but session already
+  has repos from owner(s) [themorgan]"*. So the refusal runs in BOTH
+  directions. The clause this replaces — that a session rooted in a
+  `themorgan/*` repo "keeps adding freely" because BestPractice is a public
+  add — was an INFERENCE drawn from the mixed-set session above, never a
+  measurement, and it is now falsified: public-vs-private is not the axis,
+  and the first cross-owner add loses whichever owner you start from. **So
+  how that mixed-set session reached six repositories across two owners is
+  now unexplained** — the only explanation on offer has just been ruled out.
+  Do not build on it, and do not repeat the attempt expecting the earlier
+  result. The remedy stands unchanged and is the only one, but state it
+  accurately: root the session in the repo you must PUSH to, and expect the
+  other owner's repositories to be unattachable from it for the whole
+  session. That is not a workaround to route around — it is why work
+  spanning both owners is split across two sessions, each rooted where it
+  writes.
   What it costs when you skip it is not abstract. That 2026-09-07 session
   ran with `individual` and `team` both unresolved, which means the
   `go-merge` keyword's own definition was unreadable while the user was
@@ -736,6 +750,40 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   git config unset. Unset the config when you are done rather than leaving it
   on the clone — a later session running the harness will hit this again with
   no idea why.
+
+- **If the session environment EXPORTS `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL`,
+  [verify_harness.py](tools/verify_harness.py) fails a check about commit
+  identity, and the failure is an artefact of the fixture rather than a
+  defect in anything.** Same shape as the entry above — two gates wanting
+  opposite environments, neither saying so — and it costs the same hour,
+  because a failure whose name is *"the commit identity reaches a repo
+  attached after the hook ran"* reads exactly like the wrong-author
+  incidents that check exists to prevent. It is not one.
+  `check_identity_reaches_a_repo_that_did_not_exist_yet` builds its fixture
+  by copying `os.environ`, pointing `HOME` at a temporary directory, setting
+  a global identity inside it and then asserting that commits there used
+  that identity. It pops `PRECEDENT_ALLOW_ANY_AUTHOR`,
+  `PRECEDENT_COMMIT_EMAIL` and `PRECEDENT_COMMIT_TZ`, but NOT the two
+  `GIT_AUTHOR_*` variables — and those outrank `git config --global user.*`,
+  so every commit the fixture makes is authored by the session's real
+  identity instead of the fixture's. Measured in an isolated temp `HOME`,
+  2026-09-07: with the variables unset the commit is authored by the global
+  identity, with them set it is authored by the environment's, same
+  repository and same command. **Exactly 4 of that check's 11 stated cases
+  fail, and they are named** — *a repo created AFTER the hook commits as the
+  person*, *a bot-authored commit is refused there*, *and the refusal names
+  itself as the global backstop*, and *a correct commit is not blocked*.
+  Three of the four fail because a bot identity the fixture plants in local
+  config is never the author any more, so the refusal it is waiting for
+  correctly does not fire. No other check in the run is affected. This bites
+  in a session rooted in the individual practice set, whose
+  `.claude/settings.json` env block exports both variables; a session rooted
+  here does not export them and will see the check pass, which is why the
+  entry has to name the trigger rather than the symptom. Run it as `env -u
+  GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL python3 tools/verify_harness.py` and
+  the run comes back `0 failed` on an identical tree, with no code change.
+  Deliberately no pass COUNT here: those grow as checks are added, and this
+  section has already carried a hardcoded one that went stale.
 
 - **The individual source resolves to a clone you are probably not editing,
   and it can be many commits stale.** `~/.config/precedent/config.json`
