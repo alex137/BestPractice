@@ -596,6 +596,18 @@
       ],
       "why": "Its own applies_to. The occasion is writing anything a person will read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the glob is a second reminder rather than the only channel. The half no glob can reach is the chat reply, which is why it also carries the `reply` gate.",
       "decided": "landed universal 2026-09-07"
+    },
+    "durable-fix": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, not a file class — it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
+      "decided": "2026-09-08, when the practice landed",
+      "gates": [
+        "review",
+        "reply"
+      ],
+      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED — a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
     }
   },
   "gates": {

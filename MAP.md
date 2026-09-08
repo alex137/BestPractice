@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 72 practice files (8 resident, 64 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 73 practice files (8 resident, 65 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -31,6 +31,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [docs-are-current-state](practices/docs-are-current-state.md) | on-demand | writing or editing a document |
 | [docs-track-models](practices/docs-track-models.md) | on-demand | a document presents a script-derived figure |
 | [document-status-header](practices/document-status-header.md) | on-demand | creating, migrating, closing or superseding a document under spec/ or record/ |
+| [durable-fix](practices/durable-fix.md) | on-demand | when fixing anything -- a bug, a stale file, a broken environment |
 | [engine-plus-host-shims](practices/engine-plus-host-shims.md) | on-demand | exporting a tool across a repo boundary |
 | [environment-gotchas](practices/environment-gotchas.md) | resident | hitting an environment or tooling quirk |
 | [fail-gracefully](practices/fail-gracefully.md) | on-demand | writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one |

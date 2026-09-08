@@ -124,7 +124,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~552 of 2000 token budget, 8 of 76 practices (8 universal))
+## Resident block (~552 of 2000 token budget, 8 of 77 practices (8 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -266,6 +266,8 @@ When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
+When when fixing anything -- a bug, a stale file, a broken environment:
+  durable-fix — prefer the fix that survives a fresh container; name a band-aid as one
 When writing a README or other project-facing entry document:
   lead-with-what-it-is — say what the project is before how it is maintained
 When writing a document that cites a computed number:

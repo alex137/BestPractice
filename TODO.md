@@ -1935,8 +1935,12 @@ which is the failure this repointing exists to end — write
   and their vendored-engine half is now older than what the 2026-09-08 run
   put into both sets. The rest may still be worth having.
 
-  **Blocked on:** Morgan. Both branches target `main` in his own private
-  sets, and a session confined to a working branch there cannot land them —
-  nor should a review triage another person's backlog for him.
+  **Closed 2026-09-08 — both branches deleted without merging, on Morgan's
+  decision.** They were 83 and 58 commits BEHIND `main`, their substance had
+  been re-done there rather than merged, and the one thing they would have
+  added back is a team-level `fail-gracefully` that the 2026-09-07 run
+  deliberately promoted to universal. Evidence and the three-dot-diff
+  near-miss are in
+  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s pass-4 branch verdicts.
 
-  **Disposition:** wait
+  **Disposition:** parked (2026-09-08, Morgan)

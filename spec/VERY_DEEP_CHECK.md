@@ -211,13 +211,35 @@ not any more.
   It vendors `c6c885033a9f`, which is now an ancestor of what this run
   vendored into that set. Mechanically superseded; nothing is lost.
 - `precedent-individual: claude/pre-launch-audit-fixes-7wumzx` (19
-  commits) and `precedent-team-maintainers: …` (16) — the check scripts
-  and tests they touch already exist on `main`, so these are
-  *modifications*, not additions, and their engine half is now older than
-  what this run vendored. Whether the rest should land is a read of
-  Morgan's own private sets against branches he owns, whose integration
-  branch is `main` — **left to him deliberately**, not guessed at from
-  inside a review.
+  commits) and `precedent-team-maintainers: …` (16) — **CLOSED without
+  merging, 2026-09-08, on Morgan's decision after this run put the
+  evidence to him.** Both are far BEHIND `main`, not ahead of it: 83 and
+  58 commits respectively, branched 2026-09-05. Their substance was
+  re-done on `main` rather than merged, which is why `git cherry` still
+  calls every commit unique — different patch-ids, identical content.
+  Checked file by file rather than inferred: the `SOURCE_ROOT`/`ROOT`
+  split, `my-identity-is-not-private.md` at the same 69 lines,
+  `config.json.sample` at the same 15, the grandfathered-commit
+  mechanism, the generated-header skip, `leak-blocklist.txt`,
+  `test_no_stale_counts.sh`, and the whitespace-collapse fix in
+  `check_derived_file_marker.py` are all on `main` already.
+  **The one thing `main` lacks is the reason to close rather than
+  merge**: the team branch carries a 93-line `practices/fail-gracefully.md`,
+  and `main` has none because the 2026-09-07 run promoted that practice to
+  universal, where it now lives at 157 lines. Merging would resurrect a
+  team-level copy of a universal rule and re-create exactly the same-level
+  collision that promotion ended.
+
+  **A near-miss worth carrying forward.** The first reading of these
+  branches was wrong in the opposite direction: `git diff main...branch`
+  showed `my-identity-is-not-private.md` and `config.json.sample` as clean
+  `+` additions, which reads as *"main does not have these"*. The three-dot
+  form diffs against the 2026-09-05 MERGE BASE, not against `main` — so it
+  answers "what did this branch add since it forked", which is a different
+  question from "what does main still lack". Ask the second question with
+  `git ls-tree main <path>` or by reading main's own copy; the three-dot
+  diff will not answer it, and it fails in the direction that argues for
+  merging superseded work.
 
 **The private sets' own backlog was not swept this run.** Recorded as not
 run, with the reason: their integration branch is `main`, this session is
