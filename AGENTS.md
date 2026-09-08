@@ -406,6 +406,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
 | Whether an attached practice-set source's vendored engine has gone stale, and bringing it up to date | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes, `--commit` commits |
 | Whether this session's SessionStart hooks actually ran, and repairing them if not | [tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand |
+| Whether Alex has moved `main` since the last carry onto this branch, and what changed | [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py) — printed at session start; the watermark it compares against is [tools/upstream_watermark.json](tools/upstream_watermark.json), moved with `--record` in the carry's own commit |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
@@ -481,6 +482,18 @@ gotcha every session reads is a gotcha every session pays for.
   so far; the inventory is in the archive. Note the trigger for the first
   shape: a *non-repo* prints nothing, so the plain form looks correct for
   years — it only echoes on an unborn `HEAD` or a missing ref.
+
+  **A third shape, and it defeats the fix this entry recommends:
+  `rev-parse --verify --quiet` exits 0 and echoes back ANY well-formed 40-hex
+  string, present in the clone or not.** `--verify` checks that the argument
+  names a single revision — a full hash always does — never that the object
+  exists. Found 2026-09-08 by a negative-control fixture for
+  [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py): a
+  watermark pointing at 40 zeroes read as *present*, so the guard meant to say
+  "that commit is not in this shallow clone" never fired and the notice
+  announced a change it could not list. Ask the object database instead —
+  `git cat-file -e <sha>^{commit}`. `--verify` remains right for a *name*
+  (`origin/main`, `HEAD`), which is what the two shapes above are about.
 
 - **A repository attached mid-session clones single-branch, so every branch
   you create there reads as "unpushed" forever — including to a Stop hook
@@ -848,6 +861,13 @@ gotcha every session reads is a gotcha every session pays for.
   subject-specific rather than generic should be challenged before merge —
   and added to the contributor's blocklist, not fixed up here after
   publication.
+- **After carrying anything from `main` onto this branch, run
+  `python3 tools/precedent_upstream_check.py --record --by "PR #NNN"`** and
+  commit [tools/upstream_watermark.json](tools/upstream_watermark.json) with
+  the carry itself. Every session start compares `origin/main` against that
+  watermark and says so out loud; a carry that does not move it makes the
+  notice cry wolf on every session afterwards, which is how a notice stops
+  being read.
 - **Direct edits are fine** for content about this repo itself (README,
   practice wording, engine code); abstracted lessons still only enter via
   a scrubbed check-in from where they were learned.
