@@ -198,7 +198,7 @@
       "globs": [
         "**"
       ],
-      "why": "DELIBERATELY UNROUTED, and the reason is the practice's own scope. It governs code that depends on anything outside its own control -- any language, any file, plus setup and configuration that is not code at all. No glob narrower than ** would be honest: restricting it to tools/**/*.py would silence it for shell hooks, templates and workflow files, which are exactly where the container's defaults bite. Its own Install already records that the general form floods a mechanical check (67 hits against this repo's tools/, mostly legitimate), so the occasion index and review carry it rather than the path channel.",
+      "why": "DELIBERATELY UNROUTED, and the reason is the practice's own scope. It governs code that depends on anything outside its own control -- any language, any file, plus setup and configuration that is not code at all. No glob narrower than ** would be honest: restricting it to tools/**/*.py would silence it for shell hooks, templates and workflow files, which are exactly where the container's defaults bite. Its own Install already records that the general form floods a mechanical check (67 hits against this repo's tools/, mostly legitimate), so the occasion index, review and the PUSH GATE carry it rather than the path channel. The gate was added 2026-09-08: the one moment this rule has to fire on a schedule rather than on a hunch is when a check has just told you it could not run and you are about to publish anyway.",
       "decided": "promoted to universal 2026-09-07"
     },
     "frame-from-audience-question": {

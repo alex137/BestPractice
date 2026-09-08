@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one"
-gates:       []
+gates:       ["push"]
 index_clause: "keep going, never look complete — match the telling to stake and reader"
 checked_by:  null
 defines:     []
@@ -148,6 +148,19 @@ those hits are the low-stake end of clause 3's first axis -- degradations
 nobody would act on, correctly silent. Re-measuring against the graduated
 rule is worth doing and has not been done; the old figure is kept above
 because it is the evidence, not because it is still the verdict.
+
+**The push gate, added 2026-09-08, is where the general rule stopped being
+general enough.** Precedent's leak gate ends a push it allowed-but-could-not-
+fully-check with a notice naming what went unscanned, and the notice itself
+says to repeat it in the reply. That is clause 1 and clause 3 of this rule,
+printed at the exact moment, by the tool -- and printed-at-the-moment is
+demonstrably not enough here: a session once read past
+`no individual source resolved` on every run for a working day, because the
+line sat directly above the summary it was reading the output for. So the
+rule is now routed to `push` as well as to its occasion. The occasion clause
+reads as a CODING moment ("writing code that depends on something outside
+its own control"), and a session that has just run a gate and is deciding
+what to say about it does not recognize itself in that sentence.
 
 What IS enforceable is the specific case, not the general one. Where a
 particular family of scripts must distinguish "could not check" from "checked,
