@@ -11962,6 +11962,77 @@ def check_a_renamed_engine_file_never_survives_a_reseed():
           not failed, '; '.join(failed))
 
 
+def check_withdrawn_table_never_links_a_successor_it_does_not_have():
+    """The withdrawn-practices table must not link a successor that lives in
+    another source (practice: doc-references-are-links,
+    control-asserts-which-failure).
+
+    THE INCIDENT, 2026-09-08. The withdrawn table landed that morning and
+    rendered `in_force_at:` as `[slug](practices/slug.md)` unconditionally.
+    The first team set to regenerate with it produced MAP.md linking
+    `practices/headline-capitalization.md` -- a UNIVERSAL practice, in a repo
+    that has no such file -- and that set then failed its own `light-check`
+    on a broken relative link, inside a generated file its own header tells
+    it never to hand-edit. Unfixable from within that repo.
+
+    Deduplication is exactly the case where this bites: a team or individual
+    rule is dropped BECAUSE a universal one already says it, so the successor
+    is in a different repo more often than not. `in_force_at:` names a slug,
+    never a source, so the renderer cannot assume locality.
+
+    Both directions are asserted. A local successor must still be a link --
+    fixing this by never linking would be a regression that no
+    broken-link check could catch, since nothing at all would be broken.
+    """
+    import tempfile
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        'bv', ROOT / 'tools' / 'build_views.py')
+    bv = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec.loader.exec_module(bv)
+    finally:
+        sys.path.pop(0)
+
+    results = []
+    with tempfile.TemporaryDirectory() as tmp:
+        pdir = pathlib.Path(tmp) / 'practices'
+        pdir.mkdir(parents=True)
+        # The successor that IS here.
+        (pdir / 'local-successor.md').write_text('x')
+        here = pdir / 'gone-local.md'
+        here.write_text('x')
+        away = pdir / 'gone-away.md'
+        away.write_text('x')
+
+        def row(slug, target, f):
+            return ({'slug': slug, 'status': 'deduplicated',
+                     'in_force_at': target},
+                    {'Story': 'Because.'}, str(f))
+
+        out = '\n'.join(bv._render_withdrawn([
+            row('gone-local', 'local-successor', here),
+            row('gone-away', 'no-such-practice', away),
+        ]))
+
+        results.append(('a successor present in this repo is still linked',
+                        '[local-successor](practices/local-successor.md)' in out))
+        results.append(('a successor that is NOT in this repo is not linked',
+                        '(practices/no-such-practice.md)' not in out))
+        # Assert what it says instead: silence would satisfy the case above.
+        results.append(('the absent successor is still named, so the reader '
+                        'can find it', 'no-such-practice' in out))
+        results.append(('and is told where to look',
+                        'another source' in out))
+
+    failed = [n for n, ok in results if not ok]
+    check(f'the withdrawn table never links a successor this repo does not '
+          f'have ({len(results)} stated cases)', not failed,
+          '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
+
+
 def check_assumed_visibility_never_deletes_practices():
     """An ASSUMED visibility must never remove practice files that are
     already in a consumer's tree (practice: very-deep-check, reported by a
@@ -12097,6 +12168,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
+    check_withdrawn_table_never_links_a_successor_it_does_not_have()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()

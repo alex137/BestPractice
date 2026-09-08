@@ -891,8 +891,30 @@ def _render_withdrawn(withdrawn):
             where = '— (nowhere)'
         elif target == 'engine':
             where = 'the engine'
-        else:
+        elif (pathlib.Path(_f).parent / f'{target}.md').is_file():
             where = f"[{target}](practices/{target}.md)"
+        else:
+            # THE SUCCESSOR USUALLY LIVES IN ANOTHER SOURCE, and linking it
+            # as if it were local writes a broken relative link into a
+            # generated file. `in_force_at:` names a slug, not a source, and
+            # deduplication is precisely the case where a team or individual
+            # rule was dropped because a UNIVERSAL one already said it -- so
+            # the successor is in a different repo by definition, more often
+            # than not.
+            #
+            # Found 2026-09-08, the first time the withdrawn table (landed
+            # that day) was regenerated in a team set: `header-caps` names
+            # `headline-capitalization`, which is universal, and the table
+            # linked `practices/headline-capitalization.md` into a repo that
+            # has no such file. The set then FAILED ITS OWN light-check on a
+            # broken relative link, in a file it is told never to hand-edit
+            # -- unfixable from inside that repo.
+            #
+            # Named, not linked: a reader can find the slug with
+            # precedent_show, and a link that resolves to nothing is worse
+            # than no link (practice: doc-references-are-links).
+            where = (f"`{target}` — in another source; "
+                     f"`python3 tools/precedent_show.py {target}`")
         reason = _withdrawn_reason(sections).replace('|', '\\|') or \
             '*(no ## Story -- catalogue-carries-stories should have caught this)*'
         lines.append(f"| [{slug}](practices/{slug}.md) | {status} | {where} | {reason} |")
@@ -993,6 +1015,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_migrate_status.py': "Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor",
     'precedent_retire.py': "Stage 6 (phase 5) — the periodic removal report; proposes, never acts",
     'precedent_session_practices.py': "Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed",
+    'precedent_session_check.py': "Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_simulate.py': "One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log",
     'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
