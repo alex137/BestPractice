@@ -2076,7 +2076,35 @@ which is the failure this repointing exists to end — write
   dependent repo's instantiated copy — and because it was asked as a
   question, not an instruction.
 
-  **Disposition:** ask (2026-09-08, Morgan)
+  **DONE 2026-09-08.** Morgan: *"if it is just talk like a human rules, then
+  maybe we should eliminate all that text (by default), and leave it only for
+  the unique voice of the project?"* — which is the recommendation above, with
+  the deletion sharpened: the generic content is not moved wholesale into the
+  catalogue, it is **dropped**, because the catalogue already carries it.
 
-  He raised it as a question, so the decision is his and a session may put it
-  back to him. One word settles it; nothing else blocks the work.
+  **The coverage read before deleting found two sections that nothing else
+  held**, and both landed universally first so the deletion lost nothing:
+
+  - §8's second half, *"concreteness never licenses invention"*, is
+    [no-invented-specifics](practices/no-invented-specifics.md) — resident,
+    because a fabricated figure passes every gate here and reads better than
+    the honest sentence it replaced. It was never a voice rule; it is an
+    honesty rule that happened to be written down in a writing-style file.
+  - §11, *"don't overcorrect"*, is folded into
+    [write-like-a-human](practices/write-like-a-human.md)'s Rule, where it
+    has to sit: a rule saying *don't sound like a machine* reliably produces
+    performed casualness unless the same Rule says where the correction
+    stops.
+
+  **And the read found a live conflict, which is the argument neither side of
+  this item had made:** the template's formatting section said *"no bold
+  inside paragraphs, and no bolded thesis sentence"*, while
+  [bold-key-phrases](practices/bold-key-phrases.md) — universal and resident,
+  so in front of every session from the first turn — says to bold the key
+  phrases by default. Every project installed from this template carried both
+  instructions at once. **A local copy of a generic rule does not merely go
+  stale; it argues with the live one**, and nothing had noticed because
+  nobody re-reads a file that shipped with sensible defaults.
+
+  `STYLEGUIDE.md` is unchanged, as recommended: it ships empty, it is project
+  data, and it is not a rule at any level.

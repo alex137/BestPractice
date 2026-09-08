@@ -37,6 +37,13 @@ Register adapts; the rule does not. A contract, a filing, or an academic
 paper is formal and still must not read as machine-generated — formality
 is a dial, the tells are not on it.
 
+**Do not overcorrect.** Informal does not mean performing casualness: no
+forced slang, no manufactured edge, no self-deprecating aside, no
+exclamation point doing emotional work. The target is a competent adult
+writing quickly, not a personality. **Overcorrected-casual is as templated
+as corporate** — same problem, different template — and it is the failure
+this rule reliably produces in a session trying hard to obey it.
+
 The one place this bites hardest is the place easiest to forget: **the
 reply**. A session that carefully rewrites a document and then answers in
 default assistant register has shipped the thing this rule exists to
@@ -56,6 +63,15 @@ Nothing about it is specific to one team or one person.
 
 ## Story
 2026-09-07, and the history is the argument for the shape this landed in.
+
+**The overcorrection paragraph arrived later, 2026-09-08**, out of
+[templates/VOICE.md.template](../templates/VOICE.md.template)'s section 11,
+when Morgan decided that template should ship only a project's own voice and
+its generic half was read against this practice to see what would be lost. It
+is the one piece that belonged here rather than in a new practice: a rule
+saying *don't sound like a machine* produces performed casualness unless it
+says where the correction stops, so the counterweight has to sit in the same
+Rule a session reads.
 
 the project's own prior notes repository held both halves. `no-ai-voice` sat in its essay on
 building a company around AI as rule 11; `write-like-a-human` sat in its

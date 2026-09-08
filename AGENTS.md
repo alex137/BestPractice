@@ -142,7 +142,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~552 of 2000 token budget, 8 of 82 practices (8 universal))
+## Resident block (~655 of 2000 token budget, 9 of 83 practices (9 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -150,6 +150,15 @@ plan's premise.
 installed, a tool that silently doesn't work, a path that does work) is
 written into a "do NOT rediscover these" section — with the story of what
 failed and why, not just the fix.
+
+**no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
+not manufacture a statistic, a date, a name, a version number or a citation
+because the sentence would be stronger with one, and do not invent
+first-person experience that did not happen.
+
+Without the real figure, **write around it** — *"most of them"*, *"a
+handful"*, *"it went up"* — or say plainly that it is unknown. **A vague
+true sentence beats a specific false one, every time.**
 
 **orientation-map.** A top-level `MAP.md` indexes the repo: what the key deliverables
 are, where everything lives, and — crucially — which supporting documents back

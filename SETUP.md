@@ -62,9 +62,9 @@ asks for it by name.
    as INSTALL.md §1 step 9 describes for an existing repo. This is real,
    working tooling, not a promise: it hands them a starter file in the
    right format and the exact config to wire in, in the same sitting.
-   `VOICE.md` and `STYLEGUIDE.md` are installed with the templates'
-   defaults unchanged for now — they get reviewed explicitly with the
-   administrator in step 4, not adapted here.
+   `VOICE.md` and `STYLEGUIDE.md` are installed as the templates' near-empty
+   skeletons for now — they get filled in with the administrator in step 4,
+   not guessed at here.
    Respect the root-hygiene rule (INSTALL.md §1): nothing from
    Precedent lands at the repo root except the instantiated files —
    all upstream docs stay under `process/upstream/`.
@@ -76,8 +76,14 @@ asks for it by name.
    or three plain sentences each. Then ask about the two identity files
    directly, as their own moment, not folded into the general "anything to
    adjust" offer:
-   - Show `VOICE.md`'s default writing rules and ask if the project wants
-     a different voice, or is fine with the defaults.
+   - Walk them through `VOICE.md`'s sections and fill in what they can
+     answer: who this project sounds like, who reads its output, the domain
+     words that must be used or avoided, and anything it deliberately does
+     differently from the general rules. **Say plainly that general writing
+     quality is not in this file** — the practice catalogue covers that for
+     every project at once, so this one holds only what is true here and
+     would be wrong elsewhere. A section left `<undecided>` is a fine
+     answer; do not invent a voice for a project that has not chosen one.
    - Ask if a formal brand guideline exists — a PDF, a slide deck, a
      design team's style manual. If yes, read it and write the relevant
      rules into `STYLEGUIDE.md` yourself; never attach or vendor the
