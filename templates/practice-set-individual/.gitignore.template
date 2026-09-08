@@ -1,0 +1,8 @@
+# Python leaves these beside the vendored engine's own scripts.
+__pycache__/
+*.pyc
+
+# Written per-machine by commit-identity.sh (it derives TZ from
+# identity.json and stores it here), so it is never the same on two
+# checkouts and must not be committed.
+.claude/settings.local.json

@@ -12033,6 +12033,92 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
           '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
 
 
+def check_template_freshness_reads_the_skeleton_correctly():
+    """The reverse-direction skeleton check must not invent gaps, and must
+    not call one repo's habit a finding (practice: very-deep-check).
+
+    WHY IT EXISTS. `precedent_bootstrap_source.verify()` reads a skeleton and
+    asks whether a real source has everything in it. Nothing asked the
+    reverse until 2026-09-08, so a skeleton could drift below reality and a
+    newly bootstrapped source would be created missing something every real
+    one has. That is how the individual skeleton came to ship no
+    `identity.json` -- the file that decides whether the commit hook ENFORCES
+    an author-date offset or merely guesses one.
+
+    TWO FAILURES ON ITS FIRST RUN, both asserted here because both make the
+    section useless in opposite ways:
+
+      1. It reported `config.json.sample` as a gap. The skeleton plainly
+         ships that file -- the scan stripped the `.sample` suffix and
+         recorded only `config.json`, while a real source keeps the sample
+         name verbatim. A check that flags what the template already has
+         teaches the reader to skim it.
+      2. Everything was labelled FINDING, including a level with exactly ONE
+         resolved source. One repo is not evidence of a shape, and a
+         permanent list of that repo's own working documents is the same
+         noise problem from the other side.
+    """
+    import tempfile
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        'vdc', ROOT / 'tools' / 'very_deep_check.py')
+    vdc = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec.loader.exec_module(vdc)
+    finally:
+        sys.path.pop(0)
+
+    results = []
+    if not hasattr(vdc, '_template_freshness'):
+        check('the template-freshness scan reads the skeleton correctly '
+              '(0 of 5 stated cases reached)', False,
+              'very_deep_check.py has no _template_freshness -- the reverse '
+              'direction is not checked at all')
+        return
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # A source carrying exactly what the individual skeleton ships,
+        # suffixes and all, plus one extra file.
+        src = pathlib.Path(tmp) / 'a-source'
+        (src / 'practices').mkdir(parents=True)
+        skel = ROOT / 'templates' / 'practice-set-individual'
+        for f in skel.iterdir():
+            if f.is_file():
+                (src / f.name).write_text('x')
+        (src / 'ONLY_HERE.md').write_text('x')
+
+        out = vdc._template_freshness(
+            [{'level': 'individual', 'name': 'fixture', 'path': str(src)}])
+        joined = ' | '.join(out)
+
+        # THE FALSE POSITIVE.
+        results.append(('a file the skeleton ships under its own '
+                        '.sample/.template name is NOT reported as a gap',
+                        'config.json' not in joined))
+        # One source is not evidence.
+        results.append(('a level with one source is reported as a note, not '
+                        'a FINDING', 'FINDING' not in joined))
+        results.append(('and says plainly that one source proves nothing',
+                        'only ONE source' in joined))
+        # It still has to SAY something -- silence would pass the two cases
+        # above just as well, and silence is how the gap survived.
+        results.append(('the file the skeleton really lacks is still named',
+                        'ONLY_HERE.md' in joined))
+
+    # The gap that motivated all of this must actually be closed.
+    results.append(('the individual skeleton now ships an identity file',
+                    any(f.name.startswith('identity.json')
+                        for f in (ROOT / 'templates' /
+                                  'practice-set-individual').iterdir())))
+
+    failed = [n for n, ok in results if not ok]
+    check(f'the template-freshness scan reads the skeleton correctly '
+          f'({len(results)} stated cases)', not failed,
+          '; '.join(failed) + (f' [scan said: {joined!r}]' if failed else ''))
+
+
 def check_assumed_visibility_never_deletes_practices():
     """An ASSUMED visibility must never remove practice files that are
     already in a consumer's tree (practice: very-deep-check, reported by a
@@ -12168,6 +12254,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
+    check_template_freshness_reads_the_skeleton_correctly()
     check_withdrawn_table_never_links_a_successor_it_does_not_have()
     check_source_precedence()
     check_cross_source_resident_budget()

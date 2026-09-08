@@ -608,6 +608,17 @@
         "reply"
       ],
       "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED — a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
+    },
+    "vendor-update-runbook": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, not a file class — it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
+      "decided": "2026-09-08, when the practice landed",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "An update lands as a merge, and the merge is the last moment the sequence can still be checked before it is someone else's committed history."
     }
   },
   "gates": {

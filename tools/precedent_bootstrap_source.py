@@ -326,7 +326,7 @@ def _malformed(level, path):
     # A file bootstrapped and never filled in. Any consumer reading a
     # `{{NAME}}` gets a literal placeholder where a real value belongs.
     for rel in ('approvers.json', 'leak-blocklist.txt', 'config.json.sample',
-                'README.md'):
+                'README.md', 'identity.json'):
         f = path / rel
         if not f.is_file():
             continue

@@ -386,6 +386,33 @@ first so this pass spends its attention on what they cannot see.
   the glossary, and was one edit away from reversing a decision made that
   morning — so check where a keyword IS defined before calling it
   undefined.
+- **Orphans — files nothing owns any more.** The mirror of every other
+  check here, which all ask whether something that should be present *is*.
+  An orphan is present and in nobody's list, so no mechanism keyed on a
+  current list can see it.
+  [tools/very_deep_check.py](../tools/very_deep_check.py) now sweeps four
+  kinds mechanically — a tombstoned engine file, a manifest entry the
+  current kind dropped, an unrecorded engine file hand-copied in, and a
+  `check_<slug>.py` whose practice is gone — so read only what it cannot:
+  a document nothing links to, a workflow whose job moved, a directory a
+  migration emptied. *(Found 2026-09-08: three practice sets each carrying a
+  `precedent_retire_path.py` that a rename had orphaned, with `status`
+  reporting all three healthy — it was gone from the file list, gone from
+  the manifest, and the untracked-file check is keyed on the current lists
+  by design. Three mechanisms, each correct, all blind to it at once.)*
+- **Whether the SKELETONS still describe a real source.**
+  `precedent_bootstrap_source.verify()` reads a skeleton and asks whether a
+  real source has everything in it — which catches a source that drifted
+  below the template and can never catch the template drifting below
+  reality. Run the reverse: what does every resolved source of a level
+  carry that a newly bootstrapped one would be created without? *(Found
+  2026-09-08: the individual skeleton shipped no `identity.json` — the one
+  place a person's name, address and timezone live, and the file that
+  decides whether the commit hook ENFORCES an author-date offset or merely
+  guesses one. Every real set had it; a bootstrapped set would not have,
+  and its wrong-offset commits would reach the remote before anything said
+  so.)* **One source of a level is not evidence** — the check says so
+  rather than reporting one repo's working documents as a template gap.
 - **Fragments** — a sentence, note, or heading left behind by an earlier
   edit: a "temporary" caveat whose occasion has passed, a note about a
   reorganization that already happened.

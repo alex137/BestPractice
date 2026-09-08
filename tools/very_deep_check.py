@@ -97,7 +97,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import json, os, pathlib, re, subprocess, sys
+import json, os, pathlib, re, subprocess, sys, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -397,6 +397,201 @@ def _merge_base_resolves(repo_dir, target_ref, ref):
     comparison, and answering it wrong is silent -- see _unmerged_row."""
     rc, out, _ = _run_git(repo_dir, 'merge-base', target_ref, ref)
     return rc == 0 and bool(out.strip())
+
+
+def _branch_url(repo_dir, branch):
+    """-> a URL that lands on GitHub's branches page filtered to `branch`,
+    where the Delete button is, or None when the remote is not GitHub.
+
+    WHY A LINK AND NOT JUST A NAME. This section routinely lists thirty-odd
+    merged-but-undeleted branches, and a bare name is a name the reader then
+    has to go find. Morgan, 2026-09-08: "make a list of them in the session
+    including direct links to them so I can delete them". The branches page
+    filtered to one name is the right target rather than the branch's tree
+    view -- the tree view shows the code and offers no way to delete it.
+
+    Parsed from the remote rather than assumed: a repository whose origin is
+    not GitHub gets no link instead of a wrong one."""
+    rc, url, _ = _run_git(repo_dir, 'config', '--get', 'remote.origin.url')
+    if rc != 0 or not url:
+        return None
+    url = url.strip()
+    if url.endswith('.git'):
+        url = url[:-4]
+    slug = None
+    if 'github.com' in url:
+        # Both remote forms -- the https one, and the SSH one whose host is
+        # written with a user@ prefix and a colon before the owner. Spelled
+        # out rather than shown: the literal example is email-shaped, and
+        # the leak gate's secret-scan correctly refuses it in a tracked file.
+        tail = url.split('github.com', 1)[1].lstrip(':/')
+        parts = [x for x in tail.split('/') if x]
+        if len(parts) >= 2:
+            slug = f'{parts[0]}/{parts[1]}'
+    if not slug:
+        return None
+    return (f'https://github.com/{slug}/branches/all?query='
+            + urllib.parse.quote(branch, safe=''))
+
+
+def _orphan_scan(repo_dir):
+    """-> [str] files in one repo that nothing owns any more.
+
+    WHY THIS IS ITS OWN SCAN. Every other check here asks whether something
+    that should be present IS. An orphan is the mirror question -- something
+    present that should not be -- and no existing check asks it, because
+    each mechanism is keyed on its own current list and an orphan is by
+    definition in nobody's list.
+
+    THE INCIDENT, 2026-09-08. Upstream renamed `precedent_retire_path.py` to
+    `precedent_decommission.py`. All three practice sets went on carrying the
+    dead file, and `status` reported every one of them healthy: it was gone
+    from KINDS, gone from the manifest, and `_untracked_engine_files` is
+    keyed on the current lists by design. Three mechanisms, each correct, and
+    the file was invisible to all of them at once. Morgan, reading the fix:
+    "does very-deep-check look for orphan files? It should."
+
+    Four kinds, cheapest first. Each is a DIFFERENT way a file stops being
+    owned, which is why one query cannot find them all.
+    """
+    repo_dir = pathlib.Path(repo_dir)
+    out = []
+    tools_dir = repo_dir / 'tools'
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        return ['could not import precedent_vendor_engine, so no engine '
+                'orphan could be looked for -- this is not a clean result']
+
+    manifest = None
+    mpath = tools_dir / getattr(pve, 'MANIFEST_NAME', 'ENGINE_MANIFEST.json')
+    if mpath.is_file():
+        try:
+            manifest = json.loads(mpath.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            out.append(f'tools/{mpath.name} is present but unreadable, so '
+                       f'engine orphans cannot be found here')
+
+    # 1. A name the engine once shipped and no longer does. Only a tombstone
+    #    can find this -- it is in no current list to be compared against.
+    for name, why in getattr(pve, '_retired_engine_files_present',
+                             lambda d: [])(tools_dir):
+        out.append(f'tools/{name} -- retired engine file: {why}')
+
+    if manifest is not None:
+        kind = manifest.get('kind', getattr(pve, 'DEFAULT_KIND', 'source'))
+        wanted = set(pve.KINDS.get(kind, ())) | {'routing_scope.json'}
+        # 2. Recorded by the manifest, no longer part of this kind, still on
+        #    disk. The sweep that removes these runs only after a write.
+        for name in sorted(manifest.get('files', [])):
+            if name not in wanted and (tools_dir / name).is_file():
+                out.append(f'tools/{name} -- the manifest records it but '
+                           f'the {kind} engine no longer includes it')
+        # 3. An engine name present but unrecorded: a hand-copy dropped in
+        #    beside a properly vendored engine.
+        for name in pve._untracked_engine_files(tools_dir, manifest):
+            out.append(f'tools/{name} -- an engine file this manifest does '
+                       f'not record (hand-copied in)')
+
+    # 4. A check script whose practice is gone. `checked_by` points one way
+    #    only, so a retired practice leaves its script with nothing naming
+    #    it, and the script goes on being materialized into consumers.
+    checks_dir = tools_dir / 'checks'
+    practices_dir = repo_dir / 'practices'
+    if checks_dir.is_dir() and practices_dir.is_dir():
+        for f in sorted(checks_dir.glob('check_*.py')):
+            slug = f.stem[len('check_'):].replace('_', '-')
+            if not (practices_dir / f'{slug}.md').is_file():
+                out.append(f'tools/checks/{f.name} -- no '
+                           f'practices/{slug}.md in this source for it to '
+                           f'check (renamed or retired practice?)')
+    return out
+
+
+def _template_freshness(sources):
+    """-> [str] what every real source of a level has and its skeleton does not.
+
+    THE DIRECTION NOBODY CHECKED. precedent_bootstrap_source.verify() reads
+    the skeleton and asks whether a real source has everything in it. That
+    catches a source that drifted BELOW the template. It cannot catch the
+    template drifting below reality -- a file every real source needs, that
+    a newly bootstrapped one would be created without.
+
+    Found 2026-09-08 on Morgan's prompting: the individual skeleton shipped
+    no `identity.json`, which is the ONE place a person's name, address and
+    timezone are written and the file `commit-identity.sh` reads to decide
+    whether to ENFORCE an author-date offset or merely guess one. Every real
+    set had it; a bootstrapped set would not have, and its wrong-offset
+    commits would have reached the remote before anything said so.
+
+    Evidence, not assertion: a level with ONE real source is n=1, and this
+    says so rather than reporting a one-repo habit as a template gap."""
+    try:
+        import precedent_bootstrap_source as bss
+    except ImportError:
+        return ['could not import precedent_bootstrap_source, so template '
+                'freshness was NOT checked -- this is not a clean result']
+    # Generated or vendored at the destination, so a skeleton correctly has
+    # none of them; and the session hooks come from the harness adapter.
+    NOT_SKELETON = {
+        'AGENTS.md', 'MAP.md', 'GLOSSARY.md', 'CODEOWNERS',
+        'MANIFEST.json', 'ENGINE_MANIFEST.json',
+    }
+    by_level = {}
+    for s in sources:
+        lvl, path = s.get('level'), s.get('path')
+        if lvl in ('team', 'individual') and path:
+            p = pathlib.Path(path)
+            if p.is_dir():
+                by_level.setdefault(lvl, []).append((s.get('name'), p))
+
+    out = []
+    for lvl, repos in sorted(by_level.items()):
+        skeleton = bss.SKELETONS.get(lvl)
+        if skeleton is None or not skeleton.is_dir():
+            continue
+        ships = set()
+        for f in skeleton.rglob('*'):
+            if not f.is_file():
+                continue
+            # BOTH names, and the reason is a false positive this produced on
+            # its first run: the skeleton's file is literally named
+            # `config.json.sample`, and a real source keeps that same name.
+            # Stripping the suffix and recording only `config.json` made the
+            # check report a file the skeleton plainly ships.
+            ships.add(f.name)
+            n = f.name
+            for suffix in ('.template', '.sample'):
+                if n.endswith(suffix):
+                    n = n[: -len(suffix)]
+            ships.add(n)
+        # Root files only: a directory's contents are the source's own
+        # content, not its shape.
+        common = None
+        for _name, p in repos:
+            here = {f.name for f in p.iterdir()
+                    if f.is_file() and f.name not in NOT_SKELETON}
+            common = here if common is None else (common & here)
+        gaps = sorted((common or set()) - ships)
+        if not gaps:
+            continue
+        n = len(repos)
+        if n > 1:
+            for name in gaps:
+                out.append(f'FINDING {lvl}: all {n} resolved sources carry '
+                           f'{name!r} and the skeleton ships no equivalent')
+        else:
+            # ONE source is not evidence of a shape, and labelling it a
+            # finding would put a permanent list of that repo's own working
+            # documents in front of every future run -- which is how a check
+            # teaches people to skim it. Reported as candidates, once,
+            # with what would settle them.
+            out.append(f'note {lvl}: only ONE source of this level resolved, '
+                       f'so nothing here is evidence of a template gap yet. '
+                       f'Files it carries that the skeleton does not: '
+                       f'{", ".join(repr(g) for g in gaps)}. A second source '
+                       f'of this level is what would tell shape from habit.')
+    return out
 
 
 def _unmerged_row(repo_dir, name, ref, target_ref, target):
@@ -1281,6 +1476,50 @@ def main():
         print("  (no team or individual source resolved here)")
     print()
 
+    # The mirror of SOURCE SHAPE above, in both directions it cannot see.
+    print("TEMPLATE FRESHNESS -- what the skeletons do NOT ship\n")
+    _tf = _template_freshness(data['sources'])
+    if _tf:
+        print("  verify() reads the skeleton and asks whether a real source "
+              "has\n  everything in it. Nothing asks the reverse. These are "
+              "files every\n  resolved source of a level carries that a newly "
+              "bootstrapped one\n  would be created without:\n")
+        for _m in _tf:
+            # The strength is decided where the evidence is, not here --
+            # _template_freshness already prefixes 'FINDING' or 'note', and
+            # stamping FINDING over a note re-labels weak evidence as strong.
+            print(f"  {_m}")
+    else:
+        print("  none -- every file the resolved sources share at their root "
+              "is\n  either shipped by the skeleton, generated, or vendored.")
+    print()
+
+    print("ORPHANS -- files nothing owns any more\n")
+    _orph_any = False
+    _orph_seen = False
+    _orph_targets = [('this checkout', repo_root)]
+    for _s in data['sources']:
+        _p = _s.get('path')
+        if _s.get('level') in ('team', 'individual') and _p:
+            _orph_targets.append((_s.get('name'), pathlib.Path(_p)))
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _orph_seen = True
+        _found = _orphan_scan(_p)
+        if _found:
+            _orph_any = True
+            print(f"  {_name}:")
+            for _m in _found:
+                print(f"      {_m}")
+    if not _orph_seen:
+        print("  (no repository to scan)")
+    elif not _orph_any:
+        print("  none -- no retired engine file left behind, no manifest "
+              "entry the\n  current kind dropped, no unrecorded engine "
+              "file, and no check\n  script whose practice is gone.")
+    print()
+
     # UNLANDED WORK, printed BEFORE the checklist rather than with the rest
     # of the branch scan at the end (practice: very-deep-check, step 4 of its
     # order of operations).
@@ -1379,7 +1618,10 @@ def main():
                   f"link, then delete:")
             if scan['merged']:
                 for b in scan['merged']:
+                    _u = _branch_url(scan.get('path'), b)
                     print(f"    {b}")
+                    if _u:
+                        print(f"      {_u}")
             else:
                 print(f"    {empty}")
             print(f"  NOT merged -- merge it or close it, one verdict each:")
@@ -1389,6 +1631,9 @@ def main():
                     print(f"    {r['name']} ({r['ahead']} commit(s) ahead"
                           f"{age})")
                     print(f"      {r['verdict']}")
+                    _u = _branch_url(scan.get('path'), r['name'])
+                    if _u:
+                        print(f"      {_u}")
             else:
                 print(f"    {empty}")
             if scan.get('unreachable'):
