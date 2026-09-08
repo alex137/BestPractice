@@ -142,9 +142,26 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~655 of 2000 token budget, 9 of 84 practices (9 universal))
+## Resident block (~876 of 2000 token budget, 10 of 85 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
+
+**brainstorm-holds-commits.** When a conversation is a **Brainstorm** -- the person says the word, or the
+thread is plainly exploratory ("I'm wondering", "what are my options", "do
+you have ideas", "maybe this is a terrible idea") -- **write nothing to the
+repository and commit nothing until they say to.** Research freely, read
+whatever you need, argue the case, propose the design. Do not create, edit,
+commit, push, open a pull request, or merge.
+
+**The edit is the thing to hold, not just the commit.** A session that
+writes files and then asks whether to commit has already made the decision,
+because a working tree it left dirty is one a Stop hook or a later turn will
+push to finish. Say what you would write and where; wait to be told.
+
+A brainstorm ends only when the person authorizes the work -- `Go merge`,
+"do it", "write it up", or anything else unambiguous. **Their answering a
+question inside the brainstorm is not authorization**, and neither is their
+enthusiasm for the idea.
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be
 installed, a tool that silently doesn't work, a path that does work) is

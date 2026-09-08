@@ -2108,3 +2108,24 @@ which is the failure this repointing exists to end — write
 
   `STYLEGUIDE.md` is unchanged, as recommended: it ships empty, it is project
   data, and it is not a rule at any level.
+
+44. <a id="small-calls-vs-brainstorm"></a>**`small-calls` tells a session to commit during a brainstorm, and it
+    outranks the practice that just landed to stop it.** Opened 2026-09-08
+    with [brainstorm-holds-commits](practices/brainstorm-holds-commits.md).
+    That practice is universal; `small-calls` is a **team** practice in
+    `precedent-team-maintainers`, and `PRECEDENCE` is
+    `team > repo-local > individual > universal`. The two do not collide by
+    slug, so both are in force and nothing reports a conflict — but a session
+    holding both reads *"Default to continuing, not asking… make the call and
+    note it"* alongside *"write nothing to the repository until they say
+    to."* Committing a captured open item is precisely the shape `small-calls`
+    calls small: cheap, reversible, keeps the work moving. That reading is
+    what produced the incident, twice in one thread, and the team rule wins
+    on precedence if anyone ever files them as a real conflict.
+
+    **The fix is one clause in `small-calls`, not a change here** — an
+    exception naming the brainstorm state, the same way its own Rule already
+    carves out credentials and production. **Blocked-on:** this session holds
+    **read-only** access to `precedent-team-maintainers`, so it is queued
+    rather than pushed (`cross-source-rollout`). Whoever takes it should also
+    check the individual set for the same shape.
