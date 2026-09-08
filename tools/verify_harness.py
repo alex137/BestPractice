@@ -30,6 +30,33 @@ import collections, json, os, pathlib, re, subprocess, sys
 # coverage is not weakened by it.
 os.environ.setdefault('PRECEDENT_ALLOW_ANY_AUTHOR', '1')
 
+# Same problem, opposite direction: the harness must OWN the identity its
+# fixtures assert on, instead of inheriting whatever the session exports.
+#
+# check_identity_reaches_a_repo_that_did_not_exist_yet builds a fixture in a
+# temporary HOME, sets a global identity inside it, and asserts that commits
+# made there used it. But GIT_AUTHOR_* outrank `git config --global user.*`,
+# so a session that exports them -- the individual practice set's
+# .claude/settings.json does -- authored every fixture commit as the real
+# person, and 4 of that check's 11 stated cases failed, none of them real.
+# Three failed in the confusing direction: a bot identity the fixture plants
+# in LOCAL config was never the author any more, so the refusal the case
+# waits for correctly did not fire, and a working backstop read as broken.
+#
+# Measured 2026-09-07, same tree, no code change: `1 failed` with the two
+# variables exported, `0 failed` under `env -u`. Dropped here, once, rather
+# than in the single fixture that happened to notice -- a fixture written
+# later would inherit the same invisible dependency and the same hour of
+# misdiagnosis. GIT_AUTHOR_DATE goes with them because the same check
+# asserts on the author-date offset, which that variable equally overrides.
+#
+# The GIT_COMMITTER_* trio is deliberately NOT dropped: nothing in this
+# harness or in commit-identity.sh reads the committer (the hook resolves
+# `git var GIT_AUTHOR_IDENT`), so removing them would be a guess at a
+# problem nobody has had.
+for _var in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_AUTHOR_DATE'):
+    os.environ.pop(_var, None)
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'

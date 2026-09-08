@@ -751,39 +751,44 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   on the clone — a later session running the harness will hit this again with
   no idea why.
 
-- **If the session environment EXPORTS `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL`,
-  [verify_harness.py](tools/verify_harness.py) fails a check about commit
-  identity, and the failure is an artefact of the fixture rather than a
-  defect in anything.** Same shape as the entry above — two gates wanting
-  opposite environments, neither saying so — and it costs the same hour,
-  because a failure whose name is *"the commit identity reaches a repo
-  attached after the hook ran"* reads exactly like the wrong-author
-  incidents that check exists to prevent. It is not one.
-  `check_identity_reaches_a_repo_that_did_not_exist_yet` builds its fixture
-  by copying `os.environ`, pointing `HOME` at a temporary directory, setting
-  a global identity inside it and then asserting that commits there used
-  that identity. It pops `PRECEDENT_ALLOW_ANY_AUTHOR`,
-  `PRECEDENT_COMMIT_EMAIL` and `PRECEDENT_COMMIT_TZ`, but NOT the two
-  `GIT_AUTHOR_*` variables — and those outrank `git config --global user.*`,
-  so every commit the fixture makes is authored by the session's real
-  identity instead of the fixture's. Measured in an isolated temp `HOME`,
-  2026-09-07: with the variables unset the commit is authored by the global
-  identity, with them set it is authored by the environment's, same
-  repository and same command. **Exactly 4 of that check's 11 stated cases
-  fail, and they are named** — *a repo created AFTER the hook commits as the
-  person*, *a bot-authored commit is refused there*, *and the refusal names
-  itself as the global backstop*, and *a correct commit is not blocked*.
-  Three of the four fail because a bot identity the fixture plants in local
-  config is never the author any more, so the refusal it is waiting for
-  correctly does not fire. No other check in the run is affected. This bites
-  in a session rooted in the individual practice set, whose
-  `.claude/settings.json` env block exports both variables; a session rooted
-  here does not export them and will see the check pass, which is why the
-  entry has to name the trigger rather than the symptom. Run it as `env -u
-  GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL python3 tools/verify_harness.py` and
-  the run comes back `0 failed` on an identical tree, with no code change.
-  Deliberately no pass COUNT here: those grow as checks are added, and this
-  section has already carried a hardcoded one that went stale.
+- **A test fixture that asserts on commit identity must OWN that identity,
+  or the session's environment silently becomes part of the test.** FIXED
+  2026-09-07 in [verify_harness.py](tools/verify_harness.py) and recorded
+  here for the story, not for a workaround -- if you hit it, your checkout
+  predates the fix. `check_identity_reaches_a_repo_that_did_not_exist_yet`
+  built its fixture by copying `os.environ`, pointing `HOME` at a temporary
+  directory, setting a global identity inside it and asserting that commits
+  there used it. It popped `PRECEDENT_ALLOW_ANY_AUTHOR`,
+  `PRECEDENT_COMMIT_EMAIL` and `PRECEDENT_COMMIT_TZ`, but NOT the
+  `GIT_AUTHOR_*` variables -- and those outrank `git config --global
+  user.*`. So in a session that exports them (the individual practice set's
+  `.claude/settings.json` does) every fixture commit was authored by the
+  real person, and **4 of that check's 11 stated cases failed, none of them
+  real**: *a repo created AFTER the hook commits as the person*, *a
+  bot-authored commit is refused there*, *and the refusal names itself as
+  the global backstop*, *a correct commit is not blocked*. **Three of the
+  four failed in the direction that wastes the hour** -- a bot identity the
+  fixture plants in LOCAL config was never the author any more, so the
+  refusal each case waits for correctly did not fire, and a working backstop
+  read as broken in a check whose name is *"the commit identity reaches a
+  repo attached after the hook ran"*. That is the wrong-author incident this
+  check exists to catch, so the failure impersonates the bug. Measured
+  2026-09-07, same tree, no code change: `1 failed` with the variables
+  exported, `0 failed` under `env -u`. **The fix drops the author trio once
+  at module scope**, beside the `PRECEDENT_ALLOW_ANY_AUTHOR` line that
+  solved the mirror-image problem, rather than in the one fixture that
+  happened to notice -- a fixture written later would inherit the same
+  invisible dependency. `GIT_AUTHOR_DATE` goes too (the same check asserts
+  on the author-date offset); `GIT_COMMITTER_*` deliberately does not,
+  because nothing here or in
+  [commit-identity.sh](.claude/hooks/commit-identity.sh) reads the
+  committer. Verified against the hostile case: with all three exported,
+  `GIT_AUTHOR_DATE` set to a `+0000` that would independently have broken
+  the timezone case, the run is `0 failed`. The reusable half is the first
+  sentence -- this is the second time an ambient variable turned a green
+  gate red here, after the `requireVocabulary` entry above, and both cost an
+  hour to the same shape: two mechanisms wanting opposite environments,
+  neither saying so.
 
 - **The individual source resolves to a clone you are probably not editing,
   and it can be many commits stale.** `~/.config/precedent/config.json`
