@@ -1761,21 +1761,42 @@ which is the failure this repointing exists to end — write
   same repository and asked anyway. That is now one statement in the place
   a session actually reads first.
 
-  **Still open, and unchanged:** what the keyword's ABSENCE means. He was
-  answering "what does the phrase mean", not "what should you do when I
-  have not said it", and the three readings above are all still live.
-  Do not treat the presence answer as settling this one — the incident that
-  opened this item was a push made with no authorization at all, which the
-  presence meaning does not speak to.
+  **The ABSENCE now has an INTERIM answer, and it is deliberately not a
+  rule.** Asked to choose between the three readings above, Morgan answered
+  2026-09-07: *"The session should use its judgment. Todo in the future to
+  make a hard rule, not that."* So until that rule exists, a session decides
+  for itself whether to push or merge without the keyword, owns the call,
+  and **does not ask him** — the asking is itself a cost he has named twice.
 
-  **Blocked on:** Morgan. This is a question about what he wants from his
-  own sessions, and it has no answer a session can derive from the
-  repository. Also still to do, and NOT doable from a session rooted in
-  this repository: mirroring the settled presence wording into the
-  `go-merge` practice in his individual set, so the private canonical text
-  and this public paraphrase cannot drift. The cross-owner `add_repo`
-  refusal blocks it in both directions (see [AGENTS.md](AGENTS.md)'s
-  cross-tier gotcha), so it needs a session rooted in that set.
+  **Read the second sentence as carefully as the first.** He wants a hard
+  rule eventually, and he ruled out "use judgment" as the content of it.
+  Judgment is the interim state, not the destination, so this item stays
+  OPEN. A later session must not close it by pointing at the interim answer
+  and calling the question settled — that would encode as permanent exactly
+  what he named as temporary.
+
+  This costs what the item said it would: the three readings note that
+  judgment is the one thing that does not make five sessions draw the same
+  line, which is why the incident happened. That cost is now accepted on
+  purpose rather than unnoticed.
+
+  **A fourth reading was offered and NOT chosen**, recorded so it is not
+  re-derived as new: *push always, merge only on the keyword* — the branch
+  and PR go up so the deep check runs and
+  [reply-links-files](practices/reply-links-files.md)'s links resolve, but
+  nothing lands without a word. It removes reading 1's cost and reading 2's
+  both, and needs no judgment about significance. He passed on it in favour
+  of judgment; it stays on the table for whoever writes the hard rule.
+
+  **Blocked on:** Morgan, for the hard rule only — the interim answer is
+  given and needs nothing further. It is a question about what he wants from
+  his own sessions and has no answer derivable from the repository. Also
+  still to do, and NOT doable from a session rooted in this repository:
+  mirroring the settled presence wording into the `go-merge` practice in his
+  individual set, so the private canonical text and this public paraphrase
+  cannot drift. The cross-owner `add_repo` refusal blocks it in both
+  directions (see [AGENTS.md](AGENTS.md)'s cross-tier gotcha), so it needs a
+  session rooted in that set.
 
 
 - <a id="blocklist-stem-not-full-name"></a>~~**Put the private consumer repo's NAME STEM into the leak blocklist, not

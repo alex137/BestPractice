@@ -42,12 +42,18 @@ knowledge was not even missing -- [TODO.md](TODO.md)'s
 this file told sessions to go ask. **Two documents disagreeing is worse than
 one being silent**: the silent one sends you to the person, the disagreeing
 pair sends you to the person while the answer sits in the repository. What
-the phrase's ABSENCE means is a different question and is still open -- see
-that same `push-without-the-keyword` item; do not read this paragraph as
-settling it. What the repository itself contributes is only the destination:
-an authorization to merge, in whatever words it arrives, means
-`precedent-beta-v01` per the paragraph above, and is not done until a fetch
-confirms the pushed content is actually there
+the phrase's ABSENCE means is a different question, and its interim answer
+is: **use judgment, and do not ask him.** Morgan, 2026-09-07, asked to
+choose between holding, pushing, and a line between them: *"The session
+should use its judgment. Todo in the future to make a hard rule, not that."*
+So a session without the keyword decides for itself and owns the call. **He
+wants a hard rule eventually and ruled out "use judgment" as its content**,
+so this is the interim state and not the destination -- [TODO.md](TODO.md)'s
+`push-without-the-keyword` item stays open for it, and must not be closed by
+pointing at this paragraph. What the repository itself contributes is only
+the destination: an authorization to merge, in whatever words it arrives,
+means `precedent-beta-v01` per the paragraph above, and is not done until a
+fetch confirms the pushed content is actually there
 ([verify-postcondition](practices/verify-postcondition.md)). The universal
 practice that used to sit here, `merge-authorization-keyword`, was retired
 on 2026-09-07: it was telling every adopting repository to go adopt a merge
