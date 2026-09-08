@@ -508,6 +508,187 @@ def _orphan_scan(repo_dir):
     return out
 
 
+def _last_commit(repo_dir, path):
+    """-> (unix timestamp, short hash, subject) for the newest commit
+    touching `path`, or None when git can name none.
+
+    None means "this history cannot answer", not "never changed": on the
+    --depth 1 clone a fresh session starts in, git log reaches exactly one
+    commit and every path older than it looks untouched. Callers report
+    that as UNKNOWN rather than folding it into "current"
+    (practice: fail-gracefully).
+    """
+    # _run_git returns (rc, stdout, stderr). Reading only stdout is the
+    # swallowed-exit-code shape AGENTS.md's gotchas record twice; here it
+    # also crashes outright, because the tuple has no .strip().
+    rc, out, _err = _run_git(repo_dir, 'log', '-1', '--format=%ct\t%h\t%s',
+                             '--', str(path))
+    if rc != 0 or not out.strip():
+        return None
+    parts = out.strip().split('\t', 2)
+    if len(parts) != 3 or not parts[0].isdigit():
+        return None
+    return int(parts[0]), parts[1], parts[2]
+
+
+def _spoken_commands(repo_dir):
+    """-> sorted [(phrase, slug)] for every active practice defining a phrase
+    that begins with a capital letter.
+
+    The capital is the whole test, and it is a convention rather than a
+    field: a `defines:` entry is either a term this catalogue names
+    ("capture gate", "negative control") or a phrase a person SAYS
+    ("Go merge", "Park it"). Only the second kind is capitalized, because
+    only the second kind is quoted back in a sentence. Measured against the
+    catalogue when this was written: 23 active practices define something,
+    4 of them capitalized, and those 4 are exactly the standing commands.
+    """
+    found = []
+    for sub in ('practices', 'local/practices'):
+        d = pathlib.Path(repo_dir) / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob('*.md')):
+            text = f.read_text(encoding='utf-8')
+            if not text.startswith('---'):
+                continue
+            fm = sp.parse_frontmatter_fields(text.split('---', 2)[1], decode=True)
+            if (fm.get('status') or 'active').strip() != 'active':
+                continue
+            defines = fm.get('defines') or []
+            if isinstance(defines, str):
+                defines = [defines]
+            for phrase in defines:
+                if isinstance(phrase, str) and phrase[:1].isupper():
+                    found.append((phrase, fm.get('slug', f.stem)))
+    return sorted(set(found))
+
+
+def _doc_currency(repo_dir):
+    """-> (findings, notes) for the documentation-currency sweep.
+
+    Three questions, in the order a reader cares about them:
+
+      1. STALE     -- a document whose subject moved after it did.
+      2. UNMENTIONED -- a phrase a person says that no document teaches.
+      3. UNREGISTERED -- a reader-facing document the registry never names,
+                       so nothing above could have checked it.
+
+    All three are REVIEW findings. A document older than its subject is
+    often perfectly correct -- the change may have altered nothing a reader
+    sees -- and no script can tell that from a real omission, which is why
+    this prints for a person instead of failing
+    (practice: change-updates-its-docs).
+    """
+    repo_dir = pathlib.Path(repo_dir)
+    reg_path = repo_dir / 'tools' / 'doc_coverage.json'
+    if not reg_path.is_file():
+        return [], ['no tools/doc_coverage.json here -- nothing declares what '
+                    'any document describes, so this sweep has nothing to '
+                    'compare. That is the normal state outside the upstream '
+                    'repository.']
+    try:
+        reg = json.loads(reg_path.read_text(encoding='utf-8'))
+    except ValueError as exc:
+        return [f'FINDING  tools/doc_coverage.json does not parse: {exc}'], []
+
+    findings, notes = [], []
+    documents = reg.get('documents', {})
+
+    for doc, spec in sorted(documents.items()):
+        if not (repo_dir / doc).is_file():
+            findings.append(f'FINDING  {doc} is in the registry and not in the '
+                            f'tree -- it moved or went, and nothing repointed '
+                            f'the registry')
+            continue
+        doc_commit = _last_commit(repo_dir, doc)
+        if doc_commit is None:
+            # Two different states, and folding them together reported a
+            # brand-new uncommitted document as a shallow-clone problem the
+            # first time this ran. `ls-files --error-unmatch` separates
+            # them: tracked-but-undateable is the shallow case, untracked
+            # is simply a document that has not been committed yet.
+            tracked = _run_git(repo_dir, 'ls-files', '--error-unmatch',
+                               '--', doc)[0] == 0
+            if tracked:
+                notes.append(f'{doc}: tracked, and this history cannot date '
+                             f'it (a shallow clone). UNKNOWN, not current.')
+            else:
+                notes.append(f'{doc}: not committed yet, so there is nothing '
+                             f'to compare against. It dates from its first '
+                             f'commit.')
+            continue
+        newer = []
+        for described in spec.get('describes', []):
+            if not (repo_dir / described).exists():
+                findings.append(f'FINDING  {doc} says it describes {described}, '
+                                f'which is not in the tree')
+                continue
+            sub = _last_commit(repo_dir, described)
+            if sub is None:
+                continue
+            if sub[0] > doc_commit[0]:
+                newer.append((described, sub))
+        if newer:
+            findings.append(
+                f'REVIEW   {doc}\n'
+                f'      last touched {_stamp(doc_commit[0])} ({doc_commit[1]} '
+                f'{doc_commit[2][:60]})\n'
+                f'      but its subject moved after that:')
+            for described, sub in sorted(newer, key=lambda t: -t[1][0]):
+                findings[-1] += (f'\n        {described} -- {_stamp(sub[0])} '
+                                 f'({sub[1]} {sub[2][:60]})')
+            findings[-1] += (f'\n      Read the document against those commits. '
+                             f'If nothing a reader sees\n      changed, say so '
+                             f'and move on -- this is a prompt, not a verdict.')
+
+    # -- 2. every spoken command reaches the page that teaches them --------
+    rules = reg.get('must_mention', {})
+    for doc, spec in sorted(documents.items()):
+        rule = spec.get('must_mention')
+        if rule != 'spoken-commands' or not (repo_dir / doc).is_file():
+            continue
+        text = (repo_dir / doc).read_text(encoding='utf-8')
+        commands = _spoken_commands(repo_dir)
+        missing = [(p, s) for p, s in commands if p.lower() not in text.lower()]
+        if missing:
+            findings.append(
+                f'FINDING  {doc} is the page that teaches the command '
+                f'vocabulary, and\n      {len(missing)} command(s) a person '
+                f'is expected to say are not in it:')
+            for phrase, slug in missing:
+                findings[-1] += f'\n        "{phrase}"  (practices/{slug}.md)'
+            why = rules.get('spoken-commands', {}).get('why', '')
+            if why:
+                findings[-1] += f'\n      {why}'
+        elif commands:
+            notes.append(f'{doc}: all {len(commands)} spoken command(s) '
+                         f'appear -- {", ".join(p for p, _ in commands)}.')
+
+    # -- 3. a reader-facing document nothing in the registry names ---------
+    doc_dir = repo_dir / 'documentation'
+    if doc_dir.is_dir():
+        for f in sorted(doc_dir.glob('*.md')):
+            rel = f.relative_to(repo_dir).as_posix()
+            if rel not in documents:
+                findings.append(
+                    f'FINDING  {rel} is reader-facing and the registry does '
+                    f'not name it,\n      so nothing above could tell whether '
+                    f'it has gone stale. Add it to\n      '
+                    f'tools/doc_coverage.json with what it describes.')
+    return findings, notes
+
+
+def _stamp(unix_ts):
+    """-> 'YYYY-MM-DD' for a unix timestamp, in UTC.
+
+    One formatter for this quantity, declared once
+    (practice: one-formatter-per-quantity).
+    """
+    import datetime
+    return datetime.datetime.utcfromtimestamp(unix_ts).strftime('%Y-%m-%d')
+
+
 def _template_freshness(sources):
     """-> [str] what every real source of a level has and its skeleton does not.
 
@@ -1571,6 +1752,22 @@ def main():
         print("  none -- no retired engine file left behind, no manifest "
               "entry the\n  current kind dropped, no unrecorded engine "
               "file, and no check\n  script whose practice is gone.")
+    print()
+
+    print("DOCUMENTATION CURRENCY -- what changed, against what still says "
+          "it is true\n")
+    _doc_find, _doc_notes = _doc_currency(repo_root)
+    for _n in _doc_notes:
+        print(f"  note: {_n}")
+    if _doc_notes and _doc_find:
+        print()
+    for _f in _doc_find:
+        print(f"  {_f}")
+    if not _doc_find:
+        print("  none -- every registered document is at least as new as the "
+              "things it\n  describes, every spoken command reaches the page "
+              "that teaches them, and\n  no reader-facing document is "
+              "missing from the registry.")
     print()
 
     # UNLANDED WORK, printed BEFORE the checklist rather than with the rest

@@ -1,0 +1,100 @@
+{
+  "_note": [
+    "READER-FACING DOCUMENTS AND WHAT EACH ONE DESCRIBES.",
+    "",
+    "practice: change-updates-its-docs. A change to a mechanism is supposed",
+    "to update the document that describes that mechanism in the SAME",
+    "commit. This registry is what makes the omission findable afterwards:",
+    "very_deep_check.py compares each document's last commit against the",
+    "last commit touching anything in its `describes` list, and reports the",
+    "ones the world moved out from under.",
+    "",
+    "It is a REVIEW list, never a gate. A document can legitimately be older",
+    "than the code it describes -- the change may not have altered anything",
+    "a reader sees. No script can tell those apart, which is exactly why the",
+    "finding is printed for a person instead of failing a build",
+    "(practice: fail-gracefully).",
+    "",
+    "`describes` holds paths, not globs: a file or a directory, matched by",
+    "git log the same way either way. Keep each list SHORT and specific --",
+    "a list that names half the repository reports every document as stale",
+    "every run, which is the same as reporting nothing.",
+    "",
+    "`must_mention` is the other half, and it is the tighter one: a phrase a",
+    "person is expected to SAY has to appear, literally, in the document",
+    "they would learn it from. Nothing else in the tree checks that a",
+    "feature reached a human at all."
+  ],
+  "documents": {
+    "documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md": {
+      "describes": [
+        "practices/go-merge.md",
+        "practices/park-it.md",
+        "practices/three-things.md",
+        "practices/vendor-update-runbook.md",
+        "practices/very-deep-check.md"
+      ],
+      "why": "It teaches the standing command vocabulary. A command whose meaning changes, or a new one landing, changes what this page has to say.",
+      "must_mention": "spoken-commands"
+    },
+    "documentation/HOW_TO_USE_THIS_NONTECHNICAL.md": {
+      "describes": [
+        "practices/disclose-landing.md",
+        "practices/layered-practice-packs.md",
+        "spec/CANDIDATE_FORMAT.md",
+        "spec/MOVING_PRACTICES.md"
+      ],
+      "why": "It walks a non-developer through how an idea becomes a rule, who approves it, and how a rule moves between levels."
+    },
+    "documentation/HOW_TO_USE_THIS_TECHNICAL.md": {
+      "describes": [
+        "spec/LOADER.md",
+        "spec/ENFORCEMENT.md",
+        "spec/CANDIDATE_FORMAT.md",
+        "tools/precedent_gate.py",
+        "tools/precedent_paths.py",
+        "tools/precedent_show.py"
+      ],
+      "why": "It is the developer-facing account of the four loader channels and the enforced channel, plus the commands that read them."
+    },
+    "documentation/WHAT_IS_THIS_AND_BENEFITS.md": {
+      "describes": [
+        "README.md",
+        "PRACTICE_ENGINE_PLAN.md"
+      ],
+      "why": "It is the pitch. It goes stale when the project's own account of what it is changes."
+    },
+    "INSTALL.md": {
+      "describes": [
+        "templates",
+        "tools/precedent_bootstrap_source.py",
+        "tools/precedent_vendor_engine.py",
+        "precedent.json"
+      ],
+      "why": "It is the step-by-step install, and every step of it names a template, a tool invocation, or a config key."
+    },
+    "SETUP.md": {
+      "describes": [
+        "tools/precedent_bootstrap_source.py",
+        "templates/practice-set-individual",
+        "templates/practice-set-team"
+      ],
+      "why": "It is the conversational front door to the same install, so it drifts from INSTALL.md's mechanics rather than from the code directly."
+    },
+    "ADOPTING.md": {
+      "describes": [
+        "spec/SOURCES.md",
+        "spec/BOOTSTRAP_NEW_SOURCES.md",
+        "spec/SOURCE_NAMING.md"
+      ],
+      "why": "It explains the three-source model to someone deciding whether to adopt it; the source model changing is what dates it."
+    }
+  },
+  "must_mention": {
+    "spoken-commands": {
+      "rule": "Every active practice whose `defines:` list carries a phrase beginning with a capital letter is a phrase a PERSON says out loud. It has to appear, verbatim, in the document that claims to teach the vocabulary.",
+      "why": "A command nobody was told about is a command nobody uses. This is the one mechanical answer to 'is the feature documented where a human reads?' -- the rest of that question needs a person, and gets one every very deep check.",
+      "story": "Raised by Morgan 2026-09-08, in the same message that asked for the day-to-day guide: 'this should also check to make sure the features that are important for humans to know are documented.'"
+    }
+  }
+}

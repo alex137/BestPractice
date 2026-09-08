@@ -13,7 +13,7 @@ visible instead of reading as a pass.
 Run:  python3 tools/verify_harness.py
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
-import collections, hashlib, json, os, pathlib, re, subprocess, sys
+import collections, hashlib, json, os, pathlib, re, subprocess, sys, time
 
 # A FIXTURE COMMIT IS NOT A PERSON'S COMMIT. Since 2026-09-07 the commit
 # identity hook installs a backstop at core.hooksPath -- global, because that
@@ -12062,6 +12062,168 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
           '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
 
 
+def check_doc_currency_finds_a_stale_document():
+    """The documentation-currency sweep must find a document its subject
+    outran, and must not invent one (practice: change-updates-its-docs).
+
+    WHY EACH CASE IS HERE. The sweep is the backstop for a rule that lives
+    in a person's habits, so a version of it that always says "none" is
+    indistinguishable from a repository whose documents are all current --
+    and would be believed, because that is the reassuring answer.
+
+    THE ONE THAT MATTERS IS CASE 2, and it is built with the commits in a
+    deliberate order: the document is committed FIRST, the thing it
+    describes SECOND. Reverse those two and every implementation passes,
+    including one that never compares timestamps at all. Case 1 is the
+    unplanted control for it -- the same fixture with the second commit
+    absent -- and case 1 alone does NOT discriminate, for the same reason.
+
+    CASE 3 covers the half that fails silently in the real world: a spoken
+    command nobody wrote down. The fixture plants a practice defining a
+    capitalized phrase and a page that does not contain it. A run that only
+    checks timestamps passes cases 1 and 2 and fails this one.
+
+    CASE 6 is the shallow-clone reflex this repository has been bitten by
+    four times: an unanswerable history must read UNKNOWN, never "current".
+    """
+    import tempfile
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        'vdc_doc', ROOT / 'tools' / 'very_deep_check.py')
+    vdc = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec.loader.exec_module(vdc)
+    finally:
+        sys.path.pop(0)
+
+    if not hasattr(vdc, '_doc_currency'):
+        check('the documentation-currency sweep discriminates '
+              '(0 of 7 stated cases reached)', False,
+              'very_deep_check.py has no _doc_currency -- nothing compares a '
+              'document against what it describes')
+        return
+
+    def git(cwd, *args, check_rc=True):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True, env=env)
+        if check_rc and r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    def build(tmp, with_later_change, page_text, practice_text):
+        repo = pathlib.Path(tmp) / 'repo'
+        (repo / 'documentation').mkdir(parents=True)
+        (repo / 'practices').mkdir()
+        (repo / 'tools').mkdir()
+        git(repo.parent, 'init', '-q', str(repo))
+        git(repo, 'config', 'user.email', 'harness@example.com')
+        git(repo, 'config', 'user.name', 'Fixture')
+        (repo / 'practices' / 'zzz-command.md').write_text(
+            practice_text, encoding='utf-8')
+        (repo / 'tools' / 'doc_coverage.json').write_text(json.dumps({
+            'documents': {
+                'documentation/PAGE.md': {
+                    'describes': ['practices/zzz-command.md'],
+                    'why': 'fixture',
+                    'must_mention': 'spoken-commands',
+                },
+            },
+            'must_mention': {'spoken-commands': {'why': 'fixture'}},
+        }), encoding='utf-8')
+        (repo / 'documentation' / 'PAGE.md').write_text(page_text,
+                                                        encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'page and practice together')
+        if with_later_change:
+            # The ONLY thing that separates case 1 from case 2, and it has to
+            # be a genuinely later commit: --date alone does not move %ct.
+            time.sleep(1.1)
+            (repo / 'practices' / 'zzz-command.md').write_text(
+                practice_text + '\nA later change nobody wrote up.\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'change the practice, leave the page')
+        return repo
+
+    GOOD_PRACTICE = (
+        '---\nslug:        zzz-command\ntitle:       A command\n'
+        'tier:        on-demand\nseverity:    default\n'
+        'applies_to:  ["**"]\noccasion:    "testing"\n'
+        'index_clause: "a fixture"\nchecked_by:  null\n'
+        'defines:     ["Zorp It"]\nstatus:      active\nsupersedes:  []\n'
+        'overrides:   null\nadded:       null\napproved_by: "fixture"\n'
+        '---\n\n## Rule\nSay it.\n')
+    PAGE_WITH = '# Page\n\nSay **Zorp It** to do the thing.\n'
+    PAGE_WITHOUT = '# Page\n\nThis page teaches you nothing.\n'
+
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, False, PAGE_WITH, GOOD_PRACTICE)
+        found, notes = vdc._doc_currency(repo)
+        cases.append(('a page committed WITH its subject reports no REVIEW',
+                      not any('REVIEW' in f for f in found),
+                      str(found)[:400]))
+        cases.append(('and the spoken command it does carry is reported as '
+                      'present, not silently skipped',
+                      any('Zorp It' in n for n in notes), str(notes)[:400]))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, True, PAGE_WITH, GOOD_PRACTICE)
+        found, _notes = vdc._doc_currency(repo)
+        review = [f for f in found if 'REVIEW' in f]
+        cases.append(('a page whose subject changed AFTER it reports REVIEW',
+                      len(review) == 1, str(found)[:400]))
+        cases.append(('and the finding names the commit that outran it, so a '
+                      'reader can go and look',
+                      bool(review) and 'change the practice, leave the page'
+                      in review[0], str(review)[:400]))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, False, PAGE_WITHOUT, GOOD_PRACTICE)
+        found, _notes = vdc._doc_currency(repo)
+        cases.append(('a spoken command missing from the page that teaches '
+                      'the vocabulary is a FINDING, even with every '
+                      'timestamp current',
+                      any('Zorp It' in f and 'FINDING' in f for f in found),
+                      str(found)[:400]))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # An empty repository: git can date nothing. UNKNOWN, never current.
+        repo = pathlib.Path(tmp) / 'bare'
+        (repo / 'documentation').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        git(repo.parent, 'init', '-q', str(repo))
+        (repo / 'tools' / 'doc_coverage.json').write_text(json.dumps({
+            'documents': {'documentation/PAGE.md': {
+                'describes': [], 'why': 'fixture'}}}), encoding='utf-8')
+        (repo / 'documentation' / 'PAGE.md').write_text('# Page\n',
+                                                        encoding='utf-8')
+        found, notes = vdc._doc_currency(repo)
+        cases.append(('a document git cannot date reads as UNKNOWN or '
+                      'uncommitted, never as current',
+                      any('documentation/PAGE.md' in n for n in notes),
+                      str(notes)[:400]))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp) / 'noreg'
+        repo.mkdir()
+        found, notes = vdc._doc_currency(repo)
+        cases.append(('a repository with no registry says so and finds '
+                      'nothing, rather than crashing',
+                      found == [] and any('doc_coverage.json' in n
+                                          for n in notes),
+                      str((found, notes))[:400]))
+
+    ok = all(c[1] for c in cases)
+    check(f'the documentation-currency sweep discriminates '
+          f'({len(cases)} stated cases, each built so a sweep that skipped '
+          f'the comparison would fail it)', ok,
+          '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
+
+
 def check_template_freshness_reads_the_skeleton_correctly():
     """The reverse-direction skeleton check must not invent gaps, and must
     not call one repo's habit a finding (practice: very-deep-check).
@@ -12283,6 +12445,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
+    check_doc_currency_finds_a_stale_document()
     check_template_freshness_reads_the_skeleton_correctly()
     check_withdrawn_table_never_links_a_successor_it_does_not_have()
     check_source_precedence()

@@ -210,6 +210,9 @@ as landing one.
 
 ## Where to Go Next
 
+[HOW_TO_USE_THIS_DAY_TO_DAY.md](HOW_TO_USE_THIS_DAY_TO_DAY.md) for the
+working habits and the standing command vocabulary — short, and worth
+reading even if everything above was obvious.
 [INSTALL.md](../INSTALL.md) for wiring this into a project.
 [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) for the full design
 and reasoning behind all of the above. [spec/CANDIDATE_FORMAT.md](../spec/CANDIDATE_FORMAT.md)

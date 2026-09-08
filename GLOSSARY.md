@@ -30,6 +30,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
+| Three Things | [three-things](practices/three-things.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 

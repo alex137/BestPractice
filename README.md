@@ -22,6 +22,10 @@ the pitch, then jump to the how-to guide for your situation:
 [technical](documentation/HOW_TO_USE_THIS_TECHNICAL.md) or
 [non-technical](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md).
 
+**Already set up and just want the daily habits?** [How to Use This Day to
+Day](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md) — four habits and the
+handful of phrases the assistant is guaranteed to recognize.
+
 ## The Philosophy Behind This Project
 
 Precedent is one working expression of a broader philosophy about how
