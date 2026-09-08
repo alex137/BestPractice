@@ -1016,6 +1016,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_retire.py': "Stage 6 (phase 5) — the periodic removal report; proposes, never acts",
     'precedent_session_practices.py': "Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed",
     'precedent_session_check.py': "Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did",
+    'precedent_upstream_check.py': "Says whether the upstream branch has moved since the last commit carried onto this one, comparing against tools/upstream_watermark.json rather than git ancestry -- this branch carries `main` instead of merging it, so an ancestry test reports a permanent, meaningless gap; prints and never merges, and `--record` moves the watermark after a carry",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_simulate.py': "One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log",
     'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
