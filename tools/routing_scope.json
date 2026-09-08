@@ -642,6 +642,28 @@
       ],
       "gates_why": "The obligation lands in the reply: mark the item this turn, say which one, ask nothing back."
     },
+    "three-things": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate.",
+      "decided": "2026-09-08, when the practice landed at universal",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The whole obligation is the shape of one reply: three items, a bold phrase and at most two sentences each, and nothing around them."
+    },
+    "change-updates-its-docs": {
+      "globs": [
+        "**"
+      ],
+      "why": "Any change can have a reader-facing half -- a tool, a template, a config key, a practice. No glob narrower than everything describes \"the thing some document describes\", and a narrower one would silently exempt whichever kind of file nobody thought of.",
+      "decided": "2026-09-08, when the practice landed",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "The merge is the last moment the document and the change can still land in the same commit, which is the whole rule."
+    },
     "filename-separator": {
       "globs": [
         "**"

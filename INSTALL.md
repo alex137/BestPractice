@@ -9,7 +9,9 @@ with it looks like once it's installed, see
 [documentation/HOW_TO_USE_THIS_TECHNICAL.md](documentation/HOW_TO_USE_THIS_TECHNICAL.md)
 if you're technical, or
 [documentation/HOW_TO_USE_THIS_NONTECHNICAL.md](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md)
-if you're not — and
+if you're not;
+[documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md)
+is the short version of both, for someone who is already set up — and
 [documentation/WHAT_IS_THIS_AND_BENEFITS.md](documentation/WHAT_IS_THIS_AND_BENEFITS.md) if you
 haven't decided to adopt it yet.
 

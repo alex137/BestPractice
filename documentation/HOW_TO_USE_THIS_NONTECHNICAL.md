@@ -98,8 +98,10 @@ assistant's, stops at a wall instead of reaching anyone else.
 
 ## Learn More
 
-[What This Is (and Why Explore Using
-Precedent)](WHAT_IS_THIS_AND_BENEFITS.md) for the bigger picture.
+[How to Use This Day to Day](HOW_TO_USE_THIS_DAY_TO_DAY.md) is the
+companion to this page: this one is how an idea becomes a rule, that one
+is what an ordinary working day looks like. [What This Is (and Why Explore
+Using Precedent)](WHAT_IS_THIS_AND_BENEFITS.md) for the bigger picture.
 [INSTALL.md](../INSTALL.md) if the project isn't set up yet. If you ever
 want the fuller technical version of this page:
 [HOW_TO_USE_THIS_TECHNICAL.md](HOW_TO_USE_THIS_TECHNICAL.md).

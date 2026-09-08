@@ -177,6 +177,7 @@ PowerPoint deck goes in at the start and comes back out at the end.
 
 The philosophy behind all of this lives in
 [philosophy/](../philosophy/). For how to actually use Precedent: [a technical
-how-to](HOW_TO_USE_THIS_TECHNICAL.md) or [a non-technical
-how-to](HOW_TO_USE_THIS_NONTECHNICAL.md) — or explore [this
+how-to](HOW_TO_USE_THIS_TECHNICAL.md), [a non-technical
+how-to](HOW_TO_USE_THIS_NONTECHNICAL.md), or — once it is running — [the
+day-to-day habits](HOW_TO_USE_THIS_DAY_TO_DAY.md). Or explore [this
 repo](https://github.com/alex137/BestPractice).

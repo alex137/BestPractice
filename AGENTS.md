@@ -77,6 +77,16 @@ can carry — is
 whose one line is: **an item with no disposition is `wait`, and a session
 raises an item with him only if the item says `ask`.**
 
+**A fourth command, "Three Things"**, is defined universally in
+[practices/three-things.md](practices/three-things.md) and asks for the three
+most important things the person needs to know now — each a bolded phrase and
+at most two sentences, and nothing around them: no preamble, no fourth item,
+no closing offer. It is the one command here that asks for **attention rather
+than action**, so a session that has not actually read the repository cannot
+answer it, and an answer assembled from whatever is already in context is the
+failure it exists to prevent. Coined by Morgan on 2026-09-08 and placed at
+universal from the start.
+
 **A third command, "Update Vendors"**, triggers
 [practices/vendor-update-runbook.md](practices/vendor-update-runbook.md) —
 the fixed sequence for taking an upstream update, starting with making the
@@ -132,7 +142,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~552 of 2000 token budget, 8 of 80 practices (8 universal))
+## Resident block (~552 of 2000 token budget, 8 of 82 practices (8 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -202,6 +212,8 @@ When a person explicitly asks for a full practice audit (or "practice check") ac
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
 When a person says "Park it" about an open item or a question:
   park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
+When a person says "Three Things":
+  three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a practice lands or a candidate is raised, at any level:
   disclose-landing — state plainly what happened and where — individual, named team, or universal
 When a review finds a defect:
@@ -224,6 +236,8 @@ When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
 When building or committing a generated artifact:
   generated-artifact-provenance — stamp a build code and a manifest; never hand-edit output
+When changing a mechanism, a workflow or a behaviour that some document describes:
+  change-updates-its-docs — update the document that describes it, in the same commit -- never later
 When checking whether the practices that should have fired for recent work actually fired:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
 When committing anything that touches the vendored/public tree:
@@ -382,6 +396,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
 | Precedent explained for someone adopting it (not a developer) | [ADOPTING.md](ADOPTING.md) |
 | Public-facing pitch and how-to guides, for people outside the project (marketing, technical how-to, non-technical how-to) | [documentation/](documentation/) |
+| What a normal working day looks like once Precedent is installed — the four habits and the standing command vocabulary, for someone who is not a developer | [documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md) |
 | The theory this project is built on — the essays, the brainstorm, the rules being tried in real work, and what is still unsettled. **The only copy; argument, not rules that bind anything here** | [philosophy/](philosophy/), start at [philosophy/README.md](philosophy/README.md) |
 | Why `philosophy/` binds nothing outside itself, and the checks that hold that line | [local/practices/philosophy-is-not-repo-policy.md](local/practices/philosophy-is-not-repo-policy.md), [local/practices/philosophy-declares-its-source.md](local/practices/philosophy-declares-its-source.md) |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |

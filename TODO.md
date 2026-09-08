@@ -2021,3 +2021,62 @@ which is the failure this repointing exists to end — write
   hundreds of times and defined nowhere.
 
   **Disposition:** wait
+
+- <a id="voice-and-styleguide-as-practices"></a>**Decide whether `VOICE.md`
+  and `STYLEGUIDE.md` should become practices instead of local-only files.**
+  Morgan, 2026-09-08: *"We have VOICE and STYLE documents; but those are
+  inherited from the older RPP approach. Maybe its better that those take the
+  form of practices that are in the team docs."*
+
+  **The two files are not the same case, and the answer differs for each.**
+
+  `VOICE.md` ships from
+  [templates/VOICE.md.template](templates/VOICE.md.template) with **205
+  lines of default content, unchanged**, to every project. It is generic
+  writing guidance — selectivity, length, openings and endings, a banned-word
+  list — and it is a practice in everything but format.
+
+  - **For converting it.** It duplicates
+    [write-like-a-human](practices/write-like-a-human.md), which is universal
+    and resident: both say no throat-clearing opener, no summary nobody
+    asked for, no caveat stack. Two statements of one rule drift.
+  - **The strongest argument, and it is mechanical:** `VOICE.md` is declared
+    LOCAL ONLY and never travels back upstream
+    ([INSTALL.md](INSTALL.md) §3 and §4 both exempt it). So **every
+    improvement anyone ever makes to it is stranded in the project that made
+    it** — the precise failure
+    [practice-export-loop](practices/practice-export-loop.md) exists to
+    prevent. The template can only improve by someone editing it here, in a
+    repository the person who noticed the problem is probably not in.
+  - **Against converting it.** The local-only decision was deliberate, not an
+    oversight: the routing evals record it as a
+    [layered-practice-packs](practices/layered-practice-packs.md) call —
+    a project's voice is its identity, and identity does not belong in a
+    shared catalogue. That reasoning holds for the *project-specific* slice
+    and not for the generic 90%.
+  - **On "team docs" specifically:** a team's house style is real and belongs
+    at team level, but a project's voice is not its team's voice — a book
+    project's voice belongs to the book, whoever writes it. So the honest
+    split is three-way, not two: **universal** for the generic writing rules,
+    **team** for a team's house style, **repo-local** for a project's own
+    voice target and its own overrides.
+
+  `STYLEGUIDE.md` ships **empty**. It is a slot for hex codes, a logo path,
+  font names. That is project data, never a rule at any level, and it should
+  stay exactly where it is. What it may deserve is a practice *naming* it —
+  "read the style guide before generating anything visual" — which is a much
+  smaller change.
+
+  **Recommendation:** convert `VOICE.md`'s generic content into the universal
+  catalogue (most likely by growing `write-like-a-human` into a small family
+  rather than one enormous practice), shrink the template to the
+  project-specific overrides only, and leave `STYLEGUIDE.md` alone. Not done
+  on the day it was raised because it touches [INSTALL.md](INSTALL.md),
+  [SETUP.md](SETUP.md), the manifest's local-only registry and every
+  dependent repo's instantiated copy — and because it was asked as a
+  question, not an instruction.
+
+  **Disposition:** ask (2026-09-08, Morgan)
+
+  He raised it as a question, so the decision is his and a session may put it
+  back to him. One word settles it; nothing else blocks the work.
