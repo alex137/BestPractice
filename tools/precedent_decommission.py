@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""precedent_retire_path.py — the double-check that has to pass before a
+"""precedent_decommission.py — the double-check that has to pass before a
 deprecated file or directory is deleted, and the deletion itself.
 
-(practice: retirement-deletes-files)
+(practice: decommission-deletes-files)
 
-WHY THIS EXISTS. Retiring a mechanism -- a scheduled workflow, a tool, a
+WHY THIS EXISTS. Decommissioning a mechanism -- a scheduled workflow, a tool, a
 vendored tree, a config -- leaves files behind that exist only to serve it.
 Nothing forces anyone to delete them, and "leave it, it's harmless" is
 always the cheaper answer in the moment, so they accumulate for years until
 nobody left can say which of them still do anything. The rule
-(practices/retirement-deletes-files.md) is that the files go in the same
-change that retires the mechanism. This tool is what makes obeying it safe:
+(practices/decommission-deletes-files.md) is that the files go in the same
+change that decommissions the mechanism. This tool is what makes obeying it safe:
 deleting on a hunch is how a live dependency gets cut, so the rule is
 deliberately not "delete when you are confident" but "delete when a
 mechanical audit says nothing points at it any more."
@@ -24,7 +24,7 @@ WHAT IT CHECKS, AND WHY EACH ONE BLOCKS.
 
   tracked        An untracked or already-absent path has no deletion to
                  make. Reported, never "deleted" -- claiming a no-op
-                 succeeded is how a retirement gets recorded as done
+                 succeeded is how a decommissioning gets recorded as done
                  without having happened.
   references     Any tracked file that still mentions the path (or its
                  basename, where that basename is distinctive enough to
@@ -35,9 +35,9 @@ WHAT IT CHECKS, AND WHY EACH ONE BLOCKS.
                  failing on a branch that is already broken.
   live trigger   A .github/workflows/ file whose `on:` block still carries
                  any trigger other than workflow_dispatch blocks. A
-                 retirement must never be the first thing that stops a
+                 decommissioning must never be the first thing that stops a
                  running job: pause the schedule, let a cycle pass, THEN
-                 retire. Deleting a live workflow means its next failure is
+                 decommission. Deleting a live workflow means its next failure is
                  silent, and a silent absence is the failure mode this whole
                  practice exists to prevent.
   dirty          A target with uncommitted modifications blocks. Everything
@@ -45,7 +45,7 @@ WHAT IT CHECKS, AND WHY EACH ONE BLOCKS.
                  file forever -- and uncommitted content is the one thing
                  deletion destroys outright.
 
-A reference match is a plain substring, deliberately, so retiring
+A reference match is a plain substring, deliberately, so decommissioning
 `docs.yml` also blocks on a line naming `bestpractice-docs.yml`. That is a
 false positive in the safe direction, and tightening it to a word boundary
 would trade a look at one printed line for the chance of clearing a path
@@ -62,10 +62,10 @@ That judgment stays a person's, which is why the report prints the evidence
 rather than only a verdict.
 
 Usage:
-  precedent_retire_path.py PATH [PATH...]            # audit only, always start here
-  precedent_retire_path.py PATH --reason "..." --apply
+  precedent_decommission.py PATH [PATH...]            # audit only, always start here
+  precedent_decommission.py PATH --reason "..." --apply
                                                      # git rm + record it
-  precedent_retire_path.py --list                    # what this repo has retired
+  precedent_decommission.py --list                    # what this repo has decommissioned
 
 Exit 0 when every path audited clean (or was applied), 1 when any blocked.
 """
@@ -78,7 +78,7 @@ import re
 import subprocess
 import sys
 
-REGISTRY = 'process/retired_paths.json'
+REGISTRY = 'process/decommissioned_paths.json'
 
 # A basename this generic means a different file in every directory, so a
 # basename search on it reports the whole repo. The full path is still
@@ -94,8 +94,8 @@ GENERIC_BASENAMES = {
 
 # Never scanned for references: a vendored mirror is a different repo's
 # tree, byte-identical by contract, and a reference inside it is not this
-# repo's to repoint. The registry itself names every retired path by
-# design -- scanning it would make every retirement block on its own record.
+# repo's to repoint. The registry itself names every decommissioned path by
+# design -- scanning it would make every decommissioning block on its own record.
 SCAN_SKIP_PREFIXES = ('process/upstream/', '.git/')
 
 
@@ -118,7 +118,7 @@ def _require_root():
         r = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
                            capture_output=True, text=True)
         if r.returncode != 0:
-            sys.exit('precedent_retire_path: not inside a git repository -- '
+            sys.exit('precedent_decommission: not inside a git repository -- '
                      'this tool audits a tracked tree, so there is nothing '
                      'to run it against here')
         ROOT = pathlib.Path(r.stdout.strip())
@@ -126,22 +126,22 @@ def _require_root():
 
 
 def load_registry():
-    """The retirement record, or an empty one. A malformed registry is an
+    """The decommissioning record, or an empty one. A malformed registry is an
     error, never an empty default: silently treating it as empty would let
-    a typo erase every retirement this repo has recorded."""
+    a typo erase every decommissioning this repo has recorded."""
     p = ROOT / REGISTRY
     if not p.is_file():
-        return {'retired': [], 'exempt_files': []}
+        return {'decommissioned': [], 'exempt_files': []}
     try:
         cfg = json.loads(p.read_text(encoding='utf-8'))
     except json.JSONDecodeError as e:
-        sys.exit(f'precedent_retire_path: {REGISTRY} is not valid JSON ({e}) '
-                 f'-- fix it before retiring anything, or a retirement will '
+        sys.exit(f'precedent_decommission: {REGISTRY} is not valid JSON ({e}) '
+                 f'-- fix it before decommissioning anything, or a decommissioning will '
                  f'be recorded into a file nothing can read')
     if not isinstance(cfg, dict):
-        sys.exit(f'precedent_retire_path: {REGISTRY} must be a JSON object '
-                 f'with a "retired" list, not a {type(cfg).__name__}')
-    cfg.setdefault('retired', [])
+        sys.exit(f'precedent_decommission: {REGISTRY} must be a JSON object '
+                 f'with a "decommissioned" list, not a {type(cfg).__name__}')
+    cfg.setdefault('decommissioned', [])
     cfg.setdefault('exempt_files', [])
     return cfg
 
@@ -163,7 +163,7 @@ def tracked_files():
 
 def _targets_under(path, tracked):
     """Every tracked file the deletion would actually remove. A directory is
-    expanded rather than judged as one entry: retiring `process/personal`
+    expanded rather than judged as one entry: decommissioning `process/personal`
     has to answer for every reference to `process/personal/README.md` too,
     and a directory-level search alone would never see one."""
     if path in tracked:
@@ -271,15 +271,15 @@ def live_workflow_triggers(rel):
 
 
 def audit(path, exempt, siblings=()):
-    """`siblings` are the OTHER paths being retired in this same invocation.
+    """`siblings` are the OTHER paths being decommissioned in this same invocation.
 
     They matter because a reference from a file that is itself about to be
-    deleted is not a reason to refuse. Retiring `process/personal` and
+    deleted is not a reason to refuse. Decommissioning `process/personal` and
     `process/manifest_personal.json` together, every file in the tree names
     the manifest and the manifest names the tree -- so auditing each path
     alone reported eighteen blockers, all of them mutual references between
     two things going in the same commit, and there was no flag to get past
-    it. Found 2026-09-07 doing exactly that retirement for real.
+    it. Found 2026-09-07 doing exactly that decommissioning for real.
 
     The fix is narrow on purpose: only paths named in THIS invocation are
     forgiven. A reference from a file nobody is deleting still blocks, which
@@ -305,7 +305,7 @@ def audit(path, exempt, siblings=()):
             f'nothing that was never committed')
 
     # Everything going in this invocation, so a mutual reference between
-    # two paths being retired together is not read as a survivor.
+    # two paths being decommissioned together is not read as a survivor.
     hits, skipped = find_references([rel] + [s.rstrip('/') for s in siblings],
                                     exempt)
     for h in hits:
@@ -325,7 +325,7 @@ def audit(path, exempt, siblings=()):
                     f'{t} is still live -- its `on:` block carries '
                     f'{", ".join(live)}. Pause it (comment the trigger out, '
                     f'leave workflow_dispatch) and let a cycle pass before '
-                    f'retiring it, so the retirement is never the first '
+                    f'decommissioning it, so the decommissioning is never the first '
                     f'thing that stops a running job')
 
     last = _git('log', '-1', '--format=%h %ad %s', '--date=short', '--', rel)
@@ -337,12 +337,12 @@ def audit(path, exempt, siblings=()):
 def apply_retirement(paths, reason, cfg):
     r = _git('rm', '-r', '-q', '--', *paths)
     if r.returncode != 0:
-        sys.exit(f'precedent_retire_path: git rm failed ({r.stderr.strip()}) '
+        sys.exit(f'precedent_decommission: git rm failed ({r.stderr.strip()}) '
                  f'-- nothing was recorded')
     today = datetime.date.today().isoformat()
     for p in paths:
-        cfg['retired'].append({'path': p.rstrip('/'), 'reason': reason,
-                               'retired_at': today})
+        cfg['decommissioned'].append({'path': p.rstrip('/'), 'reason': reason,
+                               'decommissioned_at': today})
     (ROOT / REGISTRY).parent.mkdir(parents=True, exist_ok=True)
     (ROOT / REGISTRY).write_text(
         json.dumps(cfg, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
@@ -359,23 +359,23 @@ def main(argv=None):
     ap.add_argument('--apply', action='store_true',
                     help='delete and record, only if the audit is clean')
     ap.add_argument('--list', action='store_true',
-                    help='print what this repo has already retired')
+                    help='print what this repo has already decommissioned')
     args = ap.parse_args(argv)
 
     _require_root()
     cfg = load_registry()
     if args.list:
-        if not cfg['retired']:
-            print(f'{REGISTRY}: nothing retired yet')
+        if not cfg['decommissioned']:
+            print(f'{REGISTRY}: nothing decommissioned yet')
             return 0
-        for e in cfg['retired']:
-            print(f"{e.get('retired_at', '?')}  {e.get('path')}\n"
+        for e in cfg['decommissioned']:
+            print(f"{e.get('decommissioned_at', '?')}  {e.get('path')}\n"
                   f"    {e.get('reason', '(no reason recorded)')}")
         return 0
     if not args.paths:
         ap.error('give at least one path to audit, or --list')
     if args.apply and not args.reason:
-        ap.error('--apply requires --reason: a retirement whose reason is '
+        ap.error('--apply requires --reason: a decommissioning whose reason is '
                  'not written down is the record that dies first')
 
     blocked = False
@@ -403,7 +403,7 @@ def main(argv=None):
         return 0
     today = apply_retirement(args.paths, args.reason, cfg)
     print(f'\nDeleted and recorded in {REGISTRY} ({today}). Commit this '
-          f'together with whatever retired the mechanism.')
+          f'together with whatever decommissioned the mechanism.')
     return 0
 
 

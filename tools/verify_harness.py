@@ -4010,7 +4010,7 @@ def check_precedent_check_fires():
                 r'\n\| Looking for.*?\n\n', '\n\n', t, flags=re.S))
         case('quick-index', _plant_qi)
 
-        # retirement-deletes-files -- a path declared retired that is
+        # decommission-deletes-files -- a path declared retired that is
         # tracked again. The CLEAN half deliberately still declares a
         # retirement (of a path that really is absent), so the negative
         # control proves the check PASSES rather than merely skipping: with
@@ -4018,27 +4018,27 @@ def check_precedent_check_fires():
         # to a pass from outside and would have proved nothing.
         def _retire_registry(repo, entries):
             (repo / 'process').mkdir(exist_ok=True)
-            (repo / 'process' / 'retired_paths.json').write_text(
+            (repo / 'process' / 'decommissioned_paths.json').write_text(
                 json.dumps({'retired': entries, 'exempt_files': []},
                            indent=2) + '\n', encoding='utf-8')
-            git(repo, 'add', 'process/retired_paths.json')
+            git(repo, 'add', 'process/decommissioned_paths.json')
             git(repo, 'commit', '-qm', 'declare a retirement')
 
         def _setup_retire(repo):
             _retire_registry(repo, [
                 {'path': 'process/never-existed-here',
                  'reason': 'the harness fixture has no such tree',
-                 'retired_at': '2026-09-07'}])
+                 'decommissioned_at': '2026-09-07'}])
 
         def _plant_retire(repo):
             _retire_registry(repo, [
                 {'path': 'process/never-existed-here',
                  'reason': 'the harness fixture has no such tree',
-                 'retired_at': '2026-09-07'},
+                 'decommissioned_at': '2026-09-07'},
                 {'path': 'spec/LOADER.md',
                  'reason': 'planted -- this file is very much still here',
-                 'retired_at': '2026-09-07'}])
-        case('retirement-deletes-files', _plant_retire, setup=_setup_retire)
+                 'decommissioned_at': '2026-09-07'}])
+        case('decommission-deletes-files', _plant_retire, setup=_setup_retire)
 
         # rename-updates-links -- a file moved, its references left behind.
         # Needs a published default branch to diff against, which the
@@ -6348,10 +6348,10 @@ def check_retirement_record_is_not_a_stranded_link():
     annoyance of it.
 
     The exemption is the registry's own `exempt_files`, which
-    retirement-deletes-files and migration-scrubs-vocabulary already read.
+    decommission-deletes-files and migration-scrubs-vocabulary already read.
     Same list, same reason, one more reader. It is NOT a blanket pass for any
     file mentioning a retired path: the list is written by a person at the
-    moment of retirement, through precedent_retire_path.py, which refuses
+    moment of retirement, through precedent_decommission.py, which refuses
     while any undeclared reference remains.
     """
     import tempfile, json as _json, shutil as _shutil
@@ -6420,10 +6420,10 @@ def check_retirement_record_is_not_a_stranded_link():
             encoding='utf-8')
         reg = {'retired': [{'path': 'process/doomed.md',
                             'reason': 'superseded whole',
-                            'retired_at': '2026-09-07'}]}
+                            'decommissioned_at': '2026-09-07'}]}
         if exempt:
             reg['exempt_files'] = ['process/RETIREMENT_RECORD.md']
-        (base / 'process' / 'retired_paths.json').write_text(
+        (base / 'process' / 'decommissioned_paths.json').write_text(
             _json.dumps(reg, indent=2), encoding='utf-8')
         g('add', '-A'); g('commit', '-qm', 'retire it')
         return base
@@ -6794,7 +6794,7 @@ def check_leftover_pack_is_flagged_after_migration():
 
     Both retirement checks were opt-in: migration-scrubs-vocabulary's word
     scan fires only once a repo writes retired_vocabulary.json, and
-    retirement-deletes-files only once it records a retirement. A repo that
+    decommission-deletes-files only once it records a retirement. A repo that
     migrated WITHOUT running spec/MIGRATING_EXISTING_INSTALLS.md's step 5
     declares neither, so both stayed silent and the dead tree sat there --
     a second, unsynced copy of rules that now live in a team or individual
@@ -6863,7 +6863,7 @@ def check_leftover_pack_is_flagged_after_migration():
                       'process/manifest_personal.json' in out))
         cases.append(('and names the tree it found', 'process/personal' in out))
         cases.append(('and prescribes the retire audit, not a hand delete',
-                      'precedent_retire_path.py' in out))
+                      'precedent_decommission.py' in out))
         cases.append(('and it counts as a violation', '1 violated' in out))
 
         out = _repo(tmp / 'b', migrated=False, pack=True)
@@ -8564,11 +8564,23 @@ def check_vendor_engine_consumer_case():
                       'missing' in out_conv and 'nothing to do' not in out_conv,
                       out_conv[:500]))
 
-        import hashlib
+        # A MISSING file is a finding, not a crash. This read_bytes() used to
+        # be unguarded, so a refresh that failed earlier in the fixture took
+        # the WHOLE harness down with a FileNotFoundError -- 120-odd unrelated
+        # checks never ran, and the traceback named a file
+        # (build_codeowners.py) that had nothing to do with the cause.
+        # Reproduced 2026-09-07 renaming a vendored engine file: fixtures
+        # vendor from committed HEAD, so between the rename and its commit the
+        # refresh legitimately fails, and this line turned that into a total
+        # outage (practice: fail-gracefully).
+        missing = [f for f in manifest.get('sha256', {})
+                   if not (consumer / 'tools' / f).is_file()]
         mismatched = [f for f, h in manifest.get('sha256', {}).items()
-                     if hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
+                      if (consumer / 'tools' / f).is_file()
+                      and hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
         cases.append(('every recorded sha256 matches the file actually written',
-                      bool(manifest.get('sha256')) and not mismatched, str(mismatched)))
+                      bool(manifest.get('sha256')) and not mismatched and not missing,
+                      f'mismatched={mismatched} missing={missing}'))
 
         # -- status(), run from the consumer's OWN vendored copy, against
         # this real checkout, finds zero drift right after seeding --

@@ -277,14 +277,14 @@ the loader.
    needs the same update.
 
    **Delete through the audit, not by hand**
-   ([retirement-deletes-files](../practices/retirement-deletes-files.md)):
-   `python3 tools/precedent_retire_path.py process/<old-pack-tree>` reports
+   ([decommission-deletes-files](../practices/decommission-deletes-files.md)):
+   `python3 tools/precedent_decommission.py process/<old-pack-tree>` reports
    every tracked file that still references the tree — including the ones
    this step's own list does not name — and refuses while any remain, which
    is the same property `rename-updates-links` will otherwise fail on after
    the fact. Re-run it until it reports `CLEAR`, then
    `--reason "..." --apply` deletes the tree and records the retirement in
-   `process/retired_paths.json`, so a later mirror or materialization
+   `process/decommissioned_paths.json`, so a later mirror or materialization
    putting it back is caught rather than absorbed.
 
    **Scrub the old system's whole vocabulary now, in this same migration —
@@ -329,7 +329,7 @@ the loader.
    used to leave that implicit — which read as complied-with by anyone who
    commented out a `schedule:` block, especially since the "default-branch
    gotcha" section below spells out *pausing* mechanics exactly. Pause
-   first if the job is still live ([precedent_retire_path.py](../tools/precedent_retire_path.py) refuses to
+   first if the job is still live ([precedent_decommission.py](../tools/precedent_decommission.py) refuses to
    retire a workflow whose `on:` block carries any trigger but
    `workflow_dispatch`, so a retirement is never the first thing that
    stops a running job), let one cycle pass, then run the same audit-then-

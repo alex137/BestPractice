@@ -30,10 +30,10 @@ exactly why a reader will not find it on their own.
 branch link to a path that no longer exists is a 404, and the reader wants
 the diff anyway — the removing commit shows what went, in full, and keeps
 the content one click away for as long as the history exists. A whole
-retired directory is **one entry**, named as the directory with a file
+decommissioned directory is **one entry**, named as the directory with a file
 count, never one line per file; the point is that the reader can see what
 left, not that they can count it. Where the deletion is a retirement
-([retirement-deletes-files](retirement-deletes-files.md)), the reason the
+([decommission-deletes-files](decommission-deletes-files.md)), the reason the
 audit was given is the reason this entry states — write it once and use it
 in both places.
 
@@ -74,7 +74,7 @@ it; the post-merge link is the one that still resolves in a year, after the
 branch is deleted. Either alone goes dead at a predictable moment.
 
 **Deletions were added 2026-09-07**, on Morgan's ask, the same day
-[retirement-deletes-files](retirement-deletes-files.md) landed and made
+[decommission-deletes-files](decommission-deletes-files.md) landed and made
 deleting a routine act rather than a rare one. Before that the rule said
 "created or modified", so a session that deleted a directory could satisfy
 it completely and never mention the deletion — and the practice that had

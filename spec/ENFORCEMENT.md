@@ -72,6 +72,7 @@ being checked by it.
 | `cite-the-incident` | change | a practice file whose Rule is new or changed must carry a non-empty ## Story |
 | `code-cites-practice` | tree | a `practice: SLUG` citation in tools/**/*.py names a real, active practice -- never a typo, a deleted file, one since retired, or a position number instead of a slug |
 | `computed-numbers-in-scripts` | tree | every generated block in a document matches what its script emits, is registered, and its document names the scripts that feed it |
+| `decommission-deletes-files` | tree | every path this repo declared decommissioned is still absent, and every decommissioning carries the reason it happened |
 | `deliverables-look-like-output` | change | a reader-facing document in scope carries no process residue — no verify-later flag, claims-to-source apparatus or decision provenance |
 | `doc-references-are-links` | change | a changed document must not render an accidental strikethrough span — use the approximately sign, never a tilde |
 | `docs-are-current-state` | change | a changed document does not carry an in-document revision annotation -- an "(added <date>)" / "(rewritten <date>)" tag, or a "Rev N" heading ladder -- since version control already carries that losslessly |
@@ -94,7 +95,6 @@ being checked by it.
 | `practice-export-loop` | tree | every manifest entry marked synced still matches its baseline — a local improvement to a vendored file has been exported, not absorbed |
 | `quick-index` | tree | the session instructions carry a "looking for X → go to Y" table with at least five rows |
 | `rename-updates-links` | tree | no tracked file still references a path this branch renamed away or deleted |
-| `retirement-deletes-files` | tree | every path this repo declared retired is still absent, and every retirement carries the reason it happened |
 | `routing-audit` | tree | tools/routing_audit.py exists, and tools/routing_audit_state.json (if present) has no rotation entry for a practice that is not currently active |
 | `scripts-assert-properties` | tree | every instrumented script asserts its own properties, and every figure it recites from a source document still matches that document |
 | `scrub-gate` | tree | every text file in a vendored tree destined for another repo is clean against that tree's blocklist, at all times |

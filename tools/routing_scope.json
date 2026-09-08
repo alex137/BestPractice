@@ -440,7 +440,7 @@
       "why": "Resident; its applies_to is not this file's business.",
       "decided": "phase 4 routing pass"
     },
-    "retirement-deletes-files": {
+    "decommission-deletes-files": {
       "globs": [
         "**"
       ],

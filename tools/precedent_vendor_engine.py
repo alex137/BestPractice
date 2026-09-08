@@ -210,9 +210,9 @@ ENGINE_FILES = [
     # the consumer half because retiring a mechanism is not a consumer-only
     # act -- a practice set retires its own tooling too, and the repo most
     # likely to be carrying dead files is one that migrated off something.
-    # retirement-deletes-files' Install names it, so a repo resolving that
+    # decommission-deletes-files' Install names it, so a repo resolving that
     # practice and lacking the file has a rule it cannot obey.
-    'precedent_retire_path.py',
+    'precedent_decommission.py',
     # The enforced channel itself (added 2026-09-07). Until then a SOURCE set
     # enforced nothing mechanically: this file was in CONSUMER_ENGINE_FILES
     # but not here, so a consuming repo got the checks and a practice set --
@@ -358,7 +358,7 @@ def _remove_dropped_engine_files(dest_tools, previous_manifest, kind):
     produced by the tool that distributes that practice.
 
     Found 2026-09-07 while costing the retirement->decommission rename:
-    `precedent_retire_path.py` is in the consumer engine set, so renaming it
+    `precedent_decommission.py` is in the consumer engine set, so renaming it
     would have pushed the new name into every consumer and left the old one
     beside it, in perpetuity, in two repos today and every future one.
 

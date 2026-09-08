@@ -369,7 +369,7 @@ two-link requirement for files that still exist are untouched.
 **Why it needed saying.** The addition is small but it is a real obligation
 the original did not carry, so a session that deleted a directory and said
 nothing satisfied the old Rule completely. That was harmless while deleting
-was rare; [retirement-deletes-files](practices/retirement-deletes-files.md),
+was rare; [decommission-deletes-files](practices/decommission-deletes-files.md),
 landed the same day at Morgan's request, makes it routine. The asymmetry is
 the argument: a created or modified file announces itself in the tree, so a
 reader browsing the branch trips over it either way, while a deleted one

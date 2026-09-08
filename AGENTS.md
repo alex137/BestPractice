@@ -192,6 +192,8 @@ When deciding where a new rule belongs:
   layered-practice-packs — generic, domain, repo-local — each rule to its own layer
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
+When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
+  decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
 When exporting a tool across a repo boundary:
   engine-plus-host-shims — one vendored engine, thin host shims, never a fork
 When finishing a substantial work-product, before the merge-time capture gate:
@@ -226,8 +228,6 @@ When renaming, moving, or deleting a file other files may link to:
   rename-updates-links — renaming a file means repointing every link to it, in the same commit
 When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
-When retiring a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
-  retirement-deletes-files — delete what the retired mechanism owned; audit first, never on a hunch
 When setting up a new repo's session start:
   session-bootstrap — setup lives in a session-start hook, not in memory
 When starting an outward-facing deliverable:
@@ -315,7 +315,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Bootstrapping a brand-new individual or team set from zero — the generalized procedure any adopter follows, plus the tool and skeletons it uses | [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md), tool at [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py), skeletons at [templates/practice-set-individual/](templates/practice-set-individual/) and [templates/practice-set-team/](templates/practice-set-team/) |
 | Bringing mechanical checks to the two private sets' practices (open; cannot run from here) | [spec/PRIVATE_ENFORCEMENT_BRIEF.md](spec/PRIVATE_ENFORCEMENT_BRIEF.md) |
 | How a repo that already had BestPractice installed migrates to Precedent's three-source model (the recommended pattern, from the first real dependent-repo test) | [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md) |
-| Deleting a file or directory a retired mechanism left behind — the audit that has to pass first, and the record of what went | [practices/retirement-deletes-files.md](practices/retirement-deletes-files.md), audit at [tools/precedent_retire_path.py](tools/precedent_retire_path.py) |
+| Deleting a file or directory a decommissioned mechanism left behind — the audit that has to pass first, and the record of what went | [practices/decommission-deletes-files.md](practices/decommission-deletes-files.md), audit at [tools/precedent_decommission.py](tools/precedent_decommission.py) |
 | Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team) — distinct from creating one or retiring one outright | [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) |
 | Why the miss rate is what it is, and the plan for it (read before phase 5) | [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) |
 | A locked-down access pattern for non-technical contributors (Triage/Read GitHub role + restricted session config + plain-language candidate flow) — drafted, not yet executed | [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md) |
@@ -1084,7 +1084,7 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   link (readable now) plus the post-merge `main` link, with a one-line
   description. The reader opens the work from the chat; they never go
   hunting for it. **A deleted file is listed too** — its path, why it went,
-  and a link to the commit that removed it; a whole retired directory is one
+  and a link to the commit that removed it; a whole decommissioned directory is one
   entry, not one line per file. A touched HTML render or picture also gets
   its rendered-view (artifact) link when the harness offers one — a repo
   link shows source, not the render.
