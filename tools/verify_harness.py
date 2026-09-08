@@ -4448,10 +4448,28 @@ def check_precedent_check_fires():
                            if name == 'resident set' and v), None)
             if phrase is None:                      # nothing owned to restate
                 return
-            rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
-                '## The resident set, and why these six',
-                f'The resident block is {phrase}.\n\n'
-                '## The resident set, and why these six'))
+
+            # Anchor on doc_sync's own closing sentinel, NOT on a heading.
+            # 2026-09-08: this plant anchored on the literal heading
+            # '## The resident set, and why these six'; renaming that heading
+            # (it said "six" while there were ten -- no-stale-counts) made the
+            # plant match nothing, so the check correctly found no violation
+            # and the negative control read as "the CHECK is broken" -- the
+            # identical failure the comment above records, one layer out. A
+            # sentinel is owned by doc_sync and cannot drift when prose is
+            # reworded. (practice: control-asserts-which-failure)
+            anchor = '<!--/gen:catalogue-->'
+
+            def _insert(text):
+                if anchor not in text:
+                    raise AssertionError(
+                        f'docs-track-models plant: anchor {anchor!r} is gone '
+                        'from spec/LOADER.md -- the FIXTURE is broken, not '
+                        'the check. Re-anchor the plant.')
+                return text.replace(
+                    anchor, f'{anchor}\n\nThe resident block is {phrase}.', 1)
+
+            rewrite(repo, 'spec/LOADER.md', _insert)
         case('docs-track-models', _plant_dtm)
 
         # scrub-gate -- a blocked term in a tree destined for another repo
