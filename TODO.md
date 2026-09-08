@@ -1406,16 +1406,68 @@ which is the failure this repointing exists to end — write
   before recording a blocker from a remembered rule.
 
 - <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
-  **folded into [item 7](TODO.md#multiple-team-sources-disagree), 2026-09-07.**
-  Filed as a new item earlier that day and it should not have been: item 7
-  had asked the same question since 2026-09-03, with the plan reference and
-  the half-closed history this one lacked. Written without searching the
-  backlog first, which is exactly what
-  [search-by-purpose](practices/search-by-purpose.md) exists to prevent.
-  This anchor is kept, rather than deleted, so links already pointing here
-  still resolve ([rename-updates-links](practices/rename-updates-links.md));
-  the content and the open question now live in item 7.
+  **unfolded 2026-09-08, at Morgan's prompting.** Folded into
+  [item 7](TODO.md#multiple-team-sources-disagree) on 2026-09-07 on the
+  grounds that item 7 "had asked the same question since 2026-09-03". It had
+  not, and item 7's body has never mentioned drift: item 7 asks which of two
+  **disagreeing** team sources wins inside one consuming repo — a precedence
+  question, parked. This asks what keeps one rule the **same** across several
+  team sets that nobody resolves together — a drift question, and nothing
+  addresses it. The fold is the reason this sat as a dead anchor for a day.
+  (The anchor is kept either way —
+  [rename-updates-links](practices/rename-updates-links.md).)
 
+  **The drift is measured, not hypothetical.** Two sessions independently
+  landed `fail-gracefully` and `bold-key-phrases` into *both* team sets on
+  2026-09-07, each doing the obviously right thing. The one deliberate
+  cross-repo sweep — a session holding all four repositories, searching by
+  purpose and by mechanism, 2026-09-06 — found one more
+  ([`headline-duplicate-retired`](TODO.md#headline-duplicate-retired)).
+  Nothing runs that sweep on a schedule, and nothing runs it mechanically.
+
+  **Morgan's proposal, 2026-09-08:** one session holding the universal repo
+  plus every team and individual set, finding the same practice across
+  sources, reporting where the copies have drifted, and reconciling them —
+  with an identity check, so two unrelated rules that happened onto one slug
+  are never merged into each other.
+
+  Four things to weigh before building it:
+
+  - **The identity half is already solved, in the opposite direction.** Slugs
+    are identities: `resolve()` in
+    [tools/precedent_resolve.py](tools/precedent_resolve.py) raises on two
+    same-level sources defining one slug, and `load_source()` raises within
+    one source. Two unrelated rules sharing a slug cannot survive long enough
+    to be reconciled. The undetected case is the inverse — **one rule under
+    two slugs** — which "rename one", item 7's cheapest remedy, actively
+    manufactures.
+  - **A copy is usually the bug, not the thing to keep in sync.** Two teams
+    wanting the identical rule is what a universal rule looks like, and that
+    was Morgan's own call on the 2026-09-07 pair: promote to universal,
+    delete from both team sets. A reconcile tool should propose **promotion
+    first** and a text merge second, or it will keep three copies healthy
+    forever.
+  - **It must not be a judge-only reading pass.**
+    [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) pre-registered and
+    measured that exact shape at 54% recall — worse than doing the work with
+    no review pass at all. The mechanical seed already exists:
+    [tools/precedent_promote.py](tools/precedent_promote.py)'s
+    non-duplication criterion takes `--against PATH[,PATH...]` and scores
+    word overlap across several repo roots. What is missing is running it
+    pairwise over existing catalogues instead of once, at creation.
+  - **The verdict has to be recorded per pair, per source.**
+    [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) is the
+    practice for that, and several team sets carrying one rule is the case it
+    describes.
+
+  **Blocked on:** a session that actually holds every source at once —
+  checked on disk this time, not recalled: no sibling clone exists beside
+  this checkout, `~/.config/precedent/config.json` does not exist, and
+  `add_repo` refused `themorgan/*` from this `alex137/*`-rooted session on
+  2026-09-08 (*"cross-tier adds are not supported in v1"*). So the route is
+  [`attach-private-sources`](TODO.md#attach-private-sources): root the
+  session at a `themorgan/` repo, attach the other two same-owner sets, and
+  clone the public BestPractice directly.
 43. <a id="loader-comment-names-an-unvendored-check"></a>**The generated loader block
     tells every source set that a check catches drift, in exactly the repos where that
     check does not exist.** [tools/build_views.py](tools/build_views.py) writes `do not
@@ -2108,3 +2160,29 @@ which is the failure this repointing exists to end — write
 
   `STYLEGUIDE.md` is unchanged, as recommended: it ships empty, it is project
   data, and it is not a rule at any level.
+42. <a id="upstream-notice-silent-when-rooted-above"></a>**The upstream-carry
+    notice is silent in exactly the layout this project requires, and nothing
+    reports its absence.**
+    [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py)
+    (landed 2026-09-08) says at session start whether Alex has moved `main`
+    since the last carry. It rides
+    [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh), so it
+    does not run when the harness roots the session one directory ABOVE this
+    repo — which is what happens whenever the sibling clones a team source
+    needs are laid out alongside it, and is the gotcha that already cost a
+    whole session's replies on 2026-09-08.
+
+    **The failure is silent in the way that matters: no notice and "nothing
+    changed" render identically.** A session in that layout reads no line,
+    concludes `main` has not moved, and is wrong exactly when it counts.
+    `python3 tools/precedent_upstream_check.py` by hand is the fallback, and
+    a fallback nobody knows to reach for is not one.
+
+    **Queued rather than done because it changes a different tool's
+    contract.** [tools/precedent_session_check.py](tools/precedent_session_check.py)
+    reports *guarantees a SessionStart hook established*, tested by their
+    effect; "you were told whether upstream moved" is not a state a later
+    process can observe, so it does not fit that shape without deciding what
+    that tool is for. Its `--apply` path already re-runs `session-start.sh`
+    and therefore already prints the notice — what is missing is the
+    REPORTING line that tells a session the notice never arrived.

@@ -185,6 +185,22 @@ if [ -n "$_ident_script" ]; then
   done
 fi
 
+# Say whether Alex has moved `main` since the last time somebody carried it
+# onto this branch. It PRINTS and stops there: Morgan asked for the reminder
+# in a session he is sitting in rather than a job that merges behind his back
+# ("I don't want it to merge invisibly, I'd like to do it in a session when
+# I'm there", 2026-09-08). The comparison is against
+# tools/upstream_watermark.json, not against git ancestry -- this branch
+# carries `main` rather than merging it, so an ancestry test reports a
+# permanent, meaningless gap. See that file's own comment for the incident.
+# Resolved from this script's own path, not from the working directory or
+# CLAUDE_PROJECT_DIR: when the harness roots a session one directory above
+# the repo, both of those point somewhere else (and that layout is this
+# project's own, since a team source resolves as a sibling clone).
+_hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+python3 "$_hook_repo/tools/precedent_upstream_check.py" || \
+  echo "WARN: upstream check did not run -- whether main has moved since the last carry is unknown this session" >&2
+
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` above would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.
