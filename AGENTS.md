@@ -302,7 +302,7 @@ Before starting work of a kind named in the occasion index above, run `python3 t
 <!-- END GENERATED -->
 
 The rest of this file (below) is BestPractice's own pre-fork orientation —
-still accurate for `PRACTICES.md`, `INSTALL.md`, and the rest of the
+still accurate for `INSTALL.md` and the rest of the
 inherited tree, which the plan has not restructured yet. It will be rewritten
 in place as later phases land (the plan's own generated-views work, phase 2)
 rather than kept as a second, drifting copy.
@@ -362,7 +362,9 @@ that skips them in this repo of all places is the joke writing itself.
 | The leak gate (push-time; both layers live) | [tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check |
 | The editorial section split, as reviewable data | [tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py) |
 | The converted practice files (phase 1) | [practices/](practices/) |
-| What each practice is and why | [PRACTICES.md](PRACTICES.md) |
+| What each practice is and why — **the live catalogue** | [practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG` |
+| Practices no longer in force, and why each was withdrawn | [MAP.md](MAP.md)'s "Withdrawn practices" table — generated; the files are kept, never deleted |
+| The pre-fork single-file catalogue — **superseded, frozen at 53 practices since 2026-08-31**; kept for its prose and its numbering | [PRACTICES.md](PRACTICES.md) |
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
 | Canonical names, generated (phase 2) | [GLOSSARY.md](GLOSSARY.md) — built from every practice's `defines:` field |
 | The loader — resident block, occasion index, path-trigger channel | This file's generated block above; engine at [tools/build_views.py](tools/build_views.py), [tools/precedent_paths.py](tools/precedent_paths.py) |

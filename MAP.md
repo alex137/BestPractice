@@ -83,6 +83,14 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
 | [write-like-a-human](practices/write-like-a-human.md) | resident | writing anything a person will read -- a document, a reply, a commit message |
 
+## Withdrawn practices
+
+1 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+
+| Practice | Status | Now in force at | Why it was withdrawn |
+|---|---|---|---|
+| [merge-authorization-keyword](practices/merge-authorization-keyword.md) | retired | — (nowhere) | **Retired 2026-09-07, by Morgan, as a universal rule.** "Go merge" is his own phrase, and a rule at the universal level was telling every adopting repository to go adopt a merge keyword of its own — a preference dressed as a practice. |
+
 ## The engine
 
 | Path | What it is |

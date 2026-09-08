@@ -1,9 +1,41 @@
-# The practice catalog
+---
+title: The practice catalog (pre-fork)
+kind: record
+status: superseded
+opened: 2026-08-01
+closed: 2026-08-31
+superseded_by: practices/
+audience: anyone reading this repo's practice history
+summary: The single-file, numbered catalogue that phase 1 converted into practices/. Frozen at that conversion; kept for its prose and its numbering, not maintained.
+---
 
-Each practice: the **rule**, **why** (the abstracted incident that motivated
-it — every one of these was learned the expensive way in a real repo), and
-**install** (what a dependent repo does about it). Templates referenced here
-live in `templates/`; tools in `tools/`.
+# The practice catalog (pre-fork)
+
+> **SUPERSEDED, and frozen at 53 practices since 2026-08-31.** This file was
+> the *source* for phase 1's conversion into one file per practice, and it
+> stopped being the catalogue the moment that conversion landed. **The live
+> catalogue is [practices/](practices/)**, indexed by [MAP.md](MAP.md); read
+> a rule with `python3 tools/precedent_show.py SLUG`. Roughly twenty
+> practices minted since the conversion have never appeared here and never
+> will.
+>
+> **Why it is kept rather than deleted.** Every entry here carries prose the
+> per-practice files were split out of, and the numbering (`## 12.`) is cited
+> by `source_practice_number` in every converted file and by
+> [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md). It is a record, not a
+> leftover — which is exactly the distinction
+> [decommission-deletes-files](practices/decommission-deletes-files.md) draws
+> between a file with no remaining job and one whose job is to be read later.
+>
+> **Do not add a practice here.** Add a file under [practices/](practices/).
+> `tools/verify_harness.py` fails if this banner is removed while the file is
+> still behind the catalogue, so the stale-and-silent state this document
+> spent a month in cannot recur.
+
+Each practice below: the **rule**, **why** (the abstracted incident that
+motivated it — every one of these was learned the expensive way in a real
+repo), and **install** (what a dependent repo does about it). Templates
+referenced here live in `templates/`; tools in `tools/`.
 
 ## 1. The repo is the memory; sessions are ephemeral
 

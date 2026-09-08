@@ -6362,6 +6362,79 @@ def check_refresh_survives_an_upstream_rename():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_superseded_source_says_so():
+    """A document that was the SOURCE for a generated replacement must say so.
+
+    PRACTICES.md was the single-file catalogue phase 1 converted into
+    practices/. The conversion landed 2026-08-31 and PRACTICES.md stopped
+    being the catalogue that same day -- but nothing said so, and AGENTS.md's
+    quick index went on pointing at it as "What each practice is and why".
+    Twenty practices were minted over the next week; none appeared in it.
+    Morgan found it while asking where a new index should live, 2026-09-07.
+
+    NOTHING WAS BROKEN, WHICH IS THE POINT. check_source_coverage asks
+    "does every practice in PRACTICES.md still have a file?" -- the MIGRATION
+    direction, correct for the migration, and permanently green afterwards.
+    The reverse question was never asked, and a practice minted after the
+    conversion carries `source_practice_number: null` and is explicitly
+    `continue`d, so it is invisible to the only check that reads both. A
+    document can be a month out of date, still linked as authoritative, and
+    every gate green.
+
+    So the third state is what this refuses: **behind AND silent**. Either
+    PRACTICES.md is current with the catalogue, or it declares itself
+    superseded. It may not be neither. The banner is the cheap half -- a
+    reader who opens the file learns in one line that it is frozen -- and
+    this check is what stops a later session deleting the banner to tidy the
+    file up, or "refreshing" the document without refreshing its content.
+
+    Generalises past this one file: any repo doing a one-time conversion
+    leaves its source behind, and the source is the thing everyone keeps
+    linking.
+    """
+    cat = ROOT / 'PRACTICES.md'
+    if not cat.is_file():
+        not_applicable('a superseded conversion source says so',
+                       'PRACTICES.md is not present here')
+        return
+
+    text = cat.read_text(encoding='utf-8')
+    numbered = set(re.findall(r'^## (\d+)\.', text, re.M))
+
+    minted_after = []
+    for f in sorted((ROOT / 'practices').glob('*.md')):
+        fm, _sections = sp._read_practice_file(f)
+        num = fm.get('source_practice_number')
+        if num is None or str(num).strip('"').strip("'") in ('', 'null'):
+            minted_after.append(fm.get('slug', f.stem))
+
+    behind = len(minted_after) > 0
+    # "Declares itself superseded" means the machine-readable field, not a
+    # sentence somebody hopes is read: kind/status frontmatter is the same
+    # contract document-status-header applies under spec/ and record/.
+    declared = bool(re.search(r'^status:\s*superseded\s*$', text, re.M))
+    points_at_successor = bool(re.search(r'^superseded_by:\s*\S+', text, re.M))
+
+    cases = [
+        ('PRACTICES.md is either current with practices/ or declares '
+         'status: superseded -- never behind and silent',
+         (not behind) or declared),
+        ('and when superseded, it names what replaced it',
+         (not behind) or points_at_successor),
+        ('the check can actually see the drift it is gating on -- a '
+         'zero-drift reading would make this pass for the wrong reason',
+         behind or len(numbered) >= len(list((ROOT / 'practices').glob('*.md')))),
+    ]
+
+    failed = [n for n, ok in cases if not ok]
+    detail = '; '.join(failed)
+    if failed and behind:
+        detail += (f" [{len(minted_after)} practice(s) exist that PRACTICES.md "
+                   f"has never carried, e.g. {', '.join(sorted(minted_after)[:3])}]")
+    check(f'a superseded conversion source says so, rather than going stale '
+          f'quietly ({len(cases)} stated cases)', not failed, detail)
+
+
 def check_refresh_removes_dropped_engine_files():
     """A file dropped from the engine set leaves every consumer, not just this repo.
 
@@ -11749,6 +11822,7 @@ def main():
     check_sync_refuses_to_lose_a_recorded_practice()
     check_doc_lifecycle_fires_and_clears()
     check_commit_identity_derives_declared_timezone()
+    check_superseded_source_says_so()
     check_refresh_removes_dropped_engine_files()
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
