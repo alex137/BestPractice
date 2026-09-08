@@ -30,6 +30,15 @@
      is the third thing -- this project's own voice, which is nobody else's
      business and does not travel.
 
+     UPDATING AN EXISTING INSTALL, rather than a fresh one: the adopter's
+     VOICE.md still holds the deleted 205 lines, and a three-way merge will
+     not tell you which of them anybody actually decided. Read the block
+     once, carry the decisions, drop what merely shipped, and put each
+     carried item where the new structure says it goes -- a deliberate
+     departure from a catalogue rule belongs under ## Overrides, not
+     re-added as its old section. INSTALL.md section 2 step 2a is the
+     procedure and carries the worked example.
+
      At install, show the administrator the sections below and fill them in
      from what they say. Every one may legitimately be left as <undecided>;
      an empty VOICE.md is a normal state for a project that has not thought

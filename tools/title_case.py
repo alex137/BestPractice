@@ -60,9 +60,26 @@ INTERNAL_DIRS = (
 # would be undone by the next tools/build_views.py run and fail its
 # byte-identical check in between, so they could not be in scope even if they
 # were outward-facing.
+#
+# VOICE.md and STYLEGUIDE.md are here for a different reason, and the reason
+# is the bug that put them here (2026-09-08, found by a consumer repo taking
+# the beta update). THIS LIST WAS BUILT FROM UPSTREAM'S OWN ROOT NAMES, and
+# upstream never instantiates those two -- it ships them as
+# templates/*.template and only an ADOPTER ever has them at a root. So the
+# check was blind to precisely the files this project hands out, and every
+# adopter got the same false positive on a file whose own header says it is
+# LOCAL ONLY. An adopter could clear it in precedent.json's `internal_paths`,
+# but making each of them discover and fix the same upstream oversight is not
+# a mechanism, it is a toll.
+#
+# The general lesson, which is why this comment is longer than the fix: a
+# default derived from THIS repository's contents is wrong wherever the file
+# is vendored, and it fails in the direction nobody checks -- upstream's own
+# gate stays green, because upstream does not have the file.
 INTERNAL_FILES = (
     "AGENTS.md", "CLAUDE.md", "CHANGES_TO_TELL_ALEX.md", "GLOSSARY.md",
     "MAP.md", "PRACTICES.md", "PRACTICE_ENGINE_PLAN.md", "TODO.md",
+    "VOICE.md", "STYLEGUIDE.md",
 )
 
 
