@@ -684,7 +684,7 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   accepted a sixth (a private consumer repo under the same owner)
   mid-session. Mixed owners
   in one session is precisely what this entry says is refused.
-  **The open half is now measured, 2026-09-08: a fresh session rooted here
+  **The open half is now measured, 2026-09-07: a fresh session rooted here
   still refuses on its FIRST cross-owner add.** `add_repo` for
   `themorgan/precedent-individual`, called as the session's first tool call
   exactly as the banner at the top of this file instructs, answered with the
@@ -695,7 +695,7 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   repo, where BestPractice is a public add — keeps adding freely. So the
   remedy stands unchanged and is the only one: root the session in the
   private repo.
-  What it costs when you skip it is not abstract. That 2026-09-08 session
+  What it costs when you skip it is not abstract. That 2026-09-07 session
   ran with `individual` and `team` both unresolved, which means the
   `go-merge` keyword's own definition was unreadable while the user was
   using it — the one thing `.precedent/SESSION_PRACTICES.md` says out loud
@@ -863,7 +863,7 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
 
 - **The timezone half of that backstop was refusing a wrong offset it could
   have prevented — the container's clock is the lever, and a hook can move
-  it.** 2026-09-08: every commit here needed a `TZ="…" git commit` prefix
+  it.** 2026-09-07: every commit here needed a `TZ="…" git commit` prefix
   and the merge commits that forgot it were refused, correctly, for
   `+0000`. Three mechanisms existed and every one of them acts *after* git
   has resolved an offset: `pre-commit` refuses, `prepare-commit-msg`
@@ -942,20 +942,36 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   *"sessions are bound to their configured repositories"* — so it reports how
   many it could NOT determine rather than counting those as passes.
 
-  **A blocklist entry catches the name somebody typed, never the names
-  DERIVED from it.** The 2026-09-07 sweep scrubbed a private consumer repo's
-  name from this tree, `d167ada` caught four stragglers the same day — and
-  two hits of `<that repo>-local` survived both, in
+  **A blocklist entry catches the name somebody typed, never the SHORT form
+  of it.** The 2026-09-07 sweep scrubbed a private consumer repo's name from
+  this tree, `d167ada` caught four stragglers at 17:12 — and two hits of
+  `<that repo>-local` survived both, in
   [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md) and [TODO.md](TODO.md),
-  sitting on the public branch until 2026-09-08. That string was the name its
-  repo-local practice source carried before `source-naming` renamed it to
-  `local`, so it was written by sessions describing a *rename*, in exactly the
-  documents that exist to explain the convention. Neither layer could see it:
-  the vocabulary layer holds the full repo name, which `<name>-local` does not
-  contain, and the repo-reference allowlist only matches `owner/name`.
-  **Put the stem in the blocklist, not the full repo name** — a private repo
-  leaks through what is named AFTER it (a practice source, a branch, a
-  directory, a tag, a check) long after the repo's own name is gone.
+  written at 07:02 and not removed until 21:17, all on the same public
+  branch and the same day. That string was the name its repo-local practice
+  source carried before `source-naming` renamed it to `local`, so it was
+  written by sessions describing a *rename*, in exactly the documents that
+  exist to explain the convention. The repo-reference allowlist could not see
+  it at all — that layer only matches `owner/name`.
+
+  **The vocabulary layer's miss is the instructive half, and the obvious
+  reading of it is wrong.** The suffix was never the problem: a `\bFullName\b`
+  pattern DOES match `FullName-local`, because a hyphen is a word boundary.
+  What defeated it is that the leak used the repo's short form — a head the
+  full-name pattern does not begin to cover. So the fix that matters is
+  **truncating each pattern to a distinctive stem**, and a trailing `[\w-]*`
+  is belt-and-braces on top of it, not the mechanism. Landed 2026-09-07 in the
+  individual practice set, seven patterns, with the evidence recorded beside
+  them: each stem was cut only as far as its measured hit count against this
+  tree stayed at zero (the shorter cuts of the same names score in the tens to
+  the low thousands here, which is why "just truncate harder" is not the
+  rule), and two further cuts that scored zero were still rejected as
+  fragments an ordinary camelCase identifier could produce. Positive control,
+  replayed over the two commits that actually carried the leak: the old
+  full-name list reports the tree clean, the stems report three hits.
+  A private repo leaks through what is named AFTER it — a practice source, a
+  branch, a directory, a tag, a check — long after the repo's own name is
+  gone, and it leaks under the short name people actually type.
 
 ## Working in this repo
 

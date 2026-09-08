@@ -1757,28 +1757,30 @@ which is the failure this repointing exists to end — write
   [AGENTS.md](AGENTS.md) currently says, which is the defect.
 
 
-- <a id="blocklist-stem-not-full-name"></a>**Put the private consumer repo's NAME STEM into the leak blocklist, not
-  its full repo name.** Found 2026-09-08: two hits of `<that repo>-local` —
-  the name its repo-local practice source carried before `source-naming`
-  renamed it — survived both the 2026-09-07 vocabulary sweep and `d167ada`'s
-  fix-forward, and sat on the public `precedent-beta-v01` for a day. The
-  blocklist held the full repo name, which the derived string does not
-  contain; the repo-reference allowlist only matches `owner/name`. Scrubbed
-  by hand in the commit carrying this item, which fixes the two instances and
-  not the cause: the next thing named after that repo leaks the same way.
-  Do the same audit for every private repo the blocklist names, since the
-  derived-name shape is not specific to this one.
+- <a id="blocklist-stem-not-full-name"></a>~~**Put the private consumer repo's NAME STEM into the leak blocklist, not
+  its full repo name.**~~ **Done (2026-09-07)**, in the individual practice
+  set — all seven repo-name patterns rewritten from `\bFullName\b` to a
+  truncated stem plus `[\w-]*`. Raised after two hits of `<that repo>-local`
+  — the name its repo-local practice source carried before `source-naming`
+  renamed it — survived both the vocabulary sweep and `d167ada`'s
+  fix-forward, and sat on the public branch from 07:02 to 21:17 that day.
 
-  **Blocked on:** a session that can reach the private half of the blocklist.
-  It is not stored loose on a machine — it is a tracked file in the
-  **individual practice set**, `<your individual set>/leak-blocklist.txt`,
-  which `PRECEDENT_LEAK_BLOCKLIST` points at
-  ([spec/SOURCES.md](spec/SOURCES.md), [INSTALL.md](INSTALL.md) §8). What it
-  cannot be is a file in *this* repository: a list of the words you must not
-  publish, committed to a public repo, publishes them, and
-  `load_blocklist()` refuses a path inside this tree for that reason
-  (`python3 tools/leak_gate.py --explain`). So the edit needs a session
-  rooted in that private set, the same prerequisite as
-  [`attach-private-sources`](TODO.md#attach-private-sources) — the session
-  that found this could not attach it at all
-  ([AGENTS.md](AGENTS.md)'s cross-tier gotcha, retested 2026-09-08).
+  **What the fix turned out to be is not what this item assumed**, and
+  [AGENTS.md](AGENTS.md)'s gotcha now carries the corrected version: the
+  suffix was never the problem, because `\bFullName\b` already matches
+  `FullName-local` (a hyphen is a word boundary). The leak got through on the
+  repo's **short form**, so truncation is the mechanism and the trailing
+  `[\w-]*` is belt-and-braces. Each stem was cut only as far as its measured
+  hit count against this tree stayed at zero, and two candidate cuts that
+  scored zero were still rejected as fragments an ordinary camelCase
+  identifier could produce. Positive control over the two commits that
+  carried the leak: the old list reports clean, the stems report three hits.
+  Negative control asserts the gate's message, not just its exit code. The
+  repo-reference allowlist was already switched on, with a reason on every
+  allow line.
+
+  **Nothing to do here.** The patterns and their evidence live in the private
+  set by design — a list of the words you must not publish cannot be
+  committed to this repository ([spec/SOURCES.md](spec/SOURCES.md),
+  `python3 tools/leak_gate.py --explain`). This repo's own runs still check
+  the default list only, and still say so.
