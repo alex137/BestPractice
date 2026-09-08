@@ -142,7 +142,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~655 of 2000 token budget, 9 of 84 practices (9 universal))
+## Resident block (~655 of 2000 token budget, 9 of 86 practices (9 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -215,6 +215,8 @@ When a message ends on the standing merge-authorization phrase:
   go-merge — "Go merge" alone at the end: sync, name the branch, commit, push, PR, merge
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- refresh the source clone first; both layers move separately
+When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
+  constants-are-risk-inputs — a constant nobody decided is a swept, registered input -- never doctrine
 When a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift:
   very-deep-check — read every repo in force against itself, pass by pass; never a routine gate
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
@@ -341,6 +343,8 @@ When writing or editing anything under philosophy/, or citing it from a rule:
   philosophy-is-not-repo-policy — philosophy/ is argument; a rule that earned its way out gets written as a practice file
 When writing or filling out a pull-request description:
   pr-template-honest-gates — write the body from the diff; an unchecked box is fine
+When writing or running a gate, audit or solve that takes more than about a minute:
+  slow-steps-report-and-cache — a long step prints elapsed and remaining; a heavy solve caches to disk
 When writing or triaging an open item:
   todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
 When writing or triaging an open item, or deciding whether to raise one in a reply:

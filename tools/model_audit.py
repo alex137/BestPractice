@@ -99,6 +99,11 @@ def load(path: Path):
     own output stays readable."""
     spec = importlib.util.spec_from_file_location(f"_ma_{path.stem}", path)
     mod = importlib.util.module_from_spec(spec)
+    # Register before executing (the importlib recipe): a model that
+    # fans its solve out over a multiprocessing pool pickles its worker
+    # by module name, and an unregistered module cannot be resolved in
+    # the workers.
+    sys.modules[spec.name] = mod
     sys.path.insert(0, str(path.parent))
     real_stdout, sys.stdout = sys.stdout, io.StringIO()
     try:
@@ -111,6 +116,61 @@ def load(path: Path):
         sys.path.pop(0)
 
 
+# ---------------------------------------------------------------------------
+# Undecided-constants guard (practice: constants-are-risk-inputs). A
+# module-level constant in an instrumented script whose attached comments
+# claim a settled status must be named in the host's constants register (as
+# a risk input, a banded setting, or an explicit exclusion) or carry
+# '# doctrine-ok: <reason>'.
+# Hosts set CONSTANTS_REGISTER to the register's repo-relative path; left
+# None, the check is skipped.
+CONSTANTS_REGISTER = None
+SETTLED_WORDS = ("doctrine", "as built", "settled")
+
+
+def check_constants_register():
+    import re
+    if not CONSTANTS_REGISTER:
+        return []
+    reg_path = ROOT / CONSTANTS_REGISTER
+    if not reg_path.exists():
+        return [f"constants register missing: {CONSTANTS_REGISTER}"]
+    register = reg_path.read_text()
+    cdef = re.compile(r"^([A-Z][A-Z0-9_]{2,}) = ")
+    fails = []
+    for rel in INSTRUMENTED:
+        path = ROOT / rel
+        if not path.exists() or not rel.endswith(".py"):
+            continue
+        lines = path.read_text().splitlines()
+        for i, line in enumerate(lines):
+            m = cdef.match(line)
+            if not m:
+                continue
+            name = m.group(1)
+            texts = []
+            # Preceding block: column-0 comments only -- an indented comment
+            # above a def is the previous constant's trailing continuation.
+            j = i - 1
+            while j >= 0 and lines[j].startswith("#"):
+                texts.append(lines[j]); j -= 1
+            texts.append(line)
+            j = i + 1
+            while j < len(lines) and lines[j].lstrip().startswith("#"):
+                texts.append(lines[j]); j += 1
+            blob = "\n".join(texts).lower()
+            if not any(w in blob for w in SETTLED_WORDS):
+                continue
+            if "doctrine-ok" in blob or name in register:
+                continue
+            fails.append(
+                f"[constants] {rel}: {name} wears a settled label but is not "
+                f"named in {CONSTANTS_REGISTER} -- register it as a risk "
+                "input (or an exclusion with its reason), or mark the line "
+                "'# doctrine-ok: <reason>'")
+    return fails
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true")
@@ -118,6 +178,7 @@ def main():
     args = ap.parse_args()
 
     failures, warnings, checked, anchors_ok = [], [], 0, 0
+    failures.extend(check_constants_register())
 
     for rel in INSTRUMENTED:
         # Two layouts. In the classic vendoring install this file sits at

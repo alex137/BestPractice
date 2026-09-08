@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 81 practice files (9 resident, 72 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 83 practice files (9 resident, 74 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -22,6 +22,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
 | [code-cites-practice](practices/code-cites-practice.md) | on-demand | writing code because a specific practice requires it |
 | [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) | on-demand | writing a document that cites a computed number |
+| [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor |
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
@@ -79,6 +80,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [second-pass-capture](practices/second-pass-capture.md) | on-demand | finishing a substantial work-product, before the merge-time capture gate |
 | [section-order-by-frequency](practices/section-order-by-frequency.md) | on-demand | ordering sections in a document |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
+| [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |
 | [source-naming](practices/source-naming.md) | on-demand | importing, creating, or declaring a repository that holds practices |
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | publishing a document with a multi-column sortable table |
 | [three-things](practices/three-things.md) | on-demand | a person says "Three Things" |

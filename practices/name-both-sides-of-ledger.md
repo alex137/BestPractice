@@ -30,6 +30,11 @@ one-line back-of-envelope inventory (is the payer's total available
 even of the right order against the sink side?) belongs in the
 derivation's comment.
 
+**(c) Ratings, not just quantities.** The same inventory discipline applies
+when a composed output *performs a duty* through equipment another part of
+the model *pays for*: the duty must draw on the equipment actually charged,
+at or under its rated capacity, and a per-row self-check asserts it.
+
 ## Detail
 When a model charges one party for what another receives — work for
 kinetic energy, spend for inventory, a debit for a credit — the
@@ -55,6 +60,12 @@ big new numbers read as the fix working. Neither reviewer instinct
 (does the charge match the gain? does the change move the right way?)
 catches a factor hidden in the dissipation term.
 
+**Why composition hides it.** Component A budgets (and prices in) equipment
+sized for one duty class; component B, written separately, computes a heavier
+duty using its own default limit and never consults A's rating — so the table
+describes an operation the priced hardware cannot perform, while every number
+in it is internally correct.
+
 ## Story
 **Origin.** A feasibility gate charged a hauling agent's energy cost
 as force × the *load's* displacement rather than the agent's own
@@ -73,5 +84,13 @@ correct accounting had existed in the program's own prose for weeks,
 written down and executable nowhere — the same lesson as the
 model-audit practice, recurring: prose does not fail a build; a
 ledger assertion does.
+
+**Second origin incident.** A work-rate integrator capped effort at a per-load
+default while the mass budget charged a mechanism rated for a class several
+times lighter. Over half the published rows exceeded the charged rating, by up
+to ≈1.8×, and the inconsistency was caught only in cross-thread review. The
+fix: the integrator takes the charged rating as an input and caps against it,
+and the self-check asserts, per row, demanded ≤ charged rating — capping that
+lengthens the operation rather than shortening it.
 
 ## Install

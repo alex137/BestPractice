@@ -67,6 +67,19 @@ blocked case — and prose then promotes one parameterisation into a law of
 nature. *"X is impossible"* becomes the finding when the truth was *"X is
 impossible with these particular settings."*
 
+**(c) The rule runs in both directions.** A *favorable* lever gets the same
+treatment: when an analysis identifies "the cheap relief," the lever is not
+characterized until it is swept to saturation, reversal, or a change of
+binding constraint, with its costs charged at each point. An analysis that
+stops at the first comfortable value silently promotes that value into a
+settled operating point — the inquiry was framed as a feasibility question
+(*"does it close?"*), so *"it closes"* terminated it, and nobody returned to
+ask the design question (*"where should it sit?"*). The tell on this side: a
+tuning constant wearing a settled-sounding name — *doctrine*, *baseline*,
+*standard* — with no recorded decision behind it. Such a constant is an
+assumption in uniform: nobody re-opens it, because the name says someone
+already decided, and nobody did.
+
 ## Story
 No dated incident was recorded. The rule names two failure modes, and both
 are written from the same observation: **they are invisible to the checks
@@ -89,6 +102,16 @@ was *"X is impossible with these particular settings."*
 The tell follows from both: a headline number that survived several passes
 without anyone re-deriving the parts. Trust comes from how a model is built,
 not from whether its answer looks reasonable.
+
+**The favorable side.** A geometry setting labeled as settled was
+picked in passing — a physical floor times a round margin — while the thread's
+attention was on a pass/fail verdict. It sat unexamined while carrying a
+double-digit-percent improvement, and when a reader's question finally forced
+the sweep, a same-day audit found a second identically-shaped constant on the
+same governing constraint, un-swept and worth a comparable gain. Only the
+unfavorable levers had ever been varied, because this practice's pressure
+previously ran one way. Removing that whole class is
+[constants-are-risk-inputs](constants-are-risk-inputs.md).
 
 ## Install
 **Related:** [check-source-architecture](check-source-architecture.md) (an option you invented is not a baseline) is the same
