@@ -683,13 +683,23 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   including all three private sets, worked in and pushed to — and `add_repo`
   accepted a sixth (a private consumer repo under the same owner)
   mid-session. Mixed owners
-  in one session is precisely what this entry says is refused. What has NOT
-  been retested is a *fresh* session rooted here adding a `themorgan/*` repo
-  as its first cross-owner add, so the constraint may have been lifted or may
-  bind only the first add. Treat the refusal as possible but no longer
-  certain: try the call, and believe the answer it gives rather than this
-  paragraph. The 2026-09-06 refusal was real and reproduced, so this is the
-  environment changing, not the original finding being wrong.
+  in one session is precisely what this entry says is refused.
+  **The open half is now measured, 2026-09-08: a fresh session rooted here
+  still refuses on its FIRST cross-owner add.** `add_repo` for
+  `themorgan/precedent-individual`, called as the session's first tool call
+  exactly as the banner at the top of this file instructs, answered with the
+  same v1 message word for word. Both findings are therefore true and the
+  rule is about ORDER, not about the pair of owners: the first cross-owner
+  add from a session rooted in `alex137/BestPractice` is refused, while a
+  session that reached a mixed set another way — rooted in a `themorgan/*`
+  repo, where BestPractice is a public add — keeps adding freely. So the
+  remedy stands unchanged and is the only one: root the session in the
+  private repo.
+  What it costs when you skip it is not abstract. That 2026-09-08 session
+  ran with `individual` and `team` both unresolved, which means the
+  `go-merge` keyword's own definition was unreadable while the user was
+  using it — the one thing `.precedent/SESSION_PRACTICES.md` says out loud
+  and nothing else in the tree does.
 
 - **A harness run that overlaps a write to the tree fails on a change
   belonging to no commit, and the count alone cannot tell you that.**
@@ -931,6 +941,21 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   Its reach is limited to repos the session can see — `/user/repos` answers
   *"sessions are bound to their configured repositories"* — so it reports how
   many it could NOT determine rather than counting those as passes.
+
+  **A blocklist entry catches the name somebody typed, never the names
+  DERIVED from it.** The 2026-09-07 sweep scrubbed a private consumer repo's
+  name from this tree, `d167ada` caught four stragglers the same day — and
+  two hits of `<that repo>-local` survived both, in
+  [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md) and [TODO.md](TODO.md),
+  sitting on the public branch until 2026-09-08. That string was the name its
+  repo-local practice source carried before `source-naming` renamed it to
+  `local`, so it was written by sessions describing a *rename*, in exactly the
+  documents that exist to explain the convention. Neither layer could see it:
+  the vocabulary layer holds the full repo name, which `<name>-local` does not
+  contain, and the repo-reference allowlist only matches `owner/name`.
+  **Put the stem in the blocklist, not the full repo name** — a private repo
+  leaks through what is named AFTER it (a practice source, a branch, a
+  directory, a tag, a check) long after the repo's own name is gone.
 
 ## Working in this repo
 

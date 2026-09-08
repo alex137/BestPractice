@@ -112,7 +112,8 @@ A private consumer repo refreshed its vendored engine from
 nobody had prepared for it. Worth keeping, because it is the only evidence
 that the split between the two halves behaves:
 
-- Its repo-local source was named `havruta-local`. The refusal fired during
+- Its repo-local source was named after the repository itself rather than
+  `local`. The refusal fired during
   `precedent_sync_views`, **before** anything was written, and its message
   carried the expected name — so the session fixed it without having this
   document in its tree.

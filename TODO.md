@@ -492,7 +492,7 @@ which is the failure this repointing exists to end — write
     that declares sources and was not attached when
     [practices/source-naming.md](practices/source-naming.md) landed — was
     refreshed from its own session and merged. Its repo-local source was
-    named `havruta-local`; it is now `local`. What the pilot actually
+    named after the repository itself; it is now `local`. What the pilot actually
     proved, beyond the rename: the refusal fired at the right moment
     (`precedent_sync_views`, before anything was written), its message was
     actionable enough that the session fixed the name without having
@@ -1756,3 +1756,29 @@ which is the failure this repointing exists to end — write
   repository — the two readings above are both faithful to what
   [AGENTS.md](AGENTS.md) currently says, which is the defect.
 
+
+- <a id="blocklist-stem-not-full-name"></a>**Put the private consumer repo's NAME STEM into the leak blocklist, not
+  its full repo name.** Found 2026-09-08: two hits of `<that repo>-local` —
+  the name its repo-local practice source carried before `source-naming`
+  renamed it — survived both the 2026-09-07 vocabulary sweep and `d167ada`'s
+  fix-forward, and sat on the public `precedent-beta-v01` for a day. The
+  blocklist held the full repo name, which the derived string does not
+  contain; the repo-reference allowlist only matches `owner/name`. Scrubbed
+  by hand in the commit carrying this item, which fixes the two instances and
+  not the cause: the next thing named after that repo leaks the same way.
+  Do the same audit for every private repo the blocklist names, since the
+  derived-name shape is not specific to this one.
+
+  **Blocked on:** a session that can reach the private half of the blocklist.
+  It is not stored loose on a machine — it is a tracked file in the
+  **individual practice set**, `<your individual set>/leak-blocklist.txt`,
+  which `PRECEDENT_LEAK_BLOCKLIST` points at
+  ([spec/SOURCES.md](spec/SOURCES.md), [INSTALL.md](INSTALL.md) §8). What it
+  cannot be is a file in *this* repository: a list of the words you must not
+  publish, committed to a public repo, publishes them, and
+  `load_blocklist()` refuses a path inside this tree for that reason
+  (`python3 tools/leak_gate.py --explain`). So the edit needs a session
+  rooted in that private set, the same prerequisite as
+  [`attach-private-sources`](TODO.md#attach-private-sources) — the session
+  that found this could not attach it at all
+  ([AGENTS.md](AGENTS.md)'s cross-tier gotcha, retested 2026-09-08).
