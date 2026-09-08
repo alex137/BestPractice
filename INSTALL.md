@@ -666,6 +666,43 @@ deliberate procedure below.
    *your installed, adapted copy*. Apply upstream's changes to your installed
    files **through the adaptation** recorded in the entry's `notes` — don't
    clobber local adaptations.
+2a. **When upstream DELETES content it previously told you to keep, the
+   three-way merge above will not tell you what to rescue.** This is the one
+   update shape step 2 handles badly, because a `local-only` file has no
+   adaptation `notes` to merge through — you were told to keep the shipped
+   defaults, so nothing recorded which parts you later made decisions about.
+   Read the deleted block once and ask of each piece: *did anybody here
+   actually decide this, or was it just what shipped?* Carry the decisions,
+   drop the rest, and put each carried item where the new structure says it
+   goes rather than re-adding the old section.
+
+   **The worked example, and the reason this step exists** (2026-09-08):
+   `templates/VOICE.md.template` lost 205 lines of general writing guidance,
+   because the practice catalogue already carries all of it and one line —
+   *"no bold inside paragraphs"* — had come to contradict the resident
+   practice [bold-key-phrases](practices/bold-key-phrases.md) outright, so
+   every session in every adopter repo was holding both instructions at
+   once. A dependent repository taking that update had two things in the
+   deleted region that were genuinely its own: a note distinguishing its
+   sense of "voice" from a vendored pack's, and a sentence-case deviation.
+   Both were carried. **An override nobody wrote down reads as a session
+   ignoring a rule**, so moving them was not bookkeeping.
+
+   **Where an override goes is its own question, and the first answer here
+   was wrong.** This step originally said a departure from a catalogue rule
+   belongs in `VOICE.md`'s `## Overrides`, full stop — and that competes
+   with two mechanisms that were already there. Take the first that fits:
+   a **`precedent.json` knob** (`not_binding`, `internal_paths`,
+   `output_paths`, `filename_separator_exempt`) when the departure is
+   mechanical, because the tool reads it and it cannot drift; a
+   **`## Conventions` bullet in the instructions file** when a session has
+   to know it while doing ordinary work; and `VOICE.md` only for a voice
+   departure with no knob. **A session applying a rule is not reading
+   `VOICE.md` when it applies it** — which is why the repository that hit
+   this moved its sentence-case deviation into the instructions file the
+   next hour, and was right to. `VOICE.md` may still name it in one line and
+   point at where it lives; a pointer, never a copy.
+
 3. **Instantiate anything the recorded install predates.** An update can
    introduce templates and root files that did not exist when this repo
    installed — e.g. `GETTING_STARTED.md`

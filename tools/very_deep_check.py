@@ -577,6 +577,102 @@ _RULE_MODAL = re.compile(r'\b(must not|must always|should never|never|always)\b'
 _SHIPPED_SUFFIXES = ('.template', '.md', '.sh', '.txt')
 
 
+# What a session pays before it does anything. The threshold is a prompt, not
+# a limit: a section over it may be entirely correct and still worth splitting.
+_SECTION_FLAG_TOKENS = 2500
+# A live entry claiming its own trap is fixed is the archive candidate this
+# whole pass exists to surface -- the entry is the thing that knows.
+_SETTLED_MARKERS = ('fixed ', 'no longer true', 'applies itself now',
+                    'resolved for this machine', 'now automated')
+
+
+def _session_load(repo_dir):
+    """-> (rows, findings) for everything a session loads before it works.
+
+    WHY THIS IS A PASS AND NOT A GATE. Every line in an always-loaded file was
+    right to add on the day it was added; nothing is wrong at any single
+    commit. It only goes wrong in aggregate, months later, which is exactly
+    what a per-commit gate cannot see and what an occasional deep read is for.
+
+    WHAT IT MEASURES, and the distinction is the point: the resident block has
+    a declared budget and is checked against it, so it was reported green for
+    weeks while the file around it grew past 17,000 tokens. **The budget
+    governed 4% of the cost.** This counts the whole of what is loaded --
+    every `## ` section of the instructions file, plus the untracked practice
+    file when private sources resolved -- so the number a person sees is the
+    number a session actually pays.
+
+    THE TRAP TO AVOID, stated here because the obvious use of this output is
+    the wrong one: **do not optimise for the total.** Gotchas exist because
+    sessions kept burning hours on the same environment traps, and a trimming
+    pass that chases the number deletes the entries that are working. The
+    question for each section is "would a session hit this today", never "how
+    big is it".
+    """
+    root = pathlib.Path(repo_dir)
+    rows, findings = [], []
+
+    loaded = []
+    for name in ('AGENTS.md', 'CLAUDE.md'):
+        f = root / name
+        if not f.is_file():
+            continue
+        text = f.read_text(encoding='utf-8', errors='replace')
+        # CLAUDE.md is usually a one-line @AGENTS.md include; counting both
+        # would double the total. Count it only when it carries real content.
+        if name == 'CLAUDE.md' and len(text.strip()) < 200:
+            continue
+        loaded.append((name, text))
+    sp = root / '.precedent' / 'SESSION_PRACTICES.md'
+    if sp.is_file():
+        loaded.append(('.precedent/SESSION_PRACTICES.md',
+                       sp.read_text(encoding='utf-8', errors='replace')))
+    if not loaded:
+        return [], ['no instructions file found -- nothing to measure']
+
+    total = 0
+    for fname, text in loaded:
+        heads = [(m.start(), m.group(0).strip('# ').strip())
+                 for m in re.finditer(r'^## .+$', text, re.M)]
+        spans = []
+        if heads:
+            spans.append(('(preamble)', text[:heads[0][0]]))
+            for idx, (pos, name) in enumerate(heads):
+                end = heads[idx + 1][0] if idx + 1 < len(heads) else len(text)
+                spans.append((name, text[pos:end]))
+        else:
+            spans.append(('(whole file)', text))
+        for name, body in spans:
+            n = bv._approx_tokens(body)
+            total += n
+            rows.append((fname, name, n))
+            if n >= _SECTION_FLAG_TOKENS:
+                findings.append(
+                    f'REVIEW   {fname} :: {name}\n'
+                    f'      {n:,} tokens, every session, before any work starts.\n'
+                    f'      Ask of each part: would a session hit this TODAY? What '
+                    f'would not\n      bite any more belongs in a linked archive, '
+                    f'in full -- not deleted.')
+
+    # A live entry that says its own trap is settled is the strongest
+    # mechanical signal available here, and it is the entry's own words.
+    for fname, text in loaded:
+        for m in re.finditer(r'^- \*\*(.{10,90})', text, re.M):
+            start = m.start()
+            nxt = text.find('\n- **', start + 1)
+            entry = text[start:nxt if nxt != -1 else len(text)]
+            low = entry.lower()
+            if any(k in low for k in _SETTLED_MARKERS):
+                findings.append(
+                    f'note     {fname}: an entry says its own trap is settled '
+                    f'({bv._approx_tokens(entry):,} tokens) --\n'
+                    f'      "{m.group(1).strip()[:70]}"\n'
+                    f'      Verify against the tree before archiving it; an '
+                    f'entry\'s claim that it\n      was fixed is not evidence '
+                    f'that it was.')
+    return rows, findings
+
+
 def _shipped_rules(repo_dir):
     """-> [(path, rule_line_count)] for every file this repo SHIPS into
     somebody else's repository that carries rule-shaped prose.
@@ -1852,6 +1948,32 @@ def main():
         print("  none -- no retired engine file left behind, no manifest "
               "entry the\n  current kind dropped, no unrecorded engine "
               "file, and no check\n  script whose practice is gone.")
+    print()
+
+    print("SESSION LOAD -- what every session pays before it does anything\n")
+    _rows, _sl = _session_load(repo_root)
+    if _rows:
+        _tot = sum(n for _, _, n in _rows)
+        for _f, _name, _n in sorted(_rows, key=lambda r: -r[2])[:8]:
+            print(f"  {_n:7,d}  {_f} :: {_name[:60]}")
+        _rest = len(_rows) - min(8, len(_rows))
+        if _rest > 0:
+            print(f"  {sum(n for _,_,n in sorted(_rows, key=lambda r: -r[2])[8:]):7,d}"
+                  f"  ({_rest} smaller section(s), combined)")
+        print(f"  {'-'*7}")
+        print(f"  {_tot:7,d}  TOTAL, every session, before any work starts "
+              f"(rough: words x 1.3)\n")
+    for _m in _sl:
+        print(f"  {_m}")
+    if not _sl:
+        print("  no section is large enough to be worth splitting, and no "
+              "entry claims its\n  own trap is settled.")
+    print("\n  Do NOT optimise for the total. These entries exist because "
+          "sessions kept\n  losing hours to the same traps -- a trimming pass "
+          "that chases the number\n  deletes the ones that are working. The "
+          "question is \"would a session hit\n  this today\", never \"how big "
+          "is it\". What no longer bites moves to a\n  linked archive IN FULL, "
+          "never to a deletion.")
     print()
 
     print("RULES WE SHIP SOMEWHERE ELSE -- inert here, binding there\n")

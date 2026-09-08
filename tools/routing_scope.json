@@ -198,7 +198,7 @@
       "globs": [
         "**"
       ],
-      "why": "DELIBERATELY UNROUTED, and the reason is the practice's own scope. It governs code that depends on anything outside its own control -- any language, any file, plus setup and configuration that is not code at all. No glob narrower than ** would be honest: restricting it to tools/**/*.py would silence it for shell hooks, templates and workflow files, which are exactly where the container's defaults bite. Its own Install already records that the general form floods a mechanical check (67 hits against this repo's tools/, mostly legitimate), so the occasion index and review carry it rather than the path channel.",
+      "why": "DELIBERATELY UNROUTED, and the reason is the practice's own scope. It governs code that depends on anything outside its own control -- any language, any file, plus setup and configuration that is not code at all. No glob narrower than ** would be honest: restricting it to tools/**/*.py would silence it for shell hooks, templates and workflow files, which are exactly where the container's defaults bite. Its own Install already records that the general form floods a mechanical check (67 hits against this repo's tools/, mostly legitimate), so the occasion index, review and the PUSH GATE carry it rather than the path channel. The gate was added 2026-09-08: the one moment this rule has to fire on a schedule rather than on a hunch is when a check has just told you it could not run and you are about to publish anyway.",
       "decided": "promoted to universal 2026-09-07"
     },
     "frame-from-audience-question": {
@@ -642,6 +642,17 @@
       ],
       "gates_why": "The obligation lands in the reply: mark the item this turn, say which one, ask nothing back."
     },
+    "plain-words": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate.",
+      "decided": "2026-09-08, when the practice landed at universal",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "It governs how every reply after the phrase is written, so the reply gate is the only moment it can fire; nothing about a file triggers it."
+    },
     "three-things": {
       "globs": [
         "**"
@@ -697,6 +708,20 @@
       "decided": "2026-09-08, when the practice landed",
       "gates": [],
       "gates_why": "No gate: it is a property of the tree at rest, checked mechanically, not an obligation that fires at a moment."
+    },
+    "constants-are-risk-inputs": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus here. The constants it governs live in a host repo's model scripts, which this repository does not contain, and the occasion is an analysis being written rather than a file being edited. Reached through the occasion index.",
+      "decided": "2026-09-08, when the practice landed"
+    },
+    "slow-steps-report-and-cache": {
+      "globs": [
+        "**"
+      ],
+      "why": "A property of how long something runs, not of where it lives -- a gate script, an audit and a heavy solve are all in scope and share no path. Reached through the occasion index.",
+      "decided": "2026-09-08, when the practice landed"
     }
   },
   "gates": {

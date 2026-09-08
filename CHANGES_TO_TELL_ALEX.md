@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-07 (Buenos Aires) by the session that retired `merge-authorization-keyword`, adding the "Retired outright" section -->
+<!-- Last updated: 2026-09-08 by the session that carried Alex's 2026-09-08 `main` check-in onto this branch -->
 <!--record-doc--> This file quotes practice Rules verbatim to say what changed in them, so it names the apparatus doc_lint.py check 6 keeps out of deliverables. It is a record document, not a deliverable.
 
 # Changes to tell Alex
@@ -35,6 +35,38 @@ Alex should read.
 None of it changes what a plain BestPractice-vendoring consumer repo
 (pre-migration) sees — the pre-migration path each affected practice
 describes is kept working in every case.
+
+## The Figure the Merge-back Decision Turns On
+
+Before the list: **how much of this catalogue enforces itself.**
+
+<!--gen:merge-back-->
+| | |
+|---|---|
+| Practices in force | 86 |
+| **Enforced by a check** | **38 of 86 practices carry a `checked_by`** |
+| Advisory only | 48 of 86 practices |
+<!--/gen:merge-back-->
+
+**Advisory means a session is told the rule and may still not follow it**, and
+this branch measured that rather than assuming it. The plan's own control
+carried the *whole* catalogue in every session and still missed 19% of the
+practices that applied — `verify-postcondition` was judged applicable twice
+and named by that control **zero** times, while resident, in full, in its
+context. Both arms of the experiment missed the same practices.
+
+The conclusion drawn there is the one to carry into the merge-back
+conversation: **the loader is a cost optimisation, not a compliance
+mechanism.** Putting a practice in front of a session does not make the
+session apply it, at any catalogue size, through any channel. What actually
+changes behaviour is the `checked_by` column — 38 of them.
+
+So the honest framing of what this branch offers is not "84 practices." It is
+**38 rules that hold themselves, and 46 that a session may still walk past**,
+plus the machinery to move practices from the second group into the first as
+each one earns a check. `checkable-gets-checked` is the rule that keeps that
+pressure on: a new practice attempts a mechanical check before it is allowed
+to stay advisory.
 
 ## Retired outright — the strongest change on this branch
 
@@ -657,6 +689,60 @@ Noted here because it's the kind of drift this file exists to catch — `main`
 had moved 3 commits past the fork point (this practice plus two unrelated
 tooling fixes) before a session checked.
 
+### Practices 54 and 55, and two clauses on inherited practices — 2026-09-08
+
+Alex merged a check-in from dependent repo #1 into `main`
+([PR #139](https://github.com/alex137/BestPractice/pull/139), commit
+`7d8f5a6`). It was carried onto this branch the same day. Only the tooling
+half arrived unchanged; **every part that touched the catalogue had to change
+shape**, because `main` still keeps its practices in one numbered file and
+this branch does not.
+
+**The two new practices are files, not `PRACTICES.md` sections.** Upstream
+they are `## 54.` and `## 55.` appended to
+[PRACTICES.md](PRACTICES.md); here that file is frozen at 53 and says so in
+its own banner, so they landed as
+[practices/constants-are-risk-inputs.md](practices/constants-are-risk-inputs.md)
+and
+[practices/slow-steps-report-and-cache.md](practices/slow-steps-report-and-cache.md),
+in the phase-1 format, with the Rule/Detail/Why/Story/Install split applied
+to your prose and nothing added to it. They carry
+`source_practice_number: null` — the numbers 54 and 55 exist on `main` and
+nowhere on this branch, so a file citing them would be citing a section that
+is not there. Their `approved_by` records your merge as the approval.
+
+**The two clause additions were split across sections.** Your
+dual-direction clause went into
+[practices/verify-decomposition.md](practices/verify-decomposition.md)
+(practice 42) — the rule text into `## Why` as `(c)`, its `(Origin: …)`
+parenthetical into `## Story`, since a converted practice keeps the incident
+there. The ratings corollary went into
+[practices/name-both-sides-of-ledger.md](practices/name-both-sides-of-ledger.md)
+(practice 52) the same way: the rule into `## Rule` as `(c)`, the composition
+failure mode into `## Why`, the second origin incident into `## Story`.
+`name-both-sides-of-ledger` is now listed in
+[tools/verify_harness.py](tools/verify_harness.py)'s
+`AMENDED_POST_CONVERSION` for it.
+
+**One cross-reference in your text points at a different practice here.**
+Practice 54's *Why* names "practice 25's dual" for the favorable-lever guard.
+The clause it means is the one that same commit added to practice **42**
+(`verify-decomposition`); practice 25 is `outward-summary-discipline`. The
+converted file links the slug instead of repeating the number. Worth
+correcting on `main` too.
+
+**Your `doc_lint` check 7 was not taken, because this branch already had
+it and more.** Upstream added `check_anchors`, which resolves a document's
+own `[text](#slug)` links against its headings. This branch's
+`check_broken_links` already does that *and* resolves anchors into other
+files, and guards the setext-heading case where the anchor set cannot be
+known. Taking check 7 on top would also have shadowed this branch's
+module-level `HEADING_RE` and `heading_slug` with upstream's — same names,
+different capture groups — silently breaking `document_anchors`. The
+`doc_html` half of the same change *was* taken: the render stamps GitHub
+slugs as heading ids, which is what makes those links land in the HTML
+product.
+
 ## Not a practice change — the merge-back itself has a trap in it
 
 Everything above is a change to what one of your practices means. This is
@@ -686,3 +772,5 @@ before.
 The file lists, the reason an earlier rehearsal concluded the opposite, and
 the same hazard in the reverse direction are in
 [TODO.md's `retire-merge-target-practice` item](TODO.md#retire-merge-target-practice).
+
+Numbers by: catalogue_stats.py

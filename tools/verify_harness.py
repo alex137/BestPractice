@@ -172,6 +172,15 @@ AMENDED_POST_CONVERSION = {
     # PRACTICES.md and needs this exemption. Seven of the nine were already
     # listed above for earlier sweeps.
     'docs-are-current-state', 'label-describes-content',
+    # Added 2026-09-08 when Alex's `main` check-in was carried onto this
+    # branch (see CHANGES_TO_TELL_ALEX.md, "Alex's 2026-09-08 main
+    # check-in"). Upstream appended a ratings corollary to the ledger
+    # practice's own section in PRACTICES.md; here PRACTICES.md is frozen,
+    # so the corollary was split across this file's Rule/Why/Story instead
+    # and is invented relative to the frozen original. verify-decomposition
+    # took the same check-in's dual-direction clause and is already listed
+    # above for an earlier sweep.
+    'name-both-sides-of-ledger',
 }
 
 CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'
@@ -890,8 +899,18 @@ def check_leak_gate():
 
     The vocabulary layer is reported as not-yet-applicable when no private
     blocklist is configured -- which is the honest state before phase 3 -- and
-    the structural layer is a real pass or fail either way."""
-    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py')],
+    the structural layer is a real pass or fail either way.
+
+    --structural-only, by name, for the same reason continuous integration
+    passes it: this harness runs with no private blocklist, and since
+    2026-09-08 the gate REFUSES rather than reporting PARTIAL when
+    precedent.json declares a private source. That refusal is correct for a
+    person about to push and wrong for a bare caller, so a bare caller says
+    which half it is asking for. Without the flag this check went red on a
+    clean tree -- the fix belonged in the caller, not in weakening the gate.
+    """
+    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'),
+                             '--structural-only'],
                             capture_output=True, text=True)
     out = (result.stdout + result.stderr).strip()
     if result.returncode != 0:
@@ -3010,7 +3029,16 @@ def check_default_blocklist_runs_the_vocabulary_layer():
     env_clean = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_LEAK_BLOCKLIST'}
 
     def gate(*args, env=None, cwd=None):
-        return subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'), *args],
+        # --structural-only always, because that is exactly what this check is
+        # about: whether the DEFAULT blocklist makes the vocabulary layer run
+        # at all. Since 2026-09-08 a bare invocation in this repo refuses
+        # instead, because precedent.json declares a private source and no
+        # private list is set here -- correct for a person about to push,
+        # wrong for a fixture asking about the other half. Naming the half is
+        # the fixture owning its own state rather than inheriting a default
+        # that changed underneath it (practice: fixture-owns-its-state).
+        return subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'),
+                               '--structural-only', *args],
                               capture_output=True, text=True, env=env or env_clean,
                               cwd=str(cwd or ROOT))
 
@@ -4420,10 +4448,28 @@ def check_precedent_check_fires():
                            if name == 'resident set' and v), None)
             if phrase is None:                      # nothing owned to restate
                 return
-            rewrite(repo, 'spec/LOADER.md', lambda t: t.replace(
-                '## The resident set, and why these six',
-                f'The resident block is {phrase}.\n\n'
-                '## The resident set, and why these six'))
+
+            # Anchor on doc_sync's own closing sentinel, NOT on a heading.
+            # 2026-09-08: this plant anchored on the literal heading
+            # '## The resident set, and why these six'; renaming that heading
+            # (it said "six" while there were ten -- no-stale-counts) made the
+            # plant match nothing, so the check correctly found no violation
+            # and the negative control read as "the CHECK is broken" -- the
+            # identical failure the comment above records, one layer out. A
+            # sentinel is owned by doc_sync and cannot drift when prose is
+            # reworded. (practice: control-asserts-which-failure)
+            anchor = '<!--/gen:catalogue-->'
+
+            def _insert(text):
+                if anchor not in text:
+                    raise AssertionError(
+                        f'docs-track-models plant: anchor {anchor!r} is gone '
+                        'from spec/LOADER.md -- the FIXTURE is broken, not '
+                        'the check. Re-anchor the plant.')
+                return text.replace(
+                    anchor, f'{anchor}\n\nThe resident block is {phrase}.', 1)
+
+            rewrite(repo, 'spec/LOADER.md', _insert)
         case('docs-track-models', _plant_dtm)
 
         # scrub-gate -- a blocked term in a tree destined for another repo
@@ -12062,6 +12108,234 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
           '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
 
 
+def check_leak_gate_refuses_a_fresh_container():
+    """A repo that declares a private source must not pass the leak gate with
+    the vocabulary layer unrun, even with no git config anywhere.
+
+    THE INCIDENT, 2026-09-08, reported by a session after it had already
+    pushed: it could attach neither private source, so there was no blocklist
+    to load; no `precedent.requireVocabulary` existed in that fresh container
+    to make the absence fatal; the gate printed PARTIAL, **exited 0**, and the
+    push went through into a public repository with only the structural rules
+    applied. "The check silently did not run" and "the check passed" were the
+    same exit code -- the exact failure the requireVocabulary docstring says
+    must not happen. The setting simply was not reachable where it mattered.
+
+    THE FIX UNDER TEST is that the requirement is now DERIVED from
+    precedent.json, which is tracked and therefore survives a fresh
+    container, as well as configured. So the discriminating pair is cases 1
+    and 2: the same environment, the same absent config, differing only in
+    whether precedent.json declares a private source.
+
+    Case 3 is the half a careless fix breaks -- continuous integration has no
+    private list by design and must still pass, opting out BY NAME.
+    Case 4 asserts the refusal names the RIGHT reason: the message used to
+    assert the git-config trigger unconditionally, which after this change
+    would send a reader to a setting that was not set and could not be unset
+    (practice: control-asserts-which-failure).
+    """
+    import tempfile, shutil
+
+    def run(cwd, *extra, blocklist=None):
+        env = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_LEAK_BLOCKLIST'}
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        # HOME points at an empty directory, or ~/.config/precedent/config.json
+        # injects this MACHINE's individual source into every fixture -- which
+        # resolves, which makes every case read as "a private source resolved"
+        # regardless of what the fixture declared. Caught while writing the
+        # declared-but-unresolved case, and it is the fourth instance of this
+        # shape in one day (practice: fixture-owns-its-state).
+        env['HOME'] = str(_fixture_home)
+        if blocklist:
+            env['PRECEDENT_LEAK_BLOCKLIST'] = blocklist
+        r = subprocess.run([sys.executable, str(cwd / 'tools' / 'leak_gate.py'), *extra],
+                           capture_output=True, text=True, cwd=str(cwd), env=env)
+        return r.returncode, r.stdout + r.stderr
+
+    def build(tmp, sources):
+        repo = pathlib.Path(tmp) / 'r'
+        (repo / 'tools').mkdir(parents=True)
+        # precedent_resolve.py and its companions, or _private_sources_resolved
+        # cannot import it, falls back to DECLARATION, and every case below
+        # reads the same -- the distinction under test would not be exercised
+        # at all while the check still passed.
+        for f in ('leak_gate.py', 'leak-blocklist.default.txt',
+                  'precedent_resolve.py', 'split_practices.py',
+                  'build_views.py', 'routing_scope.json',
+                  'glossary_terms.json'):
+            src = ROOT / 'tools' / f
+            if src.is_file():
+                shutil.copy2(src, repo / 'tools' / f)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'public', 'sources': sources}),
+            encoding='utf-8')
+        (repo / 'README.md').write_text('# ordinary\n\nnothing private here.\n',
+                                        encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True)
+        # No `precedent.requireVocabulary` is set anywhere: that IS the
+        # fresh-container shape this check is about.
+        return repo
+
+    _fixture_home_ctx = tempfile.TemporaryDirectory()
+    _fixture_home = pathlib.Path(_fixture_home_ctx.name)
+
+    cases = []
+    UNIVERSAL = [{'level': 'universal', 'name': 'precedent', 'path': '.'}]
+    # A private source that RESOLVES: its directory exists and carries a
+    # practices/ tree, so the session can read its text.
+    PRIVATE = UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-x',
+                            'path': '../precedent-team-x'}]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, PRIVATE)
+        (pathlib.Path(tmp) / 'precedent-team-x' / 'practices').mkdir(parents=True)
+        (pathlib.Path(tmp) / 'precedent-team-x' / 'practices' / 'zz.md').write_text(
+            '---\nslug: zz\ntitle: Z\ntier: on-demand\nseverity: default\n'
+            'applies_to: ["**"]\noccasion: "t"\nindex_clause: "t"\n'
+            'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+            'overrides: null\nadded: null\napproved_by: "h"\n---\n\n'
+            '## Rule\nZ.\n\n## Story\nZ.\n', encoding='utf-8')
+        rc, out = run(repo)
+        cases.append(('a private source that RESOLVED, with no blocklist, '
+                      'refuses -- its text is in context, so a private term '
+                      'could reach the tree through it',
+                      rc == 1 and 'FAIL' in out, out[-400:]))
+        cases.append(('and the refusal says the source RESOLVED, not merely '
+                      'that precedent.json declares one',
+                      'RESOLVED this session' in out, out[-400:]))
+        rc3, out3 = run(repo, '--structural-only')
+        cases.append(('the same repo PASSES under --structural-only, so CI '
+                      'still works', rc3 == 0, out3[-300:]))
+        cases.append(('and still says the private half did not run, rather '
+                      'than reporting a clean bill',
+                      'private ones were not' in out3, out3[-300:]))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, UNIVERSAL)
+        rc2, out2 = run(repo)
+        cases.append(('a repo declaring NO private source is unaffected -- it '
+                      'never had a vocabulary layer to lose, so this did not '
+                      'become a gate everybody has to appease',
+                      rc2 == 0, out2[-300:]))
+
+    # THE CORRECTION, and the case that matters most: declared but NOT
+    # resolved. The first version of this gate refused here too, which blocked
+    # a real session out of pushing at all -- its commit "dies with the
+    # container". The session that could not attach the source never read its
+    # text and has nothing from it to leak; refusing bought no safety and cost
+    # repo-is-memory. The path below simply does not exist.
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-absent',
+                                        'path': '../precedent-team-absent'}])
+        rc4, out4 = run(repo)
+        cases.append(('a private source DECLARED but not resolved ALLOWS the '
+                      'push -- the session could not read it, so it has '
+                      'nothing from it to leak',
+                      rc4 == 0, out4[-400:]))
+        cases.append(('and it says so loudly, naming the residual risk it '
+                      'does NOT cover rather than reporting a clean bill',
+                      'nothing from them to leak' in out4
+                      and 'some other way' in out4, out4[-400:]))
+
+    _fixture_home_ctx.cleanup()
+
+    ok = all(c[1] for c in cases)
+    check(f'the leak gate requires the blocklist when a private source '
+          f'RESOLVED, and not merely when one is declared ({len(cases)} '
+          f'stated cases, config absent throughout)', ok,
+          '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
+
+
+def check_title_case_knows_the_files_it_ships():
+    """Every root file this project INSTANTIATES into an adopter must be
+    classified correctly by title_case, including the ones upstream never
+    has itself.
+
+    THE INCIDENT, 2026-09-08, from a consumer repo taking the beta update:
+    headline-capitalization fired on that repo's VOICE.md. `INTERNAL_FILES`
+    had been built from UPSTREAM's own root names, and upstream ships
+    VOICE.md and STYLEGUIDE.md as templates it never instantiates -- so the
+    default was blind to exactly the files this project hands out, and every
+    adopter got the same false positive on a file whose own header says it
+    is LOCAL ONLY.
+
+    IT FAILS IN THE DIRECTION NOBODY CHECKS, which is what makes it worth a
+    standing control rather than a one-line fix: upstream's own gate stays
+    green because upstream does not have the file. So this check does not
+    ask "is VOICE.md classified right" -- it derives the list of shipped
+    root files from templates/ and asks it of ALL of them, so a template
+    added later is covered without anybody remembering to come back.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        'tc_ship', ROOT / 'tools' / 'title_case.py')
+    tc = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        spec.loader.exec_module(tc)
+    finally:
+        sys.path.pop(0)
+
+    cases = []
+
+    # Every templates/<NAME>.md.template instantiates to <NAME>.md at an
+    # adopter's root -- INSTALL.md section 1 spells the mapping out. Derived, not
+    # listed, so this cannot go stale the way the list it guards did.
+    shipped = sorted(
+        f.name[:-len('.template')]
+        for f in (ROOT / 'templates').glob('*.md.template'))
+    cases.append(('templates/ yields root files to classify at all',
+                  len(shipped) >= 3, str(shipped)))
+
+    # The two the incident was about, asserted BY NAME as well as by the
+    # derivation above: a derivation that silently produced an empty list
+    # would otherwise pass this whole check.
+    for name in ('VOICE.md', 'STYLEGUIDE.md'):
+        cases.append((f'{name} is shipped by a template',
+                      name in shipped, str(shipped)))
+        cases.append((f'{name} is INTERNAL -- its own template header says '
+                      f'LOCAL ONLY, so no adopter should be told to '
+                      f'headline-case it',
+                      tc.is_outward(name) is False, ''))
+
+    # spec/ and record/ are twins by design -- spec/ holds current normative
+    # reference, record/ the working record -- and record/ was missing from
+    # INTERNAL_DIRS until 2026-09-08 purely because the directory did not
+    # exist when the list was written. Same shape as the VOICE.md miss above:
+    # a default derived from what the repo HAPPENED to contain. Asserted as a
+    # pair so neither can drift from the other again.
+    for pair in ('spec', 'record'):
+        cases.append((f'{pair}/ is an INTERNAL_DIRS entry -- it and its twin '
+                      f'are both working trees, never published prose',
+                      pair in tc.INTERNAL_DIRS, str(tc.INTERNAL_DIRS)))
+    cases.append(('and a document inside record/ is classified internal',
+                  tc.is_outward('record/GOTCHAS_ARCHIVE.md') is False, ''))
+
+    # The other half, or "classify everything internal" would pass: files
+    # that genuinely ARE published must still be in scope.
+    for name in ('README.md', 'SETUP.md', 'ADOPTING.md'):
+        cases.append((f'{name} is still OUTWARD, so the fix did not just '
+                      f'silence the check', tc.is_outward(name) is True, ''))
+
+    # And the classification an adopter gets must not depend on a
+    # precedent.json they have not written: is_outward() reads one when it
+    # is there, and the default is what every fresh install starts from.
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        cases.append(('VOICE.md is internal with NO precedent.json at all -- '
+                      'the state a fresh adopter is in before they configure '
+                      'anything', tc.is_outward('VOICE.md', root=tmp) is False,
+                      ''))
+
+    ok = all(c[1] for c in cases)
+    check(f'title_case classifies the root files this project ships into '
+          f'adopters ({len(cases)} stated cases, derived from templates/ '
+          f'rather than listed)', ok,
+          '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:800])
+
+
 def check_carry_check_never_invents_lost_content():
     """A clone that does not contain the recorded base must refuse to answer,
     never report the whole vendored tree as lost.
@@ -12607,6 +12881,8 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
+    check_leak_gate_refuses_a_fresh_container()
+    check_title_case_knows_the_files_it_ships()
     check_carry_check_never_invents_lost_content()
     check_doc_currency_finds_a_stale_document()
     check_template_freshness_reads_the_skeleton_correctly()

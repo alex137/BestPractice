@@ -49,5 +49,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run the leak gate over the tracked tree
-        run: python3 tools/leak_gate.py
+      # --structural-only, by name and on purpose. This runner has no private
+      # blocklist and never will, so the vocabulary layer cannot run here --
+      # and since 2026-09-08 the gate REFUSES rather than reporting PARTIAL
+      # when precedent.json declares a private source, which is the correct
+      # default for a person about to push and the wrong one for CI. The job
+      # is called "Leak gate (structural)" precisely because this half is all
+      # it can do; the flag makes that a statement instead of a side effect.
+      - name: Run the leak gate over the tracked tree (structural half only)
+        run: python3 tools/leak_gate.py --structural-only

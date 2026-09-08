@@ -670,7 +670,8 @@ def scan(units, blocklist, repo_policy=(None, None)):
     return hits
 
 
-KNOWN_FLAGS = {'--explain', '--staged', '--range', '--require-vocabulary'}
+KNOWN_FLAGS = {'--explain', '--staged', '--range', '--require-vocabulary',
+               '--structural-only'}
 
 
 def _require_vocabulary_configured():
@@ -687,6 +688,95 @@ def _require_vocabulary_configured():
     person, not about this repository."""
     v = _git('config', '--get', 'precedent.requireVocabulary').strip().lower()
     return v in ('1', 'true', 'yes', 'on')
+
+
+def _private_sources_declared(root=None):
+    """-> True when precedent.json declares a source whose practice text is
+    private -- an individual or team set.
+
+    THE HOLE THIS CLOSES, and it is in the docstring above. That one says the
+    setting lives in git config because "whether a person HAS an individual
+    set is a fact about that person, not about this repository." True, and
+    incomplete: whether THIS REPOSITORY resolves private sources at all is a
+    fact about the repository, it is declared in a tracked file, and it
+    survives a fresh container -- which the git config does not.
+
+    2026-09-08, the incident: a session in a fresh container could not attach
+    either private source, so the vocabulary layer had no blocklist to load.
+    No git config existed to make that fatal, so the gate printed PARTIAL,
+    exited 0, and the push went through with only the structural rules
+    applied -- into a public repository. The session reported it afterwards,
+    accurately and too late. **"The check silently did not run" and "the
+    check passed" were the same exit code**, which is the exact failure the
+    requireVocabulary docstring says must not happen; the setting just was
+    not reachable in the environment where it mattered.
+
+    So the requirement is derived here as well as configured. A repository
+    that declares no private source is unaffected -- it never had a
+    vocabulary layer to lose.
+    """
+    import json as _json
+    cfg = pathlib.Path(root or ROOT) / 'precedent.json'
+    if not cfg.is_file():
+        return False
+    try:
+        data = _json.loads(cfg.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        # A malformed precedent.json is somebody else's error to report, and
+        # guessing "no private sources" here would fail open in exactly the
+        # direction this function exists to close (practice: fail-gracefully).
+        return True
+    return any((s or {}).get('level') in ('individual', 'team')
+               for s in data.get('sources', []))
+
+
+def _private_sources_resolved(root=None):
+    """-> (any_resolved, names_that_did_not) for the declared private sources.
+
+    THE CORRECTION THIS MAKES, 90 minutes after the first version landed and
+    on a real report from a session it blocked. Requiring the blocklist
+    whenever precedent.json DECLARES a private source refuses every session
+    that could not attach one -- and in this repository that is a live,
+    unexplained, intermittent condition (see AGENTS.md on cross-owner adds).
+
+    **The first version had the threat model backwards.** Private vocabulary
+    reaches a session by the session READING the private sources' text. A
+    session that could not attach them never read a word of it and has
+    nothing from them to leak; the dangerous session is the one that DID
+    attach them and is now writing to a public tree. So resolution, not
+    declaration, is what should require the list.
+
+    What the blanket refusal actually bought was not safety. It relocated the
+    work: the blocked session's remedy was to hand a patch to another session,
+    which is more error-prone than the push it replaced -- and its commit
+    "dies with the container", which is repo-is-memory losing outright.
+
+    The residual risk when the sources did not resolve is a private term that
+    reached the session some other way, typically the person's own messages.
+    That is real, small, unchanged from the behaviour before 2026-09-08, and
+    named out loud in the notice rather than silently accepted.
+    """
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+    except ImportError:
+        # Vendored into a source set, where precedent_resolve is deliberately
+        # absent. Fall back to declaration: such a repo has no multi-source
+        # resolve to ask about (practice: fail-gracefully).
+        return _private_sources_declared(root), []
+    try:
+        sources = _pr.load_config(str(root or ROOT))
+        res = _pr.resolve(sources)
+    except Exception:
+        # A resolve that cannot run is not evidence that nothing resolved.
+        # Fail toward the strict side: assume the private text IS in context.
+        return True, []
+    missing = {(m or {}).get('name') for m in res.get('missing', [])}
+    private = [s for s in sources
+               if (s or {}).get('level') in ('individual', 'team')]
+    unresolved = [s.get('name') for s in private if s.get('name') in missing]
+    resolved = [s.get('name') for s in private if s.get('name') not in missing]
+    return bool(resolved), unresolved
 
 
 def main():
@@ -711,7 +801,17 @@ def main():
         sys.exit(f"leak gate FAIL: unknown option(s) {', '.join(unknown)} -- known "
                  f"options are {', '.join(sorted(KNOWN_FLAGS))}.")
 
-    require_vocab = '--require-vocabulary' in args or _require_vocabulary_configured()
+    # --structural-only is the ONE way to ask for the structural half alone,
+    # and it is deliberately explicit: continuous integration has no private
+    # blocklist and never will, so it opts out BY NAME in a tracked workflow
+    # file rather than every other caller failing open by default. The
+    # workflow that uses it is already called "Leak gate (structural)".
+    structural_only = '--structural-only' in args
+    _priv_resolved, _priv_unresolved = _private_sources_resolved()
+    require_vocab = (not structural_only
+                     and ('--require-vocabulary' in args
+                          or _require_vocabulary_configured()
+                          or _priv_resolved))
     blocklist, source, configured = load_blocklist()
     units = units_to_scan(mode, rev_range)
     # The repo-reference allowlist is read from the SAME private file as the
@@ -791,13 +891,50 @@ def main():
           f"private list. Said out loud rather than left to inference: a clean "
           f"scan against the default list is not evidence that no private word "
           f"is present.")
+    if _priv_unresolved and not _priv_resolved:
+        # The declared-but-unresolved case: allowed, and never quietly. The
+        # session could not read the private text, so it has nothing from
+        # there to leak -- but a private term can still have reached it
+        # another way, most plausibly the person's own messages, and that is
+        # the residual risk somebody should carry knowingly.
+        print(f"  AND: {', '.join(sorted(n for n in _priv_unresolved if n))} "
+              f"did not resolve this session, so no blocklist was reachable "
+              f"at all -- this is not a misconfiguration you can fix from "
+              f"here.\n"
+              f"  The push is allowed BECAUSE the private text was never in "
+              f"context: a session that could not read those sources has "
+              f"nothing from them to leak.\n"
+              f"  What is NOT covered: a private term that reached this "
+              f"session some other way, most plausibly your own messages. "
+              f"Say so in the reply -- somebody should carry that knowingly "
+              f"rather than find it later.")
     if require_vocab:
-        print(f"\nleak gate FAIL: this clone has declared that it HAS a private-term "
-              f"blocklist (`git config precedent.requireVocabulary true`, or "
-              f"--require-vocabulary), and {BLOCKLIST_ENV} is not set. Once you have "
-              f"said you have a list, an unrun vocabulary layer is a failure, not a "
-              f"partial pass -- set {BLOCKLIST_ENV} to your blocklist in your "
-              f"individual set, or unset the git config deliberately.")
+        # Name WHICH of the three triggers fired. The message used to assert
+        # the git-config one unconditionally, so once the requirement could
+        # also be derived from precedent.json it sent a reader to a setting
+        # that was not set and could not be unset -- a guard misreporting its
+        # own reason (practice: control-asserts-which-failure).
+        if '--require-vocabulary' in args:
+            why = ("--require-vocabulary was passed on this run")
+            fix = ("drop the flag, or set " + BLOCKLIST_ENV)
+        elif _require_vocabulary_configured():
+            why = ("this clone has declared that it HAS a private-term "
+                   "blocklist (`git config precedent.requireVocabulary true`)")
+            fix = ("set " + BLOCKLIST_ENV + " to your blocklist in your "
+                   "individual set, or unset the git config deliberately")
+        else:
+            why = ("a private practice source RESOLVED this session, so its "
+                   "text is in context and a private term could reach this "
+                   "tree through it")
+            fix = ("set " + BLOCKLIST_ENV + " to the blocklist in that same "
+                   "source -- you have the repository, so you have the file. "
+                   "Continuous integration, which has no private list by "
+                   "design, passes --structural-only instead")
+        print(f"\nleak gate FAIL: {why}, and {BLOCKLIST_ENV} is not set. "
+              f"An unrun vocabulary layer is a failure, not a partial pass: "
+              f"'the check silently did not run' and 'the check passed' must "
+              f"not be the same exit code on a tree that publishes. To fix it, "
+              f"{fix}.")
         return 1
     return 0
 

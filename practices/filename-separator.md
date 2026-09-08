@@ -50,6 +50,21 @@ applies in the same commit, and a file other repositories vendor or link to
 should usually be left alone and the *new* files brought into line instead.
 Consistency going forward beats a rename sweep that breaks inbound links.
 
+**Some names are not yours to choose, and that is a standing exemption
+rather than a judgment call.** A file whose name must MIRROR something
+outside the directory — the file it is pasted into, an external tool's
+expected name, a name other repositories vendor verbatim — has no freedom to
+be consistent with its neighbours, and forcing it costs the correspondence
+that made the name useful. Exempt the directory with that as the reason and
+move on; it is a better answer than a rename that breaks inbound links
+across repositories, and a much better one than a mixed directory nobody has
+explained. **Say which external name each side follows**, so the next reader
+can tell this from an unexplained mess — that is the whole difference
+between an exemption and a shrug. (Raised 2026-09-08 by a dependent voice
+repository whose `templates/` mixed both separators because each file's name
+matched the file it is pasted into, and every one is vendored by name in
+turn.)
+
 **The two separators have nicknames, and this practice avoids them on
 purpose.** You will see *snake_case* (words joined by underscores) and
 *kebab-case* (words joined by hyphens — the picture is food on a skewer) in

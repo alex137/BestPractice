@@ -58,6 +58,7 @@ ROOT = find_root(__file__)
 PAIRS = [
     ("spec/LOADER.md", "catalogue", "tools/catalogue_stats.py"),
     ("spec/ENFORCEMENT.md", "enforcement", "tools/catalogue_stats.py"),
+    ("CHANGES_TO_TELL_ALEX.md", "merge-back", "tools/catalogue_stats.py"),
 ]
 
 # Where this repo keeps prose, for the orphan-sentinel scan; narrow it in

@@ -1405,17 +1405,96 @@ which is the failure this repointing exists to end — write
   different statement from "they are unreachable". Check what is on disk
   before recording a blocker from a remembered rule.
 
-- <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
-  **folded into [item 7](TODO.md#multiple-team-sources-disagree), 2026-09-07.**
-  Filed as a new item earlier that day and it should not have been: item 7
-  had asked the same question since 2026-09-03, with the plan reference and
-  the half-closed history this one lacked. Written without searching the
-  backlog first, which is exactly what
-  [search-by-purpose](practices/search-by-purpose.md) exists to prevent.
-  This anchor is kept, rather than deleted, so links already pointing here
-  still resolve ([rename-updates-links](practices/rename-updates-links.md));
-  the content and the open question now live in item 7.
+- <a id="split-team-sets-by-subject"></a>**Sort the existing team and individual rules into subject-scoped team
+  sets.** Decided 2026-09-08, after the cross-team drift question: a rule
+  several teams need does **not** go to universal — universal is for
+  opinionated rules Precedent tells the world, and a house design style is not
+  one. It goes into **one team set named for its subject**, which every team
+  that needs it declares alongside its own. The naming convention already
+  points here: a team set is named for its **purpose**, and a roster-shaped
+  name is stale the moment somebody joins. Nothing new has to be built — a
+  repo can already declare several team sets, and two of them defining one
+  slug is a loud refusal, which is the guard that stops a local copy creeping
+  back in.
 
+  **What is left to do is the sort itself**, one rule at a time, across
+  `precedent-team-maintainers`, `precedent-team-tms` and
+  `precedent-individual`: which rules are genuinely one team's, which are
+  subject-scoped and want a set of their own, and which are personal to
+  Morgan rather than to any team. The test per rule: *who breaks if this is
+  wrong?* One team → that team's set. Everyone doing a kind of work,
+  regardless of team → a subject set. One person → individual. Only this
+  repository → repo-local.
+
+  **Blocked on:** a session that can read those three repositories. Asked on
+  2026-09-08 and refused: `add_repo` would not attach `themorgan/*` from an
+  `alex137/*`-rooted session, and no sibling clone or user config existed on
+  disk, so the sort could not be started from guesses about what the sets
+  contain. Route is [`attach-private-sources`](TODO.md#attach-private-sources).
+
+- <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
+  **unfolded 2026-09-08, at Morgan's prompting.** Folded into
+  [item 7](TODO.md#multiple-team-sources-disagree) on 2026-09-07 on the
+  grounds that item 7 "had asked the same question since 2026-09-03". It had
+  not, and item 7's body has never mentioned drift: item 7 asks which of two
+  **disagreeing** team sources wins inside one consuming repo — a precedence
+  question, parked. This asks what keeps one rule the **same** across several
+  team sets that nobody resolves together — a drift question, and nothing
+  addresses it. The fold is the reason this sat as a dead anchor for a day.
+  (The anchor is kept either way —
+  [rename-updates-links](practices/rename-updates-links.md).)
+
+  **The drift is measured, not hypothetical.** Two sessions independently
+  landed `fail-gracefully` and `bold-key-phrases` into *both* team sets on
+  2026-09-07, each doing the obviously right thing. The one deliberate
+  cross-repo sweep — a session holding all four repositories, searching by
+  purpose and by mechanism, 2026-09-06 — found one more
+  ([`headline-duplicate-retired`](TODO.md#headline-duplicate-retired)).
+  Nothing runs that sweep on a schedule, and nothing runs it mechanically.
+
+  **Morgan's proposal, 2026-09-08:** one session holding the universal repo
+  plus every team and individual set, finding the same practice across
+  sources, reporting where the copies have drifted, and reconciling them —
+  with an identity check, so two unrelated rules that happened onto one slug
+  are never merged into each other.
+
+  Four things to weigh before building it:
+
+  - **The identity half is already solved, in the opposite direction.** Slugs
+    are identities: `resolve()` in
+    [tools/precedent_resolve.py](tools/precedent_resolve.py) raises on two
+    same-level sources defining one slug, and `load_source()` raises within
+    one source. Two unrelated rules sharing a slug cannot survive long enough
+    to be reconciled. The undetected case is the inverse — **one rule under
+    two slugs** — which "rename one", item 7's cheapest remedy, actively
+    manufactures.
+  - **A copy is usually the bug, not the thing to keep in sync.** Two teams
+    wanting the identical rule is what a universal rule looks like, and that
+    was Morgan's own call on the 2026-09-07 pair: promote to universal,
+    delete from both team sets. A reconcile tool should propose **promotion
+    first** and a text merge second, or it will keep three copies healthy
+    forever.
+  - **It must not be a judge-only reading pass.**
+    [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) pre-registered and
+    measured that exact shape at 54% recall — worse than doing the work with
+    no review pass at all. The mechanical seed already exists:
+    [tools/precedent_promote.py](tools/precedent_promote.py)'s
+    non-duplication criterion takes `--against PATH[,PATH...]` and scores
+    word overlap across several repo roots. What is missing is running it
+    pairwise over existing catalogues instead of once, at creation.
+  - **The verdict has to be recorded per pair, per source.**
+    [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) is the
+    practice for that, and several team sets carrying one rule is the case it
+    describes.
+
+  **Blocked on:** a session that actually holds every source at once —
+  checked on disk this time, not recalled: no sibling clone exists beside
+  this checkout, `~/.config/precedent/config.json` does not exist, and
+  `add_repo` refused `themorgan/*` from this `alex137/*`-rooted session on
+  2026-09-08 (*"cross-tier adds are not supported in v1"*). So the route is
+  [`attach-private-sources`](TODO.md#attach-private-sources): root the
+  session at a `themorgan/` repo, attach the other two same-owner sets, and
+  clone the public BestPractice directly.
 43. <a id="loader-comment-names-an-unvendored-check"></a>**The generated loader block
     tells every source set that a check catches drift, in exactly the repos where that
     check does not exist.** [tools/build_views.py](tools/build_views.py) writes `do not
@@ -2108,24 +2187,56 @@ which is the failure this repointing exists to end — write
 
   `STYLEGUIDE.md` is unchanged, as recommended: it ships empty, it is project
   data, and it is not a rule at any level.
+42. <a id="upstream-notice-silent-when-rooted-above"></a>**The upstream-carry
+    notice is silent in exactly the layout this project requires, and nothing
+    reports its absence.**
+    [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py)
+    (landed 2026-09-08) says at session start whether Alex has moved `main`
+    since the last carry. It rides
+    [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh), so it
+    does not run when the harness roots the session one directory ABOVE this
+    repo — which is what happens whenever the sibling clones a team source
+    needs are laid out alongside it, and is the gotcha that already cost a
+    whole session's replies on 2026-09-08.
 
-44. <a id="small-calls-vs-brainstorm"></a>**`small-calls` tells a session to commit during a brainstorm, and it
-    outranks the practice that just landed to stop it.** Opened 2026-09-08
-    with [brainstorm-holds-commits](practices/brainstorm-holds-commits.md).
-    That practice is universal; `small-calls` is a **team** practice in
-    `precedent-team-maintainers`, and `PRECEDENCE` is
-    `team > repo-local > individual > universal`. The two do not collide by
-    slug, so both are in force and nothing reports a conflict — but a session
-    holding both reads *"Default to continuing, not asking… make the call and
-    note it"* alongside *"write nothing to the repository until they say
-    to."* Committing a captured open item is precisely the shape `small-calls`
-    calls small: cheap, reversible, keeps the work moving. That reading is
-    what produced the incident, twice in one thread, and the team rule wins
-    on precedence if anyone ever files them as a real conflict.
+    **The failure is silent in the way that matters: no notice and "nothing
+    changed" render identically.** A session in that layout reads no line,
+    concludes `main` has not moved, and is wrong exactly when it counts.
+    `python3 tools/precedent_upstream_check.py` by hand is the fallback, and
+    a fallback nobody knows to reach for is not one.
 
-    **The fix is one clause in `small-calls`, not a change here** — an
-    exception naming the brainstorm state, the same way its own Rule already
-    carves out credentials and production. **Blocked-on:** this session holds
-    **read-only** access to `precedent-team-maintainers`, so it is queued
-    rather than pushed (`cross-source-rollout`). Whoever takes it should also
-    check the individual set for the same shape.
+    **Queued rather than done because it changes a different tool's
+    contract.** [tools/precedent_session_check.py](tools/precedent_session_check.py)
+    reports *guarantees a SessionStart hook established*, tested by their
+    effect; "you were told whether upstream moved" is not a state a later
+    process can observe, so it does not fit that shape without deciding what
+    that tool is for. Its `--apply` path already re-runs `session-start.sh`
+    and therefore already prints the notice — what is missing is the
+    REPORTING line that tells a session the notice never arrived.
+
+45. <a id="small-calls-vs-brainstorm"></a>**`small-calls` tells a session to commit during a brainstorm, and
+    nothing mechanical stops it.** Opened 2026-09-08 alongside
+    [brainstorm-holds-commits](practices/brainstorm-holds-commits.md), and
+    **corrected the same day** — the first version of this item said the team
+    rule "wins on precedence," which is wrong. `PRECEDENCE` is
+    `team > repo-local > individual > universal` **by slug**, and these are
+    different slugs, so neither overrides the other. Both are simply in
+    force, nothing reports a conflict, and `severity: blocking` would not
+    change that either — it is a same-slug mechanism too.
+
+    So the conflict is semantic, not mechanical: a session holding both reads
+    *"Default to continuing, not asking… make the call and note it"* beside
+    *"write nothing to the repository until they say to."* Committing a
+    captured open item is exactly the shape `small-calls` calls small —
+    cheap, reversible, keeps the work moving — and that reading is what
+    produced the incident, twice in one thread.
+
+    **Resolved for now in the universal practice's own text**, which names
+    `small-calls` and says the brainstorm state narrows it. Both rules are in
+    front of the session, so the one that addresses the other by name is the
+    one that wins in the moment, and that needed no access to the private
+    team source. **Still worth a clause in `small-calls` as belt-and-braces**
+    — an exception naming the brainstorm state, the same way its Rule already
+    carves out credentials and production. **Blocked-on:** read-only access
+    to `precedent-team-maintainers` from this session (`cross-source-rollout`).
+    Whoever takes it should check the individual set for the same shape.

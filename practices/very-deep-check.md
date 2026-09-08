@@ -413,6 +413,32 @@ first so this pass spends its attention on what they cannot see.
   the glossary, and was one edit away from reversing a decision made that
   morning — so check where a keyword IS defined before calling it
   undefined.
+- **What every session loads, and what it costs.** The one measurement no
+  gate can make, because nothing is wrong at any single commit: every line in
+  an always-loaded file was right to add on the day it was added, and it only
+  goes wrong in aggregate, months later.
+  [tools/very_deep_check.py](../tools/very_deep_check.py)'s "SESSION LOAD"
+  section counts the instructions file section by section, plus the untracked
+  practice file when private sources resolved, and flags any section large
+  enough to be worth splitting and any entry whose own text says its trap is
+  settled. **Read those flags, do not obey them:** an entry's claim that it
+  was fixed is not evidence, and the verification is against the tree.
+  **The trap is optimising for the total, and it is the likely mistake rather
+  than a remote one.** These sections exist because sessions kept losing hours
+  to the same environment traps; a trimming pass that chases the number
+  deletes the entries that are working. **The question for each part is
+  "would a session hit this today", never "how big is it".** What no longer
+  bites moves to a linked archive **in full** — the payload of a gotcha is the
+  story of what failed ([environment-gotchas](environment-gotchas.md)), so a
+  deletion eventually leaves a live section of unexplained rules.
+  *(Found 2026-09-08, and the shape is why this belongs here: the resident
+  block's 2,000-token budget had been reporting green for weeks while the
+  file around it reached ≈17,000 — the budget governed 4% of the cost, and
+  nothing was measuring the rest. The first pass moved 24 entries' full text
+  to [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) and took ≈4,900
+  tokens off every session, deleting nothing. A consuming repo measured the
+  same day had the same disease in a different section, so this is structural
+  rather than one repository's untidiness.)*
 - **Orphans — files nothing owns any more.** The mirror of every other
   check here, which all ask whether something that should be present *is*.
   An orphan is present and in nobody's list, so no mechanism keyed on a

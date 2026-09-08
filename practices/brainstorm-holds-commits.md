@@ -49,17 +49,39 @@ person's ability to ask for something.
 ends its turn honestly: if a repository's tooling has already left the tree
 dirty, say so plainly rather than committing to tidy it away.
 
-## Why
-Exploratory conversation is where a person is deciding what they think, and
-a commit made in the middle of it is a decision recorded before they made
-one. The repository is memory, which is exactly the problem: a speculative
-edit committed on their behalf is indistinguishable, a month later, from
-something they chose.
+**It narrows `small-calls`, and that is the whole reason this is written
+down.** Where a source in force says to default to continuing rather than
+asking -- to make the call and note it, reserving the interruption for
+decisions that are costly to undo -- a brainstorm is the standing exception.
+Capturing an open item is exactly the shape that rule calls small: cheap,
+reversible, keeps the work moving. It is also, in an exploratory thread, the
+thing not to do. The two rules have different slugs, so no precedence
+mechanism decides between them and nothing reports a conflict -- which is
+why the brainstorm state has to be named here, in the rule that knows about
+it, rather than left for a session to arbitrate mid-thread.
 
-There is a second cost that is easy to miss. Once a session has written a
-proposal into the tree, its next reply is arguing for something it already
-built, and the person is now reviewing a fait accompli rather than weighing
-an idea. Holding the edit keeps the conversation about the idea.
+## Why
+**Thinking happens privately with the assistant; the results get shared.**
+That is what the repository is for, and it is the whole argument: a
+repository holds conclusions, and thinking out loud is not a conclusion.
+Morgan, 2026-09-08, on why this belongs at universal rather than in one
+person's own set -- *"we want brainstorming to happen privately thinking
+with Claude, and the results shared."* Nobody wants their half-formed
+options in the record, and everybody wants what they settled on to be there.
+
+That also settles the edges without further rules. It says why `Go merge`
+is the exit -- it is the moment something became a result. It says why
+enthusiasm mid-thread is not: agreeing that an idea is interesting is not
+concluding anything. And it says why the rule survives a session boundary,
+where a preference about interruptions would not: the repository outlives
+the conversation, so what lands in it is a different question from what is
+convenient to ask right now.
+
+There is a second cost, easy to miss and pointing the same way. Once a
+session has written a proposal into the tree, its next reply is arguing for
+something it already built, and the person is reviewing a fait accompli
+rather than weighing an idea. Holding the edit keeps the conversation about
+the idea.
 
 ## Story
 2026-09-08. A thread that began *"I'm wondering if there's a better way"*

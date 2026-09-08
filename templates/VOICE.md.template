@@ -30,6 +30,15 @@
      is the third thing -- this project's own voice, which is nobody else's
      business and does not travel.
 
+     UPDATING AN EXISTING INSTALL, rather than a fresh one: the adopter's
+     VOICE.md still holds the deleted 205 lines, and a three-way merge will
+     not tell you which of them anybody actually decided. Read the block
+     once, carry the decisions, drop what merely shipped, and put each
+     carried item where the new structure says it goes, and read ## Overrides
+     below before assuming that is here -- most overrides belong in
+     precedent.json or the instructions file instead. INSTALL.md section 2
+     step 2a is the procedure and carries the worked example.
+
      At install, show the administrator the sections below and fill them in
      from what they say. Every one may legitimately be left as <undecided>;
      an empty VOICE.md is a normal state for a project that has not thought
@@ -88,15 +97,34 @@ already covered.>
 
 ## Overrides
 
-<Anywhere this project deliberately departs from a rule in the catalogue,
-with the reason. This is the section that earns the file: an override
-nobody wrote down reads as a session ignoring a rule.
+**Most overrides do not belong in this file, and putting one here where it
+had a better home is worse than not recording it at all** — a departure
+written down somewhere nobody reads at the moment it applies is a departure
+nobody follows. Three homes, in order; take the first that fits:
 
-Each entry names the practice, states the departure, and says why the
-general rule does not fit here. If there are none, say so — "none" is a
-real answer and a useful one.>
+1. **A knob in `precedent.json`.** If the departure is mechanical — this
+   check should not run here, this path is internal, this directory is
+   exempt — declare it there (`not_binding`, `internal_paths`,
+   `output_paths`, `filename_separator_exempt`; each takes a stated reason).
+   **The tool reads it**, so the override is enforced rather than
+   remembered, and it cannot drift from what actually happens.
+2. **A `## Conventions` bullet in this repo's instructions file.** If a
+   session has to *know* the departure while doing ordinary work, it goes
+   where every session already reads. **A session applying a rule is not
+   reading VOICE.md when it applies it**, which is the whole reason this
+   section is third rather than first.
+3. **Here** — a voice or writing departure with no mechanical knob, that a
+   session only needs when it is thinking about voice specifically. Name the
+   practice, state the departure, say why the general rule does not fit.
 
-- **<practice slug>:** <what this project does instead, and why>
+**When a departure lands in 1 or 2, this section may still name it in one
+line and point at where it lives — a pointer, never a copy.** Two statements
+of one override drift, and the copy nobody enforces is the one that survives.
+
+If there are none, say so — "none" is a real answer and a useful one.
+
+- **<practice slug>:** <what this project does instead, and why — or where
+  it is declared, if it lives in `precedent.json` or the instructions file>
 
 ## Examples
 

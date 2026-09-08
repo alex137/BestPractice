@@ -97,7 +97,7 @@ Requires: pip install markdown.
 """
 
 import pathlib
-import html as html_mod  # noqa: F401  (kept for extensions that escape text)
+import html as html_mod  # heading_slug unescapes entities the render emits
 import re
 import sys
 from pathlib import Path
@@ -1369,6 +1369,40 @@ def _wire_note_backlinks(body):
         back, body, flags=re.S)
 
 
+def heading_slug(text):
+    """GitHub's heading-anchor slug: lowercase, punctuation dropped (letters,
+    digits, spaces, hyphens and underscores survive), spaces to hyphens.
+    Duplicates get -1, -2 ... in document order (see _add_heading_ids).
+    The markdown source's in-document links (`[x](#slug)`) are written
+    against this rule because GitHub renders them that way; the render
+    must give every heading the same id or every such link is dead in the
+    HTML product (it was, until 2026-09-07: doc_lint's anchor check now
+    guards both sides)."""
+    t = re.sub(r"<[^>]+>", "", text)
+    t = html_mod.unescape(t).strip().lower()
+    t = re.sub(r"[^\w\s-]", "", t)
+    return re.sub(r"\s", "-", t)
+
+
+_HEADING_RE = re.compile(r"<h([1-6])>(.*?)</h\1>", re.S)
+
+
+def _add_heading_ids(body):
+    """Stamp every heading with its GitHub slug as id (duplicates
+    suffixed -1, -2 ... as GitHub does)."""
+    seen = {}
+
+    def sub(m):
+        slug = heading_slug(m.group(2))
+        n = seen.get(slug, 0)
+        seen[slug] = n + 1
+        if n:
+            slug = f"{slug}-{n}"
+        return f'<h{m.group(1)} id="{slug}">{m.group(2)}</h{m.group(1)}>'
+
+    return _HEADING_RE.sub(sub, body)
+
+
 def render(src, out_path, title):
     """Render one markdown document to its sortable-table HTML product."""
     src, out_path = Path(src), Path(out_path)
@@ -1382,6 +1416,7 @@ def render(src, out_path, title):
                  f"`--list` prints what is registered.")
     md_text = expand_includes(src.read_text(encoding="utf-8"), src.parent)
     body = markdown.markdown(md_text, extensions=["tables"])
+    body = _add_heading_ids(body)
     body = rewrite_links(body, src.parent)
     body = _wire_note_backlinks(body)
     # wide-table wrapper + prose-width class for the small tables
