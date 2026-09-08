@@ -52,6 +52,7 @@ Run:  python3 process/upstream/tools/doc_lint.py            # changed-vs-default
       python3 process/upstream/tools/doc_lint.py --all       # whole repo, report-only
       python3 process/upstream/tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
 """
+import html
 import re, sys, subprocess, pathlib
 
 def _git(args, cwd=None):
@@ -335,6 +336,57 @@ def wired_docs():
     return []
 
 
+# check 7: in-document anchors resolve. A `[text](#slug)` link in markdown
+# lands on a heading only if slug is GitHub's slug of that heading (or an
+# explicit <a id="slug">); a link written against a heading that was later
+# reworded, or a note anchor that was renamed, is a dead link on GitHub and
+# in the HTML render alike -- and nothing reported it until 2026-09-07,
+# when a reader found two dead section links in a column description.
+# The slug rule is shared with tools/doc_html.py (heading_slug); keep them
+# identical.
+FENCE_RE = re.compile(r'^\s*(```|~~~)')
+HEADING_RE = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
+ANCHOR_LINK_RE = re.compile(r'\]\(#([^)\s"]+)(?:\s+"[^"]*")?\)|href="#([^"]+)"')
+EXPLICIT_ID_RE = re.compile(r'<a\s+(?:id|name)="([^"]+)"|\sid="([^"]+)"')
+
+
+def heading_slug(text):
+    """GitHub's heading-anchor slug of a markdown heading's text: link
+    and emphasis markup stripped, lowercased, punctuation dropped (letters,
+    digits, spaces, hyphens, underscores survive), spaces to hyphens."""
+    t = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)   # [x](y) -> x
+    t = re.sub(r'<[^>]+>', '', t)
+    t = t.replace('`', '').replace('*', '')
+    t = html.unescape(t).strip().lower()
+    t = re.sub(r'[^\w\s-]', '', t)
+    return re.sub(r'\s', '-', t)
+
+
+def check_anchors(path):
+    """[(line, fragment)] for every in-document link whose fragment is
+    neither a heading's slug (duplicates -1, -2 ...) nor an explicit id."""
+    text = (ROOT / path).read_text(errors='ignore')
+    ids, seen, links, fence = set(), {}, [], False
+    for i, line in enumerate(text.split('\n'), 1):
+        if FENCE_RE.match(line):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        m = HEADING_RE.match(line)
+        if m:
+            slug = heading_slug(m.group(2))
+            n = seen.get(slug, 0)
+            seen[slug] = n + 1
+            ids.add(f"{slug}-{n}" if n else slug)
+        for m in EXPLICIT_ID_RE.finditer(line):
+            ids.add(m.group(1) or m.group(2))
+        # a link quoted inside a code span is text about links, not a link
+        for m in ANCHOR_LINK_RE.finditer(re.sub(r'`[^`]*`', ' ', line)):
+            links.append((i, m.group(1) or m.group(2)))
+    return [(i, frag) for i, frag in links if frag not in ids]
+
+
 def check_findability(docs):
     """Return [(doc, note)] for wired docs linked from no index."""
     blob = ""
@@ -399,12 +451,15 @@ def main():
     known = None if fix else load_known_acronyms()
     total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
-    unsourced_lines, residue_lines = [], []
+    unsourced_lines, residue_lines, anchor_lines = [], [], []
     for f in files:
         if not (ROOT / f).exists():
             continue
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
+        for i, frag in check_anchors(f):
+            anchor_lines.append(f"  {f}:{i}: #{frag} matches no heading slug "
+                                "or explicit id in this document")
         s, u, g, t, nf = check_file(f, fix=fix, known=known)
         total_fixed += nf
         for i, txt in s:
@@ -487,10 +542,21 @@ def main():
         if len(residue_lines) > 40:
             print(f"  … and {len(residue_lines) - 40} more")
 
+    if anchor_lines:
+        print(f"\nBROKEN IN-DOCUMENT ANCHORS — {len(anchor_lines)} link(s) "
+              f"({'FAIL' if gate else 'backlog report'}; a `[x](#slug)` link "
+              "must name a heading's GitHub slug or an explicit <a id>; the "
+              "HTML render stamps the same slugs):")
+        print('\n'.join(anchor_lines[:40]))
+        if len(anchor_lines) > 40:
+            print(f"  … and {len(anchor_lines) - 40} more")
+
     # gate: strikethrough always fails in scope; unsourced quantities fail only
     # in documents that explicitly opted in, so the legacy corpus never blocks;
-    # process residue (check 6) fails on any deliverable in scope.
-    if gate and (strike_lines or unsourced_lines or findability or residue_lines):
+    # process residue (check 6) and broken anchors (check 7) fail on any
+    # document in scope.
+    if gate and (strike_lines or unsourced_lines or findability or residue_lines
+                 or anchor_lines):
         return 1
     return 0
 
