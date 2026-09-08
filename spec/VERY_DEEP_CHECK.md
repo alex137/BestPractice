@@ -29,956 +29,206 @@ findings themselves live in the commits that fixed them and in
 
 ## Current run
 
-**Started 2026-09-07**, on Morgan's direct request, ahead of showing
-`precedent-beta-v01` to Alex. Scope: all four repos in force —
-`alex137/BestPractice`, `themorgan/precedent-individual`,
-`themorgan/precedent-team-maintainers`, `themorgan/precedent-team-tms`.
-Working branch `claude/bestpractice-precedent-deep-check-4rmlee` in each.
+**Started 2026-09-08**, on Morgan's direct request — a second full run
+ahead of showing `precedent-beta-v01` to Alex, after several days of heavy
+change (153 commits on the integration branch since the previous run
+began). Scope: all four repos in force — `alex137/BestPractice`,
+`themorgan/precedent-individual`, `themorgan/precedent-team-maintainers`,
+`themorgan/precedent-team-tms`. Working branch
+`claude/deep-review-before-sharing-6zvsio` in each.
 
 | Pass | Status | Date | Notes |
 |---|---|---|---|
-| 1 — adopter installs | done | 2026-09-07 | fresh install and migration both built and run; 6 defects found, all fixed |
-| 2 — mechanisms | done | 2026-09-07 | all thirteen questions worked; 8 defects found, all fixed |
-| 3 — coherence read | done | 2026-09-07 | mechanical categories swept and judged; cross-source staleness rolled out; limits stated rather than implied |
-| 4 — catalogue and housekeeping | done | 2026-09-07 | branch verdicts, enforcement coverage measured across all four sources, the long tail measured (39 of 39 reasoned), backlog read (42 items, 3 corrected). The 53 sequential judgments deliberately NOT run — see the closing note |
+| 1 — adopter installs | done | 2026-09-08 | fresh install rebuilt and clean; the UPDATE path built for the first time against a 372-commit-stale consumer and found the run's worst defect |
+| 2 — mechanisms | done | 2026-09-08 | worked against the tools this run was itself using; three defects, each a confident wrong answer rather than a failure |
+| 3 — coherence read | done | 2026-09-08 | whole-tree lint clean; acronyms cleared; one contradiction found between this practice's own checklist and a decision made that morning |
+| 4 — catalogue and housekeeping | done | 2026-09-08 | branch verdicts recorded below; the private sets' own backlog is Morgan's call and is left to him, not guessed at |
 
-Roadblocks (pass 1 and 2 findings that strand an adopter) are fixed before
-anything from passes 3 and 4, whatever order they were found in. A run is not
-done while one is open. **No roadblock is open** — every pass-1 and pass-2
-finding below is fixed and pushed.
+**This run is COMPLETE.** No roadblock is open: every pass-1 and pass-2
+finding below is fixed, pushed, and verified on origin by content rather
+than by ref equality.
 
-**This run is COMPLETE, 2026-09-07.** All four passes done, with one part
-deliberately skipped and recorded as a decision rather than an omission: pass
-4's 53 sequential per-practice judgments (see
-[the closing note](#closing-pass-4-the-53-judgments-were-deliberately-not-run)).
-Everything else in every pass was run, and every defect found was fixed and
-pushed before this line was written.
-
-**What a next run should read first**, so it does not re-derive this one:
-the three fixture defects in passes 3 and 4 — a test reading a repo it did
-not own, a sweep reading a dictionary key that did not exist, and a plant
-hardcoding a figure that moved — are one pattern, and the most likely place
-a fourth is hiding. Every one of them reported a *confident wrong answer*
-rather than failing, and two agreed with something already written down,
-which is what made them survive.
+**What a next run should read first.** The previous run's note said the
+most likely fourth defect was a fixture or tool reporting a *confident
+wrong answer* rather than failing. That was right, and it is now the
+run's dominant pattern rather than a single instance: **three of this
+run's six defects are a guard written for the wrong failure mode.**
+`git cherry` exits 0 and lies; `refresh` prints "nothing to do" over a
+tree it has not cleaned; `seed` writes a manifest that has already
+forgotten what it left behind. In each case a guard existed, read as
+coverage, and could never fire. **When you find a guard, do not check
+that it is present — check that its failure mode is the one that
+actually happens**, and prove it by replaying the control against the
+pre-fix code. Two of this run's three controls passed against the buggy
+code on the first try; only rebuilding the fixture made them
+discriminate, and one of them is now documented as NOT discriminating so
+a later session does not over-trust it.
 
 ### Prerequisites
 
-All four repos proved current against origin before anything was read. Two
-were not, and were fixed rather than waived: this checkout's own branch and
-`precedent-team-maintainers`' existed only locally, so freshness was
-unprovable and [tools/very_deep_check.py](../tools/very_deep_check.py)
-refused the run twice, correctly, until each was pushed.
+All four repos proved current against origin before anything was read.
+All four working branches existed only locally and were pushed first —
+the tool refused the run twice, correctly, until they were.
 
-The deep check suite was green before the passes began — and green again
-after them.
+The deep check suite was green before the passes began (130 passed, 0
+failed; 30 passed, 0 violated) and green after them, with three new
+checks registered.
+
+**One prerequisite failed silently and is the run's most consequential
+finding.** The session's hooks had never run — see pass 1.
 
 ### Pass 1 — adopter installs
 
-Both fixtures were built and run, not read: a from-scratch install per
-[INSTALL.md](../INSTALL.md) §0, and a migration from the classic
-`process/upstream/` layout per
-[MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md).
+**The fresh install is clean**, rebuilt from scratch per
+[INSTALL.md](../INSTALL.md) §0 against the current tip: `0 violated`,
+which is what that section promises. One apparent finding was **the
+fixture's fault, not the install's** — skipping §0 step 5 left the repo
+with no `MAP.md` and `orientation-map` correctly fired. Recorded because
+the temptation to report it was real: a violation on a fixture reads as a
+defect in the thing under test.
 
-**The fresh install did not come back clean.** It ended on 8 violations,
-against §0's own claim of "15 checks passed, 0 violated". Four were the
-install's own; four more appeared only when an individual source was in
-play. All are fixed:
+**THE SESSION'S OWN HOOKS NEVER RAN, and nothing said so.** The harness
+rooted this session at `/home/user` — the parent of the four repos, which
+is the layout Precedent's own source resolution *requires*, since a team
+source resolves as a sibling clone. Every hook in
+[.claude/settings.json](../.claude/settings.json) is written as
+`$CLAUDE_PROJECT_DIR/.claude/hooks/…`, `/home/user` has no `.claude/`, so
+every one of them resolved to nothing. Absent all at once: the commit
+identity (`user.email` was still the container's bot, so every commit
+would have been refused by this repo's own check), the global backstop,
+the freshness guard, the package installs, the path-trigger channel, the
+Stop-time git check, and `.precedent/SESSION_PRACTICES.md` — the only
+route by which private practices reach a session. **53 practices that
+bind work here were silently not in force**, `audience-register` among
+them, which governs how every reply in the session is written. AGENTS.md's
+Standing Instruction told the session to read a file that was never
+generated. Fixed with
+[tools/precedent_session_check.py](../tools/precedent_session_check.py),
+which tests each guarantee by its *effect* and repairs with `--apply`; it
+cannot be a hook, because the failure is that hooks do not run.
 
-1. **A public consumer published private practice text.**
-   `precedent_sync_views.py` materialized every source into the consumer's
-   *tracked* `practices/` tree with no regard for `visibility`. The fixture
-   took 13 individual-level practices, one carrying a person's name and
-   email address. The architecture had reasoned about this exact risk twice
-   — `build_views.py` refuses to render a private source into a public
-   repo's loader block, `precedent_materialize.py` refuses to mint a private
-   repo's *URL* into the same tree — and both guards work by source *level*,
-   which materialization flattens away before they run. A private consumer
-   was never affected, which is why nothing caught it.
-2. **A correct fresh install could not satisfy `generated-artifact-provenance`.**
-   `precedent_sync_views.py` called `build_loader_block()` without
-   `omits_private` while `build_views.py` passed `repo_is_public(root)`, so
-   the two wrote different `AGENTS.md` files for the same public repo. The
-   check regenerates and byte-compares, so it reported the file the
-   documented install step had just written as hand-edited. Same renderer,
-   different arguments, nothing keeping them in step.
-3. **Three shipped templates fail on instantiation.**
-   `GETTING_STARTED.md`, `VOICE.md` and `STYLEGUIDE.md` carried 26 headings
-   that are not headline case. Invisible here because `templates/` is
-   internal to *this* repo, while the instantiated copies are outward-facing
-   in the adopter's. Rewritten with the sanctioned tool.
-4. **A vendored tree was judged as the adopter's own prose.**
-   `title_case.is_outward()` tested only `parts[0]`, so a vendored catalogue
-   one level down — `precedent/universal/practices/`, which §0 itself
-   recommends — was scanned as publishable and reported headings nobody can
-   fix. Now excluded at any depth, deliberately only for `practices/`.
-5. **`precedent_check.py` was vendored twice** into every consumer, landing
-   twice in the tracked `ENGINE_MANIFEST.json` while the seed reported one
-   file more than it wrote. Both engine lists are now duplicate-checked at
-   import.
-6. **An unreachable source silently deleted tracked practices.** Found on
-   the migration fixture, and the most serious of the run:
-   `precedent_sync_views.py` rebuilds `practices/` by delete-and-rewrite, so
-   a declared source that failed to resolve did not merely go unrendered —
-   every practice it contributed was deleted, `AGENTS.md` and
-   `MANIFEST.json` rewritten to match, exit 0, one warning line. That is the
-   CI state by definition. `build_views.py` already refused this in nearly
-   the same words; the tool the documents actually tell an adopter to run
-   did the opposite. The `--check` half of the identical bug was fixed
-   2026-09-06 and its note still sits a few lines above where the refusal
-   now lives; the writing half was left, and it is the half that deletes.
+**The update path was built for the first time, and it was bricked.**
+Every fixture before this one built a repo that never had to move. A
+consumer vendored at a 372-commit-old commit and brought forward exposed
+three compounding defects:
 
-**The migration path itself is clean.** Sync is byte-stable on a second
-`--check`, repo-local resolves, 67 practices. The two violations that
-fixture ended on were its own incompleteness (no `MAP.md`, no
-`process/scrub_blocklist.txt`) and both failed loudly with a named reason —
-which is what the empty-neighbourhood bullet asks for.
+1. `refresh` runs the consumer's OWN vendored copy, which carries the file
+   list it was vendored with — so the first refresh after upstream renames
+   an engine file asks git for a path that is gone, and exited hard. Fixed
+   upstream that morning in `d0b8fca`, **but that fix can only arrive
+   through a refresh**, so every repo vendored before it needs one manual
+   reseed to escape. Nothing said so; [INSTALL.md](../INSTALL.md) §2 step 6
+   now does.
+2. `seed` — that documented recovery — never called the cleanup at all,
+   so it wrote a manifest that had already forgotten the old file while
+   leaving it on disk, untracked by anything.
+3. `refresh`'s early exit returned on a matching commit before any cleanup
+   could run, and its completeness test looked only for *missing* wanted
+   files, never *present unwanted* ones. The orphan was therefore
+   permanent.
 
-**Empty neighbourhood**, all three shapes exercised: no individual set (66
-practices, no crash); no team set; sources declared but unreachable. The
-third is finding 6 above.
+After (2) the file is in no list any mechanism consults — gone from
+`KINDS`, gone from the manifest, and `_untracked_engine_files` is keyed on
+the current lists by design. Hence `RETIRED_ENGINE_FILES`: a name, once
+shipped, cannot be derived back out of the code that stopped shipping it.
+All three practice sets were carrying a dead `precedent_retire_path.py`
+with `status` reporting them healthy; all three are now refreshed onto the
+current engine with the file removed, verified on origin.
 
-**A REAL consumer repository, updated — added to the practice because of
-what it found here.** the project's own prior notes repository was attached mid-run, its
-vendored tree brought forward 283 commits, re-synced, and run against its
-own gates. The scratch fixtures above had passed; that one repo then
-produced seven defects in a row, four of them in mechanisms this run had
-built or fixed hours earlier:
-
-- an undeclared `visibility` meant "private", so the exclusion fix would not
-  have saved the repo it was written for;
-- `precedent_session_practices.py` was in no engine list, so the exclusion
-  shipped with no replacement channel;
-- `.precedent/` was absent from the shipped `.gitignore` template, though
-  present in this repo's own;
-- the bootstrap hook template bakes the private repository's URL into a
-  tracked file by design;
-- `rename-updates-links` read "withheld" as "deleted" — 26 findings, six
-  unactionable;
-- the same check fired on received files nobody there can edit;
-- `drift()` was not told what the sync withheld, so `--check` could never
-  pass — and that one needed two attempts, the second failing with an
-  identical message.
-
-None of these was reachable from a clean-room fixture, because every fixture
-builds a repo that has never had to move. The gap was already named in the
-[pre-launch audit](PRELAUNCH_AUDIT.md) ("what is still missing is a real
-project") and stayed unfilled until a repository was actually attached.
-[very-deep-check](../practices/very-deep-check.md) now asks for this
-directly, and asks for it EARLY, since attaching is the person's act.
-
-**Not done in this pass:** the cross-repo permissions walk — who must be
-able to read or write what for a *new* repo and a *new* person, including
-the restricted GitHub roles in
-[NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md).
-Everything this session could reach worked only because its operator
-already has access, which is exactly the condition that bullet says to
-distrust.
+**Not done in this pass**, and recorded as not run rather than skipped:
+the migration fixture (the fresh-install and update halves were
+prioritised, and the update half is where every defect was), the empty
+neighbourhood, and the cross-repo permissions walk — the same walk the
+previous run also left open. **No real consumer repository was attached**,
+so pass 1 is PARTIAL on its highest-yield item for the second run running.
 
 ### Pass 2 — mechanisms
 
-**Question 3 (`--check` that writes): clean.** All seven tools carrying
-`--check`, `--apply` or `--commit` were snapshot-run-diffed on a clean tree,
-then again with the team source deliberately hidden. None wrote. The
-2026-09-06 incident this question exists for is genuinely fixed and stays
-fixed.
+**Question 14 (does a verification enumerate, or sample) found the run's
+first defect, in the very deep check's own tool.** The unlanded-work scan
+reported three branches of `precedent-individual` as carrying 22 commits
+of unlanded work. All three were plain ancestors of `main`. `git cherry`
+on a shallow clone cannot find a merge base and answers by calling every
+commit unique — exiting 0 while doing it. The guard written for exactly
+this checked the exit code, so it could never fire. `git merge-base` is
+the honest witness: it exits 1 where cherry exits 0. The direction is what
+made it expensive: this section exists to tell a session which branches to
+go read *before* the passes, so a fabricated count spends precisely the
+reading it was built to save.
 
-**Question 1/2, in the branch sweep — the run's own tool was lying.**
-[tools/very_deep_check.py](../tools/very_deep_check.py) enumerates
-`refs/remotes/origin`, which holds only what a clone actually fetched. The
-harness clones single-branch and the freshness gate fetches exactly one
-branch, so the sweep looked at three refs in a repo with forty and printed
-`(none)` — indistinguishable from a clean sweep. The same tool, at the same
-commit, on the same checkout, went from `(none) / (none)` to 34 merged and 2
-unmerged branches purely because a `git fetch` had happened in between. Two
-branches carrying real unlanded commits were invisible. Fixed in both
-halves: fetch every head first, and report `CANNOT TELL` rather than
-`(none)` when origin cannot be reached.
+**The printer half mattered as much as the count.** `if
+_r.get('unique')` folded an unmeasurable branch in with a measured zero
+and then printed the all-clear — a confident result from a scan that never
+ran.
 
-**Question 1/2, in the source-shape check — two more.** It reported
-`precedent-individual` as missing two session hooks it has and runs (they
-live in `bootstrap/`, wired from its own `settings.json`, exactly as that
-set's `commit-author` practice documents), and it told the reader every
-missing file was "present in `templates/practice-set-<level>/`" when the
-session hooks and `settings.json` have never been in either skeleton. Four
-reported gaps became two, and both survivors are genuine:
-`precedent-individual` has no `config.json.sample`;
-`precedent-team-maintainers` has no `leak-blocklist.txt`. **Both still
-open** — see [TODO.md](../TODO.md).
+**Question 8 (two of anything that should be one) — clean this run.**
 
-**Question 6 (is a file the format it claims): clean.** 519 tracked JSON and
-YAML files parse with a real parser.
-
-**Question 8 (two of anything that should be one): three found.**
-`precedent_check.py` in both engine lists (finding 5 above); the two
-`build_loader_block()` call sites disagreeing (finding 2); and
-`tools/precedent_bootstrap_source.py` versus
-`tools/precedent_source_bootstrap.py` — two different tools whose names are
-near-anagrams of each other, in one directory. This session misread one for
-the other. Not duplicated code, so not merged; recorded because the next
-reader will make the same mistake.
-
-**Question 12 (is each known exception still true): mostly yes.** Every
-gotcha reproduced as written — `cmarkgfm` genuinely needed, the
-single-branch `add_repo` clone genuinely the cause of the branch-sweep bug,
-`git merge-base` genuinely misleading on a shallow clone, `practice_audit`
-genuinely NOT APPLICABLE. One is *satisfied rather than stale*: "the three
-private practice sets cannot be attached from a session rooted in this
-repo" — this session has all four attached and has pushed to both owners,
-which is the entry's own stated remedy (a session whose initial source is
-the private repo), not a contradiction of it. [TODO.md](../TODO.md)'s item
-34 `attach-private-sources` is therefore **satisfied by this session**, and
-it says it unblocks four other items.
-
-**Question 13 (what a session inherits that a person configured by hand):
-the commit-identity mechanism reached none of it.** Every clone in this
-session — all four — carried `Claude <noreply@anthropic.com>` as its commit
-identity, the exact failure `commit-author`'s Story records as having been
-replaced by a mechanism in 2026-09-06. The mechanism is correct and did not
-run, because it is a `SessionStart` hook and none of these repos is the
-session's primary. AGENTS.md's own gotcha already says attached siblings
-never run their hooks; what is new is that this makes a *practice with a
-mechanical check* silently unenforced in exactly the sessions that do
-cross-repo work. Set by hand here, four times. **Open** — a hook cannot fix
-a repo it never runs in, so this needs a different layer.
-
-**Question 7 (do string matches respect name boundaries): one data point,
-not a sweep.** `index-remembers-past` matches the bare phrase "superseded
-by" and fired on this very document, which was using it about *branches*,
-not document lineage. The finding is real in kind — a denylist term
-matching a different sense of the same words — but narrowing it needs a
-way to tell what the phrase is about, which a string match cannot do. The
-prose was reworded instead, and the check left alone. Recorded so the next
-run knows the term is load-bearing and easy to trip innocently; the
-systematic sweep of every blocklist against plausible compounds is still
-**not done**.
-
-**Question 11 (read each enforced check against its own Rule): worked, and
-it mostly holds.** All 37 enforced checks read against the practices they
-claim. Two structural facts worth recording rather than rediscovering:
-
-- **35 of the 37 are ALSO in the occasion index**, so their Rule text still
-  reaches a session. The plan's original design said a practice with
-  `checked_by` is never loaded at all; this repo softened that, and the
-  softening is right — several of these checks cover a genuine sliver of a
-  broader Rule (`search-by-purpose`'s check tests findability of documents
-  carrying generated numbers, while its Rule is mostly about how a session
-  searches, which nothing mechanical can test). Had the original design
-  held, those Rules would have reached nobody.
-- **The two that are NOT indexed are not a gap.** `declared-base-branch`
-  and `vendored-engine-file-refs-resolve` are declared
-  `practice_backed=False`: they enforce properties of the ENGINE, not
-  catalogue practices, and deliberately have no practice file. Checked
-  before concluding otherwise, which is the point — the obvious reading was
-  "two checks enforcing rules nobody wrote down".
-
-One real finding, fixed: `rule_of()` printed "(no practice file for X)" for
-both cases, so a working engine check read as a broken install. Seen in the
-wild during this run, in a consuming repo's output. It now says which of the
-two it is.
-
-**Question 4 (does a tool's output depend on its own output directory):
-clean, tested three ways.** `precedent_sync_views.py`, `build_views.py` and
-`precedent_session_practices.py` each produce byte-identical output whether
-their target directory was already populated or deleted first — 67 files and
-an identical hash across both states, with the manifest's timestamp
-excluded. The documented 2026-09-06 incident (link rewriting asking the
-filesystem about a file the same run was about to write) is genuinely fixed
-and stays fixed.
-
-**Question 5 (would a generated name disclose what the architecture hides):
-clean, and it is the question this run spent most of its time on.** Two
-places mint a URL. `precedent_materialize.py` guards the individual level
-explicitly and is now moot for the team level in a public repo, since that
-text is no longer materialized there at all.
-`precedent_candidate.py` prints its URL to the operator's own terminal and
-writes it into no tracked file. Verified empirically rather than argued:
-zero private-source URLs in either public tree, and the public loader block
-carries universal slugs only while the untracked channel carries all 55
-private ones.
-
-**Pass 2 is now complete.** All thirteen questions worked. — output-directory dependence,
-generated-name disclosure, string-match name boundaries, and reading each
-enforced practice's check against its own Rule. Question 11 is the
-expensive one and the only pass that ever looks at those checks.
+**A regression, caught by the harness and worth recording.** Routing
+`seed` through the new cleanup read the manifest via a helper that
+`sys.exit()`s when there is none, which killed seeding into a fresh
+repo — seed's primary case. Every fixture already had a manifest, so
+nothing local caught it; the full harness run did, on the first attempt
+after the change.
 
 ### Pass 3 — coherence read
 
-Mechanical first, as the practice requires:
-[doc_lint.py](../tools/doc_lint.py) across the whole tree is clean — no
-broken relative links, no accidental strikethrough, no skipped heading
-levels, no `target=` anchors. 906 unlinked-file-reference warnings and 6
-unglossed acronyms (`RPP`, `RAG`) are the legacy backlog, report-only.
+**Whole-tree lint is clean**: no broken relative links, no skipped
+heading levels, no accidental strikethrough, across every tracked
+document.
 
-**Cross-source staleness — rolled out, not deferred.** Both private sources
-carried a `freshness-guard.sh` predating the `user-prompt` mode, so the
-long-open-tab case AGENTS.md describes as one of three necessary firing
-points was unguarded in both. Rolled out per
-[cross-source-rollout](../practices/cross-source-rollout.md), preserving
-each set's own path convention (`bootstrap/` in the individual set,
-`.claude/hooks/` in the team set), with the matching `UserPromptSubmit`
-wiring and — in the individual set — its installable snippet, so a project
-adopting it gets all three firing points rather than the two it would have
-got yesterday.
+**Six unglossed acronyms, all fixed** — `RPP` in five documents and `RAG`
+in one, expanded on first use. Checked first that expanding was safe: the
+full name is explicitly allowlisted in the private blocklist (Morgan,
+2026-09-07: *"the name isn't private"*), so this is not a disclosure.
 
-**Every source's vendored engine was stale, and is now current.** After the
-merge, [precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
-reported all four attached sources sitting on `d0cbdb4` while
-`precedent-beta-v01` had moved to `b2ca5f3` — so none of them carried this
-run's own fixes, including the branch sweep that reported a false all-clear
-and the refusal to rewrite a tracked tree from an incomplete source set,
-both of which live in the engine a source vendors. Refreshed, checked
-against each repo's own gates, and merged to each `main`.
+**A contradiction between this practice and a decision made that
+morning.** Pass 3's "keywords with no entry" bullet named "Go merge" as
+its own example of a phrase that must reach [GLOSSARY.md](../GLOSSARY.md)
+via a practice's `defines:` field. Commit `eef671f`, earlier the same day,
+cleared `defines:` on exactly those practices because Morgan said *"Don't
+put it in the glossary."* **Following the bullet would have reversed
+him.** The bullet now states the property as *findable*, not *in the
+glossary*, and records the near-miss. This is the argument for reading
+recent work before trusting a checklist written before it.
 
-That refresh surfaced two more, both caused by this session's own commits
-and both real:
-
-- **`buenos-aires-dates`**: commits carried a `+0000` offset where
-  `identity.json` declares `-0300`. Same root cause as the commit-identity
-  finding above — the hook that exports `TZ` never ran, because none of
-  these repos is the session's primary. Fixed on the unpushed commits by
-  amending under the right `TZ`; two already-published commits cannot be
-  fixed that way ([no-rewrite-for-warnings](../practices/no-rewrite-for-warnings.md))
-  and were **grandfathered on Morgan's explicit approval, 2026-09-07**, both
-  SHAs exempted with the reason inline. That set is now 10 passed / 0
-  violated, 9 of 9 tests. The cause stays open: a hook cannot reach a repo
-  that is not the session's primary.
-- **`session-trailer`**: the engine-refresh commit
-  `precedent_refresh_sources.py --commit` writes carried no `Session:`
-  trailer. Fixed here by rewriting the unpushed commit, but the tool will
-  produce the same commit next time — **open**.
-
-**Two findings in [INSTALL.md](../INSTALL.md), both fixed.** §0 claimed a
-fresh install "comes back clean — 15 checks passed, 0 violated"; the count
-was stale and the claim was false as written, in the document adopters
-trust most. Replaced with what to expect (`0 violated`), no count, and an
-honest note about what the second rehearsal found. Separately, `## 0` sits
-*below* `## 1` — a fresh adopter meets the legacy path first. Renumbering
-would break every link to §1-§7, so §1 now points forward to §0 instead.
-
-**Two findings from a consumer's engine update, both fixed.** A real
-private consumer repo took this run's engine forward and came
-back with 69 "outward-facing" headings across 10 files that are not
-outward-facing at all, and queued them rather than sweep them — the honest
-response, and a permanently noisy check. Root cause:
-[title_case.py](../tools/title_case.py) is vendored into every consumer, so
-its `INTERNAL_DIRS` / `INTERNAL_FILES` are *Precedent's* directory names,
-and an engine refresh overwrites anything an adopter edits into them. The
-exclusion default that fails safe here fails the other way there. Fixed by
-making the boundary extensible from the consumer's own `precedent.json`
-(`internal_paths`, a list of repo-relative path prefixes), additively only —
-nothing a repo declares can pull a vendored `practices/` tree back into
-scope. Documented in [INSTALL.md](../INSTALL.md) §0 step 2 alongside
-`visibility`, which has the same shape of problem (defaults to the safe
-answer; only the repo knows the real one). Separately, the same report named
-a limit the check had never declared: `--write` capitalizes a heading that
-is a *sentence* — a rule stated outright, a question, an example line — word
-by word into something correct by the rule and wrong to read. Both limits
-are now in `headline-capitalization`'s `blind_to`, where a check's limits
-belong.
-
-**One contradiction between a comment and the code it describes, fixed.**
-[precedent.json](../precedent.json)'s own `_comment` still argued that
-omitting `visibility` "publishes nothing by accident — absent it, no source
-is excluded, which is the right default for a private repo." That is the
-reasoning `build_views.repo_is_public()` was changed *earlier in this same
-run* to reject, and its docstring quotes the sentence in order to say it is
-false. Two adjacent files in the tree, one telling an adopter the opposite
-of what the code does — exactly the class of drift this pass exists to
-catch, and the first one it found by reading rather than by running
-something.
-
-**A seam finding, queued rather than fixed: universal engine code depends on
-a rule the universal catalogue does not have.** Five files in this repo's own
-[tools/](../tools/) — `routing_audit.py`, `precedent_source_bootstrap.py`
-(twice), `precedent_show.py`, `precedent_vendor_engine.py` — name
-`fail-gracefully` to explain why they degrade rather than fail.
-`precedent_show.py fail-gracefully` exits 1: the practice lives in the
-private team set, so no reader of this public repo, and no consumer that
-vendors this engine, can look it up. Nothing in
-[practices/](../practices/) covers graceful degradation. All five use an
-*unanchored* mention, which
-[code-cites-practice](../practices/code-cites-practice.md)'s own Rule
-already forbids and its check cannot see — and rewriting one to the
-sanctioned form was tried, taking `precedent_check.py` from `1 passed` to
-`1 violated`, because the slug resolves nowhere here. The sanctioned form is
-*unavailable*, so the rule pushes its own users into the unchecked form. The
-blindness is now declared in that check's `blind_to`; the level decision is
-Morgan's and needs a session rooted at the private set, so it is queued as
-[`universal-code-cites-team-slug`](../TODO.md#universal-code-cites-team-slug)
-with a recommendation to promote. This is the kind of finding the practice
-means by "as likely to be in the seam between two repos as inside any one":
-neither repo is wrong on its own.
-
-**A constraint of the materialization model, learned from a consumer and
-written down here.** A second report from the same private consumer,
-installing the identity mechanism, found that `check_commit_author.py` and
-`check_buenos_aires_dates.py` held their exempt-commit list as a constant in
-the script. Those scripts materialize byte-identically into every consumer,
-and `tools/checks/` is deleted and rewritten on every sync — so a consuming
-repo with its own pre-mechanism commits to grandfather had no way to say so.
-The exemption existed and was unreachable from the only place that needed
-it. The general rule — **a check's logic materializes; a check's data must
-not** — is now a section in
-[spec/ENFORCEMENT.md](ENFORCEMENT.md), with the test to apply while writing
-one. The same audit found the list assembled from an open item's record (two
-commits) where the branch's actual history held eight, none of them the
-recorded two: [verify-decomposition](../practices/verify-decomposition.md) in
-the form that costs real work. The fixes themselves are in that repo's own
-pull requests, not here.
-
-**A completed item still filed as open, with three false figures.**
-[`migrated-practices-lost-their-stories`](../TODO.md#migrated-practices-lost-their-stories)
-claimed 34 of 41 practices in `precedent-team-maintainers` and 3 of 10 in
-`precedent-individual` had an empty `## Story`. Re-measured: **0 of 57**,
-across all three private sets, at any status — the backfill happened and the
-item outlived it. `header-caps` has a `## Why`; `fail-gracefully` has
-substantial Detail, Why and Story. The catalogue sizes had drifted too (41
-and 10 then, 42 and 14 now). Resolved. It matters beyond tidiness because
-this item is one of those
-[`attach-private-sources`](../TODO.md#attach-private-sources) claims to
-unblock: a session would have been sent to do 37 practices' worth of
-backfill that no longer exists.
-
-**The measurement that found it was wrong first, in the way this project
-keeps warning about.** Reading each practice's sections with the key
-`'Story'` rather than `'story'` returned `None` for every file and reported
-**100% empty across all three sets** — confident, precise, false, and in
-agreement with what the stale item already said, which is the combination
-that gets a wrong figure believed. Nothing failed; it was caught only
-because 100% is not a believable number. The corrected sweep asserts a
-control first — a practice known to have all three sections must come back
-non-empty, or the sweep refuses to report. That is `fail-gracefully`'s
-second clause ("could not read" and "read, found nothing" must never render
-identically) failing in the same run that found five engine files depending
-on it, which is a coincidence worth recording rather than smoothing over.
-
-**And a blocker recorded from memory instead of from disk.** This run's own
-`universal-code-cites-team-slug` entry, written an hour earlier, said it was
-blocked on "a session rooted at `themorgan/precedent-team-maintainers`". All
-three private sets were attached to this session at the time. The
-[AGENTS.md](../AGENTS.md) gotcha it reasoned from says `add_repo` cannot
-attach them mid-session from a BestPractice-rooted session — which is not
-the same statement as "they are unreachable". Corrected; the only real
-blocker is Morgan's call on the level.
-
-**The harness's own output made a failure undiagnosable, and that is fixed.**
-One run in this pass reported `110 passed, 1 failed` on a tree that six
-further runs passed clean. The failure was never identified, because the run
-prints one line per check across more than a hundred checks and everyone
-therefore reads the tail — [AGENTS.md](../AGENTS.md)'s own deep-check
-section says "what matters is `0 failed`", which is a summary-line
-instruction. A `tail -3` captured the count and not the `FAIL` line hundreds
-of lines above it, and re-running is precisely what destroyed the evidence.
-[verify_harness.py](../tools/verify_harness.py) now recaps every failure by
-name immediately before the summary, so the shortest reading anyone actually
-does is enough to act on. Proved with a planted failure: `tail -5` names it.
-
-**The fix then earned itself within the hour, on a case that also explains
-half the mystery.** A later run in the same batch came back `1 failed`, and
-the new recap named it in the tail: `PLANTED probe failure`. That was the
-negative-control test for this very fix, which briefly writes a planted
-failure into `verify_harness.py` — it had overlapped with a harness run
-started minutes earlier. Diagnosed in one look, with no re-run, which is
-exactly what the old output could not do. Two things follow. **Never run the
-harness concurrently with anything that edits the tree**, its own control
-tests included; a run reads the files as it goes, so a mid-run edit produces
-a failure belonging to no commit. And the count alone is genuinely
-ambiguous: `1 failed` looked identical in both cases and meant something
-self-inflicted once and something unknown the other time.
-
-**The original intermittent is now root-caused and fixed, and the recap is
-what caught it.** It recurred later the same day, and this time the tail
-named the check: *the very deep check reports unlanded work before its
-passes*. Twelve isolated runs of that check passed, so the cause was
-something about a full run — and the failure detail, as written, printed
-only which of its four stated cases were false, which is the symptom.
-Extending the detail to carry what the tool actually did (its exit code and
-its output tail) produced the evidence in one run: a fixture built in a
-temporary directory, declaring exactly one universal source, was reporting
-*"FRESHNESS — declared sources … individual source `precedent-individual`"*.
-
-**The fixture was not hermetic.** `very_deep_check.py` resolves the
-individual source from a user-level config outside any repository, so the
-scratch repo silently reached the machine's real `precedent-individual`
-clone and ran the freshness gate against it. That gate is a deliberate hard
-refusal that returns before printing anything — so whenever that unrelated
-clone was behind, diverged, or slow to fetch, this check failed on a
-repository it is not testing. A test reading state it does not own is
-exactly what "green for weeks, then twice in one session, never in
-isolation" looks like. Fixed by pointing `PRECEDENT_USER_CONFIG` at a path
-inside the temp directory, so the resolver legitimately finds no individual
-source. Confirmed by direct comparison: without the isolation the run
-resolves `/root/precedent-individual`; with it, *"(no team or individual
-source resolved here)"*.
-
-Two things worth carrying forward. The recap and the richer failure detail
-are the same lesson twice — **a count is not a diagnosis, and re-running is
-what destroys the evidence** — and neither fix was more than a few lines.
-And the deeper one: this check was written to test the tool, and for weeks
-it was partly testing the machine it ran on. Any fixture that invokes a tool
-which resolves sources needs its ambient configuration pinned, not merely
-its own files written.
-
-**A self-inflicted lesson worth keeping: this pass wrote a second link
-scanner and got four false findings from it.** Checking relative links across
-all four repos turned up four unresolved targets in BestPractice that
-[doc_lint.py](../tools/doc_lint.py) reports clean. All four were the
-scanner's fault, not the documents': three sit inside inline code spans
-(`CHANGES_TO_TELL_ALEX.md`, `spec/PRACTICE_FORMAT.md` twice — prose
-*describing* the `[slug](slug.md)` citation format), and the fourth is inside
-a fenced block in [MOBILE.md](../MOBILE.md), a template snippet for a
-dependent repo's README where the link is correct in the repo it lands in.
-Inline code spans are the exact trap
-[AGENTS.md](../AGENTS.md)'s gotchas already record for `title_case.py`, from
-a real corruption. The existing tool was right; a fresh scanner written to
-double-check it reproduced a known bug and manufactured four findings.
-[search-by-purpose](../practices/search-by-purpose.md) names this, and it is
-worth noting that the failure mode here was *inventing* work, not missing it.
-
-**The shipped non-technical template puts 66 developer-oriented rules in
-force for an editorial project, and exempts none of them.** Raised by Morgan
-2026-09-07 as a question about `fail-gracefully`'s volume, and the catalogue
-half of it turned out to be the larger finding.
-[templates/nontechnical-document-project/precedent.json](../templates/nontechnical-document-project/precedent.json)
-declares two sources: the full universal catalogue, and
-`precedent-team-tms`, which holds exactly one practice
-(`audience-register`). Materialization flattens both, so a non-technical
-document project receives all 66 active universal practices — among them
-`very-deep-check`, `scrub-gate`, `practice-export-loop`,
-`merge-authorization-keyword`, `computed-numbers-in-scripts` and
-`cross-source-rollout`, every one of them about running a code repository.
-There is no `not_binding` entry anywhere in the template, and its
-`AGENTS.md` does not say which universal practices do not apply.
-
-`not_binding` was built for exactly this — [precedent.json](../precedent.json)'s
-own comment describes it as "a rule about a different KIND of repo" — and is
-unused here. **The right answer to "these rules are too loud for a
-non-technical reader" is mostly not to make the rules quieter: it is to stop
-putting rules in force that were never about this work.** A rule that does
-not bind should be exempted with a stated reason, not softened for everyone.
-That is a per-practice judgment with a mandatory reason each, 66 of them, so
-it belongs to pass 4's catalogue work rather than being done here — recorded
-now so pass 4 inherits a defined job rather than rediscovering it. An earlier
-version of this paragraph added "note the one constraint: a
-`severity: blocking` practice cannot be exempted at all (one exists in the
-universal set)" — that was wrong, and doing the work is what caught it. The
-only `severity: blocking` practice in this checkout is
-[merge-target-is-beta-branch](../local/practices/merge-target-is-beta-branch.md),
-which is **repo-local to BestPractice**, not universal. It is not in the
-template's resolved set at all, so no constraint applies: every one of the 66
-is exemptible.
-
-Separately and genuinely: `fail-gracefully` itself has no graduation. Its
-Rule holds one uniform standard — "every degraded path announces itself
-where the human running the session will see it" — with no axis for how much
-the degradation costs or who is reading. Its own `## Install` already
-measured the consequence from the enforcement side: a mechanical check for
-that clause produced **67 hits against Precedent's own `tools/`, the large
-majority legitimate**, which is the same signal-to-noise problem seen from
-the other end. The field that looks like it would carry the graduation does
-not: `severity: blocking` is about *override protection* (no higher-ranked
-source may turn the practice off), not about report volume. The axis has to
-be built, not borrowed.
-
-**Promotion closed the collisions, and the gates immediately found four more
-things — which is the promotion working, not going wrong.** Moving
-`fail-gracefully` and `bold-key-phrases` to universal and deleting them from
-both team sets made every gate re-derive: `routing_scope.json` had no entry
-for either (a practice whose routing nobody decided), `fail-gracefully`'s
-`index_clause` was 83 characters against an 80 limit, and two generated
-figure blocks drifted because the catalogue went from 66 to 68 and the
-resident set from 6 to 7. All four are the enforced channel doing exactly
-what it is for.
-
-The fourth was a real defect and not in the promotion at all. The harness
-plants one violation per enforced practice and asserts each fires; the
-`docs-track-models` plant **hardcoded** *"6 of {n} practices"* — the resident
-count on the day it was written. `docs-track-models` fires on a restatement
-of a string a script *declares it owns*, and the owned string was now
-*"7 of 68 practices"*, so the plant landed, matched nothing, and the harness
-reported the **check** as broken when it was the **fixture**. Fixed by
-deriving the planted phrase from `doc_sync.owned_figures()` — the plant is
-now whatever the check is currently looking for, and the two cannot drift
-apart. Third fixture this run found reading a value it does not own, after
-the hermetic-fixture fix and the `'Story'`/`'story'` key.
-
-**The within-source conflict scan is built** (Morgan, 2026-09-07), in
-[very_deep_check.py](../tools/very_deep_check.py) rather than as a gate,
-since this check is on-demand. Deliberately narrow: two practices in one
-catalogue claiming the same `defines:` term (GLOSSARY.md can show only one,
-so one silently wins), and an `overrides:` or `in_force_at:` naming a
-sibling in its own source (precedence orders levels, not siblings). A shared
-`occasion:` was measured first and rejected as a signal — four universal
-practices share *"writing or editing a document"* and are complementary. Its
-own first version iterated `defines:` as characters and reported that 67
-practices all define `'['`; it now uses `build_views._json_list`, the same
-parser that builds the glossary. Positive and negative controls both pass;
-current result across every source in force is **none**.
-
-**The promotion's own near-miss is now a check.** `git commit -a` does not
-stage an untracked file, so the commit that promoted both practices did
-everything except add them: regenerated views, routing entries, figure
-blocks, the deletions from both team sets — and for one pushed commit the
-two rules were in force **nowhere**. Every gate passed in both directions,
-and neither was wrong: locally the files were on disk, so the loader and
-every check read them correctly; in the pushed tree they did not exist, and
-a practice that does not exist violates nothing. **The catalogue can lose a
-rule without anything saying so.**
-
-`tracked-practice-files` (`practice_backed=False`, the sanctioned shape for
-an engine property) now asserts that every practice file, check script and
-routing record in the working tree is tracked by git — that what a session
-reads locally is what the repository actually carries. Its first version
-flagged every file in a **bare source set**, where nothing is committed yet,
-and the harness caught it as *"a check that fires on a correct fresh
-install"* — the exact failure that registry exists to prevent. Refined to
-report only the MIXED state, which is the shape a forgotten `git add`
-actually leaves; a repository with nothing of that kind tracked is
-`NOT APPLICABLE`, not a finding. Both controls fire, the clean tree passes,
-and it has its planted case in the harness like every other registered
-check.
-
-It does **not** attempt the general problem — did the catalogue silently
-shrink — which needs a baseline to compare against. That is the same shape
-as the consumer-side hazard filed at
-[`consumers-need-refresh-after-promotion`](../TODO.md#consumers-need-refresh-after-promotion),
-and both are named in that check's `blind_to` rather than implied.
-
-**Checked and clean, so the next run need not redo them:**
-
-- **Formatting drift and relative links in the three private sets.** Zero
-  trailing whitespace, zero tabs, zero mixed list markers and zero
-  unresolved relative links across `precedent-team-maintainers`,
-  `precedent-individual` and `precedent-team-tms`. All three are on `main`.
-
-- **Formatting and spacing drift.** Swept mechanically across every tracked
-  markdown file: no tabs, no mixed list markers, and the seven
-  trailing-whitespace lines are all deliberate — three fill-in-the-blank
-  labels in an issue template, four inside captured eval prompts, which are
-  experimental records and must not be edited.
-- **Practice-link labels.** No markdown link to a `practices/*.md` file
-  carries a label that disagrees with the slug it points at.
-
-- **Catalogue figures in prose.** `spec/LOADER.md` states both 52 and 66
-  practices; both are correct. The 52s are a phase-2 planning table and the
-  behavioral replay's own conditions — history, and changing either would
-  falsify a measurement. Only the generated block carries a current figure.
-  The same holds for the other `spec/` briefs, which this repo's own
-  convention treats as records.
-- **The two `INSTALL.md` files.** `documentation/INSTALL.md` is a
-  seven-line signpost to the root one, not a second copy.
-- **Dated claims in the four public-facing documents.** One `as of 2026-09`,
-  correctly carried; one future-looking date that is an example filename
-  inside a code block, not a claim about the world.
-
-**Pass 3 is now done, with its limits stated.** The mechanical categories
-are swept and recorded above and came back clean where they came back clean.
-The cross-repo reading found what is recorded in this section — a stale
-`visibility` comment contradicting its own code, five engine files citing a
-rule no reader here can resolve, a completed item still filed as open with
-three false figures, a fixture reading a repo it does not own, a template
-putting 66 developer rules on an editorial project, a resolver refusal
-latent in today's own duplication — and the private sets' own documents came
-back clean on formatting, links, slug integrity, override targets and
-same-slug collisions.
-
-**What pass 3 did NOT do, stated rather than implied:** a line-by-line
-reading of all 122 practice files for prose quality — disproportion, dead
-rules, a paragraph that over-explains a minor point. The findings above came
-from targeted reads and from mechanical sweeps that then had their results
-judged, not from reading every file end to end. That fuller read is the kind
-of work [full-practice-audit](../practices/full-practice-audit.md) exists
-for, and the 54% measurement in pass 4 is the reason to be honest about what
-it would be worth.
+**Cross-source staleness — rolled out, not deferred.** All four attached
+sources were behind; all are now on the current engine with views
+regenerated and each repo's own checks at `0 violated`.
+`precedent-team-maintainers` was at `1 violated` before this run and is
+not any more.
 
 ### Pass 4 — catalogue, backlog, and branches
 
-**The catalogue sweep, and an honest note about what it is worth.**
-[full_practice_audit.py](../tools/full_practice_audit.py) enumerates **53
-judgment-only practices** in force for this checkout — 20 universal, 28 from
-`precedent-team-maintainers`, 5 from `precedent-individual`. Its own
-docstring carries the reason to be careful with the result: a retrospective,
-judge-only pass over the catalogue was pre-registered in
-[spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md) predicting 80-86% recall
-and **measured 54% — worse than a session doing the work with no review pass
-at all, at 84%**. The validated fix was converting practices to mechanical
-`checked_by` checks. So the sweep is a backstop for what enforcement has not
-reached, not the primary control, and grinding all 53 in one open pass is
-precisely the framing that measured worst. **Not done in this run**, and
-deliberately: the effort went to the convertibility question instead, which
-is the intervention the measurement actually supports.
+**Branch verdicts**, evidence recorded, action left where it belongs:
 
-**Enforcement coverage, measured across all four sources (2026-09-07):**
+- `alex137/BestPractice: claude/file-sharing-service-spec-0m9c7p` — 3
+  commits, last moved 2026-07-26, adds a `share/` spec that exists nowhere
+  on the integration branch. GitAround became a separate product on
+  2026-08-14 and the practice engine is the plan of record, so this reads
+  as superseded — **but that is Alex's repository and his call**, not one
+  to make inside a review. Raise it with him.
+- `precedent-individual: precedent/engine-refresh-c6c885033a9f` — **CLOSE.**
+  It vendors `c6c885033a9f`, which is now an ancestor of what this run
+  vendored into that set. Mechanically superseded; nothing is lost.
+- `precedent-individual: claude/pre-launch-audit-fixes-7wumzx` (19
+  commits) and `precedent-team-maintainers: …` (16) — the check scripts
+  and tests they touch already exist on `main`, so these are
+  *modifications*, not additions, and their engine half is now older than
+  what this run vendored. Whether the rest should land is a read of
+  Morgan's own private sets against branches he owns, whose integration
+  branch is `main` — **left to him deliberately**, not guessed at from
+  inside a review.
 
-| Source | Active | With a `checked_by` | Check scripts |
-|---|---|---|---|
-| `precedent` (universal) | 66 | 34 | in `precedent_check.py` |
-| `precedent-team-maintainers` | 40 | 8 | 8 |
-| `precedent-individual` | 15 | 8 | 8 |
-| `precedent-team-tms` | 2 | 0 | 0 |
-
-**A brief that would have sent a session to build what already exists.**
-[spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md) still said
-the two private sets held *"one practice each"*, that both practices carried
-`checked_by: null`, and that *"no infrastructure exists yet — in either
-private repo"*. All three were false: 40 and 15 practices, 8 checks apiece,
-and a real `tools/checks/` tree in both. The procedure the brief describes
-was followed and worked; only its statement of the gap went stale. Corrected
-in place with the table above rather than deleted, since the procedure is
-still the one to follow.
-
-**`precedent-team-tms`'s 0 of 2 was checked and is correct, not a gap** —
-and this is worth recording because the first read of that row was that it
-*was* the gap, being the non-technical set with no enforcement at all.
-Reading the two practices settled it the other way: `audience-register`'s
-subject is the wording of a reply, which is not an artifact any repository
-holds, and its `## Install` says so specifically; `fail-gracefully`'s Install
-carries its own enforcement analysis. Both are considered noes, which is
-what [checkable-gets-checked](../practices/checkable-gets-checked.md) asks
-for — it wants an attempt and a recorded reason, not a check at any cost. A
-`checked_by: null` count is not a defect count.
-
-**The long tail is not a backlog — it is already done, and the previous
-paragraph's recommendation to "convert" it was wrong.** Measured across all
-**39** practices carrying `checked_by: null` in the two private sets: none
-has an empty `## Install`, the shortest is 177 characters, the median is
-393, and **not one** uses the "too hard to check" shape that
-[checkable-gets-checked](../practices/checkable-gets-checked.md) explicitly
-forbids. Every one records a considered, specific no — *"telling connected
-reasoning reformatted as bullet fragments apart from a genuine enumeration
-is precisely the semantic call the rule's own Detail describes"*; *"the
-actual rule is about which calls were correctly sized as small enough to
-just make, and that sizing is the judgment itself, not observable after the
-fact from the commit"*. That practice asks for an attempt and a recorded
-reason, not a check at any cost, and the standard is met.
-
-One case read as unreasoned to a keyword scan and is the opposite:
-`catalogue-carries-stories` **is** checked mechanically — by the universal
-catalogue's own `precedent_check.py`, which reaches source sets — and its
-`checked_by` is `null` precisely so this set does not carry a second
-implementation of one rule. So the corrected count is 39 of 39 accounted
-for. **A `checked_by: null` count is not a defect count**, twice over now:
-first for `precedent-team-tms`'s 0 of 2, then across the whole tail.
-
-**The duplication landed today is a hard refusal, not an inconsistency.**
-Landing `fail-gracefully` in both team sets produced the only same-slug
-collision between two sources at the **same level** — and resolving a list
-containing both raises `ResolveError` outright: *"nothing orders two sources
-at the same level, so there is no answer to which one wins."* Any repository
-declaring both team sources would fail to resolve at all. Checked rather than
-assumed: every reachable `precedent.json` declares exactly one team source
-today, so nothing is broken — the defect is latent and fires the first time
-one repository wants both. The refusal is the correct engine behaviour (it is
-`fail-gracefully` clause 1, with the message naming its own remedies); the
-cost sits on the catalogue decision. Recorded against
-[`practice-consistency-across-team-repos`](../TODO.md#practice-consistency-across-team-repos),
-which Morgan parked deliberately.
-
-The other three same-slug collisions were read and are all deliberate and
-documented: `audience-register` (individual vs team-tms, team ranks above
-individual, said so in its own Install), `bestpractice-sync` (one side
-`status: deduplicated`), and `catalogue-carries-stories` (universal plus a
-team file that puts it in force). Slug-link integrity across all four repos:
-**0 findings** — no label disagreeing with its target, no link to a slug
-nothing defines, no stale `overrides:` or `supersedes:` target.
-
-**The backlog read, done — 42 items, 27 open after it, three corrected.**
-
-- **A duplicate item I filed myself this morning.**
-  `practice-consistency-across-team-repos` asked exactly what
-  [item 7](../TODO.md#multiple-team-sources-disagree) had asked since
-  2026-09-03, with a plan reference and a half-closed history the new one
-  lacked. Written without searching the backlog first, which is what
-  [search-by-purpose](../practices/search-by-purpose.md) exists to prevent.
-  Folded into item 7 along with the day's real evidence; the anchor is kept
-  as a pointer so existing links still resolve, rather than deleted.
-
-- **[`attach-private-sources`](../TODO.md#attach-private-sources)'s blocker
-  is false, and four other items wait on it.** It says a session holding
-  `alex137/*` cannot attach a `themorgan/*` repo. This session held
-  `alex137/bestpractice` and **five** `themorgan/*` repositories at once —
-  all three private sets among them, worked in and pushed to — and `add_repo`
-  accepted a sixth mid-run. Corrected here and in
-  [AGENTS.md](../AGENTS.md)'s matching gotcha, both stating what was *not*
-  established: whether a **fresh** session rooted here can make the first
-  cross-owner add. That call was never made, so the constraint may have been
-  lifted or may bind only the first add. The 2026-09-06 refusal was real and
-  reproduced, so this is the environment changing rather than the finding
-  having been wrong.
-
-- **[Item 22](../TODO.md#sweep-judgment-only-practices) contradicted
-  itself** — it declared the sweep COMPLETE and then carried *"blocked on
-  nothing but session budget — take them one at a time"*, reading as both
-  finished and not started depending on where you stopped. Closed with the
-  measurement above (39 of 39 reasoned).
-
-The pattern across all three is one thing: **an open item is a claim, and
-nothing checks a claim in prose.** Two of these described a world that had
-moved, and the third described two worlds at once. That is the same shape as
-the stale brief in this pass and the stale `visibility` comment in pass 3 —
-prose asserting a state, with no mechanism to notice when the state changes.
-
-### Closing pass 4: the 53 judgments were deliberately not run
-
-**Decided by Morgan, 2026-09-07, on the recommendation below.** This is the
-one part of the four passes that was skipped rather than completed, so it is
-recorded as a decision with its reasoning, not as an omission.
-
-**What was skipped.** `full_practice_audit.py` enumerates every practice in
-force with no mechanical check — 53 for this checkout — and asks the session
-to judge each against the actual repo state, one at a time: does it apply
-here, and if so is it satisfied, naming the file and line.
-
-**Why not.** The project has already measured this exact shape and published
-the result against itself. [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md)
-pre-registered a retrospective judge-only review pass predicting **80-86%**
-recall; it measured **54%** — worse than a session doing the work with **no
-review pass at all**, which measured **84%**. The validated fix was
-converting practices to mechanical `checked_by` checks, which cost nothing
-per run regardless of catalogue size. Running the falsified control at four
-times the scope it was measured at, at the end of a long session, would have
-produced a number this document could not stand behind.
-
-**And the gap it would have fed is not there.** The judging's practical
-purpose is finding rules that should be enforced and are not. Measured
-directly instead: all **39** practices carrying `checked_by: null` across the
-two private sets record a considered, specific reason — none empty, shortest
-177 characters, median 393, and not one using the "too hard to check" shape
-[checkable-gets-checked](../practices/checkable-gets-checked.md) forbids.
-There was no long tail to convert.
-
-**The argument on the other side, stated because it is real.** The 54% figure
-was measured on a *loader prefilter* — judging which practices might apply to
-a change — not on this tool's whole-catalogue enumeration, and
-`full_practice_audit.py`'s own docstring says so. The two are not the same
-task, and 54% is not a measurement of this one. A one-at-a-time sweep in a
-fresh session might do better, and it is the only thing that would read
-`## Rule` text against real repo state for the practices no check reaches.
-What makes that argument lose here is not that it is wrong but that it is
-untested at this scope, while the effort it asks for is large and the gap it
-targets was measured empty.
-
-**What would change the decision:** an eval of this tool at its own scope (an
-item [spec/UNBUILT_PLAN_ITEMS.md](UNBUILT_PLAN_ITEMS.md) already names), or a
-run in which the enforcement tail is genuinely unreasoned rather than
-measured full. Either makes this worth doing; neither is true today.
-
-**The run's real yield came from mechanisms, not judgment**, which is
-consistent with the measurement above rather than a coincidence: every defect
-in this document was found by building something, running something, or
-reading a specific claim against the thing it claims about — and three of
-them were found because a *measurement itself* was wrong and said something
-unbelievable.
-
-#### Pass 4, branch verdicts
-
-*(This was a second `### Pass 4` heading until 2026-09-07 — two sections at
-the same level for one pass, created by inserting the catalogue work above
-an existing branches-only section and not re-levelling it. Demoted to a
-subsection of the pass it belongs to, per
-[heading-outline](../practices/heading-outline.md), which this document
-broke while recording other people's breakages.)*
-
-The branch sweep ran, after its own bug was fixed. Every branch below needs
-a verdict and most do not have one yet.
-
-**Session links, where a commit carries one.** Three of the four name the
-session that produced them; the fourth carries no trailer at all, which is
-itself the gap the maintainers' `session-trailer` practice exists to close.
-
-| Branch | Session |
-|---|---|
-| `claude/file-sharing-service-spec-0m9c7p` | [session_014E9mY5m9mTpT18qXbsqm6G](https://claude.ai/code/session_014E9mY5m9mTpT18qXbsqm6G) |
-| `claude/missed-practices-simulation-v0wszw` | none — the commit carries no session trailer |
-| `claude/pre-launch-audit-fixes-7wumzx` (individual) | [session_016pt9BBdccT1tLt612MC2rf](https://claude.ai/code/session_016pt9BBdccT1tLt612MC2rf) |
-| `claude/pre-launch-audit-fixes-7wumzx` (team) | [session_016pt9BBdccT1tLt612MC2rf](https://claude.ai/code/session_016pt9BBdccT1tLt612MC2rf) — the same session produced both |
-
-**No pull request exists for any of the four.** All three repos land work by
-direct push, so there is no PR page to link and no one-click **Delete
-branch** control on one. Each row below links the branch's own compare view
-instead. That is a gap in the sweep's assumptions, now written into
-[very-deep-check](../practices/very-deep-check.md): a link is required, but
-it is the PR's *when there is one*.
-
-**The engine check is what changed the verdicts.** Both
-`pre-launch-audit-fixes` branches sit on a vendored engine 41 commits behind
-their own `main` (`82b4722` against `d0cbdb4`), so merging either would
-revert the engine wholesale in order to land a handful of files. Both are
-cherry-picks, not merges — and the naive reading of "19 unlanded commits"
-would have said merge.
-
-**`alex137/BestPractice`** (integration branch `precedent-beta-v01`): 34
-branches merged and not deleted; 2 not merged.
-
-| Branch | What it is | Last moved | Recommendation |
-|---|---|---|---|
-| [`claude/file-sharing-service-spec-0m9c7p`](https://github.com/alex137/BestPractice/compare/precedent-beta-v01...claude/file-sharing-service-spec-0m9c7p) | A 653-line specification and delivery plan for a file-sharing service — `share/SPEC.md`, `share/PLAN.md`, one AGENTS.md line. Pure documents, no engine code. Its last commit switches the design to a thin gateway over object storage on Cloudflare Workers. Nothing in Precedent depends on it. | 2026-07-26 | **Close, unless the service is still planned.** Six weeks cold, and it is a product spec that happens to live in the practice repo rather than anything Precedent needs. If it is still wanted it belongs in its own repo — cheap to re-push from this branch, which is why closing costs nothing. **Alex's call**, since it is his subject matter, not a Precedent question. |
-| [`claude/missed-practices-simulation-v0wszw`](https://github.com/alex137/BestPractice/compare/precedent-beta-v01...claude/missed-practices-simulation-v0wszw) | One commit adding `tools/routing_eval_synthetic.py` (319 lines) plus 66 generated prompt fixtures — a synthetic occasion-routing stress test, complementary to the existing `routing_eval.py`. 14,539 insertions, almost all generated fixture text. | 2026-09-01 | **Merge the script and the recorded result; leave the 66 generated fixtures out.** Corrected after reading the commit body rather than the diffstat: the eval found NO improvement — "treatment landed within a hair of control" on the 6 valid cases. That makes it a pre-registered NEGATIVE result, which is worth landing precisely because [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md) needs its finding narrowed — but it should land for the finding, not for a benefit it did not demonstrate. 14k lines of tracked fixtures for a null result is not worth the weight if the script regenerates them. |
-
-**`themorgan/precedent-individual`** (integration branch `main`): 10 merged
-and not deleted; 1 not merged.
-
-| Branch | What it is | Last moved | Recommendation |
-|---|---|---|---|
-| [`claude/pre-launch-audit-fixes-7wumzx`](https://github.com/themorgan/precedent-individual/compare/main...claude/pre-launch-audit-fixes-7wumzx) | 20 commits, 19 unlanded, from the 2026-09-06 pre-launch audit. Most are vendored-engine re-seeds that later work on `main` has since gone past. Four things are genuinely absent from `main`: `config.json.sample`, `practices/my-identity-is-not-private.md`, `tools/checks/check_my_identity_is_not_private.py` and its test. | 2026-09-06 | **Cherry-pick those four, then close.** Do NOT merge: the branch's engine is 41 commits behind `main`'s, so a merge reverts it to land four files. The `config.json.sample` is one of the two gaps this very run rediscovered independently and filed as an open item — the fix was already written and simply never landed. |
-
-**`themorgan/precedent-team-maintainers`** (integration branch `main`): 10
-merged and not deleted; 1 not merged.
-
-| Branch | What it is | Last moved | Recommendation |
-|---|---|---|---|
-| [`claude/pre-launch-audit-fixes-7wumzx`](https://github.com/themorgan/precedent-team-maintainers/compare/main...claude/pre-launch-audit-fixes-7wumzx) | 16 commits, 16 unlanded, the team-set half of the same audit. Nearly all of its check work (`check_no_stale_counts.py`, `check_light_check.py`, the tests) is already on `main` by another route. `leak-blocklist.txt` is not, nor are the `practices/fail-gracefully.md` and `CODEOWNERS` edits. | 2026-09-06 | **Cherry-pick `leak-blocklist.txt`, review the other two, then close.** Same engine-revert reason as above. The blocklist is the other gap this run rediscovered: until it exists, the leak gate's vocabulary layer has nothing of this set's own to check, and an absent blocklist is a gap where an empty one would be a deliberate state. |
-
-**A FIFTH unmerged branch, missed by this run's own sweep.**
-`precedent-team-tms` also carries `claude/pre-launch-audit-fixes-7wumzx`, 12
-commits ahead. It was invisible because
-[very_deep_check.py](../tools/very_deep_check.py) scans only the sources
-this repo's `precedent.json` declares, while that set is attached and is a
-Precedent repo but is nobody's declared source here — so the tool is
-narrower than its own practice, which says "scope is every Precedent repo
-in the session". `precedent_refresh_sources.py` finds it; the branch sweep
-does not. **Open** — the two tools disagree about what is in scope.
-Verdict for the branch itself: **close**, fully superseded — every file it
-adds is already on that repo's `main`, and its engine is far older.
-
-**The unlanded fixes are landed.** Reading the branches rather than only
-counting them turned up two systematic fixes that had reached `main` in
-neither private set:
-
-- **`SOURCE_ROOT` vs `ROOT`** — one name doing two jobs: the practice set a
-  check ships in, versus the repository it audits. Identical in the two
-  normal cases, different in the third (a repo declaring a source without
-  materializing it), where the rule text was looked up in a directory the
-  practice was never in. Missing from all 15 checks.
-- **The violation-printer guard** — `rule_text()` read its practice file
-  unconditionally, so an absent one raised `FileNotFoundError` *from inside
-  the printer*: the finding detected, printed, then buried under a
-  traceback. 14 of 16 checks shared that exact body.
-
-Ported per [merge-runbook](../practices/merge-runbook.md) rather than
-merged, by file class: taken whole where `main` had not advanced the file;
-ported surgically onto `main`'s version where it had, since `main` carries
-work the branch never saw. Two judgment calls worth recording — `main`'s
-`claude-web-bootstrap.md` was KEPT because the branch names a private
-repository where `main` says "a dependent repo" (`main` is the scrubbed
-version, and taking the branch would have reintroduced it); and
-`fail-gracefully.md` was merged section by section, the branch's Rule and
-Detail with `main`'s later Why and Story backfills.
-
-After: team set 11 passed / 0 violated and 9/9 of its own tests; individual
-set 9 passed / 1 violated and 7/9, both remaining failures being the
-already-published `+0000` commits awaiting a grandfathering decision.
-
-Deleting the 54 merged branches is a mechanical follow-up this session did
-not do. The practice asks for a link to each one's most recent PR, and the
-same finding applies: these repos push directly, so most have no PR page
-and no one-click delete control.
+**The private sets' own backlog was not swept this run.** Recorded as not
+run, with the reason: their integration branch is `main`, this session is
+confined to a working branch in each, and triaging another person's
+backlog is not a review's job.
 
 ## Runs so far
 
 | Run | Passes completed | What it changed |
 |---|---|---|
+| 2026-09-08 | 1, 2, 3, 4 | Ahead of showing `precedent-beta-v01` to Alex. Six defects, all fixed and pushed: the unlanded-work scan fabricating work on a shallow clone; `seed` and `refresh` between them leaving a renamed-away engine file in every adopter's tree, permanently; the withdrawn-practices table linking a successor that lives in another source, which failed a team set's own light-check; a session whose hooks never ran, so 53 private practices were silently not in force; the checkout being moved off its working branch mid-session (cause NOT found — detector added); and this practice's own pass-3 bullet instructing a session to reverse a decision Morgan made that morning. All three practice sets refreshed onto the current engine and their orphaned file removed. |
 | 2026-09-07 | 1, 2, 3, 4 — all four | The first run to complete all four passes under this practice. ≈30 defects found and fixed across four repositories: 6 in pass 1, 8 in pass 2, the rest in passes 3 and 4. Shipped `internal_paths` and `output_paths` for headline scoping, two content-corruption fixes in `title_case.py`, the failure recap in `verify_harness.py`, a hermetic fixture, the merge-commit backstop, commit identity reaching every attached repo, the within-source conflict scan, and `tracked-practice-files`. Promoted `fail-gracefully` and `bold-key-phrases` to universal, ending two same-level collisions. Pass 4's 53 sequential judgments deliberately not run — see the closing note. |
 
 The 2026-09-06 [pre-launch audit](PRELAUNCH_AUDIT.md) is the closest thing to

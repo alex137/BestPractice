@@ -608,7 +608,8 @@ run in this document followed.
 ### External precedent
 
 [OpenViking](https://github.com/volcengine/OpenViking) — a context database
-for AI agents (memory management, RAG, and agent-framework retrieval,
+for AI agents (memory management, retrieval-augmented generation (RAG),
+and agent-framework retrieval,
 unrelated to this project) — independently arrived at a shape worth knowing
 about, solving a structurally similar problem: surfacing relevant material to
 an LLM without paying full-corpus cost. Its README (verified 2026-08-31)

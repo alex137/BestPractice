@@ -274,7 +274,7 @@ which is the failure this repointing exists to end — write
     "Sequencing" section for why a pilot project and person are not invented
     ahead of a real one existing. **Blocked on:** a real subject and a real
     person, neither of which exists yet.
-17. <a id="wire-the-very-deep-check-list"></a>~~**Enumerate and wire the inherited RPP "very deep check" audit list as    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
+17. <a id="wire-the-very-deep-check-list"></a>~~**Enumerate and wire the inherited RepoPersonalPreferences (RPP) "very deep check" audit list as    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
     [RepoPersonalPreferences](https://github.com/themorgan/RepoPersonalPreferences)
     answered the redundancy question first: `full-practice-audit` asks,
     practice by practice, "is this Rule satisfied" — a closed question
@@ -1892,3 +1892,51 @@ which is the failure this repointing exists to end — write
   reads, which stays true at either level. Bundle it with
   [TODO.md's `attach-private-sources` item](TODO.md#attach-private-sources),
   which is the same trip.
+
+- <a id="vdc-pass1-partial-again"></a>**Pass 1 of the very deep check has been PARTIAL two runs
+  running, on the same item.** [practices/very-deep-check.md](practices/very-deep-check.md) puts "a REAL
+  consumer repository, brought up to date" at the top of pass 1 and says
+  the asking goes first, because the answer may not come back. It has not
+  come back twice. The 2026-09-08 run also left three cheaper halves
+  unbuilt — the migration fixture, the empty neighbourhood, and the
+  cross-repo permissions walk (open since 2026-09-07 as well) — because
+  the update fixture it did build produced every defect it had time to fix.
+
+  **Disposition:** wait
+
+  The consumer-repo half genuinely needs Morgan to attach one. The other
+  three need nothing but a session's time and should simply be done first
+  next run, before the fresh-install fixture that has now come back clean
+  twice — those do not wait on anyone and should not be recorded as if
+  they did.
+
+- <a id="branch-move-cause-unknown"></a>**Something moved this checkout off its working branch
+  mid-session on 2026-09-08, and the cause was not found.** The reflog
+  recorded a checkout onto `precedent-beta-v01` and a fast-forward pull,
+  three minutes after a commit, with nothing asking for either.
+  `precedent_vendor_engine.py seed`, `precedent_refresh_sources.py --apply`
+  and `checkin.py fresh` were each replayed against a throwaway clone on a
+  feature branch and **none of them moved `HEAD`**, so the three obvious
+  suspects are ruled out and whatever does it is outside this repo's own
+  tools. [tools/precedent_session_check.py](tools/precedent_session_check.py) now detects the drift; nothing
+  prevents it. Full account in [AGENTS.md](AGENTS.md)'s gotchas.
+
+  **Disposition:** wait
+
+  Detection is in place and the loss is recoverable from the reflog, so
+  this costs a session minutes rather than work. Worth another look only if
+  it recurs — and if it does, capture `ps` and the reflog timestamp before
+  doing anything else, because the missing evidence is the whole problem.
+
+- <a id="private-set-audit-branches"></a>**Two `claude/pre-launch-audit-fixes-7wumzx` branches, in
+  `precedent-individual` (19 commits) and `precedent-team-maintainers` (16),
+  have not landed since 2026-09-06.** The check scripts and tests they touch
+  already exist on `main`, so these are modifications rather than additions,
+  and their vendored-engine half is now older than what the 2026-09-08 run
+  put into both sets. The rest may still be worth having.
+
+  **Blocked on:** Morgan. Both branches target `main` in his own private
+  sets, and a session confined to a working branch there cannot land them —
+  nor should a review triage another person's backlog for him.
+
+  **Disposition:** wait

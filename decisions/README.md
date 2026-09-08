@@ -15,7 +15,7 @@ resident practice is. That is the whole point of separating it from
 [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), which every session
 *is* told to read in full — a document that keeps every decision's full
 reasoning inline grows exactly the way this project's own founding case
-study did (RPP's `AGENTS.md`: 29,443 → 71,059 bytes in three days) and
+study did (RepoPersonalPreferences (RPP)'s `AGENTS.md`: 29,443 → 71,059 bytes in three days) and
 exactly the way this plan itself did before this mechanism existed
 (56,675 → 108,557+ bytes across phases 0–4, entirely as accumulating
 "Amendments Since Approval" entries — found by a 2026-09-01 deep-check

@@ -66,7 +66,7 @@ Split RepoPersonalPreferences' 46 rules into the two private sets, in the
 practice-file format, per the plan's
 [Where Today's Practices Go](../PRACTICE_ENGINE_PLAN.md#where-todays-practices-go).
 
-**1. Default every RPP rule to team.** Not because they are all team-shaped —
+**1. Default every RepoPersonalPreferences (RPP) rule to team.** Not because they are all team-shaped —
 several are plainly generic — but because of an asymmetry: promoting a team
 practice to universal is a designed path, while demoting a universal one means
 it has already been published and imposed on everyone using Precedent.

@@ -136,7 +136,7 @@ shape, and two adjacent cases worth recording rather than re-deriving later:
   2026-09-03 correction). A second near-miss of the identical shape that
   happened not to cost anything. Not actioned further; recorded so the next
   audit of this kind does not re-discover it from zero.
-- **The RPP "very deep check" audit list**
+- **The RepoPersonalPreferences (RPP) "very deep check" audit list**
   ([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), the same v28
   naming-fix callout: "Not yet inventoried here (RPP is a separate private
   repo); enumerate and wire it as an on-demand tool when phase 5 or later

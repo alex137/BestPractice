@@ -372,11 +372,20 @@ first so this pass spends its attention on what they cannot see.
   as if it were a name; numbering that skips, repeats, or runs out of order;
   an orphaned name a rename elsewhere left behind in this repo's own prose.
 - **Keywords with no entry** — every word or phrase that makes a session
-  *act* ("Go merge", "very deep check", "full practice audit", "light check",
-  "deep check") is owned by a practice's `defines:` field, so it lands in
-  [GLOSSARY.md](../GLOSSARY.md) and a session meeting the word cold can find
-  out what it commands. A trigger word reachable only by already knowing it
-  is not a keyword, it is folklore.
+  *act* ("very deep check", "full practice audit", "light check", "deep
+  check") needs somewhere a session meeting it cold can look it up. A
+  trigger word reachable only by already knowing it is not a keyword, it is
+  folklore. The usual home is a practice's `defines:` field, which lands it
+  in [GLOSSARY.md](../GLOSSARY.md) — **but a glossary entry is not the
+  property; being findable is.** "Go merge" and "Park it" are deliberately
+  NOT in the glossary (Morgan, 2026-09-08: *"Don't put it in the
+  glossary."*); both are defined in [AGENTS.md](../AGENTS.md), which is
+  where a session actually reads them, and `check_park_it.py` fails if that
+  paragraph goes missing. This bullet named "Go merge" as its own example
+  until 2026-09-08, when a run followed it, found the phrase missing from
+  the glossary, and was one edit away from reversing a decision made that
+  morning — so check where a keyword IS defined before calling it
+  undefined.
 - **Fragments** — a sentence, note, or heading left behind by an earlier
   edit: a "temporary" caveat whose occasion has passed, a note about a
   reorganization that already happened.

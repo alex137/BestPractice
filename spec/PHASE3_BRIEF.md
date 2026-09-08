@@ -60,7 +60,7 @@ until the whole rewrite is complete (phase 7).
    RepoPersonalPreferences' 46 rules, per the plan's
    [Where Today's Practices Go](../PRACTICE_ENGINE_PLAN.md#where-todays-practices-go):
    default everything to **team**, promote to universal only individually,
-   and move the Morgan-specific handful to individual. Two RPP rules
+   and move the Morgan-specific handful to individual. Two RepoPersonalPreferences (RPP) rules
    (`morgan-scope`, `bestpractice-wins`) **die rather than move** — the
    structure now says what they said.
 2. **Switch the leak gate's vocabulary layer on.** Write the private-term
