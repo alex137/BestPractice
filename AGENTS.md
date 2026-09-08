@@ -87,6 +87,16 @@ answer it, and an answer assembled from whatever is already in context is the
 failure it exists to prevent. Coined by Morgan on 2026-09-08 and placed at
 universal from the start.
 
+**A fifth command, "Plain words"**, is defined universally in
+[practices/plain-words.md](practices/plain-words.md) and asks for the same
+answer said the way you would say it out loud: short sentences, the concrete
+case before the general principle, no hedging and no survey of positions you
+are not taking. **It governs the rest of the conversation, not just the next
+reply.** Nothing about the substance changes — same conclusions, same figures,
+same "Files touched" list — so a plainer reply that quietly says less has
+failed it. Coined by Morgan on 2026-09-08, in the thread that also unfolded
+the cross-team practice-drift item, and placed at universal the same day.
+
 **A third command, "Update Vendors"**, triggers
 [practices/vendor-update-runbook.md](practices/vendor-update-runbook.md) —
 the fixed sequence for taking an upstream update, starting with making the
@@ -142,7 +152,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~655 of 2000 token budget, 9 of 86 practices (9 universal))
+## Resident block (~655 of 2000 token budget, 9 of 87 practices (9 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -223,6 +233,8 @@ When a person explicitly asks for a full practice audit (or "practice check") ac
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
 When a person says "Park it" about an open item or a question:
   park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
+When a person says "Plain words":
+  plain-words — "Plain words" -- say it as you would out loud; same substance
 When a person says "Three Things":
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a practice lands or a candidate is raised, at any level:

@@ -99,12 +99,15 @@ each one saves you a paragraph of explaining:
 | **Go merge** | Save the work, publish it, and tell you where it went — without asking anything further. |
 | **Park it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
+| **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from. |
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 
-**"Park it" and "Three Things" are the two worth learning first.** "Park
+**"Park it", "Three Things" and "Plain words" are the three worth learning first.** "Park
 it" is how you stop being asked about something you've decided not to
-decide. "Three Things" is the one to open with after a few days away.
+decide. "Three Things" is the one to open with after a few days away. **"Plain
+words" is the one for when an answer is correct and you have read it twice
+anyway** — it stays in force for the rest of the conversation.
 
 ## Why Any of This Works
 
