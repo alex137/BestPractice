@@ -1769,10 +1769,16 @@ which is the failure this repointing exists to end — write
   Do the same audit for every private repo the blocklist names, since the
   derived-name shape is not specific to this one.
 
-  **Blocked on:** the blocklist file lives outside every repository
-  (`PRECEDENT_LEAK_BLOCKLIST`, a private path), so it cannot be edited from a
-  session rooted in this public repo — and the session that found this could
-  not attach the private sources at all
-  ([AGENTS.md](AGENTS.md)'s cross-tier gotcha, retested that day). Needs a
-  session rooted in a `themorgan/*` repo, which is the same prerequisite as
-  [`attach-private-sources`](TODO.md#attach-private-sources).
+  **Blocked on:** a session that can reach the private half of the blocklist.
+  It is not stored loose on a machine — it is a tracked file in the
+  **individual practice set**, `<your individual set>/leak-blocklist.txt`,
+  which `PRECEDENT_LEAK_BLOCKLIST` points at
+  ([spec/SOURCES.md](spec/SOURCES.md), [INSTALL.md](INSTALL.md) §8). What it
+  cannot be is a file in *this* repository: a list of the words you must not
+  publish, committed to a public repo, publishes them, and
+  `load_blocklist()` refuses a path inside this tree for that reason
+  (`python3 tools/leak_gate.py --explain`). So the edit needs a session
+  rooted in that private set, the same prerequisite as
+  [`attach-private-sources`](TODO.md#attach-private-sources) — the session
+  that found this could not attach it at all
+  ([AGENTS.md](AGENTS.md)'s cross-tier gotcha, retested 2026-09-08).
