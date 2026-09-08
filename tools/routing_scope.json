@@ -697,6 +697,20 @@
       "decided": "2026-09-08, when the practice landed",
       "gates": [],
       "gates_why": "No gate: it is a property of the tree at rest, checked mechanically, not an obligation that fires at a moment."
+    },
+    "constants-are-risk-inputs": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus here. The constants it governs live in a host repo's model scripts, which this repository does not contain, and the occasion is an analysis being written rather than a file being edited. Reached through the occasion index.",
+      "decided": "2026-09-08, when the practice landed"
+    },
+    "slow-steps-report-and-cache": {
+      "globs": [
+        "**"
+      ],
+      "why": "A property of how long something runs, not of where it lives -- a gate script, an audit and a heavy solve are all in scope and share no path. Reached through the occasion index.",
+      "decided": "2026-09-08, when the practice landed"
     }
   },
   "gates": {

@@ -6,8 +6,10 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
+| conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
 | decommissioned | [decommission-deletes-files](practices/decommission-deletes-files.md) |

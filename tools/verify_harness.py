@@ -172,6 +172,15 @@ AMENDED_POST_CONVERSION = {
     # PRACTICES.md and needs this exemption. Seven of the nine were already
     # listed above for earlier sweeps.
     'docs-are-current-state', 'label-describes-content',
+    # Added 2026-09-08 when Alex's `main` check-in was carried onto this
+    # branch (see CHANGES_TO_TELL_ALEX.md, "Alex's 2026-09-08 main
+    # check-in"). Upstream appended a ratings corollary to the ledger
+    # practice's own section in PRACTICES.md; here PRACTICES.md is frozen,
+    # so the corollary was split across this file's Rule/Why/Story instead
+    # and is invented relative to the frozen original. verify-decomposition
+    # took the same check-in's dual-direction clause and is already listed
+    # above for an earlier sweep.
+    'name-both-sides-of-ledger',
 }
 
 CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'
