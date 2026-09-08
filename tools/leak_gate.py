@@ -730,6 +730,55 @@ def _private_sources_declared(root=None):
                for s in data.get('sources', []))
 
 
+def _private_sources_resolved(root=None):
+    """-> (any_resolved, names_that_did_not) for the declared private sources.
+
+    THE CORRECTION THIS MAKES, 90 minutes after the first version landed and
+    on a real report from a session it blocked. Requiring the blocklist
+    whenever precedent.json DECLARES a private source refuses every session
+    that could not attach one -- and in this repository that is a live,
+    unexplained, intermittent condition (see AGENTS.md on cross-owner adds).
+
+    **The first version had the threat model backwards.** Private vocabulary
+    reaches a session by the session READING the private sources' text. A
+    session that could not attach them never read a word of it and has
+    nothing from them to leak; the dangerous session is the one that DID
+    attach them and is now writing to a public tree. So resolution, not
+    declaration, is what should require the list.
+
+    What the blanket refusal actually bought was not safety. It relocated the
+    work: the blocked session's remedy was to hand a patch to another session,
+    which is more error-prone than the push it replaced -- and its commit
+    "dies with the container", which is repo-is-memory losing outright.
+
+    The residual risk when the sources did not resolve is a private term that
+    reached the session some other way, typically the person's own messages.
+    That is real, small, unchanged from the behaviour before 2026-09-08, and
+    named out loud in the notice rather than silently accepted.
+    """
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+    except ImportError:
+        # Vendored into a source set, where precedent_resolve is deliberately
+        # absent. Fall back to declaration: such a repo has no multi-source
+        # resolve to ask about (practice: fail-gracefully).
+        return _private_sources_declared(root), []
+    try:
+        sources = _pr.load_config(str(root or ROOT))
+        res = _pr.resolve(sources)
+    except Exception:
+        # A resolve that cannot run is not evidence that nothing resolved.
+        # Fail toward the strict side: assume the private text IS in context.
+        return True, []
+    missing = {(m or {}).get('name') for m in res.get('missing', [])}
+    private = [s for s in sources
+               if (s or {}).get('level') in ('individual', 'team')]
+    unresolved = [s.get('name') for s in private if s.get('name') in missing]
+    resolved = [s.get('name') for s in private if s.get('name') not in missing]
+    return bool(resolved), unresolved
+
+
 def main():
     args = sys.argv[1:]
     if '--explain' in args:
@@ -758,10 +807,11 @@ def main():
     # file rather than every other caller failing open by default. The
     # workflow that uses it is already called "Leak gate (structural)".
     structural_only = '--structural-only' in args
+    _priv_resolved, _priv_unresolved = _private_sources_resolved()
     require_vocab = (not structural_only
                      and ('--require-vocabulary' in args
                           or _require_vocabulary_configured()
-                          or _private_sources_declared()))
+                          or _priv_resolved))
     blocklist, source, configured = load_blocklist()
     units = units_to_scan(mode, rev_range)
     # The repo-reference allowlist is read from the SAME private file as the
@@ -841,6 +891,23 @@ def main():
           f"private list. Said out loud rather than left to inference: a clean "
           f"scan against the default list is not evidence that no private word "
           f"is present.")
+    if _priv_unresolved and not _priv_resolved:
+        # The declared-but-unresolved case: allowed, and never quietly. The
+        # session could not read the private text, so it has nothing from
+        # there to leak -- but a private term can still have reached it
+        # another way, most plausibly the person's own messages, and that is
+        # the residual risk somebody should carry knowingly.
+        print(f"  AND: {', '.join(sorted(n for n in _priv_unresolved if n))} "
+              f"did not resolve this session, so no blocklist was reachable "
+              f"at all -- this is not a misconfiguration you can fix from "
+              f"here.\n"
+              f"  The push is allowed BECAUSE the private text was never in "
+              f"context: a session that could not read those sources has "
+              f"nothing from them to leak.\n"
+              f"  What is NOT covered: a private term that reached this "
+              f"session some other way, most plausibly your own messages. "
+              f"Say so in the reply -- somebody should carry that knowingly "
+              f"rather than find it later.")
     if require_vocab:
         # Name WHICH of the three triggers fired. The message used to assert
         # the git-config one unconditionally, so once the requirement could
@@ -856,15 +923,13 @@ def main():
             fix = ("set " + BLOCKLIST_ENV + " to your blocklist in your "
                    "individual set, or unset the git config deliberately")
         else:
-            why = ("precedent.json declares a private practice source "
-                   "(individual or team), so this repository expects a "
-                   "private-term blocklist -- and that is true in a fresh "
-                   "container, where no git config exists to say so")
-            fix = ("set " + BLOCKLIST_ENV + " to your blocklist; if the "
-                   "private sources genuinely could not be attached this "
-                   "session, do not push -- that is the state this refusal "
-                   "exists for. Continuous integration, which has no private "
-                   "list by design, passes --structural-only instead")
+            why = ("a private practice source RESOLVED this session, so its "
+                   "text is in context and a private term could reach this "
+                   "tree through it")
+            fix = ("set " + BLOCKLIST_ENV + " to the blocklist in that same "
+                   "source -- you have the repository, so you have the file. "
+                   "Continuous integration, which has no private list by "
+                   "design, passes --structural-only instead")
         print(f"\nleak gate FAIL: {why}, and {BLOCKLIST_ENV} is not set. "
               f"An unrun vocabulary layer is a failure, not a partial pass: "
               f"'the check silently did not run' and 'the check passed' must "

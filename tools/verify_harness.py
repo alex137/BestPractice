@@ -12121,6 +12121,13 @@ def check_leak_gate_refuses_a_fresh_container():
     def run(cwd, *extra, blocklist=None):
         env = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_LEAK_BLOCKLIST'}
         env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        # HOME points at an empty directory, or ~/.config/precedent/config.json
+        # injects this MACHINE's individual source into every fixture -- which
+        # resolves, which makes every case read as "a private source resolved"
+        # regardless of what the fixture declared. Caught while writing the
+        # declared-but-unresolved case, and it is the fourth instance of this
+        # shape in one day (practice: fixture-owns-its-state).
+        env['HOME'] = str(_fixture_home)
         if blocklist:
             env['PRECEDENT_LEAK_BLOCKLIST'] = blocklist
         r = subprocess.run([sys.executable, str(cwd / 'tools' / 'leak_gate.py'), *extra],
@@ -12130,7 +12137,14 @@ def check_leak_gate_refuses_a_fresh_container():
     def build(tmp, sources):
         repo = pathlib.Path(tmp) / 'r'
         (repo / 'tools').mkdir(parents=True)
-        for f in ('leak_gate.py', 'leak-blocklist.default.txt'):
+        # precedent_resolve.py and its companions, or _private_sources_resolved
+        # cannot import it, falls back to DECLARATION, and every case below
+        # reads the same -- the distinction under test would not be exercised
+        # at all while the check still passed.
+        for f in ('leak_gate.py', 'leak-blocklist.default.txt',
+                  'precedent_resolve.py', 'split_practices.py',
+                  'build_views.py', 'routing_scope.json',
+                  'glossary_terms.json'):
             src = ROOT / 'tools' / f
             if src.is_file():
                 shutil.copy2(src, repo / 'tools' / f)
@@ -12145,21 +12159,33 @@ def check_leak_gate_refuses_a_fresh_container():
         # fresh-container shape this check is about.
         return repo
 
+    _fixture_home_ctx = tempfile.TemporaryDirectory()
+    _fixture_home = pathlib.Path(_fixture_home_ctx.name)
+
     cases = []
     UNIVERSAL = [{'level': 'universal', 'name': 'precedent', 'path': '.'}]
+    # A private source that RESOLVES: its directory exists and carries a
+    # practices/ tree, so the session can read its text.
     PRIVATE = UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-x',
                             'path': '../precedent-team-x'}]
 
     with tempfile.TemporaryDirectory() as tmp:
         repo = build(tmp, PRIVATE)
+        (pathlib.Path(tmp) / 'precedent-team-x' / 'practices').mkdir(parents=True)
+        (pathlib.Path(tmp) / 'precedent-team-x' / 'practices' / 'zz.md').write_text(
+            '---\nslug: zz\ntitle: Z\ntier: on-demand\nseverity: default\n'
+            'applies_to: ["**"]\noccasion: "t"\nindex_clause: "t"\n'
+            'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+            'overrides: null\nadded: null\napproved_by: "h"\n---\n\n'
+            '## Rule\nZ.\n\n## Story\nZ.\n', encoding='utf-8')
         rc, out = run(repo)
-        cases.append(('a repo declaring a PRIVATE source refuses when the '
-                      'vocabulary layer could not run -- the incident',
-                      rc == 1 and 'FAIL' in out, out[-300:]))
-        cases.append(('and the refusal names precedent.json, not the git '
-                      'config that was never set',
-                      'precedent.json declares a private practice source' in out,
-                      out[-300:]))
+        cases.append(('a private source that RESOLVED, with no blocklist, '
+                      'refuses -- its text is in context, so a private term '
+                      'could reach the tree through it',
+                      rc == 1 and 'FAIL' in out, out[-400:]))
+        cases.append(('and the refusal says the source RESOLVED, not merely '
+                      'that precedent.json declares one',
+                      'RESOLVED this session' in out, out[-400:]))
         rc3, out3 = run(repo, '--structural-only')
         cases.append(('the same repo PASSES under --structural-only, so CI '
                       'still works', rc3 == 0, out3[-300:]))
@@ -12175,10 +12201,31 @@ def check_leak_gate_refuses_a_fresh_container():
                       'become a gate everybody has to appease',
                       rc2 == 0, out2[-300:]))
 
+    # THE CORRECTION, and the case that matters most: declared but NOT
+    # resolved. The first version of this gate refused here too, which blocked
+    # a real session out of pushing at all -- its commit "dies with the
+    # container". The session that could not attach the source never read its
+    # text and has nothing from it to leak; refusing bought no safety and cost
+    # repo-is-memory. The path below simply does not exist.
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-absent',
+                                        'path': '../precedent-team-absent'}])
+        rc4, out4 = run(repo)
+        cases.append(('a private source DECLARED but not resolved ALLOWS the '
+                      'push -- the session could not read it, so it has '
+                      'nothing from it to leak',
+                      rc4 == 0, out4[-400:]))
+        cases.append(('and it says so loudly, naming the residual risk it '
+                      'does NOT cover rather than reporting a clean bill',
+                      'nothing from them to leak' in out4
+                      and 'some other way' in out4, out4[-400:]))
+
+    _fixture_home_ctx.cleanup()
+
     ok = all(c[1] for c in cases)
-    check(f'the leak gate refuses a fresh container that cannot run its '
-          f'vocabulary layer ({len(cases)} stated cases, config absent '
-          f'throughout)', ok,
+    check(f'the leak gate requires the blocklist when a private source '
+          f'RESOLVED, and not merely when one is declared ({len(cases)} '
+          f'stated cases, config absent throughout)', ok,
           '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
 
 
