@@ -32,3 +32,19 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
+
+## Engine vocabulary
+
+The words the mechanism itself is made of. No single practice owns these, so they cannot come from a `defines:` field -- they are declared in [tools/glossary_terms.json](tools/glossary_terms.json) and rendered here. **Everything above is a term some practice claimed; everything below is a term the engine needs you to know before any practice makes sense.**
+
+| Term | What it means | Where it is spelled out |
+|---|---|---|
+| **level** | Which population a rule binds. Four of them: universal (everyone using Precedent), team (one named team), individual (one person), repo-local (one repository). A rule's level is chosen by asking who it would still be true for -- see layered-practice-packs. | [practices/layered-practice-packs.md](practices/layered-practice-packs.md) |
+| **source** | A place practices come from -- usually a repository, sometimes a directory inside one. Each source sits at exactly one level, and a repository declares the sources in force in it in its own precedent.json. The individual source is the exception that is never declared in a shared file: it is named in a person's own user-level config, so its existence stays private. | [practices/source-naming.md](practices/source-naming.md) |
+| **level repo** | Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just "the source", or "the individual set" / "a team set" when the level matters. Naming conventions for those repositories are in source-naming. | [practices/source-naming.md](practices/source-naming.md) |
+| **catalogue** | All the practice files of one source, taken together -- what that source teaches. "The catalogue" with no qualifier means the universal one. A practice can be in the catalogue and not in force, if its status is retired or deduplicated. | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
+| **in force** | A practice actually binds work here, right now. Being present in a catalogue is not enough: a retired or deduplicated practice keeps its file and stops binding, and a source nobody declared is not in force at all even when its repository is sitting on disk. | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
+| **slug** | A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`go-merge` is practices/go-merge.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit. | [practices/rename-updates-links.md](practices/rename-updates-links.md) |
+| **gate** | A named moment when practices are loaded, rather than a kind of file. Four exist -- merge, review, push, reply -- and a practice lists the ones it fires at. Gates carry the rules no path pattern can reach: "before pushing" is not a file. | [tools/precedent_gate.py](tools/precedent_gate.py) |
+| **resident block** | The handful of practices written into a repository's instructions file in full, so they are read every session without anyone asking. Everything else is on-demand, reached through the occasion index. The block has a token budget, which is what stops it becoming the whole catalogue. | [spec/LOADER.md](spec/LOADER.md) |
+| **occasion index** | The generated list of *when X, read Y* lines -- one per on-demand practice, naming the moment it applies and the one line that gets it opened. It is how a rule reaches a session that had no reason to go looking for it. | [spec/LOADER.md](spec/LOADER.md) |

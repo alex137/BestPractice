@@ -50,9 +50,31 @@ applies in the same commit, and a file other repositories vendor or link to
 should usually be left alone and the *new* files brought into line instead.
 Consistency going forward beats a rename sweep that breaks inbound links.
 
+**The two separators have nicknames, and this practice avoids them on
+purpose.** You will see *snake_case* (words joined by underscores) and
+*kebab-case* (words joined by hyphens — the picture is food on a skewer) in
+programming writing. They are jargon, they are easy to mix up, and nothing
+here needs them: say **hyphen** and **underscore**, which nobody has to
+learn. Recorded because a session used both nicknames in a reply without
+glossing either, which is what [readers-vocabulary](readers-vocabulary.md)
+exists to stop.
+
 **Case is a separate question and this rule does not touch it.**
-`SCREAMING_SNAKE.md`, `Title-Case.md` and `lowercase.md` are all fine; what
-is not fine is two separators for the same kind of file in one place.
+`ALL_CAPS.md`, `Title-Case.md` and `lowercase.md` are all fine; what is not
+fine is two separators for the same kind of file in one place.
+
+**What this repository actually uses, measured rather than declared** — the
+pattern is that the separator follows *what reads the name*:
+
+| Directory | Separator | Why |
+|---|---|---|
+| `practices/` | hyphen (78 files) | the filename **is** the slug a tool looks up |
+| `tools/` | underscore (48 files) | Python cannot import a name with a hyphen |
+| `spec/` | underscore (22 files) | documents in capitals, read by a person |
+| `decisions/`, `.claude/hooks/` | hyphen | dated slugs and hook names, looked up by name |
+
+No directory here mixes them, and none of those choices was free: three of
+the four are forced by whatever consumes the name.
 
 ## Why
 A folder is a list, and an inconsistent list makes a reader stop and ask

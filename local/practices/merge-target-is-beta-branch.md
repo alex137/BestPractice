@@ -9,6 +9,7 @@ gates:       ["merge"]
 index_clause: "Alex approves only major main merges; precedent-beta-v01 is unrestricted"
 checked_by:  "tools/checks/check_merge_target_is_beta_branch.py"
 defines:     []
+expires:     "when precedent-beta-v01 is merged into main (the phase-7 fold-in)"
 status:      active
 in_force_at: null
 supersedes:  []

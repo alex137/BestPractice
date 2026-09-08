@@ -3960,6 +3960,26 @@ def check_precedent_check_fires():
              lambda repo: (repo / 'decisions' / 'PLANTED_MIXED_NAME.md')
              .write_text('# planted\n', encoding='utf-8'))
 
+        # expires-is-honoured -- a DATE expiry that has passed while the
+        # practice is still `active`. The date is far in the past on purpose:
+        # a fixture dated near today passes for a while and then starts
+        # failing on a calendar boundary nobody is watching.
+        case('expires-is-honoured',
+             lambda repo: (repo / 'practices' / 'zzz-expired-rule.md')
+             .write_text(
+                 '---\nslug:        zzz-expired-rule\n'
+                 'title:       An expired rule\n'
+                 'tier:        on-demand\nseverity:    default\n'
+                 'applies_to:  ["**"]\noccasion:    "testing"\n'
+                 'index_clause: "a planted case"\nchecked_by:  null\n'
+                 'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                 'expires:     "2020-01-01"\n'
+                 'overrides:   null\nadded:       null\n'
+                 'approved_by: "harness"\nsource_practice_number: 998\n---\n\n'
+                 '## Rule\nDo the thing.\n\n## Detail\n\n## Why\nBecause.\n\n'
+                 '## Story\nPlanted by the harness.\n\n## Install\nNone.\n',
+                 encoding='utf-8'))
+
         # vendored-engine-file-refs-resolve -- delete a file precedent_gate.py
         # hardcodes a reference to (_ENGINE_DIR / 'routing_scope.json'),
         # reproducing the the project's own prior notes repository incident this check exists for

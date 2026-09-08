@@ -1952,3 +1952,72 @@ which is the failure this repointing exists to end — write
   [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s pass-4 branch verdicts.
 
   **Disposition:** parked (2026-09-08, Morgan)
+
+- <a id="retired-practice-filenames"></a>**Evaluate marking retired and deduplicated practice files in
+  their filename, so a directory listing shows what is still in force.**
+  Morgan, 2026-09-08, raised it as e.g. `retired.practice-name-here.md` —
+  sortable, skippable, and it stops a listing of `practices/` reading as
+  the live catalogue when part of it is not.
+
+  **Why it was not done that day**, and both halves of the argument are
+  worth keeping because the next session will re-derive one of them:
+
+  - *Against.* Practice files cite each other by bare filename, and those
+    links **travel into every consuming repo**, where nobody can repoint
+    them ([rename-updates-links](practices/rename-updates-links.md) cannot
+    reach across a repository boundary).
+    [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) already rejected a
+    `retired/` directory on the same ground, plus two more: it puts the
+    fact in two places (a path *and* a `status:` field) with nothing
+    deciding which wins, and it hides withdrawn rules from the `grep`
+    someone doing prior-art research actually runs.
+  - *For.* The listing problem is real. The counter-argument assumes people
+    read [MAP.md](MAP.md), whose generated **"Withdrawn practices"** table
+    already carries status, successor and the reason each was withdrawn —
+    strictly more than a filename prefix could. If the raw directory is
+    where people actually look, that table is not reaching them.
+  - *Morgan's fallback, and why it is worse rather than better:* renaming
+    during [very-deep-check](practices/very-deep-check.md) instead of in
+    real time. It is the same breakage on a delay, and it puts a rename
+    sweep inside a check whose whole discipline is to report and let a
+    person decide.
+
+  **The cheaper thing to try first**, if the trigger is a raw listing:
+  surface `status:` in `precedent_show.py`'s output and make MAP.md's
+  withdrawn table easier to find. That costs nothing and breaks nothing.
+
+  **Disposition:** wait
+
+- <a id="level-repo-naming"></a>**Evaluate renaming the practice-set repositories so the level is
+  visible in the name.** Morgan, 2026-09-08: *"I keep on being hesitant in
+  my mind about the level filenames ... What if the structure is:
+  `precedent.level-individual.me` and
+  `precedent.level-team.team-name-here`."* His argument is that the current
+  names do not say what they are, and that a naming scheme carrying the
+  level would make the whole vocabulary system legible at a glance.
+
+  **Not done that day, deliberately, and this is a real trade rather than a
+  refusal:**
+
+  - The clarity argument is correct. `precedent-team-tms` does not tell a
+    reader that `tms` is a team name, and `precedent-individual` does not
+    say whose.
+  - Against it: [source-naming](practices/source-naming.md) fixes these
+    names *by convention*, with [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md)
+    and a check behind it — so this changes the rule, not just the names.
+  - The names are referenced from **outside** the repositories: per-machine
+    user-level config paths, `precedent.json` `path` entries, sibling-clone
+    assumptions like `../precedent-team-maintainers`, the `add_repo` calls
+    three separate `AGENTS.md` banners instruct, and every gotcha entry that
+    names one. A rename is a real sweep, and the per-container paths break
+    **silently**.
+  - `.me` reads as a domain suffix, and a dot in a repository name collides
+    visually with a file extension in exactly the tooling that already
+    splits on dots.
+
+  **What was done instead**, as the cheaper half of the same goal: `level`,
+  `source` and `level repo` are now defined in [GLOSSARY.md](GLOSSARY.md)'s
+  engine-vocabulary section, which was the actual gap — the words were used
+  hundreds of times and defined nowhere.
+
+  **Disposition:** wait
