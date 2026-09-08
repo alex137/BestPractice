@@ -3191,6 +3191,84 @@ def _migration_scrubs_vocabulary(ctx):
     return sorted(out, key=lambda f: f.where)
 
 
+# practice: open-item-disposition -- the grammar of the disposition line, so
+# that "an item with no disposition is `wait`" can be relied on. A malformed
+# line is the dangerous case, not a missing one: absence is a defined state
+# (quiet), while `**Disposition:** parkd` reads as parked to a person
+# skimming and as nothing at all to a session grepping for the word.
+DISPOSITION_VALUES = ('parked', 'wait', 'ask')
+DISPOSITION_RE = re.compile(
+    r'^[ \t]*\*\*Disposition:\*\*[ \t]*'
+    r'(?P<value>[^\s(]*)[ \t]*'
+    r'(?:\((?P<stamp>[^)]*)\))?', re.M)
+DISPOSITION_STAMP_RE = re.compile(r'^(?P<date>\d{4}-\d{2}-\d{2}),[ \t]*(?P<who>\S.*)$')
+# Mirrors the practice's own applies_to. Kept as a literal rather than read
+# out of the practice file: a check that derives its own scope from the
+# document it is checking cannot report that the two disagree.
+DISPOSITION_FILE_GLOBS = ('**/TODO.md', 'templates/TODO.md.template')
+
+
+@check('open-item-disposition', 'tree',
+       'every `**Disposition:` line in a TODO file names one of the three '
+       'dispositions, and a `parked` or `ask` line records the date it was '
+       'set and who set it',
+       'whether a disposition is HONOURED -- nothing mechanical can see a '
+       'session raising a parked item in chat, which is the behaviour the '
+       'practice is actually about. It also cannot tell a correct `wait` '
+       '(the default, written as nothing) from an item whose disposition '
+       'nobody has ever considered: those are the same text by design, '
+       'because the alternative was backfilling 52 items to say "quiet".')
+def _open_item_disposition(ctx):
+    # Resolved without precedent_paths: this module is copied ALONE into
+    # fixtures that carry no sibling tools (the source-check harness builds
+    # exactly that), so a module-level import of a neighbour takes those
+    # fixtures down with a ModuleNotFoundError that reads as a broken check.
+    # Both globs here are simple enough to resolve directly -- "**/x" is a
+    # basename match, anything else is an exact path.
+    files = []
+    for glob in DISPOSITION_FILE_GLOBS:
+        if glob.startswith('**/'):
+            found = [p.relative_to(ROOT).as_posix()
+                     for p in sorted(ROOT.rglob(glob[3:]))]
+        else:
+            found = [glob] if (ROOT / glob).is_file() else []
+        for rel in found:
+            if rel.split('/')[0] == '.git' or rel.startswith('process/upstream/'):
+                continue
+            if rel not in files:
+                files.append(rel)
+    if not files:
+        raise NotApplicable('this repository has no TODO file to check')
+
+    out = []
+    for rel in sorted(files):
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError) as e:
+            out.append(Finding(rel, f'could not be read ({e})'))
+            continue
+        for m in DISPOSITION_RE.finditer(text):
+            line_no = text.count('\n', 0, m.start()) + 1
+            where = f'{rel}:{line_no}'
+            value, stamp = m.group('value'), m.group('stamp')
+            if value not in DISPOSITION_VALUES:
+                out.append(Finding(where, f'disposition {value!r} is not one of '
+                                          f'{", ".join(DISPOSITION_VALUES)}'))
+                continue
+            if value == 'wait':
+                continue
+            if stamp is None:
+                out.append(Finding(where, f'{value!r} carries no "(YYYY-MM-DD, who)" '
+                                          f'-- a disposition nobody owns is the '
+                                          f'silence this practice replaces'))
+                continue
+            if not DISPOSITION_STAMP_RE.match(stamp.strip()):
+                out.append(Finding(where, f'{value!r} stamp {stamp.strip()!r} is not '
+                                          f'"YYYY-MM-DD, who"'))
+    return out
+
+
+
 # --------------------------------------------------------------------------
 # Runner
 # --------------------------------------------------------------------------

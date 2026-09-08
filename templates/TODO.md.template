@@ -18,6 +18,16 @@ input (decision-owner named), or *out-of-scope* for the session writing it
 pointers). Work the current session could finish gets done, not queued; a
 sweep that finds an unreasoned open item does it or closes it.
 
+**An item carries a disposition, and silence is the default** (practice
+`open-item-disposition`): whether a session may raise the item with its
+owner. Write `**Disposition:** parked (YYYY-MM-DD, who)` on its own line
+inside the item for one that has been heard and set aside — no session
+brings it up unprompted again — or `ask (YYYY-MM-DD, who)` for one the owner
+wants pressed. **An item with no line is `wait`**: blocked on someone, and
+nobody chases them. Only the person an item waits on sets or clears its
+disposition. Parked is not closed; it governs raising the item in
+conversation, nothing else.
+
 **Claiming (multi-member repos):** before starting an item, mark it
 claimed — append *(claimed: NAME, YYYY-MM-DD, branch)* to its line — and
 clear the claim when the work merges or is abandoned. Agents check claims
