@@ -40,6 +40,33 @@
 # name. A term that only ever appears one way in your notes today will appear
 # another way the first time it matters.
 #
+# FOR A REPOSITORY NAME, WRITE THE STEM RATHER THAN THE WHOLE NAME, and end
+# it `[\w-]*` rather than `\b`:
+#
+#     \bexamplename[\w-]*          not     \bExampleNameProject\b
+#
+# Upstream lost a name to exactly this on 2026-09-07. The full name was on
+# the list; what reached a public branch was `<repo>-local`, the name a
+# practice source had been given after the repository -- a SHORT form the
+# full-name pattern does not begin to cover. (The trailing suffix was never
+# the problem: `\bExampleNameProject\b` already matches
+# `ExampleNameProject-local`, since a hyphen is a word boundary. The
+# truncation is what does the work.) A private repository leaks through what
+# is named AFTER it: a source, a branch, a directory, a tag, a check.
+#
+# CUT ONLY AS FAR AS THE EVIDENCE ALLOWS. Run the gate against the tree
+# after each cut and read the hit count. A stem that is an ordinary English
+# word matches innocent text everywhere, and a gate that fires on innocent
+# text the day you install it is a gate you uninstall. Stop at the last cut
+# that scores zero -- and reject even a zero-scoring cut that is short
+# enough for a camelCase identifier to produce by accident. Record the
+# counts beside the entry so the next person argues from evidence rather
+# than re-deriving them.
+#
+# The gate helps: with an owner declared below, a run also NOTES any
+# repository cloned on your disk, under that owner, whose bare name no
+# pattern here matches. That note is the reminder to write this line.
+#
 # The entries below are placeholders, and are here to show the shape. Replace
 # them with your own terms.
 #

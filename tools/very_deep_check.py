@@ -120,6 +120,7 @@ import parse_check as pcheck  # noqa: E402
 import precedent_bootstrap_source as bootstrap_source  # noqa: E402
 import split_practices as sp  # noqa: E402
 import build_views as bv  # noqa: E402
+import leak_gate  # noqa: E402
 
 # The passes the invoking session actually works are read from the practice
 # file's own `## Detail` section at run time, not kept as a second copy here.
@@ -856,26 +857,48 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=sys.stdout):
     # the retired personal pack, whose name Morgan has said plainly he does
     # not mind being public -- and an audit that reports it on every run is an
     # audit people learn to skim.
-    blocked, allowed = set(), {}
+    # THE BLOCKLIST IS READ AS PATTERNS, NOT AS STRINGS, and that is a repair
+    # rather than a preference. This block used to strip `\b` off each end and
+    # compare `name.lower() in blocked` -- exact string equality, which was
+    # right for as long as every entry was a whole repository name. The
+    # 2026-09-07 stem rewrite ended that: an entry is now a truncated head
+    # plus a suffix match, so equality matches nothing and the stale-entry
+    # half below would have reported a clean sweep it never performed. The
+    # same read also gives the coverage question its answer -- "does any
+    # pattern match this bare name" is one call for both halves.
+    #
+    # leak_gate._parse_blocklist is the one reader, so the push gate and this
+    # audit cannot drift in how they interpret a line. It exits on a bad
+    # regex, which is correct for a gate and wrong for an audit that must
+    # finish and report, so the exit is caught and turned into a note.
+    blocked_pats, allowed = None, {}
     if blocklist_path and pathlib.Path(blocklist_path).exists():
+        bl = pathlib.Path(blocklist_path)
         try:
-            for line in pathlib.Path(blocklist_path).read_text(
-                    encoding='utf-8').splitlines():
+            for line in bl.read_text(encoding='utf-8').splitlines():
                 line = line.strip()
                 m = re.match(r'#\s*visibility-audit:\s*allow\s+(\S+/\S+)\s*--\s*(.+)$',
                              line)
                 if m:
                     allowed[m.group(1).lower()] = m.group(2).strip()
-                    continue
-                if line and not line.startswith('#'):
-                    blocked.add(re.sub(r'^\\b|\\b$', '', line).lower())
         except OSError as e:
             notes.append(f'blocklist at {blocklist_path} could not be read ({e}) '
-                         '-- the stale-entry half of this audit did NOT run.')
+                         '-- the allow lines were NOT read, so a deliberately '
+                         'named repository may be reported below.')
+        try:
+            blocked_pats = leak_gate._parse_blocklist(bl)
+        except SystemExit as e:
+            notes.append(f'blocklist at {blocklist_path} did not compile ({e}) '
+                         '-- the stale-entry and stem-coverage halves of this '
+                         'audit did NOT run.')
+        except OSError as e:
+            notes.append(f'blocklist at {blocklist_path} could not be read ({e}) '
+                         '-- the stale-entry and stem-coverage halves of this '
+                         'audit did NOT run.')
     else:
-        notes.append('no blocklist path given, so the stale-entry half of this '
-                     'audit did NOT run; only referenced repositories were '
-                     'checked.')
+        notes.append('no blocklist path given, so the stale-entry and '
+                     'stem-coverage halves of this audit did NOT run; only '
+                     'referenced repositories were checked.')
 
     checked = 0
     for (owner, name), files in sorted(refs.items()):
@@ -901,14 +924,35 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=sys.stdout):
                 notes.append(f'{owner}/{name} is private and named here on '
                              f'purpose: {why}')
                 continue
+            # WHICH FORM IS UNGUARDED, said explicitly. A reader who is told
+            # only "add it to the blocklist" adds the full name, which is what
+            # the 2026-09-07 leak already had: the qualified form was covered
+            # and the SHORT form walked out. So the finding says whether any
+            # pattern matches the bare name, because that decides whether the
+            # remedy is a new entry or a shorter cut of the entry you have.
+            if blocked_pats is None:
+                covers = (' Whether a blocklist pattern covers its bare name '
+                          'was NOT checked -- no blocklist was readable.')
+            elif any(p.search(name) for p in blocked_pats):
+                covers = (' A blocklist pattern DOES match its bare name, so '
+                          'the short form is guarded and only the qualified '
+                          'form got through.')
+            else:
+                covers = (' NO blocklist pattern matches its bare name either, '
+                          'so the short form -- the one people actually type, '
+                          'and the one that leaked on 2026-09-07 -- is '
+                          'unguarded too. Add a stem: truncate to a '
+                          'distinctive head, and measure its hit count against '
+                          'this tree before committing to the cut.')
             findings.append(
                 f'{owner}/{name} is PRIVATE and is named in this tree '
                 f'({len(set(files))} file(s), e.g. '
                 f'{", ".join(sorted(set(files))[:3])}). Either scrub the name '
                 f'or, if it must appear, say why -- and add it to the leak '
                 f'blocklist so the push gate catches the next one. Nothing '
-                f'offline can find this: the gate blocks what it was told.')
-        elif name.lower() in blocked:
+                f'offline can find this: the gate blocks what it was told.'
+                + covers)
+        elif blocked_pats and any(p.search(name) for p in blocked_pats):
             findings.append(
                 f'{owner}/{name} is PUBLIC but its name is on the leak '
                 f'blocklist. A stale entry costs real content: it forces hits '
