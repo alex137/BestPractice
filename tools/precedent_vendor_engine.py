@@ -347,6 +347,61 @@ def _trim_routing_scope(engine_dir):
     }
 
 
+def _remove_dropped_engine_files(dest_tools, previous_manifest, kind):
+    """Delete vendored engine files this kind no longer includes.
+
+    THE GAP THIS CLOSES. `refresh` only ever added and overwrote. Rename or
+    drop a file from KINDS and every consumer that already had it kept it
+    forever: the new manifest stops listing it, so nothing tracks it, nothing
+    updates it, and nobody can tell whether it still does something. That is
+    exactly the state `decommission-deletes-files` exists to prevent,
+    produced by the tool that distributes that practice.
+
+    Found 2026-09-07 while costing the retirement->decommission rename:
+    `precedent_retire_path.py` is in the consumer engine set, so renaming it
+    would have pushed the new name into every consumer and left the old one
+    beside it, in perpetuity, in two repos today and every future one.
+
+    WHY THIS IS SAFE, and it rests entirely on the manifest. The only files
+    considered are ones the PREVIOUS manifest recorded as vendored here --
+    written by this tool, into a directory the consuming repo also keeps its
+    own files in. A file the engine never wrote is never a candidate, so a
+    repo's own tools/ cannot be touched no matter what it is named.
+
+    A hand-edited file is kept and reported, never deleted. `_local_drift`
+    already refuses the whole refresh over one unless --force is passed, so
+    reaching here with a modified file means somebody asked to overwrite --
+    which is not the same as asking to throw the edit away. Recovering a
+    deleted file from git is easy only if it was committed; this costs one
+    line of output and removes the case where it was not.
+    """
+    prev_files = set(previous_manifest.get('files') or [])
+    prev_hashes = previous_manifest.get('sha256') or {}
+    now = set(KINDS.get(kind, ())) | {'routing_scope.json'}
+    removed, kept = [], []
+    for name in sorted(prev_files - now):
+        f = dest_tools / name
+        if not f.is_file():
+            continue                      # already gone: nothing to report
+        recorded = prev_hashes.get(name)
+        if recorded and _sha256(f) != recorded:
+            kept.append(name)
+            continue
+        f.unlink()
+        removed.append(name)
+    if removed:
+        print(f"precedent_vendor_engine refresh: removed {len(removed)} "
+              f"vendored engine file(s) this kind no longer includes "
+              f"({', '.join(removed)}). They were recorded in the previous "
+              f"manifest and unmodified here.")
+    for name in kept:
+        print(f"WARN: precedent_vendor_engine refresh: {name} was dropped from "
+              f"the {kind} engine set, but this copy has been hand-edited "
+              f"since it was vendored -- left in place rather than deleted. "
+              f"Move the edit upstream, then delete it by hand.", file=sys.stderr)
+    return removed
+
+
 def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND):
     if kind not in KINDS:
         raise ValueError(f"kind must be one of {sorted(KINDS)}, got {kind!r}")
@@ -884,6 +939,12 @@ def refresh(clone, force=False, ref=None):
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
+        # AFTER the write, and using the manifest as it was BEFORE it:
+        # _write_engine_files rewrites `files` from the current KINDS list, so
+        # by then the dropped name is already gone from the record and there
+        # is nothing left to find it by. `manifest` is the copy loaded at the
+        # top of this function, which is the one that still remembers.
+        _remove_dropped_engine_files(dest_tools, manifest, kind)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "

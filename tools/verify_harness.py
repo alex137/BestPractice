@@ -13,7 +13,7 @@ visible instead of reading as a pass.
 Run:  python3 tools/verify_harness.py
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
-import collections, json, os, pathlib, re, subprocess, sys
+import collections, hashlib, json, os, pathlib, re, subprocess, sys
 
 # A FIXTURE COMMIT IS NOT A PERSON'S COMMIT. Since 2026-09-07 the commit
 # identity hook installs a backstop at core.hooksPath -- global, because that
@@ -6198,6 +6198,134 @@ def check_commit_identity_derives_declared_timezone():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_refresh_removes_dropped_engine_files():
+    """A file dropped from the engine set leaves every consumer, not just this repo.
+
+    refresh() only ever added and overwrote. Rename or drop a file from KINDS
+    and every consumer that already had it kept it forever: the new manifest
+    stops listing it, so nothing tracks it, nothing updates it, and no later
+    reader can tell whether it still does something. That is the exact state
+    decommission-deletes-files exists to prevent, produced by the tool that
+    distributes that practice.
+
+    Found 2026-09-07 costing the retirement->decommission rename: the tool
+    being renamed is IN the consumer engine set, so the rename would have
+    pushed the new name out and left the old one beside it in perpetuity --
+    two repos that day, and every consumer created afterwards.
+
+    Safety rests entirely on the manifest. Only files the PREVIOUS manifest
+    recorded as vendored are candidates, so a consuming repo's own tools/
+    cannot be touched whatever it is named -- that is the case this test
+    spends a fixture on, because getting it wrong deletes somebody's work
+    rather than merely leaving litter.
+
+    And a hand-edited copy is KEPT and reported. _local_drift already refuses
+    the whole refresh over one unless --force, so arriving here modified
+    means somebody asked to overwrite -- which is not the same as asking to
+    throw the edit away.
+    """
+    import tempfile, json as _json, shutil as _shutil
+    vend = ROOT / 'tools' / 'precedent_vendor_engine.py'
+    if not vend.exists():
+        not_applicable('refresh removes dropped engine files',
+                       'tools/precedent_vendor_engine.py is not present here')
+        return
+
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def _consumer(base):
+        """Seed a real consumer engine from THIS working tree."""
+        base.mkdir(parents=True)
+        subprocess.run(['git', '-C', str(base), 'init', '-q'], capture_output=True)
+        r = subprocess.run(
+            [sys.executable, str(vend), 'seed', str(base), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300, env=env)
+        if r.returncode != 0:
+            return None
+        # AND OVERWRITE THE SEEDED TOOL WITH THIS WORKING TREE'S. `seed`
+        # vendors via git, so it copies the COMMITTED engine -- a fixture
+        # built on it silently tests the code as it was before your change.
+        # Cost this exact test three red cases before the cause was found,
+        # and cost the rename-updates-links test the same thing an hour
+        # earlier, which is why it is spelled out in both.
+        _shutil.copy2(vend, base / 'tools' / 'precedent_vendor_engine.py')
+        return base
+
+    def _manifest(base):
+        return _json.loads(
+            (base / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        base = _consumer(tmp / 'consumer')
+        if base is None:
+            not_applicable('refresh removes dropped engine files',
+                           'could not seed a consumer engine here')
+            return
+
+        m = _manifest(base)
+        victim = 'precedent_show.py'
+        cases.append(('the fixture starts with the file it will drop',
+                      victim in (m.get('files') or [])
+                      and (base / 'tools' / victim).is_file()))
+
+        # A file the engine NEVER vendored, sitting in the same directory.
+        # Nothing may touch this, ever.
+        own = base / 'tools' / 'this_repos_own_tool.py'
+        own.write_text('# not the engine\'s\n', encoding='utf-8')
+
+        # Simulate the drop by rewriting the PREVIOUS manifest to claim one
+        # more file than the current KINDS list has -- which is exactly the
+        # shape a real rename leaves behind.
+        extra = 'precedent_retired_name.py'
+        (base / 'tools' / extra).write_text('# stale vendored tool\n', encoding='utf-8')
+        m['files'] = list(m.get('files') or []) + [extra]
+        m.setdefault('sha256', {})[extra] = hashlib.sha256(
+            (base / 'tools' / extra).read_bytes()).hexdigest()
+        (base / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps(m, indent=2), encoding='utf-8')
+
+        r = subprocess.run(
+            [sys.executable, str(base / 'tools' / 'precedent_vendor_engine.py'),
+             'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+            capture_output=True, text=True, timeout=600, cwd=str(base), env=env)
+        out = r.stdout + r.stderr
+
+        cases.append(('a file the current set no longer includes is deleted',
+                      not (base / 'tools' / extra).exists()))
+        cases.append(('and the run says which file went, and why it was safe',
+                      extra in out and 'no longer includes' in out))
+        cases.append(("a file the engine never vendored is UNTOUCHED -- the "
+                      "manifest is what makes this safe", own.is_file()))
+        cases.append(('a file still in the set survives',
+                      (base / 'tools' / victim).is_file()))
+
+        # NEGATIVE CONTROL on the hand-edit rule: a dropped file whose
+        # content no longer matches what was vendored is kept, not deleted.
+        base2 = _consumer(tmp / 'edited')
+        if base2 is not None:
+            m2 = _manifest(base2)
+            (base2 / 'tools' / extra).write_text('# stale\n', encoding='utf-8')
+            m2['files'] = list(m2.get('files') or []) + [extra]
+            m2.setdefault('sha256', {})[extra] = 'deadbeef' * 8   # wrong on purpose
+            (base2 / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                _json.dumps(m2, indent=2), encoding='utf-8')
+            r2 = subprocess.run(
+                [sys.executable, str(base2 / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+                capture_output=True, text=True, timeout=600, cwd=str(base2), env=env)
+            out2 = r2.stdout + r2.stderr
+            cases.append(('a hand-edited dropped file is KEPT',
+                          (base2 / 'tools' / extra).is_file()))
+            cases.append(('and said so, rather than deleted silently',
+                          'hand-edited' in out2))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'refresh removes engine files the set no longer includes, and only '
+          f'those ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_retirement_record_is_not_a_stranded_link():
     """The document explaining a deletion may name what it deleted.
 
@@ -11445,6 +11573,7 @@ def main():
     check_sync_refuses_to_lose_a_recorded_practice()
     check_doc_lifecycle_fires_and_clears()
     check_commit_identity_derives_declared_timezone()
+    check_refresh_removes_dropped_engine_files()
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_copies_are_identical()
