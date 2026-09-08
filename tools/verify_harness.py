@@ -11650,6 +11650,176 @@ def check_unlanded_work_is_reported_before_the_passes():
               not failed, detail)
 
 
+def check_shallow_clone_never_fabricates_unlanded_work():
+    """A branch whose merge base is out of reach must never be reported as
+    carrying a COUNT of unlanded commits (practice: very-deep-check,
+    control-asserts-which-failure).
+
+    THE INCIDENT, 2026-09-08. The unlanded-work scan told a session that
+    three branches of `precedent-individual` carried 22 commits of unlanded
+    work. All three were plain ancestors of `main` -- every commit already
+    landed, nothing to read. The scan had run against a shallow clone, where
+    `git cherry` cannot find a merge base and answers by calling every commit
+    unique.
+
+    WHY THE EXISTING GUARD DID NOT FIRE. _unmerged_row already handled a
+    shallow clone -- by checking `git cherry`'s exit code. There is no
+    non-zero exit to catch: git exits 0 and prints a wrong answer, which is
+    this repo's recurring shape (AGENTS.md records the same for `%P`
+    reporting no parents and `rev-parse` printing a ref name where a hash
+    belongs). A guard written for the wrong failure mode reads as coverage
+    and is none.
+
+    The direction of the error is what makes it expensive rather than merely
+    wrong. This section exists to tell a session which branches to go read
+    BEFORE the passes, so a fabricated count spends exactly the reading it
+    was built to save -- and it fabricates in the environment every fresh
+    session starts in.
+
+    TWO CASES, because the fix has two outcomes and only one is a refusal.
+    Deepening usually rescues the comparison, so the common path is a CORRECT
+    answer, not an UNKNOWN one -- a control that only asserted the refusal
+    would be satisfied by a tool that refused on every branch it saw.
+
+    WHICH CASE DISCRIMINATES, measured rather than assumed: replayed against
+    the pre-fix code, CASE 2 fails (on "no count of unlanded commits is
+    invented" -- the bug itself) and CASE 1 PASSES. Case 1 is a regression
+    guard on the right answer, NOT evidence the bug is caught, and a later
+    session must not read it as such. The reason is worth knowing before
+    trusting any fixture built this way: _fetch_all_heads falls back to an
+    unbounded `git fetch origin` when its bounded one fails, so a local
+    fixture gets full history handed to it and the buggy comparison comes
+    out right anyway. In the wild the bounded fetch SUCCEEDED and simply did
+    not reach far enough, no fallback ran, and the fabricated count stood --
+    which is why the incident needed a real repository to show up at all.
+    """
+    import shutil, tempfile
+    import json as _json
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    def _seed(up):
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'f.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        _git(up, 'checkout', '-q', '-b', 'fully-landed')
+        (up / 'g.txt').write_text('work that DID land\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'landed work')
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'merge', '-q', '--no-ff', 'fully-landed', '-m', 'merge it')
+        # Deeper than the tool's routine --depth=50, so the merge base is
+        # genuinely out of reach of a shallow clone. See the docstring.
+        for i in range(70):
+            (up / f'f{i}.txt').write_text(f'later {i}\n')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', f'later {i}')
+
+    def _consumer(work, tmp):
+        _git(work, 'config', 'user.email', 'harness@example.com')
+        _git(work, 'config', 'user.name', 'Harness')
+        (work / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': '.'}]}), encoding='utf-8')
+        (work / 'practices').mkdir(exist_ok=True)
+        shutil.copy(next(PRACTICES_DIR.glob('*.md')), work / 'practices')
+        _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'declare a source')
+
+    def _run(work, tmp):
+        env = dict(os.environ,
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+             '--repo', str(work)],
+            capture_output=True, text=True, cwd=str(work), env=env)
+        return r, r.stdout.split('Pass 1 —')[0]
+
+    results = []
+    diag = []
+
+    # CASE 1 -- the real incident: shallow clone, origin still reachable.
+    # The tool must deepen and give the CORRECT answer (nothing unlanded),
+    # never a fabricated count.
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir(); _seed(up)
+        subprocess.run(['git', 'clone', '-q', '--depth', '1',
+                        f'file://{up}', str(work)], capture_output=True)
+        shallow = _git(work, 'rev-parse',
+                       '--is-shallow-repository').stdout.strip()
+        _consumer(work, tmp)
+        _git(work, 'push', '-q', 'origin', 'main')
+        r, head = _run(work, tmp)
+        diag.append(f'case1 exit={r.returncode} shallow={shallow!r}')
+        # The fixture must be the thing under test: a clone that quietly came
+        # back full would make every case below pass for the wrong reason.
+        results.append(('case 1: the fixture clone really is shallow',
+                        shallow == 'true'))
+        results.append(('case 1: the run reached the unlanded-work block',
+                        'UNLANDED WORK' in r.stdout))
+        # THE BUG ITSELF.
+        results.append(('case 1: a fully-landed branch is NOT reported as '
+                        'carrying unlanded commits',
+                        'fully-landed' not in head))
+        results.append(('case 1: and the scan says so affirmatively, rather '
+                        'than falling silent',
+                        'No branch carries unlanded work' in head))
+
+    # CASE 2 -- deepening cannot rescue it. The tool must REFUSE, in words
+    # that name the cause and the remedy.
+    #
+    # The origin here is itself a SHALLOW bare clone, so it is perfectly
+    # reachable and simply has no deeper history to serve. Breaking the
+    # origin outright was tried first and does not reach this code at all:
+    # the freshness gate refuses the whole run before the branch scan, which
+    # is correct behaviour and the wrong fixture.
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        deep, mid, work = tmp / 'deep', tmp / 'mid', tmp / 'work'
+        deep.mkdir(); _seed(deep)
+        subprocess.run(['git', 'clone', '-q', '--bare', '--depth', '1',
+                        f'file://{deep}', str(mid)], capture_output=True)
+        _git(mid, 'fetch', '-q', '--depth=1', 'origin',
+             '+refs/heads/fully-landed:refs/heads/fully-landed')
+        subprocess.run(['git', 'clone', '-q', f'file://{mid}', str(work)],
+                       capture_output=True)
+        _git(work, 'fetch', '-q', 'origin',
+             '+refs/heads/*:refs/remotes/origin/*')
+        _consumer(work, tmp)
+        _git(work, 'push', '-q', 'origin', 'main')
+        r, head = _run(work, tmp)
+        diag.append(f'case2 exit={r.returncode}')
+        results.append(('case 2: the unmeasurable branch is reported at all',
+                        'fully-landed' in head))
+        results.append(('case 2: it is named as undetermined, not counted',
+                        'COULD NOT DETERMINE' in head))
+        # ASSERT THE MESSAGE, not merely the absence of the wrong one --
+        # silence satisfies "no fabricated count" just as well, and silence
+        # is the other way this fails.
+        results.append(('case 2: the reason is the unreachable merge base',
+                        'no merge base' in head))
+        results.append(('case 2: the remedy is a bounded deepen',
+                        '--depth=5000' in head))
+        results.append(('case 2: no count of unlanded commits is invented',
+                        'commit(s) with no patch-equivalent' not in head))
+        # The false all-clear is the failure this check exists for.
+        results.append(('case 2: the all-clear is NOT printed alongside an '
+                        'unmeasurable branch',
+                        'No branch carries unlanded work' not in head))
+
+    failed = [n for n, ok in results if not ok]
+    detail = ''
+    if failed:
+        detail = f"{'; '.join(failed)} [{'; '.join(diag)}]"
+    check(f'a shallow clone never fabricates a count of unlanded work, and '
+          f'says so when it cannot tell ({len(results)} stated cases)',
+          not failed, detail)
+
+
 def check_assumed_visibility_never_deletes_practices():
     """An ASSUMED visibility must never remove practice files that are
     already in a consumer's tree (practice: very-deep-check, reported by a

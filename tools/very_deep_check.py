@@ -389,6 +389,16 @@ def _default_remote_branch(repo_dir):
     return None
 
 
+def _merge_base_resolves(repo_dir, target_ref, ref):
+    """-> True if a merge base between the two refs actually resolves here.
+
+    The precondition for trusting `git cherry`. Kept separate because the
+    question "can this comparison run at all" is asked before the
+    comparison, and answering it wrong is silent -- see _unmerged_row."""
+    rc, out, _ = _run_git(repo_dir, 'merge-base', target_ref, ref)
+    return rc == 0 and bool(out.strip())
+
+
 def _unmerged_row(repo_dir, name, ref, target_ref, target):
     """-> the evidence a session needs to say MERGE or CLOSE about one
     branch that is not an ancestor of the integration branch.
@@ -414,16 +424,42 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target):
     rc, out, _ = _run_git(repo_dir, 'log', '-1', '--format=%cs', ref)
     if rc == 0 and out:
         row['last'] = out
-    rc, out, _ = _run_git(repo_dir, 'cherry', target_ref, ref)
-    if rc == 0:
-        row['unique'] = sum(1 for ln in out.splitlines() if ln.startswith('+'))
+    # `git cherry` is only meaningful if a merge base between the two refs
+    # actually resolves in THIS clone, so ask for one first.
+    #
+    # Guarding on `git cherry`'s exit code -- which is what this did until
+    # 2026-09-08 -- never fires, because on a shallow clone there is no
+    # failure to catch: git exits 0 and prints EVERY commit with a `+`, so
+    # a fully-merged branch reports as carrying all of its work unlanded.
+    # Measured on a fixture built for it: a branch merged --no-ff into its
+    # target reported `+1` on a `--depth 1` clone and `0` on the full one,
+    # both exit 0. It fired for real on this repo the same day, inventing
+    # 22 unlanded commits across three branches of `precedent-individual`
+    # that were all plain ancestors of `main` -- and this section's whole
+    # job is to tell a session which branches to go read, so the cost was
+    # three diffs read for nothing, in the step that exists to prevent
+    # exactly that kind of waste.
+    #
+    # `git merge-base` is the honest witness: on the same fixture it exits
+    # 1 where cherry exits 0 (AGENTS.md records that exit-1 separately, as
+    # something NOT to read as a rewritten branch -- here it is the signal).
+    # Deepen once before giving up: the answer is usually reachable, and a
+    # bounded fetch works on a shallow and a full clone alike.
+    if not _merge_base_resolves(repo_dir, target_ref, ref):
+        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin')
+    if _merge_base_resolves(repo_dir, target_ref, ref):
+        rc, out, _ = _run_git(repo_dir, 'cherry', target_ref, ref)
+        if rc == 0:
+            row['unique'] = sum(1 for ln in out.splitlines()
+                                if ln.startswith('+'))
     if row['unique'] is None:
-        # Never guess here. On a shallow clone the patch comparison simply
-        # cannot run, and a fabricated verdict is worse than none: this is
+        # Never guess here. A fabricated verdict is worse than none: this is
         # the branch someone might delete on it.
-        row['verdict'] = (f'UNKNOWN -- patch comparison could not run here '
-                          f'(shallow clone?). Deepen with `git fetch '
-                          f'--depth=5000` and re-check before acting')
+        row['verdict'] = (f'UNKNOWN -- no merge base between {target} and this '
+                          f'branch resolves in this clone, so the patch '
+                          f'comparison cannot run and its result would be '
+                          f'fiction. Deepen with `git fetch --depth=5000 '
+                          f'origin` and re-check before acting')
     elif row['unique'] == 0:
         row['verdict'] = (f'ALREADY LANDED as patches -- every commit has an '
                           f'equivalent on {target} (rebased or squash-merged '
@@ -1263,10 +1299,20 @@ def main():
     # every pass had already run.
     if not skip_branch_scan:
         _unlanded = []
+        _unknown = []
         for _name, _scan in branch_scans.items():
             for _r in (_scan or {}).get('unmerged', []):
                 if _r.get('unique'):
                     _unlanded.append((_name, _scan['target'], _r))
+                elif _r.get('unique') is None:
+                    # NOT falsy-equivalent to zero, and the distinction is the
+                    # whole point: 0 means "measured, nothing there", None
+                    # means "could not measure". Folding None in with 0 --
+                    # which `if _r.get('unique')` alone did until 2026-09-08 --
+                    # deletes the unmeasurable branch from this section and
+                    # then prints the all-clear below, which is a confident
+                    # wrong answer produced by a scan that never ran.
+                    _unknown.append((_name, _scan['target'], _r))
         print("\nUNLANDED WORK -- read this BEFORE the passes, not after\n")
         if _unlanded:
             print("Work that was written and never landed is invisible to every\n"
@@ -1283,10 +1329,19 @@ def main():
                 print(f"      git log --oneline origin/{_target}..origin/{_r['name']}")
             print(f"\n  {len(_unlanded)} branch(es) carry unlanded work. Verdicts are "
                   f"pass 4's job;\n  reading them is this step's job, and it comes first.\n")
-        else:
+        elif not _unknown:
             print("  No branch carries unlanded work. (A branch reported unmerged\n"
                   "  but carrying nothing was rebased or squash-merged in -- pass 4\n"
                   "  still gives it a deletion verdict.)\n")
+        if _unknown:
+            print("  COULD NOT DETERMINE, which is not the same as clean -- these\n"
+                  "  branches may carry unlanded work and this run cannot say:\n")
+            for _name, _target, _r in _unknown:
+                _age = f", last moved {_r['last']}" if _r.get('last') else ""
+                print(f"  {_name}: {_r['name']}{_age}")
+                print(f"      {_r['verdict']}")
+            print(f"\n  {len(_unknown)} branch(es) unmeasurable. Deepen the clone and\n"
+                  f"  re-run before treating this section as read.\n")
 
     if not skip_visibility:
         print()

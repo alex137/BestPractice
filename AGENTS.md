@@ -85,6 +85,17 @@ inherited because a file names them. Until that call is made, every
 personal and team practice in force here is **silently absent**, and this
 repository's rules are the only ones a session sees.
 
+**Then, before trusting any of this file's "the session-start hook does
+this" claims: run
+[tools/precedent_session_check.py](tools/precedent_session_check.py).** It reports
+which SessionStart guarantees are actually in effect and `--apply` repairs
+them. A session rooted one directory ABOVE this repo — which is what
+happens whenever the sibling clones a team source needs are laid out
+alongside it — runs NONE of its hooks, silently, including the one that
+writes `.precedent/SESSION_PRACTICES.md`. See the gotcha "The session's
+PRIMARY repo does not run its SessionStart hooks either" below; it cost a
+whole session's replies on 2026-09-08.
+
 Nothing else can do it for you. `.claude/hooks/precedent-individual-bootstrap.sh`
 runs to completion *before* the agent's first turn begins, so it cannot
 call `add_repo` — its own header explains why a retry loop there was tried
@@ -349,6 +360,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The very deep check: four ordered passes over every repo in force — adopter installs, whether the mechanisms tell the truth, the coherence read, then catalogue and housekeeping — on request only, distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
 | Whether an attached practice-set source's vendored engine has gone stale, and bringing it up to date | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes, `--commit` commits |
+| Whether this session's SessionStart hooks actually ran, and repairing them if not | [tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
@@ -693,6 +705,45 @@ section: an entry with no failure attached fails `--only environment-gotchas`.
   further down that hook — none of them ran either, so treat every entry
   in this section that says "the session-start hook does this" as *not*
   done when you arrived here as a sibling.
+
+- **The session's PRIMARY repo does not run its SessionStart hooks either,
+  when the harness rooted the session one directory ABOVE it — and this
+  project's own required layout is what causes that.** The entry above is
+  about an attached sibling; this is its mirror image and reads as the
+  opposite, because here the repository *is* the one you are working in,
+  its hooks are committed, executable and correctly wired, and they still
+  never fire. 2026-09-08, a session opened with four Precedent repos side
+  by side under `/home/user` — the layout a team source requires, since it
+  resolves as a *sibling clone* — and the harness set the session root to
+  that parent. Every hook in
+  [.claude/settings.json](.claude/settings.json) is written as
+  `$CLAUDE_PROJECT_DIR/.claude/hooks/…`, `/home/user` has no `.claude/`,
+  so every one of them resolved to nothing. Silently: a hook whose path
+  does not exist is not an error anybody sees.
+  What was absent, all at once: the commit identity (so `user.email` was
+  still `noreply@anthropic.com`, and every commit would have been a
+  wrong-author commit this repo's own check refuses), the global commit
+  backstop, the freshness guard, the `pip install`, the path-trigger
+  channel, the Stop-time git check — and
+  `.precedent/SESSION_PRACTICES.md`, which is the ONLY route by which the
+  private team and individual practices reach a session at all. That file
+  did not exist, so **53 practices that bind work here were silently not
+  in force**, including `audience-register`, which governs how every reply
+  in the session is written. AGENTS.md's own Standing Instruction told the
+  session to read a file that was never generated.
+  **Do not diagnose this from `env`** — `CLAUDE_PROJECT_DIR` is usually
+  not set in a tool shell at all, so reading it proves nothing either way.
+  Test the *effects*:
+  [tools/precedent_session_check.py](tools/precedent_session_check.py)
+  checks each guarantee by what
+  it left behind (does `.precedent/SESSION_PRACTICES.md` exist, is
+  `user.email` a person, is `core.hooksPath` set, do `cmarkgfm` and
+  `markdown` import, does `remote.origin.fetch` carry `refs/heads/*`, is
+  the checkout behind origin) and `--apply` runs the three SessionStart
+  hooks by hand. It cannot itself be a hook, for the obvious reason: the
+  failure *is* that hooks do not run, so anything waiting to be triggered
+  is the one thing guaranteed not to fire — the same shape as the
+  freshness guard that shipped inside the checkout it guarded.
 
 - **The three private practice sets cannot be attached from a session
   rooted in this repo, and it is a session-shape rule, not a permissions
