@@ -199,6 +199,62 @@ else
   zone_is_guess=0
 fi
 
+# ---- MAKE THE OFFSET RIGHT, rather than only refusing it afterwards
+#
+# The three mechanisms below this one all act AFTER git has already resolved
+# an offset: the pre-commit backstop refuses the commit, and the
+# settings.local.json derivation only takes effect from the next session,
+# because the harness reads environment before hooks run. So on the session
+# that most needs it -- a fresh container, first commit -- the person is told
+# to retype `TZ="..." git commit ...` on every commit, and the honest
+# question is why the wrong offset was allowed to be produced at all.
+#
+# git resolves a commit's offset from $TZ, and falls back to the SYSTEM zone
+# when TZ is unset. The system zone is the one lever a hook can actually move
+# mid-session that every later shell, every tool, and every `git merge` picks
+# up with no cooperation from any of them. So point the system zone at the
+# declared one and the wrong offset stops being produced at all.
+#
+# 2026-09-08, the measurement that produced this block: this container's
+# system zone was Etc/UTC, TZ was unset in every tool shell, and
+# .claude/settings.local.json already declared the right zone and was inert.
+# Every commit therefore got +0000 and was refused by the backstop -- working
+# as designed, and one layer too late. The same fix had already been made in
+# one consuming repo's own bootstrap.sh a day earlier; it belongs here, where
+# every repo gets it (practice: engine-plus-host-shims).
+#
+# ONLY A DECLARED ZONE. A guessed default (America/New_York, from the header)
+# is never written to the machine: it is not enforced for exactly the same
+# reason, and changing a container's clock on a guess is worse than a warning.
+#
+# NOT A REPLACEMENT FOR THE BACKSTOP. The system zone file may be read-only,
+# an explicit TZ= in the environment still wins over it, and this hook does
+# not run for a repository attached mid-session. The backstop stays the thing
+# that refuses; this is the thing that means it rarely has to.
+#
+# PRECEDENT_LOCALTIME overrides which file is repointed. It exists so this
+# block can be TESTED -- a test that had to write the machine's real clock
+# file would either not be written or be written to skip, which is how a
+# mechanism ends up with no coverage at all.
+_set_system_timezone() {
+  [ "$zone_is_guess" -eq 0 ] || return 0
+  local want cur target
+  want="/usr/share/zoneinfo/$zone"
+  target="${PRECEDENT_LOCALTIME:-/etc/localtime}"
+  if [ ! -f "$want" ]; then
+    echo "NOTE: commit-identity: no zoneinfo file for the declared zone ($zone), so the system clock is left alone. Commits still need TZ=\"$zone\" git commit ..." >&2
+    return 0
+  fi
+  cur="$(date +%z 2>/dev/null || true)"
+  [ "$cur" = "$(TZ="$zone" date +%z 2>/dev/null || true)" ] && return 0
+  if ln -sf "$want" "$target" 2>/dev/null; then
+    echo "NOTE: commit-identity: the system timezone was $cur; set to $zone ($(TZ="$zone" date +%z)), from the declared identity. Commits in THIS session now carry the right offset with no TZ= prefix -- that is prevention, where the pre-commit backstop is only refusal." >&2
+  else
+    echo "WARN: commit-identity: the system timezone file is not writable, so this container stays on $cur while the declared zone is $zone. Every commit here needs TZ=\"$zone\" git commit ... until that changes; the pre-commit backstop will refuse the ones that forget." >&2
+  fi
+}
+_set_system_timezone
+
 # ---- set what was resolved, locally, only when it would change something
 if [ -n "$email" ]; then
   cur_name="$(git -C "$ROOT" config --local --get user.name 2>/dev/null || true)"

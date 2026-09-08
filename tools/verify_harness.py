@@ -5891,6 +5891,12 @@ def check_commit_identity_derives_declared_timezone():
     # the environment it runs in is not a test.
     _home = tempfile.mkdtemp(prefix='ci-home-')
     env['HOME'] = _home
+    # And the system clock, for the same reason and one step worse: this
+    # fixture declares Europe/Berlin, and the hook now REPOINTS the machine's
+    # zone file at a declared zone. Without this the harness would put the
+    # container on Berlin time and every later commit in the session would be
+    # refused by the backstop for an offset the harness itself caused.
+    env['PRECEDENT_LOCALTIME'] = os.path.join(_home, 'localtime')
 
     def _repo(base, zone, settings=None, gitignore=None):
         base.mkdir(parents=True, exist_ok=True)
@@ -5967,6 +5973,133 @@ def check_commit_identity_derives_declared_timezone():
 
     failed = [n for n, ok in cases if not ok]
     check(f'commit-identity derives the declared timezone into the session '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_commit_identity_prevents_the_wrong_offset():
+    """The declared zone is made TRUE for the session, not merely enforced.
+
+    Three mechanisms already existed and every one of them acts after git has
+    resolved an offset: the pre-commit backstop refuses the commit, the
+    prepare-commit-msg twin refuses the merge, and the settings.local.json
+    derivation applies from the NEXT session because the harness reads
+    environment before hooks run. So on a fresh container's first commit --
+    the case that matters -- the person is told to retype `TZ=... git commit`
+    and the wrong offset was produced in the first place. Asked 2026-09-08:
+    "why do we have it do the wrong offset and block it rather than prevent
+    the wrong offset?" -- and the honest answer was that nothing prevented it.
+
+    git falls back to the SYSTEM zone when TZ is unset, and the system zone is
+    the one lever a hook can move mid-session that every later shell, tool and
+    `git merge` picks up without cooperating. So the hook repoints it.
+
+    Measured here that day: the container's zone was Etc/UTC, TZ was unset in
+    every tool shell, and .claude/settings.local.json already declared the
+    right zone and was inert.
+
+    The two must-not-do cases are the point of the test, not the happy path.
+    A GUESSED zone is never written to the machine -- it is not enforced for
+    the same reason, and moving a container's clock on a guess is worse than
+    a warning. And an unwritable clock must WARN and name the fallback, never
+    fall through claiming success.
+    """
+    import tempfile, json as _json
+    hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not hook.exists():
+        not_applicable('commit-identity prevents the wrong offset',
+                       '.claude/hooks/commit-identity.sh is not present here')
+        return
+
+    ZONE = 'America/Argentina/Buenos_Aires'
+    if not pathlib.Path('/usr/share/zoneinfo', ZONE).exists():
+        not_applicable('commit-identity prevents the wrong offset',
+                       f'no zoneinfo for {ZONE} on this machine')
+        return
+
+    def _env(home, localtime, now='UTC'):
+        e = dict(os.environ)
+        # Hermetic on every axis the hook writes: the clock, the global git
+        # config, the global hooks dir, and the user-level config it would
+        # otherwise resolve a REAL declared zone from.
+        e['HOME'] = home
+        e['PRECEDENT_LOCALTIME'] = localtime
+        e['PRECEDENT_GLOBAL_HOOKS'] = os.path.join(home, 'git-hooks')
+        e['PRECEDENT_USER_CONFIG'] = '/nonexistent/precedent-config.json'
+        e.pop('PRECEDENT_COMMIT_TZ', None)
+        # And what the container's clock currently READS, which the hook
+        # compares against before deciding to act. Without pinning this, the
+        # test passes only while the machine is on some OTHER zone: the first
+        # full-harness run after the fix landed reported four failures, purely
+        # because the fix had already put this container on the declared zone
+        # and the hook was correctly doing nothing.
+        e['TZ'] = now
+        return e
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def _repo(name, zone):
+            base = tmp / name
+            base.mkdir(parents=True)
+            subprocess.run(['git', '-C', str(base), 'init', '-q'],
+                           capture_output=True)
+            if zone:
+                (base / 'identity.json').write_text(_json.dumps(
+                    {'name': 'T', 'email': 't@example.com',
+                     'timezone': zone}), encoding='utf-8')
+            return base
+
+        # 1. a DECLARED zone repoints the clock.
+        declared = _repo('declared', ZONE)
+        home = str(tmp / 'h1'); os.makedirs(home)
+        lt = str(tmp / 'lt1')
+        r = subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                           timeout=120,
+                           env=dict(_env(home, lt), CLAUDE_PROJECT_DIR=str(declared)))
+        cases.append(('a declared zone repoints the system zone file',
+                      os.path.islink(lt)
+                      and os.readlink(lt) == f'/usr/share/zoneinfo/{ZONE}'))
+        cases.append(('and says what it did, and why it is prevention',
+                      'prevention' in r.stderr and ZONE in r.stderr))
+
+        # 2. a GUESSED zone must NOT touch the machine.
+        guessed = _repo('guessed', None)
+        home = str(tmp / 'h2'); os.makedirs(home)
+        lt2 = str(tmp / 'lt2')
+        subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                       timeout=120,
+                       env=dict(_env(home, lt2), CLAUDE_PROJECT_DIR=str(guessed)))
+        cases.append(('a guessed zone never writes the machine clock',
+                      not os.path.lexists(lt2)))
+
+        # 3. an unreachable clock warns and names the fallback. A missing
+        # parent dir, not a chmod: this runs as root in the container, where
+        # a chmod control would pass for the wrong reason.
+        home = str(tmp / 'h3'); os.makedirs(home)
+        r3 = subprocess.run(
+            ['bash', str(hook)], capture_output=True, text=True, timeout=120,
+            env=dict(_env(home, str(tmp / 'no-such-dir' / 'lt3')),
+                     CLAUDE_PROJECT_DIR=str(declared)))
+        cases.append(('an unwritable clock warns rather than claiming success',
+                      'not writable' in r3.stderr
+                      and 'prevention' not in r3.stderr))
+        cases.append(('and names the backstop as what still catches it',
+                      'backstop will refuse' in r3.stderr))
+
+        # 4. already on the declared zone: no write, no message. A hook that
+        # announces itself every session is one people stop reading.
+        home = str(tmp / 'h4'); os.makedirs(home)
+        lt4 = str(tmp / 'lt4')
+        r4 = subprocess.run(
+            ['bash', str(hook)], capture_output=True, text=True, timeout=120,
+            env=dict(_env(home, lt4, now=ZONE), CLAUDE_PROJECT_DIR=str(declared)))
+        cases.append(('a clock already on the declared zone is left alone, '
+                      'silently', not os.path.lexists(lt4)
+                      and 'system timezone was' not in r4.stderr))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'commit-identity prevents the wrong offset, not only refuses it '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
@@ -10955,6 +11088,7 @@ def main():
     check_sync_refuses_to_lose_a_recorded_practice()
     check_doc_lifecycle_fires_and_clears()
     check_commit_identity_derives_declared_timezone()
+    check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
     check_repo_reference_allowlist()
