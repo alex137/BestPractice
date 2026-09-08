@@ -174,6 +174,30 @@ def block():
     return '\n'.join(out)
 
 
+def merge_back_block():
+    """The two figures the phase-7 merge-back conversation turns on.
+
+    Separate from block() because the audience is: block() is this project
+    explaining itself to itself, and its resident-size and Rule-share rows
+    are about the loader's own design. This one is what somebody DECIDING
+    whether to accept the branch needs, which is a shorter list and a
+    different question -- how much of the catalogue actually enforces
+    itself (practice: computed-numbers-in-scripts).
+    """
+    s = stats()
+    advisory = s['practices'] - s['enforced']
+    rows = [
+        ('Practices in force', f"{s['practices']}"),
+        ('**Enforced by a check**',
+         f"**{s['enforced']} of {s['practices']} practices carry a "
+         f"`checked_by`**"),
+        ('Advisory only', f"{advisory} of {s['practices']} practices"),
+    ]
+    out = ['| | |', '|---|---|']
+    out += [f'| {k} | {v} |' for k, v in rows]
+    return '\n'.join(out)
+
+
 def enforcement_block():
     """The enforced-practice registry, rendered from the registry itself, so
     a document listing what is enforced cannot drift from what is.
@@ -205,7 +229,8 @@ def enforcement_block():
     return '\n'.join(out)
 
 
-BLOCKS = {'catalogue': lambda: block(), 'enforcement': enforcement_block}
+BLOCKS = {'catalogue': lambda: block(), 'enforcement': enforcement_block,
+          'merge-back': merge_back_block}
 
 
 def main():

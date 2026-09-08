@@ -36,6 +36,38 @@ None of it changes what a plain BestPractice-vendoring consumer repo
 (pre-migration) sees — the pre-migration path each affected practice
 describes is kept working in every case.
 
+## The Figure the Merge-back Decision Turns On
+
+Before the list: **how much of this catalogue enforces itself.**
+
+<!--gen:merge-back-->
+| | |
+|---|---|
+| Practices in force | 84 |
+| **Enforced by a check** | **38 of 84 practices carry a `checked_by`** |
+| Advisory only | 46 of 84 practices |
+<!--/gen:merge-back-->
+
+**Advisory means a session is told the rule and may still not follow it**, and
+this branch measured that rather than assuming it. The plan's own control
+carried the *whole* catalogue in every session and still missed 19% of the
+practices that applied — `verify-postcondition` was judged applicable twice
+and named by that control **zero** times, while resident, in full, in its
+context. Both arms of the experiment missed the same practices.
+
+The conclusion drawn there is the one to carry into the merge-back
+conversation: **the loader is a cost optimisation, not a compliance
+mechanism.** Putting a practice in front of a session does not make the
+session apply it, at any catalogue size, through any channel. What actually
+changes behaviour is the `checked_by` column — 38 of them.
+
+So the honest framing of what this branch offers is not "84 practices." It is
+**38 rules that hold themselves, and 46 that a session may still walk past**,
+plus the machinery to move practices from the second group into the first as
+each one earns a check. `checkable-gets-checked` is the rule that keeps that
+pressure on: a new practice attempts a mechanical check before it is allowed
+to stay advisory.
+
 ## Retired outright — the strongest change on this branch
 
 ### `merge-authorization-keyword` (BestPractice practice 45) — retired 2026-09-07
@@ -740,3 +772,5 @@ before.
 The file lists, the reason an earlier rehearsal concluded the opposite, and
 the same hazard in the reverse direction are in
 [TODO.md's `retire-merge-target-practice` item](TODO.md#retire-merge-target-practice).
+
+Numbers by: catalogue_stats.py

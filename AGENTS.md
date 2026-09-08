@@ -560,6 +560,21 @@ gotcha every session reads is a gotcha every session pays for.
   publication into a public repository, so the half-configured state is the
   dangerous one. See `python3 tools/leak_gate.py --explain`.
 
+- **A bare `python3 tools/leak_gate.py` REFUSES here now, and that is the
+  fix, not a break.** Since 2026-09-08 the gate derives the vocabulary
+  requirement from `precedent.json` — this repo declares a team source, so a
+  private blocklist is expected — instead of only from a per-clone git
+  config that a fresh container does not have. **The incident: a session
+  that could attach neither private source got PARTIAL, exit 0, and pushed
+  into a public repository with only the structural rules applied**, then
+  reported it accurately and too late. "The check silently did not run" and
+  "the check passed" were the same exit code.
+  So: export `PRECEDENT_LEAK_BLOCKLIST` and the gate runs whole. **If you
+  genuinely cannot — the private sources would not attach — the refusal is
+  the answer, not an obstacle: do not push.** A caller that only ever wants
+  the structural half says so by name with `--structural-only`; CI and
+  `verify_harness.py` both pass it, and both call themselves structural.
+
 - **Setting `git config precedent.requireVocabulary true` to satisfy the leak
   gate makes `verify_harness.py` fail two of its own leak-gate checks.** The
   two gates want opposite environments and neither says so, which is why it

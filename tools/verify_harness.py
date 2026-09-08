@@ -899,8 +899,18 @@ def check_leak_gate():
 
     The vocabulary layer is reported as not-yet-applicable when no private
     blocklist is configured -- which is the honest state before phase 3 -- and
-    the structural layer is a real pass or fail either way."""
-    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py')],
+    the structural layer is a real pass or fail either way.
+
+    --structural-only, by name, for the same reason continuous integration
+    passes it: this harness runs with no private blocklist, and since
+    2026-09-08 the gate REFUSES rather than reporting PARTIAL when
+    precedent.json declares a private source. That refusal is correct for a
+    person about to push and wrong for a bare caller, so a bare caller says
+    which half it is asking for. Without the flag this check went red on a
+    clean tree -- the fix belonged in the caller, not in weakening the gate.
+    """
+    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'),
+                             '--structural-only'],
                             capture_output=True, text=True)
     out = (result.stdout + result.stderr).strip()
     if result.returncode != 0:
@@ -3019,7 +3029,16 @@ def check_default_blocklist_runs_the_vocabulary_layer():
     env_clean = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_LEAK_BLOCKLIST'}
 
     def gate(*args, env=None, cwd=None):
-        return subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'), *args],
+        # --structural-only always, because that is exactly what this check is
+        # about: whether the DEFAULT blocklist makes the vocabulary layer run
+        # at all. Since 2026-09-08 a bare invocation in this repo refuses
+        # instead, because precedent.json declares a private source and no
+        # private list is set here -- correct for a person about to push,
+        # wrong for a fixture asking about the other half. Naming the half is
+        # the fixture owning its own state rather than inheriting a default
+        # that changed underneath it (practice: fixture-owns-its-state).
+        return subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'),
+                               '--structural-only', *args],
                               capture_output=True, text=True, env=env or env_clean,
                               cwd=str(cwd or ROOT))
 
@@ -12071,6 +12090,98 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
           '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
 
 
+def check_leak_gate_refuses_a_fresh_container():
+    """A repo that declares a private source must not pass the leak gate with
+    the vocabulary layer unrun, even with no git config anywhere.
+
+    THE INCIDENT, 2026-09-08, reported by a session after it had already
+    pushed: it could attach neither private source, so there was no blocklist
+    to load; no `precedent.requireVocabulary` existed in that fresh container
+    to make the absence fatal; the gate printed PARTIAL, **exited 0**, and the
+    push went through into a public repository with only the structural rules
+    applied. "The check silently did not run" and "the check passed" were the
+    same exit code -- the exact failure the requireVocabulary docstring says
+    must not happen. The setting simply was not reachable where it mattered.
+
+    THE FIX UNDER TEST is that the requirement is now DERIVED from
+    precedent.json, which is tracked and therefore survives a fresh
+    container, as well as configured. So the discriminating pair is cases 1
+    and 2: the same environment, the same absent config, differing only in
+    whether precedent.json declares a private source.
+
+    Case 3 is the half a careless fix breaks -- continuous integration has no
+    private list by design and must still pass, opting out BY NAME.
+    Case 4 asserts the refusal names the RIGHT reason: the message used to
+    assert the git-config trigger unconditionally, which after this change
+    would send a reader to a setting that was not set and could not be unset
+    (practice: control-asserts-which-failure).
+    """
+    import tempfile, shutil
+
+    def run(cwd, *extra, blocklist=None):
+        env = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_LEAK_BLOCKLIST'}
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        if blocklist:
+            env['PRECEDENT_LEAK_BLOCKLIST'] = blocklist
+        r = subprocess.run([sys.executable, str(cwd / 'tools' / 'leak_gate.py'), *extra],
+                           capture_output=True, text=True, cwd=str(cwd), env=env)
+        return r.returncode, r.stdout + r.stderr
+
+    def build(tmp, sources):
+        repo = pathlib.Path(tmp) / 'r'
+        (repo / 'tools').mkdir(parents=True)
+        for f in ('leak_gate.py', 'leak-blocklist.default.txt'):
+            src = ROOT / 'tools' / f
+            if src.is_file():
+                shutil.copy2(src, repo / 'tools' / f)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'public', 'sources': sources}),
+            encoding='utf-8')
+        (repo / 'README.md').write_text('# ordinary\n\nnothing private here.\n',
+                                        encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], capture_output=True)
+        # No `precedent.requireVocabulary` is set anywhere: that IS the
+        # fresh-container shape this check is about.
+        return repo
+
+    cases = []
+    UNIVERSAL = [{'level': 'universal', 'name': 'precedent', 'path': '.'}]
+    PRIVATE = UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-x',
+                            'path': '../precedent-team-x'}]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, PRIVATE)
+        rc, out = run(repo)
+        cases.append(('a repo declaring a PRIVATE source refuses when the '
+                      'vocabulary layer could not run -- the incident',
+                      rc == 1 and 'FAIL' in out, out[-300:]))
+        cases.append(('and the refusal names precedent.json, not the git '
+                      'config that was never set',
+                      'precedent.json declares a private practice source' in out,
+                      out[-300:]))
+        rc3, out3 = run(repo, '--structural-only')
+        cases.append(('the same repo PASSES under --structural-only, so CI '
+                      'still works', rc3 == 0, out3[-300:]))
+        cases.append(('and still says the private half did not run, rather '
+                      'than reporting a clean bill',
+                      'private ones were not' in out3, out3[-300:]))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = build(tmp, UNIVERSAL)
+        rc2, out2 = run(repo)
+        cases.append(('a repo declaring NO private source is unaffected -- it '
+                      'never had a vocabulary layer to lose, so this did not '
+                      'become a gate everybody has to appease',
+                      rc2 == 0, out2[-300:]))
+
+    ok = all(c[1] for c in cases)
+    check(f'the leak gate refuses a fresh container that cannot run its '
+          f'vocabulary layer ({len(cases)} stated cases, config absent '
+          f'throughout)', ok,
+          '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
+
+
 def check_title_case_knows_the_files_it_ships():
     """Every root file this project INSTANTIATES into an adopter must be
     classified correctly by title_case, including the ones upstream never
@@ -12705,6 +12816,7 @@ def main():
     check_unlanded_work_is_reported_before_the_passes()
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
+    check_leak_gate_refuses_a_fresh_container()
     check_title_case_knows_the_files_it_ships()
     check_carry_check_never_invents_lost_content()
     check_doc_currency_finds_a_stale_document()
