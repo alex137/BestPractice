@@ -11820,6 +11820,148 @@ def check_shallow_clone_never_fabricates_unlanded_work():
           not failed, detail)
 
 
+def check_a_renamed_engine_file_never_survives_a_reseed():
+    """Renaming an engine file upstream must not leave the old one behind
+    in an adopter's tree (practice: decommission-deletes-files,
+    control-asserts-which-failure).
+
+    THE INCIDENT, 2026-09-08. Upstream renamed `precedent_retire_path.py`
+    to `precedent_decommission.py`. Three real practice sets were then
+    found each carrying the dead file, and every mechanism reported them
+    healthy. Three separate holes lined up:
+
+      1. `refresh` on a stale copy exited hard on the missing old path, so
+         the ONLY way forward was a reseed (fixed upstream the same day --
+         the skip-and-converge path).
+      2. `seed`, the documented recovery, never called
+         _remove_dropped_engine_files at all: it wrote the new set and a
+         manifest that had already forgotten the old name, leaving the file
+         on disk untracked.
+      3. `refresh`'s early exit returned on a matching commit before any
+         cleanup could run, so no later run would ever remove it -- and its
+         `set_incomplete` test looked only for MISSING wanted files, never
+         for PRESENT unwanted ones.
+
+    After (2), the file is in no list any mechanism consults: gone from
+    KINDS, gone from the manifest. _untracked_engine_files is keyed on the
+    current lists and is deliberately blind to it. That is why
+    RETIRED_ENGINE_FILES exists -- a name, once shipped, cannot be derived
+    back out of the code that stopped shipping it.
+
+    Three cases, one per hole. The reseed case is the one that would have
+    caught the incident; the other two are the paths that made it
+    permanent.
+    """
+    import shutil, tempfile
+    import json as _json
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        'pve', ROOT / 'tools' / 'precedent_vendor_engine.py')
+    pve = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pve)
+
+    results = []
+
+    # MISSING IS A FAILURE, NOT A CRASH. Every symbol below is one this fix
+    # introduced, so an engine that predates it raises AttributeError -- and
+    # an uncaught one here takes the whole harness run down instead of
+    # reporting one red check, which AGENTS.md records as its own hazard.
+    # Reported as the absence it is (practice: fail-gracefully).
+    missing_symbols = [n for n in ('RETIRED_ENGINE_FILES',
+                                   '_retired_engine_files_present',
+                                   '_remove_dropped_engine_files',
+                                   '_seed_write')
+                       if not hasattr(pve, n)]
+    if missing_symbols:
+        check('a renamed engine file never survives a reseed, and is '
+              'reported when it already has (0 of 8 stated cases reached)',
+              False,
+              f"precedent_vendor_engine.py is missing "
+              f"{', '.join(missing_symbols)} -- the removed-file cleanup is "
+              f"not present in this engine at all, so a rename upstream "
+              f"leaves the old file in every adopter's tree")
+        return
+
+    # The tombstone must not be empty in a way that makes every case below
+    # vacuously true.
+    results.append(('the engine records at least one retired file name',
+                    bool(pve.RETIRED_ENGINE_FILES)))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tools = pathlib.Path(tmp) / 'tools'
+        tools.mkdir(parents=True)
+        dead = sorted(pve.RETIRED_ENGINE_FILES)[0]
+
+        # CASE 1 -- a tombstoned file the manifest has FORGOTTEN is still
+        # reported. This is the state a pre-fix reseed produced, and the one
+        # nothing else could see.
+        (tools / dead).write_text('# left behind by a rename\n')
+        (tools / pve.MANIFEST_NAME).write_text(_json.dumps({
+            'format_version': 1, 'kind': 'source', 'source_commit': 'x' * 40,
+            'files': [], 'sha256': {}}), encoding='utf-8')
+        reported = pve._retired_engine_files_present(tools)
+        results.append(('an unrecorded retired file is reported',
+                        [n for n, _ in reported] == [dead]))
+        # ASSERT WHAT IT SAYS, not merely that it said something: the reason
+        # is the whole value of the report, since the reader has no other
+        # way to find out what the file was.
+        results.append(('the report carries the reason it was retired',
+                        bool(reported) and len(reported[0][1]) > 20))
+        # It must NOT delete on its own -- see the function's own docstring.
+        results.append(('reporting does not delete it',
+                        (tools / dead).is_file()))
+
+        # CASE 2 -- a tombstoned file the manifest still RECORDS is removed
+        # by the sweep, which can hash-verify it first.
+        (tools / pve.MANIFEST_NAME).write_text(_json.dumps({
+            'format_version': 1, 'kind': 'source', 'source_commit': 'x' * 40,
+            'files': [dead],
+            'sha256': {dead: pve._sha256(tools / dead)}}), encoding='utf-8')
+        manifest = pve._load_manifest(tools)
+        pve._remove_dropped_engine_files(tools, manifest, 'source')
+        results.append(('a recorded retired file is removed by the sweep',
+                        not (tools / dead).is_file()))
+
+        # CASE 2b -- SEEDING A REPO THAT HAS NO MANIFEST AT ALL still
+        # works. This is seed's primary case, and the cleanup added above
+        # broke it outright by reading the manifest through a helper that
+        # sys.exit()s when there is none. Every fixture here had a manifest
+        # already, so nothing caught it until a full harness run did.
+        fresh = pathlib.Path(tmp) / 'never-vendored'
+        r = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+             'seed', str(fresh), '--kind', 'source'],
+            capture_output=True, text=True, cwd=str(ROOT))
+        results.append(('seeding a repo with no manifest at all still '
+                        'succeeds', r.returncode == 0
+                        and (fresh / 'tools' / pve.MANIFEST_NAME).is_file()))
+
+    # CASE 3 -- seed() routes through the cleanup. Asserted structurally:
+    # building a whole second checkout to seed from is a fixture bigger than
+    # the property, and the property is simply that seed does not bypass it.
+    src = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_text()
+    seed_body = src[src.index('def seed('):]
+    seed_body = seed_body[:seed_body.index('\ndef ', 1)]
+    results.append(('seed writes through _seed_write, which cleans up, '
+                    'rather than calling _write_engine_files directly',
+                    '_seed_write(' in seed_body
+                    and '_write_engine_files(' not in seed_body))
+    results.append(('_seed_write actually calls the cleanup',
+                    '_remove_dropped_engine_files' in
+                    src[src.index('def _seed_write('):
+                        src.index('def seed(')]))
+    # And refresh's early exit must consider orphans, not only absences.
+    ref = src[src.index('def refresh('):]
+    results.append(('refresh\'s early exit checks for orphaned files too',
+                    'set_orphaned' in ref))
+
+    failed = [n for n, ok in results if not ok]
+    check(f'a renamed engine file never survives a reseed, and is reported '
+          f'when it already has ({len(results)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def check_assumed_visibility_never_deletes_practices():
     """An ASSUMED visibility must never remove practice files that are
     already in a consumer's tree (practice: very-deep-check, reported by a
@@ -11953,6 +12095,8 @@ def main():
     check_assumed_visibility_never_deletes_practices()
     check_sync_refuses_to_write_from_incomplete_sources()
     check_unlanded_work_is_reported_before_the_passes()
+    check_shallow_clone_never_fabricates_unlanded_work()
+    check_a_renamed_engine_file_never_survives_a_reseed()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()

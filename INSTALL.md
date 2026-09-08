@@ -734,6 +734,28 @@ deliberate procedure below.
    python3 tools/precedent_vendor_engine.py status  ../BestPractice   # drift? behind?
    python3 tools/precedent_vendor_engine.py refresh ../BestPractice   # pull, re-vendor, re-stamp
    ```
+   **If `refresh` exits with "`precedent-beta-v01 @ <commit>` has no
+   `tools/<name>`", reseed — do not go looking for the missing file.**
+   `refresh` runs *this repo's own vendored copy* of the tool, which
+   carries the file list it was vendored with. So the first refresh after
+   upstream renames or drops an engine file asks git for a path that is
+   genuinely gone. Upstream stopped treating that as fatal on 2026-09-08
+   (it skips the dropped name and converges on the second pass), but **that
+   fix can only arrive through a refresh, and the refresh is the thing that
+   is broken** — so every repo vendored before that date needs one manual
+   reseed to escape, from a sibling clone as in this step's first
+   paragraph:
+   ```
+   python3 ../BestPractice/tools/precedent_vendor_engine.py seed . --kind consumer
+   ```
+   Measured 2026-09-08 across three real practice sets, all of which
+   refused with "has no `tools/precedent_retire_path.py`" after that file
+   was renamed to `precedent_decommission.py`. Reseeding also deletes the
+   renamed-away file, which it did not do before that date — so a repo
+   reseeded earlier may still be carrying one. `status` names it
+   (`RETIRED ENGINE FILE`) and says why; delete it once you have checked
+   nothing in the repo still calls it.
+
    `refresh` reads `kind` back out of `ENGINE_MANIFEST.json` itself — no
    `--kind` flag needed here, only at first `seed`. It pulls
    `precedent-beta-v01` specifically (not this clone's configured default
