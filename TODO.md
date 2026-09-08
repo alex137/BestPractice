@@ -1751,10 +1751,31 @@ which is the failure this repointing exists to end — write
   session, which is the whole failure this item describes
   ([repo-is-memory](practices/repo-is-memory.md)).
 
+  **Half of this closed 2026-09-07, and it is the half that was never the
+  hard part.** Morgan stated the keyword's PRESENCE meaning in the clear —
+  *"Go merge means PR & merge it and don't ask me again"* — and
+  [AGENTS.md](AGENTS.md)'s paragraph now carries it verbatim instead of
+  telling a session to go ask. Note what that fixed: the meaning was
+  already written in this item, while AGENTS.md sent sessions to Morgan for
+  it, so a session reading both got the question and the answer from the
+  same repository and asked anyway. That is now one statement in the place
+  a session actually reads first.
+
+  **Still open, and unchanged:** what the keyword's ABSENCE means. He was
+  answering "what does the phrase mean", not "what should you do when I
+  have not said it", and the three readings above are all still live.
+  Do not treat the presence answer as settling this one — the incident that
+  opened this item was a push made with no authorization at all, which the
+  presence meaning does not speak to.
+
   **Blocked on:** Morgan. This is a question about what he wants from his
   own sessions, and it has no answer a session can derive from the
-  repository — the two readings above are both faithful to what
-  [AGENTS.md](AGENTS.md) currently says, which is the defect.
+  repository. Also still to do, and NOT doable from a session rooted in
+  this repository: mirroring the settled presence wording into the
+  `go-merge` practice in his individual set, so the private canonical text
+  and this public paraphrase cannot drift. The cross-owner `add_repo`
+  refusal blocks it in both directions (see [AGENTS.md](AGENTS.md)'s
+  cross-tier gotcha), so it needs a session rooted in that set.
 
 
 - <a id="blocklist-stem-not-full-name"></a>~~**Put the private consumer repo's NAME STEM into the leak blocklist, not

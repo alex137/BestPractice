@@ -26,13 +26,26 @@ origin incident happened. Full story, the mechanical check, and the
 retirement condition:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
 
-**"Go merge" is Morgan's own phrase, not a rule of this repository.** It
-is defined in his individual practice set as `go-merge`, and it reaches a
-session only through `.precedent/SESSION_PRACTICES.md` — so a session that
-did not attach the private sources (see the banner below) has not read the
-definition, and must **ask what is meant rather than guess from these two
-sentences**. What the repository itself contributes is only the
-destination: an authorization to merge, in whatever words it arrives, means
+**"Go merge" is Morgan's own phrase, not a rule of this repository, and it
+means: open the pull request, merge it, and do not ask again.** Recorded
+here from Morgan verbatim, 2026-09-07. The canonical text is the `go-merge`
+practice in his individual set, which reaches a session only through
+`.precedent/SESSION_PRACTICES.md` -- so a session that did not attach the
+private sources still has not read it, and the private practice wins if the
+two ever disagree. **This paragraph used to say "ask what is meant rather
+than guess", and that instruction is why it is now written down.** A session
+without the private sources followed it and asked; being asked the same
+question again across sessions is the exact thing the phrase exists to stop,
+so the instruction was generating the annoyance it was meant to avoid. The
+knowledge was not even missing -- [TODO.md](TODO.md)'s
+`push-without-the-keyword` item already stated the meaning in passing while
+this file told sessions to go ask. **Two documents disagreeing is worse than
+one being silent**: the silent one sends you to the person, the disagreeing
+pair sends you to the person while the answer sits in the repository. What
+the phrase's ABSENCE means is a different question and is still open -- see
+that same `push-without-the-keyword` item; do not read this paragraph as
+settling it. What the repository itself contributes is only the destination:
+an authorization to merge, in whatever words it arrives, means
 `precedent-beta-v01` per the paragraph above, and is not done until a fetch
 confirms the pushed content is actually there
 ([verify-postcondition](practices/verify-postcondition.md)). The universal
