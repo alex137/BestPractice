@@ -413,6 +413,14 @@ first so this pass spends its attention on what they cannot see.
   and its wrong-offset commits would reach the remote before anything said
   so.)* **One source of a level is not evidence** — the check says so
   rather than reporting one repo's working documents as a template gap.
+- **Filenames, where the mechanical check is blind.**
+  [filename-separator](filename-separator.md) is enforced per (directory,
+  extension), so it catches a folder holding both `A_B.md` and `A-B.md`.
+  It cannot see a directory that is internally consistent and wrong for its
+  kind — a `practices/` full of `SCREAMING_SNAKE.md` is uniform and still
+  breaks the slug convention — nor two directories that disagree where a
+  person moves files between them, nor an exemption whose stated reason has
+  stopped being true. Read those.
 - **Fragments** — a sentence, note, or heading left behind by an earlier
   edit: a "temporary" caveat whose occasion has passed, a note about a
   reorganization that already happened.

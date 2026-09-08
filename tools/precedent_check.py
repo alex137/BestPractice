@@ -629,6 +629,73 @@ def _no_version_suffix(ctx):
     return out
 
 
+# Trees whose filenames belong to whoever produced them, not to this repo
+# (practice: filename-separator -- the rule is about names somebody HERE
+# chose). Vendored upstream, materialized output, and instantiable skeletons
+# whose names are copied verbatim into an adopter's tree.
+_SEPARATOR_FOREIGN = ('process/upstream/', 'tools/checks/', 'practices/')
+
+
+@check('filename-separator', 'tree',
+       'files of the same kind in one directory use one word separator, '
+       'never both - and _',
+       'names determined elsewhere -- a language import rule, a platform-'
+       'required filename, a slug, or the file this one generates. Those are '
+       'exempted by precedent.json\'s filename_separator_exempt, which '
+       'requires a stated reason; this check cannot tell an inherited name '
+       'from a chosen one on its own, and does not guess.')
+def _filename_separator(ctx):
+    import collections
+    exempt = {}
+    try:
+        cfg = json.loads((ctx.root / 'precedent.json').read_text(encoding='utf-8'))
+        for e in cfg.get('filename_separator_exempt') or []:
+            if e.get('reason'):
+                exempt[(e.get('path', ''), e.get('ext', ''))] = e['reason']
+    except (OSError, ValueError):
+        pass
+
+    groups = collections.defaultdict(lambda: {'-': [], '_': []})
+    # Tracked files PLUS untracked-but-not-ignored ones. This is a tree-scope
+    # check, so the question is what the repository CONTAINS -- and a file
+    # just added and not yet committed is exactly when the answer is most
+    # useful, since renaming it later costs a link sweep
+    # (rename-updates-links). `--exclude-standard` keeps .gitignore'd noise
+    # out. Plain `ls-files` was tried first and could not see an uncommitted
+    # file at all, which the harness's own planted case caught.
+    for f in _git('ls-files', '--cached', '--others',
+                  '--exclude-standard').stdout.split():
+        if any(f.startswith(x) for x in _SEPARATOR_FOREIGN):
+            continue
+        path = pathlib.PurePath(f)
+        # The FIRST dot ends the stem: `a_b.md.template` is named after
+        # `a_b.md`, so its separator was inherited from that name, not
+        # chosen here.
+        stem = path.name.split('.')[0]
+        key = (str(path.parent), path.suffix)
+        if '-' in stem:
+            groups[key]['-'].append(path.name)
+        if '_' in stem:
+            groups[key]['_'].append(path.name)
+
+    out = []
+    for (dirname, ext), seen in sorted(groups.items()):
+        if not (seen['-'] and seen['_']):
+            continue
+        if (dirname, ext) in exempt:
+            continue
+        kebab = ', '.join(sorted(seen['-'])[:3])
+        snake = ', '.join(sorted(seen['_'])[:3])
+        out.append(Finding(
+            f'{dirname}/' if dirname != '.' else '.',
+            f'{len(seen["-"])} file(s) use "-" ({kebab}) and '
+            f'{len(seen["_"])} use "_" ({snake}) for the same kind '
+            f'(*{ext}) in one directory -- pick one, or exempt the group in '
+            f'precedent.json with the reason each name was determined '
+            f'elsewhere'))
+    return out
+
+
 GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
 
 

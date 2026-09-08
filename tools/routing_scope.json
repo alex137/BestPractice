@@ -641,6 +641,15 @@
         "reply"
       ],
       "gates_why": "The obligation lands in the reply: mark the item this turn, say which one, ask nothing back."
+    },
+    "filename-separator": {
+      "globs": [
+        "**"
+      ],
+      "why": "Every directory that holds files, which is every path -- the rule is about a directory's contents as a set, so no narrower glob describes it. Enforced tree-scope instead of routed.",
+      "decided": "2026-09-08, when the practice landed",
+      "gates": [],
+      "gates_why": "No gate: it is a property of the tree at rest, checked mechanically, not an obligation that fires at a moment."
     }
   },
   "gates": {

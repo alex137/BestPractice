@@ -3951,6 +3951,15 @@ def check_precedent_check_fires():
         case('no-version-suffix',
              lambda repo: (repo / 'findings-v2.md').write_text('x\n', encoding='utf-8'))
 
+        # filename-separator -- a directory that already holds `.md` files
+        # using one separator gains one using the other. `decisions/` is
+        # kebab throughout (dated slugs), so a snake sibling is the exact
+        # shape the practice was raised about: two conventions, same kind of
+        # file, same folder, nothing distinguishing them.
+        case('filename-separator',
+             lambda repo: (repo / 'decisions' / 'PLANTED_MIXED_NAME.md')
+             .write_text('# planted\n', encoding='utf-8'))
+
         # vendored-engine-file-refs-resolve -- delete a file precedent_gate.py
         # hardcodes a reference to (_ENGINE_DIR / 'routing_scope.json'),
         # reproducing the the project's own prior notes repository incident this check exists for
