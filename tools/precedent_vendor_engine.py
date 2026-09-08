@@ -187,6 +187,16 @@ SOURCE_BRANCH = 'precedent-beta-v01'  # see docstring: NOT the configured defaul
 
 ENGINE_FILES = [
     'build_views.py',
+    # build_views.py's companion word list, and the reason it is here rather
+    # than left behind: the engine vocabulary it declares (level, source,
+    # catalogue, slug, gate, resident block) is what an adopter needs to read
+    # ANY practice at all, and every kind that gets build_views.py builds its
+    # own GLOSSARY.md. Vendoring it verbatim is correct where
+    # routing_scope.json needs trimming, because none of these terms is
+    # specific to BestPractice's own catalogue. Caught 2026-09-08 by
+    # vendored-engine-file-refs-resolve, on the run that added it -- a
+    # vendored build_views.py naming a companion nobody had copied.
+    'glossary_terms.json',
     # A team set's approvers.json -> CODEOWNERS generator. In the engine
     # rather than in one team set's own tools/ because that is where it
     # was, and the consequence was a second team set with declared

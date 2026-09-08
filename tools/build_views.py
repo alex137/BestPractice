@@ -1061,7 +1061,55 @@ def render_glossary_md(practices):
         for term, slug in terms:
             lines.append(f"| {term} | [{slug}](practices/{slug}.md) |")
     lines.append('')
+
+    # ENGINE VOCABULARY, from its own registry (practice:
+    # registry-source-of-truth). These are the words the MECHANISM is made
+    # of -- `source`, `level`, `gate`, `slug` -- which no single practice
+    # owns, so `defines:` has nowhere to put them and they went undefined
+    # while being the most-used terms in the project. Measured 2026-09-08:
+    # `source` 1152 uses, `gate` 709, `slug` 372, `level` 342, none defined.
+    engine_terms = _engine_glossary_terms()
+    if engine_terms:
+        lines += [
+            "## Engine vocabulary",
+            '',
+            "The words the mechanism itself is made of. No single practice "
+            "owns these, so they cannot come from a `defines:` field -- they "
+            "are declared in [tools/glossary_terms.json](tools/glossary_terms.json) "
+            "and rendered here. **Everything above is a term some practice "
+            "claimed; everything below is a term the engine needs you to "
+            "know before any practice makes sense.**",
+            '',
+            "| Term | What it means | Where it is spelled out |",
+            "|---|---|---|",
+        ]
+        for t in engine_terms:
+            defn = t['definition'].replace('|', '\\|')
+            see = t.get('see', '')
+            link = f"[{see}]({see})" if see else '—'
+            lines.append(f"| **{t['term']}** | {defn} | {link} |")
+        lines.append('')
     return '\n'.join(lines)
+
+
+def _engine_glossary_terms():
+    """-> [dict] the engine-vocabulary rows, or [] when the registry is
+    absent.
+
+    It IS vendored (precedent_vendor_engine.ENGINE_FILES), so the normal
+    case is present. Absent means a vendored engine older than 2026-09-08,
+    when the file was added -- and a glossary that refused to build there
+    would break the adopter who is furthest behind, which is the one least
+    able to fix it (practice: fail-gracefully)."""
+    reg = ROOT / 'tools' / 'glossary_terms.json'
+    if not reg.is_file():
+        return []
+    try:
+        data = json.loads(reg.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    return [t for t in data.get('terms', [])
+            if t.get('term') and t.get('definition')]
 
 
 def main():

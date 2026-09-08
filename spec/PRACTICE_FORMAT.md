@@ -26,7 +26,7 @@ One file per practice, at `practices/<slug>.md`:
 
 ```
 ---
-slug:        kebab-case-slug
+slug:        the-slug-hyphenated
 title:       Human-readable title (no leading practice number)
 tier:        on-demand          # resident | on-demand
 severity:    default            # blocking | default | advisory
@@ -38,6 +38,7 @@ checked_by:  tools/x.py or null
 defines:     []
 status:      active           # active | deduplicated | retired -- see below
 in_force_at: null             # where the rule lives now; required unless active
+expires:     null             # OPTIONAL, and almost always null -- see below
 supersedes:  []
 overrides:   null
 added:       null                # see "What's deferred" below
@@ -361,6 +362,43 @@ change, never acts) was sitting beside `tools/precedent_retire_path.py`
 because it was eight days old and narrowly scoped, while `status: retired`
 is load-bearing across this schema and eight tools — and because "retired"
 is the right word for a rule withdrawn but remembered.
+
+### `expires:` — an optional end, in one field, in two shapes
+
+**Almost every practice has no expiry and never will**, which is why the
+field is optional and defaults to `null`. It is for the minority of rules
+that are true *for now* and everybody knows it: a temporary constraint, a
+workaround for something being fixed elsewhere, a rule scoped to one phase
+of a project.
+
+One field takes both shapes, and which one you wrote is decided by whether
+it parses as a date:
+
+| Shape | Example | What happens |
+|---|---|---|
+| **A date** | `expires: "2027-03-01"` | Enforced. Once the date passes and the practice is still `active`, [tools/precedent_check.py](../tools/precedent_check.py) fails until somebody decides. |
+| **A condition** | `expires: "when precedent-beta-v01 is merged into main"` | Never auto-evaluated. [tools/very_deep_check.py](../tools/very_deep_check.py) lists it every run so a person judges whether it has happened. |
+
+**An expiry never withdraws a rule on its own, and that is the whole design
+constraint.** A practice past its date stays `active` and stays binding —
+the field makes NOISE, it does not change `status`. A rule that quietly
+switched itself off would be worse than a stale one: the stale rule is at
+least still being followed, while the silent one has stopped protecting
+anything and nobody has been told. So an expiry forces a decision and
+refuses to make it for you.
+
+**Why a condition is deliberately not evaluated.** No general predicate can
+read an arbitrary English sentence. A check that tried would fail in one of
+two directions — withdrawing a live rule because it guessed the condition
+had been met, or reporting an expired one as current — and both are worse
+than printing the sentence in front of a person once per deep check. Some
+conditions *are* individually checkable, and one of those can grow its own
+check later; the field does not pretend to be that check.
+
+**Writing a good condition:** name an observable event, not a feeling.
+*"when precedent-beta-v01 is merged into main"* is something anyone can go
+and look at. *"when the migration settles down"* is not, and will still be
+sitting there in a year.
 
 `in_force_at:` is the field that did not exist before version 4, and its
 absence is the defect the other two rows exist to fix. `supersedes:` points

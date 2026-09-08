@@ -1494,6 +1494,59 @@ def main():
               "is\n  either shipped by the skeleton, generated, or vendored.")
     print()
 
+    # A condition-shaped `expires:` field cannot be evaluated by any script, so
+    # it is surfaced instead -- every run, in front of a person, rather than
+    # silently doing nothing (practice: fail-gracefully).
+    print("EXPIRING PRACTICES -- rules with a stated end, that nothing can "
+          "auto-evaluate\n")
+    _exp = []
+    for _s in [{'name': 'this checkout', 'path': str(repo_root)}] + [
+            dict(name=x.get('name'), path=x.get('path'))
+            for x in data['sources'] if x.get('path')]:
+        _base = pathlib.Path(_s['path'])
+        for _sub in ('practices', 'local/practices'):
+            for _f in sorted((_base / _sub).glob('*.md')) if (
+                    _base / _sub).is_dir() else []:
+                _t = _f.read_text(encoding='utf-8')
+                if not _t.startswith('---'):
+                    continue
+                # The one frontmatter reader. Calling a non-existent one
+                # inside `except Exception: continue` made this section
+                # report "none" while a real expiry sat in the tree.
+                _fm = sp.parse_frontmatter_fields(_t.split('---', 2)[1],
+                                                  decode=True)
+                _e = _fm.get('expires')
+                if not isinstance(_e, str) or not _e.strip():
+                    continue
+                if re.match(r'^\d{4}-\d{2}-\d{2}$', _e.strip()):
+                    continue  # a DATE -- precedent_check.py enforces those
+                _st = (_fm.get('status') or 'active').strip()
+                if _st != 'active':
+                    continue
+                # Keyed on the RESOLVED FILE, not the source name: this
+                # checkout, the universal source (path ".") and a repo-local
+                # source all overlap on disk, so the same file arrives three
+                # times and read as three separate expiring rules.
+                _exp.append((_f.resolve(), _fm.get('slug', _f.stem),
+                             _e.strip()))
+    _exp = sorted({(k, s2, c) for k, s2, c in _exp}, key=lambda t: t[1])
+    if _exp:
+        print("  Each is STILL BINDING. The condition is prose, so no check "
+              "can read it --\n  that is why it is printed here rather than "
+              "enforced. Ask of each one:\n  has this happened yet? If it "
+              "has, retire or deduplicate the practice now.\n")
+        for _path, _slug, _cond in _exp:
+            try:
+                _where = _path.relative_to(repo_root.resolve()).as_posix()
+            except ValueError:
+                _where = str(_path)
+            print(f"  {_slug}  ({_where})")
+            print(f"      expires: {_cond}")
+    else:
+        print("  none -- no practice in force carries a condition-shaped "
+              "expiry.")
+    print()
+
     print("ORPHANS -- files nothing owns any more\n")
     _orph_any = False
     _orph_seen = False

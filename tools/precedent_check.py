@@ -1385,6 +1385,65 @@ _ENGINE_REF_ABSENT_OK = {
 # to compare against, and is filed as `consumers-need-refresh-after-promotion`
 # for the consumer-side version of the same shape). It asserts only that what
 # a session can SEE is what the repository actually HAS.
+_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+
+@check('expires-is-honoured', 'tree',
+       'no practice is past the date in its optional `expires:` field while '
+       'still active -- an expiry forces a decision, it never withdraws a '
+       'rule on its own',
+       'a CONDITION expiry ("when X happens"), which is deliberately never '
+       'auto-evaluated: no general predicate can read an arbitrary English '
+       'sentence, and a check that guessed would either withdraw a live rule '
+       'or lie about an expired one. Those are listed by very_deep_check.py '
+       'every run so a person judges them instead.',
+       practice_backed=False)
+def _expires_is_honoured(ctx):
+    """Enforce the optional `expires:` frontmatter field.
+
+    THE DESIGN CONSTRAINT, and it is the whole reason this is a check rather
+    than a status: **an expired practice must never silently stop binding.**
+    A rule that quietly switches itself off is worse than a stale one -- the
+    stale rule is at least still being followed. So `expires:` makes NOISE
+    and changes nothing: the practice stays `active`, keeps binding, and the
+    gate goes red until a person decides.
+    """
+    import datetime
+    today = datetime.date.today().isoformat()
+    out = []
+    for f in sorted((ctx.root / 'practices').glob('*.md')) + \
+            sorted((ctx.root / 'local' / 'practices').glob('*.md')):
+        # sp.parse_frontmatter_fields is THE reader (one copy, deliberately
+        # -- see its own docstring). The first draft of this check called a
+        # function that does not exist and wrapped it in `except Exception:
+        # continue`, so it reported every practice as having no expiry and
+        # PASSED. A swallowed error is how a check reports a confident wrong
+        # answer, which is the failure this whole field exists to avoid.
+        text = f.read_text(encoding='utf-8')
+        if not text.startswith('---'):
+            continue
+        fm = sp.parse_frontmatter_fields(text.split('---', 2)[1], decode=True)
+        raw = fm.get('expires')
+        expires = raw.strip() if isinstance(raw, str) else ''
+        if not expires or expires.lower() in ('null', 'none'):
+            continue
+        if not _DATE_RE.match(expires):
+            continue  # a condition -- very_deep_check lists these, see above
+        if expires > today:
+            continue
+        status = (fm.get('status') or 'active').strip()
+        if status != 'active':
+            continue  # already withdrawn; the expiry did its job
+        rel = f.relative_to(ctx.root).as_posix()
+        out.append(Finding(rel, f'expires: {expires} has passed and the '
+                                f'practice is still `active` -- decide: '
+                                f'retire it, deduplicate it into whatever '
+                                f'replaced it, or move the date and say why. '
+                                f'It is STILL BINDING until you do; an expiry '
+                                f'never withdraws a rule on its own'))
+    return out
+
+
 @check('tracked-practice-files', 'tree',
        'every practice file, check script and routing record in the working '
        'tree is tracked by git -- what a session reads locally is what the '
