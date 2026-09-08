@@ -60,6 +60,25 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   losing the variable in a new shell fails the push instead of quietly
   downgrading it to the structural half.
 
+  WRITE THE STEM, NOT THE WHOLE NAME. The two halves recognise different
+  spellings: the allowlist matches `owner/name`, the patterns match the bare
+  name. So a private repo whose pattern is its FULL name is guarded when
+  written with a slash and naked when written short -- which is how a name
+  leaked on 2026-09-07, as `<repo>-local`. Truncate each pattern to a
+  distinctive head, and MEASURE the hit count against the tree before
+  committing to the cut: a stem short enough to be an ordinary English word
+  fires on innocent text, and a gate that cries wolf is a gate people
+  switch off.
+
+  To make the missing ones visible, a run with an owner declared also
+  surveys the git clones on this disk and NOTES any repository under that
+  owner whose bare name no pattern matches. It notes rather than refuses --
+  a missing stem is latent risk, not a hit, and the content scan already
+  covers what this tree says today. It is silent with no owner declared,
+  which is also what keeps a private name out of a public CI log.
+  very_deep_check.py answers the same question from the other side, for the
+  repositories this tree already NAMES, by asking GitHub which are private.
+
 CI runs the structural layer and the DEFAULT vocabulary half; it cannot run
 the private half, having no access to a private list. That is a real limit, stated rather than papered over: CI is
 the backstop that cannot be bypassed, the local hook is the one that knows
@@ -411,6 +430,96 @@ def repo_ref_hits(text, owners, allowed):
     return out
 
 
+# --- Stem coverage: which private repos have no pattern at all ----------
+#
+# THE GAP THIS CLOSES. The allowlist above catches `owner/name`; the
+# vocabulary patterns catch the BARE name. Only the first works for a
+# repository nobody has written a pattern for -- so a private repo with no
+# stem is guarded in its qualified form and naked in its short one, which is
+# exactly how the 2026-09-07 leak got out: `<repo>-local`, no slash anywhere.
+#
+# WHY THE SCOPE IS "CLONES ON THIS DISK". Enumerating an account's
+# repositories is not available -- `/user/repos` answers "sessions are bound
+# to their configured repositories" -- and very_deep_check.py deliberately
+# scopes its own audit to what the TREE names, on the ground that an unnamed
+# repository is not a leak. Both are right and both miss the same case: a
+# private repo you are working in right now, whose name has not reached this
+# tree YET. A session working in one has it attached, and that is the moment
+# its name is most likely to be typed into a document. So this takes the
+# third scope, the only one that needs no network: the sibling checkouts.
+#
+# IT NOTES, IT DOES NOT REFUSE. A missing stem is latent risk, not a hit --
+# the content scan already covers what this tree actually says, and failing
+# a push over a directory sitting next to it would block work that leaks
+# nothing. practice: fail-gracefully -- report what could not be guaranteed
+# rather than either crying wolf or going quiet.
+#
+# IT CANNOT RUN IN CI, BY CONSTRUCTION, and that is deliberate: it needs the
+# private blocklist's owner declaration, which CI never has. Printing a
+# private repository's name into a public build log would be this rule
+# leaking through its own mechanism.
+_REMOTE_RE = re.compile(
+    r'github\.com[:/]([A-Za-z0-9][\w-]*)/([A-Za-z][\w.-]*?)(?:\.git)?/?$')
+
+
+def _remote_ref(repo_dir):
+    """-> (owner, name) from a clone's origin URL, or None."""
+    try:
+        r = subprocess.run(['git', '-C', str(repo_dir), 'config', '--get',
+                            'remote.origin.url'],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    m = _REMOTE_RE.search(r.stdout.strip())
+    return (m.group(1), m.group(2)) if m else None
+
+
+def local_clone_refs(root):
+    """-> {(owner, name)} for this checkout and every sibling git clone.
+
+    Siblings, because that is how a session holds more than one repository:
+    `add_repo` puts each beside the others. A directory that is not a git
+    checkout, or whose remote is not GitHub, is skipped silently -- this is
+    a best-effort survey of what happens to be on disk, not an inventory.
+    """
+    root = pathlib.Path(root)
+    candidates = [root]
+    try:
+        candidates += [d for d in sorted(root.parent.iterdir()) if d.is_dir()]
+    except OSError:
+        pass
+    refs = set()
+    for d in candidates:
+        if not (d / '.git').exists():
+            continue
+        ref = _remote_ref(d)
+        if ref:
+            refs.add(ref)
+    return refs
+
+
+def uncovered_repo_stems(refs, owners, allowed, patterns):
+    """-> [(owner, name)] whose BARE name no blocklist pattern matches.
+
+    Only repositories under a declared private-by-default owner, and never
+    one carrying an `allow` line: an allow line is somebody stating that the
+    name may appear, so blocklisting its stem would refuse the exposure they
+    just accepted.
+    """
+    out = []
+    for owner, name in sorted(refs):
+        if owner.lower() not in owners:
+            continue
+        if f'{owner}/{name}'.lower() in allowed:
+            continue
+        if any(p.search(name) for p in patterns):
+            continue
+        out.append((owner, name))
+    return out
+
+
 def declared_visibility(root):
     """-> ('public'|'private'|None, why) from the repo's own precedent.json.
 
@@ -634,6 +743,23 @@ def main():
               'private repository named in this tree would not be caught by '
               'it. Declare one in the private blocklist to switch it on.',
               file=sys.stderr)
+    else:
+        # The other half of the same question. The allowlist above is on, so
+        # every `owner/name` mention is covered -- these are the repositories
+        # whose BARE name nothing covers, which is the form that actually
+        # leaked. Reported every run, because the moment to add a stem is
+        # while the repository is in front of you.
+        _gaps = uncovered_repo_stems(local_clone_refs(ROOT), _policy[0],
+                                     _policy[1], blocklist)
+        for _owner, _name in _gaps:
+            print(f'leak gate NOTE: {_owner}/{_name} is a clone on this disk '
+                  f'under a private-by-default owner, and NO blocklist pattern '
+                  f'matches its bare name "{_name}". Its qualified form is '
+                  f'refused by the allowlist; the short form somebody actually '
+                  f'types is not. Add a stem for it -- truncate to a '
+                  f'distinctive head and measure the hit count before '
+                  f'committing to the cut. This is a note, not a hit: nothing '
+                  f'in this tree says the name today.', file=sys.stderr)
 
     for display, line, why, sample in hits:
         where = f"{display}:{line}" if line else display

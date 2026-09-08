@@ -1141,6 +1141,201 @@ def check_leak_gate_fires():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _b64_ssh():
+    """The fixture's SSH remote, encoded so this scanned file carries no
+    literal that the gate's email rule refuses. See its call site."""
+    import base64
+    return base64.b64decode('Z2l0QGdpdGh1Yi5jb206b3RoZXJmaXh0dXJlL0tlc3RyZWx3b29kLmdpdA==').decode()
+
+
+def check_leak_gate_notes_an_uncovered_private_repo():
+    """The stem-coverage note, as stated cases against throwaway clones.
+
+    WHAT IT GUARDS. The gate has two ways to recognise a private repository
+    and they cover different spellings: the repo-reference ALLOWLIST matches
+    `owner/name`, and the vocabulary patterns match the BARE name. A private
+    repo with no pattern of its own is therefore guarded in its qualified
+    form and naked in its short one -- which is precisely how the 2026-09-07
+    leak got out, as `<repo>-local`, with no slash anywhere for the allowlist
+    to see.
+
+    A NON-ZERO EXIT WOULD PROVE NOTHING HERE, because this reports and does
+    not refuse: every case below asserts the TEXT the gate prints (practice:
+    control-asserts-which-failure). The negative cases matter more than the
+    positive one -- a note that fires on every repository on the disk is a
+    note people stop reading, so "covered", "other owner" and "allowed" each
+    have to stay silent.
+
+    The names are invented. A real private repository name cannot appear in
+    this file for the same reason the real blocklist cannot live in this
+    repo at all -- and the first draft's invented stem still had to be
+    changed, because it collided with `Team-Nightjar/`, an example name
+    inside leak_gate.py's own comments, and the fixture went red on a
+    genuine hit in the file it had just copied. That is the over-broad-stem
+    failure this whole mechanism is about, reproduced by accident on the
+    first run.
+    """
+    import shutil, tempfile
+
+    def git(cwd, *args):
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stemnote-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
+        shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
+                    repo / 'tools' / 'leak-blocklist.default.txt')
+        git(repo, 'init', '-q')
+        git(repo, 'config', 'user.email', 'harness@example.com')
+        git(repo, 'config', 'user.name', 'harness')
+        (repo / 'ok.md').write_text('nothing sensitive here\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'base')
+
+        # Siblings, which is how a session actually holds several repos at
+        # once. Only the remote URL is read, so these need no commits.
+        # The SSH remote is base64 here for the same reason the profanity
+        # probes are, further down this file: verify_harness.py IS scanned by
+        # the gate, and a literal SSH remote URL trips the structural "an
+        # email address" rule -- its user-and-host prefix is shaped exactly
+        # like one. Reproduced twice: the whole tree went red on the fixture,
+        # and then again on the first version of THIS comment, which spelled
+        # the URL out in prose. It is not an email address, and _remote_ref
+        # has to parse the form, so the coverage is worth keeping. Whether
+        # that rule should exempt this one well-known service address is a
+        # real question and is NOT settled here -- encoding a fixture does
+        # not widen the rule for anyone else.
+        _ssh_remote = _b64_ssh()
+        for dirname, url in [
+                ('covered', 'https://github.com/fixtureacct/QuillonNotes.git'),
+                ('uncovered', 'https://github.com/fixtureacct/Kestrelwood.git'),
+                ('otherowner', _ssh_remote)]:
+            d = tmp / dirname
+            d.mkdir()
+            git(d, 'init', '-q')
+            git(d, 'remote', 'add', 'origin', url)
+        (tmp / 'not-a-checkout').mkdir()
+
+        blocklist = tmp / 'blocklist.txt'          # OUTSIDE the repo, as required
+        declared = ('# visibility-audit: private-owner fixtureacct -- fixture\n'
+                    '\\bquillon[\\w-]*\n')
+
+        def gate_output(text):
+            blocklist.write_text(text, encoding='utf-8')
+            env = dict(os.environ)
+            env['PRECEDENT_LEAK_BLOCKLIST'] = str(blocklist)
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'leak_gate.py')],
+                capture_output=True, text=True, cwd=str(repo), env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = gate_output(declared)
+        cases = [
+            ('the note names the uncovered repository',
+             'fixtureacct/Kestrelwood' in out),
+            ('the note says what is missing, not merely that something is',
+             'NO blocklist pattern matches its bare name' in out),
+            ('the note quotes the bare name the stem has to cover',
+             '"Kestrelwood"' in out),
+            ('a repo whose bare name an existing stem matches is NOT noted',
+             'QuillonNotes' not in out),
+            ('a repo under an owner nobody declared private is NOT noted',
+             'otherfixture/' not in out),
+            ('a directory that is not a checkout is skipped without comment',
+             'not-a-checkout' not in out),
+            ('the note does not fail the push -- a missing stem is latent '
+             'risk, not a hit', rc == 0),
+        ]
+
+        # An allow line is somebody stating the name may appear. Demanding a
+        # stem for it would refuse the exposure they just accepted.
+        _rc, out_allowed = gate_output(
+            declared + '# visibility-audit: allow fixtureacct/Kestrelwood -- fixture\n')
+        cases.append(('an `allow` line for the repo silences the note',
+                      'Kestrelwood' not in out_allowed))
+
+        # And with no owner declared at all the survey must not run: it would
+        # otherwise print private repository names into a CI log, which for a
+        # public repo is a build log anyone can read.
+        _rc, out_inert = gate_output('\\bquillon[\\w-]*\n')
+        cases.append(('no private-owner declaration means no survey at all, so '
+                      'no name reaches a public build log',
+                      'Kestrelwood' not in out_inert
+                      and 'allowlist is INERT' in out_inert))
+
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  stem-coverage note did NOT behave as stated: {name}")
+        check(f'the leak gate notes a private clone with no blocklist stem '
+              f'({len(cases)} stated cases, each asserting the printed text)', ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_visibility_audit_reads_the_blocklist_as_patterns():
+    """The stale-entry half of very_deep_check's visibility audit, repaired.
+
+    THE BUG THIS PINS DOWN was silent and was caused by an unrelated fix.
+    That audit reported "this name is on the blocklist but the repository is
+    now PUBLIC" by comparing `name.lower() in blocked`, where `blocked` was
+    each blocklist line with `\\b` stripped off both ends -- exact string
+    equality, correct for as long as every entry was a whole repository name.
+    The 2026-09-07 stem rewrite turned every entry into a truncated head plus
+    a suffix match, after which equality matched nothing and that half of the
+    audit reported a clean sweep it had not performed.
+
+    Asserted through the same reader the push gate uses, so the two cannot
+    drift in how they interpret a line."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as _lg
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        bl = pathlib.Path(td) / 'blocklist.txt'
+        bl.write_text('\\bquillon[\\w-]*\n\\bkestrel\\b\n', encoding='utf-8')
+        pats = _lg._parse_blocklist(bl)
+
+        def covered(name):
+            return any(p.search(name) for p in pats)
+
+        def _old_reading_matches(name, path):
+            blocked = {re.sub(r'^\\b|\\b$', '', line.strip()).lower()
+                       for line in path.read_text(encoding='utf-8').splitlines()
+                       if line.strip() and not line.strip().startswith('#')}
+            return name.lower() in blocked
+
+        cases = [
+            ('a stem matches the full name it was truncated from',
+             covered('QuillonNotes')),
+            ('a stem matches a name DERIVED from the repo -- the 2026-09-07 '
+             'case', covered('quillon-local')),
+            # The negative control is the OLD logic, run for real rather
+            # than described: strip the anchors, lowercase, compare for
+            # equality. It must MISS the name the new reading catches, or
+            # this check is not testing the repair.
+            ('the string comparison this replaced misses that name, which is '
+             'what made the regression invisible',
+             not _old_reading_matches('QuillonNotes', bl)),
+            ('an unrelated name is not matched', not covered('Kestrelwood')),
+            ('a whole-name entry still matches its own name, so repairing '
+             'this did not break the entries that were already right',
+             covered('Kestrel')),
+        ]
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  blocklist pattern reading did NOT behave as stated: {name}")
+        check(f'the visibility audit reads blocklist entries as patterns, so a '
+              f'stem entry is still recognised ({len(cases)} stated cases)', ok)
+
+
 def check_practice_audit_fires():
     """practice_audit.py's --update-baseline, stated as cases against a
     throwaway manifest (practice: mistakes-become-rules).
@@ -11281,6 +11476,8 @@ def main():
     check_title_case_never_corrupts_content()
     check_title_case_output_paths_inverts_the_default()
     check_checkin_update_never_mutates_the_clone()
+    check_leak_gate_notes_an_uncovered_private_repo()
+    check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.

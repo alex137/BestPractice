@@ -1805,3 +1805,35 @@ which is the failure this repointing exists to end — write
   committed to this repository ([spec/SOURCES.md](spec/SOURCES.md),
   `python3 tools/leak_gate.py --explain`). This repo's own runs still check
   the default list only, and still say so.
+
+- <a id="stem-note-reaches-the-sets"></a>**Refresh the private sets' vendored engine so the stem-coverage note
+  actually runs where the blocklist lives.** The note and the visibility
+  audit's pattern-reading repair landed here 2026-09-07
+  ([tools/leak_gate.py](tools/leak_gate.py),
+  [tools/very_deep_check.py](tools/very_deep_check.py)), and a source set
+  runs whatever engine it last vendored — so until each is refreshed, the
+  set that OWNS the blocklist is the one repository still reading its
+  entries as literal strings. That is the stale-entry half reporting a
+  clean sweep it never performed
+  ([AGENTS.md](AGENTS.md)'s derived-names gotcha).
+
+  **Blocked on:** a session rooted in each private set —
+  `add_repo` refuses the first cross-owner add in both directions
+  (measured twice, 2026-09-07), so this cannot be done from here. Same
+  prerequisite as [`attach-private-sources`](TODO.md#attach-private-sources),
+  and the mechanism is that item's own
+  `precedent_vendor_engine.py refresh <bestpractice-clone>`.
+
+- <a id="stem-reminder-at-the-refusal"></a>**Consider putting the stem reminder in the allowlist's REFUSAL message
+  too.** When the gate refuses `owner/name`, whoever clears it is at the
+  keyboard, knows a private repo is being named, and is about to write a
+  reason — the cheapest moment to also add its stem. Offered alongside the
+  two mechanisms that were built and not selected, so this is a deliberate
+  deferral rather than an oversight.
+
+  **Out of scope for now, with the reason:** the built pair already covers
+  most of it — clones on this disk get a note every run, and repositories
+  the tree names get the deep check's API-backed finding. What is left is
+  the narrow case of a repo named in a document but not cloned locally,
+  caught at push time rather than on request. Worth doing if that case ever
+  actually bites.
