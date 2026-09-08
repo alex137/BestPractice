@@ -2124,7 +2124,9 @@ def _published_default_branch():
        'string concatenation at runtime, and it deliberately says nothing '
        'about a file the repo received rather than wrote: a vendored tree, '
        'a materialized practice or check, or the generated loader block, '
-       'each of which is overwritten by its own next sync.')
+       'each of which is overwritten by its own next sync. It also says '
+       'nothing about a file the retirement registry exempts -- the record OF a deletion naming what went is not a reference left behind '
+       'by one.')
 def _rename_updates_links(ctx):
     base = _published_default_branch()
     if base is None:
@@ -2187,6 +2189,8 @@ def _rename_updates_links(ctx):
     except (ValueError, OSError):
         pass
 
+    _retired_exempt = _retirement_record_exemptions()
+
     old_paths = []
     for line in r.stdout.splitlines():
         parts = line.split('\t')
@@ -2218,12 +2222,20 @@ def _rename_updates_links(ctx):
             # wholesale from a published commit, and an edit is overwritten by
             # the next refresh. The reference is upstream's, and so is the fix.
             if rel.startswith('process/upstream/') or rel in _vendored_engine \
-                    or rel in received or rel == RETIRED_PATHS_REGISTRY:
+                    or rel in received or rel == RETIRED_PATHS_REGISTRY \
+                    or any(_exempt_matches(rel, e) for e in _retired_exempt):
                 # The retirement registry names every path this repo has
                 # deleted, on purpose (practice: retirement-deletes-files) --
                 # it is the record OF the deletion, not a reference left
                 # behind by one, so reading it as a stranded link would make
                 # every retirement fail the moment it was recorded.
+                #
+                # And so is everything the registry's own `exempt_files`
+                # names, which is the half this check was missing: the
+                # migration record explaining the deletion, and the dated
+                # backlog entry it closed, are the same kind of document as
+                # the registry and were being flagged for doing their job.
+                # See _retirement_record_exemptions() for the incident.
                 continue
             f = ROOT / rel
             if not f.is_file():
@@ -2961,6 +2973,41 @@ def _exempt_matches(rel, exempt_entry):
     if exempt_entry.endswith('/'):
         return rel == exempt_entry.rstrip('/') or rel.startswith(exempt_entry)
     return rel == exempt_entry
+
+
+def _retirement_record_exemptions():
+    """-> the `exempt_files` list from the retirement registry, or [].
+
+    THE SAME LIST, FOR THE SAME REASON, READ BY ONE MORE CHECK. A repo that
+    retires a mechanism writes two things: the registry saying what went, and
+    a record saying why. `retirement-deletes-files` and
+    `migration-scrubs-vocabulary` both already read this list; that the
+    registry FILE ITSELF was hard-coded into rename-updates-links, and
+    nothing else was, is how the gap stayed invisible -- the one file the
+    author happened to be looking at got covered and the category did not.
+
+    2026-09-07, a real migration: retiring a vendored practice pack produced
+    four findings, and three were the record OF the deletion being read as a
+    reference left behind BY one -- a migration record's own "what was
+    deleted" table, and a closed, dated backlog entry quoting the notice that
+    prompted it. Neither can be repointed at anything: naming the dead path
+    is the entire content. The fourth was a genuine stranded reference in a
+    merge runbook, which is the finding this check exists for and which the
+    three false ones were burying.
+
+    Deliberately NOT a blanket exemption for any file mentioning a retired
+    path. The list is written by a person at the moment of retirement,
+    through tools/precedent_retire_path.py, which refuses while any
+    undeclared reference remains -- so an entry here is somebody's stated
+    reason, reviewable in the same diff, not a wildcard.
+    """
+    try:
+        cfg = json.loads(
+            (ROOT / RETIRED_PATHS_REGISTRY).read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return []
+    ex = cfg.get('exempt_files')
+    return ex if isinstance(ex, list) else []
 
 
 # The old pack mechanism's own marker file. layered-practice-packs' Install

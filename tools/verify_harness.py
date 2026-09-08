@@ -5976,6 +5976,141 @@ def check_commit_identity_derives_declared_timezone():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_retirement_record_is_not_a_stranded_link():
+    """The document explaining a deletion may name what it deleted.
+
+    rename-updates-links hard-coded ONE exemption -- the retirement registry
+    file itself -- and nothing else, so the category stayed invisible: the one
+    file the author was looking at got covered, and every other document of
+    the same kind did not. A repo that retires a mechanism writes two things,
+    the registry saying what went and a record saying why, and only the first
+    was exempt.
+
+    2026-09-07, a real migration retiring a vendored practice pack: four
+    findings, three of them the record OF the deletion read as a reference
+    left behind BY one -- a migration record's own "what was deleted" table,
+    and a closed dated backlog entry quoting the notice that prompted it.
+    Neither can be repointed at anything; naming the dead path is the whole
+    content. The fourth was a genuine stranded reference in a merge runbook,
+    telling every future session to three-way-merge a file that no longer
+    existed -- the finding this check exists for, and the one the three false
+    ones were burying. That is the cost of a noisy gate, not just the
+    annoyance of it.
+
+    The exemption is the registry's own `exempt_files`, which
+    retirement-deletes-files and migration-scrubs-vocabulary already read.
+    Same list, same reason, one more reader. It is NOT a blanket pass for any
+    file mentioning a retired path: the list is written by a person at the
+    moment of retirement, through precedent_retire_path.py, which refuses
+    while any undeclared reference remains.
+    """
+    import tempfile, json as _json, shutil as _shutil
+    checker = ROOT / 'tools' / 'precedent_check.py'
+    if not checker.exists():
+        not_applicable('a retirement record may name what it deleted',
+                       'tools/precedent_check.py is not present here')
+        return
+
+    def _repo(base, exempt):
+        """A repo that DELETED a file on this branch, with two references
+        left: one in a record (exempt) and one in a live instruction (not)."""
+        base.mkdir(parents=True)
+        (base / 'process').mkdir()
+        (base / 'tools').mkdir()
+        # Seed the real consumer engine rather than hand-picking files:
+        # precedent_check.py imports several siblings, and a fixture that
+        # copies only the ones somebody remembered breaks on the next import
+        # added upstream -- which is how the first version of this test
+        # "passed" its exemption case while the check was not running at all.
+        subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+             'seed', str(base), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300)
+        # And the practice itself: precedent_check.py SKIPS a check whose
+        # practice file is not materialized here ("belongs to a source this
+        # repo does not resolve"). A skip is not a pass, and reading one as
+        # the exemption working is exactly the false green this fixture has
+        # to rule out.
+        (base / 'practices').mkdir(exist_ok=True)
+        _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
+                      base / 'practices' / 'rename-updates-links.md')
+        # AND OVERWRITE THE SEEDED CHECKER WITH THIS WORKING TREE'S.
+        # precedent_vendor_engine.py seeds via `git archive`, so it copies
+        # the COMMITTED engine -- which means a fixture built this way tests
+        # the code as it was before your change, silently. Caught 2026-09-07
+        # while making this very change: three cases went green, the
+        # exemption case stayed red, and the checker in the fixture simply
+        # did not contain the fix being tested.
+        _shutil.copy2(checker, base / 'tools' / 'precedent_check.py')
+        (base / 'precedent.json').write_text(
+            _json.dumps({'format_version': 1, 'sources': [],
+                         'visibility': 'private'}), encoding='utf-8')
+        (base / 'process' / 'doomed.md').write_text('# doomed\n', encoding='utf-8')
+        (base / 'README.md').write_text('nothing yet\n', encoding='utf-8')
+
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        def g(*a):
+            return subprocess.run(['git', '-C', str(base)] + list(a),
+                                  capture_output=True, text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        g('config', 'user.email', 'h@example.com')
+        g('config', 'user.name', 'H')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        # A published default branch is what the check diffs against.
+        g('branch', '-f', 'origin-main-stand-in')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+
+        (base / 'process' / 'doomed.md').unlink()
+        (base / 'process' / 'RETIREMENT_RECORD.md').write_text(
+            '# what went\n\n`process/doomed.md` -- superseded, deleted.\n',
+            encoding='utf-8')
+        (base / 'README.md').write_text(
+            'Step 3: three-way-merge `process/doomed.md` before landing.\n',
+            encoding='utf-8')
+        reg = {'retired': [{'path': 'process/doomed.md',
+                            'reason': 'superseded whole',
+                            'retired_at': '2026-09-07'}]}
+        if exempt:
+            reg['exempt_files'] = ['process/RETIREMENT_RECORD.md']
+        (base / 'process' / 'retired_paths.json').write_text(
+            _json.dumps(reg, indent=2), encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'retire it')
+        return base
+
+    def _run(base):
+        r = subprocess.run(
+            [sys.executable, 'tools/precedent_check.py',
+             '--only', 'rename-updates-links'],
+            capture_output=True, text=True, cwd=str(base), timeout=300,
+            env=dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1'))
+        return r.stdout + r.stderr
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        out = _run(_repo(tmp / 'exempt', exempt=True))
+        cases.append(('the exempted record may name the deleted path',
+                      'RETIREMENT_RECORD.md' not in out))
+        cases.append(('and the genuine stranded reference is STILL reported '
+                      '-- the exemption is per-file, not a blanket pass',
+                      'README.md' in out))
+
+        # NEGATIVE CONTROL. Without the exemption the same tree must flag the
+        # record too: otherwise the case above would pass for any reason at
+        # all, including the check never having run.
+        out = _run(_repo(tmp / 'noexempt', exempt=False))
+        cases.append(('without the exemption, the record IS flagged',
+                      'RETIREMENT_RECORD.md' in out))
+        cases.append(('and so is the live instruction, either way',
+                      'README.md' in out))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'a retirement record may name what it deleted, and only it '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_commit_identity_prevents_the_wrong_offset():
     """The declared zone is made TRUE for the session, not merely enforced.
 
@@ -11088,6 +11223,7 @@ def main():
     check_sync_refuses_to_lose_a_recorded_practice()
     check_doc_lifecycle_fires_and_clears()
     check_commit_identity_derives_declared_timezone()
+    check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
