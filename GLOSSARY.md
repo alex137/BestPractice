@@ -17,15 +17,18 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | document status | [document-status-header](practices/document-status-header.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
+| Go merge | [go-merge](practices/go-merge.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
+| Park it | [park-it](practices/park-it.md) |
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
+| Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |

@@ -1880,18 +1880,26 @@ which is the failure this repointing exists to end — write
   `go-merge`, not in a repo-local source that binds everyone working here.
   It is a level too low on purpose and says so in its own text.
 
-  **Blocked on:** a session rooted in `precedent-individual`. Not on anyone's
-  decision — `add_repo` refuses every cross-owner add, measured in both
-  directions on 2026-09-07, so a session rooted in this repository cannot
-  reach that set at all. The alternative was recording the phrase nowhere.
+  **Closed 2026-09-08 — resolved UPWARD instead, and the item's premise was
+  wrong.** It assumed the only two homes were repo-local (too low) and the
+  individual set (correct). Morgan chose a third: universal, on the grounds
+  that these are the project's own commands rather than one person's habits
+  — *"we should have our own commands we use for people who live in our
+  universe."* `park-it` now lives at
+  [practices/park-it.md](practices/park-it.md), the repo-local copy is
+  `deduplicated` pointing at it, and the cross-owner `add_repo` blocker this
+  item was waiting on turned out not to matter, because universal is
+  reachable from here.
 
-  **The procedure exists:** [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md). Carry the file
-  across, delete it here, repoint [AGENTS.md](AGENTS.md)'s "Park it" paragraph at the
-  individual copy, and re-home `local/tools/checks/check_park_it.py` with it
-  — the check is about whether the phrase is documented where a session
-  reads, which stays true at either level. Bundle it with
-  [TODO.md's `attach-private-sources` item](TODO.md#attach-private-sources),
-  which is the same trip.
+  **Disposition:** parked (2026-09-08, Morgan)
+
+  **What was actually done**, following
+  [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md): landed at universal,
+  deduplicated at the source rather than deleted, and
+  [AGENTS.md](AGENTS.md)'s "Park it" paragraph repointed.
+  `local/tools/checks/check_park_it.py` stays repo-local by design — it
+  asserts that this repository's own `AGENTS.md` still spells the phrase
+  out, which is a property of this repo, not of the rule.
 
 - <a id="vdc-pass1-partial-again"></a>**Pass 1 of the very deep check has been PARTIAL two runs
   running, on the same item.** [practices/very-deep-check.md](practices/very-deep-check.md) puts "a REAL

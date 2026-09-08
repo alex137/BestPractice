@@ -4,11 +4,11 @@ title:       Taking an upstream update into a vendored tree
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "taking an upstream update into a repo that vendors a practice layer"
+occasion:    "a message says \"Update Vendors\", or an upstream update is being taken into a repo that vendors a practice layer"
 gates:       ["merge"]
-index_clause: "refresh the source clone first; both vendored layers move separately"
+index_clause: "\"Update Vendors\" -- refresh the source clone first; both layers move separately"
 checked_by:  null
-defines:     []
+defines:     ["Update Vendors"]
 status:      active
 in_force_at: null
 supersedes:  []
@@ -17,6 +17,12 @@ added:       "2026-09-08"
 approved_by: "Morgan"
 ---
 ## Rule
+**"Update Vendors" is the phrase that asks for this**, and it authorizes the
+whole sequence below without asking again -- the same standing-phrase
+mechanism as [go-merge](go-merge.md), for the other operation a person
+otherwise has to spell out every time. It does NOT authorize merging or
+publishing what the update produces; that is still `Go merge`'s to give.
+
 A vendored tree is updated by a fixed sequence, in this order, because
 every step's answer is wrong if the one before it was skipped.
 
@@ -76,6 +82,12 @@ wrong is worse than one that is obviously stale, because nothing will
 prompt anyone to look again.
 
 ## Story
+**The phrase was chosen 2026-09-08**, by Morgan, in the same conversation
+that moved `go-merge` and `park-it` up to universal: *"Let's use the phrase
+'Update Vendors' to trigger vendor-update-runbook."* It is plural on
+purpose -- a repo usually vendors more than one layer, and the step people
+skip is the second one.
+
 **Asked for by Morgan, 2026-09-08**, after watching a session do this from
 memory across four repositories: *"maybe we define another phrase ... with
 the general instructions on how to update the vendored in files? (Starting

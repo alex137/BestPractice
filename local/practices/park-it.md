@@ -9,8 +9,8 @@ gates:       ["reply"]
 index_clause: "\"Park it\" -- mark the item `parked` this turn, and never raise it unprompted again"
 checked_by:  "local/tools/checks/check_park_it.py"
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: park-it
 supersedes:  []
 overrides:   null
 added:       "2026-09-08"
@@ -60,6 +60,15 @@ having if it is written where a session reads before it works — which is why
 this practice is checked on [AGENTS.md](../../AGENTS.md) rather than left as prose.
 
 ## Story
+**Deduplicated into the universal catalogue on 2026-09-08, the day after it
+was written here.** The Detail below said this practice was at the wrong
+level on purpose -- one person's phrase, recorded repo-locally only because
+a session rooted here cannot attach the private individual set. Morgan
+resolved it upward instead of sideways: the phrase is one of the project's
+own commands, so it belongs in the universal set where every adopter reads
+it. The rule is fully in force at `practices/park-it.md`; only this
+redundant copy stopped binding.
+
 Coined by Morgan on 2026-09-08, in the conversation that produced
 [open-item-disposition](../../practices/open-item-disposition.md). Offered a phrase for setting an item to
 `parked`, he answered: *"'Park it' is a fine phrase, and put it in the

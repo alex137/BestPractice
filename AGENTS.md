@@ -26,55 +26,63 @@ origin incident happened. Full story, the mechanical check, and the
 retirement condition:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
 
-**"Go merge" is Morgan's own phrase, not a rule of this repository, and it
-means: open the pull request, merge it, and do not ask again.** Recorded
-here from Morgan verbatim, 2026-09-07. The canonical text is the `go-merge`
-practice in his individual set, which reaches a session only through
-`.precedent/SESSION_PRACTICES.md` -- so a session that did not attach the
-private sources still has not read it, and the private practice wins if the
-two ever disagree. **This paragraph used to say "ask what is meant rather
-than guess", and that instruction is why it is now written down.** A session
-without the private sources followed it and asked; being asked the same
-question again across sessions is the exact thing the phrase exists to stop,
-so the instruction was generating the annoyance it was meant to avoid. The
-knowledge was not even missing -- [TODO.md](TODO.md)'s
-`push-without-the-keyword` item already stated the meaning in passing while
-this file told sessions to go ask. **Two documents disagreeing is worse than
-one being silent**: the silent one sends you to the person, the disagreeing
-pair sends you to the person while the answer sits in the repository. What
-the phrase's ABSENCE means is a different question, and its interim answer
-is: **use judgment, and do not ask him.** Morgan, 2026-09-07, asked to
-choose between holding, pushing, and a line between them: *"The session
+**"Go merge" is a Precedent command, defined universally in
+[practices/go-merge.md](practices/go-merge.md), and it means: sync, say
+which branch out loud, commit, push, open the pull request, merge — without
+asking again.** It moved up from Morgan's private individual set to the
+universal catalogue on 2026-09-08, on his decision: *"we should have our own
+commands we use for people who live in our universe."* **That reverses the
+2026-09-07 retirement of `merge-authorization-keyword`**, and the two are
+not the same rule — the retired one told every adopting repository to go
+invent a keyword of its own, which is a preference dressed as a practice;
+this one names the phrase and ships it. `merge-authorization-keyword` is now
+`deduplicated` with `in_force_at: go-merge` rather than retired.
+
+**Why the move matters beyond tidiness:** while the definition lived in a
+private set, a session that had not attached it could not read it. One did
+exactly that — followed an instruction to go ask what the phrase meant,
+generating the precise interruption the phrase exists to prevent, while the
+answer sat in a repository nobody had fetched. It is in the generated
+occasion index now, so every session reads it whether or not any private
+source resolved.
+
+**What the phrase's ABSENCE means is a separate question**, and its interim
+answer is: **use judgment, and do not ask him.** Morgan, 2026-09-07, asked
+to choose between holding, pushing, and a line between them: *"The session
 should use its judgment. Todo in the future to make a hard rule, not that."*
-So a session without the keyword decides for itself and owns the call. **He
-wants a hard rule eventually and ruled out "use judgment" as its content**,
-so this is the interim state and not the destination -- [TODO.md](TODO.md)'s
+He wants a hard rule eventually and ruled out "use judgment" as its content,
+so this is the interim state and not the destination — [TODO.md](TODO.md)'s
 `push-without-the-keyword` item stays open for it, and must not be closed by
 pointing at this paragraph. What the repository itself contributes is only
 the destination: an authorization to merge, in whatever words it arrives,
 means `precedent-beta-v01` per the paragraph above, and is not done until a
 fetch confirms the pushed content is actually there
-([verify-postcondition](practices/verify-postcondition.md)). The universal
-practice that used to sit here, `merge-authorization-keyword`, was retired
-on 2026-09-07: it was telling every adopting repository to go adopt a merge
-keyword of its own, which is one person's preference dressed as a practice.
+([verify-postcondition](practices/verify-postcondition.md)).
 
-**"Park it" is Morgan's phrase too, coined 2026-09-08, and it means: mark the
-item `parked` and drop the subject.** The session writes
-`**Disposition:** parked (<date>, Morgan)` into the item he meant, in that
-same turn, and **no session raises that item unprompted again** — not this
-one, and not a later one that decides it has become urgent. He owes no
-explanation for parking something, so **the response is to do it and say
-which item was marked, never to ask a follow-up question about it.** The rule
-is [local/practices/park-it.md](local/practices/park-it.md). What `parked`
-then means — and the two other dispositions an open item can carry — is
-[practices/open-item-disposition.md](practices/open-item-disposition.md), whose
-one line is: **an item with no disposition is `wait`, and a session raises an
-item with him only if the item says `ask`.** Like `go-merge`, this is one
-person's standing phrase and belongs in his individual set; it is recorded
-here because a session rooted in this repository cannot attach that set at
-all (the cross-owner `add_repo` gotcha below), and the individual copy wins
-the moment it exists.
+**"Park it" is a Precedent command too, defined universally in
+[practices/park-it.md](practices/park-it.md), and it means: mark the item
+`parked` and drop the subject.** The session writes
+`**Disposition:** parked (<date>, <who said it>)` into the item meant, in
+that same turn, and **no session raises that item unprompted again** — not
+this one, and not a later one that decides it has become urgent. Nobody owes
+an explanation for parking something, so **the response is to do it and say
+which item was marked, never to ask a follow-up question about it.**
+
+Coined by Morgan on 2026-09-08 and moved to universal the same day,
+alongside `go-merge`, for the same reason. It spent one day as a repo-local
+practice here; that copy is now `deduplicated` and points at the universal
+one. What `parked` then means — and the two other dispositions an open item
+can carry — is
+[practices/open-item-disposition.md](practices/open-item-disposition.md),
+whose one line is: **an item with no disposition is `wait`, and a session
+raises an item with him only if the item says `ask`.**
+
+**A third command, "Update Vendors"**, triggers
+[practices/vendor-update-runbook.md](practices/vendor-update-runbook.md) —
+the fixed sequence for taking an upstream update, starting with making the
+SOURCE clone current against the pinned branch. It authorizes the update,
+not the merge of what the update produces; that is still `Go merge`'s to
+give.
 
 **FIRST TOOL CALL OF EVERY SESSION, before reading or running anything
 else: `add_repo` (read access) for this account's `precedent-individual`,
@@ -124,7 +132,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~552 of 2000 token budget, 8 of 78 practices (8 universal))
+## Resident block (~552 of 2000 token budget, 8 of 79 practices (8 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -172,8 +180,6 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
-When Morgan says "Park it" about an open item or a question:
-  park-it — "Park it" -- mark the item `parked` this turn, and never raise it unprompted again
 When a change here has implications for how an attached team, individual, or repo-local source should work:
   cross-source-rollout — roll it out to attached sources now; else a blocked-on TODO
 When a change must propagate across several parallel artifacts:
@@ -186,10 +192,16 @@ When a document presents a script-derived figure:
   docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
+When a message ends on the standing merge-authorization phrase:
+  go-merge — "Go merge" alone at the end: sync, name the branch, commit, push, PR, merge
+When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
+  vendor-update-runbook — "Update Vendors" -- refresh the source clone first; both layers move separately
 When a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift:
   very-deep-check — read every repo in force against itself, pass by pass; never a routine gate
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
+When a person says "Park it" about an open item or a question:
+  park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
 When a practice lands or a candidate is raised, at any level:
   disclose-landing — state plainly what happened and where — individual, named team, or universal
 When a review finds a defect:
@@ -264,8 +276,6 @@ When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
-When taking an upstream update into a repo that vendors a practice layer:
-  vendor-update-runbook — refresh the source clone first; both vendored layers move separately
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When when fixing anything -- a bug, a stale file, a broken environment:
