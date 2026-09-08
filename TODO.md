@@ -1405,6 +1405,33 @@ which is the failure this repointing exists to end — write
   different statement from "they are unreachable". Check what is on disk
   before recording a blocker from a remembered rule.
 
+- <a id="split-team-sets-by-subject"></a>**Sort the existing team and individual rules into subject-scoped team
+  sets.** Decided 2026-09-08, after the cross-team drift question: a rule
+  several teams need does **not** go to universal — universal is for
+  opinionated rules Precedent tells the world, and a house design style is not
+  one. It goes into **one team set named for its subject**, which every team
+  that needs it declares alongside its own. The naming convention already
+  points here: a team set is named for its **purpose**, and a roster-shaped
+  name is stale the moment somebody joins. Nothing new has to be built — a
+  repo can already declare several team sets, and two of them defining one
+  slug is a loud refusal, which is the guard that stops a local copy creeping
+  back in.
+
+  **What is left to do is the sort itself**, one rule at a time, across
+  `precedent-team-maintainers`, `precedent-team-tms` and
+  `precedent-individual`: which rules are genuinely one team's, which are
+  subject-scoped and want a set of their own, and which are personal to
+  Morgan rather than to any team. The test per rule: *who breaks if this is
+  wrong?* One team → that team's set. Everyone doing a kind of work,
+  regardless of team → a subject set. One person → individual. Only this
+  repository → repo-local.
+
+  **Blocked on:** a session that can read those three repositories. Asked on
+  2026-09-08 and refused: `add_repo` would not attach `themorgan/*` from an
+  `alex137/*`-rooted session, and no sibling clone or user config existed on
+  disk, so the sort could not be started from guesses about what the sets
+  contain. Route is [`attach-private-sources`](TODO.md#attach-private-sources).
+
 - <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
   **unfolded 2026-09-08, at Morgan's prompting.** Folded into
   [item 7](TODO.md#multiple-team-sources-disagree) on 2026-09-07 on the

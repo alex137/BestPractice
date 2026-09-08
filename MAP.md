@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 83 practice files (9 resident, 74 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 84 practice files (9 resident, 75 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -64,6 +64,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) | on-demand | a change must propagate across several parallel artifacts |
 | [park-it](practices/park-it.md) | on-demand | a person says "Park it" about an open item or a question |
 | [permutation-frontier-column](practices/permutation-frontier-column.md) | on-demand | building a permutation or configuration-sweep table |
+| [plain-words](practices/plain-words.md) | on-demand | a person says "Plain words" |
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [quick-index](practices/quick-index.md) | resident | looking for where something lives, before searching |

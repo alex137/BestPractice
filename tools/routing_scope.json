@@ -642,6 +642,17 @@
       ],
       "gates_why": "The obligation lands in the reply: mark the item this turn, say which one, ask nothing back."
     },
+    "plain-words": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate.",
+      "decided": "2026-09-08, when the practice landed at universal",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "It governs how every reply after the phrase is written, so the reply gate is the only moment it can fire; nothing about a file triggers it."
+    },
     "three-things": {
       "globs": [
         "**"
