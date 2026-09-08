@@ -685,11 +685,23 @@ deliberate procedure below.
    once. A dependent repository taking that update had two things in the
    deleted region that were genuinely its own: a note distinguishing its
    sense of "voice" from a vendored pack's, and a sentence-case deviation.
-   Both were carried — the deviation into the new `## Overrides` section,
-   which is where a deliberate departure from a catalogue rule belongs and
-   is exactly what that section was added for. **An override nobody wrote
-   down reads as a session ignoring a rule**, so moving it was not
-   bookkeeping.
+   Both were carried. **An override nobody wrote down reads as a session
+   ignoring a rule**, so moving them was not bookkeeping.
+
+   **Where an override goes is its own question, and the first answer here
+   was wrong.** This step originally said a departure from a catalogue rule
+   belongs in `VOICE.md`'s `## Overrides`, full stop — and that competes
+   with two mechanisms that were already there. Take the first that fits:
+   a **`precedent.json` knob** (`not_binding`, `internal_paths`,
+   `output_paths`, `filename_separator_exempt`) when the departure is
+   mechanical, because the tool reads it and it cannot drift; a
+   **`## Conventions` bullet in the instructions file** when a session has
+   to know it while doing ordinary work; and `VOICE.md` only for a voice
+   departure with no knob. **A session applying a rule is not reading
+   `VOICE.md` when it applies it** — which is why the repository that hit
+   this moved its sentence-case deviation into the instructions file the
+   next hour, and was right to. `VOICE.md` may still name it in one line and
+   point at where it lives; a pointer, never a copy.
 
 3. **Instantiate anything the recorded install predates.** An update can
    introduce templates and root files that did not exist when this repo
