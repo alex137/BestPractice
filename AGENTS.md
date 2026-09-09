@@ -947,6 +947,22 @@ gotcha every session reads is a gotcha every session pays for.
   itself.** Whether a valid token then works is still unmeasured; whoever
   gets one into a fresh session should record it here.
 
+  **Second half, 2026-09-09, and it removes the comfortable explanation: a
+  session in a BRAND-NEW container measured `env | grep -c PRECEDENT` as
+  **0** as well.** `uptime` read `up 0 min`, the container's own init
+  process was 40 seconds old at the first tool call, and Morgan had set
+  `PRECEDENT_GIT_TOKEN` before that
+  container existed — so "you set it after this container started" does not
+  cover it, and neither does "start a new session", which is what the
+  paragraph above tells you to do. **A fresh container does not see the
+  variable either.** Where it stops is unmeasured: the environment
+  configuration may not have saved it, or the runner may not pass
+  `PRECEDENT_*` through to the session at all. **Go read the environment
+  configuration itself before touching the token, the credential helper or
+  `add_repo`** — all three are downstream of a variable that is not arriving.
+  The session-start hook reported the whole downstream cost in the same
+  breath: four private sources unresolved, universal catalogue alone.
+
 - **A private repo name reaches a public tree by nobody having predicted it,
   so repo references are an ALLOWLIST, not a blocklist.** Declare an owner
   private-by-default in the private blocklist file
