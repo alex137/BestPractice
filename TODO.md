@@ -1426,11 +1426,71 @@ which is the failure this repointing exists to end — write
   regardless of team → a subject set. One person → individual. Only this
   repository → repo-local.
 
-  **Blocked on:** a session that can read those three repositories. Asked on
-  2026-09-08 and refused: `add_repo` would not attach `themorgan/*` from an
-  `alex137/*`-rooted session, and no sibling clone or user config existed on
-  disk, so the sort could not be started from guesses about what the sets
-  contain. Route is [`attach-private-sources`](TODO.md#attach-private-sources).
+  **DONE 2026-09-09**, from a session rooted in a `themorgan/` repo with all
+  five sets and this repo on disk — the route
+  [`attach-private-sources`](TODO.md#attach-private-sources) names, and it
+  worked exactly as written.
+
+  **The sort, and the count that made the case.** Of
+  `precedent-team-maintainers`' 40 practices, 19 were about something other
+  than maintaining a repository. 16 went to a new `precedent-team-writing`
+  (the craft of writing for a human reader: length and emphasis, when a list
+  is really a list, drafting markers, citation and linking, keeping a
+  reader's material out of a deliverable that is not for them) and 3 to a new
+  `precedent-team-working-style` (how a session paces work with the person).
+  21 stayed. Two moved up from the individual set; **three more were proposed
+  and reversed on reading the rules rather than their slugs**, each of which
+  says in its own text that it is not team policy — one of them outright
+  ("my preference for my own repositories, not a default I ask anyone else to
+  adopt"). Moving that one would have contradicted the rule while claiming to
+  enforce it.
+
+  **The strongest single finding.** The two practices that fire on *every
+  turn of every session* — the only two `tier: resident` rules in the whole
+  40 — were reachable only by a repository that also declared twenty-odd
+  rules about syncs, gates and branch setup. A document project therefore
+  declared none of them, and the team that most needed the writing rules had
+  one practice of its own. **Reach is what a set is worth, not how many files
+  it holds**, which is why a 3-practice set earns its own repository here.
+
+  **Migration for repos already on the old system is the two-step move
+  [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) prescribes**, applied
+  19 times: land at the destination first, verify it there, deduplicate at
+  the source second. Nothing was deleted and no rule left force for a moment.
+  Every moved practice keeps its file in the old set as `status:
+  deduplicated`, with `in_force_at:` naming the same slug and a `## Story`
+  line saying which set now holds it. So a repo that has not yet updated its
+  `precedent.json` resolves fewer practices — and the ones it no longer gets
+  are each sitting in the set it still declares, saying by name where they
+  went. That is the difference between a migration and a disappearance.
+
+  **What made it safe to do at all** is the guard this item already named:
+  two team sets defining one slug is a hard refusal, so one rule has exactly
+  one home by construction. Verified across all four team sets after the
+  move: no collisions.
+
+  **Left alone, and NOT a duplicate — this one is worth reading before the
+  next audit re-raises it.** `catalogue-carries-stories` is `active` in
+  `precedent-team-maintainers` *and* `active` at universal, which every
+  slug-overlap scan reports and `no-duplication` appears to condemn. It was
+  in fact deduplicated on 2026-09-07 and **re-activated the same day**, for a
+  mechanical reason the practice file now records in its own `## Story`: **a
+  source repo consumes no catalogue**, so universal's copy never reaches a
+  set like that one, and `precedent_check.py` gates every check on its
+  practice being in force *there*. Deduplicating it did not defer enforcement
+  to universal — it switched enforcement off.
+
+  So the same-slug copy is not a restatement; it is the mechanism by which a
+  source set puts a universal rule in force on its own catalogue, and any
+  audit that reasons from the slug overlap alone will keep proposing the
+  round trip that was already made and reversed. The general wart — **a
+  source set must re-declare a universal practice to enforce it on itself** —
+  is real and unaddressed, and belongs to
+  [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos),
+  whose own note that "a copy is usually the bug" needs this counter-example
+  attached to it. And item 7 stays parked: nothing in this split expresses
+  a preference between two disagreeing team sources, because nothing here
+  produced two sources that disagree.
 
 - <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
   **unfolded 2026-09-08, at Morgan's prompting.** Folded into
@@ -1474,6 +1534,19 @@ which is the failure this repointing exists to end — write
     delete from both team sets. A reconcile tool should propose **promotion
     first** and a text merge second, or it will keep three copies healthy
     forever.
+
+    **The counter-example this tool must not break, found 2026-09-09:**
+    `catalogue-carries-stories` is active at universal AND in
+    `precedent-team-maintainers`, and that second copy is load-bearing. A
+    source repo consumes no catalogue, so universal's copy never reaches it
+    and `precedent_check.py` only runs a check whose practice is in force
+    *there* — deduplicating it switches the check off rather than deferring
+    it. It was deduplicated and re-activated within one day on exactly that
+    discovery. So **"same slug, active in two sources" is not sufficient
+    evidence of a redundant copy**, and a tool that promotes on that signal
+    alone will silently disable enforcement. The distinguishing question is
+    whether the lower source actually RESOLVES the higher one, which the
+    resolver can answer and a text-similarity score cannot.
   - **It must not be a judge-only reading pass.**
     [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) pre-registered and
     measured that exact shape at 54% recall — worse than doing the work with

@@ -348,10 +348,36 @@ it applies.
      {
        "sources": [
          {"level": "universal", "name": "precedent", "path": "process/upstream"},
-         {"level": "team", "name": "precedent-team-<slug>", "path": "../precedent-team-<slug>"}
+         {"level": "team", "name": "precedent-team-<slug>", "path": "../precedent-team-<slug>"},
+         {"level": "team", "name": "precedent-team-<other>", "path": "../precedent-team-<other>"}
        ]
      }
      ```
+     **A repo declares as many team sets as its work needs, and this is
+     the ordinary case, not an exception.** Team sets are named for a
+     **subject**, so one team declares several and one set serves several
+     teams. Two team sets defining the same slug is refused outright —
+     that guard is what keeps one rule to one home, and it is why a set
+     you need is added by declaring it rather than by copying its rules
+     in.
+
+     **Which team sets does this repo declare?** Start from the kind of
+     work the repo is for:
+
+     | The repo is… | Declare |
+     |---|---|
+     | software or tooling, maintained by a team | that team's set + the writing set + the working-style set |
+     | a document or content project | that team's set + the writing set + the working-style set |
+     | a practice set's own repository | the maintaining team's set + the writing set |
+
+     The pattern underneath it: **a set that is about a kind of work is
+     declared by everyone who does that work**, whatever team they are on,
+     and a set that is about running a particular kind of repository is
+     declared only by repositories of that kind. A document project that
+     declares a repo-mechanics set receives a stack of rules about syncs,
+     gates and branch setup it has no way to act on — and the cheap
+     remedy is not declaring the set, not a `not_binding` entry per slug.
+
      **Names are fixed by level, not chosen** — `precedent` for the
      universal set, `precedent-individual` for a person's own,
      `precedent-team-<slug>` for a team's, `local` for a repo-local one.
