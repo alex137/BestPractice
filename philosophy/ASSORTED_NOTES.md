@@ -1,6 +1,6 @@
 <!-- Last updated: 2026-09-07 (Buenos Aires) by the session copying this document into philosophy/; source: the project's own prior notes repository, content/RANDOM_NOTES.md, version 18 -- that repository was made private and is being deleted, so philosophy/ is this document's home now, not a copy of one. -->
 
-# Random Notes — How to Work With AI
+# Assorted Notes — How to Work With AI
 
 One entry per idea, prompt, workflow, or observation. Loosely grouped;
 reorganize once a group gets big enough to need its own document (link it
@@ -177,7 +177,7 @@ someone else to contribute a practice back.
 For points 2 and 3: "normie" employees might default to the shallow use —
 simple prompting — and never discover the deeper mode, unless something
 pushes them there. Candidate mechanisms, none decided yet (this is a
-**decision**-class item, see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)):
+**decision**-class item, see [the Open Questions section below](#open-questions)):
 
 - Have AI Assistant push back harder than its default on direct instructions —
   question them instead of just complying.
@@ -344,7 +344,7 @@ idea that doesn't actually hold up. The fix wasn't a new rule, it was
 naming the stage that was missing: [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md),
 sitting between the essays here and RepoPersonalPreferences, holding
 whatever's currently on trial. See [README.md](README.md)'s new pipeline
-section and [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for what is still open.
+section and [the Open Questions section below](#open-questions) for what is still open.
 
 ## Ideas Set Aside, Not Carried Forward
 
@@ -370,24 +370,73 @@ moved here instead of staying in that essay.*
 
 - [ ] *(seed this with real incidents as they come up)*
 
+## Open Questions
+
+**These are the unfinished parts of the argument, not open engineering
+work on this repository.** Each one was a live item in the notebook these
+essays came from, and each is about the ideas rather than about any code
+here — so they travelled with the essays rather than into
+[../TODO.md](../TODO.md), which tracks Precedent's own build. They were
+a document of their own until 2026-09-09; a five-item list is a section
+([README.md](README.md) records the lineage).
+
+Nothing here binds anything, the same as everything else in this
+directory ([philosophy-is-not-repo-policy](../local/practices/philosophy-is-not-repo-policy.md)).
+A question that gets answered well enough to act on becomes a practice
+file in [../practices/](../practices/), not an edit to this list.
+
+### Contradictions Across the Brainstorm
+
+Look for tensions between entries in this document — for
+example `build-five-kill-four` against
+[`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows)'s
+"don't systematize a one-off". Worth a dedicated pass once there is enough
+material for real tensions to surface. [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md)'s
+contradiction-scanning rule is the same job described from the other side.
+
+### Active Resurfacing
+
+[`active-resurfacing`](AI_GOVERNANCE_TO_COCREATE.md#active-resurfacing)
+sets the test: *"you decided X six weeks ago"*, unprompted. That needs
+something which mines and ranks prior decisions rather than only answering
+when asked. **No design has been proposed.**
+
+### Automatic Workflow-Candidate Detection
+
+Mining commit and session history for a recurring task shape, instead of
+relying on a human noticing. Today the reflex in
+[RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) is human-triggered, which is
+the part the idea says should not stay true.
+
+### Situational, Inferred Cost-Awareness
+
+[`cost-awareness-situational`](AI_GOVERNANCE_TO_COCREATE.md#cost-awareness-situational)
+records that a fixed "surface spend per outcome" policy **was already
+proposed and rejected**. The open half is inferring *which* posture
+applies — an explicit budget mention, the project's stage, stated
+intent — rather than applying one policy everywhere. Passive cost logging
+is the one piece worth keeping regardless.
+
+### The Coldstart Test as a Periodic Check
+
+Can a fresh session, given only the memory store, reconstruct the state of
+any live decision? It is a manual audit idea today. The open question is
+whether it earns a place as a recurring check or stays ad hoc.
+
 ## See Also
 
+- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+  this approach argues are unique, specifically taken together.
 - [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
 - [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
+- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+  essay on rules for building a company around AI.
+- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+  standalone essay on how AI systems themselves should be configured,
+  built, and run.
 - [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — standalone
-  essay promoted out of the brainstorm: rules for building a company
-  around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) —
-  standalone essay promoted out of the brainstorm: how AI systems
-  themselves should be configured, built, and run.
-- [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) — pipeline stage 2: the
-  practical rules actually being tried in real work right now.
-- [CORE_PILLARS.md](CORE_PILLARS.md) — one-page
-  pitch: the core ideas this repo argues are unique specifically taken
-  together.

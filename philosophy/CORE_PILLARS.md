@@ -13,10 +13,16 @@ None of them is new on its own; together, they make collaborative work look and 
 
 ## See Also
 
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md)
-- [REASONS_WHY.md](REASONS_WHY.md)
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md)
-- [RANDOM_NOTES.md](RANDOM_NOTES.md)
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md)
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md)
-- [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md)
+- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+  ideas everything else here assumes, named and explained on their own
+  terms.
+- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+  ideas actually produce in practice.
+- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+  essay on rules for building a company around AI.
+- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+  standalone essay on how AI systems themselves should be configured,
+  built, and run.
+- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+  humans are good at, gathered from the shorter versions scattered here
+  and elsewhere.
