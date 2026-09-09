@@ -743,7 +743,18 @@ def _resident_slugs(repo_dir):
     session always -- so a shipped file contradicting one puts two live
     orders in the same context window, every turn, in every adopter repo.
     """
-    slugs = []
+    return sorted({fm.get('slug', '') for fm in _resident_practices(repo_dir)})
+
+
+def _resident_practices(repo_dir):
+    """-> frontmatter of every active resident practice, slug order.
+
+    One walk feeding both readers -- the shipped-rules section, which needs
+    the slugs, and the tier-placement section, which needs the occasion and
+    whether a check already covers the practice. (practice: very-deep-check,
+    pass 2 question 8: two of anything that should be one.)
+    """
+    out = {}
     for sub in ('practices', 'local/practices'):
         d = pathlib.Path(repo_dir) / sub
         if not d.is_dir():
@@ -756,8 +767,9 @@ def _resident_slugs(repo_dir):
             if (fm.get('status') or 'active').strip() != 'active':
                 continue
             if (fm.get('tier') or '').strip() == 'resident':
-                slugs.append(fm.get('slug', f.stem))
-    return sorted(set(slugs))
+                fm.setdefault('slug', f.stem)
+                out[fm['slug']] = fm
+    return [out[s] for s in sorted(out)]
 
 
 def _doc_currency(repo_dir):
@@ -1974,6 +1986,30 @@ def main():
           "question is \"would a session hit\n  this today\", never \"how big "
           "is it\". What no longer bites moves to a\n  linked archive IN FULL, "
           "never to a deletion.")
+    print()
+
+    print("TIER PLACEMENT -- which practices are loaded from turn one\n")
+    _resp = _resident_practices(repo_root)
+    if _resp:
+        print("  The resident set is capped by tools/build_views.py, which fails "
+              "the build\n  when it is over budget -- so the trade is forced once, "
+              "when somebody adds\n  a resident practice, and nothing revisits it "
+              "afterwards. This is that read.\n")
+        for _fm in _resp:
+            _chk = 'checked' if (_fm.get('checked_by') or '').strip() not in ('', 'null') else '  --   '
+            print(f"  {_chk}  {_fm.get('slug', '')}")
+            print(f"           occasion: {(_fm.get('occasion') or '(none)').strip()[:88]}")
+        print("\n  Both directions, and judge the OCCASIONS, not the token count: "
+              "is each of\n  these really every-session-always, and is any "
+              "on-demand practice being\n  missed because it only reaches a "
+              "session that thought to ask? A third\n  answer is available and "
+              "was right twice (spec/LOADER.md): the loader arm\n  found "
+              "`verify-postcondition` and `environment-gotchas` 0 times while "
+              "both\n  were resident, at two Rule lengths -- what they needed was "
+              "a `checked_by`,\n  not a tier. The unchecked rows above are where "
+              "that question lives.")
+    else:
+        print("  none -- this repository has no resident practice.")
     print()
 
     print("RULES WE SHIP SOMEWHERE ELSE -- inert here, binding there\n")
