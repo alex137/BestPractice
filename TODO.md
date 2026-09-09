@@ -2260,3 +2260,25 @@ which is the failure this repointing exists to end — write
    `precedent-team-maintainers`, neither of which this session could attach
    (`add_repo` refused with *"cross-tier adds are not supported in v1"*)
    (`cross-source-rollout`).
+
+47. <a id="whatsapp-bridge-research"></a>**Research the WhatsApp bridge properly, or drop it.**
+   [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md)
+   designs a bot that gives each participant a private WhatsApp thread and
+   commits what they say into a project repository — the hub-and-spoke shape
+   that keeps the whole thing on Meta's official interface rather than a
+   reverse-engineered client. **Every platform claim in it is unverified**,
+   and the document says so throughout: the messaging-window rules, template
+   approval and pricing, whether virtual numbers are accepted for
+   registration, and what business verification actually demands. What is
+   needed is the document's own phase 0 — register a test number, send and
+   receive one message, and read the current rules off Meta's live
+   documentation rather than off a session's recollection
+   ([no-invented-specifics](practices/no-invented-specifics.md)). The three
+   open questions at the foot of that document are downstream of it and
+   should not be answered before it.
+   **Blocked-on:** a Meta Business account and a dedicated phone number,
+   neither of which exists yet and neither of which a session can obtain —
+   phase 0 is an errand for a person, not a task an agent can finish. It is
+   queued rather than done for that reason alone. It carries no disposition,
+   so it is `wait` ([open-item-disposition](practices/open-item-disposition.md)):
+   nobody chases it, and nobody raises it unless Morgan asks.

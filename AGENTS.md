@@ -490,6 +490,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
 | The working method (branches, plain text, critique, prompts) | [METHOD.md](METHOD.md) |
 | Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](MOBILE.md) |
+| A brainstormed WhatsApp bridge — a bot with a private thread per person, committing what they say into a project repo. **Speculative: nobody has decided to build it, and every platform claim in it is unverified** | [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md) |
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
 | The full text of every gotcha that was shortened or retired — the story behind a live entry, and the settled ones | [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) |
