@@ -10890,6 +10890,29 @@ def check_source_credentials():
                       rc == 0 and psb.BASE_URL_ENV in out
                       and 'NOT in force' in out, f'rc={rc} {out[:300]}'))
 
+        # --- 9b: a failed clone names WHICH failure it was -----------------
+        # Each branch asserts the words that branch alone prints
+        # (practice: control-asserts-which-failure): "it failed" is the
+        # report that sends somebody to re-issue a credential that was fine.
+        # The two live strings were taken from real git output against
+        # github.com on 2026-09-09, not invented -- one with no credential,
+        # one with a deliberately invalid PRECEDENT_GIT_TOKEN.
+        for output, want in (
+            ("fatal: could not read Username for 'https://github.com': "
+             "terminal prompts disabled", 'NO CREDENTIAL was available'),
+            ('remote: Invalid username or token. Password authentication is '
+             'not supported for Git operations.', 'AUTHENTICATION was refused'),
+            ('remote: Repository not found.', 'NOT FOUND'),
+            ('error: some unrelated network thing', 'it'),
+        ):
+            got = psb._diagnose(output)
+            cases.append((f'a clone failure reading {output[:38]!r} is '
+                          f'diagnosed as {want!r}, not merely as a failure',
+                          # the fallback is asserted as an EXACT value: 'it'
+                          # is a substring of half the English language, so
+                          # `want in got` would pass on any branch at all.
+                          (got == want if want == 'it' else want in got), got))
+
         # --- 10: the announced degradation when the module is not vendored --
         lonely = tmp / 'lonely-tools'
         lonely.mkdir()

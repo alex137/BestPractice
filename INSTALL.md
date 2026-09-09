@@ -1178,6 +1178,35 @@ own header either way.
 reads the environment variable itself, so it appears in no command line, no
 clone's `.git/config`, and none of the files the bootstrap writes.
 
+**Setting the variable does not reach a session that is already running**,
+and the check below reads identically for "never set" and "set five minutes
+ago" — which is exactly how a correct configuration gets reported as a broken
+one (2026-09-09: a resumed session in a container that predated the change
+measured **zero** `PRECEDENT_*` variables, not an empty token). **Test an
+environment change in a NEW session**, and run `env | grep -c PRECEDENT`
+before concluding anything about the token itself.
+
+**If the token is not set, there are two fallbacks and then nothing.** In
+order:
+
+1. **`add_repo` from inside the session**, which grants access for that
+   session only. It works when the practice sets and the repository you are
+   working in belong to the **same GitHub owner**; across owners it refuses,
+   and no ordering of calls avoids that — the initial repository already
+   counts.
+2. **Start the session rooted at the practice set itself**, and reach the
+   other repository by a plain `git clone` if it is public. This is what the
+   cross-owner case is left with, and it is why work spanning both owners
+   gets split across two sessions.
+3. **Nothing else, by design.** There is no offline copy to fall back on: a
+   private set's text may not be vendored into a repository other people can
+   read, which is the whole reason it is a separate private repository. So
+   when neither route is available, **the session runs on the universal
+   catalogue alone** — and the only protection left is knowing it. That is
+   what every line below is for; a session in this state should say so in its
+   reply rather than let the reader assume the personal and team rules were
+   applied.
+
 **Check it from inside any session:**
 
 ```

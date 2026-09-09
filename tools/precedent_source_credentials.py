@@ -203,7 +203,16 @@ def assess(repo_root=None, env=None):
         f'session is applying the universal catalogue alone. Reasons: {detail}. '
         f'Set {TOKEN_ENV} in the environment configuration (INSTALL.md section 8) '
         f'so the SessionStart hook can clone without add_repo, or start a '
-        f'session rooted in the private repo itself')
+        f'session rooted in the private repo itself. '
+        # The two cases this line CANNOT tell apart, said out loud rather than
+        # left to be misread (2026-09-09: a resumed session measured zero
+        # PRECEDENT_* variables in a container that predated the change, and
+        # the identical MISSING line read as "the token does not work").
+        f'IF YOU JUST SET IT: an environment variable does not reach a session '
+        f'that is already running, and this line looks exactly the same for '
+        f'"never set" and "set after this container started" -- start a NEW '
+        f'session and check `env | grep -c PRECEDENT` before concluding '
+        f'anything about the token itself')
 
 
 def remind(repo_root=None, env=None, prefix='precedent_source_credentials'):

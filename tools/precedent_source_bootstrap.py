@@ -215,6 +215,10 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
 
 
 BASE_URL_ENV = 'PRECEDENT_SOURCE_BASE_URL'
+TOKEN_ENV_NAME = 'PRECEDENT_GIT_TOKEN'  # named, not imported: this file
+                                        # must run in a tree vendored
+                                        # before the credentials module
+                                        # existed (see _credential_args)
 
 
 def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
@@ -265,6 +269,29 @@ def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     return results
 
 
+def _diagnose(output):
+    """Name WHICH failure git reported, since the remedies are opposite ones.
+
+    "No token" and "the token is wrong" and "that repository does not exist"
+    all end in the same silence otherwise, and the first thing anybody does
+    with an unexplained failure is re-set a credential that was fine
+    (practice: fail-gracefully -- match the telling to the reader)."""
+    low = (output or '').lower()
+    if 'invalid username or token' in low or 'authentication failed' in low:
+        return ('AUTHENTICATION was refused by the server, so a credential '
+                'WAS sent and it was not accepted -- check the token\'s scope '
+                'and expiry rather than whether it is set.')
+    if 'could not read username' in low or 'terminal prompts disabled' in low:
+        return (f'NO CREDENTIAL was available -- git asked for a username and '
+                f'there was nothing to answer with. Set ${TOKEN_ENV_NAME} in '
+                f'the environment (INSTALL.md section 8).')
+    if 'repository not found' in low or 'does not appear to be a git repo' in low:
+        return ('the repository was NOT FOUND, which for a private repo is '
+                'also what insufficient access looks like -- check the name '
+                'and the credential\'s access to it.')
+    return 'it'
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument('--level', choices=sorted(LEVELS))
@@ -313,7 +340,8 @@ def main(argv=None):
                                     retries=args.retries,
                                     retry_delay=args.retry_delay)
     if not ok:
-        print(f"precedent_source_bootstrap: could not reach {args.repo_url!r} "
+        print(f"precedent_source_bootstrap: {_diagnose(last_output)} "
+              f"could not reach {args.repo_url!r} "
               f"after {args.retries} attempt(s) -- this environment may not "
               f"(yet) have read access to it. The {args.level} source "
               f"{args.name!r} will not be in force this session unless "

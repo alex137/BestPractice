@@ -179,6 +179,20 @@ def main():
                  f"practices registered to it. An empty gate is a step that "
                  f"loads nothing and looks like it worked.")
     manifest = ps._materialize_manifest(root)
+    # A session about to WRITE A REPLY under the wrong rules is the costliest
+    # form of the missing-sources failure, and the one nobody notices: the
+    # rules that did not load are disproportionately about how a reply is
+    # written. So the reply gate says it, at the moment it matters
+    # (practice: fail-gracefully -- never look complete).
+    if gate == 'reply':
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_source_credentials as psc
+            line = psc.remind(root, prefix='precedent gate')
+            if line:
+                print(f"{line}\n")
+        except ImportError:
+            pass
     print(f"# Practices for the {gate} gate — {vocab[gate]}\n")
     for slug in slugs:
         fm, sections = sp._read_practice_file(practices_dir / f'{slug}.md')
