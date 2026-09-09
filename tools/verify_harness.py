@@ -4391,6 +4391,20 @@ def check_precedent_check_fires():
         case('session-bootstrap',
              lambda repo: shutil.rmtree(repo / '.claude' / 'hooks'))
 
+        # declared-hooks-exist -- settings.json still declares a hook file
+        # that is no longer there. This is the 2026-09-08 incident with the
+        # variables swapped: there every hook path was right and the session
+        # root was wrong, here the root is right and the file is gone. Both
+        # render identically, as nothing at all, which is why a machine has
+        # to be the one asking.
+        def _plant_declared_hook(repo):
+            (repo / '.claude' / 'hooks' / 'commit-identity.sh').unlink()
+        case('declared-hooks-exist', _plant_declared_hook)
+        cases.append(('declared-hooks-exist: the planted violation names the '
+                      'hook that went missing, not just that something did',
+                      'commit-identity.sh does not exist'
+                      in planted['declared-hooks-exist'][1]))
+
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
             up = repo / 'process' / 'upstream' / 'tools'

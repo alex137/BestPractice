@@ -34,6 +34,24 @@ merge rules, which this tool has no way to know. The unattended path is the
 scheduled workflow the source templates now ship, which runs in the source
 repo itself where its own rules apply.
 
+A SECOND THING THIS COVERS, AND WHY IT IS THE SAME TOOL (added
+2026-09-09). A source set also carries its own session hooks -- the
+freshness guard and the commit-identity backstop -- installed by
+tools/precedent_bootstrap_source.py when the set is created. Sets created
+BEFORE that existed never got them, and nothing has ever repaired one:
+there was an install path and no refresh path, which is the same asymmetry
+this tool was built to close for the vendored engine, one directory over.
+Found on 2026-09-09 in a real individual source: a .claude/settings.json
+present, .claude/hooks/ absent entirely, every session there running with
+its guards off and nothing saying so.
+
+Hooks are checked and repaired INDEPENDENTLY of engine staleness, because
+they are independent: a set can be current at the tip and still have no
+hooks at all, which is precisely the state that was found. An existing
+settings.json is never rewritten -- if it wires something this tool does
+not recognise, that is reported for a person to read, not resolved by
+guesswork.
+
 Run:
   python3 tools/precedent_refresh_sources.py                 # report
   python3 tools/precedent_refresh_sources.py --check         # exit 1 if any stale
@@ -42,10 +60,25 @@ Run:
   python3 tools/precedent_refresh_sources.py --path ../other-set
 Exit: 0 always, except --check with a stale source, or a malformed manifest.
 """
-import json, pathlib, subprocess, sys
+import json, os, pathlib, re, subprocess, sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_resolve
+
+# The hook installer, imported rather than reimplemented: settings.json's
+# payload and the hook list have exactly one definition, in the tool that
+# creates a source set, and this one repairs what that one installs. A
+# second copy here would drift, and the drift would be invisible -- both
+# copies would keep producing a settings.json that looked right.
+# Neither module is in precedent_vendor_engine.ENGINE_FILES, so both run
+# only from a BestPractice checkout, where this import always resolves.
+try:
+    import precedent_bootstrap_source as _bootstrap
+except Exception as exc:            # reported below, never raised: a hook
+    _bootstrap = None               # problem must not take down the engine
+    _bootstrap_err = f'{type(exc).__name__}: {exc}'   # staleness report
+else:
+    _bootstrap_err = None
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -174,8 +207,158 @@ def survey(extra_paths=()):
         # those bytes are.
         stale = None if not tip else (recorded != tip)
         found.append({'repo': repo, 'kind': man.get('kind', '?'),
-                      'recorded': recorded, 'stale': stale, 'error': None})
+                      'recorded': recorded, 'stale': stale, 'error': None,
+                      'hooks': hook_state(repo)})
     return tip, tip_ref, found
+
+
+def _declared_base_branch(root):
+    """The branch a source set's work is measured against, as DECLARED in
+    its own precedent.json `base_branch` -- not inferred from origin/HEAD.
+
+    Same helper, same reasoning, as doc_lint.py's: origin/HEAD answers "what
+    does GitHub show first", and every caller here means "what lineage does
+    this work belong to". This repo is itself the standing counterexample --
+    its default branch is main and its work is on precedent-beta-v01 -- and
+    wiring a source set's freshness guard to the wrong one of those makes it
+    compare against a lineage that set never touches, silently. Returns None
+    when undeclared or unreadable, so the caller falls back rather than
+    breaking (practice: fail-gracefully). Enforced by precedent_check.py's
+    `declared-base-branch`."""
+    try:
+        v = json.loads((pathlib.Path(root) / 'precedent.json')
+                       .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
+
+def _default_branch(repo):
+    """The base branch freshness-guard.sh gets wired to compare against.
+
+    Declaration first, inference second, `main` last -- and `main` is a
+    fallback, not an answer. Both git calls are consulted for their EXIT
+    CODE as well as their text, per the _git() note above."""
+    declared = _declared_base_branch(repo)
+    if declared:
+        return declared
+    ok, out = _git('symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD', cwd=repo)
+    if ok and out.startswith('refs/remotes/origin/'):
+        return out.rsplit('/', 1)[-1]
+    ok, out = _git('rev-parse', '--abbrev-ref', 'HEAD', cwd=repo)
+    if ok and out and out != 'HEAD':
+        return out
+    return 'main'
+
+
+HOOK_TOKEN_RE = re.compile(r'\$\{?CLAUDE_PROJECT_DIR\}?/(\S+)')
+
+
+def _declared_hooks(repo):
+    """{hook name -> [paths it is declared at]}, read out of every
+    settings*.json the set carries.
+
+    WHY THIS RESOLVES PATHS INSTEAD OF LOOKING IN .claude/hooks/ (2026-09-09,
+    and this cost a wrong diagnosis before it cost anything else). A source
+    set is free to keep its hooks somewhere else and point settings.json
+    there: the individual set does exactly that, wiring four hooks under its
+    own tracked bootstrap/ directory precisely so there is one copy and
+    nothing to drift from it. An earlier version of this function looked for
+    the two file names under .claude/hooks/, found neither, and would have
+    reported a perfectly healthy set as having its guards off -- then
+    "repaired" it by installing the second copy that set's own comment
+    exists to prevent. **The absence of .claude/hooks/ is not evidence of a
+    missing hook.** Only the declared path can answer that."""
+    out = {}
+    for s in sorted((repo / '.claude').glob('settings*.json')):
+        try:
+            payload = json.loads(s.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for entries in (payload.get('hooks') or {}).values():
+            for entry in entries if isinstance(entries, list) else []:
+                for h in (entry.get('hooks') or []) if isinstance(entry, dict) else []:
+                    cmd = h.get('command') if isinstance(h, dict) else None
+                    if not isinstance(cmd, str):
+                        continue
+                    for m in HOOK_TOKEN_RE.finditer(cmd):
+                        rel = m.group(1)
+                        out.setdefault(pathlib.PurePath(rel).name, []).append(rel)
+    return out
+
+
+def hook_state(repo):
+    """-> {'error', 'missing', 'unwired', 'has_settings'} for one source set.
+
+    `missing` is what --apply may write: a session hook the set DECLARES at
+    the canonical .claude/hooks/<name> and does not have, or has without the
+    executable bit (which the bootstrap installer sets for the reason its own
+    comment gives -- a hook that is not executable is a hook that silently
+    never runs); plus, when the set has no settings*.json at all, both hooks
+    and their wiring, which is the case _install_session_hooks was written
+    for.
+
+    `unwired` is a hook no settings*.json declares anywhere. It is reported
+    and never repaired: a set may leave one out on purpose, and one of the
+    five real sets does. Writing a file nothing declares would produce a
+    hook that still never runs, plus a diff nobody asked for."""
+    if _bootstrap is None:
+        return {'error': _bootstrap_err, 'missing': [], 'unwired': [],
+                'has_settings': False}
+    settings = sorted((repo / '.claude').glob('settings*.json'))
+    declared = _declared_hooks(repo)
+    missing, unwired = [], []
+    for name in _bootstrap.SESSION_HOOKS:
+        where = declared.get(name)
+        if not where:
+            if settings:
+                unwired.append(name)
+            else:
+                # No settings at all: nothing is declared because nothing
+                # has been installed, which is the state bootstrap creates
+                # from and the one case worth writing wiring for.
+                missing.append(f'{name} (no .claude/settings.json at all)')
+            continue
+        canonical = f'.claude/hooks/{name}'
+        resolved = [(rel, repo / rel) for rel in where]
+        if any(path.is_file() and os.access(path, os.X_OK)
+               for _, path in resolved):
+            continue
+        for rel, path in resolved:
+            if not path.is_file():
+                what, fixable = 'absent', rel == canonical
+            elif not os.access(path, os.X_OK):
+                what, fixable = 'not executable', rel == canonical
+            else:
+                continue
+            missing.append(f'{name} (declared at {rel}, {what})'
+                           + ('' if fixable else ' — not under .claude/hooks/, '
+                              'so this tool will not guess; fix it there'))
+    return {'error': None, 'missing': missing, 'unwired': unwired,
+            'has_settings': bool(settings)}
+
+
+def _repairable(entry):
+    """Only findings this tool can honestly act on: a hook the set declares
+    at the canonical path, or a set with no wiring at all. A hook declared
+    somewhere else is the set's own arrangement and is reported, not
+    overwritten."""
+    return [m for m in (entry.get('hooks') or {}).get('missing', [])
+            if 'will not guess' not in m]
+
+
+def repair_hooks(repo):
+    """(ok, message). Writes the session hooks and, only when the set has no
+    settings*.json at all, the wiring for them -- _install_session_hooks
+    itself declines to overwrite an existing one."""
+    if _bootstrap is None:
+        return False, _bootstrap_err
+    try:
+        written = _bootstrap._install_session_hooks(repo, _default_branch(repo))
+    except Exception as exc:        # a repair that fails must say so and
+        return False, f'{type(exc).__name__}: {exc}'      # leave the rest
+    return True, ', '.join(str(pathlib.Path(w).relative_to(repo))
+                           for w in written)
 
 
 def _run(cmd, cwd):
@@ -270,26 +453,71 @@ def main(argv):
                   f"{e['recorded'][:12] or '(none)'}, {tip_ref} is {tip[:12]}")
         else:
             print(f"  ok     {_label(e['repo'])} ({e['kind']}): current at {tip[:12]}")
+        # The hook line is printed for a CURRENT source too, and that is the
+        # whole point: the set this was written for was current at the tip
+        # and had no hooks at all. Reporting hooks only for stale sets would
+        # have kept it invisible.
+        h = e.get('hooks') or {}
+        if h.get('error'):
+            print(f"         hooks not checked: {h['error']}")
+        elif h.get('missing'):
+            print(f"         HOOKS  {', '.join(h['missing'])} — sessions in "
+                  f"that set run with those guards off, silently")
+        elif h.get('unwired'):
+            print(f"         hooks present but no settings*.json wires "
+                  f"{', '.join(h['unwired'])} — read that file yourself; "
+                  f"this tool never rewrites one")
 
-    if not stale:
+    hookbad = [e for e in found if _repairable(e)]
+    if not stale and not hookbad:
         print(f"precedent_refresh_sources: {len(found)} attached source(s), all current.")
         return 0
 
     if '--apply' not in argv:
-        print(f"\nprecedent_refresh_sources: {len(stale)} of {len(found)} attached "
-              f"source(s) are behind {tip_ref}. Re-run with --apply to refresh and "
-              f"regenerate them (add --commit to commit the result on a branch in "
-              f"each); publishing stays your call, per each repo's own merge rules.")
+        if stale:
+            print(f"\nprecedent_refresh_sources: {len(stale)} of {len(found)} attached "
+                  f"source(s) are behind {tip_ref}.")
+        if hookbad:
+            print(f"precedent_refresh_sources: {len(hookbad)} of {len(found)} attached "
+                  f"source(s) are missing session hooks.")
+        print(f"Re-run with --apply to refresh and regenerate them (add --commit to "
+              f"commit the result on a branch in each); publishing stays your call, "
+              f"per each repo's own merge rules.")
         return 1 if '--check' in argv else 0
 
     failed = False
+    # Hooks first, and over every affected set rather than only the stale
+    # ones: the two problems are independent (see the docstring), and a hook
+    # repair on a stale set is then swept into that set's refresh commit
+    # below instead of needing one of its own.
+    for e in hookbad:
+        print(f"\n--- {_label(e['repo'])}")
+        ok, out = repair_hooks(e['repo'])
+        print(f"  {'ok ' if ok else 'FAIL'} hooks: {out}")
+        failed = failed or not ok
+        if ok and '--commit' in argv and not e['stale']:
+            br = 'precedent/restore-session-hooks'
+            for step in (['git', 'checkout', '-B', br],
+                         ['git', 'add', '-A', '.claude'],
+                         ['git', 'commit', '-m',
+                          'Restore the session hooks this set was created without\n\n'
+                          'Written by tools/precedent_refresh_sources.py --apply from a\n'
+                          'BestPractice checkout. A hook whose path does not exist is\n'
+                          'not an error anybody sees, so these were off silently.']):
+                ok, out = _run(step, e['repo'])
+                print(f"  {'ok ' if ok else 'FAIL'} {step[1]}: "
+                      f"{out.splitlines()[-1] if out else ''}")
+                if not ok:
+                    failed = True
+                    break
+
     for e in stale:
         e['tip'] = tip
         print(f"\n--- {_label(e['repo'])}")
         for name, ok, out in apply_to(e, commit='--commit' in argv):
             print(f"  {'ok ' if ok else 'FAIL'} {name}: {out.splitlines()[-1] if out else ''}")
             failed = failed or not ok
-    print("\nprecedent_refresh_sources: refreshed. Review each repo's diff, then "
+    print("\nprecedent_refresh_sources: applied. Review each repo's diff, then "
           "push and open a pull request there -- this tool never publishes.")
     return 1 if failed else 0
 

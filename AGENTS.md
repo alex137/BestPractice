@@ -470,7 +470,8 @@ that skips them in this repo of all places is the joke writing itself.
 | The very deep check: four ordered passes over every repo in force — adopter installs, whether the mechanisms tell the truth, the coherence read, then catalogue and housekeeping — on request only, distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
 | Whether this session can reach its PRIVATE practice sources at all, and the credential that removes the `add_repo` dance | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py), setup in [INSTALL.md](INSTALL.md) §8 |
-| Whether an attached practice-set source's vendored engine has gone stale, and bringing it up to date | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes, `--commit` commits |
+| Whether an attached practice-set source's vendored engine has gone stale, or is missing the session hooks a source is created with, and repairing either | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes and restores hooks, `--commit` commits |
+| Whether a hook this repo *declares* actually exists on disk and is executable — the failure the harness reports as nothing at all | [tools/precedent_check.py](tools/precedent_check.py) — `--only declared-hooks-exist` |
 | Whether this session's SessionStart hooks actually ran, and repairing them if not | [tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand |
 | Whether Alex has moved `main` since the last carry onto this branch, and what changed | [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py) — printed at session start; the watermark it compares against is [tools/upstream_watermark.json](tools/upstream_watermark.json), moved with `--record` in the carry's own commit |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
@@ -743,6 +744,50 @@ gotcha every session reads is a gotcha every session pays for.
   checks each guarantee by what it left behind, and `--apply` runs the three
   hooks by hand. It cannot itself be a hook, for the obvious reason.
 
+- **The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are
+  missing. Resolve the paths its settings.json actually declares — a
+  directory listing cannot answer the question.** 2026-09-09: a session
+  measured that an individual practice source had a `.claude/settings.json`
+  and no `.claude/hooks/` directory at all, and concluded from that pair
+  alone that the set's freshness guard and commit-identity backstop had been
+  declared and silently off for its whole life. **They had not been.** That
+  set wires four hooks to its own tracked `bootstrap/` directory, on purpose,
+  so that one copy exists and nothing can drift from it; all four resolve,
+  exist, and are executable. A path-resolving check across all five private
+  sets then found every declared hook present and executable in every one.
+  The wrong reading was easy because it names a real failure — a hook whose
+  path does not exist really is silent, per the two entries above — and the
+  two states look identical from a listing.
+  **Both halves are mechanical now.**
+  `python3 tools/precedent_check.py --only declared-hooks-exist` resolves
+  every `$CLAUDE_PROJECT_DIR` hook path a settings.json declares and fails on
+  one that is missing or not executable, in any repository the engine is
+  vendored into.
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  does the same per attached source and **refuses to "repair" a hook declared
+  outside `.claude/hooks/`**: its own first version assumed the standard
+  layout, and against that individual set would have installed exactly the
+  second copy its comment exists to prevent.
+
+- **A source set's hooks drift after installation and nothing has ever
+  refreshed them — there was an install path and no repair path.** Measured
+  2026-09-09 across five real private sets: one carries a `freshness-guard.sh`
+  three thousand bytes shorter than canonical, supporting only `session-start`
+  and `pre-write` with no user-prompt mode (its settings.json wires no
+  `UserPromptSubmit` to match, so it is self-consistent, just older), and
+  `commit-identity.sh` is one version behind in **all five**, which is what
+  uniform drift looks like when canonical moved on after installation.
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+  installs both hooks when a set is created and nothing revisits them; its
+  settings.json is also written only `if not settings.exists()`, so
+  bootstrapping INTO a directory that already has one — which is what a
+  migration is — yields hooks without wiring, or wiring without hooks.
+  `python3 tools/precedent_refresh_sources.py --apply` now restores a
+  declared-but-missing hook, **independently of engine staleness**, since
+  the two go stale independently. Bringing a drifted-but-present hook up to
+  canonical is still a person's call, and
+  [TODO.md's `source-hook-drift` item](TODO.md#source-hook-drift) holds it.
+
 - **Something can move this checkout off your working branch mid-session,
   and the cause is NOT known — treat a silently-vanished edit as this before
   you re-derive it.** 2026-09-08, three minutes after a commit, the reflog
@@ -962,6 +1007,54 @@ gotcha every session reads is a gotcha every session pays for.
   `add_repo`** — all three are downstream of a variable that is not arriving.
   The session-start hook reported the whole downstream cost in the same
   breath: four private sources unresolved, universal catalogue alone.
+
+  **Third measurement, 2026-09-09, and it is now two containers: a session
+  rooted at a DIFFERENT repository, in its own brand-new container on the
+  same environment, also measured zero.** Dumping every variable NAME (values
+  stripped, so nothing secret is printed) showed only harness-provided ones —
+  `CLAUDE_*`, `CCR_*`, the proxy and certificate-bundle settings,
+  `GITHUB_TOKEN` — and **not one user-defined variable of any kind**. So this
+  is not `PRECEDENT_*` being filtered out; nothing set in the environment
+  configuration is arriving at all. **To tell "the variables do not arrive"
+  from "the token specifically did not save", put a throwaway
+  `PRECEDENT_PING=1` beside the token and start a NEW session.** If that
+  throwaway variable is absent too, the fault is upstream of everything in this repository, and no
+  amount of work on the token, the credential helper or `add_repo` will move
+  it.
+
+- **`add_repo` on a PUBLIC repository attaches nothing and never reaches the
+  cross-owner check, so testing that wall with `access: "read"` measures
+  nothing at all.** Asked on 2026-09-09 for read access to
+  `alex137/bestpractice` from a session rooted in a private practice-set
+  repository owned by someone else, it answered `"status":"read_available"`
+  and *"Nothing was attached to the session"*: the session's git proxy
+  already serves anonymous clones of public GitHub repositories, so the
+  request short-circuits before any authorization runs. **Read as a success,
+  that says the cross-tier refusal above has been lifted. It has not been** —
+  the tool's own reply names `access: "push"` as the path that runs the full
+  repository-access checks, and warns in the same breath that cross-owner
+  attachments may still be refused.
+  **The useful half is what it hands you anyway**: a session rooted anywhere,
+  under any owner, can `GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1` this
+  public repository with nothing attached — which is how a session working in
+  a private source set reads the upstream tree. Allow ≈10 minutes and do not
+  interrupt the clone. What that checkout cannot do: push, reach the GitHub
+  tools (its web application programming interface, and the Model Context
+  Protocol server that fronts it), or fetch Git Large File Storage objects.
+
+- **A session you spawn can lose its Model Context Protocol (MCP) tools
+  mid-run, and it cannot report
+  back to you either — so a spawned session must take the measurement it was
+  spawned for in its OPENING turn.** 2026-09-09: a measurement session created
+  with `create_session` called `add_repo` successfully as its first tool call,
+  and when sent a follow-up minutes later answered that the tool was gone —
+  *"the MCP server that provided it was removed from the configuration
+  mid-session"* — with a `ToolSearch` for it returning nothing. Nobody
+  reconfigured anything. The follow-up measurement was simply lost. The
+  second half compounds it: `ListAgents` does not reach a cloud session
+  started this way, so `SendMessage` to it fails and **its answers arrive only
+  by a person opening its transcript and pasting them back**. Write the whole
+  measurement into the spawning prompt; treat any follow-up as a bonus.
 
 - **A private repo name reaches a public tree by nobody having predicted it,
   so repo references are an ALLOWLIST, not a blocklist.** Declare an owner
