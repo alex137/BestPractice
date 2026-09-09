@@ -2401,7 +2401,9 @@ which is the failure this repointing exists to end — write
    one way — from a session rooted in this repository, reaching for a
    private practice-set repository under another owner — and the refusal
    ("cross-tier adds are not supported in v1") is well established there,
-   including as a session's very first tool call. The other direction is
+   including as a session's very first tool call and, as of 2026-09-09, at
+   `access: "push"` as well — so nothing about THIS direction is still worth
+   re-testing. The other direction is
    still unknown, and it decides whether the two-session split is permanent
    or an artefact: if a session rooted in a private set can attach this
    repository with credentials, one session can hold every private source
@@ -2436,7 +2438,19 @@ which is the failure this repointing exists to end — write
    reason. The question is whether hook content should join the vendored
    engine as something `--apply` keeps current, with the same
    review-and-publish rules, or stay a per-set decision.
-   **Blocked-on:** Morgan's call on the first half, and a session rooted
-   under the sets' own owner to carry it out — this repository's sessions
-   cannot push there. It carries no disposition, so it is `wait`
+   **Approved 2026-09-09, `strength: assented`.** Morgan: *"Okay let's
+   follow your advice. Make the changes you recommended in all the repos you
+   recommended"*, and, in the same message, *"Except don't yet update the
+   vendored-in versions; we'll make some changes in some other threads
+   first."* Both halves are authorized — refresh `commit-identity.sh` across
+   all five sets, and bring the older `freshness-guard.sh` up to canonical
+   including the `UserPromptSubmit` wiring it currently lacks — and **none of
+   it is carried into the sets until those other threads land.** Recorded
+   `assented` rather than `decided` because it is agreement to this session's
+   own proposal, not him choosing it independently
+   ([decision-strength](practices/decision-strength.md)).
+   **Blocked-on:** those other threads first, then a session rooted under the
+   sets' own owner to carry it out — this repository's sessions cannot push
+   there, re-confirmed 2026-09-09 by `add_repo` refusing at `access: "push"`.
+   It carries no disposition, so it is `wait`
    ([open-item-disposition](practices/open-item-disposition.md)).
