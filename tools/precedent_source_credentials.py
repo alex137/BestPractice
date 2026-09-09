@@ -54,6 +54,15 @@ reasonable conclusion from the three measurements above -- it is not itself a
 measurement. The first person to set PRECEDENT_GIT_TOKEN should say plainly
 whether it worked, and correct this paragraph either way.
 
+A FOURTH, 2026-09-09, of the opt-in `inherit` mode: pointed at this
+container's own GITHUB_TOKEN, a clone of a real cross-owner private set was
+REFUSED by GitHub ("Invalid username or token"). That is the expected answer
+-- a harness credential is scoped to the repositories the harness attached --
+and it is why `inherit` is something a person asks for by name and never a
+silent fallback. It does, however, take the measurement one notch further
+than the invalid-token test above: a real credential was delivered and
+evaluated by the server.
+
 WHAT IT DOES NOT DO. It never reads, prints, logs or stores the token. The
 credential reaches git through a helper that reads the environment variable
 itself, at call time -- so the secret is never in a command line (visible in
@@ -82,21 +91,57 @@ import sys
 
 # The name is ours rather than GITHUB_TOKEN/GH_TOKEN on purpose. Both of
 # those are already set in a Claude Code Remote container, scoped to the
-# repositories the harness attached -- so falling back to them would send a
-# credential that cannot work to a host that will reject it, and report the
-# failure as "your token is wrong" rather than "you have not set one".
+# repositories the harness attached -- so falling back to them SILENTLY would
+# send a credential that cannot work to a host that will reject it, and report
+# the failure as "your token is wrong" rather than "you have not set one".
 # An explicit name makes "no token here" a fact this tool can state.
 TOKEN_ENV = 'PRECEDENT_GIT_TOKEN'
 TOKEN_USER_ENV = 'PRECEDENT_GIT_TOKEN_USER'
 DEFAULT_TOKEN_USER = 'x-access-token'
+
+# ...and the opt-in that keeps the silent version from being reinvented.
+# `PRECEDENT_GIT_TOKEN=inherit` means "use whatever git credential this
+# container already carries". It is worth having because it costs one word to
+# try and the answer is unambiguous either way -- the diagnosis in
+# precedent_source_bootstrap.py distinguishes a REFUSED credential from an
+# absent one, so an inherited token that lacks access says so in those words
+# rather than looking like a missing setting.
+#
+# It is opt-in and never a fallback, which is the whole distinction: a token
+# nobody chose to send, sent anyway, produces a failure that reads as the
+# wrong problem. Asking for it by name means the person has accepted that the
+# harness's own credential is probably scoped to the repositories the harness
+# attached, and wants to find out.
+INHERIT = 'inherit'
+INHERITED_ENVS = ('GITHUB_TOKEN', 'GH_TOKEN')
+
+
+def token_var(env=None):
+    """-> the NAME of the environment variable that actually holds a usable
+    token, or None. The name rather than the value, because that name is what
+    the credential helper interpolates: the secret is read by the helper's own
+    shell, never by this process."""
+    env = os.environ if env is None else env
+    declared = (env.get(TOKEN_ENV) or '').strip()
+    if not declared:
+        return None
+    if declared != INHERIT:
+        return TOKEN_ENV
+    for name in INHERITED_ENVS:
+        if (env.get(name) or '').strip():
+            return name
+    # `inherit` asked for something that is not there. Deliberately None, so
+    # every caller treats it as "no credential" -- and assess() below says
+    # which of the two states it is, since "you asked to inherit and there was
+    # nothing to inherit" is a different fix from "you set nothing".
+    return None
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 
 def have_token(env=None):
-    env = os.environ if env is None else env
-    return bool((env.get(TOKEN_ENV) or '').strip())
+    return token_var(env) is not None
 
 
 def credential_args(repo_url, env=None):
@@ -125,9 +170,13 @@ def credential_args(repo_url, env=None):
     # value that fails this falls back rather than failing the clone.
     if not re.fullmatch(r'[A-Za-z0-9._-]+', user):
         user = DEFAULT_TOKEN_USER
+    # Whichever variable actually holds the token -- PRECEDENT_GIT_TOKEN, or
+    # the inherited one it pointed at. Interpolating the literal value of
+    # PRECEDENT_GIT_TOKEN here would send the word "inherit" as a password.
+    var = token_var(env)
     helper = ('!f() { test "$1" = get || exit 0; '
               f'echo username={user}; '
-              f'echo "password=${TOKEN_ENV}"; }}; f')
+              f'echo "password=${var}"; }}; f')
     return ['-c', 'credential.helper=', '-c', 'credential.helper=' + helper]
 
 
@@ -191,11 +240,25 @@ def assess(repo_root=None, env=None):
                       f'disk; {TOKEN_ENV} is not needed here')
     named = ', '.join(f'{level}/{name}' for level, name, _ in unresolved)
     detail = '; '.join(why for _, _, why in unresolved)
-    if have_token(env):
+    var = token_var(env)
+    if var:
+        via = ('' if var == TOKEN_ENV
+               else f' (inherited from {var}, because {TOKEN_ENV}={INHERIT})')
         return 'set', (
             f'{len(unresolved)} private source(s) did not resolve ({named}), '
-            f'and {TOKEN_ENV} IS set -- so a missing credential is not the '
-            f'explanation. Look at the clone itself: {detail}')
+            f'and a credential IS set{via} -- so a missing credential is not '
+            f'the explanation. Look at what git said when it tried: '
+            f'precedent_source_bootstrap.py names a REFUSED credential '
+            f'separately from an absent one, and an inherited harness token '
+            f'is refused for most repositories because it is scoped to the '
+            f'ones the harness attached. Sources: {detail}')
+    if (env.get(TOKEN_ENV) or '').strip() == INHERIT:
+        return 'missing', (
+            f'{len(unresolved)} private source(s) did not resolve ({named}). '
+            f'{TOKEN_ENV}={INHERIT} asked to use this container\'s own git '
+            f'credential, and none of {", ".join(INHERITED_ENVS)} is set -- so '
+            f'there was nothing to inherit and no credential was sent. Set '
+            f'{TOKEN_ENV} to a real token instead. Sources: {detail}')
     return 'missing', (
         f'{len(unresolved)} private source(s) did not resolve ({named}), and '
         f'{TOKEN_ENV} is not set in this environment. Until one of the two is '

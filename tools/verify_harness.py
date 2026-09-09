@@ -10741,6 +10741,30 @@ def check_source_credentials():
         cases.append(('a legitimate username override is honoured',
                       'username=git-user_1.x' in ' '.join(args), repr(args)))
 
+        # --- 3b: the opt-in inherit mode -----------------------------------
+        # Measured 2026-09-09 rather than reasoned about: `inherit` against a
+        # real cross-owner private repo in this container was REFUSED by
+        # GitHub ("Invalid username or token"), which is the outcome the mode
+        # exists to make legible -- a credential was sent and rejected, not
+        # absent. These cases assert the wiring that produced that outcome.
+        inh = {psc.TOKEN_ENV: psc.INHERIT, 'GITHUB_TOKEN': TOKEN}
+        cases.append(('inherit resolves to the NAME of the variable that '
+                      'actually holds a token',
+                      psc.token_var(inh) == 'GITHUB_TOKEN', str(psc.token_var(inh))))
+        args = psc.credential_args(url, env=inh)
+        joined = ' '.join(args)
+        cases.append(('...and the helper interpolates THAT variable, so the '
+                      'literal word "inherit" is never sent as a password',
+                      'password=$GITHUB_TOKEN' in joined
+                      and psc.INHERIT not in joined, repr(args)))
+        cases.append(('...and the inherited token itself still never appears '
+                      'in the arguments', TOKEN not in joined, repr(args)))
+        empty_inh = {psc.TOKEN_ENV: psc.INHERIT}
+        cases.append(('inherit with nothing to inherit is NO credential, not '
+                      'the word "inherit" sent as one',
+                      psc.token_var(empty_inh) is None
+                      and psc.credential_args(url, env=empty_inh) == [],
+                      repr(psc.credential_args(url, env=empty_inh))))
         # --- 4: only https gets the credential -----------------------------
         for scheme in (f'file://{tmp}/x', 'ssh://example.invalid/x'  # deliberately userless: a fixture URL
                        # carrying user@host reads as an email address
@@ -10779,6 +10803,18 @@ def check_source_credentials():
         cases.append(('the same repo WITH a token reads as SET -- a missing '
                       'credential is explicitly not the explanation',
                       verdict == 'set' and 'not the explanation' in message,
+                      f'{verdict}: {message}'))
+
+        verdict, message = psc.assess(repo, env={**env_no_token, **empty_inh})
+        cases.append(('...and assess says which of the two missing states it '
+                      'is: asked to inherit, nothing there',
+                      verdict == 'missing' and 'nothing to inherit' in message,
+                      f'{verdict}: {message}'))
+        verdict, message = psc.assess(repo, env={**env_no_token, **inh})
+        cases.append(('an inherited credential reads as SET and names where '
+                      'it came from, since a harness token is usually scoped '
+                      'to other repositories and will be refused',
+                      verdict == 'set' and 'inherited from GITHUB_TOKEN' in message,
                       f'{verdict}: {message}'))
 
         # both sources genuinely present -> nothing to say

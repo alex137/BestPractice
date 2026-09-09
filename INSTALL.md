@@ -1157,6 +1157,19 @@ it.
 | `PRECEDENT_GIT_TOKEN` | the environment's own configuration (on Claude Code on the web, the environment; locally, your shell profile) | A token with **read** access to your practice-set repositories. [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) uses it to clone them at session start. Nothing else reads it. |
 | `PRECEDENT_SOURCE_BASE_URL` | same | Where a team set is cloned from, by name: `<base>/<team-set-name>`, e.g. `https://github.com/<account>`. Without it the team sets cannot be located, since **no tracked file names the account that owns them** — that is deliberate, and [precedent.json](precedent.json)'s own comment says why. |
 | `PRECEDENT_GIT_TOKEN_USER` | same | Optional. The username sent with the token; defaults to `x-access-token`, which GitHub accepts alongside any personal access token. |
+| `PRECEDENT_GIT_TOKEN=inherit` | same | Opt-in: use whatever git credential the container itself carries (`GITHUB_TOKEN`, then `GH_TOKEN`). **Expect it to be refused** — see below. |
+
+**About `inherit`, and why it is opt-in rather than a fallback.** A Claude
+Code on the web container already carries a GitHub token, and it is scoped to
+the repositories the session attached — so for a practice set under another
+owner it does not work. **Measured 2026-09-09**: `inherit` against a real
+cross-owner private set was refused by GitHub with *"Invalid username or
+token"*. That is a useful answer rather than a wasted one, because the
+clone's own diagnosis distinguishes a **refused** credential from an absent
+one, so the failure names itself. What it must never be is automatic: a token
+nobody chose to send, sent anyway, turns "you have not set a credential" into
+"your credential is wrong", which is the more expensive of the two to chase.
+Ask for it by name, or set a real token.
 
 **Use a read-only token, scoped to the practice-set repositories.** Nothing
 here pushes with it.
