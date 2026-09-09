@@ -1426,11 +1426,57 @@ which is the failure this repointing exists to end — write
   regardless of team → a subject set. One person → individual. Only this
   repository → repo-local.
 
-  **Blocked on:** a session that can read those three repositories. Asked on
-  2026-09-08 and refused: `add_repo` would not attach `themorgan/*` from an
-  `alex137/*`-rooted session, and no sibling clone or user config existed on
-  disk, so the sort could not be started from guesses about what the sets
-  contain. Route is [`attach-private-sources`](TODO.md#attach-private-sources).
+  **DONE 2026-09-09**, from a session rooted in a `themorgan/` repo with all
+  five sets and this repo on disk — the route
+  [`attach-private-sources`](TODO.md#attach-private-sources) names, and it
+  worked exactly as written.
+
+  **The sort, and the count that made the case.** Of
+  `precedent-team-maintainers`' 40 practices, 19 were about something other
+  than maintaining a repository. 16 went to a new `precedent-team-writing`
+  (the craft of writing for a human reader: length and emphasis, when a list
+  is really a list, drafting markers, citation and linking, keeping a
+  reader's material out of a deliverable that is not for them) and 3 to a new
+  `precedent-team-working-style` (how a session paces work with the person).
+  21 stayed. Two moved up from the individual set; **three more were proposed
+  and reversed on reading the rules rather than their slugs**, each of which
+  says in its own text that it is not team policy — one of them outright
+  ("my preference for my own repositories, not a default I ask anyone else to
+  adopt"). Moving that one would have contradicted the rule while claiming to
+  enforce it.
+
+  **The strongest single finding.** The two practices that fire on *every
+  turn of every session* — the only two `tier: resident` rules in the whole
+  40 — were reachable only by a repository that also declared twenty-odd
+  rules about syncs, gates and branch setup. A document project therefore
+  declared none of them, and the team that most needed the writing rules had
+  one practice of its own. **Reach is what a set is worth, not how many files
+  it holds**, which is why a 3-practice set earns its own repository here.
+
+  **Migration for repos already on the old system is the two-step move
+  [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) prescribes**, applied
+  19 times: land at the destination first, verify it there, deduplicate at
+  the source second. Nothing was deleted and no rule left force for a moment.
+  Every moved practice keeps its file in the old set as `status:
+  deduplicated`, with `in_force_at:` naming the same slug and a `## Story`
+  line saying which set now holds it. So a repo that has not yet updated its
+  `precedent.json` resolves fewer practices — and the ones it no longer gets
+  are each sitting in the set it still declares, saying by name where they
+  went. That is the difference between a migration and a disappearance.
+
+  **What made it safe to do at all** is the guard this item already named:
+  two team sets defining one slug is a hard refusal, so one rule has exactly
+  one home by construction. Verified across all four team sets after the
+  move: no collisions.
+
+  **Left alone deliberately:** `catalogue-carries-stories` is still `active`
+  in `precedent-team-maintainers` *and* `active` at universal — a team copy
+  shadowing a live universal one, which that set's own `no-duplication` says
+  to drop on next touch. It is a duplicate, not a mis-sort, so it belongs to
+  [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos)
+  rather than here. And item 7 stays parked: nothing in this split expresses
+  a preference between two disagreeing team sources, because nothing here
+  produced two sources that disagree.
 
 - <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
   **unfolded 2026-09-08, at Morgan's prompting.** Folded into
