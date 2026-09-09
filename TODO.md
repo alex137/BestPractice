@@ -2394,4 +2394,4 @@ which is the failure this repointing exists to end — write
    is a session's judgment call, not his — the other plausible home is
    **Keeping the Corpus Honest**, and a third answer is that Verification
    should have survived holding the new item alone.
-   **Disposition:** ask
+   **Disposition:** ask (2026-09-09, the session that made the placement)

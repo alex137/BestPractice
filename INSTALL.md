@@ -11,7 +11,7 @@
   [documentation/HOW_TO_USE_THIS_NONTECHNICAL.md](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md)
   is how you work once it is running.
 - **Yes — I want the files, the steps and the commands.** They are on this
-  page, below, and this page is the only complete copy of them.
+  page, below.
   [documentation/HOW_TO_USE_THIS_TECHNICAL.md](documentation/HOW_TO_USE_THIS_TECHNICAL.md)
   is its companion: the short form of the install, plus how to actually
   work in a Precedent project once it is installed.
