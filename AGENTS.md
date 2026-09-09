@@ -410,6 +410,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
 | The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
 | The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |
+| How many practice sets of each level a person or a repo can have — one individual set per person however many teams they are on, as many team sets as a repo declares | [spec/SOURCES.md](spec/SOURCES.md)'s "How many sources of each level" row, reasoning at [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md#one-individual-set-per-person-not-per-team) |
 | How a practice-set source is named — the convention, what refuses vs. warns, and what a session must say before anyone picks a name | [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md), rule at [practices/source-naming.md](practices/source-naming.md) |
 | The phase-4 enforced channel: what is checked, and what each check is blind to | [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md) |
 | The phase-5 creation pipeline: what got built stage by stage, what's deferred, what phase 6 inherits | [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md) |
