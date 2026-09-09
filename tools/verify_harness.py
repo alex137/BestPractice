@@ -4081,6 +4081,38 @@ def check_precedent_check_fires():
                       'not fail',
                       _rcm == 0 and 'VIOLATION' not in _outm))
 
+        # speculation-is-marked -- the four markers drifting apart. The plant
+        # is `status: accepted` on the repo's own speculative document:
+        # somebody deciding to do the thing is the realistic way a marker
+        # goes stale, and it is the one drift that reads as HARMLESS while
+        # leaving the other three markers saying the opposite.
+        case('speculation-is-marked',
+             lambda repo: rewrite(repo, 'spec/SPECULATIVE_WHATSAPP_BRIDGE.md',
+                                  lambda t: t.replace('status:        drafted',
+                                                      'status:        accepted')))
+
+        # The other two directions, asserted by MESSAGE rather than through
+        # case(): this check has four distinct failures and case() proves only
+        # that one of them fired (control-asserts-which-failure).
+        _nowarn = fresh('speculation-is-marked-nowarn')
+        rewrite(_nowarn, 'spec/SPECULATIVE_WHATSAPP_BRIDGE.md',
+                lambda t: t.replace('> **This is a brainstorm, not a plan of record.**',
+                                    'It is a brainstorm.'))
+        _rcn, _outn = run(_nowarn, 'speculation-is-marked')
+        cases.append(('speculation-is-marked: a speculative document with no '
+                      'warning block under its heading fails, saying so',
+                      _rcn == 1 and 'no warning block' in _outn))
+        # The reverse direction: the markers are all inside the file and the
+        # FILENAME is the one that lost them, which no content rewrite can
+        # reach -- a file listing is the reader this marker exists for.
+        _noprefix = fresh('speculation-is-marked-noprefix')
+        (_noprefix / 'spec' / 'SPECULATIVE_WHATSAPP_BRIDGE.md').rename(
+            _noprefix / 'spec' / 'WHATSAPP_BRIDGE.md')
+        _rcp, _outp = run(_noprefix, 'speculation-is-marked')
+        cases.append(('speculation-is-marked: a document that calls itself '
+                      'speculative but is not named that way fails, saying so',
+                      _rcp == 1 and 'calls itself speculative' in _outp))
+
         # heading-outline -- a heading demoted two levels at once, so it has
         # no parent. documentation/INSTALL.md is the plant because it is a
         # short file whose only heading is its H1, so appending an h3 makes

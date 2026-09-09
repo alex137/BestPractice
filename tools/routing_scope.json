@@ -738,6 +738,14 @@
       ],
       "why": "A property of how long something runs, not of where it lives -- a gate script, an audit and a heavy solve are all in scope and share no path. Reached through the occasion index.",
       "decided": "2026-09-08, when the practice landed"
+    },
+    "speculation-is-marked": {
+      "globs": [
+        "spec/SPECULATIVE_*.md",
+        "record/SPECULATIVE_*.md"
+      ],
+      "why": "The SPECULATIVE_ prefix IS the distinguishing condition once the practice exists: a file carrying it is, by the rule's own definition, a speculative document, so editing one hands the session the rule that governs it. The prefix cannot reach the case that matters more -- WRITING a brainstorm up for the first time, when no such file exists yet -- which is why the occasion index and the merge gate carry that half. A broader glob over spec/**/*.md was rejected: most documents there are not speculative, so the path would be necessary and not distinguishing.",
+      "decided": "2026-09-09"
     }
   },
   "gates": {

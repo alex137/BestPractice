@@ -173,7 +173,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 90 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 91 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -345,6 +345,8 @@ When publishing a document with a multi-column sortable table:
   tabular-shared-renderer — ship a sortable render from the one shared renderer
 When quoting or compressing someone else's figures:
   quote-discipline — compression rounds against you; qualifiers travel with the figure
+When recording exploratory thinking -- an idea nobody has committed to -- as a document:
+  speculation-is-marked — mark it in filename, title, opening block and PR -- four places, or none
 When recording that someone approved a practice or a decision, or citing their past approval back to them:
   decision-strength — record `decided` or `assented`; unmarked means unknown, never "you decided this"
 When renaming, moving, or deleting a file other files may link to:

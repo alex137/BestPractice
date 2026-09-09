@@ -189,6 +189,21 @@ reason it cannot proceed is external and stated — the condition
 queued item. [PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md) is
 the live example: it cannot run from a session rooted here.
 
+### One kind carries two registers, and the title says which
+
+`proposal` covers both *we intend to do this* and *somebody wondered about
+this once*, and on disk those are the same shape: same directory, same kind,
+same weight of prose. The convention that separates them is the title. An
+intention opens `Plan: …`; an idea nobody has committed to opens
+`Speculative …`, takes a `SPECULATIVE_` filename prefix, and carries a
+warning block directly under its heading.
+
+Only the second half is enforced, and only for drift between its own markers
+— see [practices/speculation-is-marked.md](../practices/speculation-is-marked.md)
+for the rule, the four places, and the two things no check can see. A
+`proposal` that somebody then decides to carry out moves to `accepted`, at
+which point the markers come off and the file is renamed.
+
 ### The generated banner replaces the prose banner
 
 The frontmatter owns the status. **The prose status sentences quoted in the

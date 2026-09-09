@@ -1538,6 +1538,106 @@ def _document_status_header(ctx):
     return out
 
 
+_SPEC_WORD_RE = re.compile(r'\b(speculative|speculation|brainstorm(?:ed|s)?)\b', re.I)
+_SPEC_PREFIX = 'SPECULATIVE_'
+_SPEC_STATUSES = ('drafted', 'abandoned')
+
+
+def _spec_heading_and_lede(text):
+    """Return (heading text, the first non-blank block under it). A document
+    with no `# ` heading yields (None, '')."""
+    lines = text.splitlines()
+    for i, ln in enumerate(lines):
+        if ln.startswith('# '):
+            rest = lines[i + 1:]
+            j = 0
+            while j < len(rest) and not rest[j].strip():
+                j += 1
+            block = []
+            while j < len(rest) and rest[j].strip():
+                block.append(rest[j])
+                j += 1
+            return ln[2:].strip(), '\n'.join(block)
+    return None, ''
+
+
+@check('speculation-is-marked', 'tree',
+       "a speculative document under spec/ or record/ carries all four of "
+       "its markers or none of them: the SPECULATIVE_ filename prefix "
+       "requires a matching title, `kind: proposal`, a drafted/abandoned "
+       "status and a warning block directly under the heading -- and, in the "
+       "other direction, a document whose title or opening paragraph calls "
+       "itself speculative must carry the prefix",
+       "the PULL REQUEST, which is the fourth marker the practice asks for "
+       "and the one no tree-scoped check can see: a gate runs against files, "
+       "and a pull-request body lives on a hosting platform it cannot read "
+       "offline or in continuous integration. That marker is prose, loaded "
+       "at the `merge` gate instead. It is equally blind to a speculative "
+       "document that says so NOWHERE -- no mechanism can read the "
+       "conversation an idea came from and tell an intention from a "
+       "brainstorm, so this catches DRIFT between the markers, never a "
+       "document that never made the claim. And it does not judge the "
+       "register: prose written in the voice of a plan ('ships in March', "
+       "an owner named) passes as long as the four markers are consistent.")
+def _speculation_is_marked(ctx):
+    try:
+        import doc_lifecycle as dl
+    except Exception as e:
+        raise NotApplicable(f'tools/doc_lifecycle.py did not import: {e}')
+    scan_dirs = [d for d in dl.SCAN_DIRS if (ROOT / d).is_dir()]
+    if not scan_dirs:
+        raise NotApplicable('this repo has no spec/ or record/ tree')
+
+    findings = []
+    for d in scan_dirs:
+        for p in sorted((ROOT / d).rglob('*.md')):
+            rel = p.relative_to(ROOT).as_posix()
+            text = p.read_text(encoding='utf-8', errors='ignore')
+            fm, _body = dl.parse_frontmatter(text)
+            if not fm:
+                continue                      # unstamped: document-status-header's finding, not this one
+            title = (fm.get('title') or '').strip().strip('"\'')
+            heading, lede = _spec_heading_and_lede(text)
+            prefixed = p.name.startswith(_SPEC_PREFIX)
+            claims = bool(_SPEC_WORD_RE.search(title)
+                          or _SPEC_WORD_RE.search(lede))
+
+            if prefixed:
+                if not title.lower().startswith('speculative'):
+                    findings.append(Finding(rel, (
+                        'the filename says SPECULATIVE_ and the title does not '
+                        'open with "Speculative" -- a search hit shows the title '
+                        'and never the path')))
+                if heading is not None and not heading.lower().startswith('speculative'):
+                    findings.append(Finding(rel, (
+                        'the `#` heading does not open with "Speculative", so the '
+                        'rendered document does not say what the filename says')))
+                kind = (fm.get('kind') or '').strip()
+                status = (fm.get('status') or '').strip()
+                if kind != 'proposal':
+                    findings.append(Finding(rel, (
+                        f'kind is `{kind or "unset"}`; a speculative document is '
+                        f'`proposal` (see spec/DOCUMENT_LIFECYCLE.md)')))
+                elif status not in _SPEC_STATUSES:
+                    findings.append(Finding(rel, (
+                        f'status is `{status or "unset"}`; a speculative document '
+                        f'is `drafted` or `abandoned`. `{status}` means somebody '
+                        f'decided to do it, at which point it is not speculative '
+                        f'any more and the markers come off (a rename -- see '
+                        f'practices/rename-updates-links.md)')))
+                if not lede.lstrip().startswith('>'):
+                    findings.append(Finding(rel, (
+                        'no warning block directly under the heading -- a reader '
+                        'who opens the file must be told before the content that '
+                        'nobody has decided this')))
+            elif claims:
+                findings.append(Finding(rel, (
+                    'calls itself speculative in its title or opening paragraph '
+                    'but the filename does not -- rename it to '
+                    f'{_SPEC_PREFIX}<name>.md, so a file listing says it too')))
+    return findings
+
+
 @check('vendored-engine-file-refs-resolve', 'tree',
        "every hardcoded `_ENGINE_DIR / '<name>'` or `ROOT / 'tools' / '<name>'` "
        "path inside a tools/*.py file names a file that actually exists under "
