@@ -3,13 +3,15 @@
 # Our Philosophy
 
 *The theoretical layer underneath everything else in this repo, not a new
-argument. [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) makes the
-case for running a company this way; [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md)
+argument. [CORE_PILLARS.md](CORE_PILLARS.md) is the short version of what
+follows — the four pillars it names are what these ideas add up to, and
+what [REASONS_WHY.md](REASONS_WHY.md)'s payoffs come out of.
+[COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) makes the case for
+running a company this way; [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md)
 makes the case for building the AI systems that way. Both assume a handful
-of ideas about memory, judgment, and how work actually produces quality.
-This document names those ideas and explains them on their own terms,
-without re-arguing for them. It's an account of the theory, not a pitch
-for it.*
+of ideas about memory,
+[judgment](HUMANS_AT_OUR_BEST.md), and how work actually produces quality.
+It's an account of the theory, not a pitch for it.*
 
 ## The Working Loop
 
@@ -147,21 +149,15 @@ hold them to that standard, not a machine's. (Full list:
 
 ## See Also
 
-- [REASONS_WHY.md](REASONS_WHY.md) — this document's companion: the less
-  obvious benefits these ideas actually produce in practice.
+- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+  this approach argues are unique, specifically taken together.
+- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+  ideas actually produce in practice.
+- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+  essay on rules for building a company around AI.
+- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+  standalone essay on how AI systems themselves should be configured,
+  built, and run.
 - [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.
-- [RANDOM_NOTES.md](RANDOM_NOTES.md) — the brainstorm itself, pipeline
-  stage 1.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — standalone
-  essay promoted out of the brainstorm: rules for building a company
-  around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) —
-  standalone essay promoted out of the brainstorm: how AI systems
-  themselves should be configured, built, and run.
-- [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) — pipeline stage 2: the
-  practical rules actually being tried in real work right now.
-- [CORE_PILLARS.md](CORE_PILLARS.md) — one-page
-  pitch: the core ideas this repo argues are unique specifically taken
-  together.

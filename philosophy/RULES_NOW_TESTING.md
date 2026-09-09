@@ -17,12 +17,12 @@ earns its way *off* — into [precedent-team-maintainers](https://github.com/the
 for the rare rule that's genuinely about Morgan the person, not the team),
 for automatic rollout to every project that resolves that source — only
 once it's actually proven itself here. See
-[OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for what is still unsettled.
+[ASSORTED_NOTES.md's Open Questions](ASSORTED_NOTES.md#open-questions) for what is still unsettled.
 
 **This document does not get vendored anywhere.** Unlike `process/upstream/`
 or the team/individual practice sources, it has no manifest entry and no
 sync workflow — it's native to this repo, the same as
-[RANDOM_NOTES.md](RANDOM_NOTES.md), because working out which rules are
+[ASSORTED_NOTES.md](ASSORTED_NOTES.md), because working out which rules are
 ready is exactly this repo's job. Nothing here is real company policy for
 another project until a session has separately gone into
 precedent-team-maintainers (or precedent-individual) and landed it there
@@ -113,7 +113,7 @@ propose an addressable alternative
 
 ### 7. Contradiction-Scanning Across the Corpus, as a Recurring Job — *Trial*
 
-Periodically re-read [RANDOM_NOTES.md](RANDOM_NOTES.md) and this document for entries
+Periodically re-read [ASSORTED_NOTES.md](ASSORTED_NOTES.md) and this document for entries
 that now disagree — same cadence as
 [`dark-process-self-audit`](#dark-process-self-audit), not a one-off.
 
@@ -124,7 +124,7 @@ need either more real testing or actual infrastructure this repo doesn't
 have yet — writing them as rules now would be systematizing before the
 third instance, exactly what
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows) warns
-against. Tracked instead in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md):
+against. Tracked instead in [ASSORTED_NOTES.md's Open Questions](ASSORTED_NOTES.md#open-questions):
 
 - **Active/proactive resurfacing** ("you decided X six weeks ago,
   unprompted") — needs something that actively mines and ranks history,
@@ -145,7 +145,7 @@ against. Tracked instead in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md):
 - **Deeper "normie"-employee engagement**, beyond
   [`push-back-writing-thinking`](#push-back-writing-thinking) — visible
   reminders of the deeper mode, making rule-extraction "in your face,"
-  proactive resurfacing of a relevant rule. RANDOM_NOTES.md's own "Why
+  proactive resurfacing of a relevant rule. ASSORTED_NOTES.md's own "Why
   BestPractice specifically works" open question.
 
 ## Promotion — Moving a Rule From Here Into a Practice Source
@@ -174,22 +174,18 @@ record.)*
 
 ## See Also
 
+- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+  this approach argues are unique, specifically taken together.
 - [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
 - [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
+- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+  essay on rules for building a company around AI.
+- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+  standalone essay on how AI systems themselves should be configured,
+  built, and run.
 - [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.
-- [RANDOM_NOTES.md](RANDOM_NOTES.md) — the brainstorm itself, pipeline
-  stage 1.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — standalone
-  essay promoted out of the brainstorm: rules for building a company
-  around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) —
-  standalone essay promoted out of the brainstorm: how AI systems
-  themselves should be configured, built, and run.
-- [CORE_PILLARS.md](CORE_PILLARS.md) — one-page
-  pitch: the core ideas this repo argues are unique specifically taken
-  together.

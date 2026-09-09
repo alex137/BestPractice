@@ -1759,7 +1759,7 @@ which is the failure this repointing exists to end — write
     available here can delete a repository. Its 220 commits of history,
     its own `TODO.md` and its `GETTING_STARTED.md` go with it. The five
     content-side open questions were rescued into
-    [philosophy/OPEN_QUESTIONS.md](philosophy/OPEN_QUESTIONS.md) first.
+    [philosophy/ASSORTED_NOTES.md's Open Questions](philosophy/ASSORTED_NOTES.md#open-questions) first.
 
     **Its `process/PRECEDENT_MIGRATION.md` was read and deliberately not
     rescued** (2026-09-07). A first pass flagged it as the one document
@@ -1787,7 +1787,7 @@ which is the failure this repointing exists to end — write
     `hire-for-drive` heading, in
     [philosophy/HUMANS_AT_OUR_BEST.md](philosophy/HUMANS_AT_OUR_BEST.md)'s
     "Drive" bullet, and inside a verbatim quotation in
-    [philosophy/RANDOM_NOTES.md](philosophy/RANDOM_NOTES.md). This was
+    [philosophy/ASSORTED_NOTES.md](philosophy/ASSORTED_NOTES.md). This was
     filed as a *divergence* from an upstream; with the notebook retired it
     is simply an editorial decision this repository has made and now owns.
     Masking a word inside a quotation of Morgan's own speech is the part
