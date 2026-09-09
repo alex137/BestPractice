@@ -65,7 +65,7 @@ deliverables and indexes which documents back each part of each one.
   the one repo they're actually working in; reaching for the team sources is
   this session's own job, every time.
 
-  **Read the set names out of `precedent.json`; never hard-code them here.**
+  **Read the set names out of [`precedent.json`](precedent.json); never hard-code them here.**
   This paragraph used to name one set outright, which meant declaring a
   second one silently required editing two files that nothing kept in
   agreement — and the failure mode of getting that wrong is not an error but
