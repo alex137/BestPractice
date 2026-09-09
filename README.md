@@ -1,6 +1,14 @@
 # Precedent
 
-Precedent is a shared rulebook your team's AI assistants actually follow.
+Precedent is a layer that sits between a group of people and their shared
+work — built for teams who collaborate through an AI assistant rather than
+a shared live document.
+
+**We are unique on a few axes:** automatic rule generation based on
+behaviour, smooth team-based rule sharing, all knowledge stored in open
+formats on GitHub, and a design meant for groups of humans to use AI as a
+middle layer between them and the work.
+
 You work by talking to an assistant — it does the editing — and as it works
 it notices how your team wants things done and writes those habits down as
 rules, so every later conversation follows them without anyone maintaining
@@ -35,7 +43,7 @@ people and AI should work together. **That theory lives in
 observation: none of it binds work anywhere else in this repository, which
 is what [practices/](practices/) is for.
 
-In short: it's an alternative to Google Docs, built on three ideas:
+In short, it is built on three ideas:
 
 - **Human collaboration comes first.** The tool exists to make people
   working together better, not to route around them.

@@ -3,9 +3,68 @@
 *The question this document answers:* **I'm technical — how do I actually
 work inside a Precedent project day to day, step by step?**
 
-For installing Precedent on a project in the first place, see
-[INSTALL.md](../INSTALL.md). This document is about using it once it's
-there.
+The install itself is summarized below, in **Installing It on a
+Project**; [INSTALL.md](../INSTALL.md) is the full reference each step
+links into. Everything after that section is about using Precedent once
+it's there.
+
+## Installing It on a Project
+
+The model in one paragraph: the project **vendors** Precedent at
+`process/upstream/` as plain tracked files; **install is adaptive** (you
+instantiate templates with the project's own subject matter, at their real
+locations); **export is abstractive** (an improvement made here is folded
+back into `process/upstream/` in generic form); a **manifest** records the
+mapping both ways and an **audit** makes drift and private-vocabulary
+leakage loud instead of silent.
+
+Two paths, and most projects still take the first:
+
+- **[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)** — the
+  classic vendored model. The right default today.
+- **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)**
+  — straight onto Precedent's three-source loader, no `process/upstream/`
+  at all. Newer, and carries its own caveat; read it before choosing it.
+  A project that *already* vendored BestPractice the old way wants
+  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)
+  instead of either.
+
+The §1 sequence, in short — each step is spelled out in full at the link:
+
+1. **Vendor** this repo's working tree (not its `.git`) into
+   `process/upstream/`, as ordinary tracked files, and record the upstream
+   commit you copied from. Skip `evals/` — Precedent's own measurement
+   fixtures, which nothing a consumer runs reads.
+2. **Instantiate the templates**, rewritten with the project's real
+   subject matter rather than copied verbatim: `AGENTS.md`, `MAP.md`,
+   `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, the PR template, the
+   `.gitignore` baseline, and the harness adapter(s) from
+   [templates/harness/](../templates/harness/) for whichever assistant
+   will work the repo. `VOICE.md` and `STYLEGUIDE.md` are the exception:
+   both ship near-empty and are filled from what the administrator can
+   actually answer, never invented.
+3. **Ask the two questions only a person can answer** — which private
+   names and code words must never reach a public file (this becomes the
+   leak blocklist), and whether the team or the person already has a
+   practices repo to wire in.
+4. **Write the manifest** ([INSTALL.md §5](../INSTALL.md#5-the-manifest-schema-processmanifestjson))
+   and **run the audit** ([§6](../INSTALL.md#6-the-audit-toolspractice_auditpy)).
+5. **Commit on a branch and open a pull request.** Nothing is official
+   until it's reviewed and merged.
+
+Afterwards: **[§2](../INSTALL.md#2-take-an-upstream-update)** takes an
+upstream update (the `Update Vendors` command), **[§3](../INSTALL.md#3-optional-give-back-an-improvement--the-export-gate)**
+and **[§4](../INSTALL.md#4-optional-periodic-check-in--propose-your-improvements-upstream)**
+flow an improvement back upstream, **[§7](../INSTALL.md#7-practice-packs-domain-layers)**
+covers domain practice packs, and
+**[§8](../INSTALL.md#8-per-machine-setup--what-each-person-sets-on-each-machine)**
+is what each person sets on each machine — including the credential that
+lets a hosted session reach a private practice source without an
+`add_repo` dance.
+
+**Not technical, or handing this to someone who isn't?**
+[SETUP.md](../SETUP.md) runs the same install as a conversation: the
+administrator pastes it to their assistant and answers three questions.
 
 ## All Interaction Happens Through Chat or Voice With an Assistant
 
