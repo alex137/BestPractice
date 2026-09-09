@@ -36,7 +36,11 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   install, against a real consumer repository and not only a fixture;
   extended 2026-09-07, Morgan F, with pass 2's enumerate-rather-than-sample
   question and pass 4's whole-tree rehearsal of the endgame merge, after a
-  sampled rehearsal of the phase-7 merge-back returned the wrong verdict"
+  sampled rehearsal of the phase-7 merge-back returned the wrong verdict;
+  extended 2026-09-09, Morgan F (strength: assented), with pass 3's
+  tier-placement question, after a session asked what this check covers and
+  found that nothing here or anywhere else reviews whether a practice's
+  `tier` is still right"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -439,6 +443,35 @@ first so this pass spends its attention on what they cannot see.
   tokens off every session, deleting nothing. A consuming repo measured the
   same day had the same disease in a different section, so this is structural
   rather than one repository's untidiness.)*
+- **Whether each practice's TIER is still right.** The question above asks
+  what the loaded text costs; this one asks which practices should be in it
+  at all, and nothing else in Precedent ever asks it. `tier: resident` is
+  governed only by [tools/build_views.py](../tools/build_views.py)'s hard
+  2,000-token cap, which fails the build outright — so the trade is forced
+  once, at the moment somebody adds a resident practice, and the set is never
+  revisited afterwards. Read it in both directions. **Demote** a resident
+  practice whose occasions turn out to be narrow enough that the path or
+  occasion channel would reach them. **Promote** an on-demand practice that
+  keeps being missed, which is the failure the tiering exists to prevent: an
+  on-demand practice only reaches a session that thought to ask for it.
+  **Judge the occasions, not the token count** — a demotion made to free
+  budget is the SESSION LOAD trap one level up.
+  *(Read [spec/LOADER.md](../spec/LOADER.md)'s replay before any verdict, because
+  it makes the third answer visible. It ran `verify-postcondition` and
+  `environment-gotchas` resident at two Rule lengths; the arm reading only the
+  resident block found `verify-postcondition` **0 of 2** with the long Rule and
+  **0 of 3** with the short one, and `environment-gotchas` 0 of 2 and 0 of 2 —
+  while in that same last run the arm reading the whole catalogue found them 3
+  of 3 and 2 of 2. **Residency was doing nothing for either practice at either
+  length**, and what both runs agree they needed was a `checked_by`. So
+  "neither tier is the problem" is an available verdict, and was the right one
+  twice.)*
+  [tools/very_deep_check.py](../tools/very_deep_check.py)'s "TIER PLACEMENT"
+  section hands you the resident set with each practice's occasion and
+  whether a check already covers it, so this is a read of a short list. It
+  enumerates and does not judge, and no `checked_by` will: the cap already
+  tests the only property a script can see, and whether an occasion is
+  *every session, always* is a reading of how work here actually goes.
 - **Orphans — files nothing owns any more.** The mirror of every other
   check here, which all ask whether something that should be present *is*.
   An orphan is present and in nobody's list, so no mechanism keyed on a
