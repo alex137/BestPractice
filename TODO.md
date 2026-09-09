@@ -1469,12 +1469,26 @@ which is the failure this repointing exists to end — write
   one home by construction. Verified across all four team sets after the
   move: no collisions.
 
-  **Left alone deliberately:** `catalogue-carries-stories` is still `active`
-  in `precedent-team-maintainers` *and* `active` at universal — a team copy
-  shadowing a live universal one, which that set's own `no-duplication` says
-  to drop on next touch. It is a duplicate, not a mis-sort, so it belongs to
-  [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos)
-  rather than here. And item 7 stays parked: nothing in this split expresses
+  **Left alone, and NOT a duplicate — this one is worth reading before the
+  next audit re-raises it.** `catalogue-carries-stories` is `active` in
+  `precedent-team-maintainers` *and* `active` at universal, which every
+  slug-overlap scan reports and `no-duplication` appears to condemn. It was
+  in fact deduplicated on 2026-09-07 and **re-activated the same day**, for a
+  mechanical reason the practice file now records in its own `## Story`: **a
+  source repo consumes no catalogue**, so universal's copy never reaches a
+  set like that one, and `precedent_check.py` gates every check on its
+  practice being in force *there*. Deduplicating it did not defer enforcement
+  to universal — it switched enforcement off.
+
+  So the same-slug copy is not a restatement; it is the mechanism by which a
+  source set puts a universal rule in force on its own catalogue, and any
+  audit that reasons from the slug overlap alone will keep proposing the
+  round trip that was already made and reversed. The general wart — **a
+  source set must re-declare a universal practice to enforce it on itself** —
+  is real and unaddressed, and belongs to
+  [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos),
+  whose own note that "a copy is usually the bug" needs this counter-example
+  attached to it. And item 7 stays parked: nothing in this split expresses
   a preference between two disagreeing team sources, because nothing here
   produced two sources that disagree.
 
@@ -1520,6 +1534,19 @@ which is the failure this repointing exists to end — write
     delete from both team sets. A reconcile tool should propose **promotion
     first** and a text merge second, or it will keep three copies healthy
     forever.
+
+    **The counter-example this tool must not break, found 2026-09-09:**
+    `catalogue-carries-stories` is active at universal AND in
+    `precedent-team-maintainers`, and that second copy is load-bearing. A
+    source repo consumes no catalogue, so universal's copy never reaches it
+    and `precedent_check.py` only runs a check whose practice is in force
+    *there* — deduplicating it switches the check off rather than deferring
+    it. It was deduplicated and re-activated within one day on exactly that
+    discovery. So **"same slug, active in two sources" is not sufficient
+    evidence of a redundant copy**, and a tool that promotes on that signal
+    alone will silently disable enforcement. The distinguishing question is
+    whether the lower source actually RESOLVES the higher one, which the
+    resolver can answer and a text-similarity score cannot.
   - **It must not be a judge-only reading pass.**
     [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) pre-registered and
     measured that exact shape at 54% recall — worse than doing the work with
