@@ -9455,6 +9455,49 @@ def check_rendered_docs_are_current():
               + ([f'missing: {", ".join(missing)}'] if missing else [])))
 
 
+def check_philosophy_readme_lists_every_file():
+    """philosophy/README.md's list names every file in philosophy/, and no other.
+
+    The page was cut back to one sentence and that list on 2026-09-09, on
+    Morgan's instruction, with "updated as the files are changed" as the
+    standing requirement. A list that is a document's whole content and is
+    maintained by hand is a list that goes stale the first time somebody
+    adds a file in a hurry -- and the drift is invisible, because a missing
+    entry looks exactly like a directory that never had that file.
+
+    Set comparison, not order: the page orders by importance, which is a
+    judgment no check should be holding an opinion about. The recipe at
+    philosophy/doc-recipes/README.recipe.md is what this enforces.
+    """
+    d = ROOT / 'philosophy'
+    readme = d / 'README.md'
+    if not readme.is_file():
+        not_applicable('philosophy README lists every file',
+                       'philosophy/README.md does not exist -- not a pass')
+        return
+    on_disk = {p.name + ('/' if p.is_dir() else '')
+               for p in d.iterdir() if p.name != 'README.md'}
+    text = readme.read_text(encoding='utf-8')
+    listed = set()
+    for name in on_disk:
+        target = name if name.endswith('/') else name
+        if f']({target})' in text:
+            listed.add(name)
+    # An entry the page names that is not on disk is the other half: a link
+    # left behind by a rename reads as a live document until somebody clicks.
+    import re as _re
+    linked = set(_re.findall(r'\]\((?!\.\.?/|https?:)([^)#]+)\)', text))
+    stale = {L for L in linked
+             if not (d / L.rstrip('/')).exists()}
+    missing = on_disk - listed
+    check('philosophy/README.md lists every file in philosophy/ '
+          f'({len(on_disk)} on disk)',
+          not missing and not stale,
+          '; '.join(
+              ([f'not listed: {", ".join(sorted(missing))}'] if missing else [])
+              + ([f'listed but absent: {", ".join(sorted(stale))}'] if stale else [])))
+
+
 def _looks_like_help(tool, out):
     """Does this output actually answer --help, or is it the tool running?
 
@@ -13386,6 +13429,7 @@ def main():
     check_leak_gate_notes_an_uncovered_private_repo()
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
+    check_philosophy_readme_lists_every_file()
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.
     #
