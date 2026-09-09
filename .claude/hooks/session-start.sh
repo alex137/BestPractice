@@ -88,6 +88,31 @@ if [ -f tools/precedent_session_practices.py ]; then
     echo "WARN: could not write .precedent/SESSION_PRACTICES.md - this session is not being shown the team/individual practices in force here" >&2
 fi
 
+# The PRIVATE practice sources, when this environment carries a credential.
+#
+# THIS IS THE ONE STEP THAT CAN RUN BEFORE THE AGENT'S FIRST TURN, and that
+# is the whole point of it. A private source normally reaches a hosted
+# session because the agent calls `add_repo` in its own turn -- which
+# `add_repo` refuses across owners, reproduced 2026-09-09 as a session's
+# very first tool call ("cross-tier adds are not supported in v1"). A
+# credential the ENVIRONMENT carries is under no such ordering: git can use
+# it here, before anything else runs, which is why setting
+# PRECEDENT_GIT_TOKEN is the durable fix and `add_repo` is the per-session
+# one (practice: durable-fix).
+#
+# The team sets are cloned as SIBLINGS, from $PRECEDENT_SOURCE_BASE_URL/<name>,
+# because that is how tools/precedent_resolve.py resolves a team source. The
+# individual set needs nothing here: precedent_resolve.py's own self-heal
+# already re-runs its bootstrap hook, and with a token set that attempt now
+# succeeds where it used to fail for want of access.
+#
+# No token, no network call: the tool says which sources are missing and
+# why, and startup continues. INSTALL.md section 8 is where the two
+# variables are documented.
+if [ -f tools/precedent_source_bootstrap.py ]; then
+  python3 tools/precedent_source_bootstrap.py --teams-from . --remote-only false || true
+fi
+
 # Attached practice-set sources whose vendored engine has gone stale.
 #
 # WHY THIS BELONGS HERE AND NOWHERE ELSE. A source set (someone's own

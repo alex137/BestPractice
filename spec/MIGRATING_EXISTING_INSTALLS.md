@@ -202,6 +202,28 @@ the loader.
    *after* that instruction has taken effect, never by one trying harder
    *before* it has.
 
+   **And when `add_repo` cannot work at all, close the gate with a
+   credential instead — the durable route, added 2026-09-09.** Everything
+   above assumes `add_repo` eventually succeeds. It does not when the
+   practice sets and the consuming repo belong to **different GitHub
+   owners**: the call is refused outright (*"cross-tier adds are not
+   supported in v1"*), reproduced that day as a session's very first tool
+   call, so no ordering fixes it and the self-heal has nothing to retry
+   into. Set `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` in the
+   environment's own configuration
+   ([INSTALL.md §8](../INSTALL.md#8-per-machine-setup--what-each-person-sets-on-each-machine)):
+   a credential the environment carries is available to the SessionStart
+   hook itself, before the agent's first turn, which is the one thing
+   `add_repo` can never be. Then
+   `python3 tools/precedent_source_bootstrap.py --teams-from .` clones every
+   team set the repo declares, and the individual set's own hook succeeds on
+   its first attempt. **Verify rather than assume it took:**
+   `python3 tools/precedent_source_credentials.py` prints `MISSING` for
+   exactly the state this closes, and the same line appears in the session
+   check and at every vendor update. Whether the sets resolve at all is not
+   a thing to infer from the absence of an error — until 2026-09-09 there
+   was no error, only silence and the universal catalogue.
+
 5. **Retire the old vendored pack tree — always, not if convenient.** The
    pack's rules live in a team or individual source now; the tree left
    behind is a second, unsynced copy of rules nobody reads and nothing

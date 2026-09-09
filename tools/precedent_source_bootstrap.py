@@ -77,15 +77,21 @@ import subprocess
 import sys
 import time
 
-LEVELS = {'individual'}  # a team source resolves via a sibling checkout, not
-                          # a $HOME clone+config -- see tools/precedent_resolve.py's
-                          # own header for why the two are wired differently.
-                          # This tool takes --level as a real argument (rather
-                          # than assuming "individual") so a team source's own
-                          # sibling-clone bootstrap can register a second value
-                          # here later without a second tool -- see TODO.md
-                          # item 18, "the identical gap" spec/BOOTSTRAP_NEW_SOURCES.md
-                          # already names for that case.
+LEVELS = {'individual', 'team'}
+# An INDIVIDUAL source resolves through a $HOME clone plus a user-level
+# config naming it; a TEAM source resolves as a SIBLING CHECKOUT beside the
+# consuming repo, by path, with nothing to write down -- see
+# tools/precedent_resolve.py's own header for why the two are wired
+# differently. Both are cloned the same way, which is all this tool does, so
+# 'team' is a real value here rather than the placeholder it was until
+# 2026-09-09: what differs is only whether a config file is written
+# afterwards (_write_config below), and the sibling path the clone lands at.
+#
+# Why it stopped being a placeholder: a credential carried by the
+# ENVIRONMENT, rather than granted per session by add_repo, can be used
+# before the agent's first turn -- and at that moment a team set is exactly
+# as cloneable as an individual one. See tools/precedent_source_credentials.py
+# for what was measured about that, and how far.
 
 # A single attempt by default -- see the module docstring's 2026-09-06
 # correction. A retry loop here cannot help the incident this file was
@@ -133,14 +139,45 @@ def _write_config(config_path, level, name, clone_path, repo_url=None):
     config_path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
 
 
+def _credential_args(repo_url):
+    """The `git -c ...` flags that let this one invocation authenticate with
+    a credential the ENVIRONMENT carries, or [] when there is none.
+
+    (practice: fail-gracefully) The import is guarded and its failure is
+    ANNOUNCED rather than absorbed: a vendored tree that predates
+    precedent_source_credentials.py still runs, exactly as it did before,
+    but a person expecting a token to be used is told plainly why it was
+    not. A silently ignored credential is indistinguishable from a wrong
+    one, and this file's whole history is about failures that look like
+    something else."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        from precedent_source_credentials import credential_args
+    except ImportError:
+        if os.environ.get('PRECEDENT_GIT_TOKEN'):
+            print("precedent_source_bootstrap: PRECEDENT_GIT_TOKEN is set, but "
+                  "precedent_source_credentials.py is not beside this file, so "
+                  "the credential CANNOT be used. Re-vendor the engine "
+                  "(python3 tools/precedent_vendor_engine.py refresh <clone>).",
+                  file=sys.stderr)
+        return []
+    return credential_args(repo_url)
+
+
 def _try_sync(repo_url, clone_path):
-    """One attempt: pull if already cloned, else clone. -> (ok, output)."""
+    """One attempt: pull if already cloned, else clone. -> (ok, output).
+
+    The clone is made from the CLEAN url -- the credential travels as a git
+    helper that reads the environment itself, so no token is ever written
+    into .git/config, where it would outlive this process and be pushed by
+    whoever committed next."""
+    cred = _credential_args(repo_url)
     if (clone_path / '.git').is_dir():
-        r = subprocess.run(['git', '-C', str(clone_path), 'pull', '--ff-only', '--quiet'],
-                           capture_output=True, text=True)
+        cmd = ['git', *cred, '-C', str(clone_path), 'pull', '--ff-only', '--quiet']
     else:
-        r = subprocess.run(['git', 'clone', '--quiet', repo_url, str(clone_path)],
-                           capture_output=True, text=True)
+        clone_path.parent.mkdir(parents=True, exist_ok=True)
+        cmd = ['git', *cred, 'clone', '--quiet', repo_url, str(clone_path)]
+    r = subprocess.run(cmd, capture_output=True, text=True)
     return r.returncode == 0, (r.stdout + r.stderr).strip()
 
 
@@ -164,21 +201,83 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
     for attempt in range(1, attempts + 1):
         ok, last_output = _try_sync(repo_url, clone_path)
         if ok:
-            _write_config(pathlib.Path(config_path), level, name, clone_path,
-                          repo_url=repo_url)
+            # A team source is resolved BY PATH, as a sibling checkout, so
+            # there is nothing to record; writing a config entry for one
+            # would invent a resolution route precedent_resolve.py does not
+            # read (practice: no-invented-specifics, applied to code).
+            if config_path is not None:
+                _write_config(pathlib.Path(config_path), level, name, clone_path,
+                              repo_url=repo_url)
             return True, None
         if attempt < attempts:
             sleep(retry_delay)
     return False, last_output
 
 
+BASE_URL_ENV = 'PRECEDENT_SOURCE_BASE_URL'
+
+
+def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY):
+    """Clone every TEAM source a repo's precedent.json declares, to the
+    sibling path it declares, from `base_url`/<name>.
+
+    WHY THE URL IS BUILT FROM AN ENVIRONMENT VARIABLE rather than declared
+    in precedent.json beside the name: the account that owns a set is the
+    half that locates it, and a tracked file in a public repository must not
+    carry that (2026-09-07: one public consumer's own hook did, five lines
+    from its own sentence saying it must not). The NAME is already declared
+    in the open and that was a deliberate decision -- see precedent.json's
+    own comment. Building `<base>/<name>` keeps it that way.
+
+    -> [(name, ok, output)], one per declared team source. Never raises: a
+    set that cannot be cloned degrades the session (practice:
+    fail-gracefully), it does not stop startup."""
+    repo_path = pathlib.Path(repo_path)
+    base = (base_url if base_url is not None
+            else os.environ.get(BASE_URL_ENV, '')).strip().rstrip('/')
+    results = []
+    try:
+        cfg = json.loads((repo_path / 'precedent.json').read_text(encoding='utf-8'))
+    except Exception as e:
+        return [(None, False, f'could not read {repo_path / "precedent.json"}: {e}')]
+    for src in cfg.get('sources', []) or []:
+        if src.get('level') != 'team':
+            continue
+        name = str(src.get('name') or '').strip()
+        rel = str(src.get('path') or '').strip()
+        if not name or not rel:
+            results.append((name or None, False,
+                            'the declared source has no name or no path'))
+            continue
+        clone_path = (repo_path / rel).resolve()
+        if (clone_path / 'practices').is_dir():
+            results.append((name, True, 'already on disk'))
+            continue
+        if not base:
+            results.append((name, False,
+                            f'{BASE_URL_ENV} is not set, so there is no URL to '
+                            f'clone {name} from'))
+            continue
+        ok, out = ensure_source('team', name, f'{base}/{name}', clone_path,
+                                None, retries=retries, retry_delay=retry_delay)
+        results.append((name, ok, out or 'cloned'))
+    return results
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument('--level', required=True, choices=sorted(LEVELS))
-    p.add_argument('--name', required=True)
-    p.add_argument('--repo-url', required=True)
-    p.add_argument('--clone', required=True)
-    p.add_argument('--config', required=True)
+    p.add_argument('--level', choices=sorted(LEVELS))
+    p.add_argument('--name')
+    p.add_argument('--repo-url')
+    p.add_argument('--clone')
+    p.add_argument('--config',
+                   help='where to record the resolution (individual only -- a '
+                        'team source resolves by path and records nothing)')
+    p.add_argument('--teams-from', metavar='REPO',
+                   help="clone every team source REPO's precedent.json "
+                        f'declares, from ${BASE_URL_ENV}/<name>. Mutually '
+                        'exclusive with the single-source arguments above')
     p.add_argument('--retries', type=int, default=DEFAULT_RETRIES)
     p.add_argument('--retry-delay', type=float, default=DEFAULT_RETRY_DELAY)
     p.add_argument('--remote-only', default='true',
@@ -189,6 +288,25 @@ def main(argv=None):
 
     if args.remote_only.lower() == 'true' and os.environ.get('CLAUDE_CODE_REMOTE') != 'true':
         return 0
+
+    if args.teams_from:
+        for name, ok, out in teams_from_repo(args.teams_from,
+                                             retries=args.retries,
+                                             retry_delay=args.retry_delay):
+            if not ok:
+                print(f"precedent_source_bootstrap: team source "
+                      f"{name!r} is not on disk -- {out[-500:]}. Its practices "
+                      f"are NOT in force this session.", file=sys.stderr)
+        return 0
+
+    missing = [f'--{n}' for n, v in (('level', args.level), ('name', args.name),
+                                     ('repo-url', args.repo_url),
+                                     ('clone', args.clone)) if not v]
+    if missing:
+        p.error('needs ' + ', '.join(missing) + ' (or --teams-from REPO)')
+    if args.level == 'individual' and not args.config:
+        p.error('--config is required for an individual source: it is the '
+                'only place its resolution is recorded')
 
     ok, last_output = ensure_source(args.level, args.name, args.repo_url,
                                     args.clone, args.config,

@@ -10614,6 +10614,245 @@ def check_source_supplied_checks_run():
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_source_credentials():
+    """tools/precedent_source_credentials.py, and the one property that
+    matters most about it: the token never leaves the environment.
+
+    The mechanism exists because `add_repo` refuses across GitHub owners
+    (reproduced 2026-09-09 as a session's first tool call), so a private
+    practice source has to be reachable some other way. What it cannot do is
+    trade that problem for a worse one -- a secret written into a clone's
+    .git/config, or into an argument list, is a secret somebody commits
+    later. Cases 2, 3 and 7 are that property, asserted three ways.
+
+    Every case here is hermetic: a file:// fixture, a fixture HOME, and a
+    fixture repo whose precedent.json this test wrote
+    (practice: fixture-owns-its-state). Nothing touches the network, and no
+    case reads this container's own real credentials.
+
+    NEGATIVE CONTROL, RUN 2026-09-09 rather than assumed
+    (practice: control-asserts-which-failure). The helper was rewritten to
+    interpolate the token's VALUE instead of its variable name, and case 2's
+    "the token itself never appears in the arguments" went red, printing the
+    fixture token in its own failure detail. So the case can fail, and it
+    fails for the reason it claims to watch."""
+    import shutil, tempfile
+
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_credentials as psc
+    import precedent_source_bootstrap as psb   # BASE_URL_ENV lives with the
+    # tool that clones, not with the tool that reports -- the bootstrap has
+    # to keep working in a tree vendored before the credentials module
+    # existed, so it owns nothing it cannot resolve alone.
+
+    TOKEN = 'fixture-token-never-a-real-one'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-source-cred-'))
+    cases = []
+    try:
+        tool = ROOT / 'tools' / 'precedent_source_credentials.py'
+        url = 'https://github.com/example/precedent-individual'
+
+        # --- 1: no token, no credential flags ------------------------------
+        args = psc.credential_args(url, env={})
+        cases.append(('no token means no credential flags at all',
+                      args == [], repr(args)))
+
+        # --- 2: a token produces flags, and is NOT in them ------------------
+        args = psc.credential_args(url, env={psc.TOKEN_ENV: TOKEN})
+        joined = ' '.join(args)
+        cases.append(('a token produces a helper that git can use',
+                      len(args) == 4 and args[0] == '-c'
+                      and 'credential.helper=' in args[1]
+                      and psc.TOKEN_ENV in joined, repr(args)))
+        cases.append(('the token itself never appears in the arguments -- '
+                      'only the NAME of the variable git should read',
+                      TOKEN not in joined, repr(args)))
+
+        # --- 3: a hostile username cannot break out of the helper snippet ---
+        args = psc.credential_args(url, env={psc.TOKEN_ENV: TOKEN,
+                                             psc.TOKEN_USER_ENV: 'evil; rm -rf /'})
+        cases.append(('a username that is not a plain identifier falls back '
+                      'to the default rather than reaching the shell',
+                      'rm -rf' not in ' '.join(args)
+                      and f'username={psc.DEFAULT_TOKEN_USER}' in ' '.join(args),
+                      repr(args)))
+        args = psc.credential_args(url, env={psc.TOKEN_ENV: TOKEN,
+                                             psc.TOKEN_USER_ENV: 'git-user_1.x'})
+        cases.append(('a legitimate username override is honoured',
+                      'username=git-user_1.x' in ' '.join(args), repr(args)))
+
+        # --- 4: only https gets the credential -----------------------------
+        for scheme in (f'file://{tmp}/x', 'ssh://example.invalid/x'  # deliberately userless: a fixture URL
+                       # carrying user@host reads as an email address
+                       # to the leak gate, which scans this file too,
+                       'http://example.com/x'):
+            args = psc.credential_args(scheme, env={psc.TOKEN_ENV: TOKEN})
+            cases.append((f'a {scheme.split(":")[0]}:// url is never offered '
+                          f'the credential', args == [], repr(args)))
+
+        # --- 5: assess() tells the three states apart ----------------------
+        repo = tmp / 'consumer'
+        (repo / 'local').mkdir(parents=True)
+        home_empty = tmp / 'home-empty'
+        (home_empty / '.config' / 'precedent').mkdir(parents=True)
+        (home_empty / '.config' / 'precedent' / 'config.json').write_text(
+            '{"format_version": 1}\n', encoding='utf-8')
+
+        def write_cfg(team_path):
+            sources = [{'level': 'universal', 'name': 'precedent', 'path': '.'},
+                       {'level': 'repo-local', 'name': 'local', 'path': 'local'}]
+            if team_path is not None:
+                sources.insert(1, {'level': 'team', 'name': 'precedent-team-fixture',
+                                   'path': team_path})
+            (repo / 'precedent.json').write_text(
+                json.dumps({'format_version': 1, 'sources': sources}), encoding='utf-8')
+
+        write_cfg('../precedent-team-fixture')
+        env_no_token = {'HOME': str(home_empty)}
+        verdict, message = psc.assess(repo, env=env_no_token)
+        cases.append(('an unresolved private source with no token reads as '
+                      'MISSING, and the message names the variable to set',
+                      verdict == 'missing' and psc.TOKEN_ENV in message,
+                      f'{verdict}: {message}'))
+
+        verdict, message = psc.assess(repo, env={**env_no_token, psc.TOKEN_ENV: TOKEN})
+        cases.append(('the same repo WITH a token reads as SET -- a missing '
+                      'credential is explicitly not the explanation',
+                      verdict == 'set' and 'not the explanation' in message,
+                      f'{verdict}: {message}'))
+
+        # both sources genuinely present -> nothing to say
+        team = tmp / 'precedent-team-fixture'
+        (team / 'practices').mkdir(parents=True)
+        indiv = tmp / 'indiv'
+        (indiv / 'practices').mkdir(parents=True)
+        home_ok = tmp / 'home-ok'
+        (home_ok / '.config' / 'precedent').mkdir(parents=True)
+        (home_ok / '.config' / 'precedent' / 'config.json').write_text(
+            json.dumps({'format_version': 1,
+                        'individual': {'name': 'precedent-individual',
+                                       'path': str(indiv)}}), encoding='utf-8')
+        verdict, _ = psc.assess(repo, env={'HOME': str(home_ok)})
+        cases.append(('every private source on disk reads as ok, with or '
+                      'without a token', verdict == 'ok', verdict))
+        cases.append(('and remind() then says nothing at all, so the tools '
+                      'that call it stay quiet',
+                      psc.remind(repo, env={'HOME': str(home_ok)}) is None,
+                      str(psc.remind(repo, env={'HOME': str(home_ok)}))))
+
+        # --- 6: the CLI's own contract -------------------------------------
+        def run(*args, env_extra=None):
+            env = dict(os.environ)
+            env.pop(psc.TOKEN_ENV, None)
+            if env_extra:
+                env.update(env_extra)
+            r = subprocess.run([sys.executable, *args], capture_output=True,
+                               text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run(str(tool), '--repo', str(repo), env_extra={'HOME': str(home_empty)})
+        cases.append(('the CLI reports MISSING and still exits 0 -- a missing '
+                      'credential degrades a session, never takes one down',
+                      rc == 0 and 'MISSING' in out, f'rc={rc} {out[:300]}'))
+        rc, out = run(str(tool), '--repo', str(repo), '--check',
+                      env_extra={'HOME': str(home_empty)})
+        cases.append(('--check is the one caller that exits 1 on MISSING',
+                      rc == 1 and 'MISSING' in out, f'rc={rc} {out[:300]}'))
+        rc, out = run(str(tool), '--repo', str(repo), '--check',
+                      env_extra={'HOME': str(home_ok)})
+        cases.append(('--check exits 0 when every source is on disk '
+                      '(the negative control: this case must be able to fail '
+                      'the one above)', rc == 0 and 'OK' in out,
+                      f'rc={rc} {out[:300]}'))
+
+        # --- 7: end to end, the token never reaches disk --------------------
+        source = tmp / 'source-repo'
+        source.mkdir()
+        for cmd in (['init', '-q'], ['config', 'user.email', 'harness@example.com'],
+                    ['config', 'user.name', 'harness']):
+            subprocess.run(['git', '-C', str(source), *cmd], check=True,
+                           capture_output=True, text=True)
+        (source / 'practices').mkdir()
+        (source / 'practices' / 'p.md').write_text('fixture\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(source), 'add', '-A'], check=True,
+                       capture_output=True, text=True)
+        subprocess.run(['git', '-C', str(source), 'commit', '-qm', 'seed'],
+                       check=True, capture_output=True, text=True)
+
+        bootstrap = ROOT / 'tools' / 'precedent_source_bootstrap.py'
+        clone, config = tmp / 'clone', tmp / 'cfg.json'
+        rc, out = run(str(bootstrap), '--level', 'individual', '--name',
+                      'precedent-individual', '--repo-url', f'file://{source}',
+                      '--clone', str(clone), '--config', str(config),
+                      '--remote-only', 'false',
+                      env_extra={psc.TOKEN_ENV: TOKEN})
+        cloned = (clone / 'practices' / 'p.md').is_file()
+        on_disk = ''
+        for f in (clone / '.git' / 'config', config):
+            if f.is_file():
+                on_disk += f.read_text(encoding='utf-8')
+        cases.append(('the bootstrap clones with a token set, and the token '
+                      'is in NEITHER the clone\'s git config NOR the config '
+                      'file it writes', rc == 0 and cloned and TOKEN not in on_disk,
+                      f'rc={rc} cloned={cloned} {out[:300]}'))
+
+        # --- 8: a team source is cloned by path, and records nothing --------
+        # A real repo to clone FROM, named the way the set is named: the URL
+        # is built as <base>/<name>, which is the whole convention under test.
+        remotes = tmp / 'remotes'
+        remotes.mkdir()
+        subprocess.run(['git', 'clone', '-q', f'file://{source}',
+                        str(remotes / 'precedent-team-fixture')], check=True,
+                       capture_output=True, text=True)
+        write_cfg('../team-fixture-clone')
+        rc, out = run(str(bootstrap), '--teams-from', str(repo),
+                      '--remote-only', 'false',
+                      env_extra={psb.BASE_URL_ENV: f'file://{remotes}',
+                                 'HOME': str(home_empty)})
+        # the fixture set is named precedent-team-fixture, so file://<tmp>/precedent-team-fixture
+        cases.append(('--teams-from clones each declared team source to the '
+                      'sibling path the repo declares',
+                      rc == 0 and (repo.parent / 'team-fixture-clone' / 'practices').is_dir(),
+                      f'rc={rc} {out[:400]}'))
+        cases.append(('...and writes no user config for it: a team source '
+                      'resolves by path, so there is nothing to record',
+                      not (home_empty / '.config' / 'precedent' / 'config.json')
+                      .read_text(encoding='utf-8').count('team'),
+                      (home_empty / '.config' / 'precedent' / 'config.json')
+                      .read_text(encoding='utf-8')))
+
+        # --- 9: no base url is REPORTED, never silently skipped -------------
+        shutil.rmtree(repo.parent / 'team-fixture-clone', ignore_errors=True)
+        rc, out = run(str(bootstrap), '--teams-from', str(repo),
+                      '--remote-only', 'false', env_extra={'HOME': str(home_empty)})
+        cases.append(('with no base url the team source is named on stderr as '
+                      'NOT in force, rather than passing quietly',
+                      rc == 0 and psb.BASE_URL_ENV in out
+                      and 'NOT in force' in out, f'rc={rc} {out[:300]}'))
+
+        # --- 10: the announced degradation when the module is not vendored --
+        lonely = tmp / 'lonely-tools'
+        lonely.mkdir()
+        shutil.copy(bootstrap, lonely / bootstrap.name)
+        rc, out = run(str(lonely / bootstrap.name), '--level', 'individual',
+                      '--name', 'x', '--repo-url', f'file://{source}',
+                      '--clone', str(tmp / 'clone2'), '--config', str(tmp / 'c2.json'),
+                      '--remote-only', 'false', env_extra={psc.TOKEN_ENV: TOKEN})
+        cases.append(('a bootstrap vendored WITHOUT the credentials module '
+                      'says so when a token is set, naming the file and the '
+                      'remedy -- it does not ignore the token in silence',
+                      'precedent_source_credentials.py is not beside this file' in out
+                      and 'precedent_vendor_engine.py refresh' in out,
+                      f'rc={rc} {out[:400]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the private-source credential never reaches disk or argv, and its '
+          f'absence is reported ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_individual_source_bootstrap_self_heals():
     """practices/session-bootstrap.md's Detail, tested rather than trusted
     -- and corrected 2026-09-06 after this check's own first version
@@ -13016,6 +13255,7 @@ def main():
     check_materialized_links_are_placed()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
+    check_source_credentials()
     check_pretooluse_hook_fires()
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()

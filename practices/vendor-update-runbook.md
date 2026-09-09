@@ -47,7 +47,16 @@ every step's answer is wrong if the one before it was skipped.
    views describing the old engine, and its own `--check` then fails on
    work that is otherwise correct. The bump and its output land together.
 6. **Run this repo's own full check**, not the upstream's.
-7. **Verify by content on the remote**, never by ref equality
+7. **Check that this environment can still reach its PRIVATE sources**,
+   before you call the update done. A vendor update is when a new engine
+   file arrives that the environment may not be configured for, and it is
+   the one moment somebody is looking at how this repo gets its practices
+   at all. Run
+   [tools/precedent_source_credentials.py](../tools/precedent_source_credentials.py);
+   `MISSING` means a source is absent and no credential is set, so the
+   session is running on the universal catalogue alone and nothing else
+   will say so.
+8. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
 
 **A refusal naming a file that no longer exists upstream means reseed, not
@@ -120,3 +129,10 @@ most often gets skipped.
 Then run the sequence above, and report which layers moved and which did
 not. "Updated" without naming the layers is the report that hides half a
 job.
+
+Step 7 runs itself: [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
+prints the same line after a `refresh` or a `status`, so an update made
+without reading this file still surfaces a source nobody can reach
+(practice: checkable-gets-checked). Asked for by Morgan, 2026-09-09, in the
+thread that found a whole session running with no team or individual
+practices in force and no error anywhere.

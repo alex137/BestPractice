@@ -798,6 +798,33 @@ which is the failure this repointing exists to end — write
     was reproduced, so this is a change in the environment rather than a
     mistake in the original finding.
 
+    **The fresh-session case was tested 2026-09-09, and it refuses.** A
+    session rooted at `alex137/bestpractice` called `add_repo` for
+    `themorgan/precedent-individual` as its **first tool call of the
+    session** and was told *"cross-tier adds are not supported in v1:
+    requested ... but session already has repos from owner(s) [alex137]"*.
+    So the initial source itself counts as "already has repos", and no
+    ordering of calls inside such a session can work. That closes the
+    question this item left open; it does not explain the 2026-09-07 session
+    that held five owners' repositories at once, which stays unexplained.
+
+    **And the item's premise — that a session must be rooted at the private
+    repo — is now only one of two routes.** `add_repo` is not the only way to
+    hold a credential: an environment can carry one, and the SessionStart
+    hook can then clone the sources *before the agent's first turn*, which is
+    the ordering every part of this problem turns on. Set
+    `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
+    ([INSTALL.md §8](INSTALL.md#8-per-machine-setup--what-each-person-sets-on-each-machine)),
+    and [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
+    `--teams-from .` clones every declared team set as a sibling. **Nobody
+    has run it with a valid token yet** — three of the four things it depends
+    on were measured that day (the proxy passes authenticated GitHub reads,
+    no ambient credential exists, the helper really does hand git the token),
+    and the fourth needs a token this account has not issued. Until somebody
+    does, this item stays open on that one step, not on the whole design.
+    [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
+    reports which state a session is in.
+
 35. <a id="convert-team-set-retired-statuses"></a>*(was item 34 — two items carried that number until 2026-09-06.)* **Convert
     `precedent-team-maintainers`' two `status: retired` practices to
     `status: deduplicated`.** `bestpractice-sync` (rule in force at

@@ -223,6 +223,21 @@ def apply_to(entry, commit=False, branch=None):
     return steps
 
 
+def _credential_reminder():
+    """A source set that is not attached at all cannot be stale, so this
+    tool's own report is silent about it -- and "no attached source found"
+    reads as "nothing to do" when it often means "the sources never
+    resolved". Say which it is (practice: fail-gracefully -- never look
+    complete)."""
+    try:
+        import precedent_source_credentials as psc
+    except ImportError:
+        return
+    line = psc.remind(ROOT, prefix='precedent_refresh_sources')
+    if line:
+        print(line)
+
+
 def main(argv):
     if '--help' in argv or '-h' in argv:
         print(__doc__)
@@ -240,6 +255,7 @@ def main(argv):
               f"`git fetch origin {SOURCE_BRANCH}` and re-run.", file=sys.stderr)
         return 0
 
+    _credential_reminder()
     if not found:
         print(f"precedent_refresh_sources: no attached practice-set source found "
               f"beside {ROOT} (looked for {MANIFEST}). Nothing to check.")

@@ -461,6 +461,7 @@ that skips them in this repo of all places is the joke writing itself.
 | The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
 | The very deep check: four ordered passes over every repo in force — adopter installs, whether the mechanisms tell the truth, the coherence read, then catalogue and housekeeping — on request only, distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
+| Whether this session can reach its PRIVATE practice sources at all, and the credential that removes the `add_repo` dance | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py), setup in [INSTALL.md](INSTALL.md) §8 |
 | Whether an attached practice-set source's vendored engine has gone stale, and bringing it up to date | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes, `--commit` commits |
 | Whether this session's SessionStart hooks actually ran, and repairing them if not | [tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand |
 | Whether Alex has moved `main` since the last carry onto this branch, and what changed | [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py) — printed at session start; the watermark it compares against is [tools/upstream_watermark.json](tools/upstream_watermark.json), moved with `--record` in the carry's own commit |
@@ -901,6 +902,27 @@ gotcha every session reads is a gotcha every session pays for.
   unattachable for its whole life — that is why work spanning both owners is
   split across two sessions. The full contradictory sequence is in the
   archive; read the verdict there before any single paragraph of it.
+
+  **2026-09-09 adds one measurement that is not contradictory, and one route
+  that does not depend on `add_repo` at all.** The refusal was reproduced as
+  a session's very FIRST tool call, rooted at `alex137/bestpractice` — so
+  "call it before anything else" is not a remedy: the initial repository
+  already counts as *"session already has repos from owner(s)"*. Three other
+  things were measured in the same container. An authenticated HTTPS request
+  to github.com **reaches GitHub's own authentication** rather than a proxy
+  error. There is **no ambient credential** for a private repo (a bare
+  `git ls-remote` on one asks for a username; the same call on a public repo
+  succeeds). And the credential helper in
+  [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
+  **does deliver** a token to git — with a deliberately invalid one, git sent
+  it and GitHub rejected it rather than prompting. **So set
+  `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` in the environment
+  ([INSTALL.md](INSTALL.md) §8) and the SessionStart hook clones the sources
+  before the first turn, where no ordering rule can reach it.** Never tested:
+  a VALID token, because that session had none — the first person to set one
+  should say whether it worked. Meanwhile that tool prints `MISSING` for
+  exactly this state, and the session check, the session-start source
+  report and every vendor update print the same line.
 
 - **A private repo name reaches a public tree by nobody having predicted it,
   so repo references are an ALLOWLIST, not a blocklist.** Declare an owner

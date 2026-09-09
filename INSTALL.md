@@ -1125,6 +1125,62 @@ Filling them in by hand is for a machine where neither has run — copy
 [templates/practice-set-individual/config.json.sample](templates/practice-set-individual/config.json.sample),
 which carries the same explanation.
 
+### Hosted Sessions — The Credential That Replaces `add_repo`
+
+**On a hosted, ephemeral session there is a second way to reach your
+private sources, and it is the durable one.** The usual route is the agent
+calling `add_repo` in its first turn; that grants access *per session*, and
+it **refuses across owners** — reproduced 2026-09-09 as the very first tool
+call of a session whose initial repository was `alex137/bestpractice`:
+*"cross-tier adds are not supported in v1"*. There is no ordering of calls
+that gets around it, because the initial repository already counts. A
+session in that state runs on the universal catalogue alone and **says so
+only on stderr**.
+
+A credential the *environment* carries is under no such ordering. The
+SessionStart hook runs before the agent's first turn, so with these two
+variables set it clones the sources then, and `add_repo` never enters into
+it.
+
+| Setting | Where | Effect |
+|---|---|---|
+| `PRECEDENT_GIT_TOKEN` | the environment's own configuration (on Claude Code on the web, the environment; locally, your shell profile) | A token with **read** access to your practice-set repositories. [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) uses it to clone them at session start. Nothing else reads it. |
+| `PRECEDENT_SOURCE_BASE_URL` | same | Where a team set is cloned from, by name: `<base>/<team-set-name>`, e.g. `https://github.com/<account>`. Without it the team sets cannot be located, since **no tracked file names the account that owns them** — that is deliberate, and [precedent.json](precedent.json)'s own comment says why. |
+| `PRECEDENT_GIT_TOKEN_USER` | same | Optional. The username sent with the token; defaults to `x-access-token`, which GitHub accepts alongside any personal access token. |
+
+**Use a read-only token, scoped to the practice-set repositories.** Nothing
+here pushes with it.
+
+**What is verified, and what is not (measured 2026-09-09, in a Claude Code
+on the web container).** Three things were tested directly: an
+authenticated request to `github.com` **leaves the sandbox and reaches
+GitHub's own authentication** rather than being stopped by the proxy; there
+is **no ambient credential** for a private repository, so nothing works by
+accident; and the credential helper this ships **does deliver** the token to
+git — with a deliberately invalid one, git did not fall back to prompting,
+it sent the credential and GitHub rejected it. **What was never tested is a
+valid token**, because that session had none. If you are the first to set
+one, say plainly whether it worked, and correct
+[tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)'s
+own header either way.
+
+**The token is never written down.** It reaches git through a helper that
+reads the environment variable itself, so it appears in no command line, no
+clone's `.git/config`, and none of the files the bootstrap writes.
+
+**Check it from inside any session:**
+
+```
+python3 tools/precedent_source_credentials.py
+```
+
+It reports `OK` when every private source this repository expects is on
+disk, `MISSING` when one is absent and no credential is set — the state
+worth acting on — and `SET` when one is absent *despite* a credential,
+which means the token is not the problem and the clone itself is. The same
+line is printed by the session check, by the source-freshness report at
+session start, and by a vendor update.
+
 ### Optional, and Each One an Escape Hatch
 
 | Setting | Where | Effect |

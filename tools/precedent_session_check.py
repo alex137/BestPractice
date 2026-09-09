@@ -104,6 +104,25 @@ def checks():
                 "tells this session to read it and there is nothing to read. "
                 'Regenerate: python3 tools/precedent_session_practices.py'))
 
+    # 2b. ...and if they did not, whether a credential could have helped.
+    # The row above says the FILE is missing; this one says whether the
+    # sources themselves resolved, which is the thing that actually binds
+    # work here. Both matter: the file can exist and honestly report that
+    # every private source was unreachable, which is the state a whole
+    # working day was once lost to (AGENTS.md's "no individual source
+    # resolved" gotcha).
+    try:
+        import precedent_source_credentials as psc
+        verdict, message = psc.assess(ROOT)
+        out.append(('the private practice sources resolved, or a credential '
+                    'is set that could reach them', verdict != 'missing',
+                    '' if verdict != 'missing' else message))
+    except ImportError:
+        out.append(('the private practice sources resolved, or a credential '
+                    'is set that could reach them', None,
+                    'tools/precedent_source_credentials.py is not importable '
+                    'from here, so this could not be evaluated'))
+
     # 3. Commit identity is a person, not the container's bot.
     _, email, _ = _git('config', 'user.email')
     ok = bool(email) and email not in BOT_EMAILS
