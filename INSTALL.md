@@ -1,30 +1,40 @@
 # How to Install Precedent for You and Your Team
 
-Instructions for wiring Precedent into a *dependent repo*, keeping it
-current, and flowing improvements back. Read [PRACTICES.md](PRACTICES.md)
-first for what each practice is and why.
+**One question first: are you technical?**
 
-This document only covers **installing** Precedent. For what working
-with it looks like once it's installed, see
-[documentation/HOW_TO_USE_THIS_TECHNICAL.md](documentation/HOW_TO_USE_THIS_TECHNICAL.md)
-if you're technical, or
-[documentation/HOW_TO_USE_THIS_NONTECHNICAL.md](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md)
-if you're not;
-[documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md)
-is the short version of both, for someone who is already set up — and
-[documentation/WHAT_IS_THIS_AND_BENEFITS.md](documentation/WHAT_IS_THIS_AND_BENEFITS.md) if you
-haven't decided to adopt it yet.
+- **No — I don't write code.** You do not need this page at all. Open a
+  session on your project with an AI assistant and paste it
+  [SETUP.md](SETUP.md): it runs the whole install as a conversation, asks
+  you three questions, and does the technical work itself.
+  [ADOPTING.md](ADOPTING.md) explains what you are agreeing to before you
+  start, and
+  [documentation/HOW_TO_USE_THIS_NONTECHNICAL.md](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md)
+  is how you work once it is running.
+- **Yes — I want the files, the steps and the commands.** They are on this
+  page, below, and this page is the only complete copy of them.
+  [documentation/HOW_TO_USE_THIS_TECHNICAL.md](documentation/HOW_TO_USE_THIS_TECHNICAL.md)
+  is its companion: the short form of the install, plus how to actually
+  work in a Precedent project once it is installed.
 
-You don't need to run the technical steps yourself to follow, or approve,
-this setup: read just the shaded **"In plain terms"** note at the start of
-each section below, in order, and skip everything underneath it — together
-they walk through the whole setup without requiring GitHub knowledge. The
-last section,
-[For approvers: your checklist](#for-approvers-your-checklist), gathers every
-point in the process that actually needs a decision from you into one list.
-To have this conversation live with your assistant rather than reading about
-it, start at [SETUP.md](SETUP.md) instead — this page is the detailed
-reference it works from.
+Still deciding whether to adopt it at all?
+[documentation/WHAT_IS_THIS_AND_BENEFITS.md](documentation/WHAT_IS_THIS_AND_BENEFITS.md).
+Already set up and just want the daily habits?
+[documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md).
+
+Everything below is the technical reference: wiring Precedent into a
+*dependent repo*, keeping it current, and flowing improvements back. For
+what each practice is and why, read [practices/](practices/) — indexed by
+[MAP.md](MAP.md), one rule at a time with
+`python3 tools/precedent_show.py SLUG`. ([PRACTICES.md](PRACTICES.md) is
+the frozen pre-fork catalogue, kept for its prose; it is no longer the
+live list.)
+
+**Approving this install without running it?** Read just the shaded
+**"In plain terms"** note at the start of each section below, in order,
+and skip everything underneath — together they walk the whole setup
+without requiring GitHub knowledge. The last section,
+[For approvers: your checklist](#for-approvers-your-checklist), gathers
+every point that actually needs a decision from you into one list.
 
 > **In plain terms.** Precedent is a set of working habits — how a
 > project remembers its decisions, how contributors avoid overwriting each

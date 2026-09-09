@@ -2382,3 +2382,16 @@ which is the failure this repointing exists to end — write
    queued rather than done for that reason alone. It carries no disposition,
    so it is `wait` ([open-item-disposition](practices/open-item-disposition.md)):
    nobody chases it, and nobody raises it unless Morgan asks.
+
+48. <a id="audit-trail-item-placement"></a>**Confirm where the audit-trail item belongs in
+   [philosophy/AI_GOVERNANCE_TO_COCREATE.md](philosophy/AI_GOVERNANCE_TO_COCREATE.md).**
+   Morgan's 2026-09-09 batch asked for *"Version Control and an Audit
+   Trail"* to be added under **Verification**, and, two items later, for
+   **Verification** to be dissolved — its one existing item moved to
+   **Voice & Output**. Both instructions were followed; the new item had to
+   land somewhere, and this session put it in **Memory & Context**, next to
+   `durable-state-default`, as the closest surviving home. That placement
+   is a session's judgment call, not his — the other plausible home is
+   **Keeping the Corpus Honest**, and a third answer is that Verification
+   should have survived holding the new item alone.
+   **Disposition:** ask

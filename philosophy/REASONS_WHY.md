@@ -28,11 +28,20 @@ instead, it becomes a rule anyone can read, edit, and hand to a
 different model
 ([`explicit-ownership-not-hidden-in-the-model`](OUR_PHILOSOPHY.md#explicit-ownership-not-hidden-in-the-model)).
 
+<a id="open-formats-you-own"></a>
+
+**3. Information that stays in text and open formats, in accounts you
+own.** A proprietary format inside somebody else's product is readable
+only while you keep paying for the reader; the same material as plain
+text in a repository you control can be searched, diffed, copied out and
+handed to a different tool without asking anyone
+([`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge)).
+
 ## Records and Rules That Write Themselves
 
 <a id="intermediary-layer-side-benefits"></a>
 
-**3. An intermediate AI layer in front of every action improves output
+**4. An intermediate AI layer in front of every action improves output
 & allows context sharing.** Put a model between intent and the action,
 and unplanned benefits appear: speaking works as well as typing, a bad
 plan gets contradicted before it fires, and the layer keeps the trace
@@ -43,7 +52,7 @@ below;
 
 <a id="writing-stops-competing-with-doing"></a>
 
-**4. Team Members rarely document protocols, patterns, why they did what
+**5. Team Members rarely document protocols, patterns, why they did what
 they did, because they always have more important work to do.**
 Documenting loses to the work competing for the same hour. Pulling the
 record out as a byproduct of working in the open — instead of a
@@ -53,7 +62,7 @@ follow-up chore
 
 <a id="protocols-generated-not-just-documented"></a>
 
-**5. The power isn't documentation — it's protocols generated
+**6. The power isn't documentation — it's protocols generated
 automatically, since no one finds the time to write them by hand.** One
 part of
 [CORE_PILLARS.md](CORE_PILLARS.md)'s case for
@@ -67,7 +76,7 @@ Ghost) turns someone leaving into a staffing change.
 
 <a id="situation-heads-off-confusion"></a>
 
-**6. Decisions with the reason attached prevent regressions.** The
+**7. Decisions with the reason attached prevent regressions.** The
 merge runbook's "never hand-merge `process/upstream/`" loses the day
 hand-resolving looks competent — but stating the reason, that this
 directory stays byte-identical, settles it before the pull request, not
@@ -79,7 +88,7 @@ same trade
 
 <a id="second-language-stops-costing-quality"></a>
 
-**7. Working in a second language stops costing quality.** Composing
+**8. Working in a second language stops costing quality.** Composing
 in an unfamiliar language spends attention on translation and leaves a
 thinner record. Letting people think in whatever language comes
 naturally, with the AI carrying translation into the repo's shared
@@ -90,7 +99,7 @@ language, gets the real thinking into the record instead
 
 <a id="wrong-gets-cheap-early"></a>
 
-**8. Being wrong gets cheap while it's still small.** An error caught
+**9. Being wrong gets cheap while it's still small.** An error caught
 the same hour costs one correction; caught three weeks later it costs
 the correction plus a meeting reconstructing who approved what
 ([`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate))
@@ -102,7 +111,7 @@ periodic contradiction-checks
 
 <a id="instinct-catches-what-checklists-miss"></a>
 
-**9. The biggest problems, that go to the core of why you're there, and get
+**10. The biggest problems, that go to the core of why you're there, and get
 caught by instinct, never by smart checklists.** A model flags what
 fails its own checks — a broken link, a bad number. It can't notice an
 answer that felt off, or a plan that's sound yet wrong for reasons

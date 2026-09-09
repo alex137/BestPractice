@@ -4,8 +4,8 @@
 would a team want it?**
 
 Precedent is a layer that sits between a group of people and their
-shared work — **an alternative to Google Docs, built for teams who
-collaborate through an AI assistant rather than a shared live document.**
+shared work — **built for teams who collaborate through an AI assistant
+rather than a shared live document.**
 
 You talk to an assistant about the work: what to write, what to decide,
 what to change. The assistant does the actual editing — you never touch a
