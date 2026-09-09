@@ -788,6 +788,26 @@ gotcha every session reads is a gotcha every session pays for.
   canonical is still a person's call, and
   [TODO.md's `source-hook-drift` item](TODO.md#source-hook-drift) holds it.
 
+- **A `BLOCKED by freshness-guard` on your first tool call can mean your
+  BRANCH has no counterpart on origin yet, not that your checkout is stale —
+  and the override the message offers switches the guard off for the whole
+  checkout.** Reported 2026-09-09 by a session working in one of the private
+  practice-set repositories: its first command was refused because the branch
+  it had been told to work on did not exist on origin, so there was nothing
+  for the guard to fetch or compare against. **The remedy the refusal names
+  is the wrong one here.** `git config precedent.freshness.override true`
+  buys past a branch-shaped inconvenience by disabling freshness checking for
+  the rest of the session — trading the guard that catches the single most
+  expensive failure class in this file for the smallest possible convenience.
+  **Push the branch instead.** It gives the guard a counterpart to fetch,
+  costs nothing (the branch carries no commits beyond its base yet), and
+  leaves every later check running. That session did exactly that, after
+  confirming by hand that its HEAD matched `origin/main` on a clean tree.
+  **Not established from here:** which of the guard's paths produced the
+  refusal, or whether that set's copy is the older build named two entries
+  above — that repository is under another owner and cannot be attached to a
+  session rooted here, per the cross-owner entry below.
+
 - **Something can move this checkout off your working branch mid-session,
   and the cause is NOT known — treat a silently-vanished edit as this before
   you re-derive it.** 2026-09-08, three minutes after a commit, the reflog
