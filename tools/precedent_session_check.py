@@ -67,6 +67,30 @@ def _declared_branch():
         return None
 
 
+def _identity_is_declared():
+    """Whether a PERSON declared who they are, as commit-identity.sh means it.
+
+    Mirrors that hook's `declared` flag: an explicit PRECEDENT_COMMIT_EMAIL,
+    this repo's own identity.json (it IS somebody's individual source), or the
+    individual practice source's identity.json. An identity merely INFERRED
+    from an existing git config, the session account or the authenticated
+    GitHub account is NOT a declaration and does not install the global
+    backstop -- which is the whole reason the backstop row needs to tell the
+    two apart before naming a remedy.
+    """
+    if os.environ.get('PRECEDENT_COMMIT_EMAIL'):
+        return True
+    if (ROOT / 'identity.json').exists():
+        return True
+    cfg = pathlib.Path(os.environ.get('PRECEDENT_USER_CONFIG')
+                       or '~/.config/precedent/config.json').expanduser()
+    try:
+        path = json.loads(cfg.read_text(encoding='utf-8'))['individual']['path']
+    except Exception:
+        return False
+    return (pathlib.Path(path).expanduser() / 'identity.json').exists()
+
+
 def checks():
     """-> [(name, ok, detail)]. Each is a guarantee a SessionStart hook is
     supposed to have established, tested by its EFFECT rather than by
@@ -133,13 +157,43 @@ def checks():
                 f'this repo\'s own check refuses them'))
 
     # 4. The global backstop reaches repositories attached later.
+    #
+    # WHY THIS ROW NAMES ITS OWN REMEDY INSTEAD OF LEANING ON --apply.
+    # commit-identity.sh installs the backstop only when somebody DECLARED an
+    # identity (`_install_global_backstop`'s first line is
+    # `[ "$declared" -eq 1 ] || return 0`). Where the hook merely INFERRED one
+    # -- from an existing git config, the session account, the authenticated
+    # GitHub account -- it deliberately installs nothing. So on a session with
+    # no reachable individual source, which is most of them while that source
+    # is a private repo, `--apply` re-runs the hook, the hook declines again,
+    # and the row stays FAIL forever.
+    #
+    # 2026-09-09, the incident: a session was told by another session that
+    # `--apply` repairs this. It ran it, watched the row stay red, and spent
+    # the time working out that the summary's own `Repair:` line was naming a
+    # command that cannot fix this particular guarantee. A remedy that does
+    # not work is worse than none, because it is tried first and believed.
     _, hp, _ = _run('git', 'config', '--global', 'core.hooksPath')
     ok = bool(hp) and pathlib.Path(hp).is_dir()
-    out.append(('the global commit backstop is installed', ok,
-                '' if ok else
-                'core.hooksPath is unset, so a repository attached LATER in '
-                'this session inherits the container identity with nothing '
-                'to refuse it'))
+    detail = ''
+    if not ok:
+        detail = ('core.hooksPath is unset, so a repository attached LATER in '
+                  'this session inherits the container identity with nothing '
+                  'to refuse it')
+        if not _identity_is_declared():
+            detail += (
+                '. --apply CANNOT fix this: the backstop installs only for a '
+                'DECLARED identity, and nothing here declares one (no '
+                'PRECEDENT_COMMIT_EMAIL, no identity.json in this repo, no '
+                'individual practice source carrying one). Declare one and '
+                're-run the hook:\n'
+                '       PRECEDENT_COMMIT_NAME="<you>" '
+                'PRECEDENT_COMMIT_EMAIL="<you@example.com>" bash '
+                '.claude/hooks/commit-identity.sh\n'
+                '       -- or set PRECEDENT_GIT_TOKEN so the individual '
+                'source resolves and declares it for you '
+                '(tools/precedent_source_credentials.py)')
+    out.append(('the global commit backstop is installed', ok, detail))
 
     # 5. The packages this repo's own gates import.
     missing = []
@@ -277,6 +331,12 @@ def main():
               + (f', {len(unknown)} undetermined' if unknown else '') + '.')
         if not args.apply:
             print('Repair: python3 tools/precedent_session_check.py --apply')
+            # Not every guarantee is --apply's to restore, and a remedy that
+            # cannot work is worse than none because it is tried first and
+            # believed (2026-09-09, the backstop row's own comment). A row
+            # that knows better says so in its detail.
+            print('       -- unless a row above names a different remedy in '
+                  'its own detail, which is the one that will actually work')
         return 1
     print(f'session check OK: {len(rows) - len(unknown)} guarantee(s) in '
           f'effect' + (f', {len(unknown)} undetermined' if unknown else '') + '.')

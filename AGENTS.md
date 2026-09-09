@@ -137,8 +137,13 @@ repository's rules are the only ones a session sees.
 **Then, before trusting any of this file's "the session-start hook does
 this" claims: run
 [tools/precedent_session_check.py](tools/precedent_session_check.py).** It reports
-which SessionStart guarantees are actually in effect and `--apply` repairs
-them. A session rooted one directory ABOVE this repo — which is what
+which SessionStart guarantees are actually in effect, and `--apply` repairs
+most of them — **read the failing row's own detail before running it**, because
+a guarantee whose remedy is something else says so there. The global commit
+backstop is the live case: it installs only for a DECLARED identity, so on a
+session that could not reach the individual practice source `--apply` re-runs
+the hook, the hook declines again, and the row stays red no matter how many
+times you try. A session rooted one directory ABOVE this repo — which is what
 happens whenever the sibling clones a team source needs are laid out
 alongside it — runs NONE of its hooks, silently, including the one that
 writes `.precedent/SESSION_PRACTICES.md`. See the gotcha "The session's
@@ -926,6 +931,21 @@ gotcha every session reads is a gotcha every session pays for.
   should say whether it worked. Meanwhile that tool prints `MISSING` for
   exactly this state, and the session check, the session-start source
   report and every vendor update print the same line.
+
+  **First half of that report, 2026-09-09, and it is not about the token
+  being wrong: setting the variable does not reach a session that is already
+  running.** Morgan set `PRECEDENT_GIT_TOKEN` and, in the same conversation,
+  a RESUMED session in the container that predated it measured **zero**
+  `PRECEDENT_*` variables in its environment — not an empty token, not a
+  rejected one, the whole family absent. So the credential path was neither
+  confirmed nor disproved; it was never exercised. **The tool's `MISSING`
+  line is indistinguishable in the two cases** — "you did not set it" and
+  "you set it after this container started" print identically, which is
+  exactly how a correct configuration gets read as a broken one.
+  **Start a NEW session to test an environment change, and check
+  `env | grep -c PRECEDENT` before concluding anything about the token
+  itself.** Whether a valid token then works is still unmeasured; whoever
+  gets one into a fresh session should record it here.
 
 - **A private repo name reaches a public tree by nobody having predicted it,
   so repo references are an ALLOWLIST, not a blocklist.** Declare an owner
