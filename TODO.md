@@ -2395,3 +2395,48 @@ which is the failure this repointing exists to end — write
    **Keeping the Corpus Honest**, and a third answer is that Verification
    should have survived holding the new item alone.
    **Disposition:** ask (2026-09-09, the session that made the placement)
+
+49. <a id="cross-owner-add-repo-push"></a>**Measure whether `add_repo` refuses a cross-owner attachment in the
+   REVERSE direction, with `access: "push"`.** Every measurement so far ran
+   one way — from a session rooted in this repository, reaching for a
+   private practice-set repository under another owner — and the refusal
+   ("cross-tier adds are not supported in v1") is well established there,
+   including as a session's very first tool call. The other direction is
+   still unknown, and it decides whether the two-session split is permanent
+   or an artefact: if a session rooted in a private set can attach this
+   repository with credentials, one session can hold every private source
+   *and* push here, and the token work stops mattering.
+   Two attempts on 2026-09-09 failed to answer it, both for reasons that
+   are now their own gotchas: the first asked for `access: "read"`, which
+   short-circuits on the anonymous git proxy for a public repository and
+   never reaches the authorization check at all; the second could not run
+   because the spawned session had lost the tool itself mid-run. **The exact
+   call that settles it** is `add_repo` with `access: "push"` for
+   `alex137/bestpractice`, made from a session rooted in a private
+   practice-set repository, as that session's opening turn.
+   **Blocked-on:** a session rooted under the other owner, which this
+   repository's sessions cannot start for themselves — and, given the
+   tool-loss above, one where a person can read the answer out of the
+   transcript. It carries no disposition, so it is `wait`
+   ([open-item-disposition](practices/open-item-disposition.md)).
+
+50. <a id="source-hook-drift"></a>**Decide whether a drifted-but-present session hook in a practice-set
+   source gets brought up to canonical automatically.** Measured 2026-09-09
+   across the five private sets: every declared hook exists and is
+   executable, so nothing is broken — but one set's `freshness-guard.sh` is
+   an older, shorter build supporting only `session-start` and `pre-write`
+   (its settings.json wires no `UserPromptSubmit` to match, so it is
+   self-consistent, not damaged), and `commit-identity.sh` is one version
+   behind in all five, which is the signature of canonical moving on after
+   installation.
+   [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+   restores a hook that is declared and *missing*; it deliberately does not
+   touch one that is present, because overwriting a working guard changes
+   what blocks a session, and a set may be sitting on an older build for a
+   reason. The question is whether hook content should join the vendored
+   engine as something `--apply` keeps current, with the same
+   review-and-publish rules, or stay a per-set decision.
+   **Blocked-on:** Morgan's call on the first half, and a session rooted
+   under the sets' own owner to carry it out — this repository's sessions
+   cannot push there. It carries no disposition, so it is `wait`
+   ([open-item-disposition](practices/open-item-disposition.md)).

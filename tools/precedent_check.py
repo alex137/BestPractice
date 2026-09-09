@@ -1234,6 +1234,103 @@ def _session_bootstrap(ctx):
     return []
 
 
+# A hook path that does not resolve is the single most expensive silent
+# failure this project has measured, which is why this is an engine-property
+# check rather than a catalogue practice — it holds in any repo the engine is
+# vendored into, whether or not that repo resolves session-bootstrap.
+_HOOK_TOKEN_RE = re.compile(r'\$\{?CLAUDE_PROJECT_DIR\}?/\S+')
+
+
+def _declared_hook_targets(settings_path):
+    """[(abs_path, raw_token, is_argv0)] for every hook command in a
+    settings.json that names a file under $CLAUDE_PROJECT_DIR.
+
+    `is_argv0` is tracked because it decides whether the file has to be
+    executable: `$CLAUDE_PROJECT_DIR/.claude/hooks/x.sh` is exec'd directly
+    and a missing +x makes it silently never run, while the same path as an
+    argument to `python3` is read, not executed, and demanding +x there
+    would be a finding nobody should act on."""
+    try:
+        payload = json.loads(settings_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        # A settings.json this file cannot parse is the harness's problem to
+        # report, not this check's to guess at.
+        return []
+    hooks = payload.get('hooks')
+    if not isinstance(hooks, dict):
+        return []
+    out = []
+    for entries in hooks.values():
+        for entry in entries if isinstance(entries, list) else []:
+            for h in (entry.get('hooks') or []) if isinstance(entry, dict) else []:
+                cmd = h.get('command') if isinstance(h, dict) else None
+                if not isinstance(cmd, str):
+                    continue
+                for m in _HOOK_TOKEN_RE.finditer(cmd):
+                    raw = m.group(0)
+                    rel = raw.split('/', 1)[1] if '/' in raw else ''
+                    if not rel:
+                        continue
+                    out.append((ROOT / rel, raw, cmd.strip().startswith(raw)))
+    return out
+
+
+@check('declared-hooks-exist', 'tree',
+       'every hook file a .claude/settings.json declares exists on disk, and '
+       'is executable where the harness execs it directly',
+       'a hook declared by an absolute or bare relative path (only '
+       '$CLAUDE_PROJECT_DIR tokens are resolvable from here); a hook that '
+       'exists, runs, and does the wrong thing; and a repo with working '
+       'hooks that declares none at all, which is a different question and '
+       'belongs to session-bootstrap. It does NOT read '
+       'templates/harness/*/settings.json: those declare paths for the repo '
+       'they are installed INTO, so resolving them against this tree would '
+       'report a template as broken for being a template.',
+       practice_backed=False)
+def _declared_hooks_exist(ctx):
+    """A hook whose path does not exist is not an error anybody sees.
+
+    WHY THIS EXISTS (practice: cite-the-incident). Twice, measurably. On
+    2026-09-08 this repo's own hooks all pointed at
+    $CLAUDE_PROJECT_DIR/.claude/hooks/... while the harness had rooted the
+    session one directory above the repo, so every path resolved to nothing
+    and the commit identity, the freshness guard, the path-trigger channel
+    and .precedent/SESSION_PRACTICES.md were silently absent for a whole
+    session. On 2026-09-09 the same class turned up from the other end: the
+    individual practice source has a .claude/settings.json and no
+    .claude/hooks/ directory at all, because it was bootstrapped before
+    precedent_bootstrap_source.py installed hooks and nothing since has
+    repaired it. Both cost real sessions, and in both the harness said
+    nothing -- it treats an unresolvable hook command as a no-op.
+
+    The check is deliberately narrow: it answers "does the file the config
+    names actually exist here", which is the half a machine can settle."""
+    settings = [p for p in (ROOT / '.claude').glob('settings*.json')
+                if p.is_file()]
+    if not settings:
+        raise NotApplicable('this repo has no .claude/settings*.json, so it '
+                            'declares no hooks that could fail to resolve')
+    found = []
+    for sp_ in settings:
+        rel_settings = sp_.relative_to(ROOT)
+        targets = _declared_hook_targets(sp_)
+        for path, raw, is_argv0 in targets:
+            if not path.exists():
+                found.append(Finding(
+                    str(rel_settings),
+                    f'declares the hook `{raw}` but {path.relative_to(ROOT)} '
+                    f'does not exist — the harness treats an unresolvable '
+                    f'hook command as a no-op, so this guard is off and '
+                    f'nothing says so'))
+            elif is_argv0 and not os.access(path, os.X_OK):
+                found.append(Finding(
+                    str(rel_settings),
+                    f'declares the hook `{raw}` and '
+                    f'{path.relative_to(ROOT)} is not executable — it will '
+                    f'silently never run'))
+    return found
+
+
 @check('engine-plus-host-shims', 'tree',
        'no file outside the vendored tree duplicates a run of lines from '
        'inside it — that is a fork, not a shim',
