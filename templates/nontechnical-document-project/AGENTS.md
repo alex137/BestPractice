@@ -49,20 +49,29 @@ deliverables and indexes which documents back each part of each one.
   last regenerated. Re-run without `--check` to refresh it, review the
   diff, and commit.
 
-- **A brand-new session on this repo alone has no git read access to
-  `precedent-team-tms`** — session repo access is scoped per session, never
+- **A brand-new session on this repo alone has no git read access to this
+  project's team sets** — session repo access is scoped per session, never
   inherited just because `precedent.json` names a repo. No token or secret is
   involved: the tool that grants a session this access rides the same GitHub
   identity already behind the session, so it only ever succeeds because that
   person is already a collaborator on the target repo. **At the very start of
   every session, before running `tools/bootstrap.sh`, call that tool
-  (`add_repo`, read access) for `precedent-team-tms` — silently, with no
+  (`add_repo`, read access) for every `precedent-team-*` source
+  [`precedent.json`](precedent.json) declares — silently, with no
   confirmation needed first.** This is a read-only scope extension, not a
   credential or production change. Never write this as "if the clone fails,
   ask to add the repo" — that only works when a human happens to be watching
   for the failure, and the whole point is that a person only ever attaches
-  the one repo they're actually working in; reaching for the team source is
+  the one repo they're actually working in; reaching for the team sources is
   this session's own job, every time.
+
+  **Read the set names out of `precedent.json`; never hard-code them here.**
+  This paragraph used to name one set outright, which meant declaring a
+  second one silently required editing two files that nothing kept in
+  agreement — and the failure mode of getting that wrong is not an error but
+  a session that quietly resolves fewer practices than the config promises.
+  A repo declaring several subject-scoped sets is the ordinary case now, not
+  an exception.
 
 ## Non-technical contributor access
 

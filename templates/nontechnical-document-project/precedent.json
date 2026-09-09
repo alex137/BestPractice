@@ -11,13 +11,33 @@
     "INSTALL.md §0 step 1 -- not a live reference; every collaborator and",
     "every fresh container needs it without a sibling checkout.",
     "",
-    "The team source is precedent-team-tms, the shared editorial/content",
-    "practice set for non-technical document work (distinct from",
-    "precedent-team-maintainers, which is code-repo conventions) -- see",
-    "spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md. Resolved LIVE from a",
-    "sibling clone, never vendored, per that source's own precedence rules.",
-    "A hosted/ephemeral session needs AGENTS.md's own instruction to",
-    "call add_repo for it at session start -- see that file."
+    "THREE team sources, each named for a SUBJECT rather than for a roster,",
+    "and a project declares the ones its kind of work needs (INSTALL.md's",
+    "'Which team sets does this repo declare?'):",
+    "",
+    "  precedent-team-tms -- this team's own conventions for non-technical",
+    "    document work; see spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md.",
+    "  precedent-team-writing -- the craft of documents and prose: length,",
+    "    emphasis, lists, drafting markers, citation and linking. Wanted by",
+    "    anyone writing for a human reader, on any team.",
+    "  precedent-team-working-style -- how a session works alongside the",
+    "    person: decide small calls, don't stall on a non-blocking question,",
+    "    don't repeat the same disclaimer every run. Mostly resident, so it",
+    "    fires on every turn.",
+    "",
+    "precedent-team-maintainers is deliberately NOT declared here: it holds",
+    "repo and practice-set mechanics -- syncs, gates, branch setup, catalogue",
+    "upkeep -- which a document project has no way to act on. Not declaring a",
+    "set is the cheap way to say that; a `not_binding` entry per slug is the",
+    "expensive one. (Until 2026-09-09 this comment called that set 'code-repo",
+    "conventions', which was never true: over half its rules were about",
+    "writing, and they were unreachable from here because of it.)",
+    "",
+    "All three are resolved LIVE from sibling clones, never vendored, per",
+    "those sources' own precedence rules. A hosted/ephemeral session needs",
+    "AGENTS.md's own instruction to call add_repo for each at session start",
+    "-- that instruction reads this file's `sources` rather than naming any",
+    "set, so declaring another one here is the only edit required."
   ],
   "sources": [
     {
@@ -29,6 +49,16 @@
       "level": "team",
       "name": "precedent-team-tms",
       "path": "../precedent-team-tms"
+    },
+    {
+      "level": "team",
+      "name": "precedent-team-writing",
+      "path": "../precedent-team-writing"
+    },
+    {
+      "level": "team",
+      "name": "precedent-team-working-style",
+      "path": "../precedent-team-working-style"
     }
   ],
   "not_binding": [
