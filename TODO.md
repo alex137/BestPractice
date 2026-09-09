@@ -2240,3 +2240,23 @@ which is the failure this repointing exists to end — write
     carves out credentials and production. **Blocked-on:** read-only access
     to `precedent-team-maintainers` from this session (`cross-source-rollout`).
     Whoever takes it should check the individual set for the same shape.
+
+46. <a id="decision-strength-private-sources"></a>**Carry `decision-strength` into the two private practice sets.** The
+   `strength:` frontmatter key, the `Weak yes` phrase and the
+   `decision-strength` check landed universal on 2026-09-09
+   ([decisions/2026-09-09-decision-strength.md](decisions/2026-09-09-decision-strength.md)).
+   Two things the private sets need that this repo cannot do for them:
+   **their own practice files carry `approved_by:` with no strength**, and
+   nothing there is backfilled either (that is the rule, not an oversight) —
+   but every practice landed in them *from now on* should carry the mark, so
+   whoever has them attached should confirm their vendored
+   [tools/precedent_check.py](tools/precedent_check.py) is current enough to
+   register the check, since a stale vendored engine simply will not run it
+   and will report nothing. **And the individual set is where a standing
+   personal rule about how approvals are recorded would live** — check
+   whether one already contradicts this, particularly anything that treats a
+   recorded approval as final by default.
+   **Blocked-on:** read-only access to `precedent-individual` and
+   `precedent-team-maintainers`, neither of which this session could attach
+   (`add_repo` refused with *"cross-tier adds are not supported in v1"*)
+   (`cross-source-rollout`).

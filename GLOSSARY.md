@@ -6,12 +6,14 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
+| decided | [decision-strength](practices/decision-strength.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
 | decommissioned | [decommission-deletes-files](practices/decommission-deletes-files.md) |
 | deep check | [two-check-levels](practices/two-check-levels.md) |
@@ -37,6 +39,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Three Things | [three-things](practices/three-things.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
+| Weak yes | [weak-yes](practices/weak-yes.md) |
 
 ## Engine vocabulary
 

@@ -43,6 +43,7 @@ supersedes:  []
 overrides:   null
 added:       null                # see "What's deferred" below
 approved_by: "BestPractice (pre-fork)"
+strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
 ---
 
@@ -603,6 +604,45 @@ the mistake.
 |---|---|---|
 | `verify-decomposition` | trusting a model's total without checking its parts | reporting a computed total or a negative feasibility result |
 | `search-by-purpose` | concluding that no prior work exists on a question | starting work the repository may already cover |
+
+## `strength:` — How Firmly The Approval Was Given
+
+**Optional, in every source, permanently.** `approved_by:` records *who*
+approved a practice and when. It cannot record *how convinced they were*, and
+until 2026-09-09 nothing in the format could — so a rule the owner shrugged
+at and a rule he fought for arrived in the catalogue looking identical, and
+every session afterwards read both as settled.
+
+`strength:` holds one of two words:
+
+| value | means |
+|---|---|
+| `decided` | they asked for it, chose it from options, or argued and landed here |
+| `assented` | it was proposed to them and they did not object |
+
+The rule for choosing between them, including how to read agreement that
+arrives as *"let's try it"* rather than as either word, is
+[practices/decision-strength.md](../practices/decision-strength.md). The
+phrase a person can say to mark one at the moment they give it is
+[practices/weak-yes.md](../practices/weak-yes.md).
+
+**Absence means unknown, and is not a defect.** The field was added to a
+catalogue whose practices already carried approvals, and **none of them were
+backfilled**: deciding today which of last month's "ok"s was enthusiastic is
+guessing at someone's state of mind, which is exactly what
+[no-invented-specifics](../practices/no-invented-specifics.md) forbids. So an
+unmarked practice is legal forever, `tools/precedent_check.py --only
+decision-strength` never reports absence, and a session citing an unmarked
+approval says what the repository records rather than what the person wanted.
+
+**Writing it out as `null` is also legal**, and is the unknown state said
+aloud rather than left to inference. It carries no claim, so the check's
+"names an approver" requirement does not apply to it.
+
+**Nothing defaults it.** [tools/precedent_land.py](../tools/precedent_land.py)
+takes `--strength` and omits the field when the flag is absent, rather than
+writing `decided` — a tool that assumed enthusiasm would manufacture the
+endorsement this field exists to stop manufacturing.
 
 ## `source_practice_number`
 

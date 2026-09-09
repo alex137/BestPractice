@@ -3394,6 +3394,116 @@ def _open_item_disposition(ctx):
     return out
 
 
+# practice: decision-strength -- the grammar of the strength mark, so that
+# "unmarked means unknown" stays a reliable reading. A malformed or invented
+# value is the dangerous case: `strength: strong` reads as an endorsement to
+# a person skimming and as nothing at all to a session looking for one of
+# the two defined words. Absence is never a finding -- an unmarked approval
+# is legal on purpose, in every source, forever, because the alternative was
+# backfilling a catalogue of approvals by guessing at somebody's state of
+# mind months after the fact.
+STRENGTH_VALUES = ('decided', 'assented')
+STRENGTH_FM_RE = re.compile(r'^strength:[ \t]*(?P<value>.*?)[ \t]*$', re.M)
+STRENGTH_PROSE_RE = re.compile(
+    r'^[ \t]*\*\*Strength:\*\*[ \t]*'
+    r'(?P<value>[^\s(]*)[ \t]*'
+    r'(?:\((?P<stamp>[^)]*)\))?', re.M)
+# Mirrors the practice's own applies_to, as a literal for the same reason
+# DISPOSITION_FILE_GLOBS is one.
+STRENGTH_FILE_GLOBS = ('practices/*.md', 'local/practices/*.md', 'decisions/*.md')
+# Who approved the thing. A strength with no approver names a firmness
+# belonging to nobody, which is the silence this practice replaces.
+STRENGTH_APPROVER_KEYS = ('approved_by', 'decided_by')
+
+
+def _names_an_approver(block):
+    """True if this frontmatter records a real person (or body) as having
+    approved the thing, rather than an empty or null placeholder."""
+    for key in STRENGTH_APPROVER_KEYS:
+        m = re.search(r'^%s:[ \t]*(.*?)[ \t]*$' % key, block, re.M)
+        if m and m.group(1).strip().strip('"\'') not in ('', 'null', '~'):
+            return True
+    return False
+
+
+@check('decision-strength', 'tree',
+       'every `strength:` in a practice file or a decision record holds one '
+       'of the two defined words, and the file it sits in also records who '
+       'approved the thing; and every `**Strength:` line in prose records '
+       'the date it was set and who set it',
+       'whether the word is the RIGHT one, which is the whole substance of '
+       'the practice. Nothing mechanical can read the conversation an '
+       'approval happened in, so a session that writes `decided` over a '
+       'shrug passes this cleanly. It is also deliberately blind to '
+       'ABSENCE: an unmarked approval is a defined state (unknown), so '
+       'silence is never reported here -- which means this check cannot '
+       'tell a catalogue that considered the question from one that has '
+       'never heard of it.')
+def _decision_strength(ctx):
+    files = []
+    for glob in STRENGTH_FILE_GLOBS:
+        for path in sorted(ROOT.glob(glob)):
+            rel = path.relative_to(ROOT).as_posix()
+            if rel not in files and not _foreign_practice(rel):
+                files.append(rel)
+    if not files:
+        raise NotApplicable('this repository has no practice files or '
+                            'decision records to check')
+
+    out = []
+    for rel in sorted(files):
+        try:
+            text = (ROOT / rel).read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError) as e:
+            out.append(Finding(rel, f'could not be read ({e})'))
+            continue
+
+        fm = _FRONTMATTER_RE.match(text)
+        block = fm.group(1) if fm else ''
+        marks = list(STRENGTH_FM_RE.finditer(block))
+        if len(marks) > 1:
+            out.append(Finding(rel, f'carries {len(marks)} `strength:` keys -- '
+                                    f'an approval has one firmness'))
+        for m in marks:
+            value = m.group('value').strip().strip('"\'')
+            where = f'{rel}:{block.count(chr(10), 0, m.start()) + 2}'
+            if value in ('', 'null', '~'):
+                # Written out as empty rather than omitted. That is the
+                # unknown state said aloud, which is allowed and sometimes
+                # clearer than absence -- but it carries no claim, so the
+                # approver requirement below does not apply to it.
+                continue
+            if value not in STRENGTH_VALUES:
+                out.append(Finding(where, f'strength {value!r} is not one of '
+                                          f'{", ".join(STRENGTH_VALUES)}'))
+                continue
+            if not _names_an_approver(block):
+                out.append(Finding(where,
+                                   f'records strength {value!r} but names '
+                                   f'nobody in '
+                                   f'{" or ".join(STRENGTH_APPROVER_KEYS)} -- '
+                                   f'a firmness belonging to no one'))
+
+        body = text[fm.end():] if fm else text
+        offset = fm.end() if fm else 0
+        for m in STRENGTH_PROSE_RE.finditer(body):
+            line_no = text.count('\n', 0, offset + m.start()) + 1
+            where = f'{rel}:{line_no}'
+            value, stamp = m.group('value'), m.group('stamp')
+            if value not in STRENGTH_VALUES:
+                out.append(Finding(where, f'strength {value!r} is not one of '
+                                          f'{", ".join(STRENGTH_VALUES)}'))
+                continue
+            if stamp is None:
+                out.append(Finding(where, f'{value!r} carries no '
+                                          f'"(YYYY-MM-DD, who)"'))
+                continue
+            if not DISPOSITION_STAMP_RE.match(stamp.strip()):
+                out.append(Finding(where, f'{value!r} stamp {stamp.strip()!r} '
+                                          f'is not "YYYY-MM-DD, who"'))
+    return sorted(out, key=lambda f: f.where)
+
+
 
 # --------------------------------------------------------------------------
 # Runner

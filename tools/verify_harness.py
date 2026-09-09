@@ -4049,6 +4049,38 @@ def check_precedent_check_fires():
                       'default, written out -- does not fail',
                       _rcw == 0 and 'VIOLATION' not in _outw))
 
+        # decision-strength -- an INVENTED strength value. Deliberately not
+        # a missing one: absence is a defined state (unknown, and nothing is
+        # backfilled), so planting one would assert the opposite of the
+        # rule. The dangerous case is `strength: strong`, which reads as an
+        # endorsement to a person skimming and matches neither defined word
+        # for a session looking for one.
+        case('decision-strength',
+             lambda repo: rewrite(repo, 'practices/decision-strength.md',
+                                  lambda t: t.replace('strength:    decided',
+                                                      'strength:    strong')))
+
+        # The other two halves of that grammar, asserted directly rather than
+        # through case(): case() proves only that SOMETHING failed, and this
+        # practice's failures must not be interchangeable
+        # (control-asserts-which-failure).
+        _unowned = fresh('decision-strength-unowned')
+        rewrite(_unowned, 'practices/decision-strength.md',
+                lambda t: t.replace('approved_by: "Morgan, 2026-09-09"',
+                                    'approved_by: null'))
+        _rcu, _outu = run(_unowned, 'decision-strength')
+        cases.append(('decision-strength: a `decided` naming nobody in '
+                      'approved_by fails, saying so',
+                      _rcu == 1 and 'names nobody' in _outu))
+        _unmarked = fresh('decision-strength-unmarked')
+        rewrite(_unmarked, 'practices/decision-strength.md',
+                lambda t: t.replace('strength:    decided\n', ''))
+        _rcm, _outm = run(_unmarked, 'decision-strength')
+        cases.append(('decision-strength: a practice with no strength at all '
+                      '-- the unknown state, which is legal forever -- does '
+                      'not fail',
+                      _rcm == 0 and 'VIOLATION' not in _outm))
+
         # heading-outline -- a heading demoted two levels at once, so it has
         # no parent. documentation/INSTALL.md is the plant because it is a
         # short file whose only heading is its H1, so appending an h3 makes

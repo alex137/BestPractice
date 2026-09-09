@@ -97,6 +97,27 @@ same "Files touched" list — so a plainer reply that quietly says less has
 failed it. Coined by Morgan on 2026-09-08, in the thread that also unfolded
 the cross-team practice-drift item, and placed at universal the same day.
 
+**A sixth command, "Weak yes"**, is defined universally in
+[practices/weak-yes.md](practices/weak-yes.md) and means: **go ahead, and
+record that I was not convinced.** It authorizes the work exactly as a plain
+yes would; what it adds is the mark — `strength: assented` written into
+whatever the approval is being recorded in, in that same turn. **It is not an
+invitation to talk him into it**: no follow-up asking what the reservation
+is.
+
+Most weak agreement never uses the phrase, which is why the phrase is only
+half of it. **The other half is
+[practices/decision-strength.md](practices/decision-strength.md), and its one
+line is: an approval records `decided` or `assented`, and an unmarked one
+means UNKNOWN — never "you decided this."** A session may write `decided`
+only if it can quote the person choosing it; a bare "ok" to the session's own
+proposal is `assented`, written that way without asking. Agreement framed as
+a test or a "let's see how it goes" is `assented`; enthusiasm is `decided`.
+**Nothing was backfilled** — the approvals already in the catalogue stay
+unmarked, permanently, because guessing which past "ok" was enthusiastic is
+the invention [no-invented-specifics](practices/no-invented-specifics.md)
+forbids. Coined by Morgan on 2026-09-09 and placed at universal the same day.
+
 **A third command, "Update Vendors"**, triggers
 [practices/vendor-update-runbook.md](practices/vendor-update-runbook.md) —
 the fixed sequence for taking an upstream update, starting with making the
@@ -152,7 +173,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 88 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 90 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -254,6 +275,8 @@ When a person says "Plain words":
   plain-words — "Plain words" -- say it as you would out loud; same substance
 When a person says "Three Things":
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
+When a person says "Weak yes", or agrees in words that carry no conviction:
+  weak-yes — "Weak yes" -- do it, and record the approval as `assented`
 When a practice lands or a candidate is raised, at any level:
   disclose-landing — state plainly what happened and where — individual, named team, or universal
 When a review finds a defect:
@@ -322,6 +345,8 @@ When publishing a document with a multi-column sortable table:
   tabular-shared-renderer — ship a sortable render from the one shared renderer
 When quoting or compressing someone else's figures:
   quote-discipline — compression rounds against you; qualifiers travel with the figure
+When recording that someone approved a practice or a decision, or citing their past approval back to them:
+  decision-strength — record `decided` or `assented`; unmarked means unknown, never "you decided this"
 When renaming, moving, or deleting a file other files may link to:
   rename-updates-links — renaming a file means repointing every link to it, in the same commit
 When reporting a computed total or a negative feasibility result:

@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 85 practice files (10 resident, 75 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 87 practice files (10 resident, 77 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -27,6 +27,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
+| [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
 | [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job |
 | [deliverables-look-like-output](practices/deliverables-look-like-output.md) | on-demand | writing a reader-facing deliverable with supporting apparatus |
 | [disclose-landing](practices/disclose-landing.md) | on-demand | a practice lands or a candidate is raised, at any level |
@@ -94,6 +95,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
 | [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
+| [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees in words that carry no conviction |
 | [write-like-a-human](practices/write-like-a-human.md) | resident | writing anything a person will read -- a document, a reply, a commit message |
 
 ## Withdrawn practices

@@ -139,6 +139,15 @@
       ],
       "gates_why": "The rollout (or the blocked-on TODO standing in for it) has to happen before the thread ends, the same timing capture-gate and todo-is-a-handoff already use."
     },
+    "decision-strength": {
+      "globs": [
+        "practices/*.md",
+        "local/practices/*.md",
+        "decisions/*.md"
+      ],
+      "why": "The mark is written into the frontmatter of a practice file or a decision record, so those paths ARE the distinguishing condition: a file that records someone's approval. The reply gate carries the other half -- citing a past approval back to them -- which no glob reaches.",
+      "decided": "2026-09-09"
+    },
     "deliverables-look-like-output": {
       "globs": [
         "**/*.md"
@@ -589,6 +598,13 @@
       ],
       "why": "The path identifies 'a rule is being written', which is necessary but not distinguishing -- the practice fires only when the rule depends on the OUTSIDE WORLD, and no path can see that. A glob on the rule locus surfaced it on 13 of 20 eval cases against 4 it applies to.",
       "decided": "phase 4 routing pass"
+    },
+    "weak-yes": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. A standing command phrase fires on something the person said, not on a file being edited; it is reached through the occasion index and the reply gate.",
+      "decided": "2026-09-09"
     },
     "write-like-a-human": {
       "globs": [

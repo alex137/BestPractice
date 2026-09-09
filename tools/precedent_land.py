@@ -37,11 +37,18 @@ amendment generalizes the same table to removal):
                 should be able to grant that to itself. Commit the drafted
                 file to a branch and open a PR.
 
+--strength decided|assented records HOW FIRMLY the approval was given
+(practice: decision-strength). Omit it and the field is left out, which
+means unknown -- never `decided` by default, since a tool that assumed
+enthusiasm would be manufacturing exactly the endorsement that practice
+exists to stop.
+
 Usage:
   precedent_land.py --file CANDIDATE.md --level individual|team
-      --path REPO --approved-by NAME [--against PATH[,PATH...]]
-  precedent_land.py --file CANDIDATE.md --level universal
+      --path REPO --approved-by NAME [--strength decided|assented]
       [--against PATH[,PATH...]]
+  precedent_land.py --file CANDIDATE.md --level universal
+      [--strength decided|assented] [--against PATH[,PATH...]]
 """
 import datetime
 import json
@@ -99,7 +106,12 @@ def _verify_checked_by_private(repo_path, checked_by):
             f"check_{name}.py by name -- it is not actually testing this check.")
 
 
-def _render_practice(fm, proposed_rule, observed, approved_by, level):
+# practice: decision-strength -- the two words an approval can carry.
+STRENGTHS = ('decided', 'assented')
+
+
+def _render_practice(fm, proposed_rule, observed, approved_by, level,
+                     strength=None):
     today = datetime.date.today().isoformat()
     index_clause = fm.get('index_clause') or (
         proposed_rule[:76] + ('...' if len(proposed_rule) > 76 else ''))
@@ -127,6 +139,12 @@ def _render_practice(fm, proposed_rule, observed, approved_by, level):
     lines.append(f"overrides:   {json.dumps(overrides) if overrides else 'null'}")
     lines.append(f"added:       {today}")
     lines.append(f"approved_by: {json.dumps(f'{approved_by}, {today}')}")
+    # practice: decision-strength -- how firmly the approval was given.
+    # OMITTED when the caller did not say, rather than defaulted to
+    # `decided`: absence means unknown, and a default here would be this
+    # tool asserting an enthusiasm nobody expressed.
+    if strength:
+        lines.append(f"strength:    {strength}")
     lines.append("source_practice_number: null")
     lines.append("---")
     lines.append("## Rule")
@@ -153,7 +171,10 @@ def _render_practice(fm, proposed_rule, observed, approved_by, level):
     return '\n'.join(lines)
 
 
-def land(candidate_path, level, repo_path, approved_by, against):
+def land(candidate_path, level, repo_path, approved_by, against,
+         strength=None):
+    if strength is not None and strength not in STRENGTHS:
+        raise LandRefused(f'--strength must be one of {sorted(STRENGTHS)}, not {strength!r}')
     result = pp.promote(candidate_path, level, against)  # raises PromoteRefused on failure
     fm = result['fm']
     checked_by = fm.get('proposed_checked_by')
@@ -190,7 +211,9 @@ def land(candidate_path, level, repo_path, approved_by, against):
     dest = dest_dir / f"{fm['slug']}.md"
     if dest.exists():
         raise LandRefused(f'{dest} already exists -- refusing to overwrite')
-    dest.write_text(_render_practice(fm, result['proposed_rule'], observed, approved_by, level), encoding='utf-8')
+    dest.write_text(_render_practice(fm, result['proposed_rule'], observed,
+                                     approved_by, level, strength),
+                    encoding='utf-8')
     if level in ('individual', 'team'):
         # Mark the source candidate promoted so it stops reading as still
         # open -- an already-landed candidate left at `status: open` would
@@ -262,7 +285,8 @@ def main():
 
     try:
         dest, level = land(candidate_path, level, args.get('--path'),
-                            args.get('--approved-by'), against)
+                            args.get('--approved-by'), against,
+                            args.get('--strength'))
     except (pp.PromoteRefused, LandRefused) as e:
         if isinstance(e, pp.PromoteRefused):
             n, name, reason = e.args

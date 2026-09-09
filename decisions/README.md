@@ -35,11 +35,27 @@ question:    What was actually being decided
 decision:    What was decided
 alternatives: ["Option considered and rejected", "Another one"]
 decided_by:  Who decided
+strength:    decided        # OPTIONAL -- decided | assented
 ---
 
 Prose explaining the reasoning, as long as it needs to be. Nothing here is
 ever loaded automatically -- length costs nothing.
 ```
+
+**`strength:` is optional and records how firmly it was decided** —
+`decided` (they asked for it, chose it from options, or argued and landed
+here) or `assented` (it was proposed to them and they did not object). An
+absent field means unknown, never `decided`, and **nothing was backfilled**
+into the records written before 2026-09-09. The rule is
+[practices/decision-strength.md](../practices/decision-strength.md); the
+grammar is enforced by `python3 tools/precedent_check.py --only
+decision-strength`.
+
+**Why a decision record needs it at all**, when it already has `decided_by:`
+and a whole prose body to say so: the body is not what a later session reads.
+It reads the frontmatter, finds a name, and treats the question as closed —
+which is right for a decision that was made and wrong for one that was
+merely allowed.
 
 ## Going forward
 
