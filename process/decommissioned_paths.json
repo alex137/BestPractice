@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "The record tools/precedent_decommission.py writes when a fully deprecated",
+    "path is deleted, and the list of files whose references to a deleted path",
+    "are historical record rather than a live pointer.",
+    "",
+    "exempt_files: philosophy/README.md is the index for philosophy/, and",
+    "index-remembers-past puts a document's lineage there rather than in either",
+    "document. Recording that OPEN_QUESTIONS.md was folded into ASSORTED_NOTES.md",
+    "means naming it, permanently -- that is the entry doing its job, not a",
+    "reference somebody forgot to repoint."
+  ],
+  "decommissioned": [
+    {
+      "path": "philosophy/OPEN_QUESTIONS.md",
+      "reason": "its five items were folded into philosophy/ASSORTED_NOTES.md's closing Open Questions section on 2026-09-09; a five-item list is a section, not a document",
+      "decommissioned_at": "2026-09-09"
+    }
+  ],
+  "exempt_files": [
+    "philosophy/README.md"
+  ]
+}
