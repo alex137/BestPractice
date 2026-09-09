@@ -81,6 +81,13 @@ import split_practices as sp
 import build_views as bv
 import precedent_paths as pp
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 SIM_DIR = ROOT / 'evals' / 'simulation'
 BATCHES_DIR = SIM_DIR / 'batches'
 DEFAULT_FIXTURE_REPO = SIM_DIR / 'fixtures' / 'demo-consumer-repo'
@@ -274,7 +281,7 @@ line, no other commentary.
 
 
 def _new_batch_id(seed):
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    stamp = precedent_time.compact()
     return f'{stamp}-seed{seed}'
 
 
@@ -337,7 +344,7 @@ def cmd_new_batch(args):
     manifest = {
         'batch_id': batch_id,
         'seed': seed,
-        'created_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        'created_utc': precedent_time.utc_iso(),
         'practices': chosen,
         'repo_root': str(repo_root) if repo_root else None,
         'status': 'generated-prompts-written',

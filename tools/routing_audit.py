@@ -66,6 +66,13 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
 import precedent_paths as pp
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 
 def _git(args):
     return subprocess.run(['git', *args], cwd=ROOT, capture_output=True,
@@ -191,7 +198,7 @@ def mark_reviewed(slugs):
                  f"practice: {', '.join(unknown)}. Run --list to see the "
                  f"current set.")
     state = _load_state()
-    today = datetime.date.today().isoformat()
+    today = precedent_time.today()
     # --verify --quiet: without it, a failed `rev-parse HEAD` PRINTS 'HEAD' on
     # stdout and _git() keeps stdout while discarding the exit code, so this
     # `or '(no commit)'` never fired and routing_audit_state.json recorded a

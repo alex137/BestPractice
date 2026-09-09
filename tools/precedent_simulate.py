@@ -45,6 +45,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import practice_simulation as psim
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 TREND_LOG = ROOT / 'evals' / 'simulation' / 'trend.jsonl'
 
 # -------------------------------------------------- parsing behavioral_replay
@@ -111,7 +118,7 @@ def cmd_quick(args):
     replay = _run_behavioral_replay(max_commits, max_cc)
 
     entry = {
-        'timestamp_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        'timestamp_utc': precedent_time.utc_iso(),
         'mode': 'quick',
         'repo_root': None,
         'replay_status': replay.get('replay_status'),
@@ -154,7 +161,7 @@ def cmd_record(args):
                  f"sample.")
 
     entry = {
-        'timestamp_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        'timestamp_utc': precedent_time.utc_iso(),
         'mode': 'full',
         'batch_id': batch_id,
         'repo_root': summary['repo_root'],

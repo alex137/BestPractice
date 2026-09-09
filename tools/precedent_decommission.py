@@ -78,6 +78,13 @@ import re
 import subprocess
 import sys
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 REGISTRY = 'process/decommissioned_paths.json'
 
 # A basename this generic means a different file in every directory, so a
@@ -339,7 +346,7 @@ def apply_retirement(paths, reason, cfg):
     if r.returncode != 0:
         sys.exit(f'precedent_decommission: git rm failed ({r.stderr.strip()}) '
                  f'-- nothing was recorded')
-    today = datetime.date.today().isoformat()
+    today = precedent_time.today()
     for p in paths:
         cfg['decommissioned'].append({'path': p.rstrip('/'), 'reason': reason,
                                'decommissioned_at': today})

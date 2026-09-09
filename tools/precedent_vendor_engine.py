@@ -249,6 +249,14 @@ ENGINE_FILES = [
     # says so out loud when it is missing, so a tree vendored before this
     # date degrades visibly rather than ignoring a token that is set.
     'precedent_source_credentials.py',
+    # precedent_check.py imports it at module scope, so a vendored engine
+    # without it does not degrade -- it raises ModuleNotFoundError and takes
+    # the whole check run down. Found 2026-09-09 by verify_harness the moment
+    # the import landed: thirteen fixtures that build a scratch engine tree
+    # from this list failed at once. Every repo that stamps a date needs it
+    # anyway (practice: timestamps-carry-offset); it has no dependencies of
+    # its own beyond the standard library.
+    'precedent_time.py',
     'precedent_vendor_engine.py',
 ]
 

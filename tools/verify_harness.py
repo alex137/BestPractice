@@ -4482,6 +4482,18 @@ def check_precedent_check_fires():
                 f'| Practices in the catalogue | {n + 9} |'))
         case('computed-numbers-in-scripts', _plant_cnis)
 
+        # timestamps-carry-offset -- a bare date.today() in a tracked .py
+        #
+        # Planted as CODE, not as a comment mentioning the call: the check
+        # parses rather than greps precisely because its first draft matched
+        # its own explanatory comments in the twelve files it had migrated.
+        def _plant_tco(repo):
+            (repo / 'tools' / 'zz_naive_stamp.py').write_text(
+                '#!/usr/bin/env python3\nimport datetime\n\n\n'
+                'def when():\n    return datetime.date.today().isoformat()\n',
+                encoding='utf-8')
+        case('timestamps-carry-offset', _plant_tco)
+
         # tracked-practice-files -- a practice file left out of the index
         def _plant_tpf(repo):
             src = next((repo / 'practices').glob('*.md'))
@@ -6341,8 +6353,19 @@ def check_commit_identity_derives_declared_timezone():
         cases.append(('and says nothing about it',
                       'settings.local.json' not in r2.stderr))
 
-        f, _ = _repo(tmp / 'guessed', None)
-        cases.append(('a GUESSED zone writes no file at all', not f.exists()))
+        # A person whose zone could not be resolved gets the DECLARED
+        # FALLBACK written, not nothing. This assertion is the reverse of
+        # what it was before 2026-09-09 (practice: timestamps-carry-offset):
+        # writing nothing left the container on UTC, so every unidentified
+        # person's commits and generated dates came out +0000 and could not
+        # be ordered against anyone else's. The fallback is applied for that
+        # reason and still never ENFORCED -- case 3 below holds that line.
+        f, r3 = _repo(tmp / 'guessed', None)
+        cases.append(('an unresolved zone still writes the declared fallback',
+                      _tz(f) == 'America/Argentina/Buenos_Aires'))
+        cases.append(('and says out loud that it is a fallback, not this '
+                      "person's own zone",
+                      'DECLARED FALLBACK' in r3.stderr))
 
         f, _ = _repo(tmp / 'existing', 'Europe/Berlin',
                      settings='{"env":{"OTHER":"keep"},'
@@ -6924,15 +6947,31 @@ def check_commit_identity_prevents_the_wrong_offset():
         cases.append(('and says what it did, and why it is prevention',
                       'prevention' in r.stderr and ZONE in r.stderr))
 
-        # 2. a GUESSED zone must NOT touch the machine.
+        # 2. an UNRESOLVED zone repoints the clock too, to the declared
+        # fallback. Reversed 2026-09-09 (practice: timestamps-carry-offset):
+        # this used to assert the machine was left alone, which in practice
+        # meant left on the container's UTC. See the fallback's own note in
+        # precedent.json for why applying beats abstaining, and why applying
+        # is still not enforcing.
         guessed = _repo('guessed', None)
         home = str(tmp / 'h2'); os.makedirs(home)
         lt2 = str(tmp / 'lt2')
-        subprocess.run(['bash', str(hook)], capture_output=True, text=True,
-                       timeout=120,
-                       env=dict(_env(home, lt2), CLAUDE_PROJECT_DIR=str(guessed)))
-        cases.append(('a guessed zone never writes the machine clock',
-                      not os.path.lexists(lt2)))
+        r2 = subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                            timeout=120,
+                            env=dict(_env(home, lt2), CLAUDE_PROJECT_DIR=str(guessed)))
+        cases.append(('an unresolved zone repoints the clock to the fallback',
+                      os.path.islink(lt2) and os.readlink(lt2)
+                      == '/usr/share/zoneinfo/America/Argentina/Buenos_Aires'))
+        cases.append(('and names it a fallback rather than this person\'s zone',
+                      'DECLARED FALLBACK' in r2.stderr))
+        # The line that must NOT move: applied is not enforced. A hook run
+        # that resolved no zone leaves the pre-commit backstop with no
+        # offset to refuse on.
+        pre = pathlib.Path(guessed) / '.git' / 'hooks' / 'pre-commit'
+        cases.append(('and the backstop still refuses no offset, because '
+                      'nobody declared one',
+                      pre.exists()
+                      and 'expected_offset=""' in pre.read_text(encoding='utf-8')))
 
         # 3. an unreachable clock warns and names the fallback. A missing
         # parent dir, not a chmod: this runs as root in the container, where
@@ -7114,6 +7153,12 @@ def check_update_refuses_while_a_branch_is_pinned():
             _json.dumps({'upstream': up, 'practices': []}), encoding='utf-8')
         _git(repo, 'init', '-q')
         _shutil.copy2(src, repo / 'process' / 'upstream' / 'tools' / 'checkin.py')
+        # fixture-owns-its-state: checkin.py imports precedent_time at module
+        # scope (practice: timestamps-carry-offset). Without the sibling the
+        # fixture dies on the import, and every case here reads as "the tool
+        # did not say what it should have" rather than "the tool never ran".
+        _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
+                      repo / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
         return repo
 
     def _run(repo, clone, override=False):
@@ -7203,6 +7248,10 @@ def check_leftover_pack_is_flagged_after_migration():
         subprocess.run(['git', '-C', str(base), 'init', '-q'],
                        capture_output=True)
         _shutil.copy2(chk, base / 'process' / 'upstream' / 'tools')
+        # fixture-owns-its-state: precedent_check.py imports precedent_time at
+        # module scope (practice: timestamps-carry-offset).
+        _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
+                      base / 'process' / 'upstream' / 'tools')
         _shutil.copy2(prac, base / 'practices')
         for d in ('tools', 'process/upstream/tools'):
             sp_dst = base / d
@@ -9497,6 +9546,13 @@ def check_checkin_update_never_mutates_the_clone():
         (consumer / 'process' / 'upstream' / 'tools').mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / 'tools' / 'checkin.py',
                      consumer / 'process' / 'upstream' / 'tools' / 'checkin.py')
+        # checkin.py imports it at module scope (practice:
+        # timestamps-carry-offset). The real vendored tree carries it --
+        # it is in precedent_vendor_engine.py's ENGINE_FILES -- so this
+        # minimal mock of that tree has to as well, or it tests an install
+        # shape that never ships.
+        shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
+                     consumer / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
 
         def clone_state():
             return tuple(g(*a).stdout.strip() for a in (
@@ -10496,6 +10552,10 @@ def check_source_supplied_checks_run():
         shutil.copy(ROOT / 'tools' / 'precedent_check.py', repo / 'tools')
         shutil.copy(ROOT / 'tools' / 'split_practices.py', repo / 'tools')
         shutil.copy(ROOT / 'tools' / 'doc_lint.py', repo / 'tools')
+        # fixture-owns-its-state: precedent_check.py imports this at module
+        # scope (practice: timestamps-carry-offset), so a fixture engine tree
+        # without it does not degrade -- every case here dies on the import.
+        shutil.copy(ROOT / 'tools' / 'precedent_time.py', repo / 'tools')
         (repo / 'AGENTS.md').write_text('# fixture\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True)
 

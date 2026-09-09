@@ -52,6 +52,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_resolve as pr  # noqa: E402
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 
 class MaterializeError(Exception):
     pass
@@ -539,8 +546,7 @@ def _build_manifest(sources, written, checks_written, rstats, withheld=None):
     withheld here, which is a third state those checks had no way to see."""
     return {
         'generated_by': 'tools/precedent_materialize.py',
-        'generated_at_utc': datetime.datetime.now(datetime.timezone.utc)
-                                 .isoformat(timespec='seconds'),
+        'generated_at_utc': precedent_time.utc_iso(),
         'note': 'DERIVED ARTIFACT -- never hand-edit. Regenerate by re-running '
                 'precedent_materialize.py with the same --repo/--user-config; '
                 'this file records exactly what produced the snapshot so drift '

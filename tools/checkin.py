@@ -85,6 +85,13 @@ Run:  python3 process/upstream/tools/checkin.py fresh
 """
 import datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 HERE = pathlib.Path(__file__).resolve()
 _top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=HERE.parent,
                       capture_output=True, text=True).stdout.strip()
@@ -789,7 +796,7 @@ def record(clone, note, accept_loss=False):
     manifest['upstream']['synced_from'] = head
     manifest['upstream']['_note'] = (
         f"commit = upstream hash last synced ({note or 'check-in'}, "
-        f"recorded {datetime.date.today().isoformat()}; verified tree-identical).")
+        f"recorded {precedent_time.today()}; verified tree-identical).")
     MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                         encoding='utf-8')
     print(f"checkin record OK: upstream.commit {old} -> {head}")

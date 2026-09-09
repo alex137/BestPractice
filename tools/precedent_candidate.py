@@ -78,6 +78,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import split_practices as sp  # noqa: E402
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 # spec/CANDIDATE_FORMAT.md#signals -- closed vocabulary, same discipline
 # precedent_gate.py already applies to its own `gates:` field. An unknown
 # signal is a typo or an undocumented new source, and both should fail
@@ -270,7 +277,7 @@ def cmd_create(args):
             "one to notify. Universal is already always an Issue; --as-issue "
             "would be redundant.")
 
-    date = datetime.date.today().isoformat()
+    date = precedent_time.today()
     fields = {
         'slug': slug,
         'title': args['--title'],

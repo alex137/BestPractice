@@ -48,13 +48,28 @@
 #   6. An identity already configured locally, as long as it is not the
 #      container's own bot identity -- the one thing that is never a human.
 #
-# TIMEZONE, AND WHY IT IS THE ONLY THING GUESSED. Nothing in a GitHub
-# profile says where someone is. So: an explicit override, else the
-# individual source's declared timezone, else America/New_York as a stated
-# default. THE DEFAULT IS NEVER ENFORCED -- a commit whose offset does not
-# match a guess earns a warning, not a refusal. Only a timezone somebody
-# actually declared is enforced, because only then is a mismatch evidence
-# of anything.
+# TIMEZONE. Nothing in a GitHub profile says where someone is. So: an
+# explicit override, else the individual source's declared timezone, else
+# America/Argentina/Buenos_Aires -- the DECLARED FALLBACK.
+#
+# The fallback is APPLIED but NOT ENFORCED, and the two halves have
+# different reasons:
+#
+#   APPLIED (the system zone is repointed, and the harness `env` block is
+#   written) because the alternative is not "no zone" -- it is the
+#   container's UTC, silently, and a record stamped +0000 by a person who is
+#   not in UTC cannot be ordered against one stamped by somebody else. Any
+#   consistent real offset restores the ordering; none does not. Morgan,
+#   2026-09-09: "if you can't find/get my timezone then use buenos aires
+#   timezone", after the same wrong-offset problem had come back repeatedly.
+#
+#   NOT ENFORCED (the pre-commit backstop does not refuse on it) because a
+#   fallback is this project's answer for a person it could not identify,
+#   and refusing that person's commit over a zone THEY never declared would
+#   block real work on a value they never saw. Only a timezone somebody
+#   actually declared is refused, because only then is a mismatch evidence
+#   of anything. Declaring one in identity.json is what turns the
+#   applied-only default into an enforced fact.
 #
 # WHAT THE pre-commit HOOK THIS INSTALLS REFUSES. Everywhere, under any
 # person: an author that is the container's bot, or empty. That one is
@@ -72,7 +87,14 @@
 set -uo pipefail
 
 BOT_EMAIL="noreply@anthropic.com"
-DEFAULT_TZ="America/New_York"
+# The declared fallback for a person whose zone could not be resolved.
+# Morgan, 2026-09-09 -- see the TIMEZONE section above for why a real
+# offset beats the container's UTC even when it is the wrong real offset.
+# registry-source-of-truth: tools/precedent_time.py's FALLBACK_TZ is the
+# same value for everything written into DOCUMENTS rather than into a
+# commit, and tools/precedent_check.py's `timestamps-carry-offset` check
+# asserts the two agree, plus this file's harness-template copy.
+DEFAULT_TZ="America/Argentina/Buenos_Aires"
 
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || exit 0
@@ -192,12 +214,45 @@ if [ -z "$email" ]; then
   fi
 fi
 
+# The REPO's own declared fallback, before the engine's. A person's zone is
+# person-level (identity.json); the answer for a person this project could
+# not identify is the repository's to choose, so an adopting repo sets it in
+# precedent.json rather than editing this vendored hook (practice:
+# layered-practice-packs, registry-source-of-truth). Same rung as
+# tools/precedent_time.py's `_repo_fallback_zone`, and the two are asserted
+# equal by the `timestamps-carry-offset` check.
+_repo_fallback_tz() {
+  local cfg="$ROOT/precedent.json"
+  [ -f "$cfg" ] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$cfg" <<'REPO_TZ' 2>/dev/null
+import json, sys
+try:
+    v = json.load(open(sys.argv[1])).get('fallback_timezone')
+except Exception:
+    v = None
+print(v.strip() if isinstance(v, str) else '')
+REPO_TZ
+  else
+    # No python3: a line-oriented read of the one key. Good enough for the
+    # flat "key": "value" this file is written in, and it fails to empty
+    # rather than to a wrong zone.
+    sed -n 's/.*"fallback_timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$cfg" | head -1
+  fi
+}
+
 if [ -z "$zone" ]; then
-  zone="$DEFAULT_TZ"
+  zone="$(_repo_fallback_tz)"
+  [ -n "$zone" ] || zone="$DEFAULT_TZ"
   zone_is_guess=1
 else
   zone_is_guess=0
 fi
+# From here on `zone` is always a real zone, never empty -- the fallback is
+# a decision this project made, not an absence. `zone_is_guess` now governs
+# ENFORCEMENT alone: whether a mismatch is evidence of a mistake. It no
+# longer governs whether the zone is APPLIED, which it did until 2026-09-09
+# and which is what left every unidentified person's commits on +0000.
 
 # ---- MAKE THE OFFSET RIGHT, rather than only refusing it afterwards
 #
@@ -223,9 +278,16 @@ fi
 # one consuming repo's own bootstrap.sh a day earlier; it belongs here, where
 # every repo gets it (practice: engine-plus-host-shims).
 #
-# ONLY A DECLARED ZONE. A guessed default (America/New_York, from the header)
-# is never written to the machine: it is not enforced for exactly the same
-# reason, and changing a container's clock on a guess is worse than a warning.
+# THE FALLBACK IS APPLIED TOO, and this reverses what this block did until
+# 2026-09-09. It used to skip a zone it had not been told, on the reasoning
+# that changing a container's clock on a guess is worse than a warning. That
+# weighed the wrong pair: the alternative to applying the fallback was never
+# "leave the clock alone", it was "leave it on the container's UTC", so
+# every person this hook could not identify -- which, while the individual
+# practice source stays a private repo a session is often refused, is most
+# of them -- got +0000 on every commit and every document date. Refusing on
+# an undeclared zone is still wrong and still does not happen; writing one
+# is what makes the records orderable at all.
 #
 # NOT A REPLACEMENT FOR THE BACKSTOP. The system zone file may be read-only,
 # an explicit TZ= in the environment still wins over it, and this hook does
@@ -237,7 +299,6 @@ fi
 # file would either not be written or be written to skip, which is how a
 # mechanism ends up with no coverage at all.
 _set_system_timezone() {
-  [ "$zone_is_guess" -eq 0 ] || return 0
   local want cur target
   want="/usr/share/zoneinfo/$zone"
   target="${PRECEDENT_LOCALTIME:-/etc/localtime}"
@@ -248,9 +309,13 @@ _set_system_timezone() {
   cur="$(date +%z 2>/dev/null || true)"
   [ "$cur" = "$(TZ="$zone" date +%z 2>/dev/null || true)" ] && return 0
   if ln -sf "$want" "$target" 2>/dev/null; then
-    echo "NOTE: commit-identity: the system timezone was $cur; set to $zone ($(TZ="$zone" date +%z)), from the declared identity. Commits in THIS session now carry the right offset with no TZ= prefix -- that is prevention, where the pre-commit backstop is only refusal." >&2
+    if [ "$zone_is_guess" -eq 1 ]; then
+      echo "NOTE: commit-identity: the system timezone was $cur; set to $zone ($(TZ="$zone" date +%z)) -- the DECLARED FALLBACK, because no timezone was found for this person. Every commit and every generated date in this session now carries a real offset instead of the container's +0000, so records from different people can be ordered. Declare a timezone in your individual source's identity.json (or set PRECEDENT_COMMIT_TZ) and it becomes yours, and enforced." >&2
+    else
+      echo "NOTE: commit-identity: the system timezone was $cur; set to $zone ($(TZ="$zone" date +%z)), from the declared identity. Commits in THIS session now carry the right offset with no TZ= prefix -- that is prevention, where the pre-commit backstop is only refusal." >&2
+    fi
   else
-    echo "WARN: commit-identity: the system timezone file is not writable, so this container stays on $cur while the declared zone is $zone. Every commit here needs TZ=\"$zone\" git commit ... until that changes; the pre-commit backstop will refuse the ones that forget." >&2
+    echo "WARN: commit-identity: the system timezone file is not writable, so this container stays on $cur while the resolved zone is $zone. Every commit here needs TZ=\"$zone\" git commit ... until that changes; the pre-commit backstop will refuse the ones that forget, where the zone was declared." >&2
   fi
 }
 _set_system_timezone
@@ -452,11 +517,18 @@ fi
 # declared, and this block DERIVES the env from it at every session start,
 # overwriting a stale value rather than treating it as a second declaration.
 #
+# The DECLARED FALLBACK is derived here too, since 2026-09-09, for the same
+# reason the system zone is (see _set_system_timezone). A session that
+# starts with TZ unset resolves the container's UTC in every tool that asks
+# the clock -- including tools/precedent_time.py, whose own ladder reads
+# this env block at rung 4 -- and UTC-because-nobody-said is the state being
+# replaced. Overwritten at every session start, so it stops being the
+# fallback the moment a real zone resolves.
+#
 # It takes effect from the NEXT session -- environment is read before hooks
 # run -- so this session still gets the refusal and the remedy line. Said out
 # loud below rather than left to be discovered.
 _derive_session_tz() {
-  [ "$zone_is_guess" -eq 0 ] || return 0        # never propagate a guess
   command -v python3 >/dev/null 2>&1 || return 0
   python3 - "$ROOT/.claude/settings.local.json" "$zone" <<'DERIVE_TZ' 2>/dev/null
 import json, pathlib, sys
@@ -483,7 +555,11 @@ DERIVE_TZ
 }
 
 if [ "$(_derive_session_tz)" = "written" ]; then
-  echo "NOTE: commit-identity: wrote TZ=$zone into $ROOT/.claude/settings.local.json (untracked, per-machine), derived from the declared identity. It applies from the NEXT session on -- environment is read before hooks run -- so commits in THIS session may still need TZ=\"$zone\" git commit ..." >&2
+  if [ "$zone_is_guess" -eq 1 ]; then
+    echo "NOTE: commit-identity: wrote TZ=$zone into $ROOT/.claude/settings.local.json (untracked, per-machine) -- the DECLARED FALLBACK, not this person's own zone. It applies from the NEXT session on; declaring a timezone in identity.json replaces it at the next session start." >&2
+  else
+    echo "NOTE: commit-identity: wrote TZ=$zone into $ROOT/.claude/settings.local.json (untracked, per-machine), derived from the declared identity. It applies from the NEXT session on -- environment is read before hooks run -- so commits in THIS session may still need TZ=\"$zone\" git commit ..." >&2
+  fi
   if ! git -C "$ROOT" check-ignore -q .claude/settings.local.json 2>/dev/null; then
     echo "WARN: commit-identity: .claude/settings.local.json is NOT gitignored here. It is a per-machine file, and committing it would push one person's timezone onto everyone -- add it to .gitignore." >&2
   fi
@@ -581,12 +657,16 @@ GLOBALHOOK
 }
 _install_global_backstop
 
+# The applied fallback is said out loud even when it changed nothing this
+# session, because "your commits are stamped -0300" is a fact about somebody
+# else's zone and a person should never have to discover it from a file.
 if [ "$zone_is_guess" -eq 1 ]; then
-  cur_offset="$(date +%z 2>/dev/null || true)"
-  guess_offset="$(TZ="$zone" date +%z 2>/dev/null || true)"
-  if [ -n "$cur_offset" ] && [ -n "$guess_offset" ] && [ "$cur_offset" != "$guess_offset" ]; then
-    echo "NOTE: commit-identity: no timezone is declared anywhere for this person, so commits will carry this container's offset ($cur_offset) rather than $zone ($guess_offset). Declare one in your individual source's identity.json, or set PRECEDENT_COMMIT_TZ, and it becomes enforced rather than assumed." >&2
-  fi
+  # The zone's OWN offset, not `date +%z`. Reading the machine clock here
+  # reports whatever the repoint achieved -- so a failed or overridden
+  # repoint would print the fallback's NAME beside some other zone's offset,
+  # which is a worse statement than saying nothing.
+  cur_offset="$(TZ="$zone" date +%z 2>/dev/null || true)"
+  echo "NOTE: commit-identity: no timezone is declared anywhere for this person, so commits and generated dates use the DECLARED FALLBACK $zone ($cur_offset). That is deliberate -- a real offset can be ordered against other people's records; the container's UTC cannot be told from a genuine one. It is applied, never enforced: declare a timezone in your individual source's identity.json, or set PRECEDENT_COMMIT_TZ, and it becomes yours and enforced." >&2
 fi
 
 exit 0

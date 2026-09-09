@@ -62,6 +62,13 @@ import precedent_promote as pp  # noqa: E402
 import split_practices as sp  # noqa: E402
 import precedent_candidate as pc  # noqa: E402
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 
 class LandRefused(Exception):
     pass
@@ -112,7 +119,7 @@ STRENGTHS = ('decided', 'assented')
 
 def _render_practice(fm, proposed_rule, observed, approved_by, level,
                      strength=None):
-    today = datetime.date.today().isoformat()
+    today = precedent_time.today()
     index_clause = fm.get('index_clause') or (
         proposed_rule[:76] + ('...' if len(proposed_rule) > 76 else ''))
     lines = ['---']

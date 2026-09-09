@@ -107,6 +107,13 @@ import markdown
 import subprocess
 import datetime
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 
 def find_root(start):
     """Git toplevel containing this file (the renderer lives in the repo it
@@ -1423,7 +1430,7 @@ def render(src, out_path, title):
     body = body.replace("<table>", '<div class="tablewrap"><table>')
     body = body.replace("</table>", "</table></div>")
     body = _wire_frontier_specs(body)
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    stamp = precedent_time.stamp()
     body = body.replace(
         "</h1>", f'</h1>\n<div class="renderstamp">Built {stamp}</div>', 1)
     out = f"""<title>{title}</title>

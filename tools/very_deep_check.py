@@ -122,6 +122,13 @@ import split_practices as sp  # noqa: E402
 import build_views as bv  # noqa: E402
 import leak_gate  # noqa: E402
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 # The passes the invoking session actually works are read from the practice
 # file's own `## Detail` section at run time, not kept as a second copy here.
 # They used to be a CHECKLIST string literal in this file, which is a copy of
@@ -894,7 +901,7 @@ def _stamp(unix_ts):
     (practice: one-formatter-per-quantity).
     """
     import datetime
-    return datetime.datetime.utcfromtimestamp(unix_ts).strftime('%Y-%m-%d')
+    return precedent_time.date_from_unix(unix_ts)
 
 
 def _template_freshness(sources):

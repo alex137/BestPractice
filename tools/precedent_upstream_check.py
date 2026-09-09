@@ -35,6 +35,13 @@ import re
 import subprocess
 import sys
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
 # The registry path is overridable so a test can hand this script a watermark
@@ -195,7 +202,7 @@ def record(registry, head, by):
         "sha": head,
         # The contributor's calendar date, which is what every other dated
         # record in this repo uses (practice: volatile-rules-carry-dates).
-        "recorded": datetime.date.today().isoformat(),
+        "recorded": precedent_time.today(),
         "carried_by": by or "unrecorded -- pass --by next time",
         "note": subject if code == 0 else "",
     }

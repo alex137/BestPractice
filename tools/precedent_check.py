@@ -95,6 +95,13 @@ _HERE_TOOLS = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS))
 import split_practices as sp
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 # --------------------------------------------------------------------------
 # The one code path: a failure message is the practice's own Rule.
 # --------------------------------------------------------------------------
@@ -1409,7 +1416,7 @@ def _expires_is_honoured(ctx):
     gate goes red until a person decides.
     """
     import datetime
-    today = datetime.date.today().isoformat()
+    today = precedent_time.today()
     out = []
     for f in sorted((ctx.root / 'practices').glob('*.md')) + \
             sorted((ctx.root / 'local' / 'practices').glob('*.md')):
@@ -1488,6 +1495,119 @@ def _tracked_practice_files(ctx):
                                'git -- every local check reads it and passes, '
                                'and the pushed repository does not have it '
                                '(`git add` it, or delete it)'))
+    return out
+
+
+@check('timestamps-carry-offset', 'tree',
+       'no tracked Python file stamps a moment with a bare `date.today()`, '
+       '`utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` '
+       '-- every one of those resolves to whatever zone the machine is on, '
+       'which in a container is UTC and in a record is unrecoverable. And '
+       'the declared fallback zone is the SAME string in all three places '
+       'that hold it: precedent.json, the time engine, and the commit hook',
+       'a stamp that carries an offset but the WRONG one -- a zone declared '
+       'incorrectly in somebody\'s identity.json is a true statement about a '
+       'false fact, and nothing mechanical can tell where a person actually '
+       'is. It is also blind to `datetime.now(tz)` with an explicit zone '
+       'argument: that IS offset-carrying and orderable, so flagging it '
+       'would fire on correct code, and routing it through the one module '
+       'is a one-formatter-per-quantity matter this check leaves to review. '
+       'Non-Python emitters (a shell `date` call, a template) are out of '
+       'scope for the same reason: `date +%Y-%m-%d` is correct once the '
+       'session zone is set, which is the hook\'s job, not this one\'s.')
+def _timestamps_carry_offset(ctx):
+    """Two properties, one practice: nothing writes a naive moment, and the
+    fallback zone cannot drift between the three files that name it.
+
+    AST, NOT GREP. The first draft grepped, and matched its own explanatory
+    comments in all twelve files it had just migrated -- a check reporting
+    the sentence that describes the rule as a violation of it. Parsing means
+    a comment, a docstring or a string literal mentioning `date.today()`
+    reads as prose, which is what it is.
+    """
+    import ast
+
+    # (attribute name, requires zero args) -- the calls that produce a moment
+    # with no zone attached. `now` is listed with args_must_be_empty because
+    # `datetime.now(tz)` is aware and fine; `now()` is naive.
+    NAIVE = {'today': True, 'utcnow': False, 'utcfromtimestamp': False,
+             'now': True}
+    ENGINE = 'tools/precedent_time.py'
+
+    out = []
+    files = [f for f in _git('ls-files', '--cached', '--others',
+                             '--exclude-standard', '--', '*.py').stdout.split()
+             if f and f != ENGINE]
+    if not files:
+        raise NotApplicable('no tracked Python files in this repository')
+
+    for rel in files:
+        path = ctx.root / rel
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except (OSError, SyntaxError):
+            # A file that will not parse is somebody else's finding, not
+            # this check's to invent -- and never a silent pass: say it.
+            out.append(Finding(rel, 'could not be parsed, so it was NOT '
+                                    'checked for naive timestamps'))
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            fn = node.func
+            if not isinstance(fn, ast.Attribute) or fn.attr not in NAIVE:
+                continue
+            # Only the datetime family. `pathlib.Path.cwd()` has no `today`,
+            # but a domain object with a `.now()` of its own would otherwise
+            # be flagged for having a common method name.
+            root_name = fn.value
+            while isinstance(root_name, ast.Attribute):
+                root_name = root_name.value
+            if not (isinstance(root_name, ast.Name)
+                    and root_name.id in ('datetime', 'date')):
+                continue
+            if NAIVE[fn.attr] and (node.args or node.keywords):
+                continue        # datetime.now(tz) -- aware, and orderable
+            out.append(Finding(
+                f'{rel}:{node.lineno}',
+                f'`{fn.attr}()` writes a moment with no offset -- it resolves '
+                f'in whatever zone this machine is on, which in a container '
+                f'is UTC. Use tools/precedent_time.py '
+                f'({"today()" if fn.attr == "today" else "stamp(), utc_iso() or from_unix()"}), '
+                f'which resolves the person\'s zone and always carries the offset'))
+
+    # ---- the declared fallback, in the three files that hold it
+    declared = {}
+    cfg = ctx.root / 'precedent.json'
+    if cfg.exists():
+        try:
+            v = json.loads(cfg.read_text(encoding='utf-8')).get('fallback_timezone')
+            if isinstance(v, str) and v.strip():
+                declared['precedent.json (fallback_timezone)'] = v.strip()
+        except ValueError:
+            out.append(Finding('precedent.json', 'is not valid JSON, so the '
+                                                 'declared fallback zone could '
+                                                 'NOT be compared'))
+    for rel, pat in ((ENGINE, r"^FALLBACK_TZ\s*=\s*'([^']+)'"),
+                     ('.claude/hooks/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"'),
+                     ('templates/harness/claude-code/hooks/commit-identity.sh',
+                      r'^DEFAULT_TZ="([^"]+)"')):
+        f = ctx.root / rel
+        if not f.exists():
+            continue
+        m = re.search(pat, f.read_text(encoding='utf-8'), re.M)
+        if m:
+            declared[rel] = m.group(1)
+        else:
+            out.append(Finding(rel, 'holds the declared fallback zone and no '
+                                    'longer states it in the form this check '
+                                    'reads -- it could NOT be compared'))
+    if len(set(declared.values())) > 1:
+        detail = '; '.join(f'{k} says {v}' for k, v in sorted(declared.items()))
+        out.append(Finding('', f'the declared fallback zone disagrees across '
+                               f'the files that hold it -- {detail}. One of '
+                               f'them silently stamps a different offset than '
+                               f'the others'))
     return out
 
 
