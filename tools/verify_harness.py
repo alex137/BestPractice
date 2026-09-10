@@ -7017,6 +7017,149 @@ def check_commit_identity_prevents_the_wrong_offset():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_generator_wires_every_template_guard_mode():
+    """The generator must not fall behind the adapter template again.
+
+    Three files describe how session hooks get wired: the adapter template
+    at templates/harness/claude-code/settings.json, whose own _comment calls
+    itself the canonical wiring; this repo's .claude/settings.json,
+    dogfooding it; and _install_session_hooks() in
+    precedent_bootstrap_source.py, which is what a newly bootstrapped source
+    actually receives. The third fell behind the first around 2026-09-06 --
+    it wired SessionStart and PreToolUse and not UserPromptSubmit -- so every
+    set bootstrapped after that date silently lacked the freshness guard's
+    `user-prompt` mode. That is the only mode that keeps firing: SessionStart
+    is spent at the start and pre-write at the first write, so a session left
+    open across a break has spent both and nothing rechecks the checkout
+    however far origin moves underneath it. All five real downstream sets sat
+    in that state for days and none of them knew.
+
+    NOT strict equality, deliberately. The adapter legitimately wires MORE
+    than the generator installs -- a Stop hook, session-start.sh,
+    precedent-paths.sh -- so asserting the same event set would fail on
+    arrival and force an unrelated design decision about which of those a
+    bootstrapped set should get. The assertion is CONTAINMENT of the guard's
+    modes, plus commit-identity.sh wired on both sides.
+
+    Modes, never whole command strings: the base branch is passed explicitly
+    and differs per repo on purpose -- this repo's own base is
+    precedent-beta-v01, not main -- so comparing commands would report that
+    deliberate difference as drift.
+
+    Both sides are derived at runtime. A hardcoded list of expected modes
+    would be a FOURTH copy of this wiring, and copies of this wiring drifting
+    from one another is the exact failure being checked."""
+    import tempfile
+    import precedent_bootstrap_source as pbs
+    cases = []
+    want = pbs._template_guard_modes()
+    cases.append(('the adapter template wires at least one guard mode, so '
+                  'there is something to compare against', bool(want)))
+    with tempfile.TemporaryDirectory() as td:
+        dest = pathlib.Path(td)
+        pbs._install_session_hooks(dest, 'main')
+        have = pbs._source_guard_modes(dest)
+        gap = sorted(want - have)
+        cases.append((f'the generator wires every guard mode the adapter '
+                      f'does (missing: {gap or "none"})', not gap))
+
+        settings = dest / '.claude' / 'settings.json'
+        tmpl_text = (ROOT / 'templates' / 'harness' / 'claude-code'
+                     / 'settings.json').read_text(encoding='utf-8')
+        gen_text = settings.read_text(encoding='utf-8')
+        cases.append(('commit-identity.sh is wired by the adapter and by the '
+                      'generator alike',
+                      'commit-identity.sh' in tmpl_text
+                      and 'commit-identity.sh' in gen_text))
+
+        # A hook that is not executable silently never runs, which is why
+        # _install_session_hooks chmods; assert the property, not the call.
+        cases.append(('both installed hooks are executable',
+                      all(os.access(dest / '.claude' / 'hooks' / n, os.X_OK)
+                          for n in pbs.SESSION_HOOKS)))
+
+        # The negative control, run rather than asserted in a report: with
+        # the UserPromptSubmit block taken back out, the comparison above has
+        # to name exactly the mode that went (practice:
+        # control-asserts-which-failure -- a check that cannot fail is not a
+        # check, and "it failed" is not evidence it failed for the reason
+        # claimed).
+        data = json.loads(gen_text)
+        data['hooks'].pop('UserPromptSubmit', None)
+        settings.write_text(json.dumps(data), encoding='utf-8')
+        reverted = sorted(want - pbs._source_guard_modes(dest))
+        cases.append((f'with the UserPromptSubmit wiring removed the same '
+                      f'comparison names exactly user-prompt (got '
+                      f'{reverted})', reverted == ['user-prompt']))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the generator wires every guard mode the adapter template does '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_verify_reports_a_source_wired_for_fewer_moments():
+    """verify() asked whether a hook RUNS and never at which moments, so a
+    source wired for fewer moments than the adapter wires it for audited
+    perfectly clean. That is structurally why the five downstream sets sat
+    mis-wired for days: the check that should have caught it could not.
+
+    The three cases below are the ones that decide whether the fix is right
+    rather than merely present -- a wiring check is easy to write in a way
+    that is correct on the standard layout and wrong everywhere else."""
+    import tempfile
+    import precedent_bootstrap_source as pbs
+
+    def _wiring_findings(root, cmds):
+        (root / '.claude').mkdir(parents=True, exist_ok=True)
+        (root / '.claude' / 'settings.json').write_text(json.dumps(
+            {'hooks': {'SessionStart': [{'hooks': [
+                {'type': 'command', 'command': c} for c in cmds]}]}}),
+            encoding='utf-8')
+        return [m for m in pbs.verify('team', root) if 'NOT WIRED' in m]
+
+    D = '$CLAUDE_PROJECT_DIR'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        # 1. PATH INDEPENDENCE. The individual set wires its guard from a
+        # tracked bootstrap/ directory rather than .claude/hooks/, on purpose
+        # -- one copy, nothing to drift from it -- and its own practice
+        # documents that layout. A check that reads the directory instead of
+        # the declared command calls that set broken, which would make the
+        # check wrong rather than the set.
+        a = tmp / 'bootstrap-layout'
+        found = _wiring_findings(a, [
+            f'{D}/bootstrap/freshness-guard.sh {m} main'
+            for m in sorted(pbs._template_guard_modes())])
+        cases.append((f'a source wiring every mode from bootstrap/ rather '
+                      f'than .claude/hooks/ is clean (got {found})', not found))
+
+        # 2. THE NEGATIVE CASE. One mode removed, and the finding has to name
+        # that mode -- not merely be non-empty.
+        b = tmp / 'missing-user-prompt'
+        found = _wiring_findings(b, [
+            f'{D}/.claude/hooks/freshness-guard.sh session-start main',
+            f'{D}/.claude/hooks/freshness-guard.sh pre-write main'])
+        cases.append((f'a source missing one mode is reported, naming that '
+                      f'mode (got {found})',
+                      len(found) == 1 and 'user-prompt' in found[0]
+                      and 'NOT WIRED' in found[0]))
+
+        # 3. DIRECTION. want - have, never the reverse: a source wiring more
+        # than the adapter is doing something deliberate, not something broken.
+        c = tmp / 'wires-extra'
+        found = _wiring_findings(c, [
+            f'{D}/.claude/hooks/freshness-guard.sh {m} main'
+            for m in sorted(pbs._template_guard_modes()) + ['some-future-mode']])
+        cases.append((f'a source wiring MORE modes than the adapter is not '
+                      f'flagged (got {found})', not found))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'verify() reports a source wired for fewer moments than the '
+          f'adapter ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_commit_identity_copies_are_identical():
     """The hook exists three times and every copy must be the same file.
 
@@ -9339,10 +9482,21 @@ def check_source_shape_is_verified():
         _relocated = fixture('team', **{'.claude/hooks/freshness-guard.sh': None})
         (_relocated / 'bootstrap').mkdir(exist_ok=True)
         (_relocated / 'bootstrap' / 'freshness-guard.sh').write_text('#!/bin/sh\n')
+        # Every mode the adapter wires, not just session-start: this fixture
+        # stands in for a FINISHED source, and a finished source wires all of
+        # them -- the real set this is modelled on was measured wiring exactly
+        # the adapter's three. Wiring one made it a stand-in for a source that
+        # is correct about WHERE its hooks live and wrong about WHEN they run,
+        # which is a different fixture with a different purpose. Derived
+        # rather than listed so this does not become another copy of the
+        # wiring that drifts (see
+        # check_generator_wires_every_template_guard_mode).
         (_relocated / '.claude' / 'settings.json').write_text(_json.dumps(
-            {'hooks': {'SessionStart': [{'hooks': [{'type': 'command',
-             'command': '$CLAUDE_PROJECT_DIR/bootstrap/freshness-guard.sh '
-                        'session-start main'}]}]}}))
+            {'hooks': {'SessionStart': [{'hooks': [
+                {'type': 'command',
+                 'command': f'$CLAUDE_PROJECT_DIR/bootstrap/freshness-guard.sh '
+                            f'{_mode} main'}
+                for _mode in sorted(bss._template_guard_modes())]}]}}))
         cases.append(('a session hook kept outside .claude/hooks/ but wired by '
                       'the source\'s own settings.json is NOT reported missing',
                       not any('freshness-guard' in f
@@ -13410,6 +13564,8 @@ def main():
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
+    check_generator_wires_every_template_guard_mode()
+    check_verify_reports_a_source_wired_for_fewer_moments()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
     check_repo_reference_allowlist()
