@@ -7017,6 +7017,103 @@ def check_commit_identity_prevents_the_wrong_offset():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_source_clone_is_pinned_to_a_branch():
+    """A source clone must not ask the remote which branch to use.
+
+    `git clone <url> <dir>` with no --branch checks out whatever the server's
+    HEAD symref names -- a setting on a web page, invisible to every tool
+    here. 2026-09-09: two practice-source repositories had that setting
+    pointed at a feature branch, so every session-start clone of them landed
+    on an older tree, and a plain sync from a consuming repo would have
+    written that older text over newer committed text, deleting a practice's
+    Story block and a clause of its Rule, reporting success. The consuming
+    repo had never been stale.
+
+    Three cases, and the third is the one that decides whether the fix is
+    safe rather than merely effective: a source clone can be somebody's
+    working copy, and a pin that quietly moves a dirty checkout would trade
+    one silent loss for another."""
+    import tempfile
+    import precedent_source_bootstrap as psb
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=env)
+
+    def branch_of(p):
+        return git(p, 'rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        W = pathlib.Path(td)
+        src = W / 'src'
+        src.mkdir()
+        git(src, 'init', '-q', '-b', 'main')
+        (src / 'rule.md').write_text('old\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'a')
+        git(src, 'branch', 'claude/feature')
+        (src / 'rule.md').write_text('NEWER, with the Story block\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'b')
+        # The measured situation: the server's default is a feature branch
+        # whose tree is behind main.
+        git(src, 'symbolic-ref', 'HEAD', 'refs/heads/claude/feature')
+        url = f'file://{src}'
+
+        clone = W / 'clone'
+        ok, out = psb._try_sync(url, clone)
+        cases.append((f'a fresh clone lands on the pinned branch, not the '
+                      f'remote\'s default (got {branch_of(clone)!r}, {out!r})',
+                      ok and branch_of(clone) == 'main'))
+        cases.append(('and therefore has the newer content the default branch '
+                      'lacks',
+                      'Story block' in (clone / 'rule.md').read_text(encoding='utf-8')))
+
+        # An existing clone already sitting wrong: the half that made the real
+        # incident persist, since `git pull --ff-only` pulls whatever branch
+        # the checkout is on.
+        git(clone, 'checkout', '-q', 'claude/feature')
+        ok, out = psb._try_sync(url, clone)
+        cases.append((f'an existing clone on the wrong branch is put back '
+                      f'(got {branch_of(clone)!r}, {out!r})',
+                      ok and branch_of(clone) == 'main'))
+
+        git(clone, 'checkout', '-q', 'claude/feature')
+        (clone / 'rule.md').write_text('work nobody committed\n', encoding='utf-8')
+        ok, out = psb._try_sync(url, clone)
+        cases.append(('a wrong-branch clone with uncommitted work is REFUSED, '
+                      'naming both branches, not silently moved',
+                      (not ok) and 'claude/feature' in out and "'main'" in out))
+        cases.append(('and that uncommitted work is still there',
+                      'work nobody committed' in
+                      (clone / 'rule.md').read_text(encoding='utf-8')))
+
+        # THE ONE CASE THE PIN GIVES WAY. A source whose only branch is
+        # named something else must still clone: git's default branch name is
+        # per-machine, so whoever created that set may never have decided it,
+        # and refusing would take its practices out of force for a naming
+        # accident. Distinct from the incident, where the pinned branch DID
+        # exist and the remote's default named a different one.
+        other = W / 'other'
+        other.mkdir()
+        git(other, 'init', '-q', '-b', 'master')
+        (other / 'r.md').write_text('x\n', encoding='utf-8')
+        git(other, 'add', '-A')
+        git(other, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'a')
+        oc = W / 'other-clone'
+        ok, out = psb._try_sync(f'file://{other}', oc)
+        cases.append((f'a source with no branch of that name clones anyway '
+                      f'rather than falling out of force (got '
+                      f'{branch_of(oc) if oc.exists() else None!r}, {out!r})',
+                      ok and branch_of(oc) == 'master'))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'a source clone is pinned to a branch rather than asking the '
+          f'remote ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generator_wires_every_template_guard_mode():
     """The generator must not fall behind the adapter template again.
 
@@ -13564,6 +13661,7 @@ def main():
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
+    check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
     check_commit_identity_copies_are_identical()

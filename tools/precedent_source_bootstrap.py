@@ -62,7 +62,7 @@ Run:
   python3 precedent_source_bootstrap.py \\
       --level individual --name NAME --repo-url URL \\
       --clone PATH --config PATH \\
-      [--retries N] [--retry-delay SECONDS] [--remote-only true]
+      [--branch NAME] [--retries N] [--retry-delay SECONDS] [--remote-only true]
 
 Exit: always 0 (fail-gracefully — an unreachable individual source degrades
 the session, per tools/precedent_resolve.py's own documented contract; it
@@ -78,6 +78,52 @@ import sys
 import time
 
 LEVELS = {'individual', 'team'}
+
+# WHICH BRANCH A SOURCE IS CLONED FROM, AND WHY IT IS NAMED HERE RATHER THAN
+# ASKED FOR (practice: cite-the-incident).
+#
+# `git clone <url> <dir>` with no --branch asks the SERVER which branch to
+# check out, and the server answers with its HEAD symref -- which is whatever
+# is set in the repository's web settings. So the branch a session works on
+# was decided by a setting on a web page that nothing in this repository can
+# see, check, or version.
+#
+# 2026-09-09, measured from a consuming repo: two practice-source repositories
+# had their default pointed at a feature branch, so every session-start clone
+# of those sources landed on an older tree. `precedent_sync_views.py --check`
+# then reported the CONSUMER as drifted, and a plain sync would have written
+# that older text over newer committed text -- deleting a practice's Story
+# block and a clause from its Rule, with no warning and exit 0. The consuming
+# repo had never been stale; the clone had been pointed somewhere else.
+#
+# This repository already forbids the explicit form of that inference:
+# precedent_check.py's `declared-base-branch` fails any tool that resolves
+# refs/remotes/origin/HEAD without reading a DECLARED branch first, because
+# origin/HEAD answers "what does the host show first" and every caller here
+# means "what lineage does this work belong to". That check reads Python, so
+# it never saw this one -- here git was making the same inference implicitly,
+# on our behalf, inside a clone.
+#
+# `main` is the convention for a practice-set source and the fallback, never
+# an assumption to make when the repository says otherwise: a source that
+# declares base_branch in its own precedent.json is taken at its word, which
+# is what expected_branch() below is for.
+SOURCE_BRANCH_DEFAULT = 'main'
+
+
+def expected_branch(clone_path):
+    """-> str the branch a source clone belongs on: whatever its own
+    precedent.json DECLARES, else SOURCE_BRANCH_DEFAULT. Never read off the
+    remote's HEAD -- that is the inference this whole mechanism exists to
+    stop."""
+    try:
+        declared = json.loads(
+            (pathlib.Path(clone_path) / 'precedent.json').read_text(
+                encoding='utf-8')).get('base_branch')
+    except Exception:
+        return SOURCE_BRANCH_DEFAULT
+    return declared if isinstance(declared, str) and declared.strip() \
+        else SOURCE_BRANCH_DEFAULT
 # An INDIVIDUAL source resolves through a $HOME clone plus a user-level
 # config naming it; a TEAM source resolves as a SIBLING CHECKOUT beside the
 # consuming repo, by path, with nothing to write down -- see
@@ -164,26 +210,113 @@ def _credential_args(repo_url):
     return credential_args(repo_url)
 
 
-def _try_sync(repo_url, clone_path):
+def _run_git(args):
+    """-> (ok, output). The exit code is consulted, never inferred from the
+    text: several git commands print something useful and exit non-zero, and
+    a helper that returns stdout alone hands the caller a confident wrong
+    answer (AGENTS.md records five tools that had that bug)."""
+    r = subprocess.run(['git', *args], capture_output=True, text=True)
+    return r.returncode == 0, (r.stdout + r.stderr).strip()
+
+
+def _branch_absent(output):
+    """git's several ways of saying "there is no branch by that name here".
+
+    Matched narrowly and on purpose: this decides whether to fall back to the
+    remote's own default, and a loose match would turn an ordinary network
+    failure into a silent branch switch -- the exact thing the pin exists to
+    stop."""
+    low = (output or '').lower()
+    return ('remote branch' in low and 'not found' in low) or \
+        ("couldn't find remote ref" in low)
+
+
+def _try_sync(repo_url, clone_path, branch=None):
     """One attempt: pull if already cloned, else clone. -> (ok, output).
 
     The clone is made from the CLEAN url -- the credential travels as a git
     helper that reads the environment itself, so no token is ever written
     into .git/config, where it would outlive this process and be pushed by
-    whoever committed next."""
+    whoever committed next.
+
+    The branch is PINNED, never asked for -- see SOURCE_BRANCH_DEFAULT above
+    for the incident. Two halves, and the second is the one that made the
+    first incident persist: a fresh clone takes --branch, and an existing
+    clone is put back on that branch BEFORE pulling, because `git pull
+    --ff-only` pulls whatever branch the checkout is already sitting on. A
+    clone that landed on the wrong branch once therefore stayed there and
+    kept pulling it, session after session, with nothing saying so."""
     cred = _credential_args(repo_url)
+    branch = branch or expected_branch(clone_path)
     if (clone_path / '.git').is_dir():
-        cmd = ['git', *cred, '-C', str(clone_path), 'pull', '--ff-only', '--quiet']
+        ok, current = _run_git(['-C', str(clone_path), 'rev-parse',
+                                '--abbrev-ref', 'HEAD'])
+        if not ok:
+            return False, current
+        if current != branch:
+            # A clone with uncommitted work is somebody's working copy, and
+            # moving it is not this tool's call to make. Refusing is the safe
+            # direction: an unresolved source is reported loudly at session
+            # start, while a source silently read off the wrong branch is the
+            # exact silent revert this pin exists to prevent.
+            ok, dirty = _run_git(['-C', str(clone_path), 'status', '--porcelain'])
+            if not ok:
+                return False, dirty
+            if dirty.strip():
+                return False, (
+                    f"{clone_path} is on branch {current!r}, not {branch!r}, "
+                    f"and has uncommitted changes. Refusing to move it: a "
+                    f"source read off the wrong branch silently reverts the "
+                    f"repositories that sync from it. Commit or stash there, "
+                    f"then re-run.")
+            ok, out = _run_git([*cred, '-C', str(clone_path), 'fetch',
+                                '--quiet', 'origin', branch])
+            if not ok:
+                if not _branch_absent(out):
+                    return False, out
+                # No branch by that name at all -- see the note in the clone
+                # path below. Leave the checkout where it is and pull that,
+                # rather than refusing and putting the source out of force.
+                print(f"precedent_source_bootstrap: {clone_path} has no branch "
+                      f"{branch!r} on its remote, so it stays on {current!r}. "
+                      f"Declare base_branch in that repository's precedent.json "
+                      f"if {current!r} is what it should be on.", file=sys.stderr)
+                return _run_git([*cred, '-C', str(clone_path), 'pull',
+                                 '--ff-only', '--quiet'])
+            ok, out = _run_git(['-C', str(clone_path), 'checkout', '--quiet',
+                                branch])
+            if not ok:
+                return False, out
+        cmd = [*cred, '-C', str(clone_path), 'pull', '--ff-only', '--quiet']
     else:
         clone_path.parent.mkdir(parents=True, exist_ok=True)
-        cmd = ['git', *cred, 'clone', '--quiet', repo_url, str(clone_path)]
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    return r.returncode == 0, (r.stdout + r.stderr).strip()
+        cmd = [*cred, 'clone', '--quiet', '--branch', branch,
+               repo_url, str(clone_path)]
+        ok, out = _run_git(cmd)
+        if ok or not _branch_absent(out):
+            return ok, out
+        # THE ONE CASE THE PIN GIVES WAY, AND WHY IT IS NOT THE INCIDENT
+        # RETURNING. The pin refuses to let the REMOTE choose between branches
+        # that exist -- which is what went wrong on 2026-09-09, where `main`
+        # was there and the remote's default named something else. This is a
+        # different situation: no branch by that name exists at all, so there
+        # is nothing to choose between. Refusing here would take a perfectly
+        # good source out of force for being on `master`, or on any other name
+        # -- and git's own default branch name is per-machine, so whoever
+        # created the set may never have made a decision about it. Falling
+        # back keeps the practices in force; saying so keeps it from being
+        # silent, which is the whole complaint against the old behaviour.
+        print(f"precedent_source_bootstrap: {repo_url} has no branch "
+              f"{branch!r}; cloning its default instead. Declare base_branch "
+              f"in that repository's precedent.json to pin it explicitly.",
+              file=sys.stderr)
+        return _run_git([*cred, 'clone', '--quiet', repo_url, str(clone_path)])
+    return _run_git(cmd)
 
 
 def ensure_source(level, name, repo_url, clone_path, config_path,
                    retries=DEFAULT_RETRIES, retry_delay=DEFAULT_RETRY_DELAY,
-                   sleep=time.sleep):
+                   sleep=time.sleep, branch=None):
     """The mechanism, callable in-process as well as from main() below.
     (tools/precedent_resolve.py's own self-heal does NOT call this
     in-process -- it shells out to the project's session-start hook, the
@@ -199,7 +332,7 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
     attempts = max(1, retries)
     last_output = ''
     for attempt in range(1, attempts + 1):
-        ok, last_output = _try_sync(repo_url, clone_path)
+        ok, last_output = _try_sync(repo_url, clone_path, branch=branch)
         if ok:
             # A team source is resolved BY PATH, as a sibling checkout, so
             # there is nothing to record; writing a config entry for one
@@ -222,7 +355,7 @@ TOKEN_ENV_NAME = 'PRECEDENT_GIT_TOKEN'  # named, not imported: this file
 
 
 def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
-                    retry_delay=DEFAULT_RETRY_DELAY):
+                    retry_delay=DEFAULT_RETRY_DELAY, branch=None):
     """Clone every TEAM source a repo's precedent.json declares, to the
     sibling path it declares, from `base_url`/<name>.
 
@@ -264,7 +397,8 @@ def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                             f'clone {name} from'))
             continue
         ok, out = ensure_source('team', name, f'{base}/{name}', clone_path,
-                                None, retries=retries, retry_delay=retry_delay)
+                                None, retries=retries, retry_delay=retry_delay,
+                                branch=branch)
         results.append((name, ok, out or 'cloned'))
     return results
 
@@ -305,6 +439,11 @@ def main(argv=None):
                    help="clone every team source REPO's precedent.json "
                         f'declares, from ${BASE_URL_ENV}/<name>. Mutually '
                         'exclusive with the single-source arguments above')
+    p.add_argument('--branch', default=None, metavar='NAME',
+                   help='the branch to clone and keep the source on. '
+                        'Defaults to the source\'s own declared base_branch, '
+                        'else ' + SOURCE_BRANCH_DEFAULT + '. Never read off '
+                        'the remote\'s HEAD -- see SOURCE_BRANCH_DEFAULT.')
     p.add_argument('--retries', type=int, default=DEFAULT_RETRIES)
     p.add_argument('--retry-delay', type=float, default=DEFAULT_RETRY_DELAY)
     p.add_argument('--remote-only', default='true',
@@ -319,7 +458,8 @@ def main(argv=None):
     if args.teams_from:
         for name, ok, out in teams_from_repo(args.teams_from,
                                              retries=args.retries,
-                                             retry_delay=args.retry_delay):
+                                             retry_delay=args.retry_delay,
+                                             branch=args.branch):
             if not ok:
                 print(f"precedent_source_bootstrap: team source "
                       f"{name!r} is not on disk -- {out[-500:]}. Its practices "
@@ -338,7 +478,8 @@ def main(argv=None):
     ok, last_output = ensure_source(args.level, args.name, args.repo_url,
                                     args.clone, args.config,
                                     retries=args.retries,
-                                    retry_delay=args.retry_delay)
+                                    retry_delay=args.retry_delay,
+                                    branch=args.branch)
     if not ok:
         print(f"precedent_source_bootstrap: {_diagnose(last_output)} "
               f"could not reach {args.repo_url!r} "

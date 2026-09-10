@@ -72,6 +72,14 @@ import precedent_resolve
 # copies would keep producing a settings.json that looked right.
 # Neither module is in precedent_vendor_engine.ENGINE_FILES, so both run
 # only from a BestPractice checkout, where this import always resolves.
+# The pin's own answer for which branch a source belongs on, imported rather
+# than restated: a report that disagreed with the tool that does the pinning
+# would be worse than no report at all.
+try:
+    import precedent_source_bootstrap as _srcboot
+except Exception:
+    _srcboot = None
+
 try:
     import precedent_bootstrap_source as _bootstrap
 except Exception as exc:            # reported below, never raised: a hook
@@ -208,7 +216,8 @@ def survey(extra_paths=()):
         stale = None if not tip else (recorded != tip)
         found.append({'repo': repo, 'kind': man.get('kind', '?'),
                       'recorded': recorded, 'stale': stale, 'error': None,
-                      'hooks': hook_state(repo)})
+                      'hooks': hook_state(repo),
+                      'branch': branch_state(repo)})
     return tip, tip_ref, found
 
 
@@ -285,6 +294,25 @@ def _declared_hooks(repo):
                         rel = m.group(1)
                         out.setdefault(pathlib.PurePath(rel).name, []).append(rel)
     return out
+
+
+def branch_state(repo):
+    """-> (current, expected) or None when it cannot be told.
+
+    A source clone sitting on the wrong branch is a SILENT revert waiting to
+    happen: everything that syncs from it reads an older tree and writes it
+    over newer committed text, and every tool involved reports success. It
+    was found on 2026-09-09 only because someone went looking by hand. The
+    clone is pinned now (precedent_source_bootstrap.SOURCE_BRANCH_DEFAULT),
+    which stops it happening again -- this says so out loud for the clones
+    that are already wrong, since a pin only takes effect the next time
+    something clones or pulls."""
+    if _srcboot is None:
+        return None
+    ok, current = _git('rev-parse', '--abbrev-ref', 'HEAD', cwd=repo)
+    if not ok or not current:
+        return None
+    return current, _srcboot.expected_branch(repo)
 
 
 def hook_state(repo):
@@ -457,6 +485,12 @@ def main(argv):
         # whole point: the set this was written for was current at the tip
         # and had no hooks at all. Reporting hooks only for stale sets would
         # have kept it invisible.
+        b = e.get('branch')
+        if b and b[0] != b[1]:
+            print(f"         BRANCH on {b[0]} — expected {b[1]}. Everything "
+                  f"that syncs from this clone is reading that tree; if it is "
+                  f"behind, a sync writes the older text over newer committed "
+                  f"text and reports success")
         h = e.get('hooks') or {}
         if h.get('error'):
             print(f"         hooks not checked: {h['error']}")
