@@ -13,7 +13,7 @@ visible instead of reading as a pass.
 Run:  python3 tools/verify_harness.py
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
-import collections, hashlib, json, os, pathlib, re, subprocess, sys, time
+import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
 
 # A FIXTURE COMMIT IS NOT A PERSON'S COMMIT. Since 2026-09-07 the commit
 # identity hook installs a backstop at core.hooksPath -- global, because that
@@ -886,6 +886,45 @@ def check_practices_link_only_reachable_repos(files):
     check('practice files link no repository but this one (they ship verbatim '
           'into every consuming repo, and are read by strangers to this '
           "project's other repositories)", ok)
+
+
+def _seed_consumer_engine(dest_tools, extra=(), only=None):
+    """Copy the engine a CONSUMING repo actually receives into dest_tools.
+
+    THE ONE PLACE THAT LIST LIVES, and why it had to become one.
+    Fixtures here hand-listed the engine files they needed --
+    `('precedent_resolve.py', 'split_practices.py', 'build_views.py', ...)`
+    -- which is correct until an engine module is added, and then silently
+    wrong: the fixture keeps copying a precedent_resolve.py that imports a
+    companion the fixture has never heard of. On 2026-09-10 a new module
+    (precedent_identity.py, carved out of the resolver) broke TWO fixtures
+    that way in a single change, and one of them carried a comment warning
+    about precisely this failure -- the warning did not help, because the
+    list it guarded was still a hand-list.
+
+    Reading precedent_vendor_engine's own CONSUMER_ENGINE_FILES is what
+    makes a fixture a consumer rather than a curated subset of one
+    (practice: fixture-owns-its-state -- the state a fixture owns includes
+    which files a real consumer gets).
+
+    `extra` adds non-engine companions a fixture needs (data files, the
+    leak gate). `only` narrows to a subset by name for a fixture that is
+    deliberately testing a partial engine -- pass it explicitly, so a
+    narrow copy is a stated choice rather than an accident of drift."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    names = list(_pve.CONSUMER_ENGINE_FILES) + list(extra)
+    if only is not None:
+        names = [n for n in names if n in set(only) | set(extra)]
+    dest_tools = pathlib.Path(dest_tools)
+    dest_tools.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for name in names:
+        src = ROOT / 'tools' / name
+        if src.is_file():
+            shutil.copy2(src, dest_tools / name)
+            copied.append(name)
+    return copied
 
 
 def check_leak_gate():
@@ -11829,11 +11868,7 @@ def check_not_binding_actually_exempts_a_check():
         # keeps this fixture a consumer rather than a curated subset of one
         # (practice: fixture-owns-its-state -- the state it owns includes
         # which files a consumer actually gets).
-        import precedent_vendor_engine as _pve
-        for name in list(_pve.CONSUMER_ENGINE_FILES) + ['routing_scope.json']:
-            src = ROOT / 'tools' / name
-            if src.is_file():
-                shutil.copy2(src, repo / 'tools' / name)
+        _seed_consumer_engine(repo / 'tools', extra=('routing_scope.json',))
 
         # A practice that is in force, exemptible, and whose check FIRES
         # here -- otherwise a "clean run" would prove nothing. Written
@@ -13561,13 +13596,11 @@ def check_leak_gate_refuses_a_fresh_container():
         # cannot import it, falls back to DECLARATION, and every case below
         # reads the same -- the distinction under test would not be exercised
         # at all while the check still passed.
-        for f in ('leak_gate.py', 'leak-blocklist.default.txt',
-                  'precedent_resolve.py', 'split_practices.py',
-                  'build_views.py', 'routing_scope.json',
-                  'glossary_terms.json'):
-            src = ROOT / 'tools' / f
-            if src.is_file():
-                shutil.copy2(src, repo / 'tools' / f)
+        _seed_consumer_engine(repo / 'tools',
+                              extra=('leak_gate.py',
+                                     'leak-blocklist.default.txt',
+                                     'routing_scope.json',
+                                     'glossary_terms.json'))
         (repo / 'precedent.json').write_text(json.dumps(
             {'format_version': 1, 'visibility': 'public', 'sources': sources}),
             encoding='utf-8')
