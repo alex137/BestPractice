@@ -531,6 +531,44 @@ already public, while leaving the gate permanently red for a reason nobody
 could act on. That pattern was removed from the blocklist instead, with the
 evidence recorded there.
 
+### `github-setup-disclosed` (BestPractice 37) gained a first-install clause and a Detail — 2026-09-10
+
+**What changed.** The Rule keeps its original requirement word for word and
+adds one clause: at a **first** install, three GitHub settings are standing
+rather than discovered, and the install's closing message names all three —
+a developer token saved as a repository secret, a default branch named
+`main`, and *Allow GitHub Actions to create and approve pull requests* — in
+the reply as well as in the administrator section the original Rule already
+required. The practice's `occasion` now fires on a finished first install as
+well as on an install step that adds something GitHub-specific. A `##
+Detail` was added carrying the click-path and the failure mode of each of
+the three; `checked_by`, `severity` and `status` are unchanged, and the
+existing check (a newly added workflow file must be named in
+GITHUB_ACTIONS.md) is untouched.
+
+**Why it is a Rule change and not a cross-reference.** The original practice
+says *where* a GitHub-specific fact must be disclosed. It does not say that
+any particular fact must be disclosed at all — so an install that never
+learned these three settings existed satisfied it completely while leaving a
+repository that cannot check itself (a default branch not called `main` runs
+no merge check) and cannot act for itself (no token, no permission to open a
+pull request). Naming a standing trio is new normative content.
+
+**Where it landed besides the practice**: [INSTALL.md](INSTALL.md) §1 step 10
+and §0 step 9, [SETUP.md](SETUP.md) step 7 (the guided conversation's
+plain-language wording), [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) beside the
+workflow the two Actions settings affect, and a "Settings Only You Can Turn
+On" section in
+[templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) so every
+instantiated file carries them. Decision record:
+[decisions/2026-09-10-install-closing-owner-settings.md](decisions/2026-09-10-install-closing-owner-settings.md).
+
+**Figures moved by it**, per the hand-update convention in
+[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md): practices among the
+original 52 carrying a Detail, 17 → 18; words in `## Detail`, 3,243 → 3,667.
+Rules over 150 words did **not** move — the Rule clause was cut to fit
+inside that budget rather than the budget's record being adjusted to fit it.
+
 ## Cross-referenced only, not a behavior change
 
 **A scope note on the entry below, added 2026-09-03**: "no `checked_by`
