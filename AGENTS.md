@@ -190,7 +190,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 94 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 95 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -354,6 +354,8 @@ When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
   no-version-suffix — name a file for what it is; the repository is the version
+When naming or scoping something around a person's skill level:
+  technical-describes-people — a skill level describes a person; never a project, repo, file or directory
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
@@ -478,7 +480,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Why the miss rate is what it is, and the plan for it (read before phase 5) | [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) |
 | A locked-down access pattern for non-technical contributors (Triage/Read GitHub role + restricted session config + plain-language candidate flow) — drafted, not yet executed | [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md) |
 | Team-level practice capture for non-technical document work at scale (a shared editorial team repo + a reusable document-project template — the "alternative to Google Docs" use case) — Steps 1-2 done (2026-09-05: `precedent-team-tms` bootstrapped, template built); the pilot itself deliberately still not done | [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md) |
-| The reusable document-project template a future pilot instantiates from | [templates/nontechnical-document-project/](templates/nontechnical-document-project/) |
+| The reusable document-project template a future pilot instantiates from | [templates/document-project/](templates/document-project/) |
 | What zone a date or time gets stamped in, why an unidentified person's records still carry a real offset, and where the fallback is declared | [practices/timestamps-carry-offset.md](practices/timestamps-carry-offset.md), engine at [tools/precedent_time.py](tools/precedent_time.py) — run it bare to see which rung answered; the value is `fallback_timezone` in [precedent.json](precedent.json) |
 | Why each practice is routed the way it is (every glob, and every `**`) | [tools/routing_scope.json](tools/routing_scope.json) |
 | The routing audit: coverage check + rotating deep read, on-demand, never a routine gate | [practices/routing-audit.md](practices/routing-audit.md), engine at [tools/routing_audit.py](tools/routing_audit.py) |

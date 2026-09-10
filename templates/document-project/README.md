@@ -4,7 +4,7 @@
      spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md for the plan this implements
      and why it stops here (no pilot project yet). -->
 
-# Non-technical document-project template
+# Document-project template
 
 A starting point for a repo where a non-technical person does document work
 (drafting, editing) with an assistant, on Precedent's three-source loader —

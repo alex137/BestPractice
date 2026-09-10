@@ -4014,6 +4014,16 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('catalogue-carries-stories', _plant_catalogue_stories)
 
+        # technical-describes-people -- a DIRECTORY named for a person's
+        # skill level. The person-noun form (`nontechnical-contributor-*`)
+        # is deliberately NOT planted here: it must stay silent, and the
+        # unplanted baseline in this same table is what proves it does.
+        def _plant_skill_label(repo):
+            d = repo / 'templates' / 'nontechnical-thing'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'a.md').write_text('# planted\n', encoding='utf-8')
+        case('technical-describes-people', _plant_skill_label)
+
         # no-version-suffix
         case('no-version-suffix',
              lambda repo: (repo / 'findings-v2.md').write_text('x\n', encoding='utf-8'))
@@ -11790,7 +11800,7 @@ def check_instantiated_template_links_survive_the_copy():
     """A file a template tells you to COPY INTO A REPO ROOT cannot carry a
     link that only resolves from the template's own directory.
 
-    templates/nontechnical-document-project/'s README says "copy every file
+    templates/document-project/'s README says "copy every file
     in this directory into its root", and its AGENTS.md linked
     `../AGENTS.md.loader.template` and `../../INSTALL.md`. Both resolve
     inside templates/ and are dead the moment the file is where it is
@@ -11808,7 +11818,7 @@ def check_instantiated_template_links_survive_the_copy():
     subtree (`.claude/settings.json`, `precedent.json`) copies along with
     the file and keeps working."""
     import re
-    template_root = ROOT / 'templates' / 'nontechnical-document-project'
+    template_root = ROOT / 'templates' / 'document-project'
     if not template_root.is_dir():
         check('instantiated template files carry no links that die on the '
               'copy', True, '')
@@ -11842,7 +11852,7 @@ def check_not_binding_actually_exempts_a_check():
     a reasoned exemption and have it change nothing: the check still ran,
     still violated, still failed the run. A real install ended on two
     permanent violations it had written exemptions for, and the 17 entries
-    in templates/nontechnical-document-project/precedent.json were, for
+    in templates/document-project/precedent.json were, for
     check purposes, decorative (found 2026-09-10).
 
     Four cases, on one fixture consuming repo, because the fix has four

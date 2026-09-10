@@ -554,6 +554,14 @@
       "why": "Fires on publishing a table, which no path in this repo identifies.",
       "decided": "phase 4 routing pass"
     },
+    "technical-describes-people": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. The label can land on any path -- a template directory, a spec filename, a tool -- and the rule fires when somebody NAMES a thing, which the path channel cannot anticipate from the file being edited. Reached through the occasion index and its own tree-scope check.",
+      "decided": "2026-09-10, when the practice landed",
+      "checked_by_note": "tree-scope check in tools/precedent_check.py reads every tracked path"
+    },
     "todo-is-a-handoff": {
       "globs": [
         "TODO.md"

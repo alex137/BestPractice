@@ -154,7 +154,7 @@ decision, every install of this adapter silently auto-approved every
 `Edit`, `Write` and `NotebookEdit` whose path matched any practice — which
 is most of them. It matters most for the case this repo already designs
 for: a non-technical contributor on a deliberately narrow permission set
-(see [templates/nontechnical-document-project/AGENTS.md](../templates/nontechnical-document-project/AGENTS.md)),
+(see [templates/document-project/AGENTS.md](../templates/document-project/AGENTS.md)),
 where a practice loader quietly widening what may be written is the
 opposite of what was asked for.
 

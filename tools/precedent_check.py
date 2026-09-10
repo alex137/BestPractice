@@ -646,6 +646,48 @@ def _no_version_suffix(ctx):
     return out
 
 
+# Person-nouns that make a skill-level label legitimate: the label is
+# describing somebody, which is the one place it belongs.
+# practice: technical-describes-people
+_PERSON_NOUNS = ('contributor', 'contributors', 'person', 'people', 'user',
+                 'users', 'team', 'teams', 'member', 'members', 'author',
+                 'authors', 'reader', 'readers', 'writer', 'writers',
+                 'staff', 'colleague', 'colleagues', 'owner', 'owners')
+
+_SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?',
+                             re.IGNORECASE)
+
+
+@check('technical-describes-people', 'tree',
+       'no tracked path labels a FILE or DIRECTORY with a skill level; '
+       "'technical' and 'non-technical' describe people",
+       'the same label inside prose, and a path where the label is followed '
+       'by a person-noun (NONTECHNICAL_CONTRIBUTOR_ACCESS.md names a person '
+       'and is correct). It reads names only -- it cannot see a per-person '
+       'rule written into a shared file, which is the failure the name leads '
+       'to.')
+def _technical_describes_people(ctx):
+    out = []
+    for f in ctx.changed:
+        # practices/ names files after their SLUG, and a rule about this
+        # label must contain it; record/ is settled history nobody renames.
+        if f.startswith(('practices/', 'record/', 'process/upstream/')):
+            continue
+        for part in pathlib.PurePath(f).parts:
+            m = _SKILL_LABEL_RE.search(part)
+            if not m:
+                continue
+            rest = part[m.end():].lower()
+            token = re.split(r'[/_\-. ]', rest.lstrip('_-'))[0]
+            if token in _PERSON_NOUNS:
+                continue
+            out.append(Finding(f, "the path labels a file or directory with a "
+                                  "skill level ('%s') -- that describes a "
+                                  "person, not a thing" % m.group(1)))
+            break
+    return out
+
+
 # Trees whose filenames belong to whoever produced them, not to this repo
 # (practice: filename-separator -- the rule is about names somebody HERE
 # chose). Vendored upstream, materialized output, and instantiable skeletons
@@ -3891,7 +3933,7 @@ def load_exemptions():
     for a consuming repo to declare a practice non-binding and get a clean
     check, and a real install ended on two permanent violations it had
     written reasoned exemptions for. The 17 entries in
-    templates/nontechnical-document-project/precedent.json were, for check
+    templates/document-project/precedent.json were, for check
     purposes, decorative.
 
     EXEMPTED IS ITS OWN STATUS, never silence. Dropping these slugs from

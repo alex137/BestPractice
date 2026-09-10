@@ -264,7 +264,7 @@ which is the failure this repointing exists to end — write
     [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) (empty of
     real practices by design — Morgan named the repo, `approvers.json` seeds
     Morgan as first approver) and pushed, and
-    [templates/nontechnical-document-project/](templates/nontechnical-document-project/)
+    [templates/document-project/](templates/document-project/)
     added here. Step 3 (the plan's own boundary) deliberately not done — see
     item 16.
 16. <a id="document-project-pilot"></a>**Run the document-project pilot once Morgan has a real first
@@ -1179,7 +1179,7 @@ which is the failure this repointing exists to end — write
        clause will not reach editorial document projects, which are the
        heading-dense prose pages it most describes. They do not carry
        `bold-key-phrases` at all —
-       [templates/nontechnical-document-project/precedent.json](templates/nontechnical-document-project/precedent.json)
+       [templates/document-project/precedent.json](templates/document-project/precedent.json)
        declares universal plus `precedent-team-tms`, not `-maintainers`.
        Wanting the rule there is a level decision (promote to universal, or
        copy to `-tms`), for Morgan, not something this item's clause does.

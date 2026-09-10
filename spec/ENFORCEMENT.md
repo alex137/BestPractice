@@ -105,11 +105,12 @@ being checked by it.
 | `session-bootstrap` | tree | if the session instructions name a setup command, a session-start hook must run it |
 | `source-naming` | tree | every precedent.json in the tree names each source by the shape its level fixes -- `precedent`, `precedent-individual`, `precedent-team-<slug>`, `local` |
 | `speculation-is-marked` | tree | a speculative document under spec/ or record/ carries all four of its markers or none of them: the SPECULATIVE_ filename prefix requires a matching title, `kind: proposal`, a drafted/abandoned status and a warning block directly under the heading -- and, in the other direction, a document whose title or opening paragraph calls itself speculative must carry the prefix |
+| `technical-describes-people` | tree | no tracked path labels a FILE or DIRECTORY with a skill level; 'technical' and 'non-technical' describe people |
 | `timestamps-carry-offset` | tree | no tracked Python file stamps a moment with a bare `date.today()`, `utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` -- every one of those resolves to whatever zone the machine is on, which in a container is UTC and in a record is unrecoverable. And the declared fallback zone is the SAME string in all three places that hold it: precedent.json, the time engine, and the commit hook |
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-41 of 92 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+42 of 93 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
