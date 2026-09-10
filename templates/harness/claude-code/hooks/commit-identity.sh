@@ -50,7 +50,7 @@
 #
 # TIMEZONE. Nothing in a GitHub profile says where someone is. So: an
 # explicit override, else the individual source's declared timezone, else
-# America/Argentina/Buenos_Aires -- the DECLARED FALLBACK.
+# America/New_York -- the DECLARED FALLBACK.
 #
 # The fallback is APPLIED but NOT ENFORCED, and the two halves have
 # different reasons:
@@ -94,7 +94,7 @@ BOT_EMAIL="noreply@anthropic.com"
 # same value for everything written into DOCUMENTS rather than into a
 # commit, and tools/precedent_check.py's `timestamps-carry-offset` check
 # asserts the two agree, plus this file's harness-template copy.
-DEFAULT_TZ="America/Argentina/Buenos_Aires"
+DEFAULT_TZ="America/New_York"
 
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || exit 0

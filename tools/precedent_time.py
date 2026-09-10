@@ -35,12 +35,18 @@ registry-source-of-truth).
   4. TZ in the environment          — the harness `env` block, itself derived
                                       from identity.json at session start
   5. precedent.json's `fallback_timezone` — THIS REPOSITORY's declared fallback
-  6. America/Argentina/Buenos_Aires — the engine's own last resort
+  6. America/New_York — the engine's own last resort
 
-Rungs 5 and 6 are a decision, not a guess: Morgan, 2026-09-09, asked for
-exactly this — *"if you can't find/get my timezone then use buenos aires
-timezone"* — because any consistent real offset lets a reader order two
-records, and UTC-because-nobody-said had been failing to.
+Rungs 5 and 6 are a decision, not a guess. Morgan, 2026-09-09, asked for a
+real offset rather than UTC-because-nobody-said — *"if you can't find/get my
+timezone then use buenos aires timezone"* — because any consistent real
+offset lets a reader order two records. He narrowed it on 2026-09-10, and
+rung 6 is what changed: *"The Buenos Aires fallback should be just for me
+personally."* Buenos Aires is his zone and belongs at rungs 2-3, in his own
+identity.json, where it is his and is enforced. This is a PUBLIC, generic
+engine whose whole contract is to name no person, and an unidentified
+committer here is not him. Rung 6 is New York; rung 5 lets any repo say
+otherwise.
 
 Rung 5 exists so that choice is a repo's to make rather than the engine's
 to impose (practice: layered-practice-packs). A person's zone is
@@ -80,12 +86,23 @@ except Exception:  # pragma: no cover
 # copy; tools/precedent_check.py's `timestamps-carry-offset` check asserts
 # all three agree, so this constant cannot drift from the hook that applies
 # it to the session.
-FALLBACK_TZ = 'America/Argentina/Buenos_Aires'
+FALLBACK_TZ = 'America/New_York'
 
-# Used only when zoneinfo itself cannot answer. -0300 is Buenos Aires;
-# Argentina has not observed DST since 2009, so a fixed offset is a true
-# statement about this zone rather than a convenient approximation.
-FALLBACK_OFFSET = datetime.timezone(datetime.timedelta(hours=-3), 'ART')
+# Used only when zoneinfo itself cannot answer -- this is returned PAIRED with
+# FALLBACK_TZ, as "the declared fallback", so the two must name the same place
+# or the engine reports a zone it is not applying.
+#
+# It moved with the fallback on 2026-09-10 and the reasoning had to change with
+# it, not just the number. The old value was -0300, and its justification was
+# that Argentina has not observed DST since 2009, so a fixed offset was a TRUE
+# statement about that zone. New York observes DST, so no fixed offset is true
+# about it all year: -0500 is Eastern Standard Time and is wrong by an hour
+# during Eastern Daylight Time. That is accepted rather than hidden. This rung
+# fires only on a machine with no timezone database at all, where the choice is
+# between an offset that is right most of the year and none at all -- and a
+# stamp carrying a real offset still orders correctly against other stamps,
+# which is what timestamps-carry-offset is for.
+FALLBACK_OFFSET = datetime.timezone(datetime.timedelta(hours=-5), 'EST')
 
 _USER_CONFIG = '~/.config/precedent/config.json'
 
