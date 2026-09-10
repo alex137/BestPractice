@@ -142,7 +142,12 @@ when she raises a practice idea in plain language, Claude:
   shell tool from the allowlist — contrast with
   [templates/harness/claude-code/settings.json](../templates/harness/claude-code/settings.json)'s
   stock allowlist, which includes `git push -u origin *` by default; hers
-  should not.
+  should not. **Not in the repository's own tracked `.claude/settings.json`.**
+  That file binds every session on the repo and cannot tell one person from
+  another, so a deny list there restricts the maintainer exactly as much as
+  the contributor. The document-project template made this mistake and
+  shipped it (found 2026-09-10, in the template's first real install); the
+  restriction has to live in a per-person layer to mean anything.
 - Give her repo's `.claude/settings.json` (or her session's system-prompt
   addendum) the plain-language persona instruction: no git/GitHub jargon,
   no mechanical-rule talk, restate her ideas before acting on them, route

@@ -91,10 +91,13 @@ confirmed once, per project, before relying on it.
 enforced independently of the GitHub role above:
 
 - If a dedicated `environment_id` is available for the contributor,
-  configure it (or their per-session settings) with `permission_mode` never
-  set to `bypassPermissions`, and exclude `git push`, `git merge`, and any
-  raw shell tool from the allowlist — see [`.claude/settings.json`](.claude/settings.json)
-  in this repo, which already does this; contrast with
+  configure it (or their per-session settings, or their untracked
+  `.claude/settings.local.json`) with `permission_mode` never set to
+  `bypassPermissions`, and exclude `git push`, `git merge`, and any raw
+  shell tool from the allowlist. **That is the per-person layer, and this
+  restriction belongs there rather than in this repo's tracked
+  [`.claude/settings.json`](.claude/settings.json)** — a tracked deny list
+  binds every session here, a maintainer's included. Contrast with
   [`templates/harness/claude-code/settings.json`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/claude-code/settings.json)'s
   stock allowlist, which includes `git push -u origin *` by default —
   theirs should not.
