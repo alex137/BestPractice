@@ -2566,3 +2566,43 @@ which is the failure this repointing exists to end — write
    re-exported from the resolver. A set picks it up on its next
    `precedent_vendor_engine.py` refresh, with no further change on that
    side.
+
+53. <a id="review-skill-level-permissions"></a>**Review the whole
+   technical/non-technical permission split, now that the pieces are in
+   three separate places.** Asked for by Alex on 2026-09-10, closing the
+   thread that produced the split: *"note a TODO to review the 'technical vs
+   nontechnical' permissions later."*
+
+   **What the split now is.** A non-technical contributor is restricted by
+   their GitHub collaborator role (Triage or Read, never Write), which GitHub
+   enforces server-side, and by their own session or environment
+   configuration — a dedicated `environment_id`, per-session settings, or an
+   untracked `.claude/settings.local.json`. Nothing restricting them lives in
+   a tracked file any more:
+   [templates/document-project/](templates/document-project/)'s
+   `.claude/settings.json` denies `rm` alone, which is not role-specific.
+   [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+   Step 3 is the specification;
+   [practices/technical-describes-people.md](practices/technical-describes-people.md)
+   is the rule that keeps a per-person restriction out of a shared file.
+
+   **What is worth reviewing, and why it is a review rather than a fix.**
+   Three things came up while the split was being made and none was decided:
+
+   - **The tracked deny list was an accidental backstop against a mis-set
+     GitHub role**, and removing it means instantiation step 5's role
+     assignment now carries that weight alone. Nothing checks it.
+   - **The per-person layer is a manual README step** (instantiation step 6),
+     so it can simply be forgotten. The contributor is still blocked by their
+     role if it is — they just get a worse error — but nobody has decided
+     whether that is acceptable or whether the step should be mechanical.
+   - **`spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md` still carries the
+     project-vs-person slippage in its own filename**, the same error the
+     directory rename fixed. `NONTECHNICAL_CONTRIBUTOR_ACCESS.md` is correct
+     as it stands — it names a contributor, who is a person.
+
+   **blocked-on:** Alex — every open question here is a policy call about how
+   much protection a forgettable manual step may carry, not something a
+   session can settle by reading the tree.
+
+   **Disposition:** ask (2026-09-10, Alex asked for the review himself)

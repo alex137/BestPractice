@@ -54,10 +54,6 @@
       "Bash(python3 tools/doc_lint.py *)"
     ],
     "deny": [
-      "Bash(git push *)",
-      "Bash(git merge *)",
-      "Bash(git reset *)",
-      "Bash(git rebase *)",
       "Bash(rm *)"
     ]
   },
