@@ -2495,6 +2495,99 @@ def _github_setup_disclosed(ctx):
     return out
 
 
+# WHAT COUNTS AS "THIS WORKFLOW COMMITS". Deliberately the shell verbs, not
+# a YAML parse of every step: a workflow commits by running `git commit`,
+# and that string is what a reader greps for too. A `uses:` action that
+# commits on the caller's behalf is NOT caught -- named in the practice's
+# own "blind to" rather than pretended away.
+# Anchored at a WORD boundary, never at line start. The first version
+# anchored at `^\s*[-|>]?\s*`, which reads a shell line as a commit only
+# when `git` is the first word -- so `TZ="$ZONE" git commit -m ...`, the
+# very shape a CORRECTLY-authored workflow uses, was classified as "this
+# workflow does not commit" and skipped. A false negative, and the worse
+# direction: it would equally have missed a bot-authored commit behind any
+# env prefix. Caught by running the check against a correct fixture, which
+# is the half checkable-gets-checked insists on.
+CI_COMMIT_RE = re.compile(r'(?<![\w./-])git\s+commit\b')
+# The bot account, in both spellings a workflow actually uses.
+CI_BOT_RE = re.compile(r'github-actions\[bot\]|41898282\+github-actions')
+# Configuring an identity at all.
+CI_SETS_IDENTITY_RE = re.compile(r'git\s+config\s+(--\w+\s+)*user\.(name|email)', re.M)
+# Reading a DECLARED one. identity.json is the declaration the practice
+# names; PRECEDENT_COMMIT_* is the explicit override that outranks it.
+CI_READS_DECLARED_RE = re.compile(r'identity\.json|PRECEDENT_COMMIT_')
+
+
+@check('ci-commits-carry-identity', 'tree',
+       'a .github/workflows/*.yml that runs `git commit` resolves the '
+       'author from a declared identity (an identity.json, or an explicit '
+       'PRECEDENT_COMMIT_*) rather than naming the github-actions bot or '
+       'configuring a git identity from nothing',
+       'whether the identity a workflow DOES read names the right person; a '
+       '`uses:` action that commits on the workflow\'s behalf, which never '
+       'shows a `git commit` line here at all; whether the workflow actually '
+       'exits non-zero on a missing value, as opposed to reading one; and a '
+       'commit made by anything other than a GitHub Actions workflow, which '
+       'is the session-side commit-identity backstop\'s job and not this '
+       'check\'s.')
+def _ci_commits_carry_identity(ctx):
+    wf_dir = ROOT / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        raise NotApplicable('this repo has no .github/workflows/ directory, '
+                            'so it runs no workflow that could commit')
+    workflows = sorted(list(wf_dir.glob('*.yml')) + list(wf_dir.glob('*.yaml')))
+    if not workflows:
+        raise NotApplicable('this repo declares no GitHub Actions workflow')
+
+    committing, out = [], []
+    for wf in workflows:
+        try:
+            text = wf.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        # Comment lines do not commit. A workflow explaining why it does
+        # NOT commit would otherwise be read as one that does.
+        body = '\n'.join(ln for ln in text.splitlines()
+                         if not ln.lstrip().startswith('#'))
+        if not CI_COMMIT_RE.search(body):
+            continue                 # reads only -- nothing to author
+        committing.append(wf)
+        rel = wf.relative_to(ROOT).as_posix()
+        bot = CI_BOT_RE.search(text)
+        if bot:
+            line = text.count('\n', 0, bot.start()) + 1
+            out.append(Finding(
+                f'{rel}:{line}',
+                'commits as the github-actions bot. A workflow runs on a '
+                'runner, where the session-side commit-identity hook never '
+                'executes -- so this is the one commit nothing else will '
+                'author correctly. Read name/email/timezone from the '
+                'declared identity.json and exit non-zero if any is '
+                'missing; falling back to the bot is the failure, not a '
+                'lesser version of the fix'))
+        elif CI_SETS_IDENTITY_RE.search(text) and not CI_READS_DECLARED_RE.search(text):
+            m = CI_SETS_IDENTITY_RE.search(text)
+            line = text.count('\n', 0, m.start()) + 1
+            out.append(Finding(
+                f'{rel}:{line}',
+                'configures a git identity but reads no declared one (no '
+                'identity.json, no PRECEDENT_COMMIT_*), so whatever it '
+                'commits is authored by whatever that line happens to say'))
+        elif not CI_READS_DECLARED_RE.search(text):
+            out.append(Finding(
+                rel,
+                'runs `git commit` without resolving any declared identity, '
+                'so the commit takes the runner\'s default author and its '
+                'UTC clock -- both of which a repository\'s own author and '
+                'timezone rules exist to refuse'))
+
+    if not committing:
+        raise NotApplicable(
+            f'none of this repo\'s {len(workflows)} workflow(s) runs '
+            f'`git commit`, so none of them authors anything')
+    return out
+
+
 REVISION_ANNOTATION_RE = re.compile(
     r'\((?:added|rewritten|updated|removed|revised)\s+\d{4}-\d{2}-\d{2}\)'
     r'|^#{1,6}.*\bRev(?:ision)?\.?\s*\d+\b', re.I | re.M)
