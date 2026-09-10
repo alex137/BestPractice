@@ -167,7 +167,7 @@ remote (BOOTSTRAP_NEW_SOURCES.md's "What the tool does, and does not do").
 ### Step 2 — Build the reusable document-project template
 
 Add it under `templates/` in this repo (BestPractice/Precedent) — e.g.
-`templates/nontechnical-document-project/` — combining:
+`templates/document-project/` — combining:
 
 - INSTALL.md §0's vendoring steps (universal engine).
 - A `precedent.json` declaring the new team source from step 1, resolved
