@@ -191,7 +191,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   PRs and open candidate Issues on `precedent-team-tms`, summarize each in
   plain language, and take the verdict in chat.
 - **"Add project members"** — same flow as
-  [`templates/AGENTS.md.loader.template`](../AGENTS.md.loader.template)'s
+  [`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.loader.template)'s
   own "Add project members" section, with one addition: for a non-technical
   contributor, grant **Triage** or **Read** (never Write) and apply the
   "Non-technical contributor access" section above, not the default
@@ -200,7 +200,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 ## Practice sources — Precedent loader (policy)
 
 - `precedent.json` declares every practice source in force here — see
-  [INSTALL.md §0](../../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+  [INSTALL.md §0](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
   for the resolution and precedence rules. The `universal` source is a
   **real vendored copy** at `precedent/universal/`, not a live reference.
   The `team` source, `precedent-team-tms`, resolves live from a sibling

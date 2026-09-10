@@ -38,6 +38,16 @@ has been bitten four times by the opposite -- a scan with an empty input set
 printing OK -- and the whole point of an enforced practice is that its check
 is the only thing standing where the prose used to be.
 
+A RULE THIS REPO HAS SAID DOES NOT BIND IT REPORTS **EXEMPT**, and reports
+it by name with the recorded reason. `not_binding` in precedent.json is
+where a consuming repo declares that a pair -- this repo, this rule -- has
+no relationship (precedent_resolve.load_not_binding). Until 2026-09-10 that
+declaration did nothing to this module's run: only the reachability check
+read it, so an exempted practice was still checked, still violated, still
+counted, and there was no way for a consuming repo to declare a practice
+non-binding and get a clean check. `severity: blocking` still cannot be
+exempted. See load_exemptions().
+
 Scopes, because a practice is not always a property of a file:
 
   tree      a property of the repository as it stands (an index exists, the
@@ -2378,32 +2388,68 @@ def _label_describes_content(ctx):
     return out
 
 
+# WHERE DISCLOSURE COUNTS, and the three-way contradiction this settled
+# (2026-09-10). The practice's Rule names one destination -- "for a
+# dependent repo, that document is templates/GETTING_STARTED.md's
+# administrator section". This check read a root GITHUB_ACTIONS.md and
+# nothing else. And INSTALL.md §1 step 6's root-hygiene list names
+# GITHUB_ACTIONS.md among the files that exist ONLY under
+# `process/upstream/` and must never be copied to the root. So a dependent
+# repo that FOLLOWED the practice failed the check, and one that satisfied
+# the check tripped root hygiene -- unless it wrote its own,
+# differently-scoped GITHUB_ACTIONS.md, which nothing asked it to. The
+# check's own "blind to" text half-admitted it ("a README section would
+# satisfy the practice's intent but not this check").
+#
+# Settled in the Rule's favour, because the Rule is the one of the three
+# that carries the reasoning: the destination is "the document that
+# project's own people actually read", and in a dependent repo that is
+# GETTING_STARTED.md, which root hygiene explicitly DOES place at the root.
+#
+# Both are read, rather than swapping one hard-coded filename for another.
+# GITHUB_ACTIONS.md stays a valid home for a repo that has its own --
+# BestPractice itself is exactly that repo, being the upstream, and its
+# root copy is its own document rather than a vendored one. A repo that
+# discloses in either has disclosed.
+DISCLOSURE_DOCS = ('GETTING_STARTED.md', 'GITHUB_ACTIONS.md')
+
+
 @check('github-setup-disclosed', 'change',
-       'a newly added GitHub Actions workflow file is named somewhere in '
-       'GITHUB_ACTIONS.md, where this project\'s people read about '
-       'GitHub-specific setup',
+       'a newly added GitHub Actions workflow file is named in '
+       "GETTING_STARTED.md's administrator section -- the document a "
+       "dependent repo's own people read -- or in a repo's own root "
+       'GITHUB_ACTIONS.md',
        'a workflow file that is EDITED rather than added (this only fires '
-       'on new files, per no-version-suffix\'s ctx.added_files pattern), '
-       'and disclosure written anywhere other than GITHUB_ACTIONS.md -- a '
-       'README section would satisfy the practice\'s intent but not this '
-       'check.')
+       "on new files, per no-version-suffix's ctx.added_files pattern); "
+       'WHERE in the document the name appears, so a filename dropped '
+       'anywhere in it passes; and whether the line says what the workflow '
+       'does or what must be clicked to enable it, which is most of what '
+       'the Rule actually asks for.')
 def _github_setup_disclosed(ctx):
     added = [f for f in ctx.added_files()
              if re.match(r'^\.github/workflows/.+\.ya?ml$', f)]
     if not added:
         raise NotApplicable('no GitHub Actions workflow file was added by '
                             'this change')
-    doc_path = ROOT / 'GITHUB_ACTIONS.md'
-    if not doc_path.exists():
-        return [Finding(f, 'adds a workflow file, but this repo has no '
-                            'GITHUB_ACTIONS.md to disclose it in') for f in added]
-    doc = doc_path.read_text(encoding='utf-8', errors='ignore')
+    present = [(name, (ROOT / name).read_text(encoding='utf-8', errors='ignore'))
+               for name in DISCLOSURE_DOCS if (ROOT / name).is_file()]
+    if not present:
+        return [Finding(f, f'adds a workflow file, but this repo has none of '
+                           f'{" or ".join(DISCLOSURE_DOCS)} to disclose it '
+                           f'in. A dependent repo instantiates '
+                           f'GETTING_STARTED.md at its root '
+                           f'(INSTALL.md §1 step 2); that is where its own '
+                           f'people read about GitHub-specific setup')
+                for f in added]
     out = []
     for f in added:
         name = pathlib.PurePath(f).name
-        if name not in doc:
-            out.append(Finding(f, f'{name} is not mentioned in '
-                                  f'GITHUB_ACTIONS.md'))
+        if not any(name in doc for _where, doc in present):
+            out.append(Finding(
+                f, f'{name} is not mentioned in '
+                   f'{" or ".join(w for w, _ in present)} -- an install that '
+                   f'turns a check on and records it only in the install log '
+                   f'has informed nobody who will act on it'))
     return out
 
 
@@ -3826,11 +3872,84 @@ def _decision_strength(ctx):
 # Runner
 # --------------------------------------------------------------------------
 
-def run(slugs, ctx, scopes):
+def load_exemptions():
+    """{slug: reason} for the practices this repo declared `not_binding`
+    and that may actually be exempted, plus the slugs whose exemption is
+    REFUSED because the practice is `severity: blocking`.
+
+    WHY THIS EXISTS, and what was broken without it (2026-09-10).
+    precedent_resolve.load_not_binding()'s own docstring describes the
+    mechanism exactly -- "whether a rule binds is a property of the PAIR,
+    not of the rule: `commit-author` binds a repo one person authors alone
+    and not one with many contributors" -- and this module read that list
+    in exactly ONE place, `_unreachable_practices`, where it only ever
+    suppressed a REACHABILITY finding. `main()` built its slug list from
+    `sorted(CHECKS)` and never consulted it at all, so declaring
+    `{"slug": "commit-author", "reason": "..."}` in a consuming repo's
+    precedent.json changed nothing about the run: the practice was still
+    checked, still violated, still counted, still exit 1. There was NO WAY
+    for a consuming repo to declare a practice non-binding and get a clean
+    check, and a real install ended on two permanent violations it had
+    written reasoned exemptions for. The 17 entries in
+    templates/nontechnical-document-project/precedent.json were, for check
+    purposes, decorative.
+
+    EXEMPTED IS ITS OWN STATUS, never silence. Dropping these slugs from
+    the run would trade one problem for a worse one -- an exemption that
+    leaves no trace in the output is how a rule gets switched off and
+    forgotten. They are reported by name, with their recorded reasons, and
+    counted in their own summary category.
+
+    `severity: blocking` may not be exempted, the same rule
+    _unreachable_practices already applies, for the same reason: a
+    blocking practice is exactly the one no downstream declaration is
+    allowed to switch off. A refused exemption runs normally here; the
+    reachability check is what reports the refusal itself as a finding, so
+    it is stated once rather than twice."""
+    try:
+        import precedent_resolve as pr
+        not_binding = pr.load_not_binding(ROOT)
+    except Exception as e:                                   # noqa: BLE001
+        # A malformed list exempts NOTHING -- every check runs. Loud, not
+        # silently permissive: an exemption mechanism that swallows its own
+        # bad entries is a way to opt out of a rule by typo.
+        # _unreachable_practices reports the malformed file itself.
+        print(f'precedent_check note: `not_binding` could not be read '
+              f'({e}), so no check is exempted this run.', file=sys.stderr)
+        return {}, {}
+
+    exempt, refused = {}, {}
+    for slug, reason in sorted(not_binding.items()):
+        path = _practice_file(slug)
+        severity = 'default'
+        if path is not None:
+            try:
+                fm, _sections = sp._read_practice_file(path)
+                severity = (fm.get('severity') or 'default').strip('" ')
+            except Exception:                                # noqa: BLE001
+                severity = 'default'
+        if severity == 'blocking':
+            refused[slug] = reason
+        else:
+            exempt[slug] = reason
+    return exempt, refused
+
+
+def run(slugs, ctx, scopes, exempt=None):
+    exempt = exempt or {}
     results = []
     for slug in slugs:
         c = CHECKS[slug]
         if c['scope'] not in scopes:
+            continue
+        # Declared non-binding in THIS repo, with a reason. Reported before
+        # the check runs, because the point of the declaration is that the
+        # pair (this repo, this rule) has no relationship -- running it and
+        # then discarding the findings would still cost the run its time
+        # and would still be reading a verdict this repo has said is not
+        # about it. See load_exemptions() for the whole story.
+        if slug in exempt:
+            results.append((slug, 'EXEMPT', [], exempt[slug]))
             continue
         # A check whose practice is not in force here has nothing to
         # enforce. This file is vendored verbatim into consuming repos
@@ -3916,12 +4035,14 @@ def main():
         scopes = {'tree', 'change', 'turn-end'}
     ctx = Ctx(paths=paths, rng=rng, whole_tree='--all' in flags)
     slugs = [only] if only else sorted(CHECKS)
-    results = run(slugs, ctx, scopes)
+    exempt, refused_exemptions = load_exemptions()
+    results = run(slugs, ctx, scopes, exempt=exempt)
 
     all_violated = [r for r in results if r[1] == 'VIOLATION']
     skipped = [r for r in results if r[1] == 'SKIPPED']
     errored = [r for r in results if r[1] == 'ERROR']
     passed = [r for r in results if r[1] == 'PASS']
+    exempted = [r for r in results if r[1] == 'EXEMPT']
 
     # advisory=True (see check()'s own docstring) is a per-check, incident-
     # justified exception, not a general severity dial -- as of 2026-09-05
@@ -3953,12 +4074,26 @@ def main():
 
     for slug, _st, _f, why in skipped:
         print(f'SKIPPED    {slug} — {why}')
+
+    # Named, with the recorded reason, every run. An exemption that leaves
+    # no trace in the output is how a rule gets switched off and forgotten,
+    # which is worse than the problem this fixed.
+    for slug, _st, _f, why in exempted:
+        print(f'EXEMPT     {slug} — declared not-binding in this repo\'s '
+              f'precedent.json: {why}')
+    for slug, why in sorted(refused_exemptions.items()):
+        print(f'\nNOTE       {slug} is declared not-binding here, but it is '
+              f'`severity: blocking` — a blocking practice is exactly the one '
+              f'a downstream repo may not switch off, so the check ran '
+              f'anyway. (Recorded reason: {why})')
     if ctx.scope_reason and any(CHECKS[s]['scope'] == 'change' for s in slugs):
         print(f'note: {ctx.scope_reason}')
 
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
           f'{len(advisory)} advisory, {len(errored)} errored, {len(skipped)} '
-          f'skipped (a skip is not a pass; advisory findings do not fail the run).')
+          f'skipped, {len(exempted)} exempted (a skip is not a pass; advisory '
+          f'findings do not fail the run; an exemption is this repo declaring '
+          f'the rule does not bind it, with a reason, in precedent.json).')
     if violated or errored:
         return 1
     if skipped and '--strict' in flags:

@@ -83,7 +83,7 @@ being checked by it.
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
 | `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
-| `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named somewhere in GITHUB_ACTIONS.md, where this project's people read about GitHub-specific setup |
+| `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named in GETTING_STARTED.md's administrator section -- the document a dependent repo's own people read -- or in a repo's own root GITHUB_ACTIONS.md |
 | `heading-outline` | change | a changed document never jumps a heading level -- no heading is more than one level deeper than the one before it |
 | `headline-capitalization` | change | a changed outward-facing document has every heading in New York Times headline capitalization |
 | `index-remembers-past` | change | a changed document does not carry inline lineage language naming what it replaced or what replaced it, since provenance belongs in the repository index, not annotated into the documents themselves |

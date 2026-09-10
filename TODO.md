@@ -2490,3 +2490,42 @@ which is the failure this repointing exists to end — write
    **Blocked-on:** nothing external — it is queued for size, not for
    permission. It carries no disposition, so it is `wait`
    ([open-item-disposition](practices/open-item-disposition.md)).
+52. <a id="source-checks-adopt-engine-helpers"></a>**Move the two private practice sets' checks onto the engine helpers
+   added 2026-09-10.** Three source-supplied checks were found broken by a
+   real §0 install into a fresh private repository, and each one's cause
+   was the same shape: a check re-deriving from private assumptions
+   something the engine can answer correctly for every install model. The
+   engine halves are done and covered here; the check halves live in
+   repositories this repo cannot edit.
+   - `check_no_stale_counts.py` (`precedent-team-writing`) excludes a
+     vendored mirror via its own `_mirrored_prefixes()`, which reads
+     `process/manifest.json` — §1's bookkeeping, and INSTALL.md §0 step 5
+     says to skip it. In a §0 install the exclusion evaporates and the run
+     reports Precedent's own historical prose as stale ("states 34
+     practices, but practices currently holds 121"), none of it actionable.
+     Replace that helper with
+     [`precedent_resolve.mirrored_prefixes()`](tools/precedent_resolve.py),
+     which reads `precedent.json`'s declared source paths as well and is
+     authoritative in exactly the repos the manifest is missing from. The
+     downstream workaround — a `process/manifest.json` carrying only an
+     `upstream` block, written purely to feed the old signal — comes out
+     with it.
+   - `check_commit_author.py` and `check_buenos_aires_dates.py`
+     (`precedent-individual`) both compute from an `identity.json` at the
+     CONSUMING repo's root and report a VIOLATION when it is absent —
+     while `check_commit_author.py`'s own 2026-09-07 comment says a shared
+     consuming repo must not have one. Both are therefore permanently red
+     in any shared repo, with the fix forbidden by the same file that
+     demands it. Replace the root read with
+     [`precedent_resolve.declared_identity()`](tools/precedent_resolve.py)
+     and turn its `NoDeclaredIdentity` into `raise NotApplicable`: a
+     violation should mean "a commit here has the wrong author", not "this
+     repository is shared".
+   **Also worth doing in the same pass:** audit the rest of both sets'
+   `tools/checks/` for the same §1-only assumption. `no-stale-counts` was
+   found because it fired, not because anything looked for it, and nothing
+   in either set distinguishes "reads a §1 path" from "reads a path".
+   **Blocked-on:** access to `precedent-team-writing` and
+   `precedent-individual`, which are private and were not attached to the
+   session that fixed the engine halves. Disposition `wait`
+   ([open-item-disposition](practices/open-item-disposition.md)).

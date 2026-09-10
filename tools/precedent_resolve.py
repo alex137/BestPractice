@@ -468,6 +468,208 @@ def load_config(repo, user_config=None):
     return sources
 
 
+class NoDeclaredIdentity(Exception):
+    """No person's identity is declared anywhere this repo can reach.
+
+    Its own type, not an empty return, because the two callers that need
+    this are CHECKS and the distinction they must draw is between "this
+    repo has the wrong author on a commit" (a violation) and "this repo is
+    shared, so there is no single person for it to be wrong about" (not
+    applicable). An empty dict collapses those, which is the bug this
+    exists to prevent."""
+
+
+def declared_identity(repo, user_config=None):
+    """-> {'name', 'email', 'timezone', 'source'} for the person this
+    session's commits belong to, or raise NoDeclaredIdentity.
+
+    WHY THE ENGINE ANSWERS THIS. Two source-supplied checks --
+    `commit-author` and `buenos-aires-dates` -- each computed it from an
+    `identity.json` at the CONSUMING repo's root, and reported a VIOLATION
+    when that file was absent: "identity.json could not be read ... it is
+    the one place this repo's name, address and timezone live, so nothing
+    downstream can be checked without it."
+
+    But an identity.json at a repo's root MEANS "this repository is
+    somebody's individual practice source" -- it is step 2 of
+    commit-identity.sh's own resolution order, and step 3 is the
+    individual source named by the user-level config. So a SHARED
+    consuming repo must not have one; putting it there pins one person's
+    identity onto everyone committing. `check_commit_author.py`'s own
+    comment says exactly that. The two statements together left both
+    checks permanently red in any shared repo, with the fix forbidden by
+    the same file that demanded it (found 2026-09-10 installing
+    precedent-beta-v01 into a real project).
+
+    A violation should mean "a commit here has the wrong author", not
+    "this repository is shared". So the absence of a root identity.json is
+    not an answer: this looks where the practice text actually says the
+    identity lives -- "at the root of this set" -- and where
+    commit-identity.sh already looks, in the same order:
+
+      1. an explicit PRECEDENT_COMMIT_* override
+      2. this repo's own identity.json (this repo IS an individual source)
+      3. the individual source declared in the user-level config
+
+    and raises NoDeclaredIdentity when none of the three answers, which is
+    a check's cue to `raise NotApplicable`, not to report a violation.
+
+    Only DECLARED identities, deliberately: commit-identity.sh continues
+    past this point to the session owner, the authenticated GitHub
+    account, and an existing git config, and those are inferences about an
+    environment. They are the right thing to AUTHOR a commit with and the
+    wrong thing to JUDGE one against -- a check that treated the container's
+    ambient git config as the expected author would pass whatever it found.
+    """
+    env_email = os.environ.get('PRECEDENT_COMMIT_EMAIL')
+    if env_email:
+        return {'name': os.environ.get('PRECEDENT_COMMIT_NAME') or '',
+                'email': env_email,
+                'timezone': os.environ.get('PRECEDENT_COMMIT_TZ') or '',
+                'source': 'PRECEDENT_COMMIT_* environment'}
+
+    def _read(path, where):
+        try:
+            ident = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+        except (ValueError, OSError, AttributeError):
+            return None
+        if not isinstance(ident, dict) or not ident.get('email'):
+            return None
+        return {'name': ident.get('name') or '',
+                'email': ident['email'],
+                'timezone': ident.get('timezone') or '',
+                'source': where}
+
+    repo_root = pathlib.Path(repo).resolve()
+    own = _read(repo_root / 'identity.json',
+                f'{repo_root / "identity.json"} -- this repository is itself '
+                f'an individual practice source')
+    if own:
+        return own
+
+    cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
+        os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+        indiv_path = (cfg.get('individual') or {}).get('path')
+    except (ValueError, OSError, AttributeError):
+        indiv_path = None
+    if indiv_path:
+        resolved = _read(
+            pathlib.Path(indiv_path).expanduser() / 'identity.json',
+            f'the individual practice source at {indiv_path}')
+        if resolved:
+            return resolved
+
+    raise NoDeclaredIdentity(
+        f'no identity is declared anywhere this repo can reach: no '
+        f'PRECEDENT_COMMIT_EMAIL, no readable identity.json at '
+        f'{repo_root / "identity.json"} (which would mean this repo IS '
+        f'somebody\'s individual practice source -- a shared repo must not '
+        f'have one), and no individual source with an identity.json declared '
+        f'in {cfg_path}. In a repo many people commit to, that is the '
+        f'expected state and not a defect: there is no single person for an '
+        f'author to be wrong about')
+
+
+def mirrored_prefixes(repo):
+    """-> tuple of repo-relative POSIX prefixes ("precedent/universal/",
+    "process/upstream/") whose contents this repo MIRRORS from somewhere
+    else, and therefore may not edit.
+
+    THE ONE PLACE THIS QUESTION GETS ANSWERED, and why it moved here
+    (2026-09-10). Several checks need it -- anything that scans prose and
+    would otherwise report findings inside a vendored copy of somebody
+    else's catalogue -- and each of them derived it privately from
+    `process/manifest.json`'s `upstream.vendored_at`. That file is §1's
+    bookkeeping. INSTALL.md §0 step 5 says outright to SKIP it, so in a §0
+    install every one of those checks silently lost its exclusion and put
+    the vendored catalogue back in scope. A real §0 install's run reported
+    dozens of findings inside Precedent's own historical prose -- "states
+    34 practices, but practices currently holds 121" -- none of them
+    actionable, because editing a mirror is forbidden and the next sync
+    would overwrite it anyway. The downstream workaround was to write a
+    `process/manifest.json` carrying nothing but an `upstream` block,
+    purely to feed a signal.
+
+    `precedent.json` is the authority that EXISTS in exactly the repos
+    `process/manifest.json` is missing from, so its declared source paths
+    are read here alongside the manifest, and neither file is required.
+
+    WHAT IS AND IS NOT A MIRROR. A declared source whose path resolves
+    inside this repo is a vendored copy of another repo's catalogue: a
+    mirror. Deliberately excluded from that:
+
+      * the repo root itself -- a SOURCE SET declares `path: "."`, and its
+        own `practices/` tree is hand-authored, not mirrored. Treating it
+        as a mirror would blind every check inside a practice set to that
+        set's own content.
+      * `local/` -- the repo-local source is this repo's own practices, by
+        the same reasoning (load_config refuses any other path for it).
+      * a source resolving OUTSIDE this repo -- a live sibling clone is not
+        in this repo's tree at all, so nothing here can report on it.
+
+    The materialized `practices/` tree is also NOT listed, on purpose. It
+    is generated, but it is where a consuming repo's practices actually
+    live and where several checks are supposed to look; excluding it would
+    trade unactionable findings for missing ones.
+
+    Never raises: a caller is a check that must degrade to "exclude
+    nothing" rather than take a run down. An empty tuple is a valid,
+    meaningful answer -- it is what a source set and a fresh repo return."""
+    repo_root = pathlib.Path(repo).resolve()
+    prefixes = set()
+
+    def _add(candidate):
+        try:
+            resolved = pathlib.Path(candidate)
+            if not resolved.is_absolute():
+                resolved = (repo_root / resolved)
+            resolved = resolved.resolve()
+            rel = resolved.relative_to(repo_root).as_posix()
+        except (ValueError, OSError):
+            return                      # outside this repo, or unreadable
+        if rel in ('', '.', 'local'):
+            return                      # this repo's own, hand-authored
+        prefixes.add(rel.rstrip('/') + '/')
+
+    # SIGNAL 1: §1's own bookkeeping, which is what every private copy of
+    # this logic read, and which a §0 install does not have.
+    try:
+        manifest = json.loads(
+            (repo_root / 'process' / 'manifest.json').read_text(
+                encoding='utf-8'))
+        vendored_at = (manifest.get('upstream') or {}).get('vendored_at')
+        if vendored_at:
+            _add(vendored_at)
+    except (ValueError, OSError, AttributeError, TypeError):
+        pass
+
+    # SIGNAL 2: the classic §1 layout, whether or not a manifest says so --
+    # a repo with the tree and no manifest is a half-finished install, not
+    # a repo that owns that tree.
+    if (repo_root / 'process' / 'upstream').is_dir():
+        _add('process/upstream')
+
+    # SIGNAL 3: every source this repo VENDORS, read off precedent.json.
+    # load_config() is deliberately not used: it resolves the individual
+    # source, which can self-heal by running a hook and cloning a repo --
+    # far too much machinery for a caller that only wants to know which of
+    # its own directories are copies.
+    try:
+        declared = json.loads(
+            (repo_root / 'precedent.json').read_text(
+                encoding='utf-8')).get('sources') or []
+        for entry in declared:
+            path = (entry or {}).get('path')
+            if path:
+                _add(path)
+    except (ValueError, OSError, AttributeError, TypeError):
+        pass
+
+    return tuple(sorted(prefixes))
+
+
 class NotBindingError(Exception):
     """A `not_binding` declaration that is itself malformed. Raised rather
     than tolerated: an exemption mechanism that silently ignores its own bad

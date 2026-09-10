@@ -6,7 +6,18 @@
      dependent repo's root. When instantiating: replace the backticked
      `<placeholders>` with the project's real values and keep the
      section structure so upstream improvements propagate on updates
-     (INSTALL.md §2). Assistant-capability statements carry their as-of
+     (INSTALL.md §2).
+
+     `<upstream-docs>` IS ONE OF THOSE PLACEHOLDERS, and what it becomes
+     depends on which install model this is -- which is why it is a
+     placeholder rather than a path. INSTALL.md §1 vendors Precedent's
+     prose into the repo, so it becomes `process/upstream`. §0 vendors the
+     practices and the engine and NO prose, so there is no local copy to
+     point at and it becomes the upstream URL prefix
+     `https://github.com/alex137/BestPractice/blob/main`. Until 2026-09-10
+     this file wrote `process/upstream/` outright and §0 step 5 said to
+     install it "unchanged by which install model this is", so a §0 install
+     shipped its members three dead references on day one. Assistant-capability statements carry their as-of
      dates (practice `volatile-rules-carry-dates`); refresh them from the upstream MOBILE.md when
      taking updates. -->
 
@@ -105,7 +116,7 @@ Codex; the project's automatic checks protect the result either way.
 
 Working from an iPhone a lot? This project includes an iPhone Shortcut
 recipe that prepares this starting message for you — see the phone guide
-at `process/upstream/MOBILE.md`.
+at `<upstream-docs>/MOBILE.md`.
 
 ### Gemini Users
 
@@ -171,7 +182,7 @@ opener:
 - **Compose bigger requests.** For anything substantial, draft your
   request in a notes app first, then paste it — the assistant's output
   quality tracks the clarity of what you hand it. (More habits like this
-  in the project's method guide: `process/upstream/METHOD.md`.)
+  in the project's method guide: `<upstream-docs>/METHOD.md`.)
 
 ## For the Administrator: Approving Changes
 
@@ -224,7 +235,7 @@ them.** Click-paths as of <install date>.
      GitHub-specific requirement this project depends on gets a line
      here, naming what it is and the exact click-path to configure it —
      not just a mention in the internal install log under
-     `process/upstream/`. Add a line whenever a future install step
+     `<upstream-docs>/`. Add a line whenever a future install step
      introduces a new one (a required secret, a new required check). -->
 
 - **A Markdown check runs on every pull request** (a GitHub Actions
@@ -232,7 +243,7 @@ them.** Click-paths as of <install date>.
   they reach the shared project. It needs no maintenance. If it doesn't
   appear on a pull request's checks, GitHub Actions may be disabled for
   this repository — an administrator can turn it on at repository
-  **Settings → Actions**. Details: `process/upstream/GITHUB_ACTIONS.md`.
+  **Settings → Actions**. Details: `<upstream-docs>/GITHUB_ACTIONS.md`.
 - **Every pull request opens with a standard template** — what changed,
   why, files touched, and a short checklist. An unchecked box on that
   checklist is normal; it means that gate didn't apply to this particular

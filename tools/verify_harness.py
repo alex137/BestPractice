@@ -4443,6 +4443,33 @@ def check_precedent_check_fires():
              lambda repo: (repo / '.github' / 'workflows' / 'zzz-planted.yml')
                  .write_text('name: planted\non: push\njobs: {}\n', encoding='utf-8'))
 
+        # ...and the same workflow DISCLOSED in GETTING_STARTED.md must pass.
+        # The negative case above passed all along; this is the half that did
+        # not exist, and its absence let a three-way contradiction stand:
+        # the practice's Rule names GETTING_STARTED.md's administrator
+        # section, the check read only a root GITHUB_ACTIONS.md, and
+        # INSTALL.md §1 step 6's root-hygiene list forbids GITHUB_ACTIONS.md
+        # at a dependent repo's root. A repo that FOLLOWED the practice
+        # failed the check (2026-09-10). Nothing here would have noticed,
+        # because nothing here ever satisfied the practice.
+        def _disclosed_in_getting_started(repo):
+            (repo / '.github' / 'workflows' / 'zzz-planted.yml').write_text(
+                'name: planted\non: push\njobs: {}\n', encoding='utf-8')
+            (repo / 'GETTING_STARTED.md').write_text(
+                '# Getting Started\n\n## For the Administrator\n\n'
+                '### Automatic Checks Installed for This Project\n\n'
+                '- A Markdown check runs on every pull request '
+                '(`zzz-planted.yml`). It needs no maintenance.\n',
+                encoding='utf-8')
+        disclosed = fresh('github-setup-disclosed-getting-started')
+        _disclosed_in_getting_started(disclosed)
+        rc_disc, out_disc = run(disclosed, 'github-setup-disclosed')
+        cases.append(('github-setup-disclosed: a workflow named in '
+                      "GETTING_STARTED.md's administrator section satisfies "
+                      'the check -- the document the Rule actually names, and '
+                      'the one root hygiene lets a dependent repo have',
+                      rc_disc == 0 and 'VIOLATION' not in out_disc))
+
         # docs-are-current-state -- an in-document revision annotation
         case('docs-are-current-state',
              lambda repo: (repo / 'planted-revision.md').write_text(
@@ -11603,6 +11630,112 @@ def check_individual_source_bootstrap_self_heals():
                       rc9 == 0 and written_hook.is_file()
                       and not (hook_only_proj / 'practices').exists(),
                       out9))
+
+        # --- cases 12-14: THE INSTANTIATED HOOK ACTUALLY RUNS ---------------
+        # Case 9 above asserted the file exists, which is the whole reason
+        # the defect below survived to a real install. It did not assert the
+        # file WORKS, and it did not: the template guarded "still a raw
+        # template?" by testing $REPO_URL against the source-repo-url
+        # placeholder, and the substituter rewrote that occurrence along
+        # with every other, so an instantiated hook compared the real URL
+        # against itself and took the "no repository URL" exit on every
+        # session while holding the correct URL. Silent, and inert at every
+        # layer -- precedent_resolve.py's self-heal re-invokes this same
+        # hook, so it short-circuited too. Found 2026-09-10 installing
+        # precedent-beta-v01 into a real project, not by anything here.
+        #
+        # These three assert the property that was missing: instantiated
+        # with a real URL the hook REACHES ITS EXEC and does the clone;
+        # instantiated with none it still degrades quietly; and the raw
+        # template, run as-is, must not mistake its own placeholder for a
+        # URL and try to clone it.
+        live_proj = tmp / 'live-hook-project'
+        live_proj.mkdir()
+        rc12, out12 = run(str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                          '--level', 'individual', '--name', 'precedent-individual',
+                          '--write-session-hook', str(live_proj),
+                          '--repo-url', source_url)
+        live_hook = live_proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        live_home = tmp / 'home-live-hook'
+        live_home.mkdir()
+        r12 = subprocess.run(['bash', str(live_hook)], capture_output=True,
+                             text=True, timeout=180,
+                             env={**os.environ, 'HOME': str(live_home),
+                                  'CLAUDE_PROJECT_DIR': str(ROOT),
+                                  'CLAUDE_CODE_REMOTE': 'true'})
+        live_cfg = live_home / '.config' / 'precedent' / 'config.json'
+        cases.append(('a hook instantiated with a REAL --repo-url reaches its '
+                      'exec and clones -- it does not mistake the substituted '
+                      'URL for an unsubstituted placeholder',
+                      rc12 == 0 and r12.returncode == 0
+                      and 'no repository URL' not in (r12.stdout + r12.stderr)
+                      and (live_home / 'precedent-individual' / 'practices'
+                           / 'example.md').is_file()
+                      and live_cfg.is_file(),
+                      out12 + r12.stdout + r12.stderr))
+
+        nourl_proj = tmp / 'no-url-hook-project'
+        nourl_proj.mkdir()
+        rc13, out13 = run(str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                          '--level', 'individual', '--name', 'precedent-individual',
+                          '--write-session-hook', str(nourl_proj))
+        nourl_hook = nourl_proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
+        nourl_home = tmp / 'home-no-url-hook'
+        nourl_home.mkdir()
+        r13 = subprocess.run(['bash', str(nourl_hook)], capture_output=True,
+                             text=True, timeout=180,
+                             env={**os.environ, 'HOME': str(nourl_home),
+                                  'CLAUDE_PROJECT_DIR': str(ROOT),
+                                  'CLAUDE_CODE_REMOTE': 'true'})
+        cases.append(('--write-session-hook with NO --repo-url still writes a '
+                      'fully instantiated hook -- the shape a PUBLIC consumer '
+                      'needs, since the baked-in URL is tracked -- and that '
+                      'hook degrades quietly when nothing else supplies one',
+                      rc13 == 0 and nourl_hook.is_file()
+                      and r13.returncode == 0
+                      and 'no repository URL' in (r13.stdout + r13.stderr),
+                      out13 + r13.stdout + r13.stderr))
+
+        raw_template = (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+                        / 'individual-source-bootstrap.sh.template')
+        raw_home = tmp / 'home-raw-template'
+        raw_home.mkdir()
+        r14 = subprocess.run(['bash', str(raw_template)], capture_output=True,
+                             text=True, timeout=180,
+                             env={**os.environ, 'HOME': str(raw_home),
+                                  'CLAUDE_PROJECT_DIR': str(ROOT),
+                                  'CLAUDE_CODE_REMOTE': 'true'})
+        cases.append(('the RAW template, run without being instantiated, still '
+                      'recognises itself as uninstantiated and exits 0 without '
+                      'trying to clone its own placeholder',
+                      r14.returncode == 0
+                      and 'no repository URL' in (r14.stdout + r14.stderr),
+                      r14.stdout + r14.stderr))
+
+        # NO COMMENT IN THE TEMPLATE MAY SPELL A PLACEHOLDER OUT. The same
+        # bug one layer out, and the one that made the first fix's own
+        # explanation unreadable: the substituter rewrites comments too, so
+        # prose naming a placeholder comes out of instantiation as prose
+        # naming the value -- "<the real URL> is substituted at install time
+        # with a real URL". Assert the rule directly on the template rather
+        # than on any one instantiation of it: every literal {{...}} sits on
+        # a line that is actually substituted, never in a comment.
+        raw_text = raw_template.read_text(encoding='utf-8')
+        commented_placeholders = [
+            ln for ln in raw_text.splitlines()
+            if '{{' in ln and ln.lstrip().startswith('#')]
+        cases.append(('no comment in the hook template spells a placeholder '
+                      'out -- substitution rewrites comments too, so such a '
+                      'line instantiates into nonsense',
+                      not commented_placeholders,
+                      '; '.join(commented_placeholders)))
+
+        # And the publisher's own copy is a real instantiation, not a
+        # fixture: nothing unsubstituted may survive in it.
+        own_hook_text = own_hook.read_text(encoding='utf-8')
+        cases.append(("this repo's own instantiated hook carries no leftover "
+                      'placeholder', '{{' not in own_hook_text,
+                      own_hook_text[:400]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -11612,6 +11745,398 @@ def check_individual_source_bootstrap_self_heals():
           f'({len(cases)} stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
+def check_instantiated_template_links_survive_the_copy():
+    """A file a template tells you to COPY INTO A REPO ROOT cannot carry a
+    link that only resolves from the template's own directory.
+
+    templates/nontechnical-document-project/'s README says "copy every file
+    in this directory into its root", and its AGENTS.md linked
+    `../AGENTS.md.loader.template` and `../../INSTALL.md`. Both resolve
+    inside templates/ and are dead the moment the file is where it is
+    supposed to end up -- and the same file already linked three other
+    upstream documents by absolute URL, so the convention was established
+    and these two simply missed it. Found 2026-09-10 installing
+    precedent-beta-v01 into a real project; nothing here looked for it.
+
+    The rule is about the DESTINATION, not the file: a template's own
+    README is read where it sits and is deleted at instantiation (its step
+    6 says so), so `../harness/README.md` is correct THERE and wrong in
+    AGENTS.md. So this excludes the READMEs and checks everything else.
+
+    An upward link is the only failure mode: a link INTO the template's own
+    subtree (`.claude/settings.json`, `precedent.json`) copies along with
+    the file and keeps working."""
+    import re
+    template_root = ROOT / 'templates' / 'nontechnical-document-project'
+    if not template_root.is_dir():
+        check('instantiated template files carry no links that die on the '
+              'copy', True, '')
+        return
+    link_re = re.compile(r'\]\(\s*(\.\./[^)\s]*)')
+    bad = []
+    for f in sorted(template_root.rglob('*.md')):
+        if f.name == 'README.md':
+            continue          # read in place, deleted at instantiation
+        for i, line in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
+            for target in link_re.findall(line):
+                bad.append(f'{f.relative_to(ROOT)}:{i} -> {target}')
+    check('every file this template copies into a repo root links upstream '
+          'documents absolutely, not by a path that only resolves inside '
+          'templates/',
+          not bad,
+          '; '.join(bad))
+
+
+def check_not_binding_actually_exempts_a_check():
+    """A `not_binding` entry has to change the RUN, not just the
+    reachability report.
+
+    precedent_resolve.load_not_binding()'s docstring describes the
+    mechanism as a property of the pair -- "commit-author binds a repo one
+    person authors alone and not one with many contributors" -- and names
+    that slug as its motivating example. But precedent_check.py read the
+    list in one place only, _unreachable_practices, where it suppressed a
+    reachability finding and nothing else; main() built its slug list from
+    sorted(CHECKS) and never consulted it. So a consuming repo could write
+    a reasoned exemption and have it change nothing: the check still ran,
+    still violated, still failed the run. A real install ended on two
+    permanent violations it had written exemptions for, and the 17 entries
+    in templates/nontechnical-document-project/precedent.json were, for
+    check purposes, decorative (found 2026-09-10).
+
+    Four cases, on one fixture consuming repo, because the fix has four
+    separable ways to be wrong: the exemption must SUPPRESS the violation;
+    it must not do so SILENTLY (an exemption that leaves no trace is how a
+    rule gets switched off and forgotten, which is worse than the bug);
+    the run must then be CLEAN, which is the whole point; and a
+    `severity: blocking` practice must still be REFUSED an exemption."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-not-binding-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'practices').mkdir()
+        for name in ('precedent_check.py', 'precedent_resolve.py',
+                     'split_practices.py', 'build_views.py',
+                     'precedent_time.py', 'precedent_paths.py',
+                     'routing_scope.json'):
+            src = ROOT / 'tools' / name
+            if src.is_file():
+                shutil.copy2(src, repo / 'tools' / name)
+
+        # A practice that is in force, exemptible, and whose check FIRES
+        # here -- otherwise a "clean run" would prove nothing. Written
+        # rather than copied so the fixture does not drift with the
+        # catalogue: this one demands a file the fixture does not have.
+        (repo / 'practices' / 'harness-exempt-fixture.md').write_text(
+            '---\nslug: harness-exempt-fixture\ntitle: Fixture\n'
+            'tier: on-demand\nseverity: default\napplies_to: ["**"]\n'
+            'occasion: "testing"\nindex_clause: "a harness fixture"\n'
+            'checked_by: null\ndefines: []\nstatus: active\n'
+            'supersedes: []\noverrides: null\nadded: null\n'
+            'approved_by: "harness"\n---\n\n## Rule\nFixture.\n\n'
+            '## Detail\n\n## Why\n\n## Story\n\n## Install\n',
+            encoding='utf-8')
+
+        def write_config(not_binding):
+            (repo / 'precedent.json').write_text(json.dumps({
+                'format_version': 1,
+                'visibility': 'private',
+                'sources': [{'level': 'universal', 'name': 'precedent',
+                             'path': '.'}],
+                'not_binding': not_binding,
+            }, indent=2) + '\n', encoding='utf-8')
+
+        def run_check():
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py'],
+                               cwd=str(repo), capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+
+        # BASELINE: with nothing exempted the fixture must produce a real
+        # VIOLATION and no exemptions. Without this the cases below would
+        # pass on a fixture that never had anything to exempt -- which is
+        # the shape of the bug itself, so it has to be ruled out.
+        # The violating slug is discovered rather than named: pinning one
+        # would make this check re-verify the catalogue instead of the
+        # exemption mechanism, and go stale the first time that check moves.
+        write_config([])
+        rc0, out0 = run_check()
+        violated_slugs = [ln.split()[1] for ln in out0.splitlines()
+                          if ln.startswith('VIOLATION')]
+        cases.append(('baseline: the fixture produces at least one real '
+                      'VIOLATION for an exemption to act on',
+                      bool(violated_slugs), out0[-900:]))
+        cases.append(('the baseline summary counts no exemptions',
+                      ' 0 exempted' in out0, out0[-300:]))
+        cases.append(('a violation fails the run, so a suppressed one is a '
+                      'visible difference', rc0 == 1, f'rc={rc0}'))
+
+        if violated_slugs:
+            target = violated_slugs[0]
+            write_config([{'slug': target,
+                           'reason': 'harness fixture: exempted on purpose'}])
+            rc2, out2 = run_check()
+            cases.append((f'exempting {target!r} removes its VIOLATION from '
+                          f'the run -- the declaration reaches main(), not '
+                          f'just the reachability report',
+                          f'VIOLATION  {target}' not in out2, out2[-900:]))
+            cases.append((f'and says so out loud: {target!r} is named EXEMPT '
+                          f'with its recorded reason, never silently dropped',
+                          f'EXEMPT     {target}' in out2
+                          and 'exempted on purpose' in out2, out2[-900:]))
+            cases.append(('the summary line carries `exempted` as its own '
+                          'category', ' 1 exempted' in out2, out2[-300:]))
+
+        # THE REFUSAL, which must survive the fix: `severity: blocking` is
+        # exactly the rule a downstream repo may not switch off.
+        (repo / 'practices' / 'harness-blocking-fixture.md').write_text(
+            '---\nslug: harness-blocking-fixture\ntitle: Fixture\n'
+            'tier: on-demand\nseverity: blocking\napplies_to: ["**"]\n'
+            'occasion: "testing"\nindex_clause: "a blocking fixture"\n'
+            'checked_by: null\ndefines: []\nstatus: active\n'
+            'supersedes: []\noverrides: null\nadded: null\n'
+            'approved_by: "harness"\n---\n\n## Rule\nFixture.\n\n'
+            '## Detail\n\n## Why\n\n## Story\n\n## Install\n',
+            encoding='utf-8')
+        write_config([{'slug': 'harness-blocking-fixture',
+                       'reason': 'harness fixture: must be refused'}])
+        rc3, out3 = run_check()
+        cases.append(('a `severity: blocking` practice cannot be exempted: it '
+                      'is not counted as EXEMPT and the refusal is stated',
+                      'EXEMPT     harness-blocking-fixture' not in out3
+                      and 'severity: blocking' in out3
+                      and ' 0 exempted' in out3, out3[-900:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'`not_binding` actually exempts a check, visibly, and still '
+          f'refuses a blocking practice ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f'{n} -- {str(d)[:600]}' for n, d in bad))
+
+
+def check_mirrored_prefixes_answers_both_install_models():
+    """precedent_resolve.mirrored_prefixes() has to work in the install
+    model that has no `process/manifest.json`, because that is the one it
+    was written for.
+
+    Every check that scans prose and must not report findings inside a
+    vendored copy of somebody else's catalogue derived this privately from
+    `process/manifest.json`'s `upstream.vendored_at`. That file is §1's
+    bookkeeping and INSTALL.md §0 step 5 says to SKIP it, so in a §0
+    install the exclusion silently evaporated and the vendored catalogue
+    came back into scope: a real install's run reported dozens of
+    unactionable findings inside Precedent's own historical prose, and the
+    workaround downstream was to write a manifest carrying nothing but an
+    `upstream` block purely to feed the signal (2026-09-10).
+
+    Five fixtures, because "returns something" is not the property -- what
+    matters is that it excludes a MIRROR and never a repo's own
+    hand-authored practices. A source set declares `path: "."`; treating
+    that as a mirror would blind every check inside a practice set to that
+    set's own content, which is a worse failure than the one being
+    fixed."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as pr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-mirrored-'))
+    cases = []
+    try:
+        def write(rel, payload):
+            path = tmp / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+
+        # §0: vendored catalogue, a live sibling team source, a repo-local
+        # source, and NO process/manifest.json.
+        (tmp / 's0' / 'precedent' / 'universal' / 'practices').mkdir(parents=True)
+        (tmp / 's0' / 'local' / 'practices').mkdir(parents=True)
+        write('s0/precedent.json', {
+            'format_version': 1, 'visibility': 'private', 'sources': [
+                {'level': 'universal', 'name': 'precedent',
+                 'path': 'precedent/universal'},
+                {'level': 'team', 'name': 'precedent-team-writing',
+                 'path': '../precedent-team-writing'},
+                {'level': 'repo-local', 'name': 'local', 'path': 'local'}]})
+        s0 = pr.mirrored_prefixes(tmp / 's0')
+        cases.append(('a §0 install excludes its vendored catalogue with no '
+                      'process/manifest.json anywhere -- the whole point',
+                      'precedent/universal/' in s0, str(s0)))
+        cases.append(('and does NOT exclude its own repo-local source, which '
+                      'is hand-authored', 'local/' not in s0, str(s0)))
+        cases.append(('and does NOT exclude a team source resolved from a '
+                      'sibling clone outside this repo',
+                      not any('precedent-team-writing' in x for x in s0),
+                      str(s0)))
+
+        # §1: the classic layout, which must keep working unchanged.
+        (tmp / 's1' / 'process' / 'upstream' / 'practices').mkdir(parents=True)
+        write('s1/process/manifest.json',
+              {'upstream': {'vendored_at': 'process/upstream'}})
+        s1 = pr.mirrored_prefixes(tmp / 's1')
+        cases.append(('a §1 install still excludes process/upstream/',
+                      'process/upstream/' in s1, str(s1)))
+
+        # §1 with the manifest missing: the tree alone is enough.
+        (tmp / 's1b' / 'process' / 'upstream' / 'practices').mkdir(parents=True)
+        s1b = pr.mirrored_prefixes(tmp / 's1b')
+        cases.append(('a process/upstream/ tree with no manifest is still a '
+                      'mirror -- that is a half-finished install, not a repo '
+                      'that owns the tree', 'process/upstream/' in s1b, str(s1b)))
+
+        # A SOURCE SET: `path: "."`. Its practices/ is its own.
+        (tmp / 'set' / 'practices').mkdir(parents=True)
+        write('set/precedent.json', {'format_version': 1, 'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]})
+        st = pr.mirrored_prefixes(tmp / 'set')
+        cases.append(('a source set declaring `path: "."` mirrors NOTHING -- '
+                      'excluding its own root would blind every check inside '
+                      'a practice set to that set\'s content', st == (), str(st)))
+
+        # Degradation: a caller is a check, and a check must not crash.
+        cases.append(('a directory that is not a Precedent repo at all '
+                      'returns an empty tuple rather than raising',
+                      pr.mirrored_prefixes(tmp / 'does-not-exist') == (), ''))
+        (tmp / 'broken').mkdir()
+        (tmp / 'broken' / 'precedent.json').write_text('{not json',
+                                                       encoding='utf-8')
+        cases.append(('a malformed precedent.json returns an empty tuple '
+                      'rather than raising -- a check that cannot read this '
+                      'must degrade to excluding nothing, not die',
+                      pr.mirrored_prefixes(tmp / 'broken') == (), ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'mirrored_prefixes() answers in a §0 install, where '
+          f'process/manifest.json does not exist ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
+def check_declared_identity_has_a_passing_state_in_a_shared_repo():
+    """`commit-author` and `buenos-aires-dates` have to be able to PASS in
+    a repo many people commit to.
+
+    Both computed the expected author from an `identity.json` at the
+    consuming repo's root and reported a VIOLATION when it was absent --
+    while check_commit_author.py's own comment says a shared consuming repo
+    must NOT have one, because an identity.json at a repo's root means
+    "this repository is somebody's individual practice source" and putting
+    one there pins one person onto everyone committing. So in any shared
+    repo those two checks were permanently red with the fix forbidden by
+    the same file that demanded it (found 2026-09-10 installing
+    precedent-beta-v01 into a real project).
+
+    precedent_resolve.declared_identity() is the engine's answer: look
+    where commit-identity.sh already looks, in its order, and raise
+    NoDeclaredIdentity -- a check's cue to `raise NotApplicable` -- rather
+    than return an absence a caller will read as a violation. These cases
+    assert the order and, above all, that "shared repo" is a DISTINCT
+    outcome from "wrong author"."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as pr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-identity-'))
+    cases = []
+    # PRECEDENT_COMMIT_* is step 1 of the order, and this harness's own
+    # process may carry it (verify_harness sets identity for its fixtures).
+    # Pop it for the cases that are about the other steps, or step 1 answers
+    # every one of them and the check passes for the wrong reason.
+    saved = {k: os.environ.pop(k) for k in
+             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+              'PRECEDENT_COMMIT_TZ') if k in os.environ}
+    try:
+        shared = tmp / 'shared-consumer'
+        shared.mkdir()
+        empty_cfg = tmp / 'no-individual.json'
+        empty_cfg.write_text('{"individual": null}', encoding='utf-8')
+        raised = None
+        try:
+            pr.declared_identity(shared, user_config=empty_cfg)
+        except pr.NoDeclaredIdentity as e:
+            raised = e
+        cases.append(('a SHARED repo with no root identity.json and no '
+                      'individual source raises NoDeclaredIdentity -- its own '
+                      'outcome, so a check can skip rather than report a '
+                      'violation nobody can clear', raised is not None,
+                      'returned an identity instead of raising'))
+        cases.append(('and the message says why that is the expected state '
+                      'rather than a defect',
+                      raised is not None and 'not a defect' in str(raised),
+                      str(raised)))
+
+        # A repo that IS an individual source: step 2.
+        own = tmp / 'individual-source'
+        own.mkdir()
+        (own / 'identity.json').write_text(json.dumps({
+            'name': 'Fixture Person', 'email': 'fixture@example.com',
+            'timezone': 'America/Argentina/Buenos_Aires'}), encoding='utf-8')
+        got_own = pr.declared_identity(own, user_config=empty_cfg)
+        cases.append(('a repo whose own root carries identity.json resolves '
+                      'from it -- that is what such a file MEANS',
+                      got_own['email'] == 'fixture@example.com'
+                      and got_own['timezone'].endswith('Buenos_Aires'),
+                      str(got_own)))
+
+        # A shared repo whose PERSON has an individual source: step 3. This
+        # is the case the two checks needed and never had.
+        cfg = tmp / 'user-config.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(own)}}),
+            encoding='utf-8')
+        got_shared = pr.declared_identity(shared, user_config=cfg)
+        cases.append(('a SHARED repo resolves the identity from the '
+                      "INDIVIDUAL SOURCE's root, which is where the practice "
+                      'text says it lives and where commit-identity.sh '
+                      'already reads it',
+                      got_shared['email'] == 'fixture@example.com',
+                      str(got_shared)))
+        cases.append(('and says where it came from, so a finding can name it',
+                      'individual practice source' in got_shared['source'],
+                      str(got_shared)))
+
+        # An identity.json that exists but declares no email is not an
+        # identity: falling through beats returning a nameless one.
+        blank = tmp / 'blank-identity'
+        blank.mkdir()
+        (blank / 'identity.json').write_text('{"timezone": "UTC"}',
+                                             encoding='utf-8')
+        blank_raised = False
+        try:
+            pr.declared_identity(blank, user_config=empty_cfg)
+        except pr.NoDeclaredIdentity:
+            blank_raised = True
+        cases.append(('an identity.json with no email is not an identity',
+                      blank_raised, 'it returned one anyway'))
+    finally:
+        os.environ.update(saved)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # Step 1 last, with the variable deliberately set, so the pops above are
+    # not quietly hiding a broken override path.
+    os.environ['PRECEDENT_COMMIT_EMAIL'] = 'override@example.com'
+    try:
+        override = pr.declared_identity(ROOT)
+        cases.append(('an explicit PRECEDENT_COMMIT_EMAIL wins outright',
+                      override['email'] == 'override@example.com',
+                      str(override)))
+    finally:
+        os.environ.pop('PRECEDENT_COMMIT_EMAIL', None)
+        os.environ.update(saved)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'declared_identity() gives a shared repo a passing state instead '
+          f'of a permanent violation ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
 def check_pretooluse_hook_fires():
@@ -13708,6 +14233,10 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_source_credentials()
     check_pretooluse_hook_fires()
+    check_not_binding_actually_exempts_a_check()
+    check_mirrored_prefixes_answers_both_install_models()
+    check_declared_identity_has_a_passing_state_in_a_shared_repo()
+    check_instantiated_template_links_survive_the_copy()
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
     check_title_case_leaves_code_and_first_word_alone()
