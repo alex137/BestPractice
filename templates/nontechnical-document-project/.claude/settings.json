@@ -1,11 +1,57 @@
 {
   "_comment": "Restricted session config for a non-technical document-project contributor, per spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md Step 3 — the defense-in-depth layer, independent of the GitHub collaborator role. No push, no merge, no raw shell. If this platform's session/environment creation also exposes a permission_mode setting, set it there too and never to bypassPermissions -- that setting lives outside this file's own schema.",
+  "_hooks_comment": [
+    "THE HOOK SCRIPTS ARE NOT SHIPPED IN THIS TEMPLATE -- copy them, per the",
+    "README's instantiation step 3, from templates/harness/claude-code/hooks/",
+    "into .claude/hooks/ and make them executable. They live in the harness",
+    "adapter rather than here so a fix reaches every adopter through one file",
+    "instead of drifting copies (the same reasoning",
+    "tools/precedent_bootstrap_source.py's _install_session_hooks() states).",
+    "",
+    "Until 2026-09-10 this file wired session-start.sh and the README never",
+    "mentioned templates/harness/ at all, so a verbatim instantiation --",
+    "which is exactly what the README's step 2 asks for -- produced a repo",
+    "whose SessionStart hook pointed at a file that did not exist, and",
+    "tools/bootstrap.sh therefore never ran. Found installing",
+    "precedent-beta-v01 into a real project.",
+    "",
+    "WHICH HOOKS, and why these. INSTALL.md §1 step 2's decision table calls",
+    "session-start.sh, commit-identity.sh and freshness-guard.sh 'always',",
+    "and precedent-paths.sh 'only with the Precedent loader' -- which this",
+    "template IS, so it is wired. stop-git-check.sh is the one deliberate",
+    "omission: it blocks ending a turn on unpushed work, and the person this",
+    "template is FOR is denied `git push` five lines below, so wiring it",
+    "would end every session in a block they have no way to clear.",
+    "",
+    "REPLACE THE BASE BRANCH ARGUMENT (`main` in the three freshness-guard",
+    "commands) with this repo's real base branch. It is passed explicitly",
+    "because asking git for the default branch gets it wrong in at least one",
+    "real repo."
+  ],
+  "_permissions_comment": [
+    "THE DENY LIST BINDS EVERY SESSION ON THIS REPO, maintainers included --",
+    "not only the non-technical contributor this template is written for.",
+    ".claude/settings.json is repo-wide. A maintainer who needs to push or",
+    "merge from a session here does it from a checkout without this file, or",
+    "moves these entries into .claude/settings.local.json (untracked, per",
+    "person) and accepts that the contributor's own session then has to carry",
+    "its own copy. Reading this list as 'the limits on the contributor' is",
+    "the mistake; it is the limits on the repo."
+  ],
   "permissions": {
     "allow": [
       "Bash(git status)",
       "Bash(git status *)",
       "Bash(git log *)",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(python3 tools/precedent_show.py)",
+      "Bash(python3 tools/precedent_show.py *)",
+      "Bash(python3 tools/precedent_check.py)",
+      "Bash(python3 tools/precedent_check.py *)",
+      "Bash(python3 tools/precedent_sync_views.py)",
+      "Bash(python3 tools/precedent_sync_views.py *)",
+      "Bash(python3 tools/doc_lint.py)",
+      "Bash(python3 tools/doc_lint.py *)"
     ],
     "deny": [
       "Bash(git push *)",
@@ -22,6 +68,44 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh session-start main"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh user-prompt main"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-paths.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh pre-write main"
           }
         ]
       }

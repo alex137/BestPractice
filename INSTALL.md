@@ -296,6 +296,19 @@ it applies.
    Precedent works internally. The audit enforces this: an
    upstream-internal doc found at the root fails unless the manifest
    records it as the repo's own document.
+
+   **Where GitHub-specific setup gets disclosed, since this list is half of
+   what used to be a contradiction.**
+   [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) is on the never-copy list above,
+   and the [github-setup-disclosed](practices/github-setup-disclosed.md)
+   practice requires a workflow this install turns on to be disclosed where
+   the project's own people read. Those are not in tension: the destination
+   is [GETTING_STARTED.md](templates/GETTING_STARTED.md)'s administrator
+   section, which this same list places at the root. Do not write a root
+   [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) to satisfy the check — until
+   2026-09-10 the check only read that file, which is what made the two
+   rules look mutually exclusive; it now reads
+   [GETTING_STARTED.md](templates/GETTING_STARTED.md) first.
 7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
    Commit.
 
@@ -645,10 +658,24 @@ not this section.
 5. **Instantiate everything else §1 step 2 already covers**: `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, `VOICE.md`,
    `STYLEGUIDE.md`, the README agent-entry block, the harness adapter(s),
-   `tools/bootstrap.sh`, the Actions check, the PR template — unchanged
-   by which install model this is. **Skip** `process/manifest.json` and
-   `process/scrub_blocklist.txt` — those are §1's own bookkeeping for a
-   model this path doesn't use.
+   `tools/bootstrap.sh`, the Actions check, the PR template. **Skip**
+   `process/manifest.json` and `process/scrub_blocklist.txt` — those are
+   §1's own bookkeeping for a model this path doesn't use.
+
+   **One thing does change with the install model, and this step used to
+   say it didn't** ("unchanged by which install model this is", until
+   2026-09-10). §1 vendors Precedent's *prose* under `process/upstream/`;
+   §0 vendors the practices and the engine and no prose at all. Two
+   templates referred to the §1 layout outright, and a real §0 install
+   shipped with a red check and three dead references because of it:
+
+   | Artifact | What a §0 install needs |
+   |---|---|
+   | [templates/github-actions/doc-lint.yml.template](templates/github-actions/doc-lint.yml.template) | **Nothing — already handled.** It discovers `doc_lint.py` at either `process/upstream/tools/` or `tools/` and watches both. Install it verbatim. |
+   | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
+
+   After instantiating, grep the new root for `process/upstream` — in a §0
+   install every remaining hit is a path that does not exist.
 6. **Run `python3 tools/precedent_sync_views.py`** — it resolves every
    source `precedent.json` declares and writes `AGENTS.md`'s generated
    block from the result (the resident block, the occasion index, the

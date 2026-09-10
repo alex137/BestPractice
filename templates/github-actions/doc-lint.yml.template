@@ -1,12 +1,31 @@
 # Install as .github/workflows/bestpractice-docs.yml in a dependent repository.
 # This version runs the vendored Precedent linter in place.
+#
+# LAYOUT-AGNOSTIC ON PURPOSE (2026-09-10). This file is one of the artifacts
+# INSTALL.md §0 step 5 says to install "unchanged by which install model this
+# is", and until that date it was hard-coded to §1's layout: it ran
+# `process/upstream/tools/doc_lint.py` and watched that path in its triggers.
+# A §0 install has no `process/upstream/` at all -- §0 step 1 puts the engine
+# in the repo's own `tools/` -- so the shipped workflow failed on its first
+# run and its path filters matched nothing. A red check on the install commit
+# is an adopter's first impression of the whole system. Found installing
+# precedent-beta-v01 into a real project.
+#
+# Rather than ship two variants that drift apart, the linter is DISCOVERED at
+# run time and every candidate path is watched. Nothing here needs editing
+# for either install model.
 name: Precedent documentation checks
 
 on:
   pull_request:
     paths:
       - "**/*.md"
+      # §1 (vendored under process/upstream/) and §0 (engine in the repo's
+      # own tools/). A path that does not exist in this repo simply never
+      # matches; listing both costs nothing and is what makes this file
+      # portable between the two install models.
       - "process/upstream/tools/doc_lint.py"
+      - "tools/doc_lint.py"
       - ".github/workflows/bestpractice-docs.yml"
   push:
     branches:
@@ -14,6 +33,7 @@ on:
     paths:
       - "**/*.md"
       - "process/upstream/tools/doc_lint.py"
+      - "tools/doc_lint.py"
       - ".github/workflows/bestpractice-docs.yml"
   workflow_dispatch:
 
@@ -39,5 +59,25 @@ jobs:
       - name: Install Markdown parser
         run: python -m pip install cmarkgfm
 
+      - name: Locate the vendored linter
+        id: linter
+        run: |
+          set -eu
+          for candidate in \
+            process/upstream/tools/doc_lint.py \
+            tools/doc_lint.py; do
+            if [ -f "$candidate" ]; then
+              echo "path=$candidate" >> "$GITHUB_OUTPUT"
+              echo "Using $candidate"
+              exit 0
+            fi
+          done
+          echo "No vendored doc_lint.py found at either install model's" \
+               "path (process/upstream/tools/ for INSTALL.md §1," \
+               "tools/ for §0). Either the engine was never vendored, or" \
+               "it lives somewhere this workflow does not know about --" \
+               "add that path here and to the two 'paths:' lists above." >&2
+          exit 1
+
       - name: Lint changed Markdown
-        run: python3 process/upstream/tools/doc_lint.py
+        run: python3 "${{ steps.linter.outputs.path }}"

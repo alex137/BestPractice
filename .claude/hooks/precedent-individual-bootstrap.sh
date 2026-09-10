@@ -57,7 +57,75 @@ fi
 # Claude Code Remote that is the environment's own configuration. Leave it
 # unset and you get the project's default, which is the behaviour every
 # install had before this existed.
-REPO_URL="${PRECEDENT_INDIVIDUAL_REPO:-https://github.com/themorgan/precedent-individual}"
+# NAMING A PLACEHOLDER IN PROSE. No comment in this file may spell a
+# placeholder out, because the substituter rewrites every occurrence in the
+# file -- comments included -- so an explanation of the placeholder comes
+# out of instantiation as an explanation of the value ("<the URL> is
+# substituted at install time with a real URL"). Prose here calls them the
+# source-repo-url and the substituted-sentinel placeholders instead; the
+# only literal occurrences are the two lines that actually get substituted.
+#
+# RESOLUTION ORDER, and why the baked-in default is LAST rather than the
+# only option. The source-repo-url placeholder is substituted at install
+# time with a real URL, into a file the consuming repo TRACKS. In a public
+# consumer that
+# publishes the existence and location of somebody's private practice set --
+# on the very commit that installs the convenience, and in the same repo
+# whose own AGENTS.md typically states that naming it "would leak its
+# existence and location". Found 2026-09-07 in a real public consumer that
+# said exactly that, five lines from the URL.
+#
+# The private location belongs in the private file. `~/.config/precedent/
+# config.json` is per-person and never tracked anywhere -- it is already
+# where the individual source is declared, for this same reason -- so its
+# `individual.repo_url` is read first, and a public consumer needs no URL in
+# its tree at all.
+#
+# The NAME is deliberately not overridable: practice source-naming fixes it
+# as the same string in every person's own account, so only the account --
+# that is, the URL -- can legitimately differ.
+CFG="$HOME/.config/precedent/config.json"
+CFG_URL=""
+if [ -f "$CFG" ]; then
+  CFG_URL="$(python3 -c 'import json,sys
+try:
+    print(json.load(open(sys.argv[1])).get("individual", {}).get("repo_url", "") or "")
+except Exception:
+    print("")' "$CFG" 2>/dev/null || true)"
+fi
+# HOW THIS FILE KNOWS ITS BAKED-IN DEFAULT IS REAL (corrected 2026-09-10).
+# Until that date the guard below asked whether $REPO_URL still equalled
+# the source-repo-url placeholder. That question can never be answered
+# correctly from inside this file, because the substituter rewrites EVERY
+# occurrence of that placeholder here -- the one inside the guard included.
+# So an instantiated hook compared the real URL against itself, found them
+# equal, and took the "no repository URL" exit on every single session,
+# while holding the correct URL. Every hook ever written with a real
+# --repo-url was silently inert; the resolver's lazy self-heal could not
+# save it either, since the self-heal re-invokes this same hook. Found
+# installing precedent-beta-v01 into a real project.
+#
+# A SEPARATE sentinel fixes it. The substituted-sentinel placeholder on the
+# `if` line below becomes the literal `yes` at instantiation and stays a
+# placeholder in the template, so "has this file been instantiated?" is
+# asked of a value whose two states cannot collide with any URL a person
+# legitimately has. An instantiation that deliberately bakes in NO url (the
+# right shape for a public consumer, per the paragraph above) leaves the
+# default empty and is still correctly instantiated -- which is the second
+# reason the sentinel has to be its own placeholder rather than the URL's
+# own value.
+DEFAULT_REPO_URL="https://github.com/themorgan/precedent-individual"
+if [ "yes" != "yes" ]; then
+  # Still a raw template: the placeholder above is a literal, not a URL.
+  DEFAULT_REPO_URL=""
+fi
+
+REPO_URL="${PRECEDENT_INDIVIDUAL_REPO:-${CFG_URL:-$DEFAULT_REPO_URL}}"
+
+if [ -z "$REPO_URL" ]; then
+  echo "individual-source bootstrap: no repository URL. Set individual.repo_url in $CFG (preferred -- that file is private), or PRECEDENT_INDIVIDUAL_REPO. Individual practices will not be in force this session; team and universal still resolve normally." >&2
+  exit 0
+fi
 
 exec python3 "$ENGINE" \
   --level individual \

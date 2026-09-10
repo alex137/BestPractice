@@ -161,12 +161,47 @@ def repo_is_public(root):
     key = str(pathlib.Path(root).resolve())
     if key not in _VISIBILITY_WARNED:
         _VISIBILITY_WARNED.add(key)
-        print(f"build_views NOTICE: {root}/precedent.json declares no "
-              f"`visibility`, so this run assumes PUBLIC and excludes "
-              f"team- and individual-level sources from anything tracked. "
-              f"That is the safe assumption, not a guess worth trusting: "
-              f"declare \"visibility\": \"private\" to carry them, or "
-              f"\"public\" to make this explicit.", file=sys.stderr)
+        # TWO WORDINGS, because the two situations are not equally bad.
+        # A config with no non-universal sources loses nothing to the
+        # public assumption -- there is no private text to exclude, and the
+        # notice is genuinely informational. A config that declares team or
+        # individual sources AND omits `visibility` has no plausible
+        # correct reading: it went to the trouble of wiring sources whose
+        # entire content this run is about to drop. The old single NOTICE
+        # covered both in the same informational register, and a real
+        # install read straight past it while receiving 89 practices
+        # instead of 121, with three team sets bound to nothing
+        # (2026-09-10). Say WHICH sources are being dropped, and say that
+        # the install is not doing its job.
+        dropped = []
+        try:
+            for src in (json.loads(
+                    (pathlib.Path(root) / 'precedent.json').read_text(
+                        encoding='utf-8')).get('sources') or []):
+                if src.get('level') in ('team', 'individual'):
+                    dropped.append(f"{src.get('level')}:{src.get('name')}")
+        except (ValueError, OSError, AttributeError, TypeError):
+            dropped = []
+        if dropped:
+            print(f"build_views WARNING: {root}/precedent.json declares "
+                  f"{len(dropped)} non-universal source(s) -- "
+                  f"{', '.join(dropped)} -- and no `visibility`. An "
+                  f"undeclared visibility is read as PUBLIC, which excludes "
+                  f"every one of those sources' practice text from the "
+                  f"materialized tree and the tracked loader block. Those "
+                  f"sources are, for this run, wired to nothing. If this "
+                  f"repo is private -- which is the only reading under "
+                  f"which declaring them makes sense -- add "
+                  f"\"visibility\": \"private\" to that file. If it is "
+                  f"genuinely public, declare \"public\" so the exclusion "
+                  f"is a choice rather than a default.", file=sys.stderr)
+        else:
+            print(f"build_views NOTICE: {root}/precedent.json declares no "
+                  f"`visibility`, so this run assumes PUBLIC and excludes "
+                  f"team- and individual-level sources from anything tracked. "
+                  f"That is the safe assumption, not a guess worth trusting: "
+                  f"declare \"visibility\": \"private\" to carry them, or "
+                  f"\"public\" to make this explicit.", file=sys.stderr)
     return True
 
 

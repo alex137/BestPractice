@@ -37,6 +37,17 @@ Usage:
                                       # project's .claude/hooks/ -- see
                                       # tools/precedent_source_bootstrap.py
 
+  precedent_bootstrap_source.py --level individual --name NAME \\
+      --write-session-hook CONSUMING_PROJECT_PATH [--repo-url URL]
+                                      # hook-only mode: writes the consuming
+                                      # project's hook against a set that
+                                      # already exists, and creates nothing.
+                                      # OMIT --repo-url in a PUBLIC consuming
+                                      # repo -- the baked-in value is tracked,
+                                      # and each person's own private
+                                      # ~/.config/precedent/config.json is
+                                      # read ahead of it anyway.
+
   precedent_bootstrap_source.py --level team --name NAME --dest PATH \\
       --approver "Full Name:github-handle"[,"Second Name:handle2"...]
       [--write-repo-config PATH]     # merge the team source into
@@ -621,8 +632,19 @@ def write_session_hook(consuming_project, name, repo_url, force=False):
     if dest.exists() and not force:
         raise BootstrapRefused(
             f"{dest} already exists -- pass --force true to overwrite it")
+    # SOURCE_REPO_URL_SUBSTITUTED is the sentinel the hook's own guard
+    # reads -- see the template's "HOW THIS FILE KNOWS ITS BAKED-IN DEFAULT
+    # IS REAL" block. It must be substituted here and nowhere else: the
+    # guard used to test the URL placeholder's own value, which this
+    # substituter rewrote along with every other occurrence, so every hook
+    # written with a real --repo-url short-circuited to "no repository URL"
+    # (2026-09-10). Writing `yes` unconditionally is correct even for the
+    # no-URL instantiation below: the file IS instantiated, it simply
+    # carries no default, which the guard reads as an empty string.
     text = _substitute(SESSION_HOOK_TEMPLATE.read_text(encoding='utf-8'),
-                       {'SOURCE_NAME': name, 'SOURCE_REPO_URL': repo_url})
+                       {'SOURCE_NAME': name,
+                        'SOURCE_REPO_URL': repo_url or '',
+                        'SOURCE_REPO_URL_SUBSTITUTED': 'yes'})
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(text, encoding='utf-8')
     dest.chmod(0o755)
@@ -696,12 +718,27 @@ def main():
     # way to say whether one existed -- the silence fixed separately in
     # tools/precedent_resolve.py.
     if args.get('--write-session-hook') and not dest:
-        repo_url = args.get('--repo-url')
-        if level != 'individual' or not name or not repo_url:
+        # --repo-url IS OPTIONAL HERE, and deliberately so (2026-09-10).
+        # The hook resolves its URL from PRECEDENT_INDIVIDUAL_REPO, then
+        # from the person's private ~/.config/precedent/config.json, and
+        # only then from the value baked in here -- and the baked-in value
+        # goes into a file the consuming repo TRACKS, which in a PUBLIC
+        # consumer publishes the existence and location of somebody's
+        # private practice set. The template's own header says exactly
+        # that. Requiring the flag meant a public consumer had no way to
+        # ask for the hook without the leak, so it either took the leak or
+        # went without the hook. Omit it and the hook is still fully
+        # instantiated; it simply carries no default.
+        repo_url = args.get('--repo-url') or ''
+        if level != 'individual' or not name:
             sys.exit("precedent_bootstrap_source FAIL: writing only the "
-                     "session hook needs --level individual, --name NAME and "
-                     "--repo-url URL (the set's real git remote -- this tool "
-                     "never guesses a remote on your behalf).")
+                     "session hook needs --level individual and --name NAME "
+                     "(and optionally --repo-url URL, the set's real git "
+                     "remote -- this tool never guesses a remote on your "
+                     "behalf, and a PUBLIC consuming repo should omit it and "
+                     "let each person's own ~/.config/precedent/config.json "
+                     "supply it privately)."
+                     )
         try:
             precedent_resolve.check_source_name(level, name, '--name')
             hook_path = write_session_hook(
@@ -712,6 +749,16 @@ def main():
         print(f"WROTE session-start hook: {hook_path} (no individual set was "
               f"created or touched -- this mode writes the consuming "
               f"project's hook and nothing else)")
+        if repo_url:
+            print(f"  baked-in default URL: {repo_url} -- read LAST, after "
+                  f"PRECEDENT_INDIVIDUAL_REPO and ~/.config/precedent/"
+                  f"config.json. If this consuming repo is public, that URL "
+                  f"is now published; re-run without --repo-url to remove it.")
+        else:
+            print("  no URL baked in -- each person's own "
+                  "PRECEDENT_INDIVIDUAL_REPO or ~/.config/precedent/"
+                  "config.json supplies it, so nothing about a private set "
+                  "is published by this file.")
         return 0
 
     if level not in LEVELS or not name or not dest:
