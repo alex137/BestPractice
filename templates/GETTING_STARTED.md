@@ -197,28 +197,26 @@ conversation:
 
 ### Settings Only You Can Turn On
 
-Three things had to be done by hand, in GitHub's own settings pages, by
-someone with administrator rights on this project. The assistant that
-installed this could not do them for you, and each one fails *quietly* —
-nothing turns red, the project simply stops being checked or stops being
-able to act. Click-paths as of <install date>.
+A few things can only be done by hand, in GitHub's own settings pages, by
+someone with administrator rights here. None is urgent, and each fails
+*quietly* rather than loudly, so they are worth a look when you have a
+moment. **Ask the assistant for more specific instructions on any of
+them.** Click-paths as of <install date>.
 
-- **A developer key, stored in this project.** A personal access token
+- **This project's repository is private**, unless it is meant to be
+  public.
+- **A developer key, stored in this project** — a personal access token
   (GitHub's name for a key that stands in for a person) that can reach this
-  repository, saved here under **Settings → Secrets and variables →
-  Actions → New repository secret**, named `PRECEDENT_REPO_TOKEN` unless
-  something here expects another name. Without it an assistant working on
-  this project can read and prepare changes but cannot push a branch or
-  open a proposal on the project's behalf.
-- **The main line of work is called `main`.** **Settings → General →
+  repository, saved under **Settings → Secrets and variables → Actions →
+  New repository secret**, named `PRECEDENT_REPO_TOKEN` unless something
+  here expects another name. Without it an assistant can prepare changes
+  but not push them or open a proposal on the project's behalf.
+- **The main line of work is called `main`** — **Settings → General →
   Default branch**. The Markdown check below watches a branch by that exact
-  name, so if this project's default branch is called something else, the
-  check never runs on merges — and a project nothing is checking looks
-  exactly like a project passing every check.
-- **Automation is allowed to open proposals.** **Settings → Actions →
+  name.
+- **Automation is allowed to open proposals** — **Settings → Actions →
   General → Workflow permissions**, with *Allow GitHub Actions to create
-  and approve pull requests* ticked. Without it, anything that tries to
-  open a proposal for you stops with a permission error.
+  and approve pull requests* ticked.
 
 ### Automatic Checks Installed for This Project
 

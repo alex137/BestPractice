@@ -223,7 +223,7 @@ Two constraints from the plan's phase-3 row governed every decision:
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
 | Practices with `## Rule` over 150 words | 16 | 20 | **7** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
-| Words in `## Detail` | — | — | **3,667** |
+| Words in `## Detail` | — | — | **3,785** |
 
 Eighteen of the fifty-two practices carry a Detail. The resident block — the
 text every session pays for, whatever it is doing — **halved**, which is the
@@ -243,7 +243,9 @@ practices, 3,243 words, on 2026-09-06, when `merge-authorization-keyword`
 gained a real Detail (updated once more the same day, same practice, when
 its Detail grew a postcondition-check requirement), and to 18 practices,
 3,667 words, on 2026-09-10, when `github-setup-disclosed` gained a Detail
-carrying the three owner-only GitHub settings a first install must name. Only the two figures
+carrying the owner-only GitHub settings a first install mentions — 3,785
+words later the same day, when that Detail gained the repository's own
+visibility and the note on keeping the whole thing short. Only the two figures
 `tools/catalogue_stats.py` prints an anchor for — the Rule-share-derived
 counts, not the raw word totals — are mechanically checked against this
 table; the word-count cells are updated by hand alongside them.)*
