@@ -47,12 +47,22 @@ token` again, from the server. So the helper genuinely delivers a
 credential to git, which is the part of this that could have been silently
 inert.
 
-NOT VERIFIED, and stated so nobody reads more into this than was tested: no
-VALID token was ever supplied, because this session had none to supply. That
-a real PAT with read access to the source repo completes the clone is the
-reasonable conclusion from the three measurements above -- it is not itself a
-measurement. The first person to set PRECEDENT_GIT_TOKEN should say plainly
-whether it worked, and correct this paragraph either way.
+VERIFIED 2026-09-10, closing the gap this paragraph used to hold open. A
+real read-scoped PAT was set on the environment, and a brand-new container
+came up with all four private sources already cloned before the first turn:
+this tool reported OK, and precedent_resolve.py reported 146 practices from
+6 sources (41 team, 13 individual) where the same repo had been resolving 89
+from 1. No add_repo call was made or needed. So the whole path -- environment
+variable, credential helper, SessionStart clone -- works end to end.
+
+WHAT COST THREE DAYS, and it was never the token: the account held TWO
+environments with the SAME NAME, and the values had been set on the one the
+sessions were not running in. Three sessions across two fresh containers
+measured zero PRECEDENT_* variables and concluded the runner did not pass
+them through. Nobody asked how many environments the account had until
+list_environments answered it in one call. Not established: whether the twin
+was the whole cause, or the first save had also failed -- both fit what was
+measured. The sequence is entry 29 in record/GOTCHAS_ARCHIVE.md.
 
 A FOURTH, 2026-09-09, of the opt-in `inherit` mode: pointed at this
 container's own GITHUB_TOKEN, a clone of a real cross-owner private set was
