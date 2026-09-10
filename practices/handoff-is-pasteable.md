@@ -34,6 +34,13 @@ over **three things, always, in this order**:
 **The third one is the one that gets dropped, and it closes the loop.**
 Without it, neither side knows what this session still needs to hear.
 
+**When there is more than one destination, every block is keyed by its
+repository name and by nothing else.** No ordinals, no "session #2", no
+numbering that mirrors the order the person happened to paste things in
+earlier. Their numbering and yours will not match, and the block itself
+cannot say which one is right, because the session reading it has no view of
+either.
+
 ## Detail
 A handoff that describes the task in prose and leaves the person to compose
 the prompt has moved the work, not delegated it.
@@ -48,6 +55,19 @@ editing, plus room for what actually happened. *"Done, pushed to
 
 If more than one thing has to happen over there, it is still one paste
 block, not three replies.
+
+**And a block for one repository never mentions another repository's
+work.** Not as context, not as a courtesy summary. A session that is handed
+someone else's items spends its turn proving the files do not exist —
+grepping for a check it does not have, resolving a commit that is not in its
+history — and reports back an inventory instead of doing anything. That is
+the expensive failure, not the confusion: the misrouted block reads as a
+plausible instruction, so a session obeys it until the filesystem refuses.
+
+The mechanical form that survives this: one heading per destination, the
+repository's full name in it, and the block under it self-contained. If two
+blocks would share a paragraph, the paragraph belongs in both, written out
+twice.
 
 ## Why
 Sessions cannot see or message each other, so the person is the only
@@ -74,6 +94,20 @@ repo's own gotchas: `add_repo` refuses a cross-owner attach — it did so
 again in the session that wrote this rule, for this account's private
 individual set — so work spanning two owners **has** to be split across
 sessions, and a session rooted here simply cannot reach the other side.
+
+**The multi-destination clause was added the same day, by the rule failing
+on its first real use.** Three sessions were running, one per practice set.
+Morgan had pasted their results back numbered #1, #2, #3; the reply answered
+with three blocks numbered 1, 2, 3 whose repositories mapped to his #3, #2,
+#1. Each block did name its repository correctly — the rule above was
+followed — and each also carried a "(session #N)" cross-reference pointing
+the other way. The block written for `precedent-individual` went to the
+`precedent-team-maintainers` session, which spent its turn establishing that
+`check_commit_author.py`, `TODO.md` item 1, PR #60 and commit `8e0fc68` were
+all absent, and answering: *"everything naming 'your work' belongs to another
+session."* It was right. The repository name was in the heading and the
+ordinal beat it, because an ordinal looks like an address and a heading looks
+like a title.
 
 ## Install
 Nothing to configure. It fires when a reply asks the person to go elsewhere.
