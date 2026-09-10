@@ -303,7 +303,7 @@ When a tool warns about already-published git history:
 When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
 When adding or editing a CI workflow that commits, pushes, or opens a pull request:
-  ci-commits-carry-identity — a committing workflow reads identity.json and refuses -- never the bot account
+  ci-commits-carry-identity — a committing workflow reads a declared identity, or refuses -- never the bot
 When adding or re-levelling a heading in any document:
   heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
 When adding or re-syncing a document under philosophy/:
