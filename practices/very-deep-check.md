@@ -958,6 +958,30 @@ another, however well it fits.** The tool asks every declared source now
 and lets the one honest test — is this path its own git checkout — answer,
 which it settles by looking; sources resolving to one clone are swept once.
 
+**The same day, one more, and it was found by running the check rather
+than reading it.** The sweep widened above could not actually reach the
+repos it had just been widened to: in a session where the credential route
+was working exactly as [INSTALL.md](../INSTALL.md) §8 describes — all four
+private sources cloned before the first turn — **every one of them failed
+this tool's own freshness gate** with *"could not read Username for
+`https://github.com`"*, and the run refused to read a line. The token was
+fine. The tool's `_run_git` shelled out to plain `git`, while the
+credential lives behind a helper only
+[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+was passing — so a source could be **cloned** at session start and then not
+**fetched** by the check that reads it.
+
+Two things are worth keeping from it. **The guard was right about the state
+and wrong about the cause**, which is the expensive combination: a hard
+refusal reads as the gate doing its job, and the message sent the reader to
+re-set a token that was never the problem. The fetch failure now names
+*which* failure it was, reusing the diagnosis the bootstrap tool already
+had rather than growing a second copy. And **the fix went in `_run_git`
+keyed on the git subcommand**, not at the three call sites that fetch
+today: this sweep grew three new fetches in a fortnight, and a per-caller
+fix covers whatever existed the day it was written
+([durable-fix](durable-fix.md)).
+
 ## Install
 [tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's

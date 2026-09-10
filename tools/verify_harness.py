@@ -12812,6 +12812,88 @@ def check_branch_scan_sees_every_branch():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_very_deep_check_authenticates_its_own_fetches():
+    """very_deep_check's network calls carry the credential the environment
+    holds (practice: very-deep-check; durable-fix).
+
+    THE INCIDENT (2026-09-10). In a session where the credential route was
+    working exactly as INSTALL.md section 8 describes -- all four private
+    sources cloned before the first turn -- the very deep check refused to
+    read a line: every source failed its freshness gate with "could not read
+    Username for 'https://github.com'". The token was fine. `_run_git`
+    shelled out to plain `git` while the credential lived behind a helper
+    only precedent_source_bootstrap.py passed, so a source could be cloned
+    at session start and then not fetched by the check that reads it.
+
+    The controlling case is the NEGATIVE one: with no token in the
+    environment the flags must be absent entirely. A tool that always
+    passes a helper offers a credential to whatever transport is
+    configured, and would pass a naive "are the flags there" assertion
+    while being the worse bug.
+    """
+    import very_deep_check as vdc
+    import tempfile
+
+    real_env = dict(os.environ)
+    try:
+        os.environ.pop('PRECEDENT_GIT_TOKEN', None)
+        vdc._ORIGIN_URL.clear()
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp) / 'r'
+            repo.mkdir()
+            subprocess.run(['git', '-C', str(repo), 'init', '-q'],
+                           capture_output=True, text=True)
+            subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin',
+                            'https://github.com/example/example'],
+                           capture_output=True, text=True)
+
+            no_token = vdc._credential_args(repo)
+
+            os.environ['PRECEDENT_GIT_TOKEN'] = 'not-a-real-token'
+            vdc._ORIGIN_URL.clear()
+            with_token = vdc._credential_args(repo)
+
+            # A file:// remote needs no credential and must never be offered
+            # one, whatever the environment holds.
+            local = pathlib.Path(tmp) / 'l'
+            local.mkdir()
+            subprocess.run(['git', '-C', str(local), 'init', '-q'],
+                           capture_output=True, text=True)
+            subprocess.run(['git', '-C', str(local), 'remote', 'add', 'origin',
+                            f'file://{tmp}/upstream'], capture_output=True, text=True)
+            vdc._ORIGIN_URL.clear()
+            local_args = vdc._credential_args(local)
+
+            results = [
+                ('no token in the environment means no credential flags at '
+                 'all (the controlling case)', no_token == []),
+                ('a token in the environment produces credential flags',
+                 bool(with_token)),
+                ('the flags clear any helper configured elsewhere first',
+                 'credential.helper=' in with_token),
+                ('the token VALUE never appears in the argument list',
+                 not any('not-a-real-token' in a for a in with_token)),
+                ('the helper names the variable instead',
+                 any('PRECEDENT_GIT_TOKEN' in a for a in with_token)),
+                ('a file:// remote is never offered a credential',
+                 local_args == []),
+                ('network subcommands are recognised by name, so a fetch '
+                 'added later is covered too',
+                 {'fetch', 'ls-remote', 'pull'} <= vdc._NETWORK_GIT),
+                ('a non-network subcommand is not given credential flags',
+                 'log' not in vdc._NETWORK_GIT and 'config' not in vdc._NETWORK_GIT),
+            ]
+            failed = [name for name, ok in results if not ok]
+            check(f'the very deep check authenticates its own fetches '
+                  f'({len(results)} stated cases, an empty environment being '
+                  f'the negative control)',
+                  not failed, '; '.join(failed) if failed else '')
+    finally:
+        os.environ.clear()
+        os.environ.update(real_env)
+        vdc._ORIGIN_URL.clear()
+
+
 def check_merged_branches_carry_a_date_and_a_staleness_verdict():
     """A merged, undeleted branch is reported with the date it last moved
     and whether it is past the declared stale threshold
@@ -14427,6 +14509,7 @@ def main():
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
+    check_very_deep_check_authenticates_its_own_fetches()
     check_public_consumer_does_not_materialize_private_text()
     check_assumed_visibility_never_deletes_practices()
     check_sync_refuses_to_write_from_incomplete_sources()

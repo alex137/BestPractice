@@ -188,9 +188,70 @@ def checklist(practice_file=None):
             f"`python3 tools/precedent_show.py very-deep-check --detail`.)")
 
 
-def _run_git(repo_dir, *args):
+# Git subcommands that talk to a remote, and so may need a credential.
+# Keyed on the subcommand rather than fixed up at each call site, because
+# the call sites are the thing that changes: the sweep grew three new
+# fetches in a fortnight, and a fix applied per-caller is a fix that covers
+# whatever existed the day it was written (practice: durable-fix).
+_NETWORK_GIT = frozenset({'fetch', 'ls-remote', 'pull', 'push', 'clone'})
+_ORIGIN_URL = {}
+
+
+def _origin_url(repo_dir):
+    """-> a repo's origin URL, cached. Read through _run_git deliberately:
+    `config` is not a network subcommand, so this cannot recurse."""
+    key = str(repo_dir)
+    if key not in _ORIGIN_URL:
+        rc, out, _ = _run_git(repo_dir, 'config', '--get', 'remote.origin.url')
+        _ORIGIN_URL[key] = out if rc == 0 else ''
+    return _ORIGIN_URL[key]
+
+
+def _credential_args(repo_dir):
+    """-> the `git -c` flags that let one network call authenticate, or [].
+
+    THE INCIDENT (2026-09-10, measured in a session where the credential
+    route was working exactly as INSTALL.md section 8 describes). Every one
+    of the four private sources failed this tool's own freshness gate with
+    "could not read Username for 'https://github.com'", and the run refused
+    to read a line -- in the configuration AGENTS.md calls verified-working.
+    The token was fine. `_run_git` shelled out to plain `git`, while the
+    credential lives in $PRECEDENT_GIT_TOKEN behind a helper that only
+    precedent_source_bootstrap.py was passing. So the sources could be
+    CLONED at session start and then not FETCHED by the check that reads
+    them, and the failure named a missing username rather than a missing
+    plumbing -- which sends the reader to re-set a token that was never
+    the problem.
+
+    Worth noting what made it invisible for a day: the tool fails CLOSED
+    here, correctly, and a hard refusal reads as the gate doing its job.
+    A guard that is right about the state and wrong about the cause is the
+    expensive kind (practice: fail-gracefully -- name WHICH failure).
+
+    The secret never reaches an argument list; see
+    precedent_source_credentials.credential_args, which builds a helper
+    naming the variable. Degrades to [] when the module is absent, since
+    this engine is vendored into trees older than it (practice:
+    fail-gracefully), and to [] for any non-https URL, so file:// fixtures
+    are untouched.
+    """
     try:
-        r = subprocess.run(['git', '-C', str(repo_dir), *args],
+        import precedent_source_credentials as psc
+    except Exception:
+        return []
+    url = _origin_url(repo_dir)
+    if not url:
+        return []
+    try:
+        return psc.credential_args(url)
+    except Exception:
+        return []
+
+
+def _run_git(repo_dir, *args):
+    pre = _credential_args(repo_dir) if args and args[0] in _NETWORK_GIT else []
+    try:
+        r = subprocess.run(['git', '-C', str(repo_dir), *pre, *args],
                             capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.TimeoutExpired):
         return 1, '', 'git unavailable or timed out'
@@ -286,8 +347,20 @@ def freshness(repo_dir, fetch=True):
                         f'its content is current')
                 return out
             out['status'] = 'fetch-failed'
+            # Name WHICH failure. "no credential", "credential refused" and
+            # "no such repository" all end in a failed fetch, and their
+            # remedies are opposite ones -- the first thing anybody does
+            # with an unexplained failure is re-set a token that was fine.
+            # precedent_source_bootstrap already tells them apart, so this
+            # asks it rather than growing a second copy of the same
+            # reasoning (practice: fail-gracefully, engine-plus-host-shims).
+            try:
+                _why = bootstrap_source._diagnose(err)
+            except Exception:
+                _why = 'it'
             out['remedy'] = (f'git -C {repo_dir} fetch origin {branch}   '
-                             f'# failed: {err.splitlines()[-1] if err else "no detail"}')
+                             f'# failed: {err.splitlines()[-1] if err else "no detail"}'
+                             + (f'\n      -> {_why}' if _why and _why != 'it' else ''))
             return out
     # rev-parse --verify --quiet, never bare rev-parse: the bare form prints
     # the ref NAME it was asked for and exits non-zero, so a caller that
