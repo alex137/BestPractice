@@ -190,7 +190,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 95 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 96 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -302,6 +302,8 @@ When a tool warns about already-published git history:
   no-rewrite-for-warnings — fix the setting forward; never rewrite published history
 When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
+When adding or editing a CI workflow that commits, pushes, or opens a pull request:
+  ci-commits-carry-identity — a committing workflow reads identity.json and refuses -- never the bot account
 When adding or re-levelling a heading in any document:
   heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
 When adding or re-syncing a document under philosophy/:

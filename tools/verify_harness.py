@@ -4487,6 +4487,21 @@ def check_precedent_check_fires():
              lambda repo: rewrite(repo, 'TODO.md',
                                   lambda t: t + '\nSee the new ZQX report.\n'))
 
+        # ci-commits-carry-identity -- a workflow that commits as the bot.
+        # The fixture is the real shape: the two `git config` lines and the
+        # `git commit` that a scheduled refresh workflow actually runs.
+        def _plant_ci_identity(repo):
+            wf = repo / '.github' / 'workflows'
+            wf.mkdir(parents=True, exist_ok=True)
+            (wf / 'zzz-refresh.yml').write_text(
+                'name: refresh\non: {schedule: [{cron: "0 6 * * 1"}]}\n'
+                'jobs:\n  r:\n    runs-on: ubuntu-latest\n    steps:\n'
+                '      - run: |\n'
+                '          git config user.name  "github-actions[bot]"\n'
+                '          git add -A\n'
+                '          git commit -m "refresh"\n', encoding='utf-8')
+        case('ci-commits-carry-identity', _plant_ci_identity)
+
         # github-setup-disclosed -- a new workflow file, undisclosed
         case('github-setup-disclosed',
              lambda repo: (repo / '.github' / 'workflows' / 'zzz-planted.yml')
