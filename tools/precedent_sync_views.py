@@ -28,16 +28,23 @@ all need to already be sitting together in the consuming repo's own tools/
 tools/, same as precedent_materialize.py's own docstring already says).
 
 Run:
-  python3 tools/precedent_sync_views.py [--repo DIR] [--user-config PATH] [--check]
+  python3 tools/precedent_sync_views.py --repo DIR [--user-config PATH] [--check]
 
-  --repo defaults to this script's own directory's parent — correct only
-  when this script is vendored at the consuming repo's own tools/, sitting
-  beside precedent_resolve.py/precedent_materialize.py/build_views.py, the
-  documented convention. It is NOT this script's current working directory
-  and NOT necessarily correct if this script is nested somewhere else (a
-  fresh `process/upstream/tools/` mirror of BestPractice's OWN tree is the
-  wrong place for it — that copy exists for the audit/sync tools, not this
-  one). Override with --repo when testing against a fixture.
+  --repo is REQUIRED and names the consuming repo's root; from that root it
+  is `--repo .`. It used to default to this script's own directory's parent,
+  which is right only when the script is vendored at the consuming repo's own
+  tools/ beside precedent_resolve.py, and wrong wherever else it is nested —
+  a `process/upstream/tools/` mirror most of all, since that copy exists for
+  the audit tools rather than this one.
+
+  The default was documented as a trap right here and went on catching
+  people anyway: 2026-09-09, a careful session ran it bare from a consuming
+  repo, --repo resolved to `process/upstream/`, the team sources' `../` paths
+  then resolved against `process/`, every one of them missed, and the run
+  hard-failed claiming the universal source's path collided with its own
+  output directory. Nothing was wrong with that repo. A documented trap that
+  still catches a reader is an argument for a refusal, not for a better
+  paragraph (practice: checkable-gets-checked), so there is no default now.
 
 Exit: 0 on a clean sync, 1 on anything precedent_materialize.py or the
 resident-budget check would themselves exit 1 on (a resolve conflict, a
@@ -419,7 +426,7 @@ def main():
     allow_missing = '--allow-missing-sources' in args
     args = [a for a in args if a not in ('--check', '--allow-missing-sources',
                                          '--allow-removals')]
-    repo, user_config = str(ROOT), None
+    repo, user_config = None, None
     known = {'--repo', '--user-config'}
     i = 0
     while i < len(args):
@@ -434,6 +441,14 @@ def main():
         else:
             user_config = args[i + 1]
         i += 2
+
+    if repo is None:
+        sys.exit("precedent_sync_views FAIL: --repo is required and names the "
+                 "consuming repo's root -- from that root, `--repo .`. There "
+                 "is deliberately no default: the old one resolved to this "
+                 "script's own parent, which is correct only where the script "
+                 "is vendored at the consuming repo's tools/, and produced a "
+                 "confident, wrong, hard failure everywhere else.")
 
     try:
         written, checks_written, rstats, agents_md, changed, tree_drift = sync(

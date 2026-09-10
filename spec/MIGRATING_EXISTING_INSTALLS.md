@@ -376,7 +376,7 @@ the loader.
    up with `status`/`refresh` instead of repeating this step from scratch —
    see [INSTALL.md](../INSTALL.md)'s "Keep the vendored engine current
    (consumer repos)" step under §2. Then run
-   `python3 tools/precedent_sync_views.py` to fill the markers in from the
+   `python3 tools/precedent_sync_views.py --repo .` to fill the markers in from the
    *real* resolved set — universal, team, individual and repo-local, all
    four. **Don't hand-curate a subset and call it a stopgap**: that was only
    ever necessary because nothing connected the resolver's output to a
@@ -601,7 +601,8 @@ that tool to `build_views.py`'s own `AGENTS.md` generation in one
 documented, consumer-facing command.
 
 That connection is [tools/precedent_sync_views.py](../tools/precedent_sync_views.py)
-now: `python3 tools/precedent_sync_views.py [--repo DIR]` resolves every
+now: `python3 tools/precedent_sync_views.py --repo DIR` (required — from the
+repo root, `--repo .`) resolves every
 declared source, materializes the merged `practices/` + `tools/checks/`,
 and regenerates `AGENTS.md`'s loader block from the *same* resolved
 practices (not re-read from disk) — one command, in place of step 7's old
