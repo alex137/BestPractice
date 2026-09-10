@@ -752,7 +752,12 @@ which is the failure this repointing exists to end — write
     is that `add_repo` refuses a cross-owner add — a session already holding
     `alex137/*` cannot attach a `themorgan/*` repo ("cross-tier adds are not
     supported in v1"). So the unblock is simply **a session whose initial
-    source is the private repo**. BestPractice itself is public, so that
+    source is the private repo** — or, since 2026-09-10, a session with
+    `PRECEDENT_GIT_TOKEN` on its environment, which clones every private
+    source at session start with no `add_repo` call at all
+    ([INSTALL.md](INSTALL.md) §8). That route is verified working and is the
+    cheaper one; this item's remaining work is the per-set commands below,
+    which still need a session that can PUSH to each set. BestPractice itself is public, so that
     session can `git clone https://github.com/alex137/BestPractice` directly;
     no second `add_repo` is needed. In each such session:
     `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`,

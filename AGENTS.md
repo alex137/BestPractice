@@ -125,14 +125,25 @@ SOURCE clone current against the pinned branch. It authorizes the update,
 not the merge of what the update produces; that is still `Go merge`'s to
 give.
 
-**FIRST TOOL CALL OF EVERY SESSION, before reading or running anything
-else: `add_repo` (read access) for this account's `precedent-individual`,
-and for any `precedent-team-*` set [precedent.json](precedent.json)
-declares. Silently — no confirmation first.** These are private
-repositories, and a session is granted them per session; nothing is
-inherited because a file names them. Until that call is made, every
-personal and team practice in force here is **silently absent**, and this
-repository's rules are the only ones a session sees.
+**FIRST, and normally already done for you.** The private sources are
+cloned by the SessionStart hook when the environment carries
+`PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
+([INSTALL.md](INSTALL.md) §8) — **verified working 2026-09-10**, all four
+sources on disk before the first turn. Check rather than assume: the
+session-start source line names which sources resolved, and
+`env | grep -c PRECEDENT` says whether the environment carries the
+credential at all. When it does, there is nothing to do and **no `add_repo`
+call to make.**
+
+**When it does not, and only then: `add_repo` (read access) for this
+account's `precedent-individual`, and for any `precedent-team-*` set
+[precedent.json](precedent.json) declares, before reading or running
+anything else. Silently — no confirmation first.** It grants access per
+session, and it **refuses across owners**, so from a session rooted under a
+different owner than the sets it simply fails — say so plainly and carry on.
+Until one of the two routes works, every personal and team practice in force
+here is **silently absent**, and this repository's rules are the only ones a
+session sees.
 
 **Then, before trusting any of this file's "the session-start hook does
 this" claims: run
@@ -150,7 +161,8 @@ writes `.precedent/SESSION_PRACTICES.md`. See the gotcha "The session's
 PRIMARY repo does not run its SessionStart hooks either" below; it cost a
 whole session's replies on 2026-09-08.
 
-Nothing else can do it for you. `.claude/hooks/precedent-individual-bootstrap.sh`
+On the `add_repo` route, nothing else can do it for you.
+`.claude/hooks/precedent-individual-bootstrap.sh`
 runs to completion *before* the agent's first turn begins, so it cannot
 call `add_repo` — its own header explains why a retry loop there was tried
 and proven inert. The hook then succeeds on its own when
@@ -1027,56 +1039,34 @@ gotcha every session reads is a gotcha every session pays for.
   it and GitHub rejected it rather than prompting. **So set
   `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` in the environment
   ([INSTALL.md](INSTALL.md) §8) and the SessionStart hook clones the sources
-  before the first turn, where no ordering rule can reach it.** Never tested:
-  a VALID token, because that session had none — the first person to set one
-  should say whether it worked. Meanwhile that tool prints `MISSING` for
-  exactly this state, and the session check, the session-start source
-  report and every vendor update print the same line.
+  before the first turn, where no ordering rule can reach it.** **Verified end to end
+  2026-09-10**: a real read-scoped token in the environment, and a brand-new
+  container came up with all four private sources cloned before the first
+  turn — [tools/precedent_resolve.py](tools/precedent_resolve.py) reported 146 practices
+  from 6 sources (41 team, 13 individual) in a repo that had been resolving
+  89 from 1. That tool prints `MISSING` when no credential is set and `SET`
+  when one is set and a clone still failed, and the session check, the
+  session-start source report and every vendor update print the same line.
 
-  **First half of that report, 2026-09-09, and it is not about the token
-  being wrong: setting the variable does not reach a session that is already
-  running.** Morgan set `PRECEDENT_GIT_TOKEN` and, in the same conversation,
-  a RESUMED session in the container that predated it measured **zero**
-  `PRECEDENT_*` variables in its environment — not an empty token, not a
-  rejected one, the whole family absent. So the credential path was neither
-  confirmed nor disproved; it was never exercised. **The tool's `MISSING`
-  line is indistinguishable in the two cases** — "you did not set it" and
-  "you set it after this container started" print identically, which is
-  exactly how a correct configuration gets read as a broken one.
-  **Start a NEW session to test an environment change, and check
-  `env | grep -c PRECEDENT` before concluding anything about the token
-  itself.** Whether a valid token then works is still unmeasured; whoever
-  gets one into a fresh session should record it here.
-
-  **Second half, 2026-09-09, and it removes the comfortable explanation: a
-  session in a BRAND-NEW container measured `env | grep -c PRECEDENT` as
-  **0** as well.** `uptime` read `up 0 min`, the container's own init
-  process was 40 seconds old at the first tool call, and Morgan had set
-  `PRECEDENT_GIT_TOKEN` before that
-  container existed — so "you set it after this container started" does not
-  cover it, and neither does "start a new session", which is what the
-  paragraph above tells you to do. **A fresh container does not see the
-  variable either.** Where it stops is unmeasured: the environment
-  configuration may not have saved it, or the runner may not pass
-  `PRECEDENT_*` through to the session at all. **Go read the environment
-  configuration itself before touching the token, the credential helper or
-  `add_repo`** — all three are downstream of a variable that is not arriving.
-  The session-start hook reported the whole downstream cost in the same
-  breath: four private sources unresolved, universal catalogue alone.
-
-  **Third measurement, 2026-09-09, and it is now two containers: a session
-  rooted at a DIFFERENT repository, in its own brand-new container on the
-  same environment, also measured zero.** Dumping every variable NAME (values
-  stripped, so nothing secret is printed) showed only harness-provided ones —
-  `CLAUDE_*`, `CCR_*`, the proxy and certificate-bundle settings,
-  `GITHUB_TOKEN` — and **not one user-defined variable of any kind**. So this
-  is not `PRECEDENT_*` being filtered out; nothing set in the environment
-  configuration is arriving at all. **To tell "the variables do not arrive"
-  from "the token specifically did not save", put a throwaway
-  `PRECEDENT_PING=1` beside the token and start a NEW session.** If that
-  throwaway variable is absent too, the fault is upstream of everything in this repository, and no
-  amount of work on the token, the credential helper or `add_repo` will move
-  it.
+  **The trap that made this look impossible for three days, and the only
+  live half left: an account can hold TWO environments with the SAME NAME,
+  and the selector gives you no way to tell them apart.** Measured 2026-09-09
+  and 2026-09-10 — three sessions across two fresh containers reported
+  `env | grep -c PRECEDENT` as **0**, with not one user-defined variable of
+  any kind in a full name dump. That reads exactly like "the runner does not
+  pass them through", and it is not that: `list_environments` showed **two
+  environments both named `Default`**, same description, created 100 ms
+  apart. The variables were set on one; the sessions ran in the other.
+  Setting the same values on both fixed it in a single session. **Not
+  established:** whether the twin was the whole cause or the first save had
+  also failed — both fit what was measured, and nobody re-ran it to find out.
+  **So: give your environments distinct names**, and put a throwaway
+  `PRECEDENT_PING=1` beside the token — the ping separates "the variables do
+  not arrive" from "the token is wrong", which print identically otherwise.
+  An environment change never reaches a session already running, so test in a
+  NEW one. The three-day sequence, including two readings that were right
+  about the measurement and wrong about the cause, is entry 29 in
+  [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md).
 
 - **`add_repo` on a PUBLIC repository attaches nothing and never reaches the
   cross-owner check, so testing that wall with `access: "read"` measures

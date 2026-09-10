@@ -1223,18 +1223,29 @@ Ask for it by name, or set a real token.
 **Use a read-only token, scoped to the practice-set repositories.** Nothing
 here pushes with it.
 
-**What is verified, and what is not (measured 2026-09-09, in a Claude Code
-on the web container).** Three things were tested directly: an
+**Verified end to end, 2026-09-10.** A real read-scoped token set on the
+environment, and a brand-new container came up with all four private sources
+already cloned, before the first turn:
+[tools/precedent_resolve.py](tools/precedent_resolve.py) reported **146
+practices from 6 sources (41 team, 13 individual)** in a repository that had
+been resolving 89 from 1, and
+[tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
+reported `OK`. No `add_repo` call was made or needed. **What made this look impossible
+for three days was not the token**: the account held two environments with
+the same name, and the values had been set on the one the sessions were not
+running in. Name your environments distinctly — see [AGENTS.md](AGENTS.md)'s
+gotcha and, for the full sequence, entry 29 in
+[record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md).
+
+**What was verified before that, and how (measured 2026-09-09, in a Claude
+Code on the web container).** Three things were tested directly: an
 authenticated request to `github.com` **leaves the sandbox and reaches
 GitHub's own authentication** rather than being stopped by the proxy; there
 is **no ambient credential** for a private repository, so nothing works by
 accident; and the credential helper this ships **does deliver** the token to
 git — with a deliberately invalid one, git did not fall back to prompting,
-it sent the credential and GitHub rejected it. **What was never tested is a
-valid token**, because that session had none. If you are the first to set
-one, say plainly whether it worked, and correct
-[tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)'s
-own header either way.
+it sent the credential and GitHub rejected it. A valid token stayed untested until 2026-09-10,
+when it worked on the first try — recorded above.
 
 **The token is never written down.** It reaches git through a helper that
 reads the environment variable itself, so it appears in no command line, no
