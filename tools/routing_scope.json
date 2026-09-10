@@ -755,6 +755,17 @@
       ],
       "why": "Routed by locus, not by '**': a moment is stamped into a file by CODE, so the trigger is opening a script -- .py for the engine's own emitters, .sh for a hook that resolves or applies the session zone, and precedent.json because that is where the repo's fallback_timezone is declared. Prose that merely mentions a date is volatile-rules-carry-dates' business, not this one's, which is why **/*.md is deliberately absent.",
       "decided": "2026-09-09"
+    },
+    "findings-return-through-repo": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. What makes a discovery worth committing is that ANOTHER session will need it -- a fact about the finding's audience, not about the file it was found in. The findings that prompted the rule came from a hook script, an environment dump, a git remote and a settings.json, sharing no path. Reached through the occasion index and the reply gate.",
+      "decided": "2026-09-10, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The reply is the moment a session decides between committing a finding and merely saying it, and saying it is the failure -- so the obligation lands exactly where the temptation does."
     }
   },
   "gates": {
