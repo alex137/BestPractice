@@ -44,7 +44,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place — routed by the `merge` gate instead.",
+      "why": "A moment, not a place \u2014 routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -121,7 +121,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `review` gate instead.",
+      "why": "A moment \u2014 routed by the `review` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -159,7 +159,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `reply` gate instead.",
+      "why": "A moment \u2014 routed by the `reply` gate instead.",
       "decided": "follow-up session, 2026-09-03",
       "gates": [
         "reply"
@@ -232,6 +232,14 @@
       ],
       "why": "Where this repo actually builds and commits generated artifacts. Narrow on purpose: a glob over everything a build might touch would fire constantly and say nothing.",
       "decided": "phase 4 routing pass"
+    },
+    "ci-commits-carry-identity": {
+      "globs": [
+        ".github/workflows/**",
+        "templates/github-actions/**"
+      ],
+      "why": "The narrowest possible locus: a workflow file is the only place this can be got wrong. Deliberately NOT the whole of .github/** -- an issue template or a CODEOWNERS edit commits nothing, and firing there would teach a session to skip the rule on the files that matter. templates/github-actions/ is included because a workflow template published from here becomes somebody else\u2019s workflow, and the rule has to reach it before it is copied rather than after.",
+      "decided": "2026-09-10, on the incident that created the practice"
     },
     "github-setup-disclosed": {
       "globs": [
@@ -314,7 +322,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `merge` gate instead.",
+      "why": "A moment \u2014 routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -332,7 +340,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
+      "why": "A moment \u2014 routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -350,7 +358,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `push` gate, and enforced by a turn-end check.",
+      "why": "A moment \u2014 routed by the `push` gate, and enforced by a turn-end check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "push"
@@ -444,7 +452,7 @@
       "globs": [
         "**"
       ],
-      "why": "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
+      "why": "Genuinely unroutable \u2014 see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
       "decided": "phase 4 routing pass"
     },
     "rename-updates-links": {
@@ -516,7 +524,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment — routed by the `merge` gate instead.",
+      "why": "A moment \u2014 routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -566,7 +574,7 @@
       "globs": [
         "TODO.md"
       ],
-      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated.",
+      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself \u2014 the only place the practice's rule is ever violated.",
       "decided": "post-phase-4, converting Alex's practice 53",
       "gates": [
         "merge"
@@ -636,19 +644,19 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a file class — it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
+      "why": "A moment, not a file class \u2014 it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "review",
         "reply"
       ],
-      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED — a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
+      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED \u2014 a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
     },
     "vendor-update-runbook": {
       "globs": [
         "**"
       ],
-      "why": "A moment, not a file class — it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
+      "why": "A moment, not a file class \u2014 it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "merge"
@@ -793,7 +801,7 @@
     ],
     "merge": "merging a branch",
     "review": "reviewing work, or a review finding a defect",
-    "push": "before pushing — the pre-push hook",
-    "reply": "ending a turn and writing the reply — the stop hook"
+    "push": "before pushing \u2014 the pre-push hook",
+    "reply": "ending a turn and writing the reply \u2014 the stop hook"
   }
 }
