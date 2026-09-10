@@ -102,30 +102,32 @@ asks for it by name.
    Actions**, or the **Actions** tab's enable button) and confirm the
    check appears afterward. Never leave this step silently unfinished —
    the checks are what make the practices enforceable.
-7. **Name the three settings only they can turn on, before anything
-   else.** You cannot do these from here — each one is a click inside
-   GitHub's own settings pages, and each fails quietly rather than loudly
-   when it is missing. Say all three plainly, in this order, and write the
-   same three into `GETTING_STARTED.md` so they are findable after this
-   conversation closes (click-paths as of 2026-09-10):
-   - **Make a developer key and store it in the project.** In GitHub, create
-     a personal access token that can reach this repository, then put it
-     into the repository itself under **Settings → Secrets and variables →
-     Actions → New repository secret**. Call it `PRECEDENT_REPO_TOKEN`
-     unless something already expects another name. Explain why in one
-     sentence: without a key of its own, an assistant working here can read
-     and prepare changes but cannot push a branch or open a proposal for
-     them on the project's behalf.
-   - **Make sure the main line of work is called `main`.** **Settings →
-     General → Default branch** — rename it there if it is called anything
-     else. The automatic check installed above watches a branch by that
-     exact name, so on a project that calls it something different the
-     check never runs and the project looks fine while nothing is being
-     checked.
-   - **Let the automation open proposals.** **Settings → Actions → General
-     → Workflow permissions**, and tick *Allow GitHub Actions to create and
-     approve pull requests*. Without it, anything that tries to open a
-     proposal automatically stops with a permission error.
+7. **Optionally, walk them through the settings only they can turn on.**
+   None of these can be done from here, none is urgent, and each fails
+   quietly rather than loudly — so offer them as things worth doing rather
+   than as a gate, keep it brief, and **say you can give more specific
+   instructions for any of them if they want**. Written out, in this order
+   (click-paths as of 2026-09-10):
+   1. **If the project's repository is being created now, make it
+      private** unless it is meant to be public — that choice is made at
+      creation time and is easy to walk past.
+   2. **Make a developer key and store it in the project.** In GitHub,
+      create a personal access token that can reach this repository, then
+      save it under **Settings → Secrets and variables → Actions → New
+      repository secret**, named `PRECEDENT_REPO_TOKEN` unless something
+      already expects another name. Without a key of its own, an assistant
+      working here can read and prepare changes but cannot push them or
+      open a proposal on the project's behalf.
+   3. **Check the main line of work is called `main`** — **Settings →
+      General → Default branch**, renaming it there if it is called
+      anything else. The automatic check installed above watches a branch
+      by that exact name.
+   4. **Let the automation open proposals** — **Settings → Actions →
+      General → Workflow permissions**, ticking *Allow GitHub Actions to
+      create and approve pull requests*.
+
+   Put the same four into `GETTING_STARTED.md` so they are findable after
+   this conversation closes.
 8. **Hand them the keys.** Close by telling them three things: members are
    onboarded by saying **"Add project members"** to the project's agent
    (the installed instructions file teaches every future session how to

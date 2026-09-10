@@ -569,6 +569,22 @@ original 52 carrying a Detail, 17 → 18; words in `## Detail`, 3,243 → 3,667.
 Rules over 150 words did **not** move — the Rule clause was cut to fit
 inside that budget rather than the budget's record being adjusted to fit it.
 
+**Revised the same day, on Morgan's instruction, and the revision is the
+part to read.** The trio became four — the repository is **private unless it
+is meant to be public** — and everything about it got quieter: these are
+suggestions that head off a later surprise, not a gate an install fails, and
+the whole GitHub passage is deliberately short so it does not read as the
+point of installing Precedent. The two paths now differ on purpose: the
+technical one ([INSTALL.md](INSTALL.md) §1 step 10) is a single short
+paragraph, a sentence of it on the token, and leaves the rest to a
+developer; the non-technical one ([SETUP.md](SETUP.md) step 7) writes the
+steps out and **offers more specific instructions on any of them if the
+person wants them**, which
+[templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) repeats so the
+offer survives the conversation. Detail words moved again, 3,667 → 3,785;
+the Rule was re-trimmed to stay at 150. Decision record:
+[decisions/2026-09-10-github-settings-optional-and-short.md](decisions/2026-09-10-github-settings-optional-and-short.md).
+
 ## Cross-referenced only, not a behavior change
 
 **A scope note on the entry below, added 2026-09-03**: "no `checked_by`

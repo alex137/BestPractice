@@ -505,41 +505,25 @@ it applies.
      again on an update, since a project's answer can change after this
      one-time question at install.
 
-10. **Close by naming the three repository settings only the repository's
-    owner can set** — on a first install, and again on any first vendoring
-    into a repo that has never carried Precedent before. Say all three in
-    the closing reply, in plain language, *and* write them into
-    `GETTING_STARTED.md`'s administrator section (step 8's disclosure):
-    saying it once in chat is not a record, and a setting only mentioned in
-    a session transcript is a setting nobody will find again. None of the
-    three can be done from a session — each needs a person with admin
-    rights on the repository, clicking in GitHub's own settings. Click-paths
-    below verified 2026-09-10.
-    - **A developer token, stored in this repository as a secret.** Create a
-      GitHub personal access token with access to this repository, then add
-      it at **Settings → Secrets and variables → Actions → New repository
-      secret**. Use the name whatever consumes it expects; where nothing
-      else dictates one, `PRECEDENT_REPO_TOKEN`. *Why it is needed:* the
-      token GitHub hands a workflow by default is scoped to that single run,
-      and an agent session or workflow that has to push a branch, open a
-      pull request, or reach a sibling repository has no credential of its
-      own without this. This is a different credential from §8's
-      `PRECEDENT_GIT_TOKEN`, which is read-only, lives in the *environment*
-      rather than the repository, and exists only to clone practice sets —
-      say which one you mean when you name either.
-    - **The default branch is `main`.** **Settings → General → Default
-      branch** — rename it there if the repository was created with
-      anything else. The installed workflow's `push` trigger names `main`
-      by literal string
-      ([templates/github-actions/doc-lint.yml.template](templates/github-actions/doc-lint.yml.template)),
-      so on a repository whose default branch is called something else the
-      check simply never fires on merges — the most expensive kind of
-      failure, because it looks exactly like a passing repository.
-    - **Allow GitHub Actions to create and approve pull requests.**
-      **Settings → Actions → General → Workflow permissions**, and tick
-      *Allow GitHub Actions to create and approve pull requests*. Without
-      it, any workflow that opens a pull request on the project's behalf
-      fails at the moment it tries, not at configuration time.
+10. **Optionally, mention the GitHub settings only the repository's owner
+    can click.** None of them can be done from a session and each fails
+    quietly rather than loudly, so an install that names them saves a later
+    surprise — offer them as suggestions, briefly, not as a gate. Suggest
+    making the repository **private** unless it is meant to be public; a
+    **personal access token for this repository, saved as a repository
+    secret** (**Settings → Secrets and variables → Actions**, named
+    `PRECEDENT_REPO_TOKEN` unless something already expects another name),
+    is what lets a session or workflow push a branch or open a pull request
+    on the project's behalf, and is not §8's read-only, environment-level
+    `PRECEDENT_GIT_TOKEN` — a developer can take it from there; the
+    **default branch should be `main`** (**Settings → General → Default
+    branch**), which the shipped workflow template names as a literal
+    string; and ***Allow GitHub Actions to create and approve pull
+    requests*** (**Settings → Actions → General → Workflow permissions**)
+    is needed by anything that opens a pull request for the project. Worth
+    repeating in `GETTING_STARTED.md`, where they survive the conversation.
+    The plain-language, step-by-step version is [SETUP.md](SETUP.md)
+    step 7. *(Click-paths as of 2026-09-10.)*
 
 `.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8),
 appended to the baseline `.gitignore` instantiated above from
@@ -675,12 +659,8 @@ not this section.
    vendored engine and universal catalogue live under `tools/` and step
    1's tracked path, not scattered elsewhere.
 8. Commit everything on a branch, same as §1.
-9. **Close by naming the three owner-only repository settings**, exactly as
-   §1 step 10 says — the developer token stored as a repository secret, the
-   default branch named `main`, and *Allow GitHub Actions to create and
-   approve pull requests*. This path installs a different layout, not a
-   different GitHub account: the three settings, and the reason each one
-   fails silently when it is missing, are identical here.
+9. **Mention the same optional owner-only settings** as §1 step 10 — this
+   path installs a different layout, not a different GitHub account.
 
 **What has and has not been rehearsed, stated plainly rather than left to
 be discovered.** Every step here has been walked end to end against a

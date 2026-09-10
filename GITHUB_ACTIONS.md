@@ -88,20 +88,15 @@ GitHub Actions is normally available automatically, but an organization or repos
 
 The first pull request that introduces a workflow may be subject to GitHub's normal approval or security controls, especially for contributions from forks.
 
-Two further settings belong to the same moment, and an install's closing
-message is required to name both ([INSTALL.md](INSTALL.md) §1 step 10):
-
-- **The default branch must be named `main`**, at **Settings → General →
-  Default branch**. The supplied template's `push` trigger names `main` as a
-  literal string, so on a repository whose default branch is called anything
-  else the check never fires on merges — it fires on pull requests and then
-  goes silent exactly where enforcement matters most.
-- **Workflow permissions must allow Actions to open pull requests**, at
-  **Settings → Actions → General → Workflow permissions** (*Allow GitHub
-  Actions to create and approve pull requests*). The supplied Markdown check
-  does not need this; anything that opens a pull request on the project's
-  behalf does, and it fails at the attempt rather than at configuration
-  time. *(Click-paths verified 2026-09-10.)*
+Two further settings belong to the same moment and are worth mentioning
+when an install finishes ([INSTALL.md](INSTALL.md) §1 step 10): the
+**default branch should be named `main`** (**Settings → General → Default
+branch**), since the supplied template's `push` trigger names `main` as a
+literal string and a differently-named default branch runs no check on
+merges; and **workflow permissions should allow Actions to open pull
+requests** (**Settings → Actions → General → Workflow permissions**), which
+the supplied Markdown check does not need but anything opening a pull
+request for the project does. *(Click-paths as of 2026-09-10.)*
 
 ## Make the Check Required
 
