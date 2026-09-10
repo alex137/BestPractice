@@ -2394,7 +2394,13 @@ which is the failure this repointing exists to end — write
    is a session's judgment call, not his — the other plausible home is
    **Keeping the Corpus Honest**, and a third answer is that Verification
    should have survived holding the new item alone.
-   **Disposition:** ask (2026-09-09, the session that made the placement)
+   **Resolved 2026-09-10, `strength: decided`.** Morgan, asked to choose
+   between leaving it in **Memory & Context**, moving it to **Keeping the
+   Corpus Honest**, or reviving **Verification** to hold it: *"#1 that's
+   fine."* The placement stands as made. Recorded `decided` rather than
+   `assented` because he chose from options laid out for him
+   ([decision-strength](practices/decision-strength.md)), which is the
+   difference between the two.
 
 49. <a id="cross-owner-add-repo-push"></a>**Measure whether `add_repo` refuses a cross-owner attachment in the
    REVERSE direction, with `access: "push"`.** Every measurement so far ran
