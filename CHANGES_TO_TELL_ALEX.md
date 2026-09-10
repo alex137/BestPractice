@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-08 by the session that carried Alex's 2026-09-08 `main` check-in onto this branch -->
+<!-- Last updated: 2026-09-10 by the session that pinned the source-clone branch and made precedent_sync_views.py's --repo required -->
 <!--record-doc--> This file quotes practice Rules verbatim to say what changed in them, so it names the apparatus doc_lint.py check 6 keeps out of deliverables. It is a record document, not a deliverable.
 
 # Changes to tell Alex
@@ -796,6 +796,33 @@ different capture groups — silently breaking `document_anchors`. The
 `doc_html` half of the same change *was* taken: the render stamps GitHub
 slugs as heading ids, which is what makes those links land in the HTML
 product.
+
+## Not a practice change — one adopter-facing behaviour change lands with the merge
+
+Also not a change to what one of your practices means, and also recorded here
+because this file is what the phase-7 conversation opens with.
+
+**`tools/precedent_sync_views.py --repo` is required as of 2026-09-10**, where
+it used to default to the script's own parent directory. That tool does not
+exist on `main` today, so nothing changes for you until the fold-in — but the
+moment it lands, **anyone who had been running it bare gets an exit 1 instead
+of a run.** From a consuming repo's root the invocation is
+`python3 tools/precedent_sync_views.py --repo .`, and the two documented
+invocations in [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)
+were updated with the change.
+
+The default was removed rather than documented better because it had already
+been documented: the docstring named it as a trap, and on 2026-09-09 a careful
+session ran the tool bare anyway, `--repo` resolved to `process/upstream/`, the
+team sources' `../` paths resolved against `process/`, every source missed, and
+the run hard-failed blaming a path collision in a repository where nothing was
+wrong. **A documented trap that still catches a reader is an argument for a
+refusal, not for a better paragraph.**
+
+Nothing else in the source-clone work reaches `main`'s own behaviour: the
+branch pin added the same day governs how practice-set *sources* are cloned,
+never which branch anyone works on, and the three tools involved are absent
+from `main` entirely.
 
 ## Not a practice change — the merge-back itself has a trap in it
 
