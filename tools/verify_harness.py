@@ -4502,6 +4502,39 @@ def check_precedent_check_fires():
                 '          git commit -m "refresh"\n', encoding='utf-8')
         case('ci-commits-carry-identity', _plant_ci_identity)
 
+        # ...and the FIXED workflow, still carrying the incident note its own
+        # fix is about, must PASS. This is the case that did not exist when
+        # the check landed, and its absence shipped a false positive within
+        # the hour: CI_BOT_RE read the raw file while CI_COMMIT_RE read the
+        # comment-stripped body, so a workflow explaining why it does NOT
+        # use the bot was reported as one that does. The only ways out were
+        # deleting the explanation or wording around it -- the check
+        # punished a repo for citing the incident. Found independently by
+        # two sessions, each against a real workflow, neither of which had
+        # done anything wrong.
+        fixed = fresh('ci-commits-carry-identity-documented')
+        wf_dir = fixed / '.github' / 'workflows'
+        wf_dir.mkdir(parents=True, exist_ok=True)
+        (wf_dir / 'zzz-refresh.yml').write_text(
+            'name: refresh\non: {schedule: [{cron: "0 6 * * 1"}]}\n'
+            'jobs:\n  r:\n    runs-on: ubuntu-latest\n    steps:\n'
+            '      - run: |\n'
+            '          # THE AUTHOR COMES FROM identity.json, NEVER the\n'
+            '          # runner. This step hardcoded `github-actions[bot]`\n'
+            '          # and committed on the runner UTC clock.\n'
+            '          NAME=$(python3 -c \'import json;'
+            'print(json.load(open("identity.json"))["name"])\')\n'
+            '          [ -z "$NAME" ] && exit 1\n'
+            '          git config user.name "$NAME"\n'
+            '          TZ="$DECLARED_TZ" git commit -m "refresh"\n',
+            encoding='utf-8')
+        rc_fixed, out_fixed = run(fixed, 'ci-commits-carry-identity')
+        cases.append(('ci-commits-carry-identity: a FIXED workflow that '
+                      'documents the bot-authorship incident in a comment '
+                      'passes -- the check reads code, not prose, so citing '
+                      'the incident is never what fires it',
+                      rc_fixed == 0 and 'VIOLATION' not in out_fixed))
+
         # github-setup-disclosed -- a new workflow file, undisclosed
         case('github-setup-disclosed',
              lambda repo: (repo / '.github' / 'workflows' / 'zzz-planted.yml')

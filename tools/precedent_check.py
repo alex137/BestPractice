@@ -2545,17 +2545,31 @@ def _ci_commits_carry_identity(ctx):
             text = wf.read_text(encoding='utf-8', errors='ignore')
         except OSError:
             continue
-        # Comment lines do not commit. A workflow explaining why it does
-        # NOT commit would otherwise be read as one that does.
-        body = '\n'.join(ln for ln in text.splitlines()
-                         if not ln.lstrip().startswith('#'))
+        # COMMENTS ARE BLANKED, NOT DROPPED, AND EVERY TEST BELOW READS
+        # `body` (corrected 2026-09-10, the same day this check landed).
+        #
+        # The first version stripped comments for the commit test and read
+        # the RAW text for the bot test, four lines apart in this same
+        # function. So a workflow explaining why it does NOT use the bot
+        # was read as one that does -- and the workflow that hit it was the
+        # one that had just been FIXED, carrying the incident note its own
+        # fix is about. The check punished a repo for citing the incident,
+        # which is the opposite of what cite-the-incident asks for, and the
+        # only ways out were deleting the explanation or wording around it.
+        # Found independently by two sessions within an hour, each against
+        # a real workflow.
+        #
+        # Blanking rather than dropping keeps every line number equal to
+        # the file's own, so a finding still points where a reader looks.
+        body = '\n'.join('' if ln.lstrip().startswith('#') else ln
+                          for ln in text.splitlines())
         if not CI_COMMIT_RE.search(body):
             continue                 # reads only -- nothing to author
         committing.append(wf)
         rel = wf.relative_to(ROOT).as_posix()
-        bot = CI_BOT_RE.search(text)
+        bot = CI_BOT_RE.search(body)
         if bot:
-            line = text.count('\n', 0, bot.start()) + 1
+            line = body.count('\n', 0, bot.start()) + 1
             out.append(Finding(
                 f'{rel}:{line}',
                 'commits as the github-actions bot. A workflow runs on a '
@@ -2565,15 +2579,15 @@ def _ci_commits_carry_identity(ctx):
                 'declared identity.json and exit non-zero if any is '
                 'missing; falling back to the bot is the failure, not a '
                 'lesser version of the fix'))
-        elif CI_SETS_IDENTITY_RE.search(text) and not CI_READS_DECLARED_RE.search(text):
-            m = CI_SETS_IDENTITY_RE.search(text)
-            line = text.count('\n', 0, m.start()) + 1
+        elif CI_SETS_IDENTITY_RE.search(body) and not CI_READS_DECLARED_RE.search(body):
+            m = CI_SETS_IDENTITY_RE.search(body)
+            line = body.count('\n', 0, m.start()) + 1
             out.append(Finding(
                 f'{rel}:{line}',
                 'configures a git identity but reads no declared one (no '
                 'identity.json, no PRECEDENT_COMMIT_*), so whatever it '
                 'commits is authored by whatever that line happens to say'))
-        elif not CI_READS_DECLARED_RE.search(text):
+        elif not CI_READS_DECLARED_RE.search(body):
             out.append(Finding(
                 rel,
                 'runs `git commit` without resolving any declared identity, '
