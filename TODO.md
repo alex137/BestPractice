@@ -2646,3 +2646,40 @@ which is the failure this repointing exists to end — write
    thread that found it and not yet answered. Left at `wait` deliberately:
    only the person an item waits on may set it to `ask`, and a session
    stamping that for him is the session giving itself permission to chase.
+
+55. <a id="private-owner-allowlist-inert"></a>**The repo-reference allowlist is
+   inert here, and this public tree names the account that owns the private
+   practice sets.** Found 2026-09-10 while answering a question about
+   `PRECEDENT_SOURCE_BASE_URL`.
+
+   **What is actually there.** [INSTALL.md](INSTALL.md) §8 explains that the
+   base URL is an environment variable precisely so that **no tracked file
+   names the account owning the private sets**. That is not true of this
+   repository as it stands: `.claude/hooks/precedent-individual-bootstrap.sh`
+   is tracked and carries the individual set's full URL, account included,
+   and the same account name appears across a dozen files under
+   [spec/](spec/). Every one of those five repositories is private.
+
+   **Why nothing caught it.** The mechanism built for exactly this is the
+   private-owner allowlist — declare an owner private-by-default in the
+   blocklist and every `owner/name` mention is refused unless an `allow` line
+   gives a reason. No such declaration exists, so
+   [tools/leak_gate.py](tools/leak_gate.py) prints `NOTE: ... the
+   repo-reference allowlist is INERT` on every run and passes. The guard is
+   present, correct, and switched off, which reads identically to a guard
+   with nothing to find.
+
+   **What is not claimed.** That this is worth acting on. The names are
+   already published and in git history, so nothing here is recoverable by
+   editing the tree, and [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)
+   rules out rewriting published history to chase it. The forward question is
+   only whether to switch the allowlist on and work through what it flags, so
+   the NEXT such name is caught before it lands.
+
+   **blocked-on:** Morgan — whether a disclosure already made is worth
+   closing forward is his call, not a session's, and switching the allowlist
+   on will flag existing text that then needs a verdict file by file.
+
+   **Disposition:** wait (2026-09-10, Morgan) — raised with him once in the
+   thread that found it and not answered; recorded here so it does not die
+   with that window, not so a later session can chase it.
