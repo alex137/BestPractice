@@ -178,7 +178,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 93 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 94 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -296,6 +296,8 @@ When adding or re-syncing a document under philosophy/:
   philosophy-declares-its-source — an essay carries its origin on line one -- a record, not a sync pointer
 When an install step adds something GitHub-specific, or a first install finishes:
   github-setup-disclosed — disclose GitHub setup where its people read; offer owner settings at install
+When asking the person to do something in another session:
+  handoff-is-pasteable — name the repo, give the exact text to paste, end with the way back
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
