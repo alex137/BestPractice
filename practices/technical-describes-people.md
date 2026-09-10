@@ -64,14 +64,14 @@ shipped a tracked `.claude/settings.json` denying `git push`, `git merge`,
 non-technical contributor. A tracked settings file binds **every** session on
 the repository, so it bound the maintainers too.
 
-It was found the only way it could be: Alex installed the template into a real
+It was found the only way it could be: Morgan installed the template into a real
 project and, as the repository's own administrator, could not push or merge his
 own work. The shipped file's comment had to tell him to edit it before he could
 land anything.
 
 **The directory name is where the mistake started.** Reading
 `nontechnical-document-project`, the whole repository looks like "the
-non-technical thing", so a repo-wide restriction reads as correct. Alex named
+non-technical thing", so a repo-wide restriction reads as correct. Morgan named
 it after the fix was already underway: *"we don't differentiate between
 technical and non-technical PROJECTS only people."* The template is now
 `templates/document-project/`.
