@@ -195,6 +195,31 @@ conversation:
   because it reworks someone's writing, collides with other work, or
   touches something you've pushed back on before.
 
+### Settings Only You Can Turn On
+
+Three things had to be done by hand, in GitHub's own settings pages, by
+someone with administrator rights on this project. The assistant that
+installed this could not do them for you, and each one fails *quietly* —
+nothing turns red, the project simply stops being checked or stops being
+able to act. Click-paths as of <install date>.
+
+- **A developer key, stored in this project.** A personal access token
+  (GitHub's name for a key that stands in for a person) that can reach this
+  repository, saved here under **Settings → Secrets and variables →
+  Actions → New repository secret**, named `PRECEDENT_REPO_TOKEN` unless
+  something here expects another name. Without it an assistant working on
+  this project can read and prepare changes but cannot push a branch or
+  open a proposal on the project's behalf.
+- **The main line of work is called `main`.** **Settings → General →
+  Default branch**. The Markdown check below watches a branch by that exact
+  name, so if this project's default branch is called something else, the
+  check never runs on merges — and a project nothing is checking looks
+  exactly like a project passing every check.
+- **Automation is allowed to open proposals.** **Settings → Actions →
+  General → Workflow permissions**, with *Allow GitHub Actions to create
+  and approve pull requests* ticked. Without it, anything that tries to
+  open a proposal for you stops with a permission error.
+
 ### Automatic Checks Installed for This Project
 
 <!-- Standing note (INSTALL.md §1 step 8 / practice `github-setup-disclosed`): every

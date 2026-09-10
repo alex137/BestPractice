@@ -294,8 +294,8 @@ When adding or re-levelling a heading in any document:
   heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
 When adding or re-syncing a document under philosophy/:
   philosophy-declares-its-source — an essay carries its origin on line one -- a record, not a sync pointer
-When an install step adds something GitHub-specific:
-  github-setup-disclosed — disclose GitHub-specific setup where the project's people read
+When an install step adds something GitHub-specific, or a first install finishes:
+  github-setup-disclosed — disclose GitHub-specific setup where its people read; name the three at install
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
