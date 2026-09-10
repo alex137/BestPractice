@@ -138,4 +138,36 @@ The useful division of responsibility is:
 
 > Agents interpret intent and prepare changes. GitHub Actions enforces repeatable checks.
 
+**A workflow that COMMITS is outside
+[commit-identity.sh](templates/harness/claude-code/hooks/commit-identity.sh)'s
+reach, and nothing here will tell you so.** That hook resolves whoever is
+running the session and installs a `pre-commit` backstop refusing the
+container's bot account — but it runs at *session start*, in an agent's
+session. A GitHub Actions runner never runs it. So a workflow that commits
+on your behalf authors as `github-actions[bot]`, on the runner's UTC clock,
+and both of those are exactly what an adopter's `commit-author` and
+timezone checks exist to refuse.
+
+**A workflow that commits therefore resolves the author itself** — read
+`name`, `email` and `timezone` from the individual source's `identity.json`
+and **refuse the run outright if any of the three is missing**, rather than
+falling back to the bot. A fallback here is the failure: it produces a
+commit that looks fine until something checks it.
+
+Found 2026-09-10 in a real practice set, by a refresh workflow that had been
+mis-authoring **every** commit it ever made. Nobody had seen it because the
+two checks that would have caught it were themselves reporting SKIPPED —
+they could not resolve an identity inside a practice set until
+[tools/precedent_identity.py](tools/precedent_identity.py) moved into the
+vendored engine that same day. The moment they went live, the workflow's own
+commit was the first thing they flagged. **Two silent failures were holding
+each other up**, which is the general shape worth remembering: a check that
+cannot run is not evidence that what it checks is fine.
+
+Precedent itself ships no committing workflow — its three
+([deep-check](.github/workflows/deep-check.yml),
+[docs](.github/workflows/docs.yml),
+[leak-gate](.github/workflows/leak-gate.yml)) all read and none writes — so
+there is nothing to fix here. This is a limit to know before you add one.
+
 *GitHub interface and product behavior verified August 2, 2026. Settings and labels can change.*
