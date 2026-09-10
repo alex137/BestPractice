@@ -6374,9 +6374,16 @@ def check_commit_identity_derives_declared_timezone():
         # person's commits and generated dates came out +0000 and could not
         # be ordered against anyone else's. The fallback is applied for that
         # reason and still never ENFORCED -- case 3 below holds that line.
+        #
+        # The expected value is DERIVED, never typed here. Typed, it is a
+        # fourth copy of a constant that already lives in four places, and on
+        # 2026-09-10 -- when the engine fallback moved off one person's zone
+        # onto a generic one -- these two assertions were the only thing that
+        # failed, because they were the copies nobody knew to change.
         f, r3 = _repo(tmp / 'guessed', None)
-        cases.append(('an unresolved zone still writes the declared fallback',
-                      _tz(f) == 'America/Argentina/Buenos_Aires'))
+        cases.append((f'an unresolved zone still writes the declared fallback '
+                      f'({_declared_fallback_tz()})',
+                      _tz(f) == _declared_fallback_tz()))
         cases.append(('and says out loud that it is a fallback, not this '
                       "person's own zone",
                       'DECLARED FALLBACK' in r3.stderr))
@@ -6973,9 +6980,10 @@ def check_commit_identity_prevents_the_wrong_offset():
         r2 = subprocess.run(['bash', str(hook)], capture_output=True, text=True,
                             timeout=120,
                             env=dict(_env(home, lt2), CLAUDE_PROJECT_DIR=str(guessed)))
-        cases.append(('an unresolved zone repoints the clock to the fallback',
+        cases.append((f'an unresolved zone repoints the clock to the fallback '
+                      f'({_declared_fallback_tz()})',
                       os.path.islink(lt2) and os.readlink(lt2)
-                      == '/usr/share/zoneinfo/America/Argentina/Buenos_Aires'))
+                      == f'/usr/share/zoneinfo/{_declared_fallback_tz()}'))
         cases.append(('and names it a fallback rather than this person\'s zone',
                       'DECLARED FALLBACK' in r2.stderr))
         # The line that must NOT move: applied is not enforced. A hook run
@@ -7255,6 +7263,19 @@ def check_verify_reports_a_source_wired_for_fewer_moments():
     failed = [n for n, ok in cases if not ok]
     check(f'verify() reports a source wired for fewer moments than the '
           f'adapter ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def _declared_fallback_tz():
+    """This repository's declared last-resort timezone, read from the engine
+    rather than typed into a test.
+
+    precedent_check.py's `timestamps-carry-offset` already asserts that
+    precedent.json, precedent_time.FALLBACK_TZ and both copies of
+    commit-identity.sh agree, so reading any one of them is reading all four
+    -- and reading beats restating, which is what turned a one-line value
+    change into two mystery failures once already."""
+    import precedent_time
+    return precedent_time.FALLBACK_TZ
 
 
 def check_commit_identity_copies_are_identical():

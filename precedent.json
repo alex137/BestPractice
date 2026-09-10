@@ -21,7 +21,7 @@
     "exists to stop relying on."
   ],
   "visibility": "public",
-  "fallback_timezone": "America/Argentina/Buenos_Aires",
+  "fallback_timezone": "America/New_York",
   "_fallback_timezone_comment": [
     "The zone used to stamp commits and generated dates when NOBODY'S own",
     "zone could be resolved -- no PRECEDENT_COMMIT_TZ, no identity.json",
