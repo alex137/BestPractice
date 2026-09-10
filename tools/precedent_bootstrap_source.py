@@ -132,6 +132,10 @@ HARNESS_HOOKS = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
 # while a hook that is not executable is a hook that silently never runs.
 SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh')
 HARNESS_HOOKS_REL = 'templates/harness/claude-code/hooks/'
+# Named separately rather than derived as HARNESS_HOOKS_REL + '../settings.json':
+# a path a person has to mentally normalise before they can go open it is a
+# worse instruction than the path itself (practice: label-describes-content).
+HARNESS_SETTINGS_REL = 'templates/harness/claude-code/settings.json'
 
 
 def _install_session_hooks(dest, base_branch='main'):
@@ -143,7 +147,15 @@ def _install_session_hooks(dest, base_branch='main'):
     Neither hook names a person. commit-identity.sh resolves whoever is
     actually running the session -- see its own header for the order it
     tries, and why the timezone is the only thing it is ever willing to
-    guess at."""
+    guess at.
+
+    WHERE A CHANGE TO THE WIRING BELOW DOES AND DOES NOT REACH. The hook
+    FILES are rewritten on every call, so a set this runs against picks up
+    the current scripts. The settings.json is written only when the set has
+    none -- so adding an event here reaches sets created from now on, and
+    never a set that already has a settings.json, including one this tool is
+    re-run against. verify()'s wiring check below is what covers those: the
+    generator cannot repair them, so something has to report them."""
     hooks_dir = dest / '.claude' / 'hooks'
     hooks_dir.mkdir(parents=True, exist_ok=True)
     written = []
@@ -167,6 +179,16 @@ def _install_session_hooks(dest, base_branch='main'):
                 "The PreToolUse matcher includes Bash deliberately -- an agent editing",
                 "files through cat/sed/python3 never touches Edit or Write at all.",
                 "",
+                "The guard is wired THREE times, matching",
+                "templates/harness/claude-code/settings.json. SessionStart fires once",
+                "at the start and pre-write fires once at the first write, so a session",
+                "left open across a break has spent both and nothing rechecks the",
+                "checkout however far origin moves underneath it. UserPromptSubmit is",
+                "the only one that keeps firing, so it is the only one that reaches",
+                "that case; it is throttled to one real check per 600s and always exits",
+                "0, because a UserPromptSubmit hook that exits non-zero eats the message",
+                "somebody just typed.",
+                "",
                 "No env identity is set here: a source repo may have more than one",
                 "person committing to it, and commit-identity.sh resolves each of them",
                 "at session start instead of anybody being named in a tracked file.",
@@ -178,6 +200,12 @@ def _install_session_hooks(dest, base_branch='main'):
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh session-start ' + base_branch},
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity.sh'},
+                    ],
+                }],
+                'UserPromptSubmit': [{
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh user-prompt ' + base_branch},
                     ],
                 }],
                 'PreToolUse': [{
@@ -209,7 +237,11 @@ def _seed_approvers_json(dest, approvers):
 
 
 def verify(level, path):
-    """-> [str] files this level's skeleton ships that `path` does not have.
+    """-> [str] the ways `path` falls short of what this level's skeleton and
+    this tool's bootstrap produce: files it does not have, files that are
+    malformed, and session hooks wired for fewer moments than the harness
+    adapter wires them for. Not files alone -- the wiring findings name a
+    file that IS present and a moment at which it does not run.
 
     The tool that DEFINES a source's shape is the one that can say whether
     a source still has it, so the definition is read straight off the
@@ -277,7 +309,73 @@ def verify(level, path):
         missing.append(f"{pathlib.Path('.claude') / 'settings.json'} "
                        f"(written by this tool's bootstrap, not shipped in "
                        f"either skeleton)")
+    else:
+        # A hook that EXISTS and is wired can still be wired for fewer
+        # moments than the adapter wires it for, and the checks above cannot
+        # see that: they ask whether the file runs, not when. Every set
+        # bootstrapped between 2026-09-06 and the day this check landed was
+        # missing the guard's `user-prompt` wiring for exactly that reason
+        # and audited clean throughout.
+        want = _template_guard_modes()
+        have = _source_guard_modes(path)
+        for mode in sorted(want - have):
+            missing.append(f"freshness-guard.sh `{mode}` is installed but NOT "
+                           f"WIRED in .claude/settings.json (the adapter at "
+                           f"{HARNESS_SETTINGS_REL} wires it)")
     return missing + _malformed(level, path)
+
+
+def _template_guard_modes():
+    """-> {str} freshness-guard modes the harness adapter's own settings.json
+    wires. Read off the template rather than listed here: a hardcoded list
+    would be one more copy of the wiring, and copies of this wiring drifting
+    from each other is the exact failure this check exists to catch."""
+    tmpl = ROOT / 'templates' / 'harness' / 'claude-code' / 'settings.json'
+    try:
+        data = json.loads(tmpl.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    return _guard_modes(data)
+
+
+def _guard_modes(settings_data):
+    """-> {str} the MODE argument of every freshness-guard.sh command in a
+    parsed settings.json, whatever path it is invoked by.
+
+    The mode, not the whole command: the base branch is passed explicitly
+    and differs per repo on purpose (BestPractice's own base is not `main`),
+    so comparing command strings would report that deliberate difference as
+    drift."""
+    out = set()
+
+    def _walk(node):
+        if isinstance(node, dict):
+            cmd = node.get('command')
+            if isinstance(cmd, str) and 'freshness-guard.sh' in cmd:
+                parts = cmd.split()
+                for i, word in enumerate(parts):
+                    if word.endswith('freshness-guard.sh') and i + 1 < len(parts):
+                        out.add(parts[i + 1])
+                        break
+            for v in node.values():
+                _walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                _walk(v)
+
+    _walk(settings_data.get('hooks', {}))
+    return out
+
+
+def _source_guard_modes(path):
+    """-> {str} freshness-guard modes a source's own settings.json wires."""
+    settings = path / '.claude' / 'settings.json'
+    if not settings.is_file():
+        return set()
+    try:
+        return _guard_modes(json.loads(settings.read_text(encoding='utf-8')))
+    except (OSError, json.JSONDecodeError):
+        return set()
 
 
 def _wired_hook_paths(path):
