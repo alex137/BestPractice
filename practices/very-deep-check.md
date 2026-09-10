@@ -576,7 +576,10 @@ Last because none of it strands an adopter, and none of it is cheap.
   checkout and for every source that is its own git checkout (a repo-local
   source inside the parent checkout shares its parent's branches and isn't
   swept separately), two lists per repo. Neither may be left without a
-  verdict.
+  verdict. **Every source the repo declares is swept, at any level** — what
+  decides is whether the path is its own git checkout, which the tool
+  settles by looking, not the source's level. A vendored tree inside the
+  parent has no branches of its own; a sibling clone has plenty.
 
   *Merged and not deleted* — every branch fully merged into that repo's
   integration branch and still sitting there: a mechanical, offline fact
@@ -595,6 +598,22 @@ Last because none of it strands an adopter, and none of it is cheap.
   retroactive sweep on its own ("a separate, one-off task, done only when
   asked for directly") — a very deep check is exactly that direct ask, so
   this is the one place the sweep is a standing step.
+
+  **Every row carries the date it last moved, and the list is split at a
+  declared staleness threshold** — `branch_stale_days` in the repo's own
+  [precedent.json](../precedent.json), overridable for one run with
+  `--stale-days N`. Both halves are equally proven safe to delete by the
+  ancestor test; the split sorts the chore rather than grading the
+  branches. **Merged *and* long-finished is the safest thing on the page**;
+  merged this week may still be checked out on somebody's machine, and
+  deleting it under them is a small rudeness the ancestor test cannot see.
+  A bare list of names cannot support either judgment, which is why one was
+  never acted on — see the Story.
+
+  **The threshold is a declared input, never a number in the engine**
+  ([constants-are-risk-inputs](constants-are-risk-inputs.md)): the right
+  value is a property of how fast a repo works, and a repo that has
+  declared nothing gets the engine's conservative default.
 
   *Not merged* — the more expensive half, and the reason this bullet is not
   only about deletion. A merged branch nobody deleted is clutter; a branch
@@ -903,6 +922,41 @@ while carrying nothing, and a report calling those "unlanded work" would
 teach the reader to wave the whole list through. On the first run it found
 a source branch nineteen commits deep, untouched since the day before, that
 nothing in this repo would otherwise have asked about again.
+
+Extended again 2026-09-10, and both halves came from Morgan asking a plain
+question about a real sweep: *does this give me a list of branches I can
+delete, across all the repos?* Reading the answer showed two things the
+sweep had been quietly getting wrong.
+
+**The deletion list had no dates.** The unmerged half had carried its date
+since the day above; the merged half — the half that actually ends in
+somebody deleting something — was a bare list of names. That is the wrong
+shape for the decision it feeds. Measured the same day on this repo: 69
+merged, undeleted branches, median age three days, oldest 39, and no way to
+see any of that from the report. The branch merged an hour ago and the one
+merged last quarter rendered identically, so the reader either deletes
+blind or defers the list again, and deferring is what had happened every
+time. Each row now carries its last-commit date and age, and the list is
+split at a declared threshold. **What made the threshold worth declaring
+rather than fixing in code**: the engine's conservative default of 90 days
+put *every one* of this repo's 69 branches on the recent side — a feature
+that shipped inert in the repo that asked for it. This repo declares 30.
+Nothing measured that either number is right; both are values picked to fit
+a distribution, said so in [precedent.json](../precedent.json) rather than
+dressed up ([no-invented-specifics](no-invented-specifics.md)).
+
+**And the sweep covered fewer repos than it read as covering.** It scanned
+this checkout plus sources at the `team` and `individual` levels only,
+because it reused `FATAL_MISSING_LEVELS` — the list of *whose absence
+aborts the run* — as if it also meant *whose branches are worth sweeping*.
+Two different questions, the same tuple, and they came apart the moment a
+repo declared a universal or repo-local source that is its own clone: its
+branches were never looked at, and the report named no gap, because the
+level test had already decided there was nothing there. The lesson is the
+narrow one: **a constant that answers one question is not evidence about
+another, however well it fits.** The tool asks every declared source now
+and lets the one honest test — is this path its own git checkout — answer,
+which it settles by looking; sources resolving to one clone are swept once.
 
 ## Install
 [tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope

@@ -12766,7 +12766,7 @@ def check_branch_scan_sees_every_branch():
             'refs/remotes/origin').stdout.splitlines() if r])
 
         scan = vdc.scan_branches(narrow, 'main') or {}
-        merged = set(scan.get('merged') or [])
+        merged = {r['name'] for r in (scan.get('merged') or [])}
         unmerged = {r['name'] for r in (scan.get('unmerged') or [])}
 
         results = [
@@ -12799,6 +12799,112 @@ def check_branch_scan_sees_every_branch():
               f'has, not only what this clone fetched ({len(results)} stated '
               f'cases, the single-branch clone being the controlling case and '
               f'an unreachable origin the negative control)',
+              not failed, '; '.join(failed) if failed else '')
+
+
+def check_merged_branches_carry_a_date_and_a_staleness_verdict():
+    """A merged, undeleted branch is reported with the date it last moved
+    and whether it is past the declared stale threshold
+    (practice: very-deep-check, pass 4).
+
+    THE GAP (asked 2026-09-10, by Morgan, of a real sweep). The merged half
+    of the branch sweep was a bare list of names. That list ends in a
+    deletion, and a name with no date cannot be acted on: the branch merged
+    this morning and the one merged last quarter render identically, so the
+    reader either deletes blind or -- what actually happens -- defers the
+    whole list again. Measured on this repo the same day: 69 merged
+    branches, median age 3 days, oldest 39, and no way to see any of that.
+
+    The threshold is a DECLARED input, so the controlling case here is not
+    "does 30 days work" but "does the declared number reach the sweep at
+    all" -- a default silently overriding a repo's own value would mark the
+    wrong branches and look exactly like a working feature.
+    """
+    import very_deep_check as vdc
+    import tempfile, datetime
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+
+        # Two merged branches at KNOWN ages, straddling the threshold. The
+        # dates are forced through the commit environment rather than taken
+        # from the clock, so this fixture owns its own state and cannot pass
+        # or fail on when it happens to run (practice: fixture-owns-its-state
+        # -- the neighbouring unmerged-verdict check was made to fail on the
+        # clock exactly once, which is why this is explicit here).
+        for branch, days in (('long-done', 400), ('just-landed', 1)):
+            when = (datetime.datetime.now(datetime.timezone.utc)
+                    - datetime.timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%S%z')
+            _git(up, 'checkout', '-q', 'main')
+            _git(up, 'checkout', '-q', '-b', branch)
+            (up / f'{branch}.txt').write_text(branch + '\n')
+            _git(up, 'add', '-A')
+            subprocess.run(['git', '-C', str(up), 'commit', '-qm', branch],
+                           capture_output=True, text=True,
+                           env={**os.environ,
+                                'GIT_AUTHOR_DATE': when,
+                                'GIT_COMMITTER_DATE': when,
+                                'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+            _git(up, 'checkout', '-q', 'main')
+            _git(up, 'merge', '-q', '--no-ff', '-m', f'merge {branch}', branch)
+
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+
+        scan = vdc.scan_branches(work, 'main', stale_days=90) or {}
+        rows = {r['name']: r for r in (scan.get('merged') or [])}
+
+        results = [
+            ('both merged branches are reported as merged',
+             set(rows) == {'long-done', 'just-landed'}),
+            ('every merged row carries the date it last moved',
+             all(r.get('last') and r.get('age_days') is not None
+                 for r in rows.values())),
+            ('the age is the real one, not the date of the merge or the clone',
+             rows.get('long-done', {}).get('age_days', 0) >= 399),
+            ('a branch past the threshold is marked stale',
+             rows.get('long-done', {}).get('stale') is True),
+            ('a branch inside the threshold is NOT marked stale',
+             rows.get('just-landed', {}).get('stale') is False),
+            ('the scan reports which threshold it applied',
+             scan.get('stale_days') == 90),
+        ]
+
+        # NEGATIVE CONTROL, and the controlling case: the same fixture at a
+        # threshold that puts BOTH branches on the recent side. If the
+        # passed-in number were ignored in favour of the default, 'long-done'
+        # would still read stale and every assertion above would still pass.
+        loose = vdc.scan_branches(work, 'main', stale_days=1000) or {}
+        loose_rows = {r['name']: r for r in (loose.get('merged') or [])}
+        results.append(
+            ('the DECLARED threshold decides, not a default compiled in -- '
+             'at 1000 days nothing is stale',
+             loose_rows and not any(r.get('stale') for r in loose_rows.values())))
+
+        # And a repo declaring its own value gets it without being asked.
+        (work / 'precedent.json').write_text(
+            json.dumps({'format_version': 1, 'branch_stale_days': 90}), encoding='utf-8')
+        declared = vdc.scan_branches(work, 'main') or {}
+        results.append(
+            ("a repo's own precedent.json branch_stale_days is read when no "
+             "threshold is passed",
+             declared.get('stale_days') == 90))
+
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check dates every merged branch and marks the '
+              f'stale ones ({len(results)} stated cases, a threshold that '
+              f'makes nothing stale being the negative control)',
               not failed, '; '.join(failed) if failed else '')
 
 
@@ -14310,6 +14416,7 @@ def main():
     check_freshness_gate_fires()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
+    check_merged_branches_carry_a_date_and_a_staleness_verdict()
     check_public_consumer_does_not_materialize_private_text()
     check_assumed_visibility_never_deletes_practices()
     check_sync_refuses_to_write_from_incomplete_sources()

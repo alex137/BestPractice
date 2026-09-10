@@ -38,12 +38,26 @@ deep check that silently runs without a source it was told to check is not
 a very deep check. Pass --allow-missing-sources for the rare case where
 that is actually intended.
 
-Also scans this checkout and every team/individual source that is its own
-git checkout for branches, in BOTH directions. Fully merged and not yet
-deleted (git merge-base --is-ancestor -- true regardless of whether
-GitHub's own "merged" flag is set, which it is not for a repo that lands
-PRs by direct push) is the cheap half. The half that costs more is the
-other one: a branch that never landed and that nobody ever decided about.
+Also scans this checkout and EVERY source precedent.json declares that is
+its own git checkout -- any level, not only the private ones -- for
+branches, in BOTH directions. A source that is a vendored tree inside the
+parent checkout has no branches of its own and is skipped by looking, not
+by guessing from its level; a source resolving to the same clone as another
+is scanned once.
+
+Fully merged and not yet deleted (git merge-base --is-ancestor -- true
+regardless of whether GitHub's own "merged" flag is set, which it is not
+for a repo that lands PRs by direct push) is the cheap half. Each of those
+rows carries the date it last moved and its age, and the list is split at a
+declared threshold (`branch_stale_days` in a repo's own precedent.json,
+STALE_DAYS_DEFAULT otherwise, `--stale-days N` for one run): merged AND
+long-finished is the safest thing on the page to delete, merged this week
+may still be checked out on somebody's machine. Both halves are equally
+proven safe by the ancestor test -- the split sorts the chore, it does not
+grade the branches.
+
+The half that costs more is the other one: a branch that never landed and
+that nobody ever decided about.
 Each of those is reported with what it is ahead by, when it last moved, and
 how many of its commits have no patch-equivalent on the integration branch
 (git cherry -- so a rebased or squash-merged branch is not mistaken for
@@ -104,6 +118,20 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_resolve as pr
 
 FATAL_MISSING_LEVELS = ('team', 'individual')
+
+# How old a MERGED, undeleted branch has to be before the sweep marks it
+# stale. A threshold nobody decided is doctrine, so this is a declared,
+# overridable input rather than a number buried in the code
+# (practice: constants-are-risk-inputs): a repo sets `branch_stale_days` in
+# its own precedent.json, and `--stale-days N` overrides it for one run.
+#
+# 90 days is a STARTING VALUE, not a measured one, and it is the only kind
+# of claim available here -- nobody has data on how long a merged branch
+# sits before it stops meaning anything (practice: no-invented-specifics,
+# which forbids dressing that up as a finding). It is deliberately well
+# past any review cycle: a branch merged last month may still be open in
+# somebody's editor, one merged last quarter is not.
+STALE_DAYS_DEFAULT = 90
 
 # Top-level documents worth reading for coherence, if a given scope has them.
 # Not every source will carry every name; only files that actually exist are
@@ -376,6 +404,26 @@ def _declared_base_branch(repo_dir):
         return v if isinstance(v, str) and v.strip() else None
     except Exception:
         return None
+
+def _declared_stale_days(repo_dir):
+    """-> a repo's own `branch_stale_days` from its precedent.json, or None.
+
+    Same shape and same reasoning as _declared_base_branch above: the number
+    belongs to the repo, declared where a person can see and argue with it,
+    not compiled into the engine every repo vendors
+    (practice: constants-are-risk-inputs, layered-practice-packs). Returns
+    None when undeclared, unreadable, or not a positive integer, so a
+    malformed value falls back to the default rather than failing a sweep
+    that has nothing to do with it (practice: fail-gracefully).
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(repo_dir) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('branch_stale_days')
+        return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+    except Exception:
+        return None
+
 
 def _default_remote_branch(repo_dir):
     """-> the short branch name origin/HEAD points at ('main', typically),
@@ -990,6 +1038,43 @@ def _template_freshness(sources):
     return out
 
 
+def _merged_row(repo_dir, name, ref, stale_days):
+    """-> the evidence a session needs to DELETE one branch that is already
+    an ancestor of the integration branch: {'name', 'last', 'age_days',
+    'stale'}.
+
+    THE GAP THIS CLOSES (asked 2026-09-10, by Morgan, reading a real sweep
+    of this repo). The merged half used to be a bare list of names. That is
+    the wrong shape for the decision it feeds: a person looking at 68 names
+    with no dates cannot tell the branch merged this morning -- which may
+    still be checked out in somebody's editor, and whose deletion is a small
+    rudeness -- from the one merged in April, which is pure clutter. Both
+    read identically, so the whole list gets waved through or none of it
+    does, and in practice none of it does. The unmerged half had carried its
+    date since it was written; the half that actually ends in a deletion had
+    not.
+
+    `stale` is age against a DECLARED threshold, never a judgment about the
+    branch's content: every row here is already proven safe to delete by the
+    ancestor test, so staleness only sorts the list by how obviously it is
+    finished. A row whose date cannot be read is `stale: None` -- unknown,
+    never False, since "no date" and "recent" are the same output otherwise
+    and the first is the one that needs saying (practice: fail-gracefully).
+    """
+    row = {'name': name, 'last': None, 'age_days': None, 'stale': None}
+    rc, out, _ = _run_git(repo_dir, 'log', '-1', '--format=%ct', ref)
+    if rc == 0 and out.strip().isdigit():
+        ts = int(out.strip())
+        row['last'] = _stamp(ts)
+        # Both sides aware and in one zone -- precedent_time owns every
+        # moment this project writes down (practice: timestamps-carry-offset,
+        # one-formatter-per-quantity).
+        row['age_days'] = max(
+            0, (precedent_time.now() - precedent_time.from_unix(ts)).days)
+        row['stale'] = row['age_days'] >= stale_days
+    return row
+
+
 def _unmerged_row(repo_dir, name, ref, target_ref, target):
     """-> the evidence a session needs to say MERGE or CLOSE about one
     branch that is not an ancestor of the integration branch.
@@ -1108,7 +1193,7 @@ def _fetch_all_heads(repo_dir):
     return missing, None
 
 
-def scan_branches(repo_dir, target=None, exclude=()):
+def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     """-> None if repo_dir isn't its own git checkout (a repo-local source
     living inside the parent checkout shares the parent's branches and has
     none of its own to scan) or its integration branch can't be resolved.
@@ -1123,10 +1208,17 @@ def scan_branches(repo_dir, target=None, exclude=()):
     `exclude` names branches never to report either way regardless of merge
     status -- the branch the invoking session is itself working on, which
     can be trivially "merged" (an ancestor of target) simply because no
-    commits have landed on it yet, long before it is actually done."""
+    commits have landed on it yet, long before it is actually done.
+
+    `stale_days` is the age at which a merged branch is marked stale; None
+    takes the repo's own declared `branch_stale_days`, then
+    STALE_DAYS_DEFAULT. Each merged entry is a _merged_row dict, never a
+    bare name -- see that function for why the deletion list needs dates."""
     repo_dir = pathlib.Path(repo_dir)
     if not (repo_dir / '.git').is_dir():
         return None
+    if stale_days is None:
+        stale_days = _declared_stale_days(repo_dir) or STALE_DAYS_DEFAULT
     default_branch = _default_remote_branch(repo_dir)
     # The DECLARED base branch wins over the inferred default: a repo whose
     # work is pinned away from its default (this repo, while
@@ -1163,11 +1255,13 @@ def scan_branches(repo_dir, target=None, exclude=()):
             continue
         rc, _, _ = _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, target_ref)
         if rc == 0:
-            merged.append(name)
+            merged.append(_merged_row(repo_dir, name, ref, stale_days))
         else:
             unmerged.append(_unmerged_row(repo_dir, name, ref, target_ref, target))
-    return {'target': target, 'merged': sorted(merged),
+    return {'target': target,
+            'merged': sorted(merged, key=lambda r: r['name']),
             'unmerged': sorted(unmerged, key=lambda r: r['name']),
+            'stale_days': stale_days,
             'unfetched': missing_heads or [], 'unreachable': reach_note,
             'path': str(repo_dir)}
 
@@ -1608,9 +1702,10 @@ def _exit(message):
 
 def main():
     args = sys.argv[1:]
-    repo, user_config, checkout_target = None, None, None
+    repo, user_config, checkout_target, stale_days = None, None, None, None
     for flag, dest in (('--repo', 'repo'), ('--user-config', 'user_config'),
-                       ('--target', 'checkout_target')):
+                       ('--target', 'checkout_target'),
+                       ('--stale-days', 'stale_days')):
         if flag in args:
             i = args.index(flag)
             if i + 1 >= len(args):
@@ -1621,6 +1716,14 @@ def main():
                 repo = value
             elif dest == 'user_config':
                 user_config = value
+            elif dest == 'stale_days':
+                # Refuse rather than silently falling back: a run asked for
+                # a threshold and given a different one reports a staleness
+                # that is not the one anybody asked about.
+                if not value.isdigit() or int(value) <= 0:
+                    sys.exit(f"very deep check FAIL: --stale-days needs a "
+                             f"positive whole number of days, not {value!r}.")
+                stale_days = int(value)
             else:
                 checkout_target = value
     as_json = '--json' in args
@@ -1742,16 +1845,46 @@ def main():
                      f"was rolled out last week. Run each remedy above, or "
                      f"--freshen, and start again.")
 
+    # EVERY source precedent.json declares, not only the private ones.
+    # This used to be gated on FATAL_MISSING_LEVELS ('team', 'individual'),
+    # which is the answer to a DIFFERENT question -- "whose absence should
+    # abort the run" -- reused here as if it also meant "whose branches are
+    # worth sweeping". The two came apart the moment a repo declared a
+    # universal or repo-local source that IS its own checkout: a vendored
+    # tree has no branches of its own and is right to skip, but a sibling
+    # clone of the upstream set has plenty, and nothing was looking at them.
+    # Asked 2026-09-10, by Morgan, of a sweep that had silently covered one
+    # repository and read as if it had covered them all.
+    #
+    # The level is the wrong test either way -- what matters is whether the
+    # path is its own git checkout, which scan_branches already decides by
+    # looking (it returns None for anything else). So ask every source and
+    # let that guard answer, rather than guessing from the level.
+    #
+    # Deduplicate by RESOLVED path: this repo declares itself as its own
+    # universal source (`"path": "."`), and several sources can point at one
+    # clone. Scanning it twice would print the same 68 branches under two
+    # headings, which reads as two repos needing attention.
     branch_scans = {}
     if not skip_branch_scan:
         _, checkout_branch, _ = _run_git(repo_root, 'rev-parse', '--abbrev-ref', 'HEAD')
         branch_scans['checkout'] = scan_branches(
-            repo_root, checkout_target, exclude=(checkout_branch,) if checkout_branch else ())
+            repo_root, checkout_target,
+            exclude=(checkout_branch,) if checkout_branch else (),
+            stale_days=stale_days)
+        _seen = {repo_root.resolve()}
         for s in data['sources']:
-            if s['level'] in FATAL_MISSING_LEVELS:
-                _, src_branch, _ = _run_git(s['path'], 'rev-parse', '--abbrev-ref', 'HEAD')
-                branch_scans[s['name']] = scan_branches(
-                    s['path'], exclude=(src_branch,) if src_branch else ())
+            try:
+                _p = pathlib.Path(s['path']).resolve()
+            except OSError:
+                continue
+            if _p in _seen:
+                continue
+            _seen.add(_p)
+            _, src_branch, _ = _run_git(s['path'], 'rev-parse', '--abbrev-ref', 'HEAD')
+            branch_scans[f"{s['level']} source {s['name']}"] = scan_branches(
+                s['path'], exclude=(src_branch,) if src_branch else (),
+                stale_days=stale_days)
 
     endgame = None if skip_endgame else endgame_merge(repo_root, checkout_target)
 
@@ -2158,16 +2291,36 @@ def main():
             incomplete = scan.get('unreachable') or scan.get('unfetched')
             empty = ('(none)' if not incomplete
                      else '(CANNOT TELL -- see the incomplete-scan note below)')
-            print(f"  merged, not deleted -- confirm authorship and the PR "
-                  f"link, then delete:")
-            if scan['merged']:
-                for b in scan['merged']:
-                    _u = _branch_url(scan.get('path'), b)
-                    print(f"    {b}")
+            # Split by age, not merely dated. A flat list of 68 names is
+            # one undifferentiated chore nobody starts; the same list with
+            # the long-finished branches gathered at the top is a short one
+            # that can be done now and a remainder that can wait.
+            _sd = scan.get('stale_days') or STALE_DAYS_DEFAULT
+            _stale = [r for r in scan['merged'] if r.get('stale')]
+            _recent = [r for r in scan['merged'] if not r.get('stale')]
+
+            def _print_merged(rows):
+                for r in rows:
+                    _age = (f"last commit {r['last']}, {r['age_days']} day(s) "
+                            f"old" if r['last']
+                            else "last commit date unreadable in this clone")
+                    print(f"    {r['name']} ({_age})")
+                    _u = _branch_url(scan.get('path'), r['name'])
                     if _u:
                         print(f"      {_u}")
+
+            print(f"  merged and STALE (>= {_sd} days) -- the safest deletions "
+                  f"here; confirm authorship and the PR link, then delete:")
+            if _stale:
+                _print_merged(_stale)
             else:
-                print(f"    {empty}")
+                print(f"    {'(none)' if not incomplete else empty}")
+            print(f"  merged, not deleted, still recent (< {_sd} days) -- "
+                  f"same proof, but someone may still have it checked out:")
+            if _recent:
+                _print_merged(_recent)
+            else:
+                print(f"    {'(none)' if not incomplete else empty}")
             print(f"  NOT merged -- merge it or close it, one verdict each:")
             if scan['unmerged']:
                 for r in scan['unmerged']:
