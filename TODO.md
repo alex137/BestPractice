@@ -2525,7 +2525,39 @@ which is the failure this repointing exists to end — write
    `tools/checks/` for the same §1-only assumption. `no-stale-counts` was
    found because it fired, not because anything looked for it, and nothing
    in either set distinguishes "reads a §1 path" from "reads a path".
-   **Blocked-on:** access to `precedent-team-writing` and
-   `precedent-individual`, which are private and were not attached to the
-   session that fixed the engine halves. Disposition `wait`
-   ([open-item-disposition](practices/open-item-disposition.md)).
+   **DONE 2026-09-10.** Three sessions, one rooted in each private set
+   (the cross-tier refusal is per OWNER, so a session rooted in a
+   `themorgan` repo reaches its siblings; one rooted here never will).
+   Open pull requests carry the work, each awaiting an approver's yes per
+   that set's own `approvers.json` — none was merged, correctly:
+   `precedent-individual` #60, `precedent-team-writing` #4,
+   `precedent-team-maintainers` #36, `precedent-team-tms` #16,
+   `precedent-team-working-style` #4.
+
+   **The audit widened past what this item asked**, and was worth it. It
+   was scoped to the two sets holding known-broken checks; it ran across
+   all five, and found **eight more instances in sets nobody had
+   suspected** — the item's own reasoning ("found because it fired, not
+   because anything looked for it") applied to itself. Among them:
+   `check_light_check.py` in `precedent-team-maintainers`, whose §1-only
+   link exemption produced **174 unactionable findings inside the mirror**
+   in a §0 fixture, 0 after; and four checks across three sets that printed
+   `SKIPPED` and returned exit 0, which the runner recorded as a PASS —
+   the "empty input set printing OK" failure
+   [tools/precedent_check.py](tools/precedent_check.py)'s own docstring
+   says has bitten this project four times. `precedent-team-tms` and
+   `precedent-team-working-style` supply no checks at all, established by
+   search rather than inferred from a missing directory, and each recorded
+   the clean result so nobody repeats the pass.
+
+   **One real defect in the engine half came back from it**, and is fixed
+   here: `declared_identity()` shipped in
+   [precedent_resolve.py](tools/precedent_resolve.py), which is
+   `CONSUMER_ENGINE_FILES`-only because a practice set resolves no
+   catalogue — so the two checks this item exists to fix went from
+   enforcing to SKIPPED *inside `precedent-individual` itself*, the one
+   repository that most certainly HAS an identity. It now lives in
+   [precedent_identity.py](tools/precedent_identity.py) in `ENGINE_FILES`,
+   re-exported from the resolver. A set picks it up on its next
+   `precedent_vendor_engine.py` refresh, with no further change on that
+   side.

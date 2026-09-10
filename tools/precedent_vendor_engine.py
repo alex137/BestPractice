@@ -257,6 +257,17 @@ ENGINE_FILES = [
     # anyway (practice: timestamps-carry-offset); it has no dependencies of
     # its own beyond the standard library.
     'precedent_time.py',
+    # WHO this repo's commits belong to, resolved the way commit-identity.sh
+    # already resolves it. In ENGINE_FILES rather than CONSUMER-only,
+    # unlike precedent_resolve.py which it was carved out of: a practice
+    # SET is the repository that most certainly HAS an identity -- a root
+    # identity.json is what declares one -- so a set that could not import
+    # this had its own commit-author and buenos-aires-dates checks degrade
+    # from enforcing to SKIPPED (2026-09-10, reported by the set that
+    # adopted the helper). Identity is about a person; the resolver is
+    # about a catalogue, and only the second reason keeps a file out of a
+    # set.
+    'precedent_identity.py',
     'precedent_vendor_engine.py',
 ]
 

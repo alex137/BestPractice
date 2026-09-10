@@ -11820,10 +11820,17 @@ def check_not_binding_actually_exempts_a_check():
         repo = tmp / 'consumer'
         (repo / 'tools').mkdir(parents=True)
         (repo / 'practices').mkdir()
-        for name in ('precedent_check.py', 'precedent_resolve.py',
-                     'split_practices.py', 'build_views.py',
-                     'precedent_time.py', 'precedent_paths.py',
-                     'routing_scope.json'):
+        # DERIVED, not hand-listed. This was a fixed tuple of seven names
+        # until 2026-09-10, and the day a new engine module arrived
+        # (precedent_identity.py, carved out of precedent_resolve.py) the
+        # fixture silently stopped matching a real consumer: it copied a
+        # precedent_resolve.py that imports a companion the fixture had
+        # never heard of. Reading the vendoring tool's own list is what
+        # keeps this fixture a consumer rather than a curated subset of one
+        # (practice: fixture-owns-its-state -- the state it owns includes
+        # which files a consumer actually gets).
+        import precedent_vendor_engine as _pve
+        for name in list(_pve.CONSUMER_ENGINE_FILES) + ['routing_scope.json']:
             src = ROOT / 'tools' / name
             if src.is_file():
                 shutil.copy2(src, repo / 'tools' / name)
@@ -11856,27 +11863,46 @@ def check_not_binding_actually_exempts_a_check():
                                cwd=str(repo), capture_output=True, text=True)
             return r.returncode, r.stdout + r.stderr
 
-        # BASELINE: with nothing exempted the fixture must produce a real
+        # PLANT the violation rather than hoping for one. This used to
+        # discover whatever slug happened to be violated, on the reasoning
+        # that naming one would go stale -- and on 2026-09-10 the fixture
+        # went CLEAN instead (a fuller vendored engine removed the
+        # incidental finding it had been relying on), so there was suddenly
+        # nothing to exempt and the whole check rested on an accident. A
+        # planted violation is the only kind a negative control can trust
+        # (practice: control-asserts-which-failure).
+        #
+        # two-check-levels is the plant: it asks the instructions file to
+        # name a fast check and a full check, and this fixture's AGENTS.md
+        # deliberately names neither. Cheap, deterministic, and unrelated to
+        # the exemption machinery under test.
+        for slug in ('two-check-levels',):
+            src = ROOT / 'practices' / f'{slug}.md'
+            if src.is_file():
+                shutil.copy2(src, repo / 'practices' / f'{slug}.md')
+        (repo / 'AGENTS.md').write_text(
+            '# Fixture\n\nNames no check levels, on purpose -- that is the '
+            'planted violation.\n', encoding='utf-8')
+
+        # BASELINE: with nothing exempted the fixture must produce that
         # VIOLATION and no exemptions. Without this the cases below would
         # pass on a fixture that never had anything to exempt -- which is
         # the shape of the bug itself, so it has to be ruled out.
-        # The violating slug is discovered rather than named: pinning one
-        # would make this check re-verify the catalogue instead of the
-        # exemption mechanism, and go stale the first time that check moves.
         write_config([])
         rc0, out0 = run_check()
         violated_slugs = [ln.split()[1] for ln in out0.splitlines()
                           if ln.startswith('VIOLATION')]
-        cases.append(('baseline: the fixture produces at least one real '
-                      'VIOLATION for an exemption to act on',
-                      bool(violated_slugs), out0[-900:]))
+        cases.append(('baseline: the PLANTED violation actually fires, so '
+                      'there is something for an exemption to act on',
+                      'two-check-levels' in violated_slugs,
+                      f'violated: {violated_slugs}\n' + out0[-900:]))
         cases.append(('the baseline summary counts no exemptions',
                       ' 0 exempted' in out0, out0[-300:]))
         cases.append(('a violation fails the run, so a suppressed one is a '
                       'visible difference', rc0 == 1, f'rc={rc0}'))
 
-        if violated_slugs:
-            target = violated_slugs[0]
+        if 'two-check-levels' in violated_slugs:
+            target = 'two-check-levels'
             write_config([{'slug': target,
                            'reason': 'harness fixture: exempted on purpose'}])
             rc2, out2 = run_check()
@@ -12043,9 +12069,109 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
     import shutil, tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_resolve as pr
+    import precedent_identity as pi
+    import precedent_vendor_engine as pve
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-identity-'))
     cases = []
+
+    # WHERE THE RESOLUTION LIVES, which is the half that was wrong first
+    # (2026-09-10, the same day it landed). It was born in
+    # precedent_resolve.py, which is CONSUMER_ENGINE_FILES-only because a
+    # practice SET resolves no catalogue -- so the two checks this whole
+    # change exists to fix went from enforcing to SKIPPED inside
+    # `precedent-individual` itself, the one repository that most certainly
+    # HAS an identity (a root identity.json is what declares one). Identity
+    # is about a person; the resolver is about a catalogue, and only the
+    # second reason keeps a file out of a set. These cases pin that down so
+    # it cannot drift back.
+    cases.append(('the resolution lives in precedent_identity.py, which is '
+                  'in ENGINE_FILES -- so a practice SET vendors it and its '
+                  'own identity checks can enforce rather than skip',
+                  'precedent_identity.py' in pve.ENGINE_FILES,
+                  str(pve.ENGINE_FILES)))
+    cases.append(('and therefore reaches consumers too',
+                  'precedent_identity.py' in pve.CONSUMER_ENGINE_FILES,
+                  str(pve.CONSUMER_ENGINE_FILES)))
+    cases.append(('precedent_resolve.py re-exports both names rather than '
+                  'keeping a second implementation, so a consumer that '
+                  'already imports them from there keeps working',
+                  pr.declared_identity is pi.declared_identity
+                  and pr.NoDeclaredIdentity is pi.NoDeclaredIdentity, ''))
+    # The one duplication the move required: precedent_identity.py cannot
+    # import these FROM the resolver without reintroducing the dependency it
+    # exists to break, so it restates them. Assert they stay identical
+    # rather than trusting that nobody edits one of the two.
+    cases.append(('the user-config constants the two modules each declare '
+                  'are identical -- the duplication the move required is '
+                  'checked, not trusted',
+                  pr.USER_CONFIG_ENV == pi.USER_CONFIG_ENV
+                  and pr.DEFAULT_USER_CONFIG == pi.DEFAULT_USER_CONFIG,
+                  f'{pr.USER_CONFIG_ENV!r}/{pi.USER_CONFIG_ENV!r} '
+                  f'{pr.DEFAULT_USER_CONFIG}/{pi.DEFAULT_USER_CONFIG}'))
+
+    # And the property that actually matters, exercised the way the failure
+    # arrived rather than grepped for: stand the module up ALONE, with no
+    # precedent_resolve.py anywhere on the path, which is exactly the state
+    # a practice set is in. A stray module-scope import would fail here and
+    # nowhere else in this file.
+    alone = tmp / 'engine-alone'
+    alone.mkdir(parents=True)
+    shutil.copy2(ROOT / 'tools' / 'precedent_identity.py',
+                 alone / 'precedent_identity.py')
+    solo = subprocess.run(
+        [sys.executable, '-c',
+         'import sys, json; sys.path.insert(0, sys.argv[1]); '
+         'import precedent_identity as m; '
+         'ok = False\n'
+         'try:\n'
+         '    m.declared_identity(sys.argv[2])\n'
+         'except m.NoDeclaredIdentity:\n'
+         '    ok = True\n'
+         'print(json.dumps({"ok": ok, "resolver_loaded": '
+         '"precedent_resolve" in sys.modules}))',
+         str(alone), str(tmp)],
+        capture_output=True, text=True, timeout=120,
+        # OWN every input that can change the answer. An inherited
+        # PRECEDENT_COMMIT_EMAIL is step 1 of the resolution order, so a
+        # session that exports one -- the individual set's own
+        # settings.json does -- would hand this fixture an identity and
+        # the case would pass for the wrong reason, proving nothing about
+        # where the module lives. Same for the user config and PYTHONPATH.
+        env={**{k: v for k, v in os.environ.items()
+                if not k.startswith('PRECEDENT_')},
+             'PYTHONPATH': '',
+             'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+    solo_out = {}
+    try:
+        solo_out = json.loads(solo.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        pass
+    cases.append(('precedent_identity stands up with NO precedent_resolve.py '
+                  'on the path at all -- the exact state a practice set is '
+                  'in, and the state the old placement failed in',
+                  solo.returncode == 0 and solo_out.get('ok') is True
+                  and solo_out.get('resolver_loaded') is False,
+                  solo.stdout + solo.stderr))
+
+    # A seeded practice set really receives the file. ENGINE_FILES membership
+    # is the declaration; this is the delivery.
+    seeded = tmp / 'seeded-set' / 'tools'
+    seeded.mkdir(parents=True)
+    for name in pve.ENGINE_FILES:
+        src = ROOT / 'tools' / name
+        if src.is_file():
+            shutil.copy2(src, seeded / name)
+    cases.append(('a practice set seeded from ENGINE_FILES receives '
+                  'precedent_identity.py, so its own commit-author and '
+                  'buenos-aires-dates checks can import it',
+                  (seeded / 'precedent_identity.py').is_file(),
+                  str(sorted(f.name for f in seeded.iterdir()))))
+    cases.append(('and still does NOT receive precedent_resolve.py -- the '
+                  'consumer-only boundary this move was careful not to '
+                  'erase',
+                  not (seeded / 'precedent_resolve.py').is_file(),
+                  str(sorted(f.name for f in seeded.iterdir()))))
     # PRECEDENT_COMMIT_* is step 1 of the order, and this harness's own
     # process may carry it (verify_harness sets identity for its fixtures).
     # Pop it for the cases that are about the other steps, or step 1 answers
