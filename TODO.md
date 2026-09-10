@@ -2569,7 +2569,7 @@ which is the failure this repointing exists to end — write
 
 53. <a id="review-skill-level-permissions"></a>**Review the whole
    technical/non-technical permission split, now that the pieces are in
-   three separate places.** Asked for by Alex on 2026-09-10, closing the
+   three separate places.** Asked for by Morgan on 2026-09-10, closing the
    thread that produced the split: *"note a TODO to review the 'technical vs
    nontechnical' permissions later."*
 
@@ -2601,8 +2601,13 @@ which is the failure this repointing exists to end — write
      directory rename fixed. `NONTECHNICAL_CONTRIBUTOR_ACCESS.md` is correct
      as it stands — it names a contributor, who is a person.
 
-   **blocked-on:** Alex — every open question here is a policy call about how
-   much protection a forgettable manual step may carry, not something a
-   session can settle by reading the tree.
+   **blocked-on:** Morgan — every open question here is a policy call about
+   how much protection a forgettable manual step may carry, not something a
+   session can settle by reading the tree. He named the reason it waits
+   rather than the reason it is hard: *"it requires deeper thought of mine
+   and I can't do it now because I still have a dozen claude tabs open and I
+   want to wrap up the repo_add issues, the voice issues etc first."* So the
+   blocker is his attention, and the queue ahead of it is real work he has
+   already named.
 
-   **Disposition:** ask (2026-09-10, Alex asked for the review himself)
+   **Disposition:** ask (2026-09-10, Morgan asked for the review himself)
