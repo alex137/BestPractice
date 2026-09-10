@@ -66,7 +66,20 @@ rules instead of living and dying inside one document.
    template's `AGENTS.md` already carries that plan's session/persona
    content, but the collaborator invite and auth-model check are still a
    human step, same as that plan says.
-6. Replace this README with one about the actual document project, or
+6. **Restrict the contributor's own session, in their own configuration —
+   not in this repo's tracked `.claude/settings.json`.** Give their
+   `environment_id` (or their per-session settings, or their untracked
+   `.claude/settings.local.json`) a `deny` list carrying `git push`,
+   `git merge`, `git reset` and `git rebase`, and never set
+   `permission_mode` to `bypassPermissions`.
+
+   **This has to be per-person, and that is the whole point.** The tracked
+   `.claude/settings.json` binds every session on the repository, so a deny
+   list there stops the maintainer landing their own work as surely as it
+   stops the contributor pushing — and it cannot be made to distinguish
+   them, because it never sees who is running. This step and the GitHub role
+   in step 5 are the two layers that can.
+7. Replace this README with one about the actual document project, or
    delete it — it exists to explain the template, not the finished repo.
 
 ## What this template deliberately does not include
