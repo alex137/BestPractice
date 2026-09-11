@@ -118,7 +118,7 @@
     "",
     "Two team sources claiming one slug is a hard refusal (nothing orders two",
     "sources at the same level), so adding sets is not free -- the split",
-    "verified no collisions across all four sets before this became",
+    "verified no collisions across every set it covered before this became",
     "declarable at all. See INSTALL.md's team-sets table and TODO.md's",
     "split-team-sets-by-subject item.",
     "",

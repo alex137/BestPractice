@@ -41,7 +41,7 @@ prevent and proves it fires. This brief then said: *"Neither private set has
 any of that. Both of their practices currently carry `checked_by: null`, and
 no infrastructure exists yet — in either private repo."*
 
-Measured 2026-09-07, with all four sources attached:
+Measured 2026-09-07, across the sources attached then:
 
 | Source | Active practices | With a `checked_by` | Check scripts |
 |---|---|---|---|
