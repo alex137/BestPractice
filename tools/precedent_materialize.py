@@ -111,7 +111,7 @@ def _self_referential_sources(sources, out_dir):
 # `../spec/ATTENTION_CEILING.md` are real paths in Precedent and absent
 # from every repo that installs it. So every consuming repo was shipping
 # ~60 practice files whose internal links 404 -- and the practice files are
-# the product. precedent-team-maintainers' own light check had already had
+# the product. precedent-team-repo-maintenance' own light check had already had
 # to exempt materialized practices/ from its broken-link scan to stay
 # green, which is the workaround this replaces.
 #
@@ -341,7 +341,7 @@ def _plan_checks(sources, res=None):
     behind rather than copied: a script whose practice is retired, or
     lost a slug to a higher-precedence source, has nothing left to
     enforce here. Found on the first real run against
-    precedent-team-maintainers, whose `deep-check` practice is retired --
+    precedent-team-repo-maintenance, whose `deep-check` practice is retired --
     its `check_deep_check.py` was still copied into the consuming repo,
     where it registered under its own filename (no practice to name it),
     reported "not in force", and counted as an unexplained file against

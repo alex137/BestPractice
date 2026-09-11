@@ -17,7 +17,7 @@ how a **new** practice is created at a chosen level, and Stage 6 describes
 do with a practice that already exists, is still worth keeping, but belongs
 somewhere else — a team practice that turns out to be one person's own
 preference, or an individual habit a whole team has since adopted. This gap
-was real, not hypothetical: `precedent-team-maintainers`' bulk migration
+was real, not hypothetical: `precedent-team-repo-maintenance`' bulk migration
 from RepoPersonalPreferences defaulted everything ambiguous to team
 ("narrowest first" among the two private levels), and at least one of those
 defaults was wrong on reflection — see "Worked example" below.
@@ -100,7 +100,7 @@ has nothing to name, which is precisely the state a lost rule is in.
 ## The asymmetry that already exists, and the one that doesn't
 
 [spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md) and
-`precedent-team-maintainers`' own README already name one real asymmetry:
+`precedent-team-repo-maintenance`' own README already name one real asymmetry:
 **promoting team to universal is comparatively easy and a designed path;
 demoting a universal practice is not**, because undoing something already
 published to every Precedent user is a far bigger, more visible change than
@@ -125,19 +125,19 @@ the 2026-09-09 subject split.
 
 `bestpractice-sync` — the practice describing an unattended, scheduled
 workflow that takes upstream BestPractice updates into a vendored copy —
-was migrated to `precedent-team-maintainers` in the original RepoPersonalPreferences
+was migrated to `precedent-team-repo-maintenance` in the original RepoPersonalPreferences
 split, by the same "default everything ambiguous to team" rule that
 migration used throughout. On reflection it was the wrong default: it is a
 personal automation preference about how *one person's own* projects handle
 unattended merges, not a convention the whole team is bound to want —
-`precedent-team-maintainers`' own two-approver membership means adopting it
+`precedent-team-repo-maintenance`' own two-approver membership means adopting it
 as team policy would apply it to a second person's repos without their own
 separate agreement to that specific behavior, which is exactly the kind of
 default the same README already flags as "not a final judgment."
 
 Landed in `precedent-individual` (step 1, the owner's own yes), then the
 team's copy deduplicated
-in `precedent-team-maintainers` (step 2, an approver's own yes — the same
+in `precedent-team-repo-maintenance` (step 2, an approver's own yes — the same
 person, since a small team's approver landing directly collapses both
 into one "yes," same as Stage 4 already allows for ordinary creation) with a
 `## Story` line pointing to its new location. Nothing about the pattern

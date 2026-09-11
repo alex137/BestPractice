@@ -18,7 +18,7 @@ approved_by: "Morgan F, migrated from RepoPersonalPreferences by the private-set
   what the degradation costs and by who is reading it, after the uniform
   standard was found to be both too loud for non-technical adopters and
   unenforceable at 67 mostly-legitimate hits PROMOTED to the universal catalogue 2026-09-07, Morgan F, from
-  precedent-team-maintainers. Both team sets had landed this same practice, byte
+  precedent-team-repo-maintenance. Both team sets had landed this same practice, byte
   for byte, within a day of each other -- and two sources at the same level
   defining one slug is a hard `ResolveError`, so any repo declaring both team
   sources could not resolve at all. Two different teams wanting the identical

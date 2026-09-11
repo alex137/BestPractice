@@ -56,7 +56,7 @@ until the whole rewrite is complete (phase 7).
 ## What phase 3 owes, per the plan's Sequence row
 
 1. **The private sets exist but are empty.** `themorgan/precedent-individual`
-   and `themorgan/precedent-team-maintainers` are created. Populate them from
+   and `themorgan/precedent-team-repo-maintenance` are created. Populate them from
    RepoPersonalPreferences' 46 rules, per the plan's
    [Where Today's Practices Go](../PRACTICE_ENGINE_PLAN.md#where-todays-practices-go):
    default everything to **team**, promote to universal only individually,

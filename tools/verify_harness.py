@@ -945,7 +945,7 @@ def check_practices_link_only_reachable_repos(files):
     path from a public document.
 
     Found 2026-09-06: practices/very-deep-check.md linked
-    `themorgan/precedent-individual` and `themorgan/precedent-team-maintainers`
+    `themorgan/precedent-individual` and `themorgan/precedent-team-repo-maintenance`
     -- both private -- as illustrative examples, in a universal practice
     every adopter gets. Naming the practice instead of linking the page
     says the same thing and costs the reader nothing.
@@ -3339,7 +3339,7 @@ def check_session_practices_load_without_publishing():
         (repo / 'precedent.json').write_text(_json.dumps({
             'format_version': 1, 'visibility': 'public',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
-                        {'level': 'team', 'name': 'precedent-team-maintainers',
+                        {'level': 'team', 'name': 'precedent-team-repo-maintenance',
                          'path': str(tmp / 'team')}]}), encoding='utf-8')
 
         extra, levels, notes = psp.collect(str(repo))
@@ -3363,12 +3363,12 @@ def check_session_practices_load_without_publishing():
         (repo / 'precedent.json').write_text(_json.dumps({
             'format_version': 1, 'visibility': 'public',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
-                        {'level': 'team', 'name': 'precedent-team-maintainers',
+                        {'level': 'team', 'name': 'precedent-team-repo-maintenance',
                          'path': str(tmp / 'no-such-dir')}]}), encoding='utf-8')
         _extra, _levels, notes2 = psp.collect(str(repo))
         cases.append(('an unresolved source is NAMED in the output -- "unreachable" '
                       'and "that source has no rules" must not look the same',
-                      any('precedent-team-maintainers' in n for n in notes2)))
+                      any('precedent-team-repo-maintenance' in n for n in notes2)))
         cases.append(('...and the file still renders rather than failing',
                       'did not resolve' in psp.render(_extra, _levels, notes2)))
     finally:
@@ -3451,7 +3451,7 @@ def check_session_practices_load_without_publishing():
         (repo / 'precedent.json').write_text(_js.dumps({
             'format_version': 1, 'visibility': 'public',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
-                        {'level': 'team', 'name': 'precedent-team-maintainers',
+                        {'level': 'team', 'name': 'precedent-team-repo-maintenance',
                          'path': str(fx / 'team')}]}), encoding='utf-8')
         _sh.copy(ROOT / 'tools' / 'precedent_session_practices.py', repo / 'tools')
         hook = repo / '.claude' / 'hooks' / 'session-start.sh'
@@ -6128,7 +6128,7 @@ def check_materialize_bridges_loader():
                     body='fixture\n')
         # Claimed by nothing: a script whose practice was retired, or lost
         # its slug to a higher-precedence source. Must not be vendored --
-        # precedent-team-maintainers' retired `deep-check` shipped exactly
+        # precedent-team-repo-maintenance' retired `deep-check` shipped exactly
         # this into a consuming repo, where it registered under its own
         # filename and reported "not in force" forever.
         write_check(uni / 'tools' / 'checks' / 'check_orphan.py')
@@ -10463,7 +10463,7 @@ def check_vendor_engine_consumer_case():
 
         # -- an engine file hand-dropped beside a correctly vendored engine
         # is reported, not silently carried. Both directions, because the
-        # real incident (precedent-team-maintainers, 2026-09-06) looked
+        # real incident (precedent-team-repo-maintenance, 2026-09-06) looked
         # HEALTHY to every mechanism that existed: the manifest's own files
         # all matched, so drift detection saw nothing, while the stray file
         # -- from a later upstream commit -- broke build_views.py outright.
@@ -12010,7 +12010,7 @@ def check_materialized_links_are_placed():
     `../spec/ATTENTION_CEILING.md` are real in Precedent and absent from
     every repo that installs it. Every consuming repo was shipping ~60
     practice files with dead internal links, and
-    precedent-team-maintainers' own light check had already had to exempt
+    precedent-team-repo-maintenance' own light check had already had to exempt
     materialized practices/ from its broken-link scan to stay green.
 
     Four behaviours, and the last two are why this is not a blanket
@@ -12139,7 +12139,7 @@ def check_source_supplied_checks_run():
     into a consuming repo, precedent_land.py refused to land a team or
     individual practice without one, and spec/PRIVATE_ENFORCEMENT_BRIEF.md
     told a private set how to write one -- and then a consuming repo held
-    fourteen real, tested check scripts (nine in precedent-team-maintainers,
+    fourteen real, tested check scripts (nine in precedent-team-repo-maintenance,
     five in precedent-individual, as of 2026-09-06) that no command ever
     ran. The enforced channel was live for the universal catalogue and
     hollow for exactly the sources an adopting team writes for itself.

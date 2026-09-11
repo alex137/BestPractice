@@ -23,7 +23,7 @@
     "    don't repeat the same disclaimer every run. Mostly resident, so it",
     "    fires on every turn.",
     "",
-    "precedent-team-maintainers is deliberately NOT declared here: it holds",
+    "precedent-team-repo-maintenance is deliberately NOT declared here: it holds",
     "repo and practice-set mechanics -- syncs, gates, branch setup, catalogue",
     "upkeep -- which a document project has no way to act on. Not declaring a",
     "set is the cheap way to say that; a `not_binding` entry per slug is the",

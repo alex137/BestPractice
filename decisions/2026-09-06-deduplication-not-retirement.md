@@ -149,7 +149,7 @@ fix, it is the **precondition** for the channel fix being safe to land.
 ## What this does not close
 
 - **The two files still carrying `status: retired`** are in
-  `precedent-team-maintainers`, a private repo this change cannot reach. Both
+  `precedent-team-repo-maintenance`, a private repo this change cannot reach. Both
   are deduplications and convert cleanly. The new check is what performs that
   migration: it fails them until they are converted, which is the intended
   forcing function — but it means that set goes red on its next engine

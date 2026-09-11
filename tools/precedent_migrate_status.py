@@ -38,7 +38,7 @@ WHAT IT PROPOSES, AND WHAT IT WILL NOT.
                       NOT parsed -- a regex over prose is a guess wearing a
                       mechanism's clothes. A person reads it and decides.
 
-A renamed successor (precedent-team-maintainers' `header-caps`, whose rule
+A renamed successor (precedent-team-repo-maintenance' `header-caps`, whose rule
 is in force at universal as `headline-capitalization`) is UNDETERMINED by
 construction, and correctly so: nothing mechanical connects the two names.
 Name it with --set.

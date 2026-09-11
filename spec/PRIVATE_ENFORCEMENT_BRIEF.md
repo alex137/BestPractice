@@ -12,7 +12,7 @@ summary:       Bringing mechanical checks to the two private sets' practices, bl
 # Brief — Bringing Mechanical Checks to the Private Sets
 
 **Read this if you are a session opened against
-`themorgan/precedent-individual` or `themorgan/precedent-team-maintainers`,
+`themorgan/precedent-individual` or `themorgan/precedent-team-repo-maintenance`,
 or against Precedent with one or both of them also attached.** It was
 originally written for exactly one of those sessions at a time — see
 [Why this could not run from Precedent](#why-this-could-not-run-from-precedent-original-reasoning-relaxed-2026-09-01)
@@ -46,7 +46,7 @@ Measured 2026-09-07, across the sources attached then:
 | Source | Active practices | With a `checked_by` | Check scripts |
 |---|---|---|---|
 | `precedent` (universal) | 66 | 34 | in `precedent_check.py` |
-| `precedent-team-maintainers` | 40 | 8 | 8 |
+| `precedent-team-repo-maintenance` | 40 | 8 | 8 |
 | `precedent-individual` | 15 | 8 | 8 |
 
 So both of the sets this brief was written for now have their own
@@ -98,7 +98,7 @@ here:
   exposure the whole arrangement exists to prevent.
 
 So: one session, opened only against `precedent-individual` **or**
-`precedent-team-maintainers` — never both at once with push access, and
+`precedent-team-repo-maintenance` — never both at once with push access, and
 never alongside this repo.
 
 ## What to bring with you (public, safe to read from either side)

@@ -64,7 +64,7 @@ inherits" section first — this brief does not restate them.
 **Two open decisions, explained in full and left for Morgan's judgment**,
 tracked in [PRACTICE_ENGINE_PLAN.md's Open Decisions](../PRACTICE_ENGINE_PLAN.md#open-decisions):
 whether the leak gate's vocabulary blocklist is miscalibrated or has simply
-never run clean, and whether `precedent-team-maintainers`'
+never run clean, and whether `precedent-team-repo-maintenance`'
 `session-trailer` check should accept `Claude-Session:` or every session
 should start writing a literal `Session:` line too. Neither has a right
 answer this session can pick on its own — both are explained at length in

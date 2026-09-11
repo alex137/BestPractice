@@ -32,7 +32,7 @@ implementation note, not a restatement.
 | Premise measured, not assumed | [tools/behavioral_replay.py](../tools/behavioral_replay.py) | Built. See "What the replay measures" below — it is honest about what it can and cannot prove. |
 
 **Generated views are no longer this-repo-only (2026-09-03).** A team or
-individual source repo (e.g. `precedent-team-maintainers`,
+individual source repo (e.g. `precedent-team-repo-maintenance`,
 `precedent-individual`) vendors the same [tools/build_views.py](../tools/build_views.py)
 and runs `python3 tools/build_views.py --agents-only` on its own
 `practices/`, getting the identical resident-block/occasion-index/standing-

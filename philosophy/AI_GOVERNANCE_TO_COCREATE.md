@@ -31,7 +31,7 @@ ephemeral chat by default.
 manual habit.** Distill protocols, rules, and preferences straight out of
 the interaction — the guidance, the correction — instead of waiting for
 someone to write policy by hand; this repo's team and individual practice
-sources (precedent-team-maintainers, precedent-individual — see
+sources (precedent-team-repo-maintenance, precedent-individual — see
 [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)) run this continuously
 ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically);
 [`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing)).
