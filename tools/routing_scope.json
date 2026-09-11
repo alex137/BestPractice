@@ -89,6 +89,17 @@
       ],
       "gates_why": "A review that produces a rule produces it here; it also has a glob for where the rule is written."
     },
+    "clean-session": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus, for the same reason handoff-is-pasteable has none, one step earlier: what triggers it is a fact about WHERE the work has to happen -- which repositories it touches versus which ones this session holds -- and that is settled before any file is opened. There is no path whose editing means 'you should have checked this'; by the time a file is edited the check has already been skipped. Reached through the occasion index and the reply gate.",
+      "decided": "2026-09-11, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The reply is where the link either appears or does not. The check itself belongs earlier -- before the work -- but the only artifact it leaves is the handover in the reply, which is the moment a gate can still catch."
+    },
     "code-cites-practice": {
       "globs": [
         "tools/**"

@@ -19,6 +19,18 @@ strength:    decided
 source_practice_number: null
 ---
 ## Rule
+**First, before any of this: the question of whether the work belongs in
+another session is asked before the work starts, not after — and the
+repositories are checked first.** That is
+[clean-session](clean-session.md)'s, and this rule begins where it ends.
+**Where the harness can create the session itself, do that instead of
+writing a paste block**: a link, rooted in the right repository and already
+carrying the prompt, put near the top of the reply with a plain instruction
+to click it. The three things below then describe the *seeded prompt*
+rather than something the person retypes, and they are unchanged. **The
+paste block is the fallback for when no such tool exists** — and falling
+back is said out loud, never done silently.
+
 When work has to happen in a session other than this one, the reply hands
 over **three things, always, in this order**:
 
@@ -69,6 +81,12 @@ repository's full name in it, and the block under it self-contained. If two
 blocks would share a paragraph, the paragraph belongs in both, written out
 twice.
 
+**A link does not excuse a thinner prompt.** A seeded session starts with
+exactly the text you gave it and no way to ask you what you meant, so the
+three things above are *more* load-bearing when the person never reads the
+prompt at all — they click, and whatever was wrong in it plays out
+unsupervised.
+
 ## Why
 Sessions cannot see or message each other, so the person is the only
 transport, and every hop through them is a hop where a task can be
@@ -108,6 +126,14 @@ all absent, and answering: *"everything naming 'your work' belongs to another
 session."* It was right. The repository name was in the heading and the
 ordinal beat it, because an ordinal looks like an address and a heading looks
 like a title.
+
+**The link clause was added 2026-09-11**, when Morgan asked for the check
+that precedes this rule — *"first look to see if it should be in a different
+session... then you should create a link to the new session, rooted in the
+right repo, and already seeded with the prompt you want to give it"*. It
+does not replace anything here; it changes what the person has to do with
+the three things from *paste them* to *click once*, wherever the harness
+allows that.
 
 ## Install
 Nothing to configure. It fires when a reply asks the person to go elsewhere.
