@@ -1072,3 +1072,42 @@ Pushing an empty branch to give the guard a counterpart was the right move on
   session rooted here, per the cross-owner entry below.
 
 </details>
+
+## 31. If you suspect a timezone problem, check `date` and `ls -l .git/hooks/pre-commit`, not the `env` block
+
+**Verdict: `archived` (superseded), 2026-09-11.** Removed from
+[AGENTS.md](../AGENTS.md) because its central claim had become **false**, not
+because it had become quiet. It said the `env` block in
+`.claude/settings.local.json` is **inert**. The commit-identity entry that now
+stands in the live section says the opposite, from a measurement taken the
+same day: the harness reads that block *before* hooks run, **so an explicit
+`TZ` there beats `/etc/localtime` outright**, and one credential-less session
+writing `TZ=America/New_York` into that untracked file poisons every later
+session in the clone. Its instruction is therefore to **read that file first**
+— exactly what this entry told a session not to bother doing.
+
+Everything else it carried is in that entry too, in more detail: `TZ` unset in
+tool shells so git falls back to the system zone, `commit-identity.sh`
+repointing `/etc/localtime` for a declared zone, and `PRECEDENT_LOCALTIME`
+existing so the repoint is testable. So nothing was lost by removing it, and a
+contradiction between two adjacent entries went with it — which is the kind of
+thing a reader resolves by trusting whichever one they read first.
+
+The two diagnoses it was written about are entry 26 above; that derivation is
+unaffected and stands.
+
+<details>
+<summary>The full entry as it stood until 2026-09-11</summary>
+
+- **If you suspect a timezone problem, check `date` and
+  `ls -l .git/hooks/pre-commit`, not the `env` block.** The block in
+  `.claude/settings.local.json` is inert — the harness reads environment
+  before hooks run — and reading it sent two diagnoses down the wrong path.
+  `TZ` is unset in every tool shell, so git falls back to the SYSTEM zone;
+  [.claude/hooks/commit-identity.sh](../.claude/hooks/commit-identity.sh)
+  repoints `/etc/localtime` for a **declared** zone, which is the one lever a
+  hook can move mid-session that every later shell and `git merge` picks up.
+  `PRECEDENT_LOCALTIME` overrides the target so this is testable. The
+  derivation is in the archive.
+
+</details>

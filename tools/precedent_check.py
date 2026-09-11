@@ -1031,6 +1031,99 @@ def _generated_artifact_provenance(ctx):
     return out
 
 
+# ---- generated-edit-goes-upstream ------------------------------------------
+# A "do not hand-edit" header tells a session how its edit will be destroyed.
+# It does not say where the change belongs instead, and a session that cannot
+# find the input edits the output anyway -- which is the failure the practice
+# exists to stop. So the header must also name its Source, and the Source must
+# resolve.
+# practice: generated-edit-goes-upstream
+_DONT_EDIT_RE = re.compile(r'<!--(?:(?!-->).)*?do not hand-edit(?:(?!-->).)*?-->',
+                           re.I | re.S)
+_SOURCE_CLAUSE_RE = re.compile(r'\bSource:\s*([^-]+?)\s*(?:--|—|\.|-->)', re.S)
+# A path-shaped token inside the Source clause: something with a slash or a
+# known extension. Prose around it ("every resolved source's practice files")
+# is deliberately not parsed -- naming a directory is a legitimate Source, and
+# demanding a single file would make the honest answer unwritable.
+_SOURCE_PATH_RE = re.compile(r'(?<![\w/.])([A-Za-z0-9_.-]+/[A-Za-z0-9_./-]*|'
+                             r'[A-Za-z0-9_.-]+\.(?:md|py|json|ya?ml|txt))')
+
+
+def _generated_header_files():
+    """[(rel, comment)] for every tracked file carrying a `do not hand-edit`
+    HTML comment, excluding evals/.
+
+    evals/ is excluded BY NAME, not by accident: those are recorded prompts
+    from past measurement runs, which embed a frozen copy of an old loader
+    block. They are inputs to a finished experiment, not live outputs -- 29
+    of them as of 2026-09-11, every one carrying a header naming a check that
+    has since been replaced. Regenerating them would destroy the record the
+    run is evidence for."""
+    r = _git('ls-files', '-z')
+    if r.returncode != 0:
+        raise NotApplicable('git ls-files failed, so the tracked set of files '
+                            'could not be read')
+    out = []
+    for rel in r.stdout.split('\0'):
+        if not rel or rel.startswith('evals/'):
+            continue
+        path = ROOT / rel
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError):
+            continue
+        for m in _DONT_EDIT_RE.finditer(text):
+            out.append((rel, m.group(0)))
+    return out
+
+
+@check('generated-edit-goes-upstream', 'tree',
+       'every `do not hand-edit` header also names a Source -- where the '
+       "file's content actually comes from -- and every path that Source "
+       'names exists',
+       'whether the Source named is the RIGHT one, and whether a request to '
+       'change a generated file was actually routed there. No check can read '
+       'the conversation a request arrived in, which is why the routing half '
+       'of this practice is written as a rule and not as a gate. It is also '
+       'blind to whether the file is currently in sync with that source -- '
+       'that is generated-artifact-provenance, which asserts a fresh '
+       'regeneration changes nothing.')
+def _generated_edit_goes_upstream(ctx):
+    out = []
+    files = _generated_header_files()
+    if not files:
+        raise NotApplicable('no tracked file here carries a `do not '
+                            'hand-edit` header, so there is no generated '
+                            'view to route an edit away from')
+    for rel, comment in files:
+        m = _SOURCE_CLAUSE_RE.search(comment)
+        if m is None:
+            out.append(Finding(rel, 'carries a `do not hand-edit` header with '
+                                    'no `Source:` clause -- it tells a reader '
+                                    'their edit will be destroyed without '
+                                    'telling them where to put the change '
+                                    'instead, which is the header that '
+                                    'produces the hand edit'))
+            continue
+        clause = m.group(1)
+        named = _SOURCE_PATH_RE.findall(clause)
+        if not named:
+            out.append(Finding(rel, f'has a `Source:` clause naming no path at '
+                                    f'all ({clause.strip()!r}) -- a reader '
+                                    f'cannot open a description'))
+            continue
+        for token in named:
+            target = ROOT / token.rstrip('/')
+            if not target.exists():
+                out.append(Finding(rel, f'names `{token}` as its Source and '
+                                        f'that path does not exist -- a '
+                                        f'Source that has moved reads as an '
+                                        f'answer, which is worse than none'))
+    return out
+
+
 @check('source-naming', 'tree',
        "every precedent.json in the tree names each source by the shape its "
        "level fixes -- `precedent`, `precedent-individual`, "

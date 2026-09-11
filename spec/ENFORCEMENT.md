@@ -84,6 +84,7 @@ being checked by it.
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
 | `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
+| `generated-edit-goes-upstream` | tree | every `do not hand-edit` header also names a Source -- where the file's content actually comes from -- and every path that Source names exists |
 | `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named in GETTING_STARTED.md's administrator section -- the document a dependent repo's own people read -- or in a repo's own root GITHUB_ACTIONS.md |
 | `heading-outline` | change | a changed document never jumps a heading level -- no heading is more than one level deeper than the one before it |
 | `headline-capitalization` | change | a changed outward-facing document has every heading in New York Times headline capitalization |
@@ -113,7 +114,7 @@ being checked by it.
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-45 of 96 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+46 of 97 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

@@ -233,6 +233,15 @@
       "why": "Where this repo actually builds and commits generated artifacts. Narrow on purpose: a glob over everything a build might touch would fire constantly and say nothing.",
       "decided": "phase 4 routing pass"
     },
+    "generated-edit-goes-upstream": {
+      "globs": [
+        "AGENTS.md",
+        "MAP.md",
+        "GLOSSARY.md"
+      ],
+      "why": "The three views tools/build_views.py writes here, named one by one rather than globbed. No pattern can express 'is generated' -- that is a property of how a file is produced, not of its path -- and the wider alternative measured badly: twelve practices already path-trigger on each of these files, so routing this one at '**/*.md' would add a thirteenth to every markdown file in the repo in order to reach three. AGENTS.md is in the list because its loader block is generated even though the file around it is not.",
+      "decided": "2026-09-11, with the practice"
+    },
     "ci-commits-carry-identity": {
       "globs": [
         ".github/workflows/**",

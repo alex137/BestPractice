@@ -4095,6 +4095,25 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('catalogue-carries-stories', _plant_catalogue_stories)
 
+        # generated-edit-goes-upstream -- two shapes in one fixture, told
+        # apart by the messages below rather than by the exit status
+        # (practice: control-asserts-which-failure). MAP.md loses its
+        # `Source:` clause entirely, which is the header every generated view
+        # here carried until 2026-09-11 and the one that produces the hand
+        # edit; GLOSSARY.md keeps a clause and points it at a directory that
+        # does not exist, which is the worse case -- it reads as an answer.
+        def _plant_generated_source(repo):
+            m = repo / 'MAP.md'
+            head, rest = m.read_text(encoding='utf-8').split('\n', 1)
+            head = head[:head.index(' Source:')] + ' -->'
+            m.write_text(head + '\n' + rest, encoding='utf-8')
+            g = repo / 'GLOSSARY.md'
+            g.write_text(g.read_text(encoding='utf-8')
+                         .replace('Source: practices/ --',
+                                  'Source: catalogue/entries/ --', 1),
+                         encoding='utf-8')
+        case('generated-edit-goes-upstream', _plant_generated_source)
+
         # practice-links-travel -- all three shapes at once, in one existing
         # practice file: a relative link into a directory that does not
         # travel, an upstream URL on a branch this repo is not publishing

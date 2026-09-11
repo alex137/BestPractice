@@ -17,9 +17,9 @@
   "surfaces": {
     "AGENTS.md": {
       "ceiling": 20000,
-      "measured": 19687,
+      "measured": 19922,
       "reviewed": "2026-09-11",
-      "why": "Set at 19000 against a tree 14 commits stale, then re-measured on the merged tree at 19687 -- the growth is one freshness-guard gotcha added upstream the same day. Raised once, after the review the rule asks for rather than instead of it: the gotchas section is 10,494 of the total, and every entry very_deep_check.py flagged as claiming its own trap settled was read and still bites, so nothing was archived. The next raise should come with a reduction pass, not another re-measurement."
+      "why": "Set at 19000 against a tree 14 commits stale, then re-measured on the merged tree at 19687 -- the growth is one freshness-guard gotcha added upstream the same day. Raised once, after the review the rule asks for rather than instead of it: the gotchas section is 10,494 of the total, and every entry very_deep_check.py flagged as claiming its own trap settled was read and still bites, so nothing was archived. The next raise should come with a reduction pass, not another re-measurement. 2026-09-11, later the same day: adding generated-edit-goes-upstream put the file at 20,048 and the ceiling was NOT raised. The reduction pass the clause asks for found one entry whose central claim had gone false -- the timezone-diagnosis entry called settings.local.json's env block inert, which the commit-identity entry beside it contradicts from a same-day measurement -- and moved it to record/GOTCHAS_ARCHIVE.md entry 31 in full. Measured 19,922 after."
     },
     "CLAUDE.md": {
       "ceiling": 200,

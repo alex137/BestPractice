@@ -24,9 +24,12 @@ acronym on first use** in a document — *long form (ACRONYM)* — and/or carry 
 short **"Acronyms" note at the bottom** of a document that uses several; and
 (b) keep **one central glossary file** as the living master list, so an
 expansion is never re-derived from scratch. When a session uses a term that
-isn't in the glossary, it adds it there in the same pass. Identifiers that
-already have their own registry (a code table, a component index) are pointed
-to, not duplicated.
+isn't in the glossary, it adds it in the same pass — **and where the glossary
+is generated, it adds it at the glossary's source, never by editing the
+generated file** (in this catalogue, the `defines:` field of the practice that
+owns the term; see [generated-edit-goes-upstream](generated-edit-goes-upstream.md)).
+Identifiers that already have their own registry (a code table, a component
+index) are pointed to, not duplicated.
 
 ## Detail
 
@@ -56,6 +59,24 @@ same single-source instinct as `registry-source-of-truth` -- derive an
 expansion once, reference it everywhere -- and the bottom-of-document note
 is the local, low-friction form for the reader who will not leave the
 page.
+
+**One incident IS recorded, and it is this rule pointing the wrong way.**
+Until 2026-09-11 the Rule above said, without qualification, that a session
+adds a missing term "there" -- to the glossary file. This practice's
+`applies_to` is `**/*.md`, which matches `GLOSSARY.md` itself, so
+`python3 tools/precedent_paths.py GLOSSARY.md` served that instruction to any
+session about to touch the file. In Precedent `GLOSSARY.md` is generated from
+every practice's `defines:` field and its own first line reads
+`do not hand-edit`; a session following this Rule would have made an edit the
+next `build_views.py` run destroys silently, and
+`generated-artifact-provenance`'s check would have failed the commit for
+doing what this practice told it to do. Raised by Morgan, who had been asking
+for glossary additions in exactly those words for months.
+
+The fix is the clause above rather than a narrower `applies_to`: the
+acronym-expansion half of this rule is right for every markdown file
+including a generated one -- what was wrong was telling a session where to
+write.
 
 ## Install
 A writing convention plus one living file (a `GLOSSARY.md` grouped
