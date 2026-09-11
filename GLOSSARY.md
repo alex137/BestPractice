@@ -12,6 +12,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
+| Clean session | [clean-session](practices/clean-session.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | decided | [decision-strength](practices/decision-strength.md) |

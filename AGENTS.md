@@ -118,6 +118,23 @@ unmarked, permanently, because guessing which past "ok" was enthusiastic is
 the invention [no-invented-specifics](practices/no-invented-specifics.md)
 forbids. Coined by Morgan on 2026-09-09 and placed at universal the same day.
 
+**A seventh command, "Clean session"**, is defined universally in
+[practices/clean-session.md](practices/clean-session.md) and means: **before
+starting what I just asked for, check whether it belongs in a different
+session — repositories first — and if it does, hand me a link to that
+session, rooted in the right repository and already seeded with the prompt,
+and tell me to click it.** The check itself is **not** waiting on the
+phrase: it runs whenever another repository might be needed, always. The
+phrase is for the times it did not, and an honest "this session is the right
+one" is a complete answer to it.
+
+It is the step that comes *before*
+[practices/handoff-is-pasteable.md](practices/handoff-is-pasteable.md),
+which was amended the same day: where the harness can create the session
+itself, the link replaces the paste block, and the block's three things
+become the seeded prompt rather than something anyone retypes. Coined by
+Morgan on 2026-09-11 and placed at universal from the start.
+
 **A third command, "Update Vendors"**, triggers
 [practices/vendor-update-runbook.md](practices/vendor-update-runbook.md) —
 the fixed sequence for taking an upstream update, starting with making the
@@ -190,7 +207,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 99 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 100 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -346,6 +363,8 @@ When exporting a tool across a repo boundary:
   engine-plus-host-shims — one vendored engine, thin host shims, never a fork
 When finishing a substantial work-product, before the merge-time capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
+When handing the person work to do, or starting work that may touch a repository this session cannot reach:
+  clean-session — cross-repo check first; hand over a clickable seeded session, not a description
 When importing, creating, or declaring a repository that holds practices:
   source-naming — names are fixed by level; say the convention before anyone picks a name
 When landing practices in bulk -- a migration, an import, or a move between sources:
@@ -863,7 +882,7 @@ gotcha every session reads is a gotcha every session pays for.
   harness run repointing the container's own `/etc/localtime`, and the hook's
   fallback rung writing `TZ=America/New_York` into untracked
   `.claude/settings.local.json`, where the harness reads it before hooks run.
-  Both are archived in full as entry 32. Verified 2026-09-11 in a scrubbed
+  Both are archived in full as entry 33. Verified 2026-09-11 in a scrubbed
   HOME with no private source, no credential and the bot identity preloaded:
   the hook resolved at rung 1 and set the person and the declared offset,
   never reaching the fallback. **Where those variables are absent it still
@@ -956,25 +975,24 @@ gotcha every session reads is a gotcha every session pays for.
   the work is **not lost** — `git reflog` lists the commit, `git checkout`
   returns to it, `git cherry-pick` recovers anything committed after.
 
-- **A harness failure that reads as "the credential is missing" can be a
-  fixture inheriting a credential that is PRESENT.** 2026-09-11: four
-  `verify_harness.py` failures were reported to a person as the absent
-  `PRECEDENT_GIT_TOKEN`. The token was there, and two of them failed *because*
-  it was — fixtures spawning subprocesses with `{**os.environ, ...}` tried to
-  clone from github.com and died on `could not read Username`, which reads
-  exactly like a missing credential. **The diagnosis is backwards in the
-  expensive direction**: it sends you to go fix access you already have.
-  Separate the two by running
-  `env -u PRECEDENT_GIT_TOKEN -u PRECEDENT_SOURCE_BASE_URL python3
-  tools/verify_harness.py` — if failures *disappear*, the fixture is
-  inheriting, not missing. Those two variables and `PRECEDENT_FRESHNESS_ALSO`
-  are scrubbed at the head of the harness now, and
-  `check_fixtures_own_the_credential_environment` holds them there as a
-  control, so a fixture that wants one supplies it explicitly. The three
-  instances, and the generalization worth more than the fix — **an ABSENCE is
-  state a fixture owns**
-  ([fixture-owns-its-state](practices/fixture-owns-its-state.md)) — are entry
-  33.
+- **A `verify_harness.py` fixture that builds an "absent credential"
+  scenario inherits the container's real one, and so asserts the opposite of
+  what it ran.** Three separate variables have done it —
+  `PRECEDENT_GIT_TOKEN`, `PRECEDENT_SOURCE_BASE_URL` and
+  `PRECEDENT_FRESHNESS_ALSO` — and the diagnosis fails in the expensive
+  direction each time: the failure reads as *missing* access you in fact
+  have, or as a guard blocking on a repository the fixture never created.
+  **Separate the two by re-running with the variables unset** — failures
+  that *disappear* were inheritance, not absence. All three are scrubbed at
+  the head of [tools/verify_harness.py](tools/verify_harness.py) now, and
+  `check_fixtures_own_the_credential_environment` plants them and asserts
+  they come back gone, so this bites only a NEW variable nobody has scrubbed
+  yet. **The generalization is the part worth keeping: an ABSENCE is state
+  too** — a fixture constructing "nothing is available" owns that absence
+  and must clear the environment, not merely decline to set anything
+  ([fixture-owns-its-state](practices/fixture-owns-its-state.md)). Full
+  story, all three instances, in
+  [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) entry 32.
 
 - **A harness run that overlaps a write to the tree fails on a change
   belonging to no commit, and the count alone cannot tell you that.**

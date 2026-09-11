@@ -39,20 +39,6 @@ acting on anything.
 **Four entries are not here at all** — they were short and wholly live, so
 they stand in AGENTS.md unchanged.
 
-**Later passes append rather than rewrite this file**, so the paragraphs above
-describe the 2026-09-08 pass that started it and not the whole of what is
-here. Entries are numbered in the order they arrived; a gap in the numbering
-is an entry that was never archived, not one that went missing. The most
-recent pass is 2026-09-11, which moved six entries — the three largest in the
-section among them — after verifying each against the tree rather than against
-its own claim about itself.
-
-**Link targets in an archived entry are repointed** from the repo root to
-`../`, so they resolve from this directory
-([rename-updates-links](../practices/rename-updates-links.md)). Nothing else
-about the text is touched: that is the only edit an entry gets on its way
-here.
-
 
 ## 2. A git helper that returns stdout and drops the exit code will hand you a
 
@@ -1126,8 +1112,81 @@ unaffected and stands.
 
 </details>
 
+## 32. A `verify_harness.py` fixture that builds a "no credential" scenario inherits the container's real one
 
-## 32. Your commits are authored by the bot because the harness sets that identity in git's GLOBAL config AND in every clone's LOCAL config
+**Verdict: `compressed`.** The three variables that have actually done this
+are scrubbed at the head of
+[tools/verify_harness.py](../tools/verify_harness.py), and
+`check_fixtures_own_the_credential_environment` plants them and asserts they
+come back gone -- so what is left live in [AGENTS.md](../AGENTS.md) is the
+symptom, the way to tell inheritance from absence, and the generalization.
+The three incidents, the fixtures they broke, and the comment that stated a
+premise it had not established are here. Moved 2026-09-11 in the reduction
+pass that [session-load-budget](../practices/session-load-budget.md) calls
+for, when a new practice took AGENTS.md over its declared ceiling.
+
+<details>
+<summary>The full entry as it stood until 2026-09-11</summary>
+
+- **A `verify_harness.py` fixture that builds a "no credential" scenario
+  inherits the container's real credential, so it asserts the opposite of
+  what it ran — and it only fails once the environment starts carrying
+  one.** 2026-09-11: four harness failures were reported to a person as
+  "the absent `PRECEDENT_GIT_TOKEN`". The token was **present**
+  (`env | grep -c PRECEDENT` said 6), and two of the four failed *because*
+  of that. `check_source_credentials` and
+  `check_individual_source_bootstrap_self_heals` each spawn subprocesses
+  with `{**os.environ, ...}`; the cases asserting *"with no base url the
+  team source is named as NOT in force"* and *"that hook degrades quietly
+  when nothing else supplies one"* therefore ran against a real
+  `PRECEDENT_SOURCE_BASE_URL`, tried to clone from github.com, and failed on
+  `could not read Username` — which reads exactly like a missing credential
+  and is a present one.
+  **The diagnosis is backwards in the expensive direction**: it sends you to
+  go fix access you already have. Separate the two by running
+  `env -u PRECEDENT_GIT_TOKEN -u PRECEDENT_SOURCE_BASE_URL python3
+  tools/verify_harness.py` — if failures *disappear*, the fixture is
+  inheriting, not missing.
+  One fixture's own comment said *"Run here with a HOME that has nothing and
+  no git credentials"* while inheriting both, which is the tell: **a premise
+  stated in a comment is not a premise the fixture established**
+  ([fixture-owns-its-state](../practices/fixture-owns-its-state.md)). Both
+  `run()` helpers and all four hook subprocesses now pop the two variables,
+  so a case that wants either supplies it explicitly. Before that the whole
+  harness's result depended on which container it ran in, and nothing said
+  so.
+  **The per-fixture pops are not the whole fix, because the next fixture
+  will not have read them.** That practice's own Rule says to clear the
+  ambient inputs at the top, once, rather than in the fixture that happened
+  to notice — so the scrub also sits at the head of
+  [tools/verify_harness.py](../tools/verify_harness.py), beside the
+  `GIT_AUTHOR_*` one that was the identical shape four days earlier, and
+  `check_fixtures_own_the_credential_environment` holds it there: it plants
+  both variables in a subprocess, imports the module, and asserts they come
+  back gone. Neutering the scrub turns three of its four cases red, the
+  planted one included — so it is a control, not a restatement.
+  **Third instance, 2026-09-11, `PRECEDENT_FRESHNESS_ALSO`** — it names
+  OTHER repositories the freshness guard checks, so a guard fixture inheriting
+  it walked out of its own temporary clone into this container's real attached
+  sets, could not fetch a private one, and blocked. Both guard copies reported
+  *"pre-write does not block a branch absent from origin (exit 2)"*, red on any
+  machine with the variable and green everywhere else. **The tell is a block
+  naming a repo or branch the fixture never created.** Scrubbed at the head of
+  [tools/verify_harness.py](../tools/verify_harness.py) with the other two, and
+  planted-and-asserted by `check_fixtures_own_the_credential_environment`.
+
+  **The generalization is worth more than the fix: an ABSENCE is state
+  too.** A fixture constructing "no credential is available" owns that
+  absence exactly as much as it owns a file it wrote, and owning it means
+  scrubbing the environment rather than merely declining to set anything.
+  Same shape as the fixture whose `HOME` got a clone written into it, one
+  level out — that one owned its scenario and not the environment the
+  scenario was read from.
+
+</details>
+
+
+## 33. Your commits are authored by the bot because the harness sets that identity in git's GLOBAL config AND in every clone's LOCAL config
 
 **Verdict: `compressed`.** Live where `PRECEDENT_COMMIT_*` is not set on the environment, and that is
 still every fresh container nobody has configured -- so a live entry stands.
@@ -1143,7 +1202,8 @@ hook resolved at rung 1, set the person, the global identity and the declared
 -0300, and installed the backstop. The Stop-hook trap stayed in the live
 entry; it is harness behaviour nothing here controls.
 
-**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+<details>
+<summary>The full entry as it stood until 2026-09-11</summary>
 
 - **Your commits are authored by the bot because the harness sets that
   identity in git's GLOBAL config AND in every clone's LOCAL config — so a
@@ -1217,78 +1277,7 @@ entry; it is harness behaviour nothing here controls.
   this repository spent a day fixing. **The repository's gate wins over
   generic harness guidance**; say so and leave the commit alone.
 
-
-
-## 33. A `verify_harness.py` fixture that builds a "no credential" scenario inherits the container's real credential
-
-**Verdict: `archived`.** The bug is fixed at the head of
-[tools/verify_harness.py](../tools/verify_harness.py) -- all three variables
-are scrubbed once, for every fixture, rather than in the fixture that happened
-to notice -- and `check_fixtures_own_the_credential_environment` holds it
-there as a control rather than a restatement: it plants the variables in a
-subprocess, imports the module, and asserts they come back gone. Verified
-present in the tree 2026-09-11, not taken from the entry's own claim. A short
-live entry survives carrying only the diagnostic tell, because the failure
-still reads as a missing credential when it happens and that reading sends a
-session to fix access it already has.
-
-**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
-
-- **A `verify_harness.py` fixture that builds a "no credential" scenario
-  inherits the container's real credential, so it asserts the opposite of
-  what it ran — and it only fails once the environment starts carrying
-  one.** 2026-09-11: four harness failures were reported to a person as
-  "the absent `PRECEDENT_GIT_TOKEN`". The token was **present**
-  (`env | grep -c PRECEDENT` said 6), and two of the four failed *because*
-  of that. `check_source_credentials` and
-  `check_individual_source_bootstrap_self_heals` each spawn subprocesses
-  with `{**os.environ, ...}`; the cases asserting *"with no base url the
-  team source is named as NOT in force"* and *"that hook degrades quietly
-  when nothing else supplies one"* therefore ran against a real
-  `PRECEDENT_SOURCE_BASE_URL`, tried to clone from github.com, and failed on
-  `could not read Username` — which reads exactly like a missing credential
-  and is a present one.
-  **The diagnosis is backwards in the expensive direction**: it sends you to
-  go fix access you already have. Separate the two by running
-  `env -u PRECEDENT_GIT_TOKEN -u PRECEDENT_SOURCE_BASE_URL python3
-  tools/verify_harness.py` — if failures *disappear*, the fixture is
-  inheriting, not missing.
-  One fixture's own comment said *"Run here with a HOME that has nothing and
-  no git credentials"* while inheriting both, which is the tell: **a premise
-  stated in a comment is not a premise the fixture established**
-  ([fixture-owns-its-state](../practices/fixture-owns-its-state.md)). Both
-  `run()` helpers and all four hook subprocesses now pop the two variables,
-  so a case that wants either supplies it explicitly. Before that the whole
-  harness's result depended on which container it ran in, and nothing said
-  so.
-  **The per-fixture pops are not the whole fix, because the next fixture
-  will not have read them.** That practice's own Rule says to clear the
-  ambient inputs at the top, once, rather than in the fixture that happened
-  to notice — so the scrub also sits at the head of
-  [tools/verify_harness.py](../tools/verify_harness.py), beside the
-  `GIT_AUTHOR_*` one that was the identical shape four days earlier, and
-  `check_fixtures_own_the_credential_environment` holds it there: it plants
-  both variables in a subprocess, imports the module, and asserts they come
-  back gone. Neutering the scrub turns three of its four cases red, the
-  planted one included — so it is a control, not a restatement.
-  **Third instance, 2026-09-11, `PRECEDENT_FRESHNESS_ALSO`** — it names
-  OTHER repositories the freshness guard checks, so a guard fixture inheriting
-  it walked out of its own temporary clone into this container's real attached
-  sets, could not fetch a private one, and blocked. Both guard copies reported
-  *"pre-write does not block a branch absent from origin (exit 2)"*, red on any
-  machine with the variable and green everywhere else. **The tell is a block
-  naming a repo or branch the fixture never created.** Scrubbed at the head of
-  [tools/verify_harness.py](../tools/verify_harness.py) with the other two, and
-  planted-and-asserted by `check_fixtures_own_the_credential_environment`.
-
-  **The generalization is worth more than the fix: an ABSENCE is state
-  too.** A fixture constructing "no credential is available" owns that
-  absence exactly as much as it owns a file it wrote, and owning it means
-  scrubbing the environment rather than merely declining to set anything.
-  Same shape as the fixture whose `HOME` got a clone written into it, one
-  level out — that one owned its scenario and not the environment the
-  scenario was read from.
-
+</details>
 
 
 ## 34. Attaching the private practice sets is a session-shape question, and what is measured about it does not add up
@@ -1304,7 +1293,8 @@ contradiction in one paragraph (it is still true that nobody can explain it,
 and a session may still need the fallback) and keeps the twin-environment trap
 in full, which is the only half that still costs days.
 
-**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+<details>
+<summary>The full entry as it stood until 2026-09-11</summary>
 
 - **Attaching the private practice sets is a session-shape question, and what
   is measured about it does not add up — so measure, do not reason.** Three
@@ -1368,6 +1358,7 @@ in full, which is the only half that still costs days.
   about the measurement and wrong about the cause, is entry 29 in
   [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md).
 
+</details>
 
 
 ## 35. A `BLOCKED by freshness-guard` on your first tool call is no longer the new-branch false positive it was until 2026-09-11
@@ -1380,7 +1371,8 @@ need 278 tokens in a file every session reads -- a one-line survivor carries
 it, since the override is still offered in every block message and so the
 shape can recur in some other guard.
 
-**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+<details>
+<summary>The full entry as it stood until 2026-09-11</summary>
 
 - **A `BLOCKED by freshness-guard` on your first tool call is no longer the
   new-branch false positive it was until 2026-09-11 — so read what it
@@ -1402,6 +1394,7 @@ shape can recur in some other guard.
   workaround it had to use, are entry 30 in
   [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md).
 
+</details>
 
 
 ## 36. `git clone` with no `--branch` asks the SERVER which branch to check out
@@ -1418,7 +1411,8 @@ the reason the entry gives itself: the guard reads Python and could not see a
 `git clone` making the same inference on our behalf, so the class is open even
 though this instance is shut.
 
-**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+<details>
+<summary>The full entry as it stood until 2026-09-11</summary>
 
 - **`git clone` with no `--branch` asks the SERVER which branch to check out,
   and the answer is a setting on a web page that nothing in this repository
@@ -1452,6 +1446,7 @@ though this instance is shut.
   reports an attached clone sitting off its branch at session start, since a
   pin only takes effect the next time something clones or pulls.
 
+</details>
 
 
 ## 37. The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are missing
@@ -1465,7 +1460,8 @@ what moved here is the detail of which set it was and how the first repair
 attempt would itself have installed the second copy that set exists to
 prevent.
 
-**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+<details>
+<summary>The full entry as it stood until 2026-09-11</summary>
 
 - **The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are
   missing. Resolve the paths its settings.json actually declares — a
@@ -1492,3 +1488,4 @@ prevent.
   layout, and against that individual set would have installed exactly the
   second copy its comment exists to prevent.
 
+</details>
