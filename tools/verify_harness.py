@@ -7643,6 +7643,16 @@ def check_session_check_reports_a_dead_also_list_entry():
     home, proj = '/tmp/fixture-home', '/tmp/fixture-proj'
     saved = {k: os.environ.get(k)
              for k in ('HOME', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_FRESHNESS_ALSO')}
+    # The row's "Set it to: ..." half exists only when there is something to
+    # suggest, and what there is to suggest is whatever clones happen to sit
+    # beside this checkout. Asserting that text while leaving the machine to
+    # decide it is a fixture that passes on a developer's container (sibling
+    # sources on disk) and fails in CI (none), which is exactly what it did.
+    # Own it instead: pin the source list, and assert the empty case too,
+    # since an environment with nothing attachable is a real one
+    # (practice: fixture-owns-its-state).
+    saved_sources = psc._attachable_sources
+    psc._attachable_sources = lambda: [('/fixture/src', 'main')]
     try:
         os.environ['HOME'] = home
         os.environ['CLAUDE_PROJECT_DIR'] = proj
@@ -7691,6 +7701,18 @@ def check_session_check_reports_a_dead_also_list_entry():
                       f'attached repo goes unchecked (ok={ok!r})',
                       ok is None and 'not set' in detail))
 
+        # With nothing attachable there is nothing to suggest, and the row
+        # must still be red and still name the dead path -- the finding is
+        # the point, the suggestion is a convenience.
+        psc._attachable_sources = lambda: []
+        os.environ['PRECEDENT_FRESHNESS_ALSO'] = '/definitely/not/here=main'
+        ok, detail = row()
+        cases.append((f'a dead entry is still reported when there is nothing '
+                      f'to suggest (ok={ok!r})',
+                      ok is False and '/definitely/not/here' in detail
+                      and 'Set it to:' not in detail))
+        psc._attachable_sources = lambda: [('/fixture/src', 'main')]
+
         # THE CONTROL. A real repository on disk must NOT be reported dead,
         # or the row is just "always red" and says nothing.
         os.environ['HOME'] = saved['HOME'] or home
@@ -7699,6 +7721,7 @@ def check_session_check_reports_a_dead_also_list_entry():
         cases.append((f'an entry naming a real repository passes (ok={ok!r}, '
                       f'{detail[:60]!r})', ok is True))
     finally:
+        psc._attachable_sources = saved_sources
         for k, v in saved.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -7915,9 +7938,30 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
                        'never seen', f'not in this tree: {missing}')
         return
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    # env is built inside the `with` below and closed over here, so every
+    # setup command runs under the SAME environment the guard does. Without
+    # it these ran on the container's own git identity, and the fixture's
+    # premise ("every ambient input that can change the result is set here")
+    # was true of the guard's environment and false of its own: on a machine
+    # with a global identity the setup commits succeeded and the check
+    # passed, on CI -- which has none -- `git commit` died with "Author
+    # identity unknown", origin/main never advanced, and case 4's stale base
+    # never existed. The guard then correctly exited 0 and was reported as
+    # the failure (practice: fixture-owns-its-state).
+    #
+    # The exit code is checked for the same reason it is checked everywhere
+    # else in this tree: a setup step that fails silently produces a fixture
+    # measuring nothing while looking like it measured something.
+    env = {}
+
+    def _git(d, *a, allow_failure=False):
+        r = subprocess.run(['git', '-C', str(d), *a],
+                           capture_output=True, text=True, env=env or None)
+        if not allow_failure and r.returncode != 0:
+            raise RuntimeError(
+                'freshness-guard fixture setup failed: git %s (exit %d): %s'
+                % (' '.join(a), r.returncode, (r.stderr or r.stdout).strip()))
+        return r
 
     cases = []
     with tempfile.TemporaryDirectory() as td:
@@ -7930,7 +7974,8 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
         # green result meaning nothing at all. GIT_CONFIG_GLOBAL empties the
         # container's global identity AND its core.hooksPath backstop, which
         # would otherwise refuse these fixture commits.
-        env = dict(os.environ)
+        env.clear()
+        env.update(os.environ)
         env.pop('CLAUDE_PROJECT_DIR', None)
         env['TMPDIR'] = str(tmp / 'sentinels')
         (tmp / 'sentinels').mkdir()
@@ -7951,10 +7996,10 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
 
         origin = tmp / 'origin'
         subprocess.run(['git', 'init', '-q', '--bare', str(origin)],
-                       capture_output=True, text=True, env=env)
+                       capture_output=True, text=True, env=env, check=True)
         seed = tmp / 'seed'
         subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)],
-                       capture_output=True, text=True, env=env)
+                       capture_output=True, text=True, env=env, check=True)
         (seed / 'f.txt').write_text('one\n', encoding='utf-8')
         _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'one')
         _git(seed, 'remote', 'add', 'origin', str(origin))
@@ -7968,7 +8013,7 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
         def _clone(name, branch):
             d = tmp / name
             subprocess.run(['git', 'clone', '-q', str(origin), str(d)],
-                           capture_output=True, text=True, env=env)
+                           capture_output=True, text=True, env=env, check=True)
             _git(d, 'checkout', '-q', '-b', branch)
             return d
 
