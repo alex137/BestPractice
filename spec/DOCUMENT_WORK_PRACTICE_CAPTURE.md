@@ -19,8 +19,8 @@ repo and the reusable template only, not onboarding anyone.
 
 ## What this is, and how it differs from the access plan
 
-[spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
-answers "how does a non-technical person use one repo safely." This plan
+[spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)
+answers "who may write what in one repo, and who may land a practice." This plan
 answers a different, larger question: Morgan wants **many** non-technical
 people working on **many** documents, as a standing replacement for Google
 Docs — and the reason to build this on Precedent rather than a plain
@@ -33,9 +33,12 @@ point of this use case, not a nice-to-have bolted onto it.
 
 **Nothing about the access mechanics changes.** Every document-project repo
 this plan produces still uses
-[spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
-unmodified for the person using it — GitHub role as the enforced boundary,
-restricted session config as defense-in-depth. This plan is additive: it's
+[spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)
+unmodified for the person using it — a Write role, branch protection and
+CODEOWNERS as the enforced boundary, session configuration for the persona.
+(That plan was rewritten on 2026-09-11: it used to hand the contributor
+Triage or Read, which denied them every write, documents included. This plan
+always assumed they could write the documents.) This plan is additive: it's
 about what the *content* layer looks like when the same pattern has to
 scale across many people and many documents at once, which the access plan
 never addressed (it was written for one person, one repo).
@@ -92,7 +95,7 @@ she ever opens GitHub at all.
    folding together [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)'s
    vendoring steps, a `precedent.json` declaring the new team source
    (resolved live from a sibling clone, **never vendored** — SOURCES.md's
-   rule), and [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md)'s
+   rule), and [spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)'s
    access restrictions and persona instruction, unmodified. This belongs in
    this repo's own `templates/` — it's a generic, reusable pattern, not
    proprietary content, the same reasoning that already put
@@ -117,7 +120,7 @@ because Morgan does not have one yet (see the previous conversation turn:
 "I don't have it yet, first I want to develop it"). The pilot — one real
 document project, one real non-technical person, using the template this
 plan builds and the access mechanics from
-[spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+[spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)
 unmodified — is the next plan, written once a real subject exists, not
 invented here to have something to test against.
 
@@ -172,9 +175,9 @@ Add it under `templates/` in this repo (BestPractice/Precedent) — e.g.
 - INSTALL.md §0's vendoring steps (universal engine).
 - A `precedent.json` declaring the new team source from step 1, resolved
   live, with the placeholder repo name left obvious to fill in.
-- [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md)'s
-  Step 3/4 content verbatim (session/environment restriction, persona
-  instruction) — that plan already worked this out; don't re-derive it.
+- [spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)'s
+  layer 2 (the CODEOWNERS path list) and layer 4 (the persona instruction)
+  — that plan already worked this out; don't re-derive it.
 - An explicit AGENTS.md bullet instructing Claude that any candidate a
   contributor raises defaults to `precedent_candidate.py --as-issue true`
   against the team repo (per "The mechanism," above), since a non-technical
@@ -184,7 +187,7 @@ Add it under `templates/` in this repo (BestPractice/Precedent) — e.g.
 
 Do not invent a pilot subject or a pilot person to test this against. Once
 Morgan has a real first project, the next session applies
-[spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+[spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)
 to instantiate it from this template, and — this is the actual test of the
 whole pitch — verifies that an editorial decision made in that pilot
 project, once promoted, is reachable by resolving the same team source
@@ -198,5 +201,5 @@ future document) is asserted, not demonstrated.
 - Multi-team-source conflicts — out of scope until a real second team
   source for this subject area exists ([TODO.md](../TODO.md) item 7).
 - Anything about the access mechanics — unchanged, delegated entirely to
-  [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md).
+  [spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md).
 - Non-GitHub hosts ([TODO.md](../TODO.md) item 8).

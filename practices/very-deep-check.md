@@ -310,8 +310,8 @@ method"). Build the fixtures.
   as PARTIAL exactly as the real-consumer step above does.
 - **Cross-repo relationships and permissions.** Walk who must be able to read
   or write what, for a *new* repo and a *new* person: the vendored engine,
-  each declared source, approvers and CODEOWNERS, and the restricted GitHub
-  roles [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+  each declared source, approvers and CODEOWNERS, and the protected paths
+  [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CONTRIBUTOR_ACCESS.md)
   describes. A step that works only because this session's operator already
   has access is a finding.
 - **Not the practice simulation.** This pass installs real fixtures and runs

@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       A brainstormed design for reaching Precedent through a chat app instead of a terminal — proved on Telegram first, aimed at WhatsApp — written up so the thinking survives, not a decision to build it.
+summary:       A brainstormed design for reaching a Claude session by voice through the chat app someone already uses — proved on Telegram first, aimed at WhatsApp — written up so the thinking survives, not a decision to build it.
 ---
 
 # Speculative — a chat bridge into a project repository, Telegram first
@@ -29,12 +29,28 @@ summary:       A brainstormed design for reaching Precedent through a chat app i
 
 ## What it is
 
-**A bot with its own identity that each participant has a private thread
-with.** Nobody is in a group. The bot is the group: it takes each person's
-message, transcribes it if it is voice, commits it to the project
-repository, runs a Claude turn against the repository, replies to that
-person, and — later, once the basics work — relays a summary of the exchange
-to the other participants in their own threads.
+**A voice interface to a working Claude session, reached through the chat
+app the person already uses.** Morgan, 2026-09-11: *"I'm imagining this as a
+whatsapp/telegram interface (include largely via voice message) to chat
+sessions like we have here; to work via voice chat (like we can do in the
+claude app, but via whatsapp)."* The comparison to the Claude app's voice
+mode is the clearest statement of what this is — the difference is only which
+app it arrives in, and the app is the whole point.
+
+**So it is a session, not a suggestion box.** Whatever a person can do by
+talking to Claude here, they can do by sending a voice note there: ask,
+argue, redraft, change their mind, and — the part this revision changes —
+**merge their own work**. The earlier draft had the bot filing thoughts and
+opening pull requests for somebody else to review. That was the right design
+for a capture pipeline and the wrong one for a session, because it makes the
+person a contributor to their own work rather than the author of it.
+
+**Each participant has their own private thread with the bot.** Nobody is in
+a group. The bot is the group: it takes each person's message, transcribes
+it if it is voice, runs a Claude turn against the project repository in that
+person's own continuing session, replies to them, and — later, once the
+basics work — relays a summary to the other participants in their own
+threads.
 
 **The reason it exists is adoption, not capability.** Everything Precedent
 does is already reachable from a phone
@@ -163,6 +179,14 @@ a second message the next day, unprompted.** If the answer is no, everything
 after this is wasted effort — and a week has found that out instead of a
 quarter.
 
+**Phase 1 is deliberately not the real thing.** The destination is a
+continuing session per person (phase 3); phase 1 is that with the thinking
+removed, on purpose, because the habit is what is being tested and a session
+is not needed to test it. **What it must still get right is identity and
+continuity** — which person, which thread, which message, in a store a
+session can later read as history. A capture phase that treats each message
+as an isolated event builds the wrong substrate for everything after it.
+
 **Why this is the right first phase.** A Telegram bot needs no phone number,
 no business entity, no display-name approval, no template approval, no
 verification queue and no per-message billing. It costs a conversation with
@@ -194,17 +218,31 @@ build that has a platform adapter behind an interface makes phase 2 a day's
 work; one that has Telegram calls threaded through it makes phase 2 a
 rewrite.** That is the one design constraint phase 1 must respect.
 
-### Phase 3 — Claude in the loop
+### Phase 3 — the session itself
 
-The commit triggers a Claude session against the repository. It reads the
-message in the context of the project, does whatever the message asks that
-is safe to do — usually filing the thought under the right topic, sometimes
-opening a pull request — and produces a reply, which the bot sends back to
-the person.
+**This is the phase that makes the idea what Morgan described, and the rest
+of the document is scaffolding around it.** The person's messages arrive in
+a continuing Claude session against the project repository. It reads them in
+the context of the project and of everything they have already said, does
+the work, and replies. They answer. It is a conversation, and it is the same
+conversation tomorrow.
 
-**The bot may open a pull request. It may never merge one, and never pushes
-to a protected branch.** Everything a chat message causes arrives as
-something a person reviews.
+**The person may merge, and the bot merges on their say-so.** Precedent
+already has the vocabulary for this and it was built for typing, not
+speaking, which turns out not to matter: `Go merge` is four syllables and
+means sync, name the branch, commit, push, open the pull request, merge,
+without asking again
+([practices/go-merge.md](../practices/go-merge.md)). So are `Park it`,
+`Three Things`, `Plain words`, `Weak yes` and `Clean session`. **A standing
+command vocabulary is exactly what a voice interface needs** — short, fixed,
+unambiguous phrases that survive transcription — and this repository has one
+already, written up for a person who is not a developer in
+[documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](../documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md).
+That is a genuine piece of luck and worth noticing rather than
+re-inventing.
+
+**What the bot may merge is bounded by what the person is working on, not by
+the bot's caution** — see [Who may change what](#who-may-change-what).
 
 ### Phase 4 — the relay
 
@@ -325,6 +363,20 @@ prices; treat every number as an order of magnitude rather than a quote.
 an hour of voice notes a day is cents. **Transcription is not a cost
 question at this size; it is a quality question.**
 
+**This section's title has become slightly misleading, and the honest
+correction belongs here rather than in a renamed heading.** When the bridge
+was a capture pipeline, the Claude API was one dependency among several and
+everything else was the interesting part. Now that the destination is a
+session per person, **the model is the dominant running cost and everything
+priced above is rounding**. Nothing in this document estimates it, because
+the figure depends entirely on how much a person talks, how much repository
+context each turn carries, and whether consecutive messages are batched — and
+a made-up number would be worse than none
+([no-invented-specifics](../practices/no-invented-specifics.md)). **The
+batching note under [The risks worth naming](#the-risks-worth-naming) is a
+cost control, not a tidiness preference**, and it is the first thing to build
+rather than the first thing to optimise later.
+
 ### Phase 2 onward, on WhatsApp
 
 **The pricing model changed on 2025-07-01**, and any older guide you find is
@@ -367,6 +419,71 @@ estimating build effort for a thing nobody has decided to build is exactly
 the register [speculation-is-marked](../practices/speculation-is-marked.md)
 warns against.
 
+## Who may change what
+
+**This bridge is for people who do not use GitHub and are not going to
+start** — Morgan's phrase for the audience is people who already live in
+WhatsApp and will not change apps. It is not for the person who already has
+a terminal; they have one, and it is better.
+
+**The boundary is drawn around the files, and it is not drawn around the
+people.** The distinction that matters is what a change is *to*: the
+project's **content** — documents, decisions, notes, open items, drafts,
+practice candidates — against the repository's **own machinery**: the
+vendored engine under `tools/`, the hooks under `.claude/`, `precedent.json`,
+the workflow files, the practice catalogue's structure. A session reached
+through the bridge writes content and merges content. It does not touch
+machinery, and the reason is not that the person could not be trusted with
+it — it is that nobody wants to debug a vendored loader by voice note, and a
+half-finished machinery change is how a repository stops working for
+everybody in it.
+
+**Saying it that way is deliberate**
+([technical-describes-people](../practices/technical-describes-people.md)):
+*technical* and *non-technical* describe people, never directories. There is
+no non-technical half of a repository. There is content, there is machinery,
+and there is a person who cares about one of them.
+
+### The enforcement problem the bridge creates
+
+[spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)
+already worked this out for the sessions people open themselves, and settled
+on two independent layers: **GitHub's own collaborator role**, which is
+enforced by GitHub whatever Claude is told, and **the session's tool
+allowlist and permission mode**, which is enforced by the harness. Neither is
+sufficient alone, and the first only binds if the person authenticates to
+GitHub as themselves.
+
+**The bridge breaks that first layer, and this is the most important thing on
+this page.** The bot holds one credential and pushes as itself. GitHub sees
+the bot, never the person behind the thread, so a per-person collaborator
+role is not being checked — **the platform-enforced boundary that plan relies
+on is simply absent here**, and it is absent quietly, which is worse. A
+design that assumes it carried over would be wrong in the direction that
+matters.
+
+So the boundary has to be rebuilt inside the bridge, and **it belongs in the
+service rather than in the session's instructions**. A write-scope allowlist
+the service checks before it pushes — these paths for this thread, everything
+else refused — is a thing that holds when a session is confused, mistaken, or
+being talked into something. An instruction telling Claude which files to
+leave alone is a thing that usually holds. **Only one of those is a
+boundary**, and a bridge that can merge needs the real one.
+
+Two honest consequences:
+
+- **The repository cannot be the only permission model**, because everything
+  arrives as the same identity. Scope is per-thread, held by the service, and
+  the mapping from thread to scope lives in the same configuration file that
+  maps threads to handles — outside version control, since it is credentials
+  by another name.
+- **A practice candidate is content; a landed practice file is closer to
+  machinery.** Precedent already has the channel for exactly this gap —
+  [tools/precedent_candidate.py](../tools/precedent_candidate.py) and
+  [spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md) — so a person can raise a
+  rule by talking about it, and its landing stays a separate act. That is the
+  shape to reuse rather than a second one invented here.
+
 ## What the repository side looks like
 
 Two directories, deliberately separate:
@@ -379,6 +496,13 @@ Two directories, deliberately separate:
 - **Curated topic threads.** Claude's synthesis — the decisions and the open
   questions, organised by subject rather than by chronology. This is what
   anybody actually reads, and it cites the inbox.
+
+**Once the bridge is a session, the inbox is doing a second job**: it is the
+conversation's own memory, and it is the reason a session resumed tomorrow
+knows what was said today. That is
+[repo-is-memory](../practices/repo-is-memory.md) arriving by a different
+road, and it is a good argument for writing the inbox carefully in phase 1,
+long before anything reads it back.
 
 **Phone numbers never enter the repository.** The service maps each
 platform identifier — a phone number on WhatsApp, a numeric user
@@ -393,11 +517,28 @@ whatever phase 1 taught the code.
 
 ## The risks worth naming
 
-**Every inbound message is untrusted input.** Anyone in a thread can write
-anything, including text that reads like instructions. The rule is that
-message content is *data*: it gets committed and summarised, never executed.
-The bot's write path stays narrow — append, commit, open a pull request, and
-nothing else.
+**A bridge that can merge cannot also treat every message as inert data, and
+pretending otherwise would be the most dangerous sentence in this document.**
+The earlier draft said message content is *data*, never executed, and the
+bot's write path stays narrow. That was true and easy when the bot filed
+things. **It is no longer either**: the person is having a working session
+and expects it to act, so "never act on what a message says" is not a rule
+this design can keep.
+
+What replaces it is a distinction the earlier version did not need. **The
+participant is authorized; the content inside their message is not.** A voice
+note from the person on the allowlist is an instruction from someone entitled
+to give it. A forwarded message, a quoted email, a pasted block, a document
+somebody sent them — **that is material they are showing the session, not
+something they are saying** — and it gets read, summarised and committed,
+never obeyed. The failure this prevents is the ordinary one: somebody sends
+the participant a message containing text shaped like a command, they forward
+it to the bot because it seemed relevant, and a session takes it as an
+instruction that arrived through an authorized thread.
+
+**The write-scope allowlist in the service is what makes the distinction
+survivable**, because it bounds the worst case whether or not the session
+gets it right ([Who may change what](#who-may-change-what)).
 
 **A private chat feeding a repository inverts this project's scrub model.**
 Everything in [practices/scrub-gate.md](../practices/scrub-gate.md) and the
@@ -405,10 +546,22 @@ check-in flow assumes a person decides what becomes public. A chat feed does
 not. So: the bridge repository is private, permanently, and the path from it
 to anything public stays manual.
 
-**Transcription errors become committed record.** Mostly harmless,
-occasionally not — a misheard name or number that then gets synthesised into
-a decision. Keeping the verbatim inbox separate from the curated threads is
-the mitigation, because the error stays traceable.
+**Transcription errors become committed record**, and once the bot can merge
+they become merged record. Mostly harmless, occasionally not — a misheard
+name or number that then gets synthesised into a decision. Keeping the
+verbatim inbox separate from the curated threads is the mitigation, because
+the error stays traceable.
+
+**The sharper version is that a command can be misheard.** `Go merge` exists
+precisely so nobody is asked twice, and a voice interface has a failure mode
+typing does not: the system can be confidently wrong about what was said.
+These pull against each other and the resolution is narrower than it first
+looks — **confirm the transcription, never the decision.** Echoing back *"you
+said Go merge — merging <branch>"* and proceeding respects the command;
+asking *"are you sure you want to merge?"* does not, and re-introduces
+exactly the interruption the phrase was coined to kill. The distinction is
+worth getting right before it is built, because the wrong version is the one
+that feels responsible.
 
 **Volume.** A chat thread's message rate is far higher than a working
 session's. Consecutive messages from one person should be batched, with a
@@ -446,7 +599,14 @@ nothing is being built.
 3. **Whether a project digest is a utility template or a marketing one** in
    Meta's categorization. It is the difference between a free phase 4 and a
    metered one, and it is a question for phase 2.
-4. **What Morgan has that clears Meta's business verification**, and what
+4. **How much of a session is genuinely continuous.** A conversation that
+   remembers yesterday is the point; carrying every prior turn into every
+   new one is not affordable and probably not useful either. Where the line
+   sits — what is re-read from the repository each time against what is
+   carried in context — is a design question nobody has answered, and it is
+   the one that decides both the cost and whether the thing feels like a
+   session at all.
+5. **What Morgan has that clears Meta's business verification**, and what
    that takes if the answer is nothing yet. **This is no longer a question
    about whether to go to WhatsApp at all** — that is settled — so it is not
    a fork in the plan, it is the first real obstacle on the only road. It is
