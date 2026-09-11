@@ -784,6 +784,39 @@ gotcha every session reads is a gotcha every session pays for.
   from `1 failed` to `0 failed` with no code change. Treat every entry here
   that says "the session-start hook does this" as **not** done when you
   arrived as a sibling.
+  **One guarantee has an environment-level route out of this since
+  2026-09-11, and only one**: the freshness guard reads
+  `PRECEDENT_FRESHNESS_ALSO` (`;`-separated `<path>=<base branch>`), so a
+  session can have attached repositories checked even though their own hooks
+  never fire — an environment variable follows a session into every
+  repository it touches, the same reasoning as `PRECEDENT_COMMIT_*` for
+  identity. **Check the value before trusting it**: this environment's own
+  entry named `/home/user/precedent-individual` on 2026-09-11 while the
+  individual source actually cloned to `/root/precedent-individual`, so the
+  entry resolved to nothing and was skipped every session. A wrong path here
+  is silent by design — a config typo must not wedge a session — so the
+  hook's own note is the only evidence. Nothing else in this entry is
+  covered: the `pip install`, the path-trigger channel and the rest still
+  need doing by hand.
+
+- **A merge conflict in `.claude/hooks/freshness-guard.sh` locks the session
+  out of every tool that could repair it, and `git` being exempt does not
+  help.** 2026-09-11: merging `origin/precedent-beta-v01` into a branch that
+  had also touched the guard left conflict markers in the live PreToolUse
+  hook. Bash aborts on the parse error before reaching either the git
+  exemption or the once-per-session sentinel, and exits 2 — which is exactly
+  how a PreToolUse hook refuses a call. The matcher is
+  `Edit|Write|NotebookEdit|Bash`, so **Edit, Write and Bash were all refused
+  at once**, and the guard's own fail-open path does not cover this: it is
+  written for "cannot read the payload", not for "will not parse".
+  **The way out is a tool the matcher does not name.** `Monitor` runs a
+  shell command under a different tool name, so it is not matched:
+  `Monitor(command: "cd <repo> && git checkout --ours .claude/hooks/freshness-guard.sh")`
+  restored a parseable file and every tool came back. A subagent is NOT a way
+  out — it inherits the same project hooks.
+  **Prefer avoiding it**: when a merge is going to touch the guard, expect
+  this and resolve that file first. Nothing detects it in advance, because
+  the hook is fine right up until the merge writes the markers.
 
 - **The session's PRIMARY repo does not run its SessionStart hooks either,
   when the harness rooted the session one directory ABOVE it — and this
@@ -918,25 +951,25 @@ gotcha every session reads is a gotcha every session pays for.
   canonical is still a person's call, and
   [TODO.md's `source-hook-drift` item](TODO.md#source-hook-drift) holds it.
 
-- **A `BLOCKED by freshness-guard` on your first tool call can mean your
-  BRANCH has no counterpart on origin yet, not that your checkout is stale —
-  and the override the message offers switches the guard off for the whole
-  checkout.** Reported 2026-09-09 by a session working in one of the private
-  practice-set repositories: its first command was refused because the branch
-  it had been told to work on did not exist on origin, so there was nothing
-  for the guard to fetch or compare against. **The remedy the refusal names
-  is the wrong one here.** `git config precedent.freshness.override true`
-  buys past a branch-shaped inconvenience by disabling freshness checking for
-  the rest of the session — trading the guard that catches the single most
-  expensive failure class in this file for the smallest possible convenience.
-  **Push the branch instead.** It gives the guard a counterpart to fetch,
-  costs nothing (the branch carries no commits beyond its base yet), and
-  leaves every later check running. That session did exactly that, after
-  confirming by hand that its HEAD matched `origin/main` on a clean tree.
-  **Not established from here:** which of the guard's paths produced the
-  refusal, or whether that set's copy is the older build named two entries
-  above — that repository is under another owner and cannot be attached to a
-  session rooted here, per the cross-owner entry below.
+- **A `BLOCKED by freshness-guard` on your first tool call is no longer the
+  new-branch false positive it was until 2026-09-11 — so read what it
+  actually says before reaching for the override.** The guard used to treat
+  "origin has no such branch" and "origin could not be reached" as the same
+  failure, and refused the first write of every newly created branch; the
+  remedy it named, `git fetch origin <branch>`, could not succeed against a
+  ref that does not exist, so the only way forward a session found was
+  `git config precedent.freshness.override true` — which switches freshness
+  checking off for that checkout permanently, including the stale-base check
+  that catches the single most expensive failure class in this file. Fixed in
+  both copies here: `git ls-remote --exit-code --heads origin <branch>`
+  separates the two, and only the branch-absent case is waved through — with
+  the base-branch check still running on it. **What stays true is the shape
+  of the trap**, since the override is still on offer in every block message:
+  a refusal naming a remedy that cannot work is the moment to ask what the
+  guard actually measured, not to disable it. **An unreachable origin still
+  blocks, deliberately.** The 2026-09-09 incident, and the push-the-branch
+  workaround it had to use, are entry 30 in
+  [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md).
 
 - **Something can move this checkout off your working branch mid-session,
   and the cause is NOT known — treat a silently-vanished edit as this before
@@ -959,6 +992,51 @@ gotcha every session reads is a gotcha every session pays for.
   the branch on its first run and compares on every later one. When it fires
   the work is **not lost** — `git reflog` lists the commit, `git checkout`
   returns to it, `git cherry-pick` recovers anything committed after.
+
+- **A `verify_harness.py` fixture that builds a "no credential" scenario
+  inherits the container's real credential, so it asserts the opposite of
+  what it ran — and it only fails once the environment starts carrying
+  one.** 2026-09-11: four harness failures were reported to a person as
+  "the absent `PRECEDENT_GIT_TOKEN`". The token was **present**
+  (`env | grep -c PRECEDENT` said 6), and two of the four failed *because*
+  of that. `check_source_credentials` and
+  `check_individual_source_bootstrap_self_heals` each spawn subprocesses
+  with `{**os.environ, ...}`; the cases asserting *"with no base url the
+  team source is named as NOT in force"* and *"that hook degrades quietly
+  when nothing else supplies one"* therefore ran against a real
+  `PRECEDENT_SOURCE_BASE_URL`, tried to clone from github.com, and failed on
+  `could not read Username` — which reads exactly like a missing credential
+  and is a present one.
+  **The diagnosis is backwards in the expensive direction**: it sends you to
+  go fix access you already have. Separate the two by running
+  `env -u PRECEDENT_GIT_TOKEN -u PRECEDENT_SOURCE_BASE_URL python3
+  tools/verify_harness.py` — if failures *disappear*, the fixture is
+  inheriting, not missing.
+  One fixture's own comment said *"Run here with a HOME that has nothing and
+  no git credentials"* while inheriting both, which is the tell: **a premise
+  stated in a comment is not a premise the fixture established**
+  ([fixture-owns-its-state](practices/fixture-owns-its-state.md)). Both
+  `run()` helpers and all four hook subprocesses now pop the two variables,
+  so a case that wants either supplies it explicitly. Before that the whole
+  harness's result depended on which container it ran in, and nothing said
+  so.
+  **The per-fixture pops are not the whole fix, because the next fixture
+  will not have read them.** That practice's own Rule says to clear the
+  ambient inputs at the top, once, rather than in the fixture that happened
+  to notice — so the scrub also sits at the head of
+  [tools/verify_harness.py](tools/verify_harness.py), beside the
+  `GIT_AUTHOR_*` one that was the identical shape four days earlier, and
+  `check_fixtures_own_the_credential_environment` holds it there: it plants
+  both variables in a subprocess, imports the module, and asserts they come
+  back gone. Neutering the scrub turns three of its four cases red, the
+  planted one included — so it is a control, not a restatement.
+  **The generalization is worth more than the fix: an ABSENCE is state
+  too.** A fixture constructing "no credential is available" owns that
+  absence exactly as much as it owns a file it wrote, and owning it means
+  scrubbing the environment rather than merely declining to set anything.
+  Same shape as the fixture whose `HOME` got a clone written into it, one
+  level out — that one owned its scenario and not the environment the
+  scenario was read from.
 
 - **A harness run that overlaps a write to the tree fails on a change
   belonging to no commit, and the count alone cannot tell you that.**
