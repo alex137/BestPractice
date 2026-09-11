@@ -254,6 +254,30 @@ def _branch_absent(output):
 def _try_sync(repo_url, clone_path, branch=None):
     """One attempt: pull if already cloned, else clone. -> (ok, output).
 
+    WHY THE PERSIST LIVES HERE AND NOT IN run_sync (practice: cite-the-incident).
+    It used to sit in run_sync, on the reasoning that every sync goes through
+    there. Two do not, and between them they cover every clone a session
+    actually meets at startup:
+
+      * teams_from_repo's ALREADY-ON-DISK branch calls this function
+        directly, so a team clone that exists -- which is every team clone
+        after the first session -- was synced and never given a helper.
+      * the individual source is not synced at session start at all while it
+        looks usable: session-start.sh leaves it to precedent_resolve.py's
+        self-heal, and a healthy clone never triggers one.
+
+    So run_sync's comment calling itself "the repair path for the clones made
+    before this existed" was true of a path those clones do not take.
+    Measured 2026-09-11, hours after the persist landed: all four private
+    sources on disk, PRECEDENT_GIT_TOKEN set, not one of them carrying a
+    helper, and the freshness guard blocking every non-git tool call of the
+    session exactly as it had before the fix. This function is the one funnel
+    both a clone and a pull pass through, so it is where the guarantee holds.
+
+    Repairing a clone nothing pulls is a different question again, and this
+    cannot answer it -- precedent_refresh_sources.py does, per attached
+    source, at every session start.
+
     The clone is made from the CLEAN url -- the credential travels as a git
     helper that reads the environment itself, so no token is ever written
     into .git/config, where it would outlive this process and be pushed by
@@ -266,6 +290,14 @@ def _try_sync(repo_url, clone_path, branch=None):
     --ff-only` pulls whatever branch the checkout is already sitting on. A
     clone that landed on the wrong branch once therefore stayed there and
     kept pulling it, session after session, with nothing saying so."""
+    ok, out = _sync_once(repo_url, clone_path, branch=branch)
+    if ok:
+        _persist_credential(clone_path, repo_url)
+    return ok, out
+
+
+def _sync_once(repo_url, clone_path, branch=None):
+    """The attempt itself, with every early return _try_sync has to wrap."""
     cred = _credential_args(repo_url)
     branch = branch or expected_branch(clone_path)
     if (clone_path / '.git').is_dir():
@@ -354,9 +386,10 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
     for attempt in range(1, attempts + 1):
         ok, last_output = _try_sync(repo_url, clone_path, branch=branch)
         if ok:
-            # Every successful sync, not only a fresh clone: this is also the
-            # repair path for the clones made before this existed.
-            _persist_credential(clone_path, repo_url)
+            # The credential helper is persisted by _try_sync itself, for
+            # every caller rather than only this one -- see its docstring for
+            # the two paths that bypass run_sync entirely, and what that cost.
+            #
             # A team source is resolved BY PATH, as a sibling checkout, so
             # there is nothing to record; writing a config entry for one
             # would invent a resolution route precedent_resolve.py does not

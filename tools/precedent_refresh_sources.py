@@ -434,6 +434,57 @@ def apply_to(entry, commit=False, branch=None):
     return steps
 
 
+def ensure_source_credentials(found):
+    """Leave the credential helper in every attached source clone that has
+    none, and -> the labels of the clones repaired.
+
+    WHY THIS EXISTS SEPARATELY FROM THE BOOTSTRAP TOOL (practice:
+    cite-the-incident). precedent_source_bootstrap.py writes the helper on
+    every sync it performs, which covers a clone it created and a clone it
+    pulls. It cannot cover a clone NOTHING syncs, and at session start that
+    is the ordinary state of an individual source: session-start.sh leaves it
+    to precedent_resolve.py's self-heal, and a clone that looks usable never
+    triggers one. A clone made by an engine older than that persist therefore
+    stays credential-less for the life of the container, however many
+    sessions run in it.
+
+    Measured 2026-09-11: four private sources cloned at 11:00 by a
+    pre-persist engine, the fix merged at 14:22, and a session at 15:49 --
+    running the fixed code, with PRECEDENT_GIT_TOKEN set -- still met four
+    clones that could not fetch. The freshness guard named
+    `could not fetch origin/main` and refused every non-git tool call.
+
+    This tool already walks every attached source at every session start,
+    which makes it the one place that question gets asked for free. It writes
+    no secret: the config records the environment variable's NAME (see
+    precedent_source_credentials.persist_credential_helper). A clone that
+    already has a helper is left alone, so this is idempotent and silent in
+    the ordinary case."""
+    try:
+        import precedent_source_credentials as psc
+    except ImportError:
+        return []
+    if not psc.have_token():
+        return []
+    repaired = []
+    for entry in found:
+        repo = entry.get('repo')
+        if repo is None:
+            continue
+        # An EXISTING helper is never replaced. It may be somebody's own
+        # credential manager, and a tool that overwrites one to install its
+        # own is doing something nobody asked for.
+        ok, existing = _git('config', '--get-all', 'credential.helper', cwd=repo)
+        if ok and existing.strip():
+            continue
+        ok_url, url = _git('remote', 'get-url', 'origin', cwd=repo)
+        if not ok_url:
+            continue
+        if psc.persist_credential_helper(repo, url):
+            repaired.append(_label(repo))
+    return repaired
+
+
 def _credential_reminder():
     """A source set that is not attached at all cannot be stale, so this
     tool's own report is silent about it -- and "no attached source found"
@@ -467,6 +518,15 @@ def main(argv):
         return 0
 
     _credential_reminder()
+    for label in ensure_source_credentials(found):
+        # Said out loud rather than repaired in silence: this is a clone that
+        # every git command inside it was failing on, and the failure it was
+        # producing (a freshness-guard block naming a branch that belongs to
+        # a DIFFERENT repository) sends whoever reads it to the wrong place.
+        print(f"precedent_refresh_sources: wrote the credential helper into "
+              f"{label}, which had none -- git inside that clone could not "
+              f"authenticate until now. It was cloned by an engine older than "
+              f"the persist; nothing else was wrong with it.")
     if not found:
         print(f"precedent_refresh_sources: no attached practice-set source found "
               f"beside {ROOT} (looked for {MANIFEST}). Nothing to check.")

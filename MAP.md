@@ -146,7 +146,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_migrate_status.py](tools/precedent_migrate_status.py) | Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to` |
 | [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
-| [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date |
+| [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none |
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
 | [tools/precedent_retire.py](tools/precedent_retire.py) | Stage 6 (phase 5) — the periodic removal report; proposes, never acts |
 | [tools/precedent_session_check.py](tools/precedent_session_check.py) | Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did |
