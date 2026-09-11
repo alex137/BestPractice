@@ -40,7 +40,11 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   extended 2026-09-09, Morgan F (strength: assented), with pass 3's
   tier-placement question, after a session asked what this check covers and
   found that nothing here or anywhere else reviews whether a practice's
-  `tier` is still right"
+  `tier` is still right; extended 2026-09-11, Morgan F (strength: decided),
+  so every repo in force is asked whether it still EXISTS and still accepts
+  a push, not only whether the clone is current -- \"make sure it doesn't
+  automatically try to open a repo that doesn't exist / was deleted /
+  archived\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -66,7 +70,7 @@ between two of them as inside any one, which is the reason they are read
 together rather than one at a time.
 
 **Before anything is read, every repo in force must be provably current
-against its origin** — this checkout and every attached source.
+against its origin, and must still be a repository work can land in** — this checkout and every attached source.
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) fetches and compares
 each one as its first act and refuses to go further otherwise, because a
 very deep check's whole product is judgment about what the repos say: a stale tree does not degrade
@@ -76,6 +80,22 @@ get the same verdict, since a confident wrong answer is the failure mode
 either way. Fix it and start again; `--freshen` will fast-forward a clean
 tree that is merely behind, and `--allow-stale` exists only for a
 deliberately offline run, where every finding is then provisional.
+
+**Current is not the same as alive**, and the second half is the one nothing
+else here can see. Every repo in force is opened **automatically** — the
+session-start hook clones each declared source, the freshness gate fetches
+it, the refresh tool pulls it — so a source that has been **deleted,
+renamed, or archived** is retried every session by machinery whose failures
+are deliberately quiet. The check asks GitHub about each one, a single
+call per repo: a deleted or access-revoked repository is re-cloned forever
+and its failure reads like a credential problem, a renamed one keeps
+resolving through a redirect that lasts only until somebody takes the old
+name, and an **archived** one is the worst of the three — it clones,
+fetches and reads exactly like a live repository and refuses every push, so
+a session can spend its whole run editing a source nothing it writes can
+ever land in. Ask with a credential or not at all: unauthenticated, a
+private repository and a deleted one both answer *Not Found*, so the run
+must say it learned nothing rather than report a repo as gone.
 
 **Every declared team and individual source must actually be present before
 the check runs.** The ordinary loader tolerates a missing personal source and
@@ -131,12 +151,15 @@ spent on something a script already catches is judgment wasted, and a tree
 already failing its own gates makes every later finding ambiguous: you
 cannot tell a drift this run introduced from one that was there before. So:
 
-1. **Prove every repo in force is current.** The tool's own first act, and
-   a refusal rather than a warning — warning was tried and failed, because a
+1. **Prove every repo in force is current, and still there.** The tool's
+   own first act, and a refusal rather than a warning — warning was tried and failed, because a
    session stale enough to need the warning has already been handed stale
    instructions to read it against. A source is the likelier offender: the
    session-start freshness guard runs for the session's primary repo only,
-   so an attached sibling has never been checked by anything.
+   so an attached sibling has never been checked by anything. The
+   liveness half runs in the same breath and is a finding rather than a
+   refusal: a deleted, renamed or archived repo in force does not make the
+   reading below wrong, it makes the writing above it pointless.
 2. **Run the deep check suite as it stands** — the five gates
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
@@ -740,6 +763,21 @@ building a fixture and running the checks on it produces evidence, not a
 judgment, so its findings do not depend on this caveat.
 
 ## Story
+**The liveness half was Morgan's, 2026-09-11**, and it was asked for
+before anything broke: *"make sure it doesn't automatically try to open a
+repo that doesn't exist / was deleted / archived."* No deleted or archived
+source has cost this project a session yet, and saying otherwise would be
+the invention [no-invented-specifics](no-invented-specifics.md) forbids.
+What IS on the record is both of its neighbours, twice over in
+[AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md)'s
+gotchas: a clone URL whose capitalization GitHub answered with *"this
+repository moved"* — the rename case, diagnosed as the cause of an
+unrelated failure it had nothing to do with — and a session that read
+*"access to this repository is not enabled"* as a token problem and went
+looking for a credential that was fine. Both are what a repository that has
+quietly stopped being reachable looks like from this side, and in both the
+expensive part was the misdiagnosis, not the outage.
+
 Named in [PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/PRACTICE_ENGINE_PLAN.md)'s v28 amendment
 (2026-09-01) as "the inherited RepoPersonalPreferences (RPP) audit list ...
 heavier than any of [light check, deep check, routing audit] ... not yet

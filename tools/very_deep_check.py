@@ -92,7 +92,10 @@ gives the full list.
 
 FIRST, before it reads anything: every repo in force must be provably
 current against its origin -- this checkout and every declared team or
-individual source. Not provably current FAILS the run (--allow-stale for a
+individual source -- and each one is asked, over the API, whether it still
+EXISTS and still accepts a push (--skip-liveness to skip). Current and
+archived is the pair nothing else here can tell apart: an archived repo
+fetches like a live one and refuses every push. Not provably current FAILS the run (--allow-stale for a
 deliberately offline one). "Stale" and "cannot prove it isn't" are the same
 verdict, because the failure mode is identical: a confident report that
 current work is missing and fixed bugs are open. It verifies rather than
@@ -112,6 +115,9 @@ Run:
       -- proceed even if a declared team/individual source isn't present.
   python3 tools/very_deep_check.py --skip-branch-scan
       -- enumerate and check sources only; skip the git merge scan.
+  python3 tools/very_deep_check.py --skip-liveness
+      -- skip the one-API-call-per-repo check that each repo in force still
+      exists and is not archived. For an offline run.
   python3 tools/very_deep_check.py --freshen
       -- fast-forward any repo in force that is strictly behind on a clean
       tree, then proceed. Never touches a diverged or dirty one: there,
@@ -1708,6 +1714,7 @@ def enumerate_scope(repo=None, user_config=None):
         docs, n_practices = _docs_and_practice_count(s['path'])
         if not docs and n_practices == 0:
             missing.append({'level': s['level'], 'name': s['name'],
+                            'path': s['path'],
                             'reason': f"{s['path']} has neither a "
                                        f"recognized top-level document nor "
                                        f"a practices/ directory -- source "
@@ -1784,13 +1791,54 @@ _NOT_A_REPO_NAME = re.compile(
     r'.*\.(?:md|py|json|txt|sh|yml|yaml|html|template|jsonl)$', re.I)
 
 
-def _api_json(path, timeout=20):
-    """-> (parsed, error). Never raises: the caller reports, it does not crash."""
+def _api_token():
+    """-> (value, var_name) for a usable GitHub token, or (None, None).
+
+    Read through precedent_source_credentials so there is ONE answer to
+    "is there a credential here" (it also resolves
+    PRECEDENT_GIT_TOKEN=inherit). Degrades to no token when the module is
+    absent -- this engine is vendored into trees older than it.
+    """
+    try:
+        import precedent_source_credentials as psc
+        var = psc.token_var()
+    except Exception:                           # noqa: BLE001 -- reported
+        return None, None
+    if not var:
+        return None, None
+    value = (os.environ.get(var) or '').strip()
+    # A curl config file is a quoted format. A token carrying a quote, a
+    # backslash or a newline would either break the parse or -- worse --
+    # smuggle a second directive into it, so such a value is refused rather
+    # than escaped. No GitHub token looks like that; a mis-set variable
+    # (a whole `export` line pasted in, say) does.
+    if not value or any(c in value for c in '"\\\n\r'):
+        return None, var
+    return value, var
+
+
+def _api_json(path, timeout=20, auth=True):
+    """-> (parsed, error). Never raises: the caller reports, it does not crash.
+
+    AUTHENTICATES WHEN A TOKEN IS SET, because unauthenticated is not a
+    milder version of the same question -- it is a different question. The
+    API answers `Not Found` for a private repository and for a deleted one
+    alike, so a caller asking anonymously about this project's own private
+    sources learns nothing at all about whether they still exist. The token
+    is passed through a curl config on STDIN rather than an `-H` argument:
+    an argument list is world-readable in /proc on a shared machine, and
+    this one would carry the credential itself.
+    """
+    token, _var = _api_token() if auth else (None, None)
+    argv = ['curl', '-s', '--max-time', str(timeout),
+            '-H', 'Accept: application/vnd.github+json']
+    if token:
+        argv += ['-K', '-']
+    argv.append(f'https://api.github.com/{path.lstrip("/")}')
     try:
         r = subprocess.run(
-            ['curl', '-s', '--max-time', str(timeout),
-             '-H', 'Accept: application/vnd.github+json',
-             f'https://api.github.com/{path.lstrip("/")}'],
+            argv, input=(f'header = "Authorization: Bearer {token}"\n'
+                         if token else ''),
             capture_output=True, text=True, timeout=timeout + 10)
     except Exception as e:                      # noqa: BLE001 -- reported
         return None, f'curl failed: {e}'
@@ -2030,6 +2078,164 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=sys.stdout):
     return findings, notes
 
 
+# --------------------------------------------------------------------------
+# Repos in force: does each one still exist, and can work still land in it?
+# --------------------------------------------------------------------------
+#
+# Every repo in force here is opened AUTOMATICALLY, by something nobody
+# watches: the SessionStart hook clones each declared source, the freshness
+# gate fetches each one, and precedent_refresh_sources pulls them. All of
+# that assumes the repository on the other end is still there and still
+# accepts a push. Three states break that assumption and NONE of them is
+# visible from this side:
+#
+#   DELETED or RENAMED. The clone still works from a redirect, or stops
+#   working with an error that reads like a credential problem -- which is
+#   the diagnosis AGENTS.md's gotchas show sessions reaching for first, and
+#   costing hours to. A renamed source keeps resolving through GitHub's
+#   redirect until somebody creates a new repository under the old name.
+#
+#   ARCHIVED. The worst of the three, because nothing fails until the end:
+#   an archived repository clones, fetches and reads exactly like a live
+#   one, and refuses every push. A session can spend its whole run editing
+#   a source it will never be able to write to, and the freshness gate --
+#   which only ever compares against origin -- will call it clean the whole
+#   time.
+#
+#   ACCESS REVOKED. Indistinguishable from deleted over the API, and the
+#   remedy is different, so the finding says both rather than picking one.
+#
+# WHY HERE rather than in a gate: it needs the network, like the visibility
+# audit above, and for the same reason it cannot live in the push gate.
+#
+# WHY IT IS WORTH THE CALL: this is the check that ends a retry loop. A
+# source that no longer exists is re-cloned at every session start, forever,
+# by a hook whose failure is deliberately quiet (practice: fail-gracefully)
+# -- and a quiet failure repeated daily is one nobody ever traces.
+#
+# LIKE THE VISIBILITY AUDIT, THIS WRITES NO NAME ANYWHERE. The private
+# sources' names appear in their own origin URLs; findings go to the
+# session's own output and never into a file in this tree.
+
+_GH_REMOTE_RE = re.compile(
+    r'github\.com[:/](' + _OWNER + r')/([A-Za-z][\w.-]*?)(?:\.git)?/?$')
+
+
+def _repos_in_force(repo_root, sources=(), missing=(), base_url=None):
+    """-> [(label, url, path_or_None)], one per repo this session opens.
+
+    A source that resolved is asked for its OWN origin -- what it was
+    cloned from is the thing being fetched every session, which is not
+    necessarily what anything declares. A source that did NOT resolve has
+    no clone to ask, so its URL is rebuilt the way the bootstrap builds it
+    (`<PRECEDENT_SOURCE_BASE_URL>/<name>`); that is the case this check
+    exists for, since "declared, never resolved" is exactly what a deleted
+    source looks like from here.
+    """
+    rows, seen = [], set()
+
+    def _add(label, url, path):
+        url = (url or '').strip()
+        if not url or url in seen:
+            return
+        seen.add(url)
+        rows.append((label, url, path))
+
+    _add('this checkout', _origin_url(repo_root), repo_root)
+    for s in sources or ():
+        _add(f"{s['level']} source {s['name']!r}", _origin_url(s['path']),
+             s['path'])
+    base = (base_url if base_url is not None
+            else os.environ.get('PRECEDENT_SOURCE_BASE_URL', ''))
+    base = (base or '').strip().rstrip('/')
+    for m in missing or ():
+        url = _origin_url(m['path']) if m.get('path') else ''
+        if not url and base and m.get('name'):
+            url = f"{base}/{m['name']}"
+        _add(f"{m['level']} source {m['name']!r} (declared, not resolved)",
+             url, m.get('path'))
+    return rows
+
+
+def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
+                         out=sys.stdout):
+    """-> (findings, notes). One API call per repo in force."""
+    findings, notes = [], []
+    rows = _repos_in_force(repo_root, sources, missing, base_url)
+    token, var = _api_token()
+    checked = bad = 0
+    for label, url, _path in rows:
+        m = _GH_REMOTE_RE.search(url)
+        if not m:
+            notes.append(f'{label}: origin is not a github.com remote '
+                         f'({url[:60]}) -- liveness not checked.')
+            continue
+        owner, name = m.group(1), m.group(2)
+        data, err = _api_json(f'repos/{owner}/{name}')
+        if err:
+            notes.append(f'{label} ({owner}/{name}): not checked ({err})')
+            continue
+        if not isinstance(data, dict) or 'full_name' not in data:
+            msg = str((data or {}).get('message', 'no repository in response'))
+            if 'Not Found' in msg and token:
+                findings.append(
+                    f'{label} ({owner}/{name}): the API reports Not Found, '
+                    f'ASKED WITH A CREDENTIAL ({var}) -- so the repository '
+                    f'has been deleted or renamed, or this token\'s access '
+                    f'to it was revoked. Everything that opens it '
+                    f'automatically -- the session-start clone, this '
+                    f'check\'s own fetch, precedent_refresh_sources -- is '
+                    f'retrying it every session and failing quietly. Find '
+                    f'where it is now and repoint the declaration, or stop '
+                    f'declaring it.')
+            elif 'Not Found' in msg:
+                notes.append(
+                    f'{label} ({owner}/{name}): the API reports Not Found, '
+                    f'asked ANONYMOUSLY -- which is also what a private '
+                    f'repository answers, so this says nothing either way. '
+                    f'Set PRECEDENT_GIT_TOKEN (INSTALL.md section 8) '
+                    f'and re-run to get an answer.')
+            else:
+                notes.append(f'{label} ({owner}/{name}): not checked ({msg})')
+            continue
+        checked += 1
+        before = len(findings)
+        if data.get('archived'):
+            findings.append(
+                f'{label} ({owner}/{name}) is ARCHIVED. It clones, fetches '
+                f'and reads exactly like a live repository and refuses every '
+                f'push, so nothing here reports it: the freshness gate '
+                f'compares against origin and calls it clean. Work done in '
+                f'it cannot land. Unarchive it, or stop declaring it.')
+        if data.get('disabled'):
+            findings.append(
+                f'{label} ({owner}/{name}) is DISABLED by GitHub. Same shape '
+                f'as archived: it reads and does not accept work.')
+        canonical = str(data.get('full_name') or '')
+        if canonical and canonical.lower() != f'{owner}/{name}'.lower():
+            findings.append(
+                f'{label} is declared or cloned as {owner}/{name} and the '
+                f'API answers {canonical} -- it has been RENAMED, and every '
+                f'clone and fetch is running through a redirect that lasts '
+                f'only until somebody creates a repository under the old '
+                f'name. Repoint the remote (git remote set-url) and any '
+                f'declaration that names it.')
+        if len(findings) > before:
+            bad += 1
+    # `checked` is how many repos ANSWERED, which is not how many are
+    # healthy -- an archived repo answers perfectly. Counting the two
+    # separately is the same correction the visibility audit above already
+    # had to make: a check that reports its own coverage as a pass rate is
+    # the shape this whole tool exists to catch.
+    print(f'  repos in force: {checked} of {len(rows)} answered '
+          f'({checked - bad} live and writable'
+          + (f', {bad} NOT -- see the findings' if bad else '') + ')'
+          + ('' if checked == len(rows) else
+             f'; {len(rows) - checked} could NOT be determined -- see the '
+             f'notes, they are not passes'), file=out)
+    return findings, notes
+
+
 def _exit(message):
     print(message, file=sys.stderr)
     return 1
@@ -2065,6 +2271,7 @@ def main():
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
     skip_visibility = '--skip-visibility' in args
+    skip_liveness = '--skip-liveness' in args
     skip_endgame = '--skip-endgame-merge' in args
     allow_stale = '--allow-stale' in args
     do_freshen = '--freshen' in args
@@ -2179,6 +2386,24 @@ def main():
                      f"pure artifact -- a convention 'not rolled out' that "
                      f"was rolled out last week. Run each remedy above, or "
                      f"--freshen, and start again.")
+
+    # Still THERE, not only still current. The freshness gate above proves
+    # each repo in force matches its origin; it cannot see that the origin
+    # has been deleted, renamed, or archived, because an archived repo
+    # fetches exactly like a live one and a deleted source simply never
+    # resolved. Runs here, right after freshness and before anything
+    # expensive, for the same reason freshness does: a finding that says
+    # "nothing you write here can ever land" is worth more before the read
+    # than after it.
+    if not skip_liveness and not as_json:
+        print("REPOS IN FORCE -- still there, still writable\n")
+        _lf, _ln = repos_in_force_audit(repo_root, data['sources'],
+                                        data['missing'])
+        for f in _lf:
+            print(f'  FINDING: {f}')
+        for n in _ln:
+            print(f'  note: {n}')
+        print()
 
     # EVERY source precedent.json declares, not only the private ones.
     # This used to be gated on FATAL_MISSING_LEVELS ('team', 'individual'),
