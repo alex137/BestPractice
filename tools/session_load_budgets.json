@@ -1,0 +1,37 @@
+{
+  "_comment": [
+    "Ceilings for everything a session loads BEFORE it does any work, in tokens",
+    "(rough: words x 1.3, tools/build_views.py:_approx_tokens). One registry so",
+    "no cap is declared twice -- registry-source-of-truth. Practice:",
+    "practices/session-load-budget.md; checked by tools/precedent_check.py",
+    "--only session-load-budget.",
+    "",
+    "A ceiling is a watermark, not an endorsement: each was set at the measured",
+    "size when the surface was last reviewed, rounded up for headroom, so it can",
+    "be ratcheted DOWN by a reduction pass and never drifts up unnoticed. Raising",
+    "one is a decision somebody makes on purpose, in a commit, with the reason in",
+    "'why'. Never raise it to make a red check green."
+  ],
+  "resident_block_tokens": 2000,
+  "section_review_tokens": 2500,
+  "surfaces": {
+    "AGENTS.md": {
+      "ceiling": 19000,
+      "measured": 18605,
+      "reviewed": "2026-09-11",
+      "why": "First measurement. 9,501 of it is the gotchas section, which is working and is not to be trimmed for the number's sake; the reduction route is archiving what no longer bites, in full."
+    },
+    "CLAUDE.md": {
+      "ceiling": 200,
+      "measured": 55,
+      "reviewed": "2026-09-11",
+      "why": "An @AGENTS.md include. Anything more than a line or two here is content that belongs in the file it includes."
+    },
+    ".precedent/SESSION_PRACTICES.md": {
+      "ceiling": 4000,
+      "measured": 2887,
+      "reviewed": "2026-09-11",
+      "why": "Generated at session start from the team and individual sources, so it varies with what resolved; the ceiling is the whole of what those sources may add to every session here."
+    }
+  }
+}

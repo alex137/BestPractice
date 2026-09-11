@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 94 practice files (10 resident, 84 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 95 practice files (10 resident, 85 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -87,6 +87,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [second-pass-capture](practices/second-pass-capture.md) | on-demand | finishing a substantial work-product, before the merge-time capture gate |
 | [section-order-by-frequency](practices/section-order-by-frequency.md) | on-demand | ordering sections in a document |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
+| [session-load-budget](practices/session-load-budget.md) | on-demand | adding to a file every session loads, or asking what a session pays before it starts work |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |
 | [source-naming](practices/source-naming.md) | on-demand | importing, creating, or declaring a repository that holds practices |
 | [speculation-is-marked](practices/speculation-is-marked.md) | on-demand | recording exploratory thinking -- an idea nobody has committed to -- as a document |

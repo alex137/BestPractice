@@ -1683,6 +1683,16 @@ _ENGINE_REF_RE = re.compile(
 # somewhere else is how a real gap gets waved through later. Keep this
 # short: the default answer to "this file isn't here" is to vendor it.
 _ENGINE_REF_ABSENT_OK = {
+    # A repo's OWN declared ceilings for what a session loads
+    # (session-load-budget). Engine-read, never engine-owned: an adopter's
+    # ceilings are theirs, so vendoring this repo's copy into their tools/
+    # would hand them our numbers and then overwrite whatever they set on the
+    # next update. Both readers are guarded and say so where they are --
+    # build_views.py falls back to the literal the registry was created with,
+    # and this file's own session-load-budget check raises NotApplicable with
+    # a named reason. Absent means "this repo has declared no ceilings yet",
+    # which is the correct state of a fresh install.
+    'session_load_budgets.json',
     # split_practices.py's `split` subcommand, and nothing else, reads it:
     # the one-time conversion of BestPractice's own PRACTICES.md into
     # per-practice files. No consuming repo ever runs that, and
@@ -4358,6 +4368,80 @@ def load_exemptions():
         else:
             exempt[slug] = reason
     return exempt, refused
+
+
+# code-cites-practice: session-load-budget
+SESSION_LOAD_SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
+
+
+def _session_load_budgets():
+    """-> the one registry of always-loaded ceilings, or None if absent.
+
+    Read here rather than duplicated: tools/build_views.py and
+    tools/very_deep_check.py read the same file for the resident cap and the
+    section flag, so no cap is spelled twice (registry-source-of-truth).
+    """
+    f = ROOT / 'tools' / 'session_load_budgets.json'
+    if not f.is_file():
+        return None
+    try:
+        return json.loads(f.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return None
+
+
+@check('session-load-budget', 'tree',
+       'every file a session loads before it works is declared in '
+       'tools/session_load_budgets.json and is under its declared ceiling',
+       'what any of that text is worth. It measures a surface and compares it '
+       "to a number somebody wrote down; whether an entry still earns its "
+       'place is the reduction pass the practice asks for, and no script can '
+       'make that call. It also sees only THIS repo -- the sum across every '
+       'attached source is very_deep_check.py\'s SESSION LOAD section.')
+def _session_load_budget(ctx):
+    reg = _session_load_budgets()
+    if reg is None:
+        raise NotApplicable('this repo has no tools/session_load_budgets.json, '
+                            'so no ceiling has been declared to check against')
+    surfaces = reg.get('surfaces') or {}
+    try:
+        import build_views as _bv
+        approx = _bv._approx_tokens
+    except Exception:
+        def approx(text):
+            return int(len(text.split()) * 1.3)
+    out = []
+    for rel in SESSION_LOAD_SURFACES:
+        f = ROOT / rel
+        if not f.is_file():
+            continue
+        text = f.read_text(encoding='utf-8', errors='replace')
+        n = approx(text)
+        entry = surfaces.get(rel)
+        if entry is None:
+            out.append(Finding(rel, f'is loaded into every session '
+                                    f'({n:,} tokens) and has no ceiling in '
+                                    f'tools/session_load_budgets.json, so '
+                                    f'nothing can tell you it grew'))
+            continue
+        ceiling = entry.get('ceiling')
+        if not isinstance(ceiling, int):
+            out.append(Finding(rel, 'has a registry entry with no integer '
+                                    '"ceiling"'))
+            continue
+        if n > ceiling:
+            out.append(Finding(rel, f'{n:,} tokens, every session, over its '
+                                    f'declared ceiling of {ceiling:,}. Run the '
+                                    f'reduction pass -- move what no longer '
+                                    f'bites to a linked archive IN FULL -- '
+                                    f'rather than raising the number'))
+    for rel in surfaces:
+        if rel not in SESSION_LOAD_SURFACES:
+            out.append(Finding('tools/session_load_budgets.json',
+                               f'declares a ceiling for {rel!r}, which this '
+                               f'check does not know how to find; add it to '
+                               f'SESSION_LOAD_SURFACES or drop the entry'))
+    return out
 
 
 def run(slugs, ctx, scopes, exempt=None):

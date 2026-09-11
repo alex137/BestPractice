@@ -555,6 +555,18 @@
       "why": "Session setup lives in hooks and bootstrap scripts. The tightest locus in this pass.",
       "decided": "phase 4 routing pass"
     },
+    "session-load-budget": {
+      "globs": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "**/AGENTS.md",
+        "**/CLAUDE.md",
+        "templates/*AGENTS.md*",
+        "tools/session_load_budgets.json"
+      ],
+      "why": "Its own applies_to, and a tight locus for once: what a session loads before its first turn is a short, known list of files, and the registry declaring their ceilings is the other file a change here touches.",
+      "decided": "2026-09-11, when the practice landed"
+    },
     "source-naming": {
       "globs": [
         "precedent.json"
