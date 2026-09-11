@@ -476,6 +476,18 @@ first so this pass spends its attention on what they cannot see.
   enough to be worth splitting and any entry whose own text says its trap is
   settled. **Read those flags, do not obey them:** an entry's claim that it
   was fixed is not evidence, and the verification is against the tree.
+  Its "GOTCHA CURRENCY" sub-pass reads the other direction — **the tree
+  against each entry, rather than the entry against itself** — because the
+  settled-marker flag can only find an entry honest enough to say it is
+  fixed, and the expensive case is the entry that still reads as live while
+  the remedy it names has been renamed or deleted underneath it. It reports a
+  named file, check slug or fixture that is no longer in the tree, an entry
+  whose newest date has gone a season without re-measurement, and the token
+  cost of each, so a reduction pass can be ordered by what it would actually
+  save. Every one of those is a question, not a verdict: an entry may name a
+  file that is gone precisely because it tells the story of a decommission.
+  **What no longer bites moves to a linked archive in full, with the verdict
+  that moved it — never to a deletion.**
   **The trap is optimising for the total, and it is the likely mistake rather
   than a remote one.** These sections exist because sessions kept losing hours
   to the same environment traps; a trimming pass that chases the number

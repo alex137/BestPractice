@@ -568,9 +568,11 @@ you cannot judge, and the next session re-derives it the moment it looks
 wrong. [tools/precedent_check.py](tools/precedent_check.py) gates this
 section: an entry with no failure attached fails `--only environment-gotchas`.
 
-**This section holds what can still bite you today.** Twelve settled entries
-were moved to [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md), in
-full, with the verdict that moved each one — nothing was deleted. **If a
+**This section holds what can still bite you today.** Settled entries are
+moved to [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md), in full,
+with the verdict that moved each one — nothing was deleted. (There was a
+count here; it named one pass's tally, went stale as later passes archived
+more, and told a reader nothing they needed.) **If a
 symptom here matches and the short version does not explain it, the whole
 story is one link away.** Keep this section for traps, not for history: a
 gotcha every session reads is a gotcha every session pays for.
@@ -637,34 +639,27 @@ gotcha every session reads is a gotcha every session pays for.
 - **`git clone` with no `--branch` asks the SERVER which branch to check out,
   and the answer is a setting on a web page that nothing in this repository
   can see.** The remote's `HEAD` symref is whatever the repository's default
-  branch is set to, and git follows it silently. 2026-09-09, measured from a
-  consuming repo: two practice-source repositories had that setting pointed at
-  a feature branch, so every session-start clone of those sources landed on an
-  older tree. `precedent_sync_views.py --check` then reported the CONSUMER as
-  drifted, and a plain sync would have written the older text over newer
-  committed text — deleting a practice's whole `## Story` block and a clause
-  of its Rule, with no warning and exit 0. **The consuming repo had never been
-  stale; the clone had been pointed somewhere else.**
-  **The second half is what made it persist**: `git pull --ff-only` pulls
-  whatever branch the checkout is already on, so a clone that landed wrong
-  once stayed wrong every session afterwards.
-  **The trap for a reader is that this repository already forbids exactly this
-  inference and the guard could not see it.** `precedent_check.py --only
-  declared-base-branch` fails any tool resolving `refs/remotes/origin/HEAD`
-  without reading a DECLARED branch first — six tools carried that bug and two
-  were actively wrong. It reads Python, so it never saw a `git clone` making
-  the same inference implicitly, on our behalf. **When a rule forbids asking a
-  question, check whether something else is asking it for you.**
+  branch is set to, and git follows it silently. 2026-09-09: two
+  practice-source repositories had that setting pointed at a feature branch,
+  so every session-start clone of those sources landed on an older tree, and a
+  plain sync would have written the older text over newer committed text —
+  deleting a practice's whole `## Story` block and a clause of its Rule, with
+  no warning and exit 0. **The consuming repo had never been stale; the clone
+  had been pointed somewhere else** — and `git pull --ff-only` pulls whatever
+  branch the checkout is already on, so a clone that landed wrong once stayed
+  wrong every session afterwards.
+  **The lesson that outlived the fix: when a rule forbids asking a question,
+  check whether something else is asking it for you.**
+  `precedent_check.py --only declared-base-branch` already failed any tool
+  resolving `refs/remotes/origin/HEAD` without reading a DECLARED branch
+  first. It reads Python, so it never saw a `git clone` making the same
+  inference implicitly, on our behalf.
   Pinned since 2026-09-10:
   [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
   clones with an explicit branch and puts an existing clone back on it before
   pulling — declared `base_branch` if the source declares one, else `main`,
-  never the remote's HEAD. It **refuses** rather than moving a clone that is on
-  the wrong branch with uncommitted work in it, because that is somebody's
-  working copy. And
-  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
-  reports an attached clone sitting off its branch at session start, since a
-  pin only takes effect the next time something clones or pulls.
+  never the remote's HEAD — and **refuses** rather than moving a clone that is
+  on the wrong branch with uncommitted work in it. Full incident: entry 36.
 
 - **A stale checkout is indistinguishable from missing work, and the guard
   cannot save the sessions that most need it.** A session once came up 366
@@ -866,13 +861,10 @@ gotcha every session reads is a gotcha every session pays for.
 
 - **Your commits are authored by the bot because the harness sets that
   identity in git's GLOBAL config AND in every clone's LOCAL config — so a
-  global-only fix is silently overridden, and the Stop hook will tell you to
-  put the bot back.** Measured 2026-09-11: `user.name=Claude`,
-  `user.email=noreply@anthropic.com` in `--global` and in both clones'
-  `--local`, `TZ` unset so the system clock reads **-0400** rather than the
-  declared -0300, and no global backstop installed to refuse any of it.
-  `git var GIT_AUTHOR_IDENT` returned the bot with no env override in sight.
-  The cause is the entry above — a session rooted one directory up, so
+  global-only fix is silently overridden.** Measured 2026-09-11:
+  `user.name=Claude`, `user.email=noreply@anthropic.com` in `--global` and in
+  both clones' `--local`, and no backstop installed to refuse any of it. The
+  cause is the entry above — a session rooted one directory up, so
   `commit-identity.sh` never ran — but the SYMPTOM reads as a git-config
   problem, and the config it reads as is one somebody already set on purpose.
   **The cost is that a wrong-author commit cannot be repaired after it
@@ -883,70 +875,37 @@ gotcha every session reads is a gotcha every session pays for.
   bash .claude/hooks/commit-identity.sh
   ```
   It sets the local identity, the GLOBAL one (so a clone attached later
-  inherits a person), repoints `/etc/localtime` so later shells and
-  `git merge` get the right offset without a `TZ=` prefix, and installs the
-  global `core.hooksPath` backstop that refuses a bot-authored commit
-  everywhere.
-  **Running it once is not enough, and there are TWO separate things that
-  undo it. Both were reproduced 2026-09-11; neither was guessed.**
-  **First, and this is the one that kept coming back:
-  `python3 tools/verify_harness.py` used to repoint the REAL container's
-  `/etc/localtime`.** Its fixtures run `commit-identity.sh`, where no identity
-  resolves, so the hook falls to its last rung -- this repo's declared
-  `fallback_timezone`, `America/New_York` -- and moved the machine's own
-  symlink to it. Controlled before/after: Buenos_Aires in, New_York out,
-  across one harness run, with the session's clock left wrong afterwards.
-  **The cost lands nowhere near the harness**: the NEXT commit is refused with
-  `author-date offset is '-0400'` while the author is already correct, which
-  reads as a fresh identity problem and is really this. Fixed by setting
-  `PRECEDENT_LOCALTIME` once for the whole run, the same way the harness
-  already sets `PRECEDENT_ALLOW_ANY_AUTHOR` for fixture commits -- the
-  identical bug, one field over. If a stale harness is around, run it as
-  `PRECEDENT_LOCALTIME=/tmp/x python3 tools/verify_harness.py`.
-  **Second, a slower one that survives the session.** The same fallback rung,
-  reached in a real session because the credential was missing, ALSO writes
-  `TZ=America/New_York` into `.claude/settings.local.json` -- **untracked and
-  gitignored**, so it shows in no diff and no review, and the harness reads
-  that `env` block BEFORE hooks run, where an explicit `TZ` beats
-  `/etc/localtime` outright. One credential-less session therefore poisons
-  every later session in that clone, invisibly. **So read that file before
-  touching any `git config`:**
-  `python3 -c "import json;print(json.load(open('.claude/settings.local.json'))['env'])"`.
-  Between them these explain why repairing the identity never held: after the
-  first repair the identity was never wrong again, and the offset was arriving
-  from a fixture that moved the machine's clock or from a variable a previous
-  session had written. **Note the asymmetry** that hid it: an individual
-  practice source carries a TRACKED `settings.json` env block naming its
-  owner's zone, so work rooted THERE is immune; a shared repository
-  deliberately names nobody, depends entirely on the hook, and is the one that
-  gets poisoned.
-  **The durable answer is `PRECEDENT_COMMIT_TZ` in the environment** -- on
-  EVERY environment sharing a name, per the twin-environment trap above -- so
-  the fallback rung is never reached at all. It needs `PRECEDENT_COMMIT_*` in the environment or a resolvable
-  `identity.json`; with the variables present it needs no private repo at all.
-  **Verify by effect, never by reading the config you just wrote:**
+  inherits a person), repoints `/etc/localtime`, and installs the global
+  `core.hooksPath` backstop that refuses a bot-authored commit everywhere.
+  **`PRECEDENT_COMMIT_NAME`/`_EMAIL`/`_TZ` in the environment is what keeps it
+  fixed**, and two things that used to undo it are closed at that cause: a
+  harness run repointing the container's own `/etc/localtime`, and the hook's
+  fallback rung writing `TZ=America/New_York` into untracked
+  `.claude/settings.local.json`, where the harness reads it before hooks run.
+  Both are archived in full as entry 33. Verified 2026-09-11 in a scrubbed
+  HOME with no private source, no credential and the bot identity preloaded:
+  the hook resolved at rung 1 and set the person and the declared offset,
+  never reaching the fallback. **Where those variables are absent it still
+  bites**, so verify by effect, never by reading the config you just wrote:
   `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
   must name the person and the declared offset.
-  **The second trap is the one that wastes the time.** The harness's own Stop
+  **The trap that wastes the time is still live.** The harness's own Stop
   hook flags commits whose committer is not `noreply@anthropic.com` and asks
   you to `--amend --reset-author` onto exactly the bot account the individual
   set's own `commit-author` practice refuses and its own mechanical check
-  fails on — the account that practice's Rule calls never a person. Neither
-  file is in this repository, which is why neither is linked here. Following it recreates the violation
-  this repository spent a day fixing. **The repository's gate wins over
-  generic harness guidance**; say so and leave the commit alone.
+  fails on. Neither file is in this repository, which is why neither is linked
+  here. Following it recreates the violation this repository spent a day
+  fixing. **The repository's gate wins over generic harness guidance**; say so
+  and leave the commit alone.
 
 - **The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are
   missing. Resolve the paths its settings.json actually declares — a
-  directory listing cannot answer the question.** 2026-09-09: a session
-  measured that an individual practice source had a `.claude/settings.json`
-  and no `.claude/hooks/` directory at all, and concluded from that pair
-  alone that the set's freshness guard and commit-identity backstop had been
-  declared and silently off for its whole life. **They had not been.** That
-  set wires four hooks to its own tracked `bootstrap/` directory, on purpose,
-  so that one copy exists and nothing can drift from it; all four resolve,
-  exist, and are executable. A path-resolving check across all five private
-  sets then found every declared hook present and executable in every one.
+  directory listing cannot answer the question.** 2026-09-09: a session read
+  "a `.claude/settings.json` and no `.claude/hooks/` directory" as a set whose
+  freshness guard and commit-identity backstop had been declared and silently
+  off for its whole life. **They had not been.** That set wires four hooks to
+  its own tracked `bootstrap/` directory, on purpose, so that one copy exists
+  and nothing can drift from it; all four resolve, exist, and are executable.
   The wrong reading was easy because it names a real failure — a hook whose
   path does not exist really is silent, per the two entries above — and the
   two states look identical from a listing.
@@ -954,12 +913,10 @@ gotcha every session reads is a gotcha every session pays for.
   `python3 tools/precedent_check.py --only declared-hooks-exist` resolves
   every `$CLAUDE_PROJECT_DIR` hook path a settings.json declares and fails on
   one that is missing or not executable, in any repository the engine is
-  vendored into.
+  vendored into, and
   [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
   does the same per attached source and **refuses to "repair" a hook declared
-  outside `.claude/hooks/`**: its own first version assumed the standard
-  layout, and against that individual set would have installed exactly the
-  second copy its comment exists to prevent.
+  outside `.claude/hooks/`**. Entry 37.
 
 - **A source set's hooks drift after installation and nothing has ever
   refreshed them — there was an install path and no repair path.** Measured
@@ -980,25 +937,21 @@ gotcha every session reads is a gotcha every session pays for.
   canonical is still a person's call, and
   [TODO.md's `source-hook-drift` item](TODO.md#source-hook-drift) holds it.
 
-- **A `BLOCKED by freshness-guard` on your first tool call is no longer the
-  new-branch false positive it was until 2026-09-11 — so read what it
-  actually says before reaching for the override.** The guard used to treat
-  "origin has no such branch" and "origin could not be reached" as the same
-  failure, and refused the first write of every newly created branch; the
-  remedy it named, `git fetch origin <branch>`, could not succeed against a
-  ref that does not exist, so the only way forward a session found was
-  `git config precedent.freshness.override true` — which switches freshness
+- **A refusal that names a remedy which cannot work is the moment to ask what
+  the guard actually measured, not to disable it.** The freshness guard used
+  to refuse the first write of every newly created branch and name
+  `git fetch origin <branch>` — impossible against a ref that does not exist —
+  so the only way forward a session found was
+  `git config precedent.freshness.override true`, which switches freshness
   checking off for that checkout permanently, including the stale-base check
-  that catches the single most expensive failure class in this file. Fixed in
-  both copies here: `git ls-remote --exit-code --heads origin <branch>`
-  separates the two, and only the branch-absent case is waved through — with
-  the base-branch check still running on it. **What stays true is the shape
-  of the trap**, since the override is still on offer in every block message:
-  a refusal naming a remedy that cannot work is the moment to ask what the
-  guard actually measured, not to disable it. **An unreachable origin still
-  blocks, deliberately.** The 2026-09-09 incident, and the push-the-branch
-  workaround it had to use, are entry 30 in
-  [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md).
+  that catches the single most expensive failure class in this file. Fixed
+  2026-09-11 in both copies here:
+  `git ls-remote --exit-code --heads origin <branch>` separates "origin has no
+  such branch" from "origin could not be reached", and only the branch-absent
+  case is waved through, with the base-branch check still running on it. **An
+  unreachable origin still blocks, deliberately.** The override is still on
+  offer in every block message, which is why the shape above outlived the fix.
+  Entries 30 and 35.
 
 - **Something can move this checkout off your working branch mid-session,
   and the cause is NOT known — treat a silently-vanished edit as this before
@@ -1179,67 +1132,38 @@ gotcha every session reads is a gotcha every session pays for.
   the private sources, then re-run `python3 tools/precedent_resolve.py --repo .`
   and confirm the count names `individual` and `team`, not universal alone.
 
-- **Attaching the private practice sets is a session-shape question, and what
-  is measured about it does not add up — so measure, do not reason.** Three
-  separate 2026-09-07 measurements had `add_repo` refusing a cross-owner add
-  in BOTH directions with *"cross-tier adds are not supported in v1"*,
-  including as a session's very first tool call. Two other sessions —
-  2026-09-07 and 2026-09-08 — held `alex137/bestpractice` and four or more
-  `themorgan/*` repositories at once, worked in and pushed to all of them.
-  **Nobody has an explanation that fits both.** Do not build on either
-  outcome and do not repeat an attempt expecting a remembered result: call
-  `add_repo`, read what it says, and proceed from that.
-  What is NOT in doubt is the cost of skipping it, and it is the entry above:
-  a session with `individual` and `team` unresolved applies the wrong rules
-  all day and cannot tell. If the adds are refused, **root the session in the
-  repo you must PUSH to** and expect the other owner's repositories to be
-  unattachable for its whole life — that is why work spanning both owners is
-  split across two sessions. The full contradictory sequence is in the
-  archive; read the verdict there before any single paragraph of it.
-
-  **2026-09-09 adds one measurement that is not contradictory, and one route
-  that does not depend on `add_repo` at all.** The refusal was reproduced as
-  a session's very FIRST tool call, rooted at `alex137/bestpractice` — so
-  "call it before anything else" is not a remedy: the initial repository
-  already counts as *"session already has repos from owner(s)"*. Three other
-  things were measured in the same container. An authenticated HTTPS request
-  to github.com **reaches GitHub's own authentication** rather than a proxy
-  error. There is **no ambient credential** for a private repo (a bare
-  `git ls-remote` on one asks for a username; the same call on a public repo
-  succeeds). And the credential helper in
-  [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
-  **does deliver** a token to git — with a deliberately invalid one, git sent
-  it and GitHub rejected it rather than prompting. **So set
-  `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` in the environment
-  ([INSTALL.md](INSTALL.md) §8) and the SessionStart hook clones the sources
-  before the first turn, where no ordering rule can reach it.** **Verified end to end
-  2026-09-10**: a real read-scoped token in the environment, and a brand-new
-  container came up with all four private sources cloned before the first
-  turn — [tools/precedent_resolve.py](tools/precedent_resolve.py) reported 146 practices
-  from 6 sources (41 team, 13 individual) in a repo that had been resolving
-  89 from 1. That tool prints `MISSING` when no credential is set and `SET`
-  when one is set and a clone still failed, and the session check, the
-  session-start source report and every vendor update print the same line.
-
-  **The trap that made this look impossible for three days, and the only
-  live half left: an account can hold TWO environments with the SAME NAME,
-  and the selector gives you no way to tell them apart.** Measured 2026-09-09
-  and 2026-09-10 — three sessions across two fresh containers reported
+- **The private practice sets reach a session through the environment
+  credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and
+  `PRECEDENT_SOURCE_BASE_URL` ([INSTALL.md](INSTALL.md) §8) and the
+  SessionStart hook clones them before the first turn, where no ordering rule
+  can reach it.** Verified end to end 2026-09-10 on a brand-new container and
+  again 2026-09-11: all four sources on disk before the first turn.
+  [tools/precedent_resolve.py](tools/precedent_resolve.py) prints `MISSING`
+  when no credential is set and `SET` when one is set and a clone still
+  failed; the session check and the session-start source report print the same
+  line.
+  **`add_repo` is the fallback, and what is measured about it does not add
+  up.** Three 2026-09-07 measurements had it refusing a cross-owner add in
+  BOTH directions — including as a session's very first tool call, so "call it
+  before anything else" is not a remedy — while two other sessions held
+  repositories from both owners at once and pushed to all of them. Nobody has
+  an explanation that fits both, so call it, read what it says, and proceed
+  from that; never from a remembered result. The full contradictory sequence
+  is entry 34, and the cost of skipping it is the entry above: a session with
+  `individual` and `team` unresolved applies the wrong rules all day and
+  cannot tell.
+  **The live trap is one environment away: an account can hold TWO
+  environments with the SAME NAME, and the selector gives you no way to tell
+  them apart.** Three sessions across two fresh containers reported
   `env | grep -c PRECEDENT` as **0**, with not one user-defined variable of
-  any kind in a full name dump. That reads exactly like "the runner does not
-  pass them through", and it is not that: `list_environments` showed **two
-  environments both named `Default`**, same description, created 100 ms
-  apart. The variables were set on one; the sessions ran in the other.
-  Setting the same values on both fixed it in a single session. **Not
-  established:** whether the twin was the whole cause or the first save had
-  also failed — both fit what was measured, and nobody re-ran it to find out.
-  **So: give your environments distinct names**, and put a throwaway
-  `PRECEDENT_PING=1` beside the token — the ping separates "the variables do
-  not arrive" from "the token is wrong", which print identically otherwise.
-  An environment change never reaches a session already running, so test in a
-  NEW one. The three-day sequence, including two readings that were right
-  about the measurement and wrong about the cause, is entry 29 in
-  [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md).
+  any kind — which reads exactly like "the runner does not pass them
+  through", and was not that: `list_environments` showed two environments both
+  named `Default`, created 100 ms apart, with the variables set on one and the
+  sessions running in the other. **So: give your environments distinct
+  names**, and put a throwaway `PRECEDENT_PING=1` beside the token — the ping
+  separates "the variables do not arrive" from "the token is wrong", which
+  print identically otherwise. An environment change never reaches a session
+  already running, so test in a NEW one. The three-day sequence is entry 29.
 
 - **`add_repo` on a PUBLIC repository attaches nothing and never reaches the
   cross-owner check, so testing that wall with `access: "read"` measures

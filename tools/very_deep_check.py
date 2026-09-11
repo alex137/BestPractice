@@ -129,7 +129,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import json, os, pathlib, re, subprocess, sys, urllib.parse
+import datetime, json, os, pathlib, re, subprocess, sys, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -804,19 +804,248 @@ def _session_load(repo_dir):
     # A live entry that says its own trap is settled is the strongest
     # mechanical signal available here, and it is the entry's own words.
     for fname, text in loaded:
-        for m in re.finditer(r'^- \*\*(.{10,90})', text, re.M):
-            start = m.start()
-            nxt = text.find('\n- **', start + 1)
-            entry = text[start:nxt if nxt != -1 else len(text)]
+        for _line, _title, entry in _md_bullet_entries(text):
             low = entry.lower()
             if any(k in low for k in _SETTLED_MARKERS):
                 findings.append(
                     f'note     {fname}: an entry says its own trap is settled '
                     f'({bv._approx_tokens(entry):,} tokens) --\n'
-                    f'      "{m.group(1).strip()[:70]}"\n'
+                    f'      "{_title[:70]}"\n'
                     f'      Verify against the tree before archiving it; an '
                     f'entry\'s claim that it\n      was fixed is not evidence '
                     f'that it was.')
+    return rows, findings
+
+
+# --- gotcha currency (practice: very-deep-check) ------------------------
+# WHY A SECOND SIGNAL, when _session_load already flags settled entries.
+# That flag is a string match on an entry's SELF-DESCRIPTION, and it works --
+# it found three real candidates on 2026-09-11. But it can only find the
+# entries honest enough to say "fixed" about themselves. The expensive case is
+# the opposite one: an entry that still reads as live while the tree has
+# quietly renamed or deleted the remedy it names. **Nothing about that entry's
+# prose changes on the day it goes stale**, so no amount of reading it will
+# say so.
+#
+# These three read the TREE against the entry instead, and each is a question
+# rather than a verdict:
+#   dead remedy    -- a file, check slug or fixture the entry names is gone.
+#   no corroboration -- the newest date in the entry is old, and nothing in it
+#                    has been re-measured since.
+#   tree moved on  -- files the entry names carry commits well after the
+#                    entry's own newest date, so its story may describe a
+#                    mechanism that has since been replaced.
+#
+# ALL OF IT IS ADVISORY and none of it archives anything, in the same spirit
+# as precedent_retire.py. Every signal here has a legitimate quiet case: an
+# entry may name a file that is gone precisely BECAUSE it tells the story of a
+# decommission, and an old date on a trap nobody has hit recently is not the
+# same as a trap that cannot fire. What this owes a person is the short list
+# and what each entry costs, so the reading stays a reading.
+#
+# It deliberately does NOT re-check what precedent_check.py --only
+# environment-gotchas already gates -- that every entry carries its failure
+# and not only its fix. That is a per-commit gate on new entries; this is an
+# occasional read of old ones.
+
+_GOTCHA_HEADING = 'Build-environment gotchas'
+# An entry whose newest date is older than this has not been re-measured in a
+# season. That is not evidence of staleness -- it is the absence of evidence
+# either way, which is the thing worth a person's eye.
+_GOTCHA_STALE_DAYS = 120
+# Below this, "the tree moved on" is noise: a file an entry names gets touched
+# constantly for reasons that have nothing to do with that entry's trap.
+_GOTCHA_TREE_LEAD_DAYS = 45
+
+_GOTCHA_REPO_DIRS = ('tools', 'spec', 'record', 'templates', 'local',
+                     'practices', 'documentation', 'deck', 'examples',
+                     'process', 'evals', 'decisions', 'philosophy',
+                     '.claude', '.github')
+_GOTCHA_PATH_IN_TICKS = re.compile(
+    r'`((?:' + '|'.join(d.replace('.', r'\.') for d in _GOTCHA_REPO_DIRS) +
+    r')/[\w./-]+)`')
+_GOTCHA_MD_LINK = re.compile(r'\[[^\]]*\]\(([^)]+)\)')
+_GOTCHA_ONLY_SLUG = re.compile(r'--only\s+`?([a-z0-9][a-z0-9-]{2,})`?')
+_GOTCHA_FIXTURE = re.compile(r'`(check_[a-z0-9_]+)`')
+_GOTCHA_DATE = re.compile(r'\b(20\d\d-\d\d-\d\d)\b')
+
+
+def _md_bullet_entries(text, line_base=0):
+    """-> [(line, title, body)] for a markdown bullet list whose items open
+    with a bolded lead, which is the shape both gotcha passes parse.
+
+    One parser for both, deliberately. Two copies of "what counts as an entry"
+    would drift and then disagree about the entry count, which is the number
+    a person uses to decide the section is under control.
+    """
+    pos = [m.start() for m in re.finditer(r'(?m)^- \*\*', text)]
+    out = []
+    for i, p in enumerate(pos):
+        body = text[p:pos[i + 1] if i + 1 < len(pos) else len(text)]
+        out.append((line_base + text[:p].count('\n') + 1,
+                    ' '.join(body[4:].split()), body))
+    return out
+
+
+def _gotcha_check_slugs(repo_dir):
+    """-> set of check slugs precedent_check.py will actually answer to, or
+    an empty set if it cannot be asked. Empty means the slug signal is
+    skipped rather than every slug reported missing -- a check that cannot
+    run is not a check that failed."""
+    try:
+        import precedent_check as _pc
+    except Exception:
+        return set()
+    slugs = set(getattr(_pc, 'CHECKS', {}))
+    reg = getattr(_pc, 'register_materialized_checks', None)
+    if callable(reg):
+        try:
+            reg()
+            slugs |= set(getattr(_pc, 'CHECKS', {}))
+        except Exception:
+            pass
+    return slugs
+
+
+def _gotchas_currency(repo_dir):
+    """-> (rows, findings) -- a reading list for the gotchas section.
+
+    rows are (tokens, line, title, [signals]) for every entry, so the caller
+    can order a reduction pass by what trimming each one would actually save
+    rather than by which happened to trip a signal.
+    """
+    root = pathlib.Path(repo_dir)
+    f = root / 'AGENTS.md'
+    if not f.is_file():
+        return [], []
+    text = f.read_text(encoding='utf-8', errors='replace')
+    head = re.search(r'(?m)^## .*' + re.escape(_GOTCHA_HEADING) + r'.*$', text)
+    if not head:
+        return [], []
+    after = re.search(r'(?m)^## ', text[head.end():])
+    sec = text[head.start():head.end() + (after.start() if after else len(text))]
+    entries = _md_bullet_entries(sec, text[:head.start()].count('\n'))
+    if not entries:
+        return [], []
+
+    slugs = _gotcha_check_slugs(repo_dir)
+    tools_text = ''
+    for p in sorted((root / 'tools').rglob('*.py')) if (root / 'tools').is_dir() else []:
+        try:
+            tools_text += p.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+    # git dates are unusable on a shallow clone -- every path answers with the
+    # boundary commit's date, which would report the whole section as outrun
+    # at once. This repo is normally cloned --depth 1, so this is the common
+    # case, not the edge one (AGENTS.md, gotchas).
+    shallow = (root / '.git' / 'shallow').exists()
+    try:
+        today = datetime.date.fromisoformat(precedent_time.today(root))
+    except Exception:
+        today = None
+
+    _log_cache = {}
+
+    def _last_commit(rel):
+        if rel in _log_cache:
+            return _log_cache[rel]
+        code, out, _ = _run_git(root, 'log', '-1', '--format=%cs', '--', rel)
+        val = out.strip() if code == 0 and out.strip() else None
+        _log_cache[rel] = val
+        return val
+
+    rows, findings, undated = [], [], []
+    for line, title, body in entries:
+        signals, named = [], set()
+        for raw in _GOTCHA_MD_LINK.findall(body):
+            tgt = raw.split('#')[0].strip()
+            if not tgt or tgt.startswith(('http', 'mailto:', '#')):
+                continue
+            named.add(tgt)
+        named |= set(_GOTCHA_PATH_IN_TICKS.findall(body))
+        # A path ending in / is a directory, and the ones an entry names are
+        # usually generated output (tools/checks/ is deleted and rewritten on
+        # every materialize) -- absent by design, not by drift. Reporting
+        # those buried the one real finding on the first run.
+        gone = sorted(p for p in named
+                      if not p.endswith('/') and not (root / p).exists())
+        if gone:
+            signals.append('names a remedy that is not in the tree: '
+                           + ', '.join(gone[:3])
+                           + (f' (+{len(gone) - 3} more)' if len(gone) > 3 else ''))
+        if slugs:
+            bad = sorted({s for s in _GOTCHA_ONLY_SLUG.findall(body)
+                          if s not in slugs})
+            if bad:
+                signals.append('names a check slug precedent_check.py does '
+                               'not answer to: ' + ', '.join(bad[:3]))
+        if tools_text:
+            missing_fx = sorted({x for x in _GOTCHA_FIXTURE.findall(body)
+                                 if x not in tools_text})
+            if missing_fx:
+                signals.append('names a fixture that no longer exists: '
+                               + ', '.join(missing_fx[:3]))
+        dates = sorted(_GOTCHA_DATE.findall(body))
+        newest = dates[-1] if dates else None
+        if today and newest:
+            try:
+                age = (today - datetime.date.fromisoformat(newest)).days
+            except ValueError:
+                age = None
+            if age is not None and age > _GOTCHA_STALE_DAYS:
+                signals.append(f'nothing re-measured since {newest} '
+                               f'({age} days)')
+            if age is not None and not shallow:
+                lead = []
+                for rel in sorted(named):
+                    d = _last_commit(rel)
+                    if not d:
+                        continue
+                    try:
+                        gap = (datetime.date.fromisoformat(d)
+                               - datetime.date.fromisoformat(newest)).days
+                    except ValueError:
+                        continue
+                    if gap > _GOTCHA_TREE_LEAD_DAYS:
+                        lead.append(f'{rel} last changed {d}')
+                if lead:
+                    signals.append(f'the tree moved on after {newest}: '
+                                   + '; '.join(lead[:2]))
+        rows.append((bv._approx_tokens(body), line, title, signals))
+        if not dates:
+            undated.append((bv._approx_tokens(body), line))
+
+    flagged = [r for r in rows if r[3]]
+    if flagged:
+        findings.append(
+            'REVIEW   AGENTS.md :: the gotchas section -- '
+            f'{len(flagged)} of {len(rows)} entries raise a currency question '
+            f'({sum(r[0] for r in flagged):,} tokens between them).')
+        for tok, line, title, signals in sorted(flagged, key=lambda r: -r[0]):
+            findings.append(f'  {tok:5,d} tok  L{line}  "{title[:64]}"')
+            for s in signals:
+                findings.append(f'            - {s}')
+        findings.append(
+            '  Each is a QUESTION, not a verdict, and nothing here archives '
+            'anything.\n  An entry may name a file that is gone precisely '
+            'because it tells the story\n  of a decommission, and an old date '
+            'on a trap nobody has hit lately is not\n  a trap that cannot '
+            'fire. Verify against the tree, then move what no longer\n  bites '
+            'to record/GOTCHAS_ARCHIVE.md IN FULL, with the verdict that '
+            'moved it.')
+    if undated:
+        findings.append(
+            f'  note: {len(undated)} entries carry no date at all '
+            f'({sum(t for t, _ in undated):,} tokens), so nothing in them says '
+            f'whether\n  they have ever been re-measured. That is weak on its '
+            f'own -- several are short\n  and plainly still true -- but it is '
+            f'where a dated re-measurement is worth most.')
+    if shallow:
+        findings.append(
+            '  note: this is a shallow clone, so "the tree moved on" was not '
+            'run --\n  every path answers with the boundary commit\'s date. '
+            '`git fetch --depth=500`\n  first to get that signal.')
     return rows, findings
 
 
@@ -2718,6 +2947,27 @@ def main():
     if not _sl:
         print("  no section is large enough to be worth splitting, and no "
               "entry claims its\n  own trap is settled.")
+    _gc_rows, _gc_msgs = _gotchas_currency(repo_root)
+    if _gc_rows:
+        print("\n  GOTCHA CURRENCY -- the tree read against each entry, not "
+              "the entry against\n  itself. The settled-marker note above "
+              "catches an entry honest enough to\n  say it is fixed; these "
+              "catch one that still reads as live while the remedy\n  it "
+              "names has been renamed or deleted underneath it.\n")
+        if _gc_msgs:
+            for _m in _gc_msgs:
+                print(f"  {_m}")
+        else:
+            print("  none -- every entry names a remedy that is still in the "
+                  "tree, and each\n  carries a date recent enough that "
+                  "nothing says it has gone stale.")
+        _big = sorted(_gc_rows, key=lambda r: -r[0])[:5]
+        print("\n  Largest entries, whatever they signalled -- a reduction "
+              "pass ordered by\n  what it would actually save:")
+        for _tok, _line, _title, _sig in _big:
+            print(f"  {_tok:5,d} tok  L{_line}  {_title[:62]}")
+        print(f"  {sum(r[0] for r in _gc_rows):5,d} tok  "
+              f"{len(_gc_rows)} entries, whole section")
     print("\n  Do NOT optimise for the total. These entries exist because "
           "sessions kept\n  losing hours to the same traps -- a trimming pass "
           "that chases the number\n  deletes the ones that are working. The "

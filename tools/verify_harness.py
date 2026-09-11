@@ -12280,6 +12280,91 @@ def check_source_supplied_checks_run():
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_gotcha_currency_signals_fire():
+    """tools/very_deep_check.py's gotcha-currency pass actually fires, and
+    fires on the right entry (practice: control-asserts-which-failure).
+
+    WHY A CONTROL RATHER THAN A RE-READING. The pass exists to catch an entry
+    that still READS as live while the tree renamed or deleted the remedy it
+    names. On the day it was written every one of its strong signals scored
+    zero against this repository -- which is the good outcome and also means
+    nothing had ever proved the signals work. A check that has only ever
+    reported "none" is indistinguishable from one that cannot report anything
+    at all, and this file already carries three entries of that exact shape.
+
+    So this builds a fixture section carrying one entry per signal and asserts
+    the SPECIFIC message each produces, not merely that something was
+    reported. The fifth case is the discriminating one: a clean, dated entry
+    naming a file that is present must raise nothing, or the pass is an alarm
+    rather than a signal and its output would be ignored within a week.
+
+    The fixture owns its own tree (fixture-owns-its-state): its own AGENTS.md
+    and its own tools/ directory, so the result does not depend on what this
+    repository happens to contain today."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        (d / 'tools').mkdir()
+        (d / 'tools' / 'real.py').write_text(
+            'def check_that_exists():\n    pass\n', encoding='utf-8')
+        (d / 'AGENTS.md').write_text(
+            '# fixture\n\n## Build-environment gotchas -- do NOT rediscover '
+            'these\n\n'
+            '- **A remedy that is gone.** Measured 2026-09-10. Run\n'
+            '  [tools/deleted_tool.py](tools/deleted_tool.py) to repair it.\n\n'
+            '- **A stale entry nobody has re-measured.** Measured 2019-01-02,\n'
+            '  and the fix is `tools/real.py`.\n\n'
+            '- **A slug that does not exist.** 2026-09-10: run\n'
+            '  `python3 tools/precedent_check.py --only no-such-check-slug`.\n\n'
+            '- **A fixture that was renamed.** 2026-09-10, held by\n'
+            '  `check_that_is_gone`.\n\n'
+            '- **A clean live entry.** 2026-09-10, and `tools/real.py` is\n'
+            '  still there, held by `check_that_exists`.\n\n'
+            '## Next\n', encoding='utf-8')
+
+        rows, msgs = vdc._gotchas_currency(d)
+        out = '\n'.join(msgs)
+
+        for label, want in (
+                ('a named remedy missing from the tree is reported by path',
+                 'tools/deleted_tool.py'),
+                ('an entry whose newest date is past the threshold is named '
+                 'with that date',
+                 'nothing re-measured since 2019-01-02'),
+                ('a --only slug precedent_check.py does not answer to is '
+                 'reported',
+                 'no-such-check-slug'),
+                ('a named fixture that no longer exists is reported',
+                 'check_that_is_gone')):
+            cases.append((label, want in out, out[-600:]))
+
+        clean = [r for r in rows if 'clean live entry' in r[2].lower()]
+        cases.append(('THE DISCRIMINATING CASE: a dated entry naming a file '
+                      'that is present raises nothing',
+                      bool(clean) and not clean[0][3],
+                      repr(clean[:1])))
+        cases.append(('every entry is costed, so a reduction pass can be '
+                      'ordered by what it would save',
+                      bool(rows) and all(isinstance(r[0], int) and r[0] > 0
+                                         for r in rows),
+                      repr([r[0] for r in rows])))
+        cases.append(('it proposes and never edits -- the fixture AGENTS.md '
+                      'is byte-identical afterwards',
+                      (d / 'AGENTS.md').read_text(encoding='utf-8').endswith(
+                          '## Next\n'),
+                      'fixture AGENTS.md was modified'))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the gotcha-currency pass fires on each signal and stays silent on '
+          f'a clean entry ({len(cases)} stated cases, the clean entry being '
+          f'the discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_fixtures_own_the_credential_environment():
     """The harness's own result must not depend on whether the container it
     runs in happens to carry a private-source credential
@@ -16509,6 +16594,7 @@ def main():
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()
     check_fixtures_own_the_credential_environment()
+    check_gotcha_currency_signals_fire()
     check_pretooluse_hook_fires()
     check_not_binding_actually_exempts_a_check()
     check_mirrored_prefixes_answers_both_install_models()
