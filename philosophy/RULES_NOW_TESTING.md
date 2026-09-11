@@ -55,13 +55,22 @@ code or other technical work.
 
 <a id="provider-neutral-llm"></a>
 
-### 2. Provider-Neutral LLM Integrations — *Promoted*
+### 2. Provider-Neutral LLM Integrations — *Withdrawn*
 
 [`llm-neutral`](https://github.com/themorgan/precedent-team-maintainers/blob/main/practices/llm-neutral.md).
 Build any LLM integration against a swappable model/token/base-URL
 interface; assume an OpenRouter credential absent other instruction.
 Hedges [`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset)
 (context as capital).
+
+**Withdrawn 2026-09-11.** It was promoted into the maintainers' team set,
+and that is where it stopped making sense: reviewing the set after the
+2026-09-09 subject split, this is not a rule about maintaining a
+repository, and no subject set exists for engineering craft. Morgan
+retired it rather than open a set to hold it. The practice file is kept
+and still readable — retired is not deleted — and the hedge on
+[`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset) is now
+unhedged, which is the part worth noticing if this ever comes back.
 
 <a id="argue-in-the-open"></a>
 
