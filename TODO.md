@@ -3235,3 +3235,37 @@ which is the failure this repointing exists to end — write
    Morgan's call.
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — raised in the reply of the session that measured it, 2026-09-11; only Morgan can move it to `ask`.
+
+63. <a id="source-clone-keeps-no-credential"></a>**A private source clone carries no credential helper, so every later
+    fetch of it fails — and the freshness guard blocks on that.**
+    [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
+    passes the credential as `git -c credential.helper=...` flags on the
+    clone invocation, which is exactly right for keeping the token out of
+    `.git/config`. But nothing configures the clone for later use, so a
+    plain `git fetch origin main` inside it fails with *"could not read
+    Username for 'https://github.com'"* even with `PRECEDENT_GIT_TOKEN`
+    set.
+
+    Measured 2026-09-11, in a container with all four private sources
+    cloned and the token present: `PRECEDENT_FRESHNESS_ALSO` names those
+    sources, the freshness guard's `pre-write` mode fetches each one, the
+    fetch fails, and `_pre_write_one` blocks — **refusing every non-`git`
+    tool call of the session**, repeatedly, since the sentinel is only
+    written after the checks pass. The block message names the source's
+    base branch (`could not fetch origin/main`) while the project dir is on
+    `precedent-beta-v01`, which reads as a problem with the project's own
+    checkout and is not.
+
+    The workaround is one `git config credential.helper` per clone, with
+    the same secret-free shell snippet
+    [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
+    already builds — set by hand in this container to get the session
+    moving. The fix is for the bootstrap to write that helper into each
+    clone's local config at clone time, so it survives the session that
+    made it.
+
+    **out-of-scope:** found while doing an unrelated documentation change
+    ([todo-is-a-handoff](practices/todo-is-a-handoff.md)); it is a code fix
+    in the source bootstrap, not a docs edit.
+
+    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — raised in the reply of the session that hit it, 2026-09-11.

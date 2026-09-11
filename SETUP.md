@@ -125,8 +125,44 @@ asks for it by name.
    4. **Let the automation open proposals** — **Settings → Actions →
       General → Workflow permissions**, ticking *Allow GitHub Actions to
       create and approve pull requests*.
+   5. **Put a few settings into Claude itself**, if they work in Claude
+      Code on the web. Recommended, not required — but without them,
+      every new session re-lives the same three problems: their own
+      practices never load, work gets committed under the assistant's bot
+      account rather than their name, and timestamps land in the wrong
+      timezone. In Claude, open [claude.ai/code](https://claude.ai/code),
+      go to the environment this project runs in, and find its
+      **environment variables** — the full path is in Anthropic's own
+      guide at
+      [code.claude.com/docs/en/claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web),
+      which is the place to check if the screen has moved since
+      2026-09-11. Add one line per setting, substituting their own
+      values:
 
-   Put the same four into `GETTING_STARTED.md` so they are findable after
+      ```
+      PRECEDENT_COMMIT_NAME=Your Name
+      PRECEDENT_COMMIT_EMAIL=you@example.com
+      PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires
+      ```
+
+      And if they have a private practices repo of their own, two more —
+      the token being a GitHub read-only personal access token that can
+      see it:
+
+      ```
+      PRECEDENT_GIT_TOKEN=github_pat_<their token>
+      PRECEDENT_SOURCE_BASE_URL=https://github.com/their-github-account
+      ```
+
+      Two things to say out loud, because both cost a day when they are
+      not said. **A change here never reaches a session already open** —
+      start a new one to test it. And **if their account has two
+      environments with the same name, the values go on the one they are
+      not using**, so give the environments distinct names first. The
+      full list of variables and what each does is
+      [INSTALL.md](INSTALL.md) §8.
+
+   Put the same five into `GETTING_STARTED.md` so they are findable after
    this conversation closes.
 8. **Hand them the keys.** Close by telling them three things: members are
    onboarded by saying **"Add project members"** to the project's agent
