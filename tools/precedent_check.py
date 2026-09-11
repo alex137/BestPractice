@@ -3258,6 +3258,35 @@ _LEDGER_MEMBER_DIRS = ('templates/harness/claude-code',
                        'templates/harness/codex', 'templates/harness/gemini-cli')
 
 
+def _ledger_change_cells(ledger_text):
+    r"""The `Originating change` cell of every ledger row -- the one place a
+    row's OWN change is named.
+
+    A row's own change is the commit in cell 2; a commit link anywhere else
+    on the line is a CITATION of another row ("no wiring change -- the same
+    `SessionStart` entry from [`810a1dc`] runs it"), which the ledger does
+    deliberately. Both halves of the check below key on this one definition,
+    because keying them differently is what produced two opposite bugs in
+    two days: the duplicate half counted whole lines and read three correct
+    rows as three duplicates of one change (2026-09-11, red on
+    precedent-beta-v01 against a tree nobody had edited), and the presence
+    half matched the whole FILE, so a change named only inside somebody
+    else's prose counted as ledgered and never needed a verdict of its own.
+
+    Split on unescaped pipes only. No change cell in this repo's ledger
+    contains `\|` today, so nothing shifts at index 2 -- but the pattern is
+    already in the file one column over (a claude-code cell carrying
+    `Edit\|Write\|NotebookEdit\|Bash`), so a plain `.split('|')` is one
+    cell away from reading the wrong column."""
+    cells = []
+    for line in ledger_text.splitlines():
+        if not line.startswith('|'):
+            continue
+        parts = re.split(r'(?<!\\)\|', line)
+        cells.append(parts[2] if len(parts) > 2 else '')
+    return cells
+
+
 def _shallow_boundary_commits():
     """Commits git's OWN `.git/shallow` file records as grafted boundaries --
     ground truth, unlike `git rev-list --max-parents=0` (used below to
@@ -3331,8 +3360,9 @@ def _shallow_boundary_commits():
 # distinguish a wrong answer from a right answer about a different tree.
 @check('parallel-artifact-ledger', 'tree',
        '`templates/harness/LEDGER.md` exists, and every commit that touched '
-       'a harness-adapter member (claude-code/, codex/, or gemini-cli/) has '
-       'its hash referenced somewhere in the ledger',
+       'a harness-adapter member (claude-code/, codex/, or gemini-cli/) is '
+       'named in exactly one row\'s `Originating change` cell -- a mention '
+       'in another row\'s prose is a citation, not that commit\'s own row',
        'whether a referenced row is actually CORRECT -- the right verdict '
        'per member, not a rubber-stamped one -- only that a row exists for '
        'every commit that changed a member, the "any marked date without a '
@@ -3362,6 +3392,7 @@ def _parallel_artifact_ledger(ctx):
                         'does not exist -- parallel-artifact-ledger.md '
                         'names a ledger table as this practice\'s Install')]
     ledger_text = ledger_path.read_text(encoding='utf-8', errors='ignore')
+    change_cells = _ledger_change_cells(ledger_text)
     # A repo's (or a test scratch copy's) root commit -- the tree coming
     # into existence, zero parents -- is inception, not "a change to any
     # member" the practice's Rule is about; exclude it, or every squashed-
@@ -3394,7 +3425,8 @@ def _parallel_artifact_ledger(ctx):
         for full_hash in out:
             if full_hash in roots or full_hash in inception:
                 continue
-            if full_hash[:7] not in ledger_text and full_hash not in ledger_text:
+            if not any(full_hash[:7] in cell or full_hash in cell
+                       for cell in change_cells):
                 findings.append(Finding(
                     'templates/harness/LEDGER.md',
                     f'no row references {full_hash[:7]} ({member_dir}), a '
@@ -3415,21 +3447,13 @@ def _parallel_artifact_ledger(ctx):
     for full_hash in {h for d in _LEDGER_MEMBER_DIRS
                       for h in _git('log', '--no-merges', '--format=%H',
                                     '--', d).stdout.split()}:
-        # Only the row's own COMMIT CELL counts, not the whole line. A row
-        # citing an earlier commit in its prose -- "same reason as
-        # [`810a1dc`]'s row" -- is the ledger's own convention working, and
-        # counting it made three correct rows read as three duplicates of
-        # one change. Found 2026-09-11, red on precedent-beta-v01 against a
-        # tree nobody had edited: a check firing on correct work, which
-        # checkable-gets-checked says is worse than no check at all.
-        rows = []
-        for ln in ledger_text.splitlines():
-            if not ln.startswith('|'):
-                continue
-            cells = ln.split('|')
-            cell = cells[2] if len(cells) > 2 else ''
-            if full_hash[:7] in cell or full_hash in cell:
-                rows.append(ln)
+        # Counted over the change cells only -- see
+        # _ledger_change_cells(). Counting whole lines made three correct
+        # rows citing 810a1dc read as three duplicates of one change:
+        # 2026-09-11, red on precedent-beta-v01 against a tree nobody had
+        # edited, which checkable-gets-checked calls worse than no check.
+        rows = [cell for cell in change_cells
+                if full_hash[:7] in cell or full_hash in cell]
         if len(rows) > 1:
             findings.append(Finding(
                 'templates/harness/LEDGER.md',

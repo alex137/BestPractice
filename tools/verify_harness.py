@@ -5442,11 +5442,31 @@ def check_parallel_artifact_ledger_fires():
             ['git', *args], cwd=str(cwd or tmp), capture_output=True, text=True)
         fn = pc.CHECKS['parallel-artifact-ledger']['fn']
 
+        # A real dated row, not a bare hash on a line of its own: the check
+        # credits a commit only when it is named in a ROW's `Originating
+        # change` cell, so a fixture writing the hash loose in the file was
+        # passing on the presence half's old whole-file match and stopped
+        # meaning anything the moment that half was keyed on the cell
+        # (2026-09-11).
+        def _row(commit_hash):
+            return (f'| 2026-01-01 | [`{commit_hash[:7]}`]'
+                    f'(https://example.invalid/{commit_hash}) — planted '
+                    f'| applied | n/a | n/a |\n')
+
         no_ledger = fn(None)
         ledger_path.write_text('no commit hashes here\n', encoding='utf-8')
         unreferenced = fn(None)
-        ledger_path.write_text(f'{member_commit}\n', encoding='utf-8')
+        ledger_path.write_text(_row(member_commit), encoding='utf-8')
         referenced = fn(None)
+        # The distinction both halves now share: a commit named only in
+        # another row's PROSE is a citation, not that row's own change, so
+        # it is not ledgered. Without this case the presence half can slide
+        # back to matching the whole file and nothing fails.
+        ledger_path.write_text(
+            '| 2026-01-01 | [`0000000`](https://example.invalid/0000000) — '
+            f'planted | applied, same reason as the `{member_commit[:7]}` '
+            'row | n/a | n/a |\n', encoding='utf-8')
+        cited_only = fn(None)
 
         # A ledger naming ONLY the later change: the inception commit must
         # not be demanded. Before this exemption, f2078d6 -- the commit
@@ -5463,12 +5483,15 @@ def check_parallel_artifact_ledger_fires():
              not inception_exempt),
             ("a ledger with no reference to the commit is a finding",
              len(unreferenced) == 1),
-            ("a ledger referencing the commit's hash clears the finding",
-             referenced == []),
+            ("a ledger row naming the commit in its change cell clears "
+             "the finding", referenced == []),
+            ("a commit named only in another row's prose is NOT ledgered",
+             len(cited_only) == 1),
         ]
         bad = [n for n, ok in cases if not ok]
         check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
-              f"no ledger, ledger missing the commit, ledger referencing it, "
+              f"no ledger, ledger missing the commit, a row naming it in "
+              f"its change cell, a prose citation not counting as a row, "
               f"a family's own inception commit needing no row)",
               not bad, '; '.join(bad))
     finally:
