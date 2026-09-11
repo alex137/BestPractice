@@ -78,7 +78,7 @@ engine, points at a rule they cannot read. Asked in the same session whether
 the rule was right for non-technical adopters, Morgan named the gap: graceful
 for minor rules and non-technical readers, loud for important rules and
 technical ones. It was not in the text. The catalogue half of the same
-finding was larger -- the shipped non-technical document template puts all 66
+finding was larger -- the shipped document-project template puts all 66
 universal practices in force for an editorial project and exempts none -- and
 is being handled where it belongs, in `not_binding` rather than by making
 rules quieter. And in that same run this practice's own clause 1 was broken

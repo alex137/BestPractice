@@ -10475,7 +10475,7 @@ def check_tools_answer_help_without_writing():
       sweep -- a hard `FAIL: unknown option '--help'`, a silent fall-through
       that ran the whole audit as though nothing had been asked, or the
       docstring printed with a non-zero exit. `--help` is the first thing any
-      reader types, and documentation/HOW_TO_USE_THIS_TECHNICAL.md points a
+      reader types, and documentation/HOW_TO_USE_THIS_DEVELOPERS.md points a
       public audience straight at these commands.
 
     * **It writes nothing.** tools/resplit_sections.py defaulted to WRITING:
@@ -14830,7 +14830,7 @@ if __name__ == '__main__':
     # split three ways on it: a hard "unknown option" FAIL, a silent
     # fall-through that ran the whole audit as if nothing had been asked, or
     # the docstring printed with a non-zero exit. All three are wrong, and
-    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # documentation/HOW_TO_USE_THIS_DEVELOPERS.md points readers straight at
     # these commands. The module docstring is the usage text.
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())

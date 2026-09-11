@@ -79,6 +79,30 @@ technical and non-technical PROJECTS only people."* The template is now
 The restriction itself moved to the two layers that can see who is running —
 the contributor's GitHub role, and their own session configuration.
 
+**The directory rename did not finish the job, and the check could not say
+so.** Three more tracked files carried the same label the same day —
+`spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md`, naming *work*, and
+`documentation/HOW_TO_USE_THIS_TECHNICAL.md` and its `_NONTECHNICAL` twin,
+naming *documents by their readers' skill level*. The check finds all but the
+first of them, and had been reporting **1 passed** every run, because a
+tree-scope check reads the working diff unless somebody passes `--all`, and
+the violations were already committed. It fired the moment it was asked the
+whole-tree question.
+
+**That is the reusable part: a check scoped to what changed is blind to what
+already landed.** It is the right scope for stopping the next one, and it is
+not an audit of the ones before it. The names are now
+[spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](../spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md),
+[documentation/HOW_TO_USE_THIS_DEVELOPERS.md](../documentation/HOW_TO_USE_THIS_DEVELOPERS.md)
+and
+[documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md](../documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md),
+and the prose that labelled a project, a template, a register or a path by a
+skill level went with them. Morgan's own restatement is the reason the sweep
+ran at all: *"WE SHOULD NOT MAKE A DIFFERENCE BETWEEN TECHNICAL OR
+NONTECHNICAL PROJECTS/DOCUMENTS ... the whole point of the 'better google
+docs' vision is that we want to make blurry the line between technical and
+non-technical."*
+
 ## Install
 Nothing to configure. The check reads file paths only: it cannot see a
 per-person rule written into a shared file, which is the failure the bad
@@ -86,6 +110,8 @@ name leads to. A path whose label is followed by a person-noun
 (`nontechnical-contributor-guide`) is left alone; `practices/` and
 `record/` are skipped, since a slug about this rule must contain the word
 and settled history is not renamed. Both behaviours are covered by
-negative controls run when it landed. `tools/precedent_check.py --only technical-describes-people` fails any
+negative controls run when it landed. **Run it with `--all` to audit names
+that already exist** — the default scope is the working diff, which is what
+lets a violation sit green for days (see Story). `tools/precedent_check.py --only technical-describes-people` fails any
 tracked path containing `technical` as a descriptor of the file or directory
 itself; prose naming a *person* is untouched.

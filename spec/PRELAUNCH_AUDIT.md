@@ -428,7 +428,7 @@ against the code as it stood.
 ### The tool surface answered `--help` three different wrong ways, and one of them destroyed files
 
 Running `--help` across every script in [tools/](../tools/) — the first
-thing any reader of [documentation/HOW_TO_USE_THIS_TECHNICAL.md](../documentation/HOW_TO_USE_THIS_TECHNICAL.md)
+thing any reader of [documentation/HOW_TO_USE_THIS_DEVELOPERS.md](../documentation/HOW_TO_USE_THIS_DEVELOPERS.md)
 types, since that guide points a public audience straight at these
 commands — produced three failure shapes and no successes:
 

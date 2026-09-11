@@ -104,4 +104,4 @@ is what an ordinary working day looks like. [What This Is (and Why Explore
 Using Precedent)](WHAT_IS_THIS_AND_BENEFITS.md) for the bigger picture.
 [INSTALL.md](../INSTALL.md) if the project isn't set up yet. If you ever
 want the fuller technical version of this page:
-[HOW_TO_USE_THIS_TECHNICAL.md](HOW_TO_USE_THIS_TECHNICAL.md).
+[HOW_TO_USE_THIS_DEVELOPERS.md](HOW_TO_USE_THIS_DEVELOPERS.md).

@@ -49,7 +49,7 @@ Your assistant will write the rule down properly, work out whether it's
 just yours or something your whole team should follow, and tell you where
 it put it. From then on it's automatic — for you, for your teammates, and
 for a session next month that has never met you. [How to Use This — A
-Guide for Everyone Else](HOW_TO_USE_THIS_NONTECHNICAL.md) covers what
+Guide for Everyone Else](HOW_TO_USE_THIS_EVERYONE_ELSE.md) covers what
 happens next, including who has to approve it.
 
 **Small annoyances count.** The rules worth having are mostly not grand
@@ -127,6 +127,6 @@ questions instead of trying to remember the answers.
 [What This Is (and Why Explore Using
 Precedent)](WHAT_IS_THIS_AND_BENEFITS.md) for the bigger picture. [How to
 Use This — A Guide for Everyone
-Else](HOW_TO_USE_THIS_NONTECHNICAL.md) for how an idea becomes an
+Else](HOW_TO_USE_THIS_EVERYONE_ELSE.md) for how an idea becomes an
 official rule and who approves it. [How to Use This —
-Technical](HOW_TO_USE_THIS_TECHNICAL.md) if you want the mechanics.
+Technical](HOW_TO_USE_THIS_DEVELOPERS.md) if you want the mechanics.

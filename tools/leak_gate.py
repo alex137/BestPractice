@@ -146,6 +146,15 @@ FORBIDDEN_PATHS = [
     (re.compile(r'(^|/)(individual|personal|private)/', re.I),
      'an individual-level directory -- individual practices live in their own '
      'private repo, never in Precedent'),
+    # NOTE, 2026-09-10: this also matches a FILE whose name begins `team-`
+    # or `TEAM_` -- `spec/TEAM_PRACTICE_CAPTURE_DOCUMENT_WORK.md`, a public
+    # planning document about team-level capture, was refused by it on the
+    # commit that created it. That is bluntness, not a bug: the pattern
+    # cannot see whether a segment is a directory, and the alternative --
+    # requiring a trailing `/` -- would pass a vendored set dropped in as a
+    # tarball or a single file. The document was renamed instead, the same
+    # call the individual-bootstrap exemption below made for the same
+    # reason. If you hit this, rename before you loosen.
     (re.compile(r'(^|/)team[-_/]', re.I),
      'a team-level path -- team practices live in one private repo per team'),
     (re.compile(r'(^|/)precedent-(individual|team-)', re.I),
@@ -968,7 +977,7 @@ if __name__ == '__main__':
     # split three ways on it: a hard "unknown option" FAIL, a silent
     # fall-through that ran the whole audit as if nothing had been asked, or
     # the docstring printed with a non-zero exit. All three are wrong, and
-    # documentation/HOW_TO_USE_THIS_TECHNICAL.md points readers straight at
+    # documentation/HOW_TO_USE_THIS_DEVELOPERS.md points readers straight at
     # these commands. The module docstring is the usage text.
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())

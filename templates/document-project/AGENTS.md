@@ -6,7 +6,7 @@
      templates/AGENTS.md.loader.template: the access-restriction and persona
      content below comes from spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md verbatim
      (don't re-derive it), and the candidate-capture bullet comes from
-     spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md. Replace <angle-bracket>
+     spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md. Replace <angle-bracket>
      placeholders with this project's real content; keep the section
      structure and the generated-block markers exactly as they appear below. -->
 
