@@ -276,7 +276,110 @@ def checks():
             out.append((f'this checkout is not behind origin/{branch}', None,
                         'could not compare -- origin/'
                         f'{branch} did not resolve'))
+
+    # 8. The also-list actually names repositories that are there.
+    #
+    # PRECEDENT_FRESHNESS_ALSO is the one route by which an ATTACHED
+    # repository gets freshness-checked at all, since its own hooks never
+    # fire. An entry naming a path that is not there is skipped with a note
+    # and never blocked on -- deliberately, because a config typo must not
+    # wedge a session -- so the failure mode is a variable that looks set,
+    # reads as coverage, and covers nothing. Measured 2026-09-11: this
+    # project's own environment named /home/user/precedent-individual while
+    # the clone was at /root/precedent-individual, and had been skipping it
+    # every session since the variable was first set. The guard expands
+    # $HOME now, which makes one value correct on every container; this row
+    # is what says so out loud when it still is not
+    # (practice: checkable-gets-checked).
+    raw = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
+    name = 'PRECEDENT_FRESHNESS_ALSO names repositories that are there'
+    want = _attachable_sources()
+    suggestion = ('Set it to: PRECEDENT_FRESHNESS_ALSO='
+                  + ';'.join(f'{path}={base}' for path, base in want)) if want else ''
+    if raw is None:
+        out.append((name, None,
+                    'not set, so every repository this session merely has '
+                    'ATTACHED goes unchecked -- their own hooks never fire. '
+                    'That is a real gap, not a clean result. '
+                    + suggestion))
+    else:
+        bad = []
+        for entry in (e.strip() for e in raw.split(';')):
+            if not entry:
+                continue
+            if '=' not in entry:
+                bad.append(f'{entry!r} has no =<base branch>')
+                continue
+            written = entry.split('=', 1)[0].strip()
+            resolved = _expand_source_path(written)
+            if not (pathlib.Path(resolved) / '.git').exists():
+                shown = (f'{written!r}' if resolved == written
+                         else f'{written!r} (-> {resolved!r})')
+                bad.append(f'{shown} is not a git repository')
+        ok = not bad
+        out.append((name, ok, '' if ok else
+                    '; '.join(bad) + '. Each of these is SKIPPED, silently by '
+                    'design -- the variable reads as coverage and covers '
+                    'nothing. ' + suggestion))
     return out
+
+
+def _expand_source_path(path):
+    """The same expansion the guard's _also_resolve does, so this row agrees
+    with the thing it is reporting on rather than approximating it."""
+    home = os.environ.get('HOME', '')
+    proj = os.environ.get('CLAUDE_PROJECT_DIR', str(ROOT))
+    if path == '~':
+        path = home
+    elif path.startswith('~/'):
+        path = home + path[1:]
+    for token, value in (('${HOME}', home), ('$HOME', home),
+                         ('${CLAUDE_PROJECT_DIR}', proj),
+                         ('$CLAUDE_PROJECT_DIR', proj)):
+        path = path.replace(token, value)
+    return path
+
+
+def _attachable_sources():
+    """-> [(path, base_branch)] for every practice source on this disk that
+    the also-list could name, written $HOME-relative where that is what it
+    is, so the suggested value survives a container whose $HOME differs --
+    which is the whole bug this reports on.
+
+    Read off the disk rather than from a list here: a source set is added by
+    editing precedent.json, and a suggestion that had to be kept in step by
+    hand would go stale the first time one was."""
+    home = os.environ.get('HOME', '')
+    found, seen = [], set()
+    roots = [pathlib.Path(home)] if home else []
+    roots.append(ROOT.parent)
+    for parent in roots:
+        try:
+            entries = sorted(parent.iterdir())
+        except OSError:
+            continue
+        for d in entries:
+            if not d.name.startswith('precedent-'):
+                continue
+            if not (d / '.git').exists() or d.resolve() == ROOT:
+                continue
+            real = str(d.resolve())
+            if real in seen:
+                continue
+            seen.add(real)
+            base = 'main'
+            manifest = d / 'precedent.json'
+            if manifest.is_file():
+                try:
+                    base = json.loads(manifest.read_text(
+                        encoding='utf-8')).get('base_branch') or 'main'
+                except (OSError, ValueError):
+                    pass
+            shown = str(d)
+            if home and shown.startswith(home + '/'):
+                shown = '~' + shown[len(home):]
+            found.append((shown, base))
+    return found
 
 
 def apply_repair():

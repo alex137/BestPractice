@@ -7590,6 +7590,95 @@ def _declared_fallback_tz():
     return precedent_time.FALLBACK_TZ
 
 
+def check_session_check_reports_a_dead_also_list_entry():
+    """The also-list fails SILENTLY by design, so something has to say so.
+
+    An entry naming a path that is not there is skipped with a note and never
+    blocked on -- a config typo must not wedge a session. The cost is that a
+    variable which looks set reads as coverage while covering nothing, which
+    is exactly what this project's own environment did: it named
+    /home/user/precedent-individual while the clone was at
+    /root/precedent-individual, and skipped it every session from the day the
+    variable was first set until 2026-09-11. Nothing was broken enough to
+    notice (practice: checkable-gets-checked).
+
+    The row must agree with the guard rather than approximate it -- both
+    expand the same way, or the check passes a value the guard then drops --
+    so the expansion is asserted directly here, both the forms that must
+    resolve and the absent path that must NOT be rescued by expanding."""
+    import precedent_session_check as psc
+
+    cases = []
+    home, proj = '/tmp/fixture-home', '/tmp/fixture-proj'
+    saved = {k: os.environ.get(k)
+             for k in ('HOME', 'CLAUDE_PROJECT_DIR', 'PRECEDENT_FRESHNESS_ALSO')}
+    try:
+        os.environ['HOME'] = home
+        os.environ['CLAUDE_PROJECT_DIR'] = proj
+        for written, want in (('~/precedent-individual',
+                               f'{home}/precedent-individual'),
+                              ('$HOME/x', f'{home}/x'),
+                              ('${HOME}/x', f'{home}/x'),
+                              ('~', home),
+                              ('$CLAUDE_PROJECT_DIR/x', f'{proj}/x'),
+                              ('/already/absolute', '/already/absolute')):
+            got = psc._expand_source_path(written)
+            cases.append((f'{written!r} expands to {want!r} (got {got!r})',
+                          got == want))
+
+        # A tilde that is not a path prefix is not a home reference -- and a
+        # path is allowed to legitimately contain one.
+        got = psc._expand_source_path('/opt/a~b')
+        cases.append((f"'/opt/a~b' is left alone (got {got!r})",
+                      got == '/opt/a~b'))
+
+        # The row itself, in the three states that matter. Names, not exit
+        # codes: several rows can be red at once
+        # (practice: control-asserts-which-failure).
+        def row():
+            for name, ok, detail in psc.checks():
+                if 'PRECEDENT_FRESHNESS_ALSO' in name:
+                    return ok, detail
+            return 'MISSING', ''
+
+        os.environ['PRECEDENT_FRESHNESS_ALSO'] = '/definitely/not/here=main'
+        ok, detail = row()
+        cases.append((f'a dead entry is reported NOT in effect, naming the '
+                      f'path and the value to set instead (ok={ok!r})',
+                      ok is False and '/definitely/not/here' in detail
+                      and 'PRECEDENT_FRESHNESS_ALSO=' in detail))
+
+        os.environ['PRECEDENT_FRESHNESS_ALSO'] = 'no-equals-sign'
+        ok, detail = row()
+        cases.append((f'an entry with no =<base branch> is reported too '
+                      f'(ok={ok!r})',
+                      ok is False and 'no =<base branch>' in detail))
+
+        del os.environ['PRECEDENT_FRESHNESS_ALSO']
+        ok, detail = row()
+        cases.append((f'unset is undetermined rather than a pass -- every '
+                      f'attached repo goes unchecked (ok={ok!r})',
+                      ok is None and 'not set' in detail))
+
+        # THE CONTROL. A real repository on disk must NOT be reported dead,
+        # or the row is just "always red" and says nothing.
+        os.environ['HOME'] = saved['HOME'] or home
+        os.environ['PRECEDENT_FRESHNESS_ALSO'] = f'{ROOT}=main'
+        ok, detail = row()
+        cases.append((f'an entry naming a real repository passes (ok={ok!r}, '
+                      f'{detail[:60]!r})', ok is True))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the session check reports an also-list entry that names nothing '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_freshness_guard_checks_attached_repositories():
     """PRECEDENT_FRESHNESS_ALSO, carried up from a downstream set 2026-09-11.
 
@@ -7650,9 +7739,11 @@ def check_freshness_guard_checks_attached_repositories():
             sentinels = w / 'sentinels'
             sentinels.mkdir()
 
-            def run(project, session, also=None):
+            def run(project, session, also=None, home=None):
                 env = dict(env0, TMPDIR=str(sentinels),
                            CLAUDE_PROJECT_DIR=str(project))
+                if home is not None:
+                    env['HOME'] = str(home)
                 if also is None:
                     env.pop('PRECEDENT_FRESHNESS_ALSO', None)
                 else:
@@ -7717,6 +7808,33 @@ def check_freshness_guard_checks_attached_repositories():
                           f'and skipped, never blocked on (rc={rc})',
                           rc == 0 and 'is not a git repository' in err
                           and "no \'=<base branch>\'" in err))
+
+            # $HOME EXPANSION. An individual practice source lives at
+            # $HOME/precedent-individual and $HOME differs between
+            # containers, so an absolute path written on one names nothing on
+            # the next -- which is what this project's own environment had
+            # been doing, unnoticed, for the whole life of the variable.
+            # Nothing expands a value read back out of a variable, so the
+            # guard has to do it. HOME is set to the fixture, never inherited
+            # (practice: fixture-owns-its-state).
+            for form in ('~/other=main', '$HOME/other=main',
+                         '${HOME}/other=main'):
+                git(other, 'reset', '-q', '--hard', 'HEAD~1')
+                rc, err = run(proj, f'also-home-{form[:3]}', also=form,
+                              home=w)
+                cases.append((f'{tag}: {form!r} resolves against HOME rather '
+                              f'than being taken literally (rc={rc})',
+                              rc == 2 and 'fast-forwarded' in err))
+                git(other, 'merge', '-q', '--ff-only', 'origin/main')
+
+            # The control: expansion must not turn an absent path into a
+            # pass. It still skips, and the note names BOTH forms, because
+            # the two differing is the whole diagnosis.
+            rc, err = run(proj, 'also-home-ghost', also='~/ghost=main',
+                          home=w)
+            cases.append((f'{tag}: an expanded path that is still not there '
+                          f'skips, naming the entry as written (rc={rc})',
+                          rc == 0 and "(from '~/ghost')" in err))
 
     failed = [n for n, ok in cases if not ok]
     check(f'the freshness guard checks attached repositories '
@@ -15497,6 +15615,7 @@ def main():
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_freshness_gate_fires()
+    check_session_check_reports_a_dead_also_list_entry()
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_unmerged_branch_verdicts()
