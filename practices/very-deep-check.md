@@ -1012,6 +1012,22 @@ because none happened; a gap can be found by reading, and
 [cite-the-incident](cite-the-incident.md) asks for the real story, which here
 is that somebody asked the right question before it cost anything.
 
+**Its first real run, the same day, found drift in all four live sets and
+also found the check too long to read.** Every set's vendored engine was an
+older upstream vendoring, and `commit-identity.sh` differed from canonical
+in every one — the drift [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md)'s `source-hook-drift` item
+already tracks, confirmed here by a mechanism that knew nothing about it.
+**The defect was the output.** A set vendored at an older commit differs in
+*every* engine file at once, so one fact printed as a dozen findings: 60
+lines carrying about six facts, which is how a check teaches people to skim
+it. One older vendoring is now one row, absent files the engine gained since
+folded into it, while a hand-edited file still gets its own line naming the
+file — the distinction that decides whether you refresh or move the change
+upstream. And `.claude/settings.json` moved from shape to owned: a set may
+legitimately wire its hooks from somewhere other than `.claude/hooks/`, which
+`verify()` already allows and one live set deliberately does, so calling that
+drift reported a decision as a defect on every run.
+
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's

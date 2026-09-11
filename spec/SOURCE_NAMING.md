@@ -72,7 +72,7 @@ distinct things as one. They fail differently:
 
 | # | The name | Who reads it | If it varies | Answer |
 |---|---|---|---|---|
-| 1 | The GitHub repository name (`themorgan/precedent-team-writing`) | people, browsing | nothing breaks immediately; a later rename breaks every vendored reference | **Recommended**, and disclosed before anyone picks one |
+| 1 | The GitHub repository name (`themorgan/precedent-team-maintainers`) | people, browsing | nothing breaks immediately; a later rename breaks every vendored reference | **Recommended**, and disclosed before anyone picks one |
 | 2 | The local clone directory (the `path` in [precedent.json](../precedent.json)) | the resolver, per machine | the declared relative path is wrong on that machine | **Warned** about, never refused |
 | 3 | The `name` field in [precedent.json](../precedent.json) or the user config | the resolver, `MANIFEST.json` attribution, every error message | attribution stops matching; messages name a set nobody recognizes | **Refused** |
 | 4 | A team slug's meaning — purpose, not roster | people, over years | the name goes stale rather than wrong | Judgment; no check can see it |
