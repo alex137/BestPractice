@@ -3240,6 +3240,30 @@ def _parallel_artifact_ledger(ctx):
                     f'commit that changed a member of the harness-adapter '
                     f'family -- add a dated row with a per-member verdict'))
 
+    # A commit ledgered TWICE is the collision this check could not see,
+    # because "a row exists" is satisfied by two of them. 2026-09-10: two
+    # sessions working in parallel each noticed 82572e7 had no row and each
+    # backfilled one, in different places in the file, so git merged both
+    # cleanly and the audit stayed green on a ledger carrying two verdicts
+    # for one change -- which is exactly the state the practice's "one dated
+    # row per change" exists to prevent, since a later reader cannot tell
+    # which verdict was the considered one. (practice: convention-to-audit)
+    #
+    # Counted per ROW rather than per occurrence: a single row names its
+    # commit twice by design, in the link text and the URL.
+    for full_hash in {h for d in _LEDGER_MEMBER_DIRS
+                      for h in _git('log', '--no-merges', '--format=%H',
+                                    '--', d).stdout.split()}:
+        rows = [ln for ln in ledger_text.splitlines()
+                if ln.startswith('|')
+                and (full_hash[:7] in ln or full_hash in ln)]
+        if len(rows) > 1:
+            findings.append(Finding(
+                'templates/harness/LEDGER.md',
+                f'{len(rows)} rows reference {full_hash[:7]} -- one change '
+                f'gets one dated row, so a reader can tell which transfer '
+                f'verdict was the considered one; merge them'))
+
     return findings
 
 
