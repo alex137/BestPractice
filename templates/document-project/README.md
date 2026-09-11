@@ -17,7 +17,7 @@ rules instead of living and dying inside one document.
 |---|---|
 | [`precedent.json`](precedent.json) | Declares the repo's visibility, the universal practice source (vendored) and three shared team sources (`precedent-team-tms`, `precedent-team-writing`, `precedent-team-working-style`, all resolved live). |
 | [`AGENTS.md`](AGENTS.md) | The repo's own instructions file — access restrictions, persona, and the candidate-capture flow already filled in. |
-| [`.claude/settings.json`](.claude/settings.json) | A restricted session config: no push, no merge, no raw shell — limits that bind **every** session on the repo, maintainers included, not only the non-technical contributor. It also wires four SessionStart/PreToolUse hooks whose scripts this template does not ship; instantiation step 3 is where they come from. |
+| [`.claude/settings.json`](.claude/settings.json) | The repo's session config: an allowlist of the read-only and check commands this work needs, plus one repo-wide denial (`rm *`). It is **not** where the contributor's restrictions live — this file is tracked, so it binds every session and cannot tell one person from another; step 6 below is the per-person layer. It also wires four SessionStart/PreToolUse hooks whose scripts this template does not ship; instantiation step 3 is where they come from. |
 
 ## Instantiating this template
 
@@ -43,7 +43,9 @@ rules instead of living and dying inside one document.
    *always*, plus `precedent-paths.sh` (the table's "only with the Precedent
    loader", and this template is that loader), and deliberately omits
    `stop-git-check.sh` — it blocks ending a turn on unpushed work, and the
-   contributor this template is written for is denied `git push`.
+   contributor this template is written for is denied `git push` by their
+   own per-person session configuration (step 6 below, not this repo's
+   tracked `.claude/settings.json`).
 
    Skipping this step is not a degraded install, it is an inert one: with no
    `.claude/hooks/session-start.sh` on disk, `tools/bootstrap.sh` never runs

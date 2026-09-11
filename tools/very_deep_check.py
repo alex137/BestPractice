@@ -1577,8 +1577,14 @@ def _tracked_text_files(repo_dir):
     for rel in out.splitlines():
         if not rel.strip():
             continue
-        if rel.startswith(('process/upstream/', '.git/')):
-            continue      # vendored: another repo's tree, not this one's text
+        # Which trees are mirrored is asked PER REPO, because this walks
+        # every repo in force and they do not share an install model. The
+        # literal 'process/upstream/' that used to sit here is INSTALL.md
+        # §1's layout; a §0 repo's vendored catalogue sits wherever its
+        # precedent.json points, so every one of those files was being read
+        # as the repo's own text. (practice: durable-fix)
+        if rel.startswith(pr.mirrored_prefixes(repo_dir) + ('.git/',)):
+            continue      # mirrored: another repo's tree, not this one's text
         p = pathlib.Path(repo_dir) / rel
         if p.suffix.lower() not in ('.md', '.py', '.json', '.txt', '.sh',
                                     '.yml', '.yaml', '.template'):

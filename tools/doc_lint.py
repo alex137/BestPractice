@@ -833,7 +833,41 @@ def check_findability(docs):
 # forbidden to touch, with no action available except waiting for a catalogue
 # mirror that is deliberately on hold. Reported loudly, counted separately,
 # never fatal -- practice fail-gracefully: keep going, and tell the person.
-VENDORED_PREFIXES = ('process/upstream/',)
+# WHICH prefixes are mirrors is not this file's question to answer, and
+# hardcoding the answer got it wrong for half the install models. The literal
+# below is INSTALL.md §1's layout. A §0 install mirrors somewhere else
+# entirely -- the vendored catalogue sits at whatever path precedent.json's
+# `universal` source names -- so a §0 consumer taking a routine catalogue
+# update went red on 109 broken relative links, every one of them inside a
+# mirror and pointing at a file that exists upstream and not in the consumer.
+# Exactly the failure the paragraph above says must never happen, caused by
+# the constant meant to prevent it. Ask the engine instead; the constant
+# survives only as the fallback for a tree with no importable engine.
+# (practice: durable-fix -- the fix is asking the one authority, not adding a
+# second path to the list and waiting for the third.)
+_VENDORED_PREFIXES_FALLBACK = ('process/upstream/',)
+
+
+def _vendored_prefixes():
+    """-> tuple of repo-relative prefixes whose contents this repo mirrors.
+
+    precedent_resolve.mirrored_prefixes() is THE place this is answered
+    (its own docstring carries the reasoning). It never raises, so the only
+    thing guarded here is the import: doc_lint.py ships into trees where the
+    rest of the engine may not be present."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_resolve as pr
+    except Exception:
+        return _VENDORED_PREFIXES_FALLBACK
+    # An empty answer is honoured, not second-guessed: mirrored_prefixes()
+    # returns () for a repo that genuinely mirrors nothing (a source set, a
+    # fresh repo), and substituting the fallback there would re-assert the
+    # §1 layout in exactly the repos that do not have it.
+    return tuple(pr.mirrored_prefixes(ROOT))
+
+
+VENDORED_PREFIXES = _vendored_prefixes()
 
 
 def _is_vendored(rel):
