@@ -636,6 +636,133 @@ def _catalogue_carries_stories(ctx):
     return out
 
 
+
+# ---- practice-links-travel -------------------------------------------------
+# A practice file is copied into every repository that adopts the catalogue,
+# so a relative link in one is only real if the target is copied too.
+# practice: practice-links-travel
+_MD_LINK_RE = re.compile(r'(?<!\!)\[[^\]]*\]\(([^)\s]+)\)')
+_BLOB_URL_RE = re.compile(
+    r'^https://github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.+)$')
+
+
+def _markdown_links(text):
+    """[(lineno, target)] for every markdown link OUTSIDE fences and code
+    spans. A link written inside backticks is a value being documented, not
+    a reference -- same reading doc_lint.py's own link check uses, and the
+    reason it is duplicated here rather than imported is that this module
+    must keep working in a tree where cmark-gfm is absent and doc_lint
+    degrades."""
+    out, fence = [], False
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith(('```', '~~~')):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        clean = re.sub(r'`[^`]*`', lambda m: ' ' * len(m.group(0)), line)
+        for target in _MD_LINK_RE.findall(clean):
+            out.append((i, target))
+    return out
+
+
+def _travelling_engine_files():
+    """{'tools/<name>'} -- the engine files every consumer receives.
+
+    Asked of precedent_vendor_engine.py, which is the one place that answers
+    it, rather than kept as a second list here: the two would drift the first
+    time a file was added to the vendored set, and the drift would show up as
+    a false violation on a correct link (practice: registry-source-of-truth).
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    return {'tools/' + n for n in _pve.CONSUMER_ENGINE_FILES}
+
+
+def _origin_slug():
+    """'owner/repo' for origin, or None. Used only to decide whether an
+    absolute URL points at THIS repository -- a URL naming some other
+    repository is somebody else's to keep working."""
+    r = _git('remote', 'get-url', 'origin')
+    if r.returncode != 0:
+        return None
+    m = re.search(r'github\.com[:/]+([^/]+/[^/\s]+?)(?:\.git)?/*$',
+                  r.stdout.strip())
+    return m.group(1) if m else None
+
+
+@check('practice-links-travel', 'tree',
+       'every link in a practice file THIS repo owns either travels with the '
+       'file (a sibling practice, a vendored engine file) or is an absolute '
+       'URL into this repository on its declared base_branch, naming a path '
+       'that exists',
+       'whether the target is the RIGHT file, and a link that travels today '
+       'and stops travelling when a file leaves CONSUMER_ENGINE_FILES -- that '
+       'shows up as a violation on the next run, not at the moment of '
+       'removal. It reads practices/ only: local/practices/ is read in place '
+       'here and never materialized, so its links travel nowhere and break '
+       'nothing. It also cannot see a repo-local source in a CONSUMING repo, '
+       'where materialization moves a practice up a directory and changes '
+       'what its relative paths mean.')
+def _practice_links_travel(ctx):
+    pdir = ROOT / 'practices'
+    if not pdir.is_dir():
+        raise NotApplicable('this repo has no practices/ directory')
+    owned = [p for p in sorted(pdir.glob('*.md'))
+             if not _foreign_practice(str(p.relative_to(ROOT)))]
+    if not owned:
+        raise NotApplicable(
+            'every practice here is materialized from another source, so '
+            'practices/ is generated output -- these links have to be right '
+            'in the publishing source, and repairing them here would be '
+            'overwritten by the next sync')
+    try:
+        travel = _travelling_engine_files()
+    except Exception as e:                      # practice: fail-gracefully
+        raise NotApplicable(f'the vendored-engine file list could not be read '
+                            f'({e}), so what travels is unknown')
+    branch = _declared_base_branch(ROOT)
+    slug = _origin_slug()
+    out = []
+    for path in owned:
+        rel = str(path.relative_to(ROOT))
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        for lineno, target in _markdown_links(text):
+            where = f'{rel}:{lineno}'
+            if target.startswith(('mailto:', '#')):
+                continue
+            if target.startswith(('http://', 'https://')):
+                m = _BLOB_URL_RE.match(target)
+                if not m or slug is None or m.group(1).lower() != slug.lower():
+                    continue                    # somebody else's repository
+                url_branch, url_path = m.group(2), m.group(3).split('#')[0]
+                if branch and url_branch != branch:
+                    out.append(Finding(
+                        where, f'links this repository at `{url_branch}`, but '
+                               f'precedent.json declares `{branch}` -- an '
+                               f'upstream link goes stale the moment it names '
+                               f'a branch nobody is publishing from'))
+                elif not (ROOT / url_path).exists():
+                    out.append(Finding(
+                        where, f'links `{url_path}` in this repository, and '
+                               f'no such path exists here'))
+                continue
+            base = target.split('#')[0]
+            if not base:
+                continue
+            if '/' not in base and (pdir / base).exists():
+                continue                        # a sibling practice file -- it travels
+            if base.startswith('../') and base[3:] in travel:
+                continue                        # a vendored engine file
+            fix = (f'https://github.com/{slug}/blob/{branch or "<branch>"}/'
+                   f'{base.lstrip("./")}' if slug else 'an absolute URL')
+            out.append(Finding(
+                where, f'`{target}` does not travel with this file -- it is '
+                       f'live here and dead in every repository that receives '
+                       f'the catalogue. Link it as {fix}, or drop the link '
+                       f'markup and keep the backticked path'))
+    return out
+
 @check('no-version-suffix', 'change',
        'a file added by this change must not carry a version, date or state '
        'suffix in its name',

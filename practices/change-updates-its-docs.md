@@ -49,7 +49,7 @@ separate violation ([generated-artifact-provenance](generated-artifact-provenanc
 This rule is about the prose a person wrote.
 
 **The occasional sweep is a backstop, not the mechanism.** The registry at
-[tools/doc_coverage.json](../tools/doc_coverage.json) records what each
+[tools/doc_coverage.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_coverage.json) records what each
 reader-facing document describes, and `very deep check` compares each
 document's last commit against the last commit touching its subject. That
 catches what this rule missed, weeks later, with the evidence attached — but
@@ -106,7 +106,7 @@ channel would make a red gate out of a question — which is how a check
 becomes the one people pass by editing the registry. `very deep check` runs
 it; nothing else has to be installed. A
 repository that wants it needs
-[tools/doc_coverage.json](../tools/doc_coverage.json) listing its own
+[tools/doc_coverage.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_coverage.json) listing its own
 reader-facing documents and what each describes — without that file the sweep
 says so and does nothing, which is the correct behaviour for a repository
 that has not declared any.

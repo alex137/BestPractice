@@ -2793,3 +2793,47 @@ which is the failure this repointing exists to end — write
    item is writing it down where the next retirement will look, not
    deciding it. Disposition `wait`
    ([open-item-disposition](practices/open-item-disposition.md)).
+
+56. <a id="deduplicate-practice-links-travel"></a>**Deduplicate
+   `practice-links-travel` in `precedent-individual`, now that it is in force
+   at universal.** Landed here 2026-09-11 as
+   [practices/practice-links-travel.md](practices/practice-links-travel.md),
+   with a check in [tools/precedent_check.py](tools/precedent_check.py) and
+   134 links repaired across 42 practice files.
+
+   **This is step 2 of [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md)'s
+   two-step, and it is deliberately not done.** Step 1 lands at the
+   destination; step 2 sets the source copy to `status: deduplicated` with
+   `in_force_at: practice-links-travel` and one line in its `## Story` naming
+   where it went. Skipping it leaves two copies of one rule at two levels,
+   with individual precedence quietly winning — the state the ordering exists
+   to pass through briefly, not to sit in.
+
+   **What the other session needs to know before it does it.** The universal
+   text is NOT the individual text carried across: the session that landed it
+   could not reach that repository, so it wrote the rule fresh from a
+   measurement and a description of the original. Read both before
+   deduplicating — if the individual copy says anything the universal one
+   does not, that sentence has to move up, not disappear. The one place the
+   two are known to differ on purpose is the remedy: a private set de-links
+   and keeps the backticked path, because an absolute URL would publish the
+   private repository's name into every consumer; this repository is public
+   and links absolutely. The universal file says so in as many words, so the
+   individual set is not losing that reasoning by going away.
+
+   **Its check script goes too.** `tools/checks/check_practice_links_travel.py`
+   in that set skips every practice whose source is not the individual set,
+   which is what made the universal catalogue unexamined by anything for as
+   long as the rule has existed. Once the universal check is in force there
+   is nothing left for it to look at.
+
+   **blocked-on:** `precedent-individual` is under a different owner and could
+   not be attached to the session that landed this — the standing cross-owner
+   `add_repo` refusal, and no `PRECEDENT_GIT_TOKEN` in that environment. It
+   needs a session rooted in that repository, which is a person's act
+   ([cross-source-rollout](practices/cross-source-rollout.md): not attached,
+   so it is queued rather than done).
+
+   **Disposition:** wait — nobody is being chased for it, and the rule is in
+   force in the meantime
+   ([open-item-disposition](practices/open-item-disposition.md)).

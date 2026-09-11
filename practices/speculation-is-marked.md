@@ -135,7 +135,7 @@ Detail above.
 The gate is `merge`, since the pull-request marker is written at exactly that
 moment: `python3 tools/precedent_gate.py merge`.
 
-See [spec/DOCUMENT_LIFECYCLE.md](../spec/DOCUMENT_LIFECYCLE.md) for the
+See [spec/DOCUMENT_LIFECYCLE.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/DOCUMENT_LIFECYCLE.md) for the
 frontmatter this sits on top of, and
-[spec/SPECULATIVE_WHATSAPP_BRIDGE.md](../spec/SPECULATIVE_WHATSAPP_BRIDGE.md)
+[spec/SPECULATIVE_WHATSAPP_BRIDGE.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/SPECULATIVE_WHATSAPP_BRIDGE.md)
 for the worked example the rule came from.

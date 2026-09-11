@@ -190,7 +190,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 96 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 97 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -422,6 +422,8 @@ When writing or editing a document:
   label-describes-content — "one line" must be one line; else name it for its content
 When writing or editing a heading in an outward-facing document:
   headline-capitalization — outward-facing headings are New York Times headline case, applied by tool
+When writing or editing a practice file:
+  practice-links-travel — link only what travels with the file; the rest is an absolute upstream URL
 When writing or editing anything under philosophy/, or citing it from a rule:
   philosophy-is-not-repo-policy — philosophy/ is argument; a rule that earned its way out gets written as a practice file
 When writing or filling out a pull-request description:
@@ -461,6 +463,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [local/practices/park-it.md](local/practices/park-it.md) |
 | Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
+| Why a practice file's references to `spec/`, `templates/` or a root document are full `https://github.com/...` URLs rather than relative links | [practices/practice-links-travel.md](practices/practice-links-travel.md) — the catalogue is copied into every adopting repo, and a relative link out of `practices/` dies there |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
 | The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
 | The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |

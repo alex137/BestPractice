@@ -30,7 +30,7 @@ a repo gives one of those kinds its own home, that home wins over the paired
 record: under Precedent, a decision that is not about a practice goes to a
 dated file in `decisions/`, and a practice's own originating incident goes to
 its `## Story`
-([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), "Where Decisions and
+([PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/PRACTICE_ENGINE_PLAN.md), "Where Decisions and
 History Live").
 
 ## Detail

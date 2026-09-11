@@ -99,7 +99,7 @@ check in a second rather than a belief they have to hold.
 ## Story
 Raised 2026-09-07, from a question about what a migration from BestPractice's
 old `main` onto Precedent actually deletes. Reading
-[spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)
 against its own tooling turned up two gaps, both verified in the code
 rather than suspected. Its step 6 said to "decommission the old sync workflow
 entirely" and never said the file is deleted, while a paragraph much
@@ -125,7 +125,7 @@ themselves had no rule at all.
 for a repo that has decommissioned nothing) and fails if any declared path exists
 in the tree again, or if an entry carries no reason. Resurrection is the
 half a check can see: a vendored tree is mirrored wholesale by
-[tools/checkin.py](../tools/checkin.py)'s `update`, and `practices/` and
+[tools/checkin.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/checkin.py)'s `update`, and `practices/` and
 `tools/checks/` are deleted and rewritten by
 [tools/precedent_materialize.py](../tools/precedent_materialize.py) on
 every sync, so a decommissioned path arriving back from a mirror is a real path

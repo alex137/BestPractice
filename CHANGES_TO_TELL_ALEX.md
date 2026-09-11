@@ -43,9 +43,9 @@ Before the list: **how much of this catalogue enforces itself.**
 <!--gen:merge-back-->
 | | |
 |---|---|
-| Practices in force | 94 |
-| **Enforced by a check** | **43 of 94 practices carry a `checked_by`** |
-| Advisory only | 51 of 94 practices |
+| Practices in force | 95 |
+| **Enforced by a check** | **44 of 95 practices carry a `checked_by`** |
+| Advisory only | 51 of 95 practices |
 <!--/gen:merge-back-->
 
 **Advisory means a session is told the rule and may still not follow it**, and
@@ -584,6 +584,45 @@ person wants them**, which
 offer survives the conversation. Detail words moved again, 3,667 → 3,785;
 the Rule was re-trimmed to stay at 150. Decision record:
 [decisions/2026-09-10-github-settings-optional-and-short.md](decisions/2026-09-10-github-settings-optional-and-short.md).
+
+### `doc-references-are-links` (BestPractice practice 11) gained a practice-file exception — 2026-09-11
+
+**What changed.** Clause (a) — in-repo documents reference repo files as
+relative markdown links — now carries one exception, written into that
+practice's `## Detail`: **a file in `practices/` links anything that does not
+travel with it as an absolute `https://github.com/...` URL instead.** 134
+links across 42 practice files were rewritten to that form in the same
+commit, and the clause is unchanged for every other document in the tree.
+
+**Why.** The catalogue is copied into every repository that adopts it, so a
+relative link out of `practices/` is live where it was written and dead
+everywhere it is read. Measured 2026-09-11: 134 links here pointed at 57
+targets — `spec/`, `templates/`, root documents, hooks — that exist only in
+this repository. A real consuming repository reported 120 of its own the same
+day. Nothing caught it at either end: the rule saying so lived in a private
+individual set whose check deliberately skips practices from other sources,
+and this repository had neither the rule nor the script.
+
+**The new practice is [practice-links-travel](practices/practice-links-travel.md)**,
+landed at universal the same day with a real check in
+[tools/precedent_check.py](tools/precedent_check.py) — the promotion half of
+[spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md)'s two-step. The
+individual copy is still standing; deduplicating it needs a session that can
+reach that repository, and is queued at
+[TODO.md's `deduplicate-practice-links-travel` item](TODO.md#deduplicate-practice-links-travel).
+
+**The public/private answers differ on purpose, and the practice says so.**
+An absolute URL is right from a public upstream and wrong from a private set,
+where it would publish the private repository's name into every consumer that
+materializes the practice; there the remedy stays "drop the link markup, keep
+the backticked path."
+
+**One thing to know at the phase-7 fold-in:** those URLs carry
+`precedent-beta-v01`, because that is what `precedent.json` declares as
+`base_branch`. Setting that key to `main` without rewriting them leaves 134
+links pointing at a branch nobody publishes from — the check fails on exactly
+that mismatch, and the fix is one `sed` across `practices/`. Both
+`precedent.json`'s own comment and this note say so.
 
 ## Cross-referenced only, not a behavior change
 

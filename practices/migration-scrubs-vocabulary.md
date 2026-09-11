@@ -27,7 +27,7 @@ records, dated brainstorm journals) — declared explicitly, once, never
 decided ad hoc per file.
 
 ## Detail
-"Scrub" here means the same thing [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)'s
+"Scrub" here means the same thing [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
 own step 5 already asks for the old tree's file *paths* — replace the
 teaching of a dead concept with a statement of current fact, pointing at
 the migration record for anyone who wants the history — generalized past
@@ -102,7 +102,7 @@ state for a repo that has never migrated off anything) and scans every
 tracked file outside its `exempt_files` list (files and, since 2026-09-03,
 `/`-suffixed directories — see Detail) for any declared term, outside
 `process/upstream/` (a byte-identical vendored copy, never hand-edited
-regardless). [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)'s
+regardless). [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
 step 5 is where a migration declares the file and runs the check for the
 first time, before the migration is considered done. `ROOT` resolves via
 `git rev-parse --show-toplevel` (matching `doc_lint.py` and

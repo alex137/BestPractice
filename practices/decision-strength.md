@@ -133,6 +133,6 @@ is the *right* one — no mechanism can read the conversation the approval
 happened in — which is why the rule about quoting is written as a rule and
 not as a gate.
 
-[tools/precedent_land.py](../tools/precedent_land.py) takes `--strength` when
+[tools/precedent_land.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_land.py) takes `--strength` when
 it writes a new practice file, so a practice landed through the pipeline
 carries the mark from its first commit.

@@ -83,4 +83,4 @@ normal too.
 
 ## Install
 Convention in
-[templates/AGENTS.md.template](../templates/AGENTS.md.template).
+[templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template).

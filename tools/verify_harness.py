@@ -4014,6 +4014,40 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('catalogue-carries-stories', _plant_catalogue_stories)
 
+        # practice-links-travel -- all three shapes at once, in one existing
+        # practice file: a relative link into a directory that does not
+        # travel, an upstream URL on a branch this repo is not publishing
+        # from, and an upstream URL naming a path that does not exist. One
+        # planted file rather than three cases because `case()` keys its
+        # fixture directory by slug; the three are told apart below by the
+        # messages the check prints, not by the exit status
+        # (practice: control-asserts-which-failure).
+        def _plant_practice_links(repo):
+            f = repo / 'practices' / 'repo-is-memory.md'
+            f.write_text(f.read_text(encoding='utf-8') +
+                         '\nPlanted: [a](../spec/LOADER.md), '
+                         '[b](https://github.com/alex137/BestPractice/blob/'
+                         'main/TODO.md), '
+                         '[c](https://github.com/alex137/BestPractice/blob/'
+                         'precedent-beta-v01/no-such-planted-path.md).\n',
+                         encoding='utf-8')
+        # The fixture is a `git init` copy with no remote, and the
+        # upstream-URL half of the check asks origin which repository this
+        # is -- without this the two URL cases below would be skipped and
+        # read as passing. (practice: fixture-owns-its-state)
+        def _setup_origin(repo):
+            git(repo, 'remote', 'add', 'origin',
+                'https://github.com/alex137/BestPractice.git')
+        case('practice-links-travel', _plant_practice_links,
+             setup=_setup_origin)
+        _plt = planted['practice-links-travel'][1]
+        for _frag, _what in (
+                ('does not travel with this file', 'the relative link'),
+                ('precedent.json declares', 'the wrong-branch URL'),
+                ('no such path exists here', 'the dead-path URL')):
+            cases.append((f'practice-links-travel: {_what} is named in the '
+                          f'finding, not merely counted', _frag in _plt))
+
         # technical-describes-people -- a DIRECTORY named for a person's
         # skill level. The person-noun form (`nontechnical-contributor-*`)
         # is deliberately NOT planted here: it must stay silent, and the
