@@ -103,8 +103,9 @@ mutates; --freshen fast-forwards, and only a clean tree that is strictly
 behind.
 
 RECORDS WHAT EACH OF ITS OWN SECTIONS RETURNED AND COST, every run, into
-record/very-deep-check-ledger.json, and prints the cross-run read at the
-end. This check grew a section at a time and nothing ever asked the reverse
+the CHECKED repo's record/very-deep-check-ledger.json -- `--repo X` records
+into X's ledger, never this engine's -- and prints the cross-run read at
+the end. This check grew a section at a time and nothing ever asked the reverse
 question -- does any of them still earn its place? A section that has come
 back empty across several runs is named at the end of every run with three
 answers offered (keep, cheapen, retire) and none taken automatically: a
@@ -2516,7 +2517,19 @@ def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
 # (practice: no-invented-specifics). The expensive half of this check is the
 # four passes a session works by hand, and a session records what those cost
 # with --record-pass, from its own measurement, or not at all.
-LEDGER_PATH = ROOT / 'record' / 'very-deep-check-ledger.json'
+# The ledger belongs to the REPO BEING CHECKED, not to this engine's own
+# checkout, and that distinction was got wrong once in the hour this landed:
+# with the path anchored at ROOT, every harness fixture that ran the tool
+# against a scratch repository appended a row about that scratch repository
+# to THIS repository's ledger -- six of them inside one harness run, each
+# one a 20-section row whose averages and quiet-section verdicts were about
+# a temporary directory. The cross-run read is a comparison, so a foreign
+# row does not merely add noise: it moves every number in it.
+LEDGER_RELPATH = pathlib.Path('record') / 'very-deep-check-ledger.json'
+
+
+def ledger_path_for(repo_root=None):
+    return pathlib.Path(repo_root or ROOT) / LEDGER_RELPATH
 LEDGER_VERSION = 1
 
 # How many recorded runs a section has to come back empty across before the
@@ -2558,7 +2571,8 @@ class RunLedger:
     change that is really two lines per section.
     """
 
-    def __init__(self, path=LEDGER_PATH, repo=None, argv=()):
+    def __init__(self, path=None, repo=None, argv=()):
+        path = path if path is not None else ledger_path_for(repo)
         self.path = pathlib.Path(path)
         self.repo = str(repo) if repo else None
         self.argv = list(argv)
@@ -2836,7 +2850,7 @@ class RunLedger:
         print(file=out)
 
 
-def _record_pass(value, path=LEDGER_PATH, repo=None):
+def _record_pass(value, path=None, repo=None):
     """--record-pass: append a hand-worked pass's outcome to the last run.
 
     The four passes are where this check actually spends its time, and their
@@ -2878,7 +2892,7 @@ def _record_pass(value, path=LEDGER_PATH, repo=None):
         entry[key] = int(raw)
     if note:
         entry['note'] = note
-    path = pathlib.Path(path)
+    path = pathlib.Path(path) if path is not None else ledger_path_for(repo)
     if not path.is_file():
         print(f"very deep check FAIL: no ledger at {path} yet -- run the "
               f"check once before recording a pass against it.",
@@ -2958,7 +2972,7 @@ def _main(box):
                      "e.g. --record-pass '2=done,findings=3'.")
         record_pass = args[i + 1]
         args = args[:i] + args[i + 2:]
-    ledger_path = LEDGER_PATH
+    ledger_path = None          # default: the checked repo's own ledger
     if '--ledger' in args:
         i = args.index('--ledger')
         if i + 1 >= len(args):

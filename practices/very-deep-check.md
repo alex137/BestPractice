@@ -137,7 +137,8 @@ not run is recorded as not run, with the reason.
 reads them against the runs before it.** This check grew a section at a time,
 each one added because a real run wanted it, and until 2026-09-11 nothing had
 ever asked the reverse question: does any of them still earn its place?
-[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) appends every run to
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) appends every run to the
+checked repo's own
 [record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/very-deep-check-ledger.json)
 — per section: what it found, what it printed, how long it took — and prints
 the cross-run read at the end of each run. **The tokens it reports are what a

@@ -27,104 +27,104 @@
       "completed": false
     },
     {
-      "run_id": "2026-09-11T18:24:39-03:00",
+      "run_id": "2026-09-11T18:30:13-03:00",
       "date": "2026-09-11",
-      "repo": "/tmp/tmpapd7vpg1/work",
+      "repo": "/home/user/BestPractice",
       "argv": [
-        "--repo",
-        "/tmp/tmpapd7vpg1/work"
+        "--target",
+        "precedent-beta-v01"
       ],
-      "seconds": 0.39,
+      "seconds": 35.93,
       "components": [
         {
           "name": "FRESHNESS -- this checkout",
           "kind": "mechanical",
           "findings": 0,
           "items": null,
-          "output_tokens": 13,
+          "output_tokens": 26,
+          "seconds": 1.62,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.04,
+          "status": "clean"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 74,
+          "seconds": 5.11,
+          "status": "clean"
+        },
+        {
+          "name": "REPOS IN FORCE -- still there, still writable",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 306,
+          "seconds": 1.64,
+          "status": "clean"
+        },
+        {
+          "name": "SCOPE -- documents and practices to read",
+          "kind": "read",
+          "findings": null,
+          "items": 284,
+          "output_tokens": 131,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "WITHIN-SOURCE CONFLICTS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 35,
           "seconds": 0.03,
           "status": "clean"
         },
         {
-          "name": "MACHINE-READABLE FILES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.01,
-          "status": "clean"
-        },
-        {
-          "name": "FRESHNESS -- declared sources",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 16,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "REPOS IN FORCE -- still there, still writable",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 28,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SCOPE -- documents and practices to read",
-          "kind": "read",
-          "findings": null,
-          "items": 2,
-          "output_tokens": 48,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "WITHIN-SOURCE CONFLICTS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 35,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
           "name": "SOURCE SHAPE",
           "kind": "mechanical",
-          "findings": null,
+          "findings": 0,
           "items": null,
-          "output_tokens": 19,
+          "output_tokens": 26,
           "seconds": 0.0,
-          "status": "unknown"
+          "status": "clean"
         },
         {
           "name": "TEMPLATE FRESHNESS",
           "kind": "mechanical",
-          "findings": 0,
+          "findings": 2,
           "items": null,
-          "output_tokens": 37,
+          "output_tokens": 135,
           "seconds": 0.0,
-          "status": "clean"
+          "status": "findings"
         },
         {
           "name": "BOOTSTRAP DRIFT",
           "kind": "mechanical",
-          "findings": 1,
+          "findings": 12,
           "items": null,
-          "output_tokens": 54,
-          "seconds": 0.0,
+          "output_tokens": 374,
+          "seconds": 2.47,
           "status": "findings"
         },
         {
           "name": "EXPIRING PRACTICES",
           "kind": "mechanical",
-          "findings": 0,
+          "findings": 1,
           "items": null,
-          "output_tokens": 28,
-          "seconds": 0.0,
-          "status": "clean"
+          "output_tokens": 85,
+          "seconds": 0.01,
+          "status": "findings"
         },
         {
           "name": "ORPHANS",
@@ -138,18 +138,18 @@
         {
           "name": "SESSION LOAD",
           "kind": "mechanical",
-          "findings": 1,
+          "findings": 7,
           "items": null,
-          "output_tokens": 104,
-          "seconds": 0.0,
+          "output_tokens": 977,
+          "seconds": 0.18,
           "status": "findings"
         },
         {
           "name": "TIER PLACEMENT",
           "kind": "read",
           "findings": null,
-          "items": 0,
-          "output_tokens": 23,
+          "items": 10,
+          "output_tokens": 317,
           "seconds": 0.0,
           "status": "material"
         },
@@ -157,26 +157,26 @@
           "name": "RULES WE SHIP SOMEWHERE ELSE",
           "kind": "read",
           "findings": null,
-          "items": 0,
-          "output_tokens": 26,
-          "seconds": 0.0,
+          "items": 23,
+          "output_tokens": 341,
+          "seconds": 0.02,
           "status": "material"
         },
         {
           "name": "DOCUMENTATION CURRENCY",
           "kind": "mechanical",
-          "findings": 0,
+          "findings": 9,
           "items": null,
-          "output_tokens": 93,
-          "seconds": 0.0,
-          "status": "clean"
+          "output_tokens": 778,
+          "seconds": 0.14,
+          "status": "findings"
         },
         {
           "name": "UNLANDED WORK",
           "kind": "mechanical",
-          "findings": 1,
+          "findings": 3,
           "items": null,
-          "output_tokens": 153,
+          "output_tokens": 202,
           "seconds": 0.0,
           "status": "findings"
         },
@@ -185,8 +185,8 @@
           "kind": "mechanical",
           "findings": 0,
           "items": null,
-          "output_tokens": 40,
-          "seconds": 0.3,
+          "output_tokens": 1738,
+          "seconds": 9.61,
           "status": "clean"
         },
         {
@@ -201,43 +201,42 @@
         {
           "name": "BRANCHES -- verdicts owed",
           "kind": "mechanical",
-          "findings": 1,
+          "findings": 159,
           "items": null,
-          "output_tokens": 148,
-          "seconds": 0.04,
+          "output_tokens": 2193,
+          "seconds": 14.82,
           "status": "findings"
         },
         {
           "name": "ENDGAME MERGE",
           "kind": "mechanical",
-          "findings": null,
+          "findings": 504,
           "items": null,
-          "output_tokens": 0,
-          "seconds": 0.0,
-          "status": "skipped",
-          "note": "--skip-endgame-merge"
+          "output_tokens": 146,
+          "seconds": 0.22,
+          "status": "findings"
         }
       ],
       "passes": [],
       "completed": true
     },
     {
-      "run_id": "2026-09-11T18:24:48-03:00",
+      "run_id": "2026-09-11T18:32:14-03:00",
       "date": "2026-09-11",
-      "repo": "/tmp/tmp9v6p0ynd/work",
+      "repo": "/home/user/BestPractice",
       "argv": [
-        "--repo",
-        "/tmp/tmp9v6p0ynd/work"
+        "--target",
+        "precedent-beta-v01"
       ],
-      "seconds": 0.39,
+      "seconds": 33.75,
       "components": [
         {
           "name": "FRESHNESS -- this checkout",
           "kind": "mechanical",
           "findings": 0,
           "items": null,
-          "output_tokens": 13,
-          "seconds": 0.05,
+          "output_tokens": 26,
+          "seconds": 1.15,
           "status": "clean"
         },
         {
@@ -245,8 +244,8 @@
           "kind": "mechanical",
           "findings": 0,
           "items": null,
-          "output_tokens": 19,
-          "seconds": 0.01,
+          "output_tokens": 20,
+          "seconds": 0.04,
           "status": "clean"
         },
         {
@@ -254,8 +253,8 @@
           "kind": "mechanical",
           "findings": 0,
           "items": null,
-          "output_tokens": 16,
-          "seconds": 0.0,
+          "output_tokens": 74,
+          "seconds": 4.83,
           "status": "clean"
         },
         {
@@ -263,16 +262,16 @@
           "kind": "mechanical",
           "findings": 0,
           "items": null,
-          "output_tokens": 28,
-          "seconds": 0.0,
+          "output_tokens": 306,
+          "seconds": 1.37,
           "status": "clean"
         },
         {
           "name": "SCOPE -- documents and practices to read",
           "kind": "read",
           "findings": null,
-          "items": 2,
-          "output_tokens": 48,
+          "items": 284,
+          "output_tokens": 131,
           "seconds": 0.0,
           "status": "material"
         },
@@ -282,239 +281,44 @@
           "findings": 0,
           "items": null,
           "output_tokens": 35,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SOURCE SHAPE",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.0,
-          "status": "unknown"
-        },
-        {
-          "name": "TEMPLATE FRESHNESS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 37,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "BOOTSTRAP DRIFT",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 54,
-          "seconds": 0.0,
-          "status": "findings"
-        },
-        {
-          "name": "EXPIRING PRACTICES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 28,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "ORPHANS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 44,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SESSION LOAD",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 104,
-          "seconds": 0.0,
-          "status": "findings"
-        },
-        {
-          "name": "TIER PLACEMENT",
-          "kind": "read",
-          "findings": null,
-          "items": 0,
-          "output_tokens": 23,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "RULES WE SHIP SOMEWHERE ELSE",
-          "kind": "read",
-          "findings": null,
-          "items": 0,
-          "output_tokens": 26,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "DOCUMENTATION CURRENCY",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 93,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "UNLANDED WORK",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 46,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "REPOSITORY VISIBILITY",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 40,
-          "seconds": 0.28,
-          "status": "clean"
-        },
-        {
-          "name": "CHECKLIST -- the four passes a session works",
-          "kind": "read",
-          "findings": null,
-          "items": null,
-          "output_tokens": 8664,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "BRANCHES -- verdicts owed",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 124,
-          "seconds": 0.04,
-          "status": "findings"
-        },
-        {
-          "name": "ENDGAME MERGE",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 0,
-          "seconds": 0.0,
-          "status": "skipped",
-          "note": "--skip-endgame-merge"
-        }
-      ],
-      "passes": [],
-      "completed": true
-    },
-    {
-      "run_id": "2026-09-11T18:24:55-03:00",
-      "date": "2026-09-11",
-      "repo": "/tmp/tmpwziz0xn6/work",
-      "argv": [
-        "--repo",
-        "/tmp/tmpwziz0xn6/work"
-      ],
-      "seconds": 0.42,
-      "components": [
-        {
-          "name": "FRESHNESS -- this checkout",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 26,
           "seconds": 0.03,
           "status": "clean"
         },
         {
-          "name": "MACHINE-READABLE FILES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.01,
-          "status": "clean"
-        },
-        {
-          "name": "FRESHNESS -- declared sources",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 16,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "REPOS IN FORCE -- still there, still writable",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 59,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SCOPE -- documents and practices to read",
-          "kind": "read",
-          "findings": null,
-          "items": 2,
-          "output_tokens": 48,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "WITHIN-SOURCE CONFLICTS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 35,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
           "name": "SOURCE SHAPE",
           "kind": "mechanical",
-          "findings": null,
+          "findings": 0,
           "items": null,
-          "output_tokens": 19,
+          "output_tokens": 26,
           "seconds": 0.0,
-          "status": "unknown"
+          "status": "clean"
         },
         {
           "name": "TEMPLATE FRESHNESS",
           "kind": "mechanical",
-          "findings": 0,
+          "findings": 2,
           "items": null,
-          "output_tokens": 37,
+          "output_tokens": 135,
           "seconds": 0.0,
-          "status": "clean"
+          "status": "findings"
         },
         {
           "name": "BOOTSTRAP DRIFT",
           "kind": "mechanical",
-          "findings": 1,
+          "findings": 12,
           "items": null,
-          "output_tokens": 54,
-          "seconds": 0.0,
+          "output_tokens": 374,
+          "seconds": 3.13,
           "status": "findings"
         },
         {
           "name": "EXPIRING PRACTICES",
           "kind": "mechanical",
-          "findings": 0,
+          "findings": 1,
           "items": null,
-          "output_tokens": 28,
-          "seconds": 0.0,
-          "status": "clean"
+          "output_tokens": 85,
+          "seconds": 0.01,
+          "status": "findings"
         },
         {
           "name": "ORPHANS",
@@ -528,18 +332,18 @@
         {
           "name": "SESSION LOAD",
           "kind": "mechanical",
-          "findings": 1,
+          "findings": 7,
           "items": null,
-          "output_tokens": 104,
-          "seconds": 0.0,
+          "output_tokens": 977,
+          "seconds": 0.16,
           "status": "findings"
         },
         {
           "name": "TIER PLACEMENT",
           "kind": "read",
           "findings": null,
-          "items": 0,
-          "output_tokens": 23,
+          "items": 10,
+          "output_tokens": 317,
           "seconds": 0.0,
           "status": "material"
         },
@@ -547,36 +351,36 @@
           "name": "RULES WE SHIP SOMEWHERE ELSE",
           "kind": "read",
           "findings": null,
-          "items": 0,
-          "output_tokens": 26,
-          "seconds": 0.0,
+          "items": 23,
+          "output_tokens": 341,
+          "seconds": 0.02,
           "status": "material"
         },
         {
           "name": "DOCUMENTATION CURRENCY",
           "kind": "mechanical",
-          "findings": 0,
+          "findings": 9,
           "items": null,
-          "output_tokens": 93,
-          "seconds": 0.0,
-          "status": "clean"
+          "output_tokens": 778,
+          "seconds": 0.14,
+          "status": "findings"
         },
         {
           "name": "UNLANDED WORK",
           "kind": "mechanical",
-          "findings": null,
+          "findings": 3,
           "items": null,
-          "output_tokens": 113,
+          "output_tokens": 202,
           "seconds": 0.0,
-          "status": "unknown"
+          "status": "findings"
         },
         {
           "name": "REPOSITORY VISIBILITY",
           "kind": "mechanical",
           "findings": 0,
           "items": null,
-          "output_tokens": 54,
-          "seconds": 0.32,
+          "output_tokens": 1738,
+          "seconds": 9.59,
           "status": "clean"
         },
         {
@@ -591,606 +395,20 @@
         {
           "name": "BRANCHES -- verdicts owed",
           "kind": "mechanical",
-          "findings": 1,
+          "findings": 159,
           "items": null,
-          "output_tokens": 171,
-          "seconds": 0.06,
+          "output_tokens": 2154,
+          "seconds": 13.1,
           "status": "findings"
         },
         {
           "name": "ENDGAME MERGE",
           "kind": "mechanical",
-          "findings": null,
+          "findings": 504,
           "items": null,
-          "output_tokens": 0,
-          "seconds": 0.0,
-          "status": "skipped",
-          "note": "--skip-endgame-merge"
-        }
-      ],
-      "passes": [],
-      "completed": true
-    },
-    {
-      "run_id": "2026-09-11T18:27:24-03:00",
-      "date": "2026-09-11",
-      "repo": "/tmp/tmpi22_p433/work",
-      "argv": [
-        "--repo",
-        "/tmp/tmpi22_p433/work"
-      ],
-      "seconds": 0.34,
-      "components": [
-        {
-          "name": "FRESHNESS -- this checkout",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 26,
-          "seconds": 0.03,
-          "status": "clean"
-        },
-        {
-          "name": "MACHINE-READABLE FILES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.01,
-          "status": "clean"
-        },
-        {
-          "name": "FRESHNESS -- declared sources",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 16,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "REPOS IN FORCE -- still there, still writable",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 59,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SCOPE -- documents and practices to read",
-          "kind": "read",
-          "findings": null,
-          "items": 2,
-          "output_tokens": 48,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "WITHIN-SOURCE CONFLICTS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 35,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SOURCE SHAPE",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.0,
-          "status": "unknown"
-        },
-        {
-          "name": "TEMPLATE FRESHNESS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 37,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "BOOTSTRAP DRIFT",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 54,
-          "seconds": 0.0,
+          "output_tokens": 146,
+          "seconds": 0.17,
           "status": "findings"
-        },
-        {
-          "name": "EXPIRING PRACTICES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 28,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "ORPHANS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 44,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SESSION LOAD",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 104,
-          "seconds": 0.0,
-          "status": "findings"
-        },
-        {
-          "name": "TIER PLACEMENT",
-          "kind": "read",
-          "findings": null,
-          "items": 0,
-          "output_tokens": 23,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "RULES WE SHIP SOMEWHERE ELSE",
-          "kind": "read",
-          "findings": null,
-          "items": 0,
-          "output_tokens": 26,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "DOCUMENTATION CURRENCY",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 93,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "UNLANDED WORK",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 153,
-          "seconds": 0.0,
-          "status": "findings"
-        },
-        {
-          "name": "REPOSITORY VISIBILITY",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 54,
-          "seconds": 0.25,
-          "status": "clean"
-        },
-        {
-          "name": "CHECKLIST -- the four passes a session works",
-          "kind": "read",
-          "findings": null,
-          "items": null,
-          "output_tokens": 8664,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "BRANCHES -- verdicts owed",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 148,
-          "seconds": 0.04,
-          "status": "findings"
-        },
-        {
-          "name": "ENDGAME MERGE",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 0,
-          "seconds": 0.0,
-          "status": "skipped",
-          "note": "--skip-endgame-merge"
-        }
-      ],
-      "passes": [],
-      "completed": true
-    },
-    {
-      "run_id": "2026-09-11T18:27:33-03:00",
-      "date": "2026-09-11",
-      "repo": "/tmp/tmpiqx_776r/work",
-      "argv": [
-        "--repo",
-        "/tmp/tmpiqx_776r/work"
-      ],
-      "seconds": 0.36,
-      "components": [
-        {
-          "name": "FRESHNESS -- this checkout",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 26,
-          "seconds": 0.05,
-          "status": "clean"
-        },
-        {
-          "name": "MACHINE-READABLE FILES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.01,
-          "status": "clean"
-        },
-        {
-          "name": "FRESHNESS -- declared sources",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 16,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "REPOS IN FORCE -- still there, still writable",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 59,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SCOPE -- documents and practices to read",
-          "kind": "read",
-          "findings": null,
-          "items": 2,
-          "output_tokens": 48,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "WITHIN-SOURCE CONFLICTS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 35,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SOURCE SHAPE",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.0,
-          "status": "unknown"
-        },
-        {
-          "name": "TEMPLATE FRESHNESS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 37,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "BOOTSTRAP DRIFT",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 54,
-          "seconds": 0.0,
-          "status": "findings"
-        },
-        {
-          "name": "EXPIRING PRACTICES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 28,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "ORPHANS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 44,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SESSION LOAD",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 104,
-          "seconds": 0.0,
-          "status": "findings"
-        },
-        {
-          "name": "TIER PLACEMENT",
-          "kind": "read",
-          "findings": null,
-          "items": 0,
-          "output_tokens": 23,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "RULES WE SHIP SOMEWHERE ELSE",
-          "kind": "read",
-          "findings": null,
-          "items": 0,
-          "output_tokens": 26,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "DOCUMENTATION CURRENCY",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 93,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "UNLANDED WORK",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 46,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "REPOSITORY VISIBILITY",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 54,
-          "seconds": 0.24,
-          "status": "clean"
-        },
-        {
-          "name": "CHECKLIST -- the four passes a session works",
-          "kind": "read",
-          "findings": null,
-          "items": null,
-          "output_tokens": 8664,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "BRANCHES -- verdicts owed",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 124,
-          "seconds": 0.04,
-          "status": "findings"
-        },
-        {
-          "name": "ENDGAME MERGE",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 0,
-          "seconds": 0.0,
-          "status": "skipped",
-          "note": "--skip-endgame-merge"
-        }
-      ],
-      "passes": [],
-      "completed": true
-    },
-    {
-      "run_id": "2026-09-11T18:27:41-03:00",
-      "date": "2026-09-11",
-      "repo": "/tmp/tmprq352ui1/work",
-      "argv": [
-        "--repo",
-        "/tmp/tmprq352ui1/work"
-      ],
-      "seconds": 0.41,
-      "components": [
-        {
-          "name": "FRESHNESS -- this checkout",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 26,
-          "seconds": 0.03,
-          "status": "clean"
-        },
-        {
-          "name": "MACHINE-READABLE FILES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.01,
-          "status": "clean"
-        },
-        {
-          "name": "FRESHNESS -- declared sources",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 16,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "REPOS IN FORCE -- still there, still writable",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 59,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SCOPE -- documents and practices to read",
-          "kind": "read",
-          "findings": null,
-          "items": 2,
-          "output_tokens": 48,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "WITHIN-SOURCE CONFLICTS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 35,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SOURCE SHAPE",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 19,
-          "seconds": 0.0,
-          "status": "unknown"
-        },
-        {
-          "name": "TEMPLATE FRESHNESS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 37,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "BOOTSTRAP DRIFT",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 54,
-          "seconds": 0.0,
-          "status": "findings"
-        },
-        {
-          "name": "EXPIRING PRACTICES",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 28,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "ORPHANS",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 44,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "SESSION LOAD",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 104,
-          "seconds": 0.0,
-          "status": "findings"
-        },
-        {
-          "name": "TIER PLACEMENT",
-          "kind": "read",
-          "findings": null,
-          "items": 0,
-          "output_tokens": 23,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "RULES WE SHIP SOMEWHERE ELSE",
-          "kind": "read",
-          "findings": null,
-          "items": 0,
-          "output_tokens": 26,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "DOCUMENTATION CURRENCY",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 93,
-          "seconds": 0.0,
-          "status": "clean"
-        },
-        {
-          "name": "UNLANDED WORK",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 113,
-          "seconds": 0.0,
-          "status": "unknown"
-        },
-        {
-          "name": "REPOSITORY VISIBILITY",
-          "kind": "mechanical",
-          "findings": 0,
-          "items": null,
-          "output_tokens": 54,
-          "seconds": 0.31,
-          "status": "clean"
-        },
-        {
-          "name": "CHECKLIST -- the four passes a session works",
-          "kind": "read",
-          "findings": null,
-          "items": null,
-          "output_tokens": 8664,
-          "seconds": 0.0,
-          "status": "material"
-        },
-        {
-          "name": "BRANCHES -- verdicts owed",
-          "kind": "mechanical",
-          "findings": 1,
-          "items": null,
-          "output_tokens": 171,
-          "seconds": 0.06,
-          "status": "findings"
-        },
-        {
-          "name": "ENDGAME MERGE",
-          "kind": "mechanical",
-          "findings": null,
-          "items": null,
-          "output_tokens": 0,
-          "seconds": 0.0,
-          "status": "skipped",
-          "note": "--skip-endgame-merge"
         }
       ],
       "passes": [],

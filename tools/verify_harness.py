@@ -15620,6 +15620,35 @@ def check_very_deep_check_records_its_components():
                             and r.get('findings') == 1
                             for r in after[-1].get('components', []))))
 
+        # THE LEDGER BELONGS TO THE REPO BEING CHECKED. With the path
+        # anchored at this engine's own checkout, every fixture above
+        # appended a row about a temporary directory to THIS repository's
+        # ledger -- six inside one harness run, each a full 20-section row.
+        # The cross-run read is a comparison, so a foreign row moves every
+        # number in it rather than merely adding noise. Found 2026-09-11, by
+        # reading the ledger the first real run produced.
+        home_ledger = ROOT / 'record' / 'very-deep-check-ledger.json'
+        before_rows = None
+        if home_ledger.is_file():
+            try:
+                before_rows = len(_json.loads(
+                    home_ledger.read_text(encoding='utf-8')).get('runs') or [])
+            except ValueError:
+                before_rows = None
+        subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+             '--repo', str(work), '--skip-liveness', '--skip-visibility',
+             '--skip-branch-scan', '--skip-endgame-merge'],
+            capture_output=True, text=True, cwd=str(work), env=env)
+        own = work / 'record' / 'very-deep-check-ledger.json'
+        results.append(("a run with no --ledger records into the CHECKED "
+                        "repo's own ledger", own.is_file()))
+        if before_rows is not None and home_ledger.is_file():
+            after_rows = len(_json.loads(
+                home_ledger.read_text(encoding='utf-8')).get('runs') or [])
+            results.append(("and never into this engine's checkout",
+                            after_rows == before_rows))
+
         failed = [n for n, ok_ in results if not ok_]
         detail = ''
         if failed:
