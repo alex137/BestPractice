@@ -102,6 +102,22 @@ _have_ref() { _git rev-parse --verify -q "$1" >/dev/null 2>&1; }
 
 _in_git() { _git rev-parse --git-dir >/dev/null 2>&1; }
 
+# Is this branch simply absent from origin, rather than origin being
+# unreachable? `git fetch origin <branch>` exits non-zero for BOTH, and
+# treating them the same is what made pre-write refuse the first write of
+# every new branch: a branch origin has never heard of has nothing to be
+# behind, so there is no staleness to guard against.
+#
+# `ls-remote --exit-code` separates them: 0 means origin answered AND has
+# the ref, 2 means origin answered and does not, anything else means the
+# question could not be asked at all. Only the middle case is safe to wave
+# through -- an unreachable origin still blocks, which is the whole point
+# of this guard.
+_branch_absent_from_origin() {
+  _git ls-remote --exit-code --heads origin "$1" >/dev/null 2>&1
+  [ "$?" = "2" ]
+}
+
 _current_branch() {
   local b
   b="$(_git symbolic-ref --quiet --short HEAD 2>/dev/null)" || return 1
@@ -208,7 +224,10 @@ mode_session_start() {
 
   local fetched=1
   _git fetch --quiet origin "$branch" 2>/dev/null || fetched=0
-  if [ "$fetched" -eq 0 ]; then
+  if [ "$fetched" -eq 0 ] && _branch_absent_from_origin "$branch"; then
+    fetched=1
+    echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind. Checking it against the base branch only." >&2
+  elif [ "$fetched" -eq 0 ]; then
     echo "WARN: freshness-guard: could not fetch origin/$branch -- freshness NOT verified. Everything below is measured against a possibly stale remote-tracking ref; a silent result here means 'not checked', never 'in sync'." >&2
   fi
 
@@ -327,8 +346,13 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   local branch
   branch="$(_current_branch)" || { : > "$sentinel"; exit 0; }
 
-  _git fetch --quiet origin "$branch" 2>/dev/null || \
-    _block "could not fetch origin/$branch, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
+  if ! _git fetch --quiet origin "$branch" 2>/dev/null; then
+    if _branch_absent_from_origin "$branch"; then
+      echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind, so this call is not blocked on it. The base-branch check below still runs." >&2
+    else
+      _block "could not fetch origin/$branch, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
+    fi
+  fi
 
   if _have_ref "origin/$branch"; then
     local behind ahead

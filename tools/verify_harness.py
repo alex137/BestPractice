@@ -7555,6 +7555,162 @@ def _declared_fallback_tz():
     return precedent_time.FALLBACK_TZ
 
 
+def check_freshness_guard_waves_through_a_branch_origin_never_saw():
+    """The guard's two fetch failures are not the same failure.
+
+    `git fetch origin <branch>` exits non-zero both when origin is
+    unreachable and when origin simply has no such ref, and `pre-write`
+    treated them identically: it exited 2, which refused the first write of
+    every newly created branch. A branch with no remote counterpart has
+    nothing to be behind, so there is no staleness there to refuse. The cost
+    was not the refusal but the remedy -- the block's own message names
+    `git fetch origin <branch>`, which cannot succeed against a ref that does
+    not exist, so the only way forward a session finds is
+    `git config precedent.freshness.override true`, which switches the guard
+    off for that checkout permanently, including the stale-base check that
+    catches the real incident. `session-start` had the same bug in its milder
+    form: a WARN saying freshness was NOT verified, on every new branch.
+
+    BOTH DIRECTIONS ARE ASSERTED, not only the one being fixed. A guard
+    relaxed until it stops complaining is not a guard, so the unreachable
+    origin must still block -- and per control-asserts-which-failure, the
+    block is asserted by the message it prints, never by the exit code alone:
+    exit 2 is also what the stale-base case returns, one case over.
+
+    The third case is the one that makes the fix safe rather than merely
+    quiet: a branch absent from origin AND built on a stale base must STILL
+    be refused. Waving the missing counterpart through has to leave the
+    base-branch check running, since that is the check the whole guard exists
+    for.
+
+    Both copies are run -- the one this repo uses on itself and the one an
+    adopter instantiates -- because a fix that reaches only one of them is
+    the drift parallel-artifact-ledger names."""
+    import tempfile
+
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+               / 'freshness-guard.sh')]
+    missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
+    if missing:
+        not_applicable('freshness-guard waves through a branch origin has '
+                       'never seen', f'not in this tree: {missing}')
+        return
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        # fixture-owns-its-state: every ambient input that can change the
+        # result is set here. TMPDIR carries the guard's per-session
+        # sentinel, so a stale one from the real session would make
+        # pre-write exit 0 without running a single check -- which is a
+        # green result meaning nothing at all. GIT_CONFIG_GLOBAL empties the
+        # container's global identity AND its core.hooksPath backstop, which
+        # would otherwise refuse these fixture commits.
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['TMPDIR'] = str(tmp / 'sentinels')
+        (tmp / 'sentinels').mkdir()
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = \
+            'harness@example.com'
+
+        def _run(guard, cwd, mode, session):
+            payload = json.dumps({'session_id': session,
+                                  'tool_name': 'Write',
+                                  'tool_input': {'file_path': 'x'}})
+            return subprocess.run(['bash', str(guard), mode, 'main'],
+                                  cwd=str(cwd), input=payload,
+                                  capture_output=True, text=True, env=env)
+
+        origin = tmp / 'origin'
+        subprocess.run(['git', 'init', '-q', '--bare', str(origin)],
+                       capture_output=True, text=True, env=env)
+        seed = tmp / 'seed'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)],
+                       capture_output=True, text=True, env=env)
+        (seed / 'f.txt').write_text('one\n', encoding='utf-8')
+        _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main')
+        # A bare repo's HEAD defaults to refs/heads/master, so without this
+        # every clone below lands on an unborn HEAD and the base check has
+        # no commits to read -- a fixture that measures nothing while
+        # looking like it measured something.
+        _git(origin, 'symbolic-ref', 'HEAD', 'refs/heads/main')
+
+        def _clone(name, branch):
+            d = tmp / name
+            subprocess.run(['git', 'clone', '-q', str(origin), str(d)],
+                           capture_output=True, text=True, env=env)
+            _git(d, 'checkout', '-q', '-b', branch)
+            return d
+
+        for guard in guards:
+            tag = ('installed' if guard.parent.parent.parent == ROOT
+                   else 'template')
+
+            # 1. The branch origin has never seen: not blocked.
+            d = _clone(f'absent-{tag}', 'brand-new-branch')
+            r = _run(guard, d, 'pre-write', f'absent-{tag}')
+            cases.append((f'{tag}: pre-write does not block a branch absent '
+                          f'from origin (exit {r.returncode})',
+                          r.returncode == 0))
+
+            # 2. session-start says so instead of warning it could not check.
+            r = _run(guard, d, 'session-start', f'absent-ss-{tag}')
+            cases.append((f'{tag}: session-start reports the absent branch '
+                          f'rather than an unverified fetch',
+                          r.returncode == 0
+                          and 'does not exist on origin yet' in r.stderr
+                          and 'could not fetch' not in r.stderr))
+
+            # 3. THE OTHER DIRECTION. An unreachable origin still blocks, and
+            # the block is identified by its message: exit 2 alone would
+            # also match case 4.
+            d = _clone(f'unreachable-{tag}', 'another-new-branch')
+            _git(d, 'remote', 'set-url', 'origin', str(tmp / 'no-such-repo'))
+            r = _run(guard, d, 'pre-write', f'unreachable-{tag}')
+            cases.append((f'{tag}: pre-write still blocks when origin is '
+                          f'unreachable, naming the fetch it could not make '
+                          f'(exit {r.returncode})',
+                          r.returncode == 2
+                          and 'could not fetch origin/another-new-branch'
+                          in r.stderr))
+
+            # 4. Waving the missing counterpart through must not skip the
+            # base-branch check, which is the one the guard exists for.
+            d = _clone(f'stale-base-{tag}', 'stale-based-branch')
+            (seed / 'g.txt').write_text('two\n', encoding='utf-8')
+            _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'two')
+            _git(seed, 'push', '-q', 'origin', 'main')
+            r = _run(guard, d, 'pre-write', f'stale-base-{tag}')
+            cases.append((f'{tag}: a branch absent from origin is still '
+                          f'refused when its base moved (exit '
+                          f'{r.returncode})',
+                          r.returncode == 2
+                          and 'missing 1 commit(s) from origin/main'
+                          in r.stderr))
+            _git(seed, 'reset', '-q', '--hard', 'HEAD~1')
+            _git(seed, 'push', '-q', '--force', 'origin', 'main')
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'freshness-guard separates a branch origin never saw from an '
+          f'origin it could not reach ({len(cases)} stated cases, both '
+          f'copies: absent branch waved through at pre-write and named at '
+          f'session-start, unreachable origin still blocked, stale base '
+          f'still refused)',
+          not failed, '; '.join(failed))
+
+
 def check_commit_identity_copies_are_identical():
     """The hook exists three times and every copy must be the same file.
 
@@ -15051,6 +15207,7 @@ def main():
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_freshness_gate_fires()
+    check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
