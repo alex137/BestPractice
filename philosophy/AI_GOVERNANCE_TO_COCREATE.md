@@ -23,7 +23,10 @@ essay gets tried before it's called a rule.*
 not a special case.** Context only behaves like capital
 ([`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset)) if it
 outlives the session that made it — durable, diffable state should beat
-ephemeral chat by default.
+ephemeral chat by default — what a private window loses
+([`private-chat-is-lost-knowledge`](REASONS_WHY.md#private-chat-is-lost-knowledge)),
+and what [`version-control-and-audit-trail`](#version-control-and-audit-trail)
+is built on.
 
 <a id="automatic-rule-extraction"></a>
 
@@ -49,7 +52,9 @@ failed somewhere specific and locatable.
 **4. Resurfacing should be active, not just searchable.** A system that
 only answers when asked misses what nobody thought to ask — the better
 version notices "you decided X six weeks ago" unprompted, when it's
-relevant now.
+relevant now. What makes such a decision worth resurfacing is that it
+carries its own case
+([`decisions-carry-their-situation`](OUR_PHILOSOPHY.md#decisions-carry-their-situation)).
 
 <a id="version-control-and-audit-trail"></a>
 
@@ -67,7 +72,10 @@ possible; this is what it is for).
 **6. Push-back as a configuration switch, not a personality quirk.**
 Argue a genuine counter-case on writing/thinking work, comply on
 technical execution — the switch should track task shape, not sit fixed
-at the system level.
+at the system level, where a rule built strict on purpose under-serves the
+case in front of it ([`boundary-pushing`](HUMANS_AT_OUR_BEST.md#boundary-pushing)). Being run
+by hand meanwhile as
+[`push-back-writing-thinking`](RULES_NOW_TESTING.md#push-back-writing-thinking).
 
 <a id="three-reflexes-in-system-prompt"></a>
 
@@ -76,13 +84,17 @@ at the system level.
 the system prompt, not just a human's habit.** An agent that asks itself
 "have I done this shape before" mid-task, and says so, does more of
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows)'s
-work than a person remembering to ask.
+work than a person remembering to ask. Until it is configured, a person
+asks them out loud:
+[`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud).
 
 <a id="argue-in-the-open"></a>
 
 **8. Argue in the open.** An AI reviewer that holds a half-formed
 position and invites disagreement, rather than posting a clean
 finished-looking suggestion, keeps the disagreement itself in the record.
+The system-level form of [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model),
+asked of people first as [`argue-in-the-open`](RULES_NOW_TESTING.md#argue-in-the-open).
 
 ## Interface
 
@@ -91,21 +103,30 @@ finished-looking suggestion, keeps the disagreement itself in the record.
 **9. Chat is the primary interface to every document, not a shortcut
 around them.** The AI creates and organizes the documents; humans can
 edit them directly, but most work happens by asking and guiding it in
-chat — docs are its memory, chat is where people work.
+chat — docs are its memory, chat is where people work
+([`inputs-and-outputs-separated`](#inputs-and-outputs-separated) is that
+line held). Practised,
+[`ai-chat-as-intermediary`](COMPANY_BUILDING_RULES.md#ai-chat-as-intermediary); as a pillar,
+[`chat-is-the-entry-point`](CORE_PILLARS.md#chat-is-the-entry-point).
 
 <a id="inputs-and-outputs-separated"></a>
 
 **10. Total separation of inputs and outputs.** What people say — the
 instructions, the arguments, the corrections — is kept apart from what
 the system produces, so a draft is never mistaken for a directive and
-either can be re-read on its own terms.
+either can be re-read on its own terms. The same line
+[`chat-is-primary-interface`](#chat-is-primary-interface) draws between
+chat and documents.
 
 <a id="cloud-not-local"></a>
 
 **11. Everything runs cloud-based, with no local machine risk.** Work
 that happens in a hosted session leaves nothing on a laptop to lose,
-leak, or be the only copy of — and a new person is one repository access
-away from working, not a day of installing things.
+leak, or be the only copy of — provided the formats and accounts are yours
+([`open-formats-you-own`](REASONS_WHY.md#open-formats-you-own)). A new person is one
+repository access away from working, not a day of installing things, which
+is what [`groups-not-individuals`](OUR_PHILOSOPHY.md#groups-not-individuals) needs to be
+true.
 
 ## Workflow & Cost Sensitivity
 
@@ -129,9 +150,12 @@ applies, not applying one policy everywhere.
 <a id="enforcement-not-vigilance"></a>
 
 **14. Enforcement instead of vigilance.** A rule that survives only
-because somebody remembers it fails on the first busy day; the same rule
-written as a check that fails loudly costs nothing to keep and never has
-an off day.
+because somebody remembers it fails on the first busy day — the same day
+[`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing)
+loses on. Written as a check that fails loudly it costs nothing to keep and
+never has an off day;
+[`structural-ai-voice-check`](#structural-ai-voice-check) is the clearest
+case here.
 
 ## Voice & Output
 
@@ -141,16 +165,17 @@ an off day.
 [`no-ai-voice`](COMPANY_BUILDING_RULES.md#no-ai-voice) names the actual
 fingerprints — the throat-clearing opener, "not just X, it's Y," the
 bolded summary nobody asked for. Those are mechanical enough to check for
-before publishing, rather than relying on a human catching it every time.
+before publishing, rather than relying on a human catching it every time:
+[`enforcement-not-vigilance`](#enforcement-not-vigilance) applied to
+voice.
 
 <a id="non-uniform-confidence"></a>
 
 **16. Confidence should look non-uniform, because it isn't.** If every
 claim reads with the same even prose confidence,
-[`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive)'s "find the
-one false paragraph" skill has nothing to grab onto. Flag the weaker
-claims — a hedge, a citation, an assumption — so a verifier has a place
-to start.
+[`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive)'s "find the one false paragraph"
+skill has nothing to grab onto. Flag the weaker claims — a hedge, a
+citation, an assumption — so [`taste`](HUMANS_AT_OUR_BEST.md#taste) has a place to start.
 
 ## Surfacing Blind Spots
 
@@ -160,6 +185,8 @@ to start.
 periodically list workflows whose only interface is a human inbox —
 including its own — and propose an addressable alternative, per
 [`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes).
+Running by hand today as
+[`dark-process-self-audit`](RULES_NOW_TESTING.md#dark-process-self-audit).
 
 <a id="periodic-checkins-not-expiry"></a>
 
@@ -186,7 +213,8 @@ someone thinks of it.
 [`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset), not a
 preference.** Context built against one vendor's tooling shouldn't be
 strandable by a provider switch — the capital asset is the context, not
-the platform it's sitting in today.
+the platform it's sitting in today. What the hedge looks like in practice:
+[`open-formats-you-own`](REASONS_WHY.md#open-formats-you-own).
 
 ## See Also
 

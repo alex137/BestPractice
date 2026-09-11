@@ -43,9 +43,11 @@ The same five steps repeat every time, in order:
 "work better with AI" advice makes one person faster at their own
 work. This repo assumes something different: several people solving the
 same problem together, with chat as what connects them, not a private
-assistant each person also has. (One part of
-[CORE_PILLARS.md](CORE_PILLARS.md)'s case for
-what makes this approach unique.)
+assistant each person also has, where joining costs a repository access
+rather than a day of setup ([`cloud-not-local`](AI_GOVERNANCE_TO_COCREATE.md#cloud-not-local)). (One
+part of [CORE_PILLARS.md](CORE_PILLARS.md)'s case for what makes this
+approach unique —
+[`collaboration-not-just-production`](CORE_PILLARS.md#collaboration-not-just-production).)
 
 ## Working With the Model
 
@@ -59,7 +61,11 @@ the first attempt reveals what the brief missed
 ([`manager-of-agents`](COMPANY_BUILDING_RULES.md#manager-of-agents))
 — same posture as [`arguing-with-the-model`](#arguing-with-the-model),
 applied to management. (Full list:
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md).)
+[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — this is the claim behind
+its [`judgment`](HUMANS_AT_OUR_BEST.md#judgment),
+[`actually-managing`](HUMANS_AT_OUR_BEST.md#actually-managing) and
+[`taste`](HUMANS_AT_OUR_BEST.md#taste) entries, and behind
+[`human-led`](CORE_PILLARS.md#human-led).)
 
 <a id="arguing-with-the-model"></a>
 
@@ -71,6 +77,9 @@ agreement just hands back your blind spots
 ([`ai-chat-as-intermediary`](COMPANY_BUILDING_RULES.md#ai-chat-as-intermediary),
 [`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate);
 [`argue-in-the-open`](AI_GOVERNANCE_TO_COCREATE.md#argue-in-the-open)).
+It is also what
+[`people-manage-agents-execute`](#people-manage-agents-execute) means by
+briefing a model and staying engaged.
 
 ## Knowledge That Gets Captured
 
@@ -97,7 +106,14 @@ never left unremarked. This repo's team and individual practice sources
 [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)) run that mechanism continuously
 ([`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction);
 [practice 20](../PRACTICES.md#20-mistakes-become-rules-root-cause-the-miss-then-encode-the-prevention)
-is the same move done by hand).
+is the same move done by hand). It makes
+[`decisions-carry-their-situation`](#decisions-carry-their-situation)
+affordable and
+[`explicit-ownership-not-hidden-in-the-model`](#explicit-ownership-not-hidden-in-the-model)
+possible, beats documenting by hand for
+[`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing)'s
+reason, and pays off as
+[`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented).
 
 <a id="decisions-carry-their-situation"></a>
 
@@ -111,7 +127,10 @@ BestPractice already requires this
 capture is the
 agents' job, pulled from the work as it happens
 ([`rules-generated-automatically`](#rules-generated-automatically)'s
-rule extraction).
+rule extraction). It prevents
+[`situation-heads-off-confusion`](REASONS_WHY.md#situation-heads-off-confusion), and a
+decision carrying its case is one worth raising unprompted later
+([`active-resurfacing`](AI_GOVERNANCE_TO_COCREATE.md#active-resurfacing)).
 
 ## Visible and Owned, Not Hidden
 
@@ -145,7 +164,9 @@ calls for it. Optimizing a person to act like a fast, tireless model
 optimizes away what they're for
 ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)) —
 hold them to that standard, not a machine's. (Full list:
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md).)
+[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — this is the claim behind
+its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
+[`instinct`](HUMANS_AT_OUR_BEST.md#instinct) entries.)
 
 ## See Also
 
