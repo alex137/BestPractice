@@ -644,6 +644,7 @@ def _catalogue_carries_stories(ctx):
 _MD_LINK_RE = re.compile(r'(?<!\!)\[[^\]]*\]\(([^)\s]+)\)')
 _BLOB_URL_RE = re.compile(
     r'^https://github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.+)$')
+_CHECK_SCRIPT_RE = re.compile(r'\.\./tools/checks/[^/]+\.py')
 
 
 def _markdown_links(text):
@@ -693,10 +694,15 @@ def _origin_slug():
 
 @check('practice-links-travel', 'tree',
        'every link in a practice file THIS repo owns either travels with the '
-       'file (a sibling practice, a vendored engine file) or is an absolute '
-       'URL into this repository on its declared base_branch, naming a path '
-       'that exists',
-       'whether the target is the RIGHT file, and a link that travels today '
+       "file (a sibling practice, a vendored engine file, this source's own "
+       'tools/checks/ script) or is an absolute URL into this repository on '
+       'its declared base_branch, naming a path that exists',
+       'whether the target is the RIGHT file -- including the nastiest '
+       'shape of this bug, a link like ../.claude/settings.json that '
+       'RESOLVES in the consumer, to that consumer\'s own file rather than '
+       'the one the sentence is about. It is caught here only because such '
+       'a path does not travel; nothing would catch it if it did. Also a '
+       'link that travels today '
        'and stops travelling when a file leaves CONSUMER_ENGINE_FILES -- that '
        'shows up as a violation on the next run, not at the moment of '
        'removal. It reads practices/ only: local/practices/ is read in place '
@@ -754,6 +760,15 @@ def _practice_links_travel(ctx):
                 continue                        # a sibling practice file -- it travels
             if base.startswith('../') and base[3:] in travel:
                 continue                        # a vendored engine file
+            # A source's own check scripts travel too: materialize writes
+            # every declared source's tools/checks/** into the consuming
+            # repo alongside practices/. Missing this was a false violation
+            # on the single most common cross-reference a private-set
+            # practice makes -- a practice citing the script that enforces
+            # it. Found 2026-09-11 by reading the individual set's original,
+            # which had named both shapes from the start.
+            if _CHECK_SCRIPT_RE.fullmatch(base):
+                continue                        # this source's own check script
             fix = (f'https://github.com/{slug}/blob/{branch or "<branch>"}/'
                    f'{base.lstrip("./")}' if slug else 'an absolute URL')
             out.append(Finding(
@@ -3381,9 +3396,21 @@ def _parallel_artifact_ledger(ctx):
     for full_hash in {h for d in _LEDGER_MEMBER_DIRS
                       for h in _git('log', '--no-merges', '--format=%H',
                                     '--', d).stdout.split()}:
-        rows = [ln for ln in ledger_text.splitlines()
-                if ln.startswith('|')
-                and (full_hash[:7] in ln or full_hash in ln)]
+        # Only the row's own COMMIT CELL counts, not the whole line. A row
+        # citing an earlier commit in its prose -- "same reason as
+        # [`810a1dc`]'s row" -- is the ledger's own convention working, and
+        # counting it made three correct rows read as three duplicates of
+        # one change. Found 2026-09-11, red on precedent-beta-v01 against a
+        # tree nobody had edited: a check firing on correct work, which
+        # checkable-gets-checked says is worse than no check at all.
+        rows = []
+        for ln in ledger_text.splitlines():
+            if not ln.startswith('|'):
+                continue
+            cells = ln.split('|')
+            cell = cells[2] if len(cells) > 2 else ''
+            if full_hash[:7] in cell or full_hash in cell:
+                rows.append(ln)
         if len(rows) > 1:
             findings.append(Finding(
                 'templates/harness/LEDGER.md',
