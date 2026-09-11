@@ -1085,7 +1085,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_materialize.py': "Bridges precedent_resolve.py's multi-source resolution to the single-tree loader tools",
     'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
-    'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date",
+    'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none",
     'precedent_resolve.py': "Resolves the universal, team and individual sources into one set, by precedence",
     'precedent_identity.py': "Resolves WHO this repo's commits belong to, from a declaration only -- an override, the repo's own identity.json, or the individual source's; raises rather than guessing",
     'precedent_decommission.py': "Audits a deprecated file or directory before it is deleted -- refuses while anything still references it, or a workflow it names is still live -- then deletes and records it",

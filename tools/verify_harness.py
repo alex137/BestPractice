@@ -12869,6 +12869,146 @@ def check_source_clone_keeps_its_credential():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_source_credentials_reach_clones_nothing_syncs():
+    """The two paths a source clone actually takes at session start, neither
+    of which run_sync's persist could reach.
+
+    THE INCIDENT (practice: cite-the-incident), 2026-09-11, HOURS AFTER the
+    persist above landed and with every one of its five cases green. Four
+    private sources sat on disk, PRECEDENT_GIT_TOKEN was set, and not one
+    clone carried a helper: the freshness guard fetched each, failed, and
+    refused every non-git tool call of the session -- the identical failure
+    the persist was written to end.
+
+    The persist was real; the paths were wrong. run_sync called it, and:
+
+      * teams_from_repo's ALREADY-ON-DISK branch calls _try_sync directly and
+        never enters run_sync -- so every team clone after its first session
+        was synced and left credential-less.
+      * the individual source is not synced at session start while it looks
+        usable at all: session-start.sh leaves it to precedent_resolve.py's
+        self-heal, which a healthy clone never triggers. Nothing syncs it, so
+        no sync-time repair can reach it.
+
+    Case 5 of the check above covers ensure_source, passed throughout, and
+    was blind to both -- which is why this is a separate check and not
+    another case there (practice: control-asserts-which-failure: a control
+    proves the guard fires, and that one fires on a path production does not
+    take).
+
+    NEGATIVE CONTROLS, run rather than assumed. Reverting the persist in
+    _try_sync back into run_sync alone turns case 1 red and leaves 2-4 green;
+    deleting ensure_source_credentials' write turns 2 red and leaves 1 green.
+    The two halves fail independently, so both are stated.
+
+    Hermetic: file:// origins, an https remote written in afterwards, a
+    fixture token. No network."""
+    import shutil, tempfile
+
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_credentials as psc
+    import precedent_source_bootstrap as psb
+    import precedent_refresh_sources as prs
+
+    TOKEN = 'fixture-token-never-a-real-one'
+    https = 'https://github.com/example/precedent-team-fixture'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-cred-paths-'))
+    cases = []
+    try:
+        source = tmp / 'source-repo'
+        source.mkdir()
+        for cmd in (['init', '-q', '-b', 'main'],
+                    ['config', 'user.email', 'harness@example.com'],
+                    ['config', 'user.name', 'harness']):
+            subprocess.run(['git', '-C', str(source), *cmd], check=True,
+                           capture_output=True, text=True)
+        (source / 'practices').mkdir()
+        (source / 'practices' / 'p.md').write_text('fixture\n', encoding='utf-8')
+        (source / 'precedent.json').write_text('{"base_branch": "main"}\n',
+                                               encoding='utf-8')
+        subprocess.run(['git', '-C', str(source), 'add', '-A'], check=True,
+                       capture_output=True, text=True)
+        subprocess.run(['git', '-C', str(source), 'commit', '-qm', 'seed'],
+                       check=True, capture_output=True, text=True)
+
+        # --- 1: a team clone ALREADY ON DISK is offered the helper ----------
+        # The regression itself. Recorded rather than read out of the config,
+        # for case 5's reason above: a file:// origin correctly gets none.
+        consumer = tmp / 'consumer'
+        (consumer / 'sibling-team').mkdir(parents=True)
+        (consumer / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'team', 'name': 'precedent-team-fixture',
+             'path': 'sibling-team'}]}), encoding='utf-8')
+        subprocess.run(['git', 'clone', '-q', f'file://{source}',
+                        str(consumer / 'sibling-team')], check=True,
+                       capture_output=True, text=True)
+        calls = []
+        original = psb._persist_credential
+        psb._persist_credential = lambda c, u: calls.append((str(c), u))
+        try:
+            results = psb.teams_from_repo(consumer)
+        finally:
+            psb._persist_credential = original
+        on_disk = str((consumer / 'sibling-team').resolve())
+        cases.append(('a team clone that is ALREADY ON DISK is offered the '
+                      'helper on its session-start sync -- the path that '
+                      'bypasses run_sync entirely',
+                      any(c[0] == on_disk for c in calls),
+                      f'results={results!r} calls={calls!r}'))
+
+        # --- 2: a clone NOTHING syncs is repaired by the session-start walk -
+        attached = tmp / 'attached'
+        subprocess.run(['git', 'clone', '-q', f'file://{source}',
+                        str(attached)], check=True, capture_output=True,
+                       text=True)
+        subprocess.run(['git', '-C', str(attached), 'remote', 'set-url',
+                        'origin', https], check=True, capture_output=True,
+                       text=True)
+        saved = os.environ.get(psc.TOKEN_ENV)
+        os.environ[psc.TOKEN_ENV] = TOKEN
+        try:
+            repaired = prs.ensure_source_credentials([{'repo': attached}])
+            cfg = (attached / '.git' / 'config').read_text(encoding='utf-8')
+            cases.append(('an attached source clone with NO helper is '
+                          'repaired, and the token itself is not written',
+                          repaired and psc.TOKEN_ENV in cfg and TOKEN not in cfg,
+                          f'repaired={repaired!r} {cfg[-400:]}'))
+
+            # --- 3: an existing helper is somebody's own, and is left alone -
+            again = prs.ensure_source_credentials([{'repo': attached}])
+            cases.append(('a clone that already has a helper is left alone, '
+                          'so this is idempotent and does not overwrite a '
+                          "person's own credential manager",
+                          again == [], f'second pass repaired {again!r}'))
+        finally:
+            if saved is None:
+                os.environ.pop(psc.TOKEN_ENV, None)
+            else:
+                os.environ[psc.TOKEN_ENV] = saved
+
+        # --- 4: no token, nothing written anywhere -------------------------
+        bare = tmp / 'bare'
+        subprocess.run(['git', 'clone', '-q', f'file://{source}', str(bare)],
+                       check=True, capture_output=True, text=True)
+        subprocess.run(['git', '-C', str(bare), 'remote', 'set-url', 'origin',
+                        https], check=True, capture_output=True, text=True)
+        os.environ.pop(psc.TOKEN_ENV, None)
+        none_written = prs.ensure_source_credentials([{'repo': bare}])
+        got = subprocess.run(['git', '-C', str(bare), 'config', '--get-all',
+                              'credential.helper'], capture_output=True,
+                             text=True).stdout.strip()
+        cases.append(('with no token there is nothing to write, and nothing '
+                      'is written', none_written == [] and got == '',
+                      f'repaired={none_written!r} config={got!r}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the credential helper reaches the source clones no run_sync ever '
+          f'touches ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_individual_source_bootstrap_self_heals():
     """practices/session-bootstrap.md's Detail, tested rather than trusted
     -- and corrected 2026-09-06 after this check's own first version
@@ -16367,6 +16507,7 @@ def main():
     check_individual_source_bootstrap_self_heals()
     check_source_credentials()
     check_source_clone_keeps_its_credential()
+    check_source_credentials_reach_clones_nothing_syncs()
     check_fixtures_own_the_credential_environment()
     check_pretooluse_hook_fires()
     check_not_binding_actually_exempts_a_check()
