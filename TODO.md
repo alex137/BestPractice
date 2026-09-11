@@ -872,8 +872,9 @@ which is the failure this repointing exists to end — write
     ([cross-source-rollout](practices/cross-source-rollout.md)):** the header
     format changed, so the first regeneration in each team set produces a
     one-time diff. Expected and correct — after it, `--check` is stable.
-    **Blocked on:** `themorgan/precedent-team-maintainers` and
-    `themorgan/precedent-team-tms` not attached this session. Each needs
+    **Blocked on:** `themorgan/precedent-team-maintainers` not attached this
+    session (`themorgan/precedent-team-tms` was also named here until it was
+    retired 2026-09-10). It needs
     `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`
     then `python3 tools/build_codeowners.py`, committed.
 
@@ -1165,22 +1166,23 @@ which is the failure this repointing exists to end — write
     1. Start a session whose **initial source** is
        `themorgan/precedent-team-maintainers`. This is the only step that
        cannot be done from inside another session.
-    2. `add_repo` `themorgan/precedent-individual` and
-       `themorgan/precedent-team-tms` from there if you want them — same
-       owner, so the cross-tier rule does not fire. **Neither is part of this
-       job.** `bold-key-phrases` is in `precedent-team-maintainers` only:
-       `precedent-team-tms` holds exactly one practice, `audience-register`
-       ([spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md), 2026-09-07), and
-       team sets are siblings rather than a hierarchy, so nothing propagates
-       between them. Sharpened 2026-09-07 after Morgan asked whether this was
-       one team set or all `precedent-team-*`.
+    2. `add_repo` `themorgan/precedent-individual` from there if you want
+       it — same owner, so the cross-tier rule does not fire. **It is not
+       part of this job.** `bold-key-phrases` is in
+       `precedent-team-maintainers` only, and team sets are siblings rather
+       than a hierarchy, so nothing propagates between them. Sharpened
+       2026-09-07 after Morgan asked whether this was one team set or all
+       `precedent-team-*`. (`precedent-team-tms` was named here too until
+       2026-09-10, when it was retired — it held one practice,
+       `audience-register`, which moved to `precedent-team-working-style`.)
 
        **The consequence is worth seeing, and is a separate question:** the
        clause will not reach editorial document projects, which are the
        heading-dense prose pages it most describes. They do not carry
        `bold-key-phrases` at all —
        [templates/document-project/precedent.json](templates/document-project/precedent.json)
-       declares universal plus `precedent-team-tms`, not `-maintainers`.
+       declares universal plus `precedent-team-writing` and
+       `precedent-team-working-style`, not `-maintainers`.
        Wanting the rule there is a level decision (promote to universal, or
        copy to `-tms`), for Morgan, not something this item's clause does.
     3. Reach BestPractice with a plain `git clone` of
@@ -2707,3 +2709,36 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait (2026-09-10, Morgan) — the code half is done; the
    remaining half needs a session rooted in his own account.
+53. <a id="retire-a-practice-source"></a>**Write the retirement sequence for a practice SOURCE, from the one real
+   run.** `precedent-team-tms` was retired 2026-09-10 — the first time a
+   whole source has been taken out of service rather than a file or a
+   directory inside one, which is what
+   [decommission-deletes-files](practices/decommission-deletes-files.md) and
+   [tools/precedent_decommission.py](tools/precedent_decommission.py) cover.
+   [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) covers moving a
+   practice between levels and stops there.
+
+   **The ordering is the whole of it, and it is the reverse of the obvious
+   one: remove the declarations first, delete the repository last.** A
+   consumer that still declares a source whose repository is gone gets
+   [tools/precedent_sync_views.py](tools/precedent_sync_views.py)'s refusal —
+   *"refusing to WRITE from an incomplete source set … Syncing anyway would
+   DELETE every practice those sources contribute"* — which is the right
+   refusal and an avoidable one. Delete last and no consumer ever sees it.
+
+   **What the run established, worth writing up as procedure:**
+   - Move the practices out first, per MOVING_PRACTICES.md's two-step (land
+     at the destination, verify it THERE, then deduplicate at the source).
+     Precedence is by LEVEL, not by set, so a move between two team sets
+     preserves any override of an individual-level same-slug practice.
+   - Check the destination does not already define the slug. Two sources at
+     the same level claiming one slug is a hard refusal, not a merge.
+   - Then strip every declaration — templates first, since a template is
+     what makes the NEXT repo declare a dead source.
+   - Then delete the repository.
+
+   **Blocked-on:** nothing; it is queued for size rather than permission.
+   The sequence above is already true and already executed once, so this
+   item is writing it down where the next retirement will look, not
+   deciding it. Disposition `wait`
+   ([open-item-disposition](practices/open-item-disposition.md)).

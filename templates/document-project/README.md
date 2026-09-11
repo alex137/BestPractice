@@ -15,7 +15,7 @@ rules instead of living and dying inside one document.
 
 | File | What it's for |
 |---|---|
-| [`precedent.json`](precedent.json) | Declares the repo's visibility, the universal practice source (vendored) and three shared team sources (`precedent-team-tms`, `precedent-team-writing`, `precedent-team-working-style`, all resolved live). |
+| [`precedent.json`](precedent.json) | Declares the repo's visibility, the universal practice source (vendored) and two shared team sources (`precedent-team-writing`, `precedent-team-working-style`, both resolved live). |
 | [`AGENTS.md`](AGENTS.md) | The repo's own instructions file — access restrictions, persona, and the candidate-capture flow already filled in. |
 | [`.claude/settings.json`](.claude/settings.json) | A restricted session config: no push, no merge, no raw shell — limits that bind **every** session on the repo, maintainers included, not only the non-technical contributor. It also wires four SessionStart/PreToolUse hooks whose scripts this template does not ship; instantiation step 3 is where they come from. |
 

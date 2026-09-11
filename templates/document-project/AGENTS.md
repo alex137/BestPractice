@@ -114,8 +114,9 @@ practice idea in plain language, Claude:
 1. Restates it back to them in their own words to confirm before acting.
 2. Drafts a candidate with [`tools/precedent_candidate.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_candidate.py).
    **Because a non-technical contributor is never a listed approver
-   (`precedent-team-tms`'s `approvers.json`), this defaults to
-   `precedent_candidate.py --as-issue true` against `precedent-team-tms`** —
+   (`precedent-team-writing`'s `approvers.json`), this defaults to
+   `precedent_candidate.py --as-issue true` against
+   `precedent-team-writing`** —
    a quiet `candidates/*.md` file accomplishes nothing when nobody with
    landing authority is watching it, per
    [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
@@ -191,7 +192,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 ## Administrator requests you must know how to handle
 
 - **"What's waiting for me?"** — the administrator's review loop: list open
-  PRs and open candidate Issues on `precedent-team-tms`, summarize each in
+  PRs and open candidate Issues on `precedent-team-writing`, summarize each in
   plain language, and take the verdict in chat.
 - **"Add project members"** — same flow as
   [`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.loader.template)'s
@@ -206,8 +207,9 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   [INSTALL.md §0](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
   for the resolution and precedence rules. The `universal` source is a
   **real vendored copy** at `precedent/universal/`, not a live reference.
-  The `team` source, `precedent-team-tms`, resolves live from a sibling
-  clone instead — never vendored.
+  The `team` sources resolve live from sibling clones instead — never
+  vendored. Which sets those are is read off `precedent.json` rather than
+  named here, so retiring or adding one is a single edit to that file.
 - `python3 tools/precedent_sync_views.py --check` is this repo's own drift
   gate — run it before trusting `AGENTS.md`'s generated block, and after
   `precedent.json` or a vendored copy changes.
