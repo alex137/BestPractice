@@ -120,10 +120,39 @@ if [ "{{SOURCE_REPO_URL_SUBSTITUTED}}" != "yes" ]; then
   DEFAULT_REPO_URL=""
 fi
 
+# LAST RESORT, and the reason a public repo need bake in no account at all.
+# The set's NAME is fixed by level -- `precedent-individual` for every
+# person, never chosen (practice: source-naming) -- so the only unknown is
+# the ACCOUNT, and $PRECEDENT_SOURCE_BASE_URL already carries it for the
+# team sets. Deriving the individual set the same way means a tracked hook
+# in a public tree names nobody.
+#
+# THE INCIDENT (2026-09-10). INSTALL.md section 8 states plainly that no
+# tracked file names the account owning the private sets -- that is why the
+# base URL is an environment variable. It was true of the team sets and
+# false of this one: the upstream repo's own instantiated copy of this hook
+# carried a full `https://github.com/<account>/precedent-individual` in a
+# tracked file, on a public branch, five lines from the comment above
+# explaining that a public consumer should bake in no URL. Every repo that
+# instantiated this hook inherited the same shape and published its own
+# owner's account the same way (practice: affordance-is-shared -- the
+# defect was shared exactly as widely as the mechanism).
+# `${VAR:-}` on both reads, not `$VAR`: this hook runs under `set -u`, and
+# the first version of this block took the whole session-start hook down
+# with "PRECEDENT_SOURCE_BASE_URL: unbound variable" on any machine that had
+# not set it -- which is every machine the derivation exists to serve.
+# Caught by verify_harness.py's existing assertion that this hook exits 0
+# when it cannot reach the individual set.
+_pbase="${PRECEDENT_SOURCE_BASE_URL:-}"
+if [ -z "${DEFAULT_REPO_URL:-}" ] && [ -n "$_pbase" ]; then
+  DEFAULT_REPO_URL="${_pbase%/}/precedent-individual"
+fi
+unset _pbase
+
 REPO_URL="${PRECEDENT_INDIVIDUAL_REPO:-${CFG_URL:-$DEFAULT_REPO_URL}}"
 
 if [ -z "$REPO_URL" ]; then
-  echo "individual-source bootstrap: no repository URL. Set individual.repo_url in $CFG (preferred -- that file is private), or PRECEDENT_INDIVIDUAL_REPO. Individual practices will not be in force this session; team and universal still resolve normally." >&2
+  echo "individual-source bootstrap: no repository URL. Set PRECEDENT_SOURCE_BASE_URL in the environment (preferred -- it locates the team sets too, and keeps the account out of every tracked file), or individual.repo_url in $CFG, or PRECEDENT_INDIVIDUAL_REPO. Individual practices will not be in force this session; team and universal still resolve normally." >&2
   exit 0
 fi
 

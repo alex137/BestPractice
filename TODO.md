@@ -2676,10 +2676,34 @@ which is the failure this repointing exists to end — write
    only whether to switch the allowlist on and work through what it flags, so
    the NEXT such name is caught before it lands.
 
-   **blocked-on:** Morgan — whether a disclosure already made is worth
-   closing forward is his call, not a session's, and switching the allowlist
-   on will flag existing text that then needs a verdict file by file.
+   **Half of it is closed (2026-09-10), and it was the half with teeth.**
+   Morgan approved both moves the same day. Of the 100 mentions, exactly
+   **one was functional** — the hook's `DEFAULT_REPO_URL` — and it is gone:
+   the URL is now derived as `$PRECEDENT_SOURCE_BASE_URL/precedent-individual`,
+   which needs no new variable because
+   [source-naming](practices/source-naming.md) fixes that set's name for
+   everybody and the base URL already carried the account for the team sets.
+   The template was fixed in the same commit, so no adopting repo
+   instantiates the defect again. `verify_harness.py`'s
+   `check_public_tree_bakes_in_no_owner_account` now fails any tracked
+   `.sh`/`.py`/`.yml` in a `visibility: public` repo that hard-codes an
+   account before a declared set name — verified to catch the original line
+   by restoring it.
 
-   **Disposition:** wait (2026-09-10, Morgan) — raised with him once in the
-   thread that found it and not answered; recorded here so it does not die
-   with that window, not so a later session can chase it.
+   **What is left is the allowlist, and it is left because it is his to
+   write.** Declaring the owner private-by-default switches the
+   repo-reference allowlist from inert to armed; every one of the remaining
+   ≈99 prose mentions then needs an `allow` line with a reason, and each
+   reason is a judgment about his own material that no session should
+   invent. The prose is deliberately NOT being scrubbed: naming which
+   repository an incident happened in is the value of the record, the
+   account is already published, and a private repo answers 404 to a
+   stranger regardless. The allowlist's worth is the NEXT name — one not
+   yet created, which might be a client or a codename.
+
+   **blocked-on:** Morgan — the blocklist file lives in his individual set,
+   under a different owner, so this cannot be done from a session rooted
+   here at all.
+
+   **Disposition:** wait (2026-09-10, Morgan) — the code half is done; the
+   remaining half needs a session rooted in his own account.

@@ -12860,6 +12860,98 @@ def check_branch_scan_sees_every_branch():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_public_tree_bakes_in_no_owner_account():
+    """No EXECUTABLE tracked file in a `visibility: public` repo carries a
+    private owner's account (practice: scrub-gate, source-naming).
+
+    THE INCIDENT (2026-09-10). INSTALL.md section 8 states that no tracked
+    file names the account owning the private practice sets -- that is the
+    entire reason PRECEDENT_SOURCE_BASE_URL is an environment variable. It
+    was true of the three team sets and false of the individual one: this
+    repo's tracked `.claude/hooks/precedent-individual-bootstrap.sh` carried
+    a full `https://github.com/<account>/precedent-individual`, on a public
+    branch, five lines below its own comment saying a public consumer should
+    bake in no URL. The leak gate could not catch it -- the repo-reference
+    allowlist that exists for exactly this is inert until an owner is
+    declared private-by-default, and it prints that on every run and passes.
+
+    SCOPED TO CODE, DELIBERATELY, and this is the whole judgment in the
+    check. The same account appears ~99 more times in this repo's prose --
+    TODO entries, spec documents, decision records -- and those are the
+    project's own history, where naming which repository an incident
+    happened in IS the value. Scrubbing them buys nothing (the account is
+    already published, and a private repo answers 404 to a stranger
+    regardless) and costs the record its legibility. What a check can
+    usefully hold is the narrower line: a file that RUNS must not hard-code
+    an account, because that is the copy every adopting repo instantiates
+    and republishes as its own.
+    """
+    import json as _json
+
+    PLACEHOLDER_ACCOUNTS = {'example', 'acct', 'owner', 'your-account',
+                            'your-github-account', 'octocat', 'user'}
+
+    try:
+        cfg = _json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except Exception:
+        cfg = {}
+    if (cfg.get('visibility') or 'public').lower() != 'public':
+        check('a public repo bakes no owner account into a file that runs',
+              True, '', skipped='this repo does not declare visibility: public')
+        return
+
+    declared = set()
+    for src in cfg.get('sources', []) or []:
+        n = str(src.get('name') or '')
+        if n:
+            declared.add(n)
+    declared.add('precedent-individual')
+
+    # Any https://<host>/<account>/<a declared set name> in an executable
+    # tracked file. Built from the DECLARED names rather than a literal
+    # account, so the check itself names nobody and keeps working if the
+    # account changes.
+    pat = re.compile(r'https?://[^/\s"\']+/([A-Za-z0-9_.-]+)/(' +
+                     '|'.join(re.escape(n) for n in sorted(declared)) + r')\b')
+    offenders = []
+    r = subprocess.run(['git', '-C', str(ROOT), 'ls-files'],
+                       capture_output=True, text=True)
+    for rel in r.stdout.splitlines():
+        if not rel:
+            continue
+        if not (rel.endswith('.sh') or rel.endswith('.py')
+                or rel.endswith('.sh.template') or rel.endswith('.yml')):
+            continue
+        f = ROOT / rel
+        try:
+            text = f.read_text(encoding='utf-8')
+        except Exception:
+            continue
+        for line_no, line in enumerate(text.splitlines(), 1):
+            stripped = line.lstrip()
+            # A comment naming the shape is documentation, not a baked-in
+            # value; what matters is a line that ASSIGNS or executes one.
+            if stripped.startswith('#'):
+                continue
+            m = pat.search(line)
+            # `example` and friends are the reserved placeholder accounts --
+            # a fixture URL is the check's own first false positive, found
+            # on its first run. Keep the list SHORT and literal: a broad
+            # "looks like a placeholder" rule is how a real account that
+            # happens to read like one walks straight through.
+            if m and m.group(1).lower() in PLACEHOLDER_ACCOUNTS:
+                continue
+            if m and '{{' not in m.group(0):
+                offenders.append(f'{rel}:{line_no}: names an account before '
+                                 f'{m.group(2)}')
+
+    check(f'a public repo bakes no owner account into a file that runs '
+          f'({len(declared)} declared set name(s) checked across every '
+          f'tracked .sh/.py/.yml)',
+          not offenders,
+          '; '.join(offenders[:5]) if offenders else '')
+
+
 def check_very_deep_check_authenticates_its_own_fetches():
     """very_deep_check's network calls carry the credential the environment
     holds (practice: very-deep-check; durable-fix).
@@ -14558,6 +14650,7 @@ def main():
     check_branch_scan_sees_every_branch()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
     check_very_deep_check_authenticates_its_own_fetches()
+    check_public_tree_bakes_in_no_owner_account()
     check_public_consumer_does_not_materialize_private_text()
     check_assumed_visibility_never_deletes_practices()
     check_sync_refuses_to_write_from_incomplete_sources()
