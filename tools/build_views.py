@@ -1071,7 +1071,8 @@ TOOLS_DESCRIPTIONS = {
 }
 
 
-def render_glossary_md(practices):
+def render_glossary_md(practices, root=None):
+    root = pathlib.Path(root) if root else ROOT
     terms = []
     for fm, _sections, _f in practices:
         raw = fm.get('defines', '[]')
@@ -1107,7 +1108,7 @@ def render_glossary_md(practices):
     # owns, so `defines:` has nowhere to put them and they went undefined
     # while being the most-used terms in the project. Measured 2026-09-08:
     # `source` 1152 uses, `gate` 709, `slug` 372, `level` 342, none defined.
-    engine_terms = _engine_glossary_terms()
+    engine_terms = _engine_glossary_terms(root)
     if engine_terms:
         lines += [
             "## Engine vocabulary",
@@ -1124,14 +1125,46 @@ def render_glossary_md(practices):
         ]
         for t in engine_terms:
             defn = t['definition'].replace('|', '\\|')
-            see = t.get('see', '')
-            link = f"[{see}]({see})" if see else '—'
-            lines.append(f"| **{t['term']}** | {defn} | {link} |")
+            lines.append(f"| **{t['term']}** | {defn} | "
+                         f"{_travel_link(root, t.get('see', ''))} |")
         lines.append('')
     return '\n'.join(lines)
 
 
-def _engine_glossary_terms():
+# WHERE A GLOSSARY ROW POINTS, IN A REPOSITORY THAT IS NOT THIS ONE.
+# The registry names its targets as paths in the upstream tree
+# (`practices/source-naming.md`, `spec/LOADER.md`), and this block is
+# rendered into every source set's own GLOSSARY.md by its vendored copy of
+# this file -- where `spec/` does not exist and most of `practices/` is a
+# different catalogue. Emitted verbatim, those rows are eight dead links in
+# a generated file nobody hand-edits, which is what a real team set's own
+# light check reported on 2026-09-11, immediately after a vendor update.
+#
+# So the same rule practice-links-travel already states for practice files:
+# link it where it lives, and point at upstream when it does not travel.
+# The upstream repository and branch come from the vendored engine's own
+# ENGINE_MANIFEST.json -- the only file that knows where this copy came
+# from -- and with no manifest and no local file the link markup is dropped
+# rather than guessed at, leaving a backticked path that misleads nobody.
+def _travel_link(root, see):
+    if not see:
+        return '—'
+    root = pathlib.Path(root) if root else ROOT
+    if (root / see).exists():
+        return f'[{see}]({see})'
+    try:
+        man = json.loads((root / 'tools' / 'ENGINE_MANIFEST.json')
+                         .read_text(encoding='utf-8'))
+        repo = str(man.get('source_repo') or '').rstrip('/')
+        branch = str(man.get('source_branch') or '')
+    except (OSError, ValueError):
+        repo = branch = ''
+    if repo and branch:
+        return f'[{see}]({repo}/blob/{branch}/{see})'
+    return f'`{see}`'
+
+
+def _engine_glossary_terms(root=None):
     """-> [dict] the engine-vocabulary rows, or [] when the registry is
     absent.
 
@@ -1140,7 +1173,7 @@ def _engine_glossary_terms():
     when the file was added -- and a glossary that refused to build there
     would break the adopter who is furthest behind, which is the one least
     able to fix it (practice: fail-gracefully)."""
-    reg = ROOT / 'tools' / 'glossary_terms.json'
+    reg = (pathlib.Path(root) if root else ROOT) / 'tools' / 'glossary_terms.json'
     if not reg.is_file():
         return []
     try:
@@ -1220,7 +1253,7 @@ def main():
         _in_force = {id(t) for t in practices}
         withdrawn = [t for t in _all if not is_in_force(t[0])]
         targets.append((map_md, render_map_md(practices, withdrawn)))
-        targets.append((glossary_md, render_glossary_md(practices)))
+        targets.append((glossary_md, render_glossary_md(practices, root)))
 
     if check:
         drift = []
