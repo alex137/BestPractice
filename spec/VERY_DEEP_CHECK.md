@@ -64,16 +64,23 @@ code on the first try; only rebuilding the fixture made them
 discriminate, and one of them is now documented as NOT discriminating so
 a later session does not over-trust it.
 
-**And run pass 1's newest step with the private sets actually attached.**
-The `BOOTSTRAP DRIFT` section — added 2026-09-11, after Morgan asked
-whether the brand-new-adopter path was checked at all — regenerates each
-resolved team and individual set with today's generator and diffs it
-against the real thing. **It has never run against a real set.** The
-session that added it could resolve no private source, so it has only ever
-been exercised against its own scratch fixtures, and it reports that state
-as a SKIP in those words. A run with the sets attached is the first real
-test of it, and the likeliest place a finding is waiting: those sets were
-created months of generator changes ago.
+**Pass 1's newest step has now run for real, and what it found is open.**
+The `BOOTSTRAP DRIFT` section — added 2026-09-11, after Morgan asked whether
+the brand-new-adopter path was checked at all — regenerates each resolved
+team and individual set with today's generator and diffs it against the real
+thing. Run against all four live sets the same day, it found **two open
+items, repeated in every set**: each set's vendored engine is an older
+upstream vendoring (`precedent_vendor_engine.py refresh` is the whole fix,
+and it is each set's own repository to change, not this one's), and
+`commit-identity.sh` differs from canonical everywhere — the drift
+[TODO.md](../TODO.md)'s `source-hook-drift` item already tracks, now
+confirmed by a second, independent mechanism. Neither is fixed here: both
+land in repositories under another owner, which a session rooted at this one
+cannot push to.
+
+The run also found a defect in the check itself, fixed the same day: it
+printed 60 lines carrying about six facts, because an older vendoring
+differs in every engine file at once. See the practice's Story.
 
 ### Prerequisites
 
