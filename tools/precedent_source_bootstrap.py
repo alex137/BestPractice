@@ -210,6 +210,26 @@ def _credential_args(repo_url):
     return credential_args(repo_url)
 
 
+def _persist_credential(clone_path, repo_url):
+    """Leave the credential helper in the clone's own config, so git commands
+    run inside it LATER can authenticate too -- a session-start hook, the
+    freshness guard, a person. _credential_args covers one invocation and the
+    clone remembers nothing of it; see the incident recorded above
+    persist_credential_helper in precedent_source_credentials.py, where that
+    gap blocked every non-git tool call of a session.
+
+    Guarded and silent on failure, like _credential_args: a source that
+    synced is in force, and a convenience for later callers must not turn
+    that into a failure. Writes no secret -- the config records the
+    environment variable's NAME."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        from precedent_source_credentials import persist_credential_helper
+    except ImportError:
+        return False
+    return persist_credential_helper(clone_path, repo_url)
+
+
 def _run_git(args):
     """-> (ok, output). The exit code is consulted, never inferred from the
     text: several git commands print something useful and exit non-zero, and
@@ -334,6 +354,9 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
     for attempt in range(1, attempts + 1):
         ok, last_output = _try_sync(repo_url, clone_path, branch=branch)
         if ok:
+            # Every successful sync, not only a fresh clone: this is also the
+            # repair path for the clones made before this existed.
+            _persist_credential(clone_path, repo_url)
             # A team source is resolved BY PATH, as a sibling checkout, so
             # there is nothing to record; writing a config entry for one
             # would invent a resolution route precedent_resolve.py does not

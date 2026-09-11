@@ -97,6 +97,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 
 # The name is ours rather than GITHUB_TOKEN/GH_TOKEN on purpose. Both of
@@ -154,26 +155,27 @@ def have_token(env=None):
     return token_var(env) is not None
 
 
-def credential_args(repo_url, env=None):
-    """-> the `git -c ...` flags that let one git invocation authenticate,
-    or [] when there is no token to use or no https URL to use it on.
+def credential_helper(repo_url, env=None):
+    """-> the credential-helper shell snippet for this url, or None when
+    there is no token to use or no https url to use it on.
 
-    THE SECRET IS NOT IN WHAT THIS RETURNS. The helper is a shell snippet
-    naming the environment variable; git runs it, and the shell expands the
-    variable inside the helper's own process. So the value appears in no
-    argument list and no file -- only in the environment it already lives
-    in. `credential.helper=` (empty) first clears any helper configured
-    elsewhere, so this is the only one consulted and a stale system helper
-    cannot answer first."""
+    THE SECRET IS NOT IN WHAT THIS RETURNS. The helper NAMES an environment
+    variable; git runs the snippet, and the shell expands the variable inside
+    the snippet's own process. So the value appears in no argument list and
+    no file -- only in the environment it already lives in. That is what
+    makes the same string safe to pass on a command line (credential_args
+    below) AND to write into a clone's own config
+    (persist_credential_helper): neither one records the token.
+    """
     env = os.environ if env is None else env
     if not have_token(env):
-        return []
+        return None
     url = str(repo_url or '')
     # https only. A file:// fixture needs no credential, and handing one to
     # ssh:// or an arbitrary scheme would be offering a secret to whatever
     # transport happened to be configured.
     if not url.startswith('https://'):
-        return []
+        return None
     user = (env.get(TOKEN_USER_ENV) or '').strip() or DEFAULT_TOKEN_USER
     # The username IS interpolated into a shell snippet, so it is validated;
     # the token never is. GitHub accepts any username alongside a PAT, so a
@@ -184,10 +186,73 @@ def credential_args(repo_url, env=None):
     # the inherited one it pointed at. Interpolating the literal value of
     # PRECEDENT_GIT_TOKEN here would send the word "inherit" as a password.
     var = token_var(env)
-    helper = ('!f() { test "$1" = get || exit 0; '
-              f'echo username={user}; '
-              f'echo "password=${var}"; }}; f')
+    return ('!f() { test "$1" = get || exit 0; '
+            f'echo username={user}; '
+            f'echo "password=${var}"; }}; f')
+
+
+def credential_args(repo_url, env=None):
+    """-> the `git -c ...` flags that let one git invocation authenticate,
+    or [] when there is no token to use or no https URL to use it on.
+
+    `credential.helper=` (empty) first clears any helper configured
+    elsewhere, so this is the only one consulted and a stale system helper
+    cannot answer first."""
+    helper = credential_helper(repo_url, env)
+    if helper is None:
+        return []
     return ['-c', 'credential.helper=', '-c', 'credential.helper=' + helper]
+
+
+# WHY A CLONE NEEDS THE HELPER WRITTEN INTO IT, AND NOT ONLY PASSED TO THE
+# CLONE COMMAND (practice: cite-the-incident). credential_args above covers
+# ONE git invocation. The clone it produces carries no memory of it, so every
+# later git command run inside that clone -- by a hook, by a person, by a
+# tool that never heard of this module -- meets a private remote with no
+# credential and fails with `could not read Username for 'https://github.com'`
+# even though the token is sitting right there in the environment.
+#
+# Measured 2026-09-11, and it cost a session its first six tool calls. All
+# four private sources were on disk and PRECEDENT_GIT_TOKEN was set.
+# PRECEDENT_FRESHNESS_ALSO names those clones, so the freshness guard's
+# pre-write mode fetched each one; the fetch failed; and the guard blocked --
+# correctly, by its own rule that a check which could not run is not a check
+# that passed. It then blocked AGAIN on every retry, because its
+# once-per-session sentinel is only written after the checks pass. The
+# session could run nothing but `git`.
+#
+# The diagnosis is the expensive part: the block names the SOURCE's base
+# branch (`could not fetch origin/main`) while the project dir sits on a
+# different branch entirely, so it reads as the project's own checkout being
+# broken and sends you to the wrong repository.
+#
+# Writing the snippet into the clone's local config fixes it for every later
+# caller at once, and writes no secret: the config records the variable's
+# NAME. `--replace-all` twice rather than `--add` so re-running is idempotent
+# -- a session-start hook runs this on every session, and an accumulating
+# config would grow a helper entry per session forever.
+def persist_credential_helper(clone_path, repo_url, env=None, run=None):
+    """Write the credential helper into an existing clone's LOCAL git config,
+    so git commands run inside it later can authenticate too.
+
+    -> True when a helper was written, False when there was nothing to write
+    (no token, not an https remote) or the writes failed. Never raises: a
+    clone that is usable now must not be failed over a convenience for later.
+    """
+    helper = credential_helper(repo_url, env)
+    if helper is None:
+        return False
+    runner = run or (lambda args: subprocess.run(
+        args, capture_output=True, text=True).returncode == 0)
+    base = ['git', '-C', str(clone_path), 'config']
+    # An empty value FIRST resets the helper list, exactly as the `-c` pair
+    # above does, so a system- or global-level helper cannot answer before
+    # this one. Then the real snippet is appended.
+    if not runner([*base, '--replace-all', 'credential.helper', '']):
+        return False
+    if not runner([*base, '--add', 'credential.helper', helper]):
+        return False
+    return True
 
 
 def _read_json(path):
