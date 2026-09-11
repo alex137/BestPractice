@@ -838,11 +838,35 @@ def main():
     # the fail-open shape this gate's own vocabulary layer already learned to
     # announce. Printed on every run, pass or fail.
     if not (_policy[0] or {}):
-        print('leak gate NOTE: no `# visibility-audit: private-owner <account>` '
-              'is declared, so the repo-reference allowlist is INERT -- a '
-              'private repository named in this tree would not be caught by '
-              'it. Declare one in the private blocklist to switch it on.',
-              file=sys.stderr)
+        # NAME WHICH STATE THIS IS. The two have opposite remedies and this
+        # notice used to render identically for both (2026-09-10): a session
+        # that could not reach the private blocklist read the committed
+        # default, found no private-owner line in IT, and announced that
+        # none is declared -- which a reader takes as "you never set this
+        # up". A real declaration had been sitting in the private list the
+        # whole time, switched on. The wrong reading cost a TODO entry
+        # asserting the allowlist was unconfigured and a handoff to another
+        # session to go configure it, both written off this one line, while
+        # the run's own summary named the fallback file two lines later
+        # (practice: fail-gracefully -- match the telling to the reader).
+        if not configured:
+            print(f'leak gate NOTE: the repo-reference allowlist is INERT '
+                  f'HERE because this run read {source} -- the committed '
+                  f'fallback -- and not your private blocklist, which was '
+                  f'not reachable in this session. This says NOTHING about '
+                  f'whether you have declared a private owner: that '
+                  f'declaration lives in the list this run could not load. '
+                  f'Export PRECEDENT_LEAK_BLOCKLIST (or set '
+                  f'PRECEDENT_GIT_TOKEN so the sources clone at session '
+                  f'start) and re-run before concluding anything.',
+                  file=sys.stderr)
+        else:
+            print(f'leak gate NOTE: no `# visibility-audit: private-owner '
+                  f'<account>` is declared in {source}, so the '
+                  f'repo-reference allowlist is INERT -- a private '
+                  f'repository named in this tree would not be caught by '
+                  f'it. Declare one there to switch it on.',
+                  file=sys.stderr)
     else:
         # The other half of the same question. The allowlist above is on, so
         # every `owner/name` mention is covered -- these are the repositories

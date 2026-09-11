@@ -2662,14 +2662,23 @@ which is the failure this repointing exists to end — write
    and the same account name appears across a dozen files under
    [spec/](spec/). Every one of those five repositories is private.
 
-   **Why nothing caught it.** The mechanism built for exactly this is the
-   private-owner allowlist — declare an owner private-by-default in the
-   blocklist and every `owner/name` mention is refused unless an `allow` line
-   gives a reason. No such declaration exists, so
-   [tools/leak_gate.py](tools/leak_gate.py) prints `NOTE: ... the
-   repo-reference allowlist is INERT` on every run and passes. The guard is
-   present, correct, and switched off, which reads identically to a guard
-   with nothing to find.
+   **Why nothing caught it — and the first answer written here was wrong.**
+   This item originally said the private-owner allowlist had never been
+   declared, citing [tools/leak_gate.py](tools/leak_gate.py)'s `NOTE: ... the
+   repo-reference allowlist is INERT`. **That was a misreading, corrected
+   2026-09-10** when a session rooted in the individual set read the real
+   blocklist and found the declaration present and switched on. The gate had
+   been reading `leak-blocklist.default.txt` — the committed fallback — in
+   every session that could not reach the private list, and reporting what
+   was missing from *that* file. The run's own summary named the fallback two
+   lines below the notice, and the session that wrote this entry read past
+   it.
+
+   So the allowlist is **armed wherever the private list is reachable, and
+   inert everywhere else** — which is every session without
+   `PRECEDENT_GIT_TOKEN` or an exported `PRECEDENT_LEAK_BLOCKLIST`. The
+   notice now names which of the two states it is in, since their remedies
+   are opposite and it used to render identically for both.
 
    **What is not claimed.** That this is worth acting on. The names are
    already published and in git history, so nothing here is recoverable by
@@ -2692,16 +2701,27 @@ which is the failure this repointing exists to end — write
    account before a declared set name — verified to catch the original line
    by restoring it.
 
-   **What is left is the allowlist, and it is left because it is his to
-   write.** Declaring the owner private-by-default switches the
-   repo-reference allowlist from inert to armed; every one of the remaining
-   ≈99 prose mentions then needs an `allow` line with a reason, and each
-   reason is a judgment about his own material that no session should
-   invent. The prose is deliberately NOT being scrubbed: naming which
-   repository an incident happened in is the value of the record, the
-   account is already published, and a private repo answers 404 to a
-   stranger regardless. The allowlist's worth is the NEXT name — one not
-   yet created, which might be a client or a codename.
+   **What is actually left, now that the allowlist turns out to be armed.**
+   Two things, both his.
+
+   First, **`themorgan/precedent-individual` is pre-allowed in that
+   blocklist**, which is exactly what
+   [templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template)
+   tells people not to do — an allow line for a personal set discloses that
+   the set exists. The existing reason is not empty (the name is already
+   declared as a source in this repo's [precedent.json](precedent.json)), so
+   this is a real trade-off and a deliberate removal, not an oversight to
+   sweep. Removing it makes the audit report that name on every run.
+
+   Second, **nobody has yet run the armed gate against this tree.** That
+   needs one session holding both the private blocklist and this repository,
+   which is the `PRECEDENT_GIT_TOKEN` configuration — not a session rooted in
+   the individual set, which cannot attach this repo at all.
+
+   The ≈99 prose mentions are deliberately NOT being scrubbed either way:
+   naming which repository an incident happened in is the value of the
+   record, the account is already published, and a private repo answers 404
+   to a stranger regardless.
 
    **blocked-on:** Morgan — the blocklist file lives in his individual set,
    under a different owner, so this cannot be done from a session rooted
