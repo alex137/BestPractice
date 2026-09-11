@@ -1290,6 +1290,23 @@ which is the failure this repointing exists to end — write
   **Blocked on:** nothing but the work — both repos are reachable and
   pushable from a session that has them attached.
 
+- <a id="blocklist-stem-team-working-style"></a>**The private blocklist has
+  no stem for `precedent-team-working-style`, so the short name somebody
+  actually types is not refused.** The leak gate says so itself, as a NOTE
+  on every clean run here (2026-09-11): the qualified `owner/name` form is
+  caught by the private-owner allowlist, and the bare repository name — the
+  form that reaches a public tree through a branch, a directory, a check or
+  a practice named after the repo — matches no pattern. This is the same
+  shape as the stem work already done for the other sources, one source
+  later: that set was created after the cuts were measured, and nothing
+  revisits the list when a source is added.
+  **The fix is one line in the private list, measured before it lands** —
+  truncate to a distinctive head and confirm the hit count against this tree
+  is zero, exactly as the existing stems were derived.
+  **Blocked on:** the file lives in `themorgan/precedent-individual`, which
+  is another owner's repository; a session rooted here reads it and does not
+  write it. Do it from a session rooted in that set.
+
 - **The commit-identity mechanism does not reach an attached sibling
   repo, so `commit-author` is silently unenforced in exactly the sessions
   that do cross-repo work.** Found 2026-09-07 by the
@@ -1607,8 +1624,8 @@ which is the failure this repointing exists to end — write
     repository and so could not be changed from here. See the next item.
 
   **What is NOT done, and cannot be done from a session:** the GitHub
-  repository itself. No tool here renames a repository — the GitHub MCP
-  surface has `create_repository` and nothing that patches one — and
+  repository itself. No tool here renames a repository — the GitHub Model
+  Context Protocol (MCP) surface has `create_repository` and nothing that patches one — and
   creating a new repository instead would have lost the set's issue and
   pull-request history and left the account holding two. So this landed on
   the understanding that Morgan renames it in Settings, which is what makes

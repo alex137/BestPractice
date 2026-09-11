@@ -88,6 +88,13 @@
         "spec/SOURCE_NAMING.md"
       ],
       "why": "It explains the three-source model to someone deciding whether to adopt it; the source model changing is what dates it."
+    },
+    "documentation/INSTALL.md": {
+      "describes": [
+        "INSTALL.md",
+        "SETUP.md"
+      ],
+      "why": "It is a one-paragraph signpost: it tells a reader arriving in documentation/ that the install steps live at the repository root and that SETUP.md drives the same steps conversationally. It carries no instructions of its own, so it goes stale only when one of those two moves or is renamed -- which is exactly what nothing else would catch."
     }
   },
   "must_mention": {

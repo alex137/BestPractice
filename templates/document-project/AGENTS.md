@@ -172,17 +172,22 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 
 ## Conventions
 
-- **Sections are ordered by the reader's frequency, not the writer's:** a
+- **Sections are ordered by the reader's frequency, not the writer's**
+  (practice `section-order-by-frequency`): a
   document walking through instructions or rules in multiple sections puts
   common, everyday content first and rare edge cases last.
-- **Doc references are links:** in-repo docs reference other repo files as
+- **Doc references are links** (practice `doc-references-are-links`):
+  in-repo docs reference other repo files as
   relative markdown links, never bare backticked names. Use `≈`, not `~`,
   for "approximately" — two stray tildes render as strikethrough on GitHub.
-- **Outward-facing documents use the reader's words:** the deliverable
+- **Outward-facing documents use the reader's words**
+  (practice `readers-vocabulary`): the deliverable
   document(s) this project produces are read by an audience outside this
   repo's own work — every term that names a category is either already the
   reader's word, a plain equivalent, or glossed inline on first use.
-- **Reply convention:** every reply that created, modified or deleted files
+- **Reply convention** (practice `reply-links-files`, which is resident —
+  this bullet is a pointer, never a second copy to keep in step): every
+  reply that created, modified or deleted files
   ends with a "Files touched" list — branch link + post-merge link +
   one-line description per file. A **deleted** file is listed too: its
   path, why it went, and a link to the commit that removed it, since it is
