@@ -1958,19 +1958,73 @@ def check_cross_source_resident_budget():
     precedent_resolve.py had no resident/budget logic at all -- a team set
     marking several practices resident, on top of an individual set doing
     the same, could push a real session's resident block well past the cap
-    with nothing objecting). Two directions: this repo's own resolved set
-    (single source, well under budget) must NOT be flagged, and a
-    synthetic multi-source set built to exceed the budget MUST be."""
+    with nothing objecting).
+
+    THREE DIRECTIONS, ALL SYNTHETIC -- and that is the fix, not a detail.
+    Until 2026-09-11 direction 1 ran `precedent_resolve.py --repo <this
+    repo>`, which resolves whatever private sources the CONTAINER has
+    attached. So the check's result depended on the machine: green where the
+    sets were missing, red where they were attached and their own combined
+    resident block went over the cap. It failed that way for most of a day,
+    and the failure it printed -- "this repo's own resolved set was wrongly
+    flagged over budget" -- was wrong twice over: the flag was correct, and
+    the set being measured was not this repo's. The same
+    [fixture-owns-its-state] shape as the three instances in AGENTS.md's
+    gotchas, one level out.
+
+    What replaced it measures the MECHANISM, which is all a harness can own:
+    this repo as a single declared source stays clean; a single source over
+    the cap is still flagged (so direction 1 is not vacuous); and a
+    multi-source combination over the cap is refused. A real combination
+    going over is not this check's business -- it is content in somebody's
+    private set, reported by `precedent_resolve.py` exiting 1 and enforced by
+    `build_views.py` refusing to write an over-budget block, which is a
+    harder stop than a harness line. session-load-budget's own Rule says the
+    reduction is the owner's to choose, never a session's."""
     import shutil, tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-budget-'))
     try:
-        # direction 1: this repo's own set, unmodified, must resolve clean
-        rc, out, _err = _run([sys.executable, str(ROOT / 'tools' /
-                              'precedent_resolve.py'), '--repo', str(ROOT), '--json'])
-        clean_ok = False
-        if rc == 0:
-            data = json.loads(out)
-            clean_ok = not data.get('resident', {}).get('over_budget', True)
+        def _consumer(name, sources):
+            d = tmp / name
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'precedent.json').write_text(json.dumps(
+                {'format_version': 1, 'sources': sources}), encoding='utf-8')
+            return d
+
+        def _resolve(repo):
+            rc, out, err = _run([sys.executable, str(ROOT / 'tools' /
+                                 'precedent_resolve.py'), '--repo', str(repo),
+                                 '--json'])
+            return rc, (json.loads(out) if out else {}), err
+
+        def _resident_source(dirname, slug, words):
+            d = tmp / dirname / 'practices'
+            d.mkdir(parents=True, exist_ok=True)
+            (d.parent / 'practices' / f'{slug}.md').write_text(
+                f"---\nslug:        {slug}\ntitle:       Fixture\n"
+                "tier:        resident\nseverity:    default\n"
+                'applies_to:  ["**"]\noccasion:    null\ngates:       []\n'
+                'index_clause: "n/a"\nchecked_by:  null\ndefines:     []\n'
+                "status:      active\nsupersedes:  []\noverrides:   null\n"
+                'added:       null\napproved_by: "fixture"\n---\n'
+                f"## Rule\n{' '.join(['word'] * words)}\n\n## Why\n\n"
+                "## Story\n\n## Install\n", encoding='utf-8')
+            return (tmp / dirname)
+
+        # direction 1: THIS REPO as the only declared source -- named
+        # explicitly, so the container's own attached sources cannot change
+        # the answer.
+        rc, data, _err = _resolve(_consumer('alone', [
+            {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)}]))
+        clean_ok = rc == 0 and not data.get('resident', {}).get('over_budget', True)
+
+        # direction 1's control: a SINGLE source over the cap is flagged, so
+        # the pass above means "under budget", not "this code never flags".
+        rc1b, data1b, _e1b = _resolve(_consumer('single-over', [
+            {'level': 'universal', 'name': 'precedent',
+             'path': str(_resident_source('huge-universal', 'huge-alone', 1800))}]))
+        single_over_ok = (rc1b == 1
+                          and data1b.get('resident', {}).get('over_budget') is True)
 
         # direction 2: a synthetic team source with an oversized resident
         # Rule, stacked on top of this repo's own resident practices, must
@@ -2005,15 +2059,21 @@ def check_cross_source_resident_budget():
                                            over_data.get('resident', {}).get('practices', [])}
                    and 'cross-source cap' in err2)
 
-        ok = clean_ok and over_ok
+        ok = clean_ok and single_over_ok and over_ok
         if not clean_ok:
-            print("  this repo's own resolved set was wrongly flagged over budget")
+            print("  this repo declared as the ONLY source was flagged over "
+                  "budget -- this repo's own resident block, nothing else")
+        if not single_over_ok:
+            print("  a single source over the cap was NOT flagged, so "
+                  "direction 1 proves nothing")
         if not over_ok:
             print("  a synthetic multi-source set built to exceed the budget "
                   "was NOT refused")
-        check('cross-source resident budget (this repo alone stays clean; '
-              'a synthetic team+universal combination built to exceed the '
-              '2,000-token cap is refused, not silently carried)', ok)
+        check('cross-source resident budget (this repo as the only declared '
+              'source stays clean; a single source over the cap is flagged; a '
+              'synthetic team+universal combination over the 2,000-token cap '
+              'is refused -- all three synthetic, so the container\'s own '
+              'attached sources cannot change the result)', ok)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

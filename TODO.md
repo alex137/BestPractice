@@ -3225,7 +3225,18 @@ which is the failure this repointing exists to end — write
    [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md) flagged as the
    open gap and the cross-source cap was built for.
 
-   It shows up as `verify_harness.py`'s **cross-source resident budget**
+   **The fixture half is fixed, 2026-09-11.** All three of that check's
+   directions are synthetic now — this repo named as the only declared
+   source, a single source over the cap, and a multi-source combination over
+   it — so the harness result no longer depends on what a container has
+   attached. It passes on a container with all four sets attached and over
+   budget, which is where it used to fail. A real combination going over is
+   not that check's business: `precedent_resolve.py` exits 1 and
+   `build_views.py` refuses to write an over-budget block, which is a harder
+   stop than a harness line, and the reduction is the owner's to choose.
+   What follows is the description of the defect as it was found.
+
+   It showed up as `verify_harness.py`'s **cross-source resident budget**
    check failing its FIRST direction — *"this repo's own resolved set was
    wrongly flagged over budget"*. The wording is now wrong twice over: the
    flag is correct, and the fixture is not measuring "this repo's own set"
