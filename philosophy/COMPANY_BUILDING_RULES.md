@@ -24,14 +24,9 @@ rent the same models by Thursday; what nobody can rent is yours.
 
 **2. Transcribe everything, past the point of comfort.**
 
-Meetings, calls, site visits, the argument that got resolved and the one
-that didn't — transcribe it. Picture a colleague who's been there since
-the founding, remembers everything, never sleeps, with no eyes or ears,
-only text: the Ghost, the most experienced employee in the building,
-unable to attend anything. Every untranscribed meeting removes one more
-organ from it. Most companies do the easy 5%; what matters is nearer 90%,
-and closing that gap is cultural — people need to hear *compounding*, not
-*recorded*.
+A colleague who's been here since the founding, remembers everything, and
+has no eyes or ears, only text: the Ghost. Every untranscribed meeting
+removes an organ. Most companies do the easy 5%; the bar is nearer 90%.
 
 <a id="own-every-word"></a>
 
@@ -50,14 +45,9 @@ you hear about.
 
 **4. Treat the AI Chat as the intermediary for the work itself, not a tool you consult on the side.**
 
-Every plan worth a thought runs through it before anyone else — not for
-the output, but because it's the partner that pushes back: the hole in the
-logic, the option you missed, the better version. That layer also pushes
-things into happening — the commit, the message, the next step — instead
-of a good idea that never left somebody's head. Put a model between intent
-and action, and arguing before you commit becomes free. (One part of
-[CORE_PILLARS.md](CORE_PILLARS.md)'s case for
-what makes this approach unique.)
+Every plan runs through it first — not for the output, but for the
+pushback: the hole in the logic, the option you missed. Arguing before you
+commit becomes free. (Part of [CORE_PILLARS.md](CORE_PILLARS.md)'s case.)
 
 <a id="co-create-dont-delegate"></a>
 
@@ -74,13 +64,10 @@ an hour later, not three weeks later in front of the client.
 
 **6. Think in patterns, workflows, and protocols.**
 
-Stopping to systematize a one-off is procrastination in a nice suit. First
-time, do it by hand, with the model. Third time you've seen the shape,
-stop — that's a pattern, and it just handed you the workflow spec for
-free. A protocol is different: it needs no repeating task, just one
-judgment call worth remembering, captured the moment it happens. Never
-systematize and you stay fast forever; systematize everything and you
-ship nothing, beautifully diagrammed.
+Don't systematize a one-off — first time, by hand, with the model. Third
+time you've seen the shape, stop: that's the workflow spec. A protocol
+needs only one judgment call. Systematize everything and you ship nothing,
+beautifully diagrammed.
 
 <a id="three-questions"></a>
 
@@ -90,7 +77,8 @@ A long checklist buys you people who spend the day interrogating their
 work instead of doing it. So: three questions, drilled until they're
 reflexes — the same three the AI is running too:
 
-- What rules or protocols should come from this?
+- What rules or protocols should come from this? If you decided it once,
+  you'll decide it again — write it down now.
 - Have I done this shape before, or will I again? If yes, it's a
   workflow, and you're doing it by hand.
 - Is there a way AI Assistant could make this better? Not faster — better.
@@ -134,16 +122,11 @@ that reality into text and the other rules open up.
 
 **11. Nothing you ship may sound like it came from an AI.**
 
-The default register — the throat-clearing opener, "it's not just X, it's
-Y," the bolded summary nobody asked for — reads as nobody home, and
-erodes trust fast. It's evidence too: unrewritten output is output
-nobody thought about — style enforces thinking. And it's positioning:
-what you sound like is the one claim a reader can check for free. Ship
-everything rewritten in your own voice. (This is the argument; the rule it became is
-[`write-like-a-human`](../practices/write-like-a-human.md), in force
-everywhere as of 2026-09-07 — see
-[`write-like-a-human`](RULES_NOW_TESTING.md#write-like-a-human) for how it
-got there.)
+The default register — the throat-clearing opener, "not just X, it's Y,"
+the bolded summary nobody asked for — reads as nobody home. Unrewritten output is output
+nobody thought about. Ship it in your voice. (Now
+[`write-like-a-human`](../practices/write-like-a-human.md), universal since
+2026-09-07; [how it got there](RULES_NOW_TESTING.md#write-like-a-human).)
 
 ## People
 
@@ -182,14 +165,10 @@ silence — and put it on the calendar so it survives being inconvenient.
 
 **15. Reserve the permanent hire for what's structurally human.**
 
-Follow every rule here and they land in one place: the roles worth
-making permanent are built on something a model can't do at all.
-Judgment when the rules run out. Taste that catches the one wrong
-paragraph in twenty. Relationships a counterparty trusts. Accountability
-on one name, not a faceless process. The human spark that makes someone
-worth working for, not merely alongside. And, increasingly, the
-discipline of running agent-driven processes. (Full list:
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md).)
+Permanent roles rest on what a model can't do at all — judgment when the
+rules run out, taste that catches the wrong paragraph, relationships a
+counterparty trusts, accountability on one name, the human spark.
+([HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md))
 
 ## See Also
 
