@@ -1017,6 +1017,23 @@ gotcha every session reads is a gotcha every session pays for.
   so a case that wants either supplies it explicitly. Before that the whole
   harness's result depended on which container it ran in, and nothing said
   so.
+  **The per-fixture pops are not the whole fix, because the next fixture
+  will not have read them.** That practice's own Rule says to clear the
+  ambient inputs at the top, once, rather than in the fixture that happened
+  to notice — so the scrub also sits at the head of
+  [tools/verify_harness.py](tools/verify_harness.py), beside the
+  `GIT_AUTHOR_*` one that was the identical shape four days earlier, and
+  `check_fixtures_own_the_credential_environment` holds it there: it plants
+  both variables in a subprocess, imports the module, and asserts they come
+  back gone. Neutering the scrub turns three of its four cases red, the
+  planted one included — so it is a control, not a restatement.
+  **The generalization is worth more than the fix: an ABSENCE is state
+  too.** A fixture constructing "no credential is available" owns that
+  absence exactly as much as it owns a file it wrote, and owning it means
+  scrubbing the environment rather than merely declining to set anything.
+  Same shape as the fixture whose `HOME` got a clone written into it, one
+  level out — that one owned its scenario and not the environment the
+  scenario was read from.
 
 - **A harness run that overlaps a write to the tree fails on a change
   belonging to no commit, and the count alone cannot tell you that.**
