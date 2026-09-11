@@ -1418,6 +1418,129 @@ def check_leak_gate_notes_an_uncovered_private_repo():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_leak_gate_names_a_stale_blocklist_clone():
+    """The gate says where its blocklist came from when it FAILS.
+
+    THE INCIDENT, 2026-09-11. The gate reported 30 undeclared-repo hits
+    against Precedent's own tree. A session read them as a defect in the
+    tree, wrote them into a pull request's gate block as "red on the base
+    branch too", and filed a TODO item for a fix that was already merged.
+    The tree was fine. That session's clone of the private practice set was
+    a few hours old -- from before a repository rename added the allowlist
+    line those 30 references needed -- so the gate was right about its input
+    and its input was stale.
+
+    WHY IT NEEDS A MECHANISM rather than a gotcha alone: a correct gate with
+    correct output and stale input is indistinguishable from a real failure
+    by construction. Nothing in the 30 lines could have said otherwise, and
+    the reflex they produce ("this tree is wrong") points the expensive way.
+
+    Both branches are asserted, because the useful half is the one that
+    fires when the clone IS behind and the honest half is the one that
+    refuses to claim currency when it is not -- a note that said "your
+    blocklist is current" off an unfetched remote-tracking ref would be the
+    same false all-clear one level out.
+    """
+    import shutil, tempfile
+
+    def git(cwd, *args):
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='leak-stale-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
+        shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
+                    repo / 'tools' / 'leak-blocklist.default.txt')
+        git(repo, 'init', '-q')
+        git(repo, 'config', 'user.email', 'harness@example.com')
+        git(repo, 'config', 'user.name', 'harness')
+        # One hit, so the gate fails and the note is reached at all.
+        (repo / 'names.md').write_text(
+            'this tree names fixtureacct/Kestrelwood\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'base')
+
+        # The blocklist lives in its own repository, the way a private
+        # practice set's does. `upstream` stands in for the remote.
+        upstream = tmp / 'upstream'
+        upstream.mkdir()
+        git(upstream, 'init', '-q', '-b', 'main')
+        git(upstream, 'config', 'user.email', 'harness@example.com')
+        git(upstream, 'config', 'user.name', 'harness')
+        bl = upstream / 'blocklist.txt'
+        # A real pattern as well as the owner line: a blocklist of
+        # comments alone is refused earlier, for a different reason, and
+        # the fixture would never reach the note it exists to test.
+        declared = ('# visibility-audit: private-owner fixtureacct -- fixture\n'
+                    '\\bquillon[\\w-]*\n')
+        bl.write_text(declared, encoding='utf-8')
+        git(upstream, 'add', '-A')
+        git(upstream, 'commit', '-qm', 'first')
+        bl.write_text(declared + '# a later commit the stale clone does not have\n',
+                      encoding='utf-8')
+        git(upstream, 'add', '-A')
+        git(upstream, 'commit', '-qm', 'second')
+
+        def gate(blocklist_path):
+            env = {k: v for k, v in os.environ.items()}
+            env['PRECEDENT_LEAK_BLOCKLIST'] = str(blocklist_path)
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'leak_gate.py')],
+                capture_output=True, text=True, cwd=str(repo), env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        # 1. A clone that is genuinely behind.
+        behind = tmp / 'behind'
+        git(tmp, 'clone', '-q', str(upstream), str(behind))
+        git(behind, 'reset', '-q', '--hard', 'HEAD~1')
+        rc_behind, out_behind = gate(behind / 'blocklist.txt')
+
+        # 2. A clone that is current.
+        current = tmp / 'current'
+        git(tmp, 'clone', '-q', str(upstream), str(current))
+        rc_current, out_current = gate(current / 'blocklist.txt')
+
+        # 3. A loose file in no repository at all.
+        loose = tmp / 'loose.txt'
+        loose.write_text(declared, encoding='utf-8')
+        _rc_loose, out_loose = gate(loose)
+
+        cases = [
+            ('a clone that is behind is reported as BEHIND',
+             'BEHIND its upstream' in out_behind),
+            ('the note names the clone, so the reader knows which one to pull',
+             str(behind) in out_behind),
+            ('the note gives the command that settles it',
+             'pull --ff-only' in out_behind),
+            ('the note appears only after the hits, as context for them',
+             out_behind.find('LEAK:') < out_behind.find('Before acting on these:')),
+            ('a current clone is NOT called current -- an unfetched '
+             'remote-tracking ref cannot prove that',
+             'BEHIND its upstream' not in out_current
+             and 'not proof it is current' in out_current),
+            ('a current clone still names itself, so the reader can check',
+             str(current) in out_current),
+            ('a blocklist in no repository produces no note rather than a guess',
+             'Before acting on these:' not in out_loose),
+            ('the note never changes the verdict: a hit is still a failure',
+             rc_behind == 1 and rc_current == 1),
+        ]
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  stale-blocklist note did NOT behave as stated: {name}")
+        check(f'the leak gate names a stale blocklist clone when it fails '
+              f'({len(cases)} stated cases, each asserting the printed text)', ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_visibility_audit_reads_the_blocklist_as_patterns():
     """The stale-entry half of very_deep_check's visibility audit, repaired.
 
@@ -16609,6 +16732,7 @@ def main():
     check_title_case_output_paths_inverts_the_default()
     check_checkin_update_never_mutates_the_clone()
     check_leak_gate_notes_an_uncovered_private_repo()
+    check_leak_gate_names_a_stale_blocklist_clone()
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
     check_philosophy_readme_lists_every_file()

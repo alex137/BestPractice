@@ -79,6 +79,14 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   very_deep_check.py answers the same question from the other side, for the
   repositories this tree already NAMES, by asking GitHub which are private.
 
+  WHEN IT FAILS, it also names the clone the private blocklist came from and
+  how far behind its upstream that checkout is. A stale blocklist produces
+  real-looking hits from a correct gate -- 2026-09-11, 30 of them, read as a
+  defect in the tree and written into a pull request before anyone checked
+  the clone's date. It never claims a clone is CURRENT, because an unfetched
+  remote-tracking ref cannot show that, and it never fetches: a gate that
+  reaches the network to grade itself can hang on a push.
+
 CI runs the structural layer and the DEFAULT vocabulary half; it cannot run
 the private half, having no access to a private list. That is a real limit, stated rather than papered over: CI is
 the backstop that cannot be bypassed, the local hook is the one that knows
@@ -675,6 +683,76 @@ def load_default_blocklist():
     return pats
 
 
+# Set by load_blocklist() when a PRIVATE list is configured, read only by
+# _stale_blocklist_clone_note() on the failure path. A module global rather
+# than a fourth return value because load_blocklist()'s three-tuple is read
+# by verify_harness.py in two places, and widening a signature to carry a
+# diagnostic is how a diagnostic ends up in everybody's call site.
+_PRIVATE_BLOCKLIST_PATH = None
+
+
+def _stale_blocklist_clone_note():
+    """-> str or None: what to say about the private blocklist's own clone.
+
+    practice: durable-fix, cite-the-incident. 2026-09-11: the leak gate
+    reported 30 undeclared-repo hits against this tree, and a session read
+    them as a real defect in the tree and filed a TODO item for it. The tree
+    was fine. Its clone of the private set was four hours old, from before a
+    repository rename added the allowlist line those 30 references needed --
+    so the gate was right about its input and the input was stale. The same
+    30 hits reproduce exactly by pointing the variable at that file's own
+    previous commit.
+
+    The failure is indistinguishable from a real one by construction: a
+    correct gate, correct output, stale input. So the gate says where its
+    input came from and how old it is, and never guesses which side is
+    wrong -- the sibling-clone gotcha in AGENTS.md is the general case, and
+    its whole lesson is that the reflex ("this tree is wrong") points the
+    expensive way.
+
+    Deliberately does NOT fetch. A gate that reaches the network to grade
+    itself can hang on a push, and this runs on every push. It reports what
+    is knowable locally and names the one command that settles it
+    (practice: fail-gracefully -- a diagnostic that cannot be produced is
+    skipped, never fatal).
+    """
+    path = _PRIVATE_BLOCKLIST_PATH
+    if path is None:
+        return None
+
+    def git(*args):
+        """-> (rc, stdout). Both, always: `rev-parse` prints the ref it was
+        asked for and exits non-zero, so stdout alone answers confidently
+        and wrongly -- the most-repeated bug in this project (AGENTS.md)."""
+        try:
+            r = subprocess.run(['git', '-C', str(path.parent), *args],
+                               capture_output=True, text=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            return 1, ''
+        return r.returncode, r.stdout.strip()
+
+    rc, root = git('rev-parse', '--show-toplevel')
+    if rc != 0 or not root:
+        return None  # not a clone: somebody's loose file, nothing to say
+
+    rc, head = git('log', '-1', '--format=%h %ad', '--date=format:%Y-%m-%d %H:%M')
+    head = head if rc == 0 and head else 'unknown'
+
+    rc, behind = git('rev-list', '--count', 'HEAD..@{u}')
+    if rc == 0 and behind.isdigit() and int(behind) > 0:
+        return (f"  the blocklist came from {root}, whose checkout is "
+                f"{behind} commit(s) BEHIND its upstream (HEAD {head}). A hit "
+                f"naming something renamed or allowed recently is that, not "
+                f"this tree. Run `git -C {root} pull --ff-only` and re-run "
+                f"before treating any of the above as real.")
+    return (f"  the blocklist came from {root}, HEAD {head}. That is the "
+            f"clone's own commit, not proof it is current -- its "
+            f"remote-tracking ref may be as stale as the checkout. If a hit "
+            f"above names something renamed or allowed recently, run "
+            f"`git -C {root} pull --ff-only` and re-run before treating it "
+            f"as real.")
+
+
 def load_blocklist():
     """-> (patterns, source_description, private_configured).
 
@@ -706,6 +784,8 @@ def load_blocklist():
     # leading `!` as a path exemption. This gate deliberately does NOT --
     # see _parse_blocklist, which refuses it for both halves.
     pats = _parse_blocklist(path)
+    global _PRIVATE_BLOCKLIST_PATH
+    _PRIVATE_BLOCKLIST_PATH = path
     if not pats:
         sys.exit(f"leak gate FAIL: the blocklist at {path} contains no patterns. A "
                  f"configured-but-empty blocklist reports as a vocabulary-layer PASS "
@@ -985,6 +1065,9 @@ def main():
         print(f"\nleak gate FAIL: {len(hits)} hit(s) in {scope}. Nothing is pushed. "
               f"Precedent is a branch of a PUBLIC repo -- a push is a publication, "
               f"and it cannot be taken back.")
+        note = _stale_blocklist_clone_note()
+        if note:
+            print("Before acting on these:\n" + note)
         return 1
 
     # The vocabulary layer ALWAYS runs now -- the committed default list is
