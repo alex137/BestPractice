@@ -2462,6 +2462,13 @@ which is the failure this repointing exists to end — write
    `assented` rather than `decided` because it is agreement to this session's
    own proposal, not him choosing it independently
    ([decision-strength](practices/decision-strength.md)).
+   **Confirmed independently 2026-09-11**, by the very deep check's new
+   `BOOTSTRAP DRIFT` section on its first real run: regenerating each set
+   with today's generator and diffing it found `commit-identity.sh`
+   differing from canonical in every set it could see, and
+   `freshness-guard.sh` differing in `precedent-individual`. Two mechanisms
+   that share no code now say the same thing, so the measurement above is
+   not an artifact of how it was taken.
    **Blocked-on:** those other threads first, then a session rooted under the
    sets' own owner to carry it out — this repository's sessions cannot push
    there, re-confirmed 2026-09-09 by `add_repo` refusing at `access: "push"`.
@@ -2837,3 +2844,30 @@ which is the failure this repointing exists to end — write
    **Disposition:** wait — nobody is being chased for it, and the rule is in
    force in the meantime
    ([open-item-disposition](practices/open-item-disposition.md)).
+
+57. <a id="session-practices-reports-unresolved-sources"></a>**`.precedent/SESSION_PRACTICES.md` can report a source as unresolved that
+    resolved fine minutes later — and a session reading it believes those
+    practices are absent.** Measured 2026-09-11: the session-start hook
+    reported all three team sources as *"has no practices/ directory"* and
+    wrote that into the generated file's "Sources that did not resolve"
+    section, while `precedent_resolve.py`, run by hand in the same session,
+    resolved all three and put their practices in force. The clones were on
+    disk with `practices/` present. So the file was written before the
+    clones finished, not because anything was wrong with them.
+
+    **This is the file's most dangerous possible failure**, because it is
+    the one a session trusts to know what binds it: it says in as many
+    words that a non-resolving source is *unknown, not "that source has no
+    rules"* — and then a session reads the list and works as if the rules
+    were absent. That is the same cost as
+    [the "no individual source resolved" gotcha](AGENTS.md), arriving
+    through a file that looks authoritative.
+
+    The fix is probably ordering (write the file after the clone step, or
+    regenerate it once the clones land) but **nothing here is diagnosed** —
+    the hook ran once, before the first turn, and cannot be re-run in the
+    same container to watch it happen.
+    **Blocked-on:** a fresh session to reproduce the ordering, since the
+    failure only exists at session start.
+    **Disposition:** wait
+    ([open-item-disposition](practices/open-item-disposition.md)).

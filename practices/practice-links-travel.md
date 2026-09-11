@@ -20,9 +20,13 @@ strength:    assented
 ## Rule
 **A practice file is published into every repository that adopts the
 catalogue, so a relative link in one only works if the target travels with
-it.** Two things do: **another practice file in the same directory**, cited
-the normal way as a markdown link to its own `<slug>.md`, and **the
-vendored engine files under `../tools/`** that every consumer receives.
+it.** Three things do: **another practice file in the same directory**, cited
+the normal way as a markdown link to its own `<slug>.md`; **the vendored
+engine files under `../tools/`** that every consumer receives; and **a
+source's own check scripts under `../tools/checks/`**, which materialization
+copies alongside the practices — a practice citing the script that enforces
+it is the most common cross-reference a private set makes, and it is a
+correct one.
 
 **Everything else in the publishing repository does not travel** — `spec/`,
 `templates/`, root documents, decisions, records, hooks. Link one of those
@@ -51,6 +55,24 @@ both directions and at every level, because materialization writes every
 source's practices into one directory. Prefer it: a rule that can make its
 point by citing another rule needs no URL at all.
 
+**The worst shape of this bug is not a dead link — it is a live one pointing
+at the wrong file.** `../bootstrap/x` at least 404s, and a markdown lint can
+see that. `../.claude/settings.json` **resolves** in the consumer, to that
+consumer's own settings file rather than the one the sentence was written
+about. No lint anywhere reports it; only reading the link as a claim about
+*which repository* it assumes will catch it. The rule catches this one only
+because `.claude/` does not travel — nothing would catch it if it did.
+
+**Do not assume materialization repairs this for a public source.**
+`precedent_materialize.py`'s `_rewrite_links` does turn an unplaceable
+relative link into an absolute URL when the source is public, which reads
+like the problem solving itself. It does not, in the install that matters
+most: when the universal source is a tracked tree *inside* the consuming
+repository, the rewriter resolves the target within that repository instead,
+finds nothing there, and leaves the link exactly as written — it will not
+invent a target it cannot place. That is the right refusal and it is why the
+links have to be correct in the publishing source.
+
 ## Why
 The catalogue is written in one repository and read in all of them, and
 nothing about writing it makes that visible. A relative path resolves
@@ -60,6 +82,16 @@ been copied somewhere else — by which point the person holding the broken
 link has no way to tell what it was ever pointing at.
 
 ## Story
+**The rule is older than this file, and the private original had already
+named two things this one missed.** Written in `precedent-individual` on
+2026-09-06 after the same mistake landed three times in one day against one
+directory — nine dead links across four practices, one batch of which was
+"fixed" by making the links absolute, which tripped a consuming repo's
+private-repo scrub and had to be undone. The universal text here was written
+without being able to read it, and shipped a check that would have fired on a
+correct link to a source's own check script. Both gaps were closed on
+2026-09-11, by reading the original once the private sources resolved.
+
 **Measured 2026-09-11, in this repository at engine `89c90d7`: 134 relative
 links across 42 of the 94 universal practice files pointed at 57 targets
 that exist only here.** The same measurement taken from a real consuming

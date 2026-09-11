@@ -4038,9 +4038,22 @@ def check_precedent_check_fires():
         def _setup_origin(repo):
             git(repo, 'remote', 'add', 'origin',
                 'https://github.com/alex137/BestPractice.git')
+            # And a link to a source's own check script, in BOTH the planted
+            # and the clean tree. This is the FALSE-POSITIVE direction, which
+            # is the one that matters most here: the check shipped on
+            # 2026-09-11 without it and would have fired on the most common
+            # cross-reference a private-set practice makes. The clean case
+            # below is what proves it does not.
+            f = repo / 'practices' / 'repo-is-memory.md'
+            f.write_text(f.read_text(encoding='utf-8') +
+                         '\nIts check: [check_x.py](../tools/checks/check_x.py).\n',
+                         encoding='utf-8')
         case('practice-links-travel', _plant_practice_links,
              setup=_setup_origin)
         _plt = planted['practice-links-travel'][1]
+        cases.append(("practice-links-travel: a source's own check script is "
+                      'not reported as failing to travel',
+                      'check_x.py' not in planted['practice-links-travel'][1]))
         for _frag, _what in (
                 ('does not travel with this file', 'the relative link'),
                 ('precedent.json declares', 'the wrong-branch URL'),
@@ -5116,6 +5129,43 @@ def check_precedent_check_fires():
         # planted violation must fail the check again like every other one.
         case('parallel-artifact-ledger', _plant_unledgered_harness_change,
              setup=_ledger_setup)
+
+        # The DUPLICATE-ROW half of this check had no planted case at all,
+        # and that is exactly how a false positive shipped: it counted any
+        # row CONTAINING a commit hash, so three correct rows citing an
+        # earlier one in their prose read as three duplicates of one change,
+        # and precedent-beta-v01 sat red against a tree nobody had edited
+        # (found 2026-09-11). Both directions below; the second is the one
+        # that would have caught it.
+        def _ledger_row(repo, cell_hash, prose_hash=None):
+            h = f'[`{cell_hash[:7]}`](https://example.invalid/{cell_hash})'
+            tail = (f' — same reason as the [`{prose_hash[:7]}`]'
+                    f'(https://example.invalid/{prose_hash}) row'
+                    if prose_hash else '')
+            return f'| 2026-01-01 | {h} — planted | applied{tail} | n/a | n/a |'
+
+        dup = fresh('parallel-artifact-ledger-dup')
+        _ledger_setup(dup)
+        _dh = git(dup, 'rev-parse', 'HEAD')
+        rewrite(dup, 'templates/harness/LEDGER.md',
+                lambda s: s + '\n' + _ledger_row(dup, _dh)
+                             + '\n' + _ledger_row(dup, _dh) + '\n')
+        _rc, _out = run(dup, 'parallel-artifact-ledger')
+        cases.append(('parallel-artifact-ledger: two rows whose commit cell '
+                      'names one change fail the check',
+                      _rc == 1 and 'rows reference' in _out))
+
+        xref = fresh('parallel-artifact-ledger-xref')
+        _ledger_setup(xref)
+        _xh = git(xref, 'rev-parse', 'HEAD')
+        rewrite(xref, 'templates/harness/LEDGER.md',
+                lambda s: s + '\n' + _ledger_row(xref, _xh)
+                             + '\n' + _ledger_row(xref, _xh[::-1][:40],
+                                                   prose_hash=_xh) + '\n')
+        _rc2, _out2 = run(xref, 'parallel-artifact-ledger')
+        cases.append(('parallel-artifact-ledger: a later row CITING that '
+                      'change in its prose is not a duplicate of it',
+                      _rc2 == 0 and 'rows reference' not in _out2))
 
         # declared-base-branch -- plant the exact regression the check
         # exists for: a resolver that infers the branch from origin/HEAD
@@ -13140,22 +13190,32 @@ def check_very_deep_check_bootstrap_drift():
     and getting that backwards sends somebody to refresh over their own
     work.
 
-    The fixture owns every byte it reads (practice: fixture-owns-its-state):
-    it bootstraps its own set into a scratch directory rather than touching
-    any real source, and the no-source case is asserted too, because "no
-    source resolved" must read as a SKIP and never as clean."""
+    The COLLAPSE is asserted too, and it is not cosmetic. The first real run
+    (2026-09-11, four live sets) printed 60 lines carrying about six facts,
+    because a set vendored at an older commit differs in every engine file
+    at once. A check that long is a check nobody reads, so one older
+    vendoring prints as one row -- and the fixture pins that it stays one
+    row while a genuine per-file finding still gets its own.
+
+    Each case bootstraps its own set (practice: fixture-owns-its-state): the
+    states are mutually exclusive, so sharing one directory across them
+    would make every case depend on the order of the ones before it."""
     import hashlib, shutil, tempfile
     import very_deep_check as vdc
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-drift-harness-'))
     cases = []
-    try:
-        dest = tmp / 'set'
+
+    def fresh(tag):
+        dest = tmp / tag
         subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
                         '--level', 'individual', '--name', 'precedent-individual',
                         '--dest', str(dest)], capture_output=True, text=True)
-        src = [{'level': 'individual', 'name': 'precedent-individual', 'path': str(dest)}]
+        return dest, [{'level': 'individual', 'name': 'precedent-individual',
+                       'path': str(dest)}]
 
+    try:
+        dest, src = fresh('clean')
         out = vdc._bootstrap_drift(src)
         cases.append(('a set the generator just wrote reports no drift at all',
                       out == [], repr(out)))
@@ -13168,6 +13228,7 @@ def check_very_deep_check_bootstrap_drift():
 
         # A file the skeleton hands over ("edit this file freely afterward,
         # it is yours") must never be a finding.
+        dest, src = fresh('owned')
         readme = dest / 'README.md'
         readme.write_text(readme.read_text(encoding='utf-8') + '\nmine\n', encoding='utf-8')
         out = vdc._bootstrap_drift(src)
@@ -13175,35 +13236,48 @@ def check_very_deep_check_bootstrap_drift():
                       out and all(m.startswith('note') for m in out)
                       and 'README.md' in out[0], repr(out)))
 
-        # A vendored engine file edited in place: the remedy is upstream,
-        # and refreshing over it would destroy the edit.
+        # A vendored engine file edited in place: the remedy is upstream, and
+        # refreshing over it would destroy the edit. Named per file, because
+        # which file was hand-edited is the whole content of the finding.
+        dest, src = fresh('handedit')
         show = dest / 'tools' / 'precedent_show.py'
         show.write_text(show.read_text(encoding='utf-8') + '\n# local tweak\n', encoding='utf-8')
         out = vdc._bootstrap_drift(src)
-        cases.append(('a hand-edited engine file is a FINDING that says to move '
-                      'it upstream, not to refresh',
+        cases.append(('a hand-edited engine file is a FINDING that names the '
+                      'file and says to move it upstream, not to refresh',
                       any(m.startswith('FINDING') and 'precedent_show.py' in m
                           and 'hand-edited in place' in m for m in out), repr(out)))
 
-        # The same file, recorded in the manifest: a faithful vendoring of an
-        # older upstream commit, whose remedy is the opposite one.
+        # An engine file missing from a set whose engine is otherwise current
+        # is its own news: nothing explains it away.
+        dest, src = fresh('missing')
+        (dest / 'tools' / 'precedent_time.py').unlink()
+        out = vdc._bootstrap_drift(src)
+        cases.append(('a missing engine file is named on its own line when the '
+                      'engine is otherwise current',
+                      any('precedent_time.py' in m and 'does not have it' in m
+                          for m in out), repr(out)))
+
+        # The same file recorded in the manifest: a faithful vendoring of an
+        # older upstream commit. One fact, one row, whatever the file count --
+        # and a file the engine gained since folds into that same row rather
+        # than printing as a second, unrelated-looking finding.
+        dest, src = fresh('behind')
+        show = dest / 'tools' / 'precedent_show.py'
+        show.write_text('# an older upstream version\n', encoding='utf-8')
         manifest = dest / 'tools' / 'ENGINE_MANIFEST.json'
         data = json.loads(manifest.read_text(encoding='utf-8'))
         data['sha256']['precedent_show.py'] = hashlib.sha256(show.read_bytes()).hexdigest()
         manifest.write_text(json.dumps(data, indent=2), encoding='utf-8')
-        out = vdc._bootstrap_drift(src)
-        cases.append(('an engine file matching its own manifest is a FINDING '
-                      'that says to refresh',
-                      any(m.startswith('FINDING') and 'precedent_show.py' in m
-                          and 'refresh' in m and 'hand-edited' not in m
-                          for m in out), repr(out)))
-
-        # A file the generator writes and the set does not have at all.
         (dest / 'tools' / 'precedent_time.py').unlink()
         out = vdc._bootstrap_drift(src)
-        cases.append(('a generated file the set is missing is named as missing',
-                      any('precedent_time.py' in m and 'does not have it' in m
-                          for m in out), repr(out)))
+        findings = [m for m in out if m.startswith('FINDING')]
+        cases.append(('an older vendoring is ONE finding, saying refresh, '
+                      'carrying the absent file with it',
+                      len(findings) == 1 and 'refresh' in findings[0]
+                      and 'OLDER upstream vendoring' in findings[0]
+                      and 'precedent_time.py' in findings[0]
+                      and 'hand-edited' not in findings[0], repr(out)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
