@@ -4,7 +4,7 @@
      which follows Precedent INSTALL.md §0 ("Installing directly onto the
      Precedent loader"). This is the document-project variant of
      templates/AGENTS.md.loader.template: the access-restriction and persona
-     content below comes from spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md verbatim
+     content below comes from spec/CONTRIBUTOR_ACCESS.md verbatim
      (don't re-derive it), and the candidate-capture bullet comes from
      spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md. Replace <angle-bracket>
      placeholders with this project's real content; keep the section
@@ -73,47 +73,52 @@ deliverables and indexes which documents back each part of each one.
   A repo declaring several subject-scoped sets is the ordinary case now, not
   an exception.
 
-## Non-technical contributor access
+## Contributor access
 
-<!-- Verbatim from spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md's Step 3, adapted
-     only to name this project's real files. Do not weaken the wording below
-     — see that plan's own note on why. -->
+<!-- From spec/CONTRIBUTOR_ACCESS.md, adapted only to name this project's
+     real files. Do not weaken the wording below — see that plan's own note
+     on why. Rewritten 2026-09-11: this section used to give the contributor
+     GitHub's Triage or Read role, which denied them every write, the
+     documents included. -->
 
-**GitHub role — the platform-enforced boundary.** The contributor's own
-GitHub collaborator role on this repo is set to **Triage** (can comment on
-and manage Issues — enough to participate in candidate threads — but cannot
-push, merge, or touch protected files) or **Read** (view only, no Issue
-comments) if even that is too much. This only binds anything if the person
-authenticates to GitHub as themselves, not a shared org-wide connection —
-confirmed once, per project, before relying on it.
+**The line, in one sentence: a contributor writes content freely, a protected
+path needs an owner's review, and a practice is suggested by anyone and landed
+only by a listed approver.** Nothing here is keyed to a kind of person, and
+that is the design — a rule keyed to "technical" or "non-technical" needs
+something to decide which a person is, and nothing can
+([technical-describes-people](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/technical-describes-people.md)).
 
-**Session/environment configuration — the UX and defense-in-depth layer,**
-enforced independently of the GitHub role above:
+**GitHub role — Write.** The contributor is a **Write** collaborator here.
+They push branches, open pull requests and merge their own document work,
+through Claude, with `Go merge`; they never need to see git vocabulary to do
+it. This binds anything only if they authenticate to GitHub as themselves
+rather than through a shared organisation-wide connection — confirmed once,
+per project, before relying on it.
 
-- If a dedicated `environment_id` is available for the contributor,
-  configure it (or their per-session settings, or their untracked
-  `.claude/settings.local.json`) with `permission_mode` never set to
-  `bypassPermissions`, and exclude `git push`, `git merge`, and any raw
-  shell tool from the allowlist. **That is the per-person layer, and this
-  restriction belongs there rather than in this repo's tracked
-  [`.claude/settings.json`](.claude/settings.json)** — a tracked deny list
-  binds every session here, a maintainer's included. Contrast with
-  [`templates/harness/claude-code/settings.json`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/claude-code/settings.json)'s
-  stock allowlist, which includes `git push -u origin *` by default —
-  theirs should not.
-- **Persona instruction, no git/GitHub jargon, no mechanical-rule talk:**
-  restate the contributor's ideas back to them in their own words before
-  acting on anything, and route every practice idea through the candidate
-  flow below rather than talking about promotion, resident budgets,
-  `checked_by`, or any other mechanical-rule vocabulary — that's an
-  approver's business, not theirs.
+**Branch protection plus [`.github/CODEOWNERS`](.github/CODEOWNERS) — the
+boundary.** The base branch requires a pull request and a review **from code
+owners**. `CODEOWNERS` names the maintainer against `/.github/`, `/.claude/`,
+`/tools/`, `/precedent/`, `/practices/`, `/local/`, `/precedent.json`,
+`/AGENTS.md`, `/CLAUDE.md`, `/MAP.md` and `/GLOSSARY.md`. Everything else is
+content, and content is the contributor's. **`/.github/` is the one that
+cannot be left out** — a workflow file is executable code holding a token, so
+anyone who can edit one can rewrite every other protection here, `CODEOWNERS`
+itself included.
 
-**Candidate-capture flow.** When a non-technical contributor raises a
+**Session configuration — the persona, not enforcement.** In the
+contributor's own environment or session settings, never in this repo's
+tracked [`.claude/settings.json`](.claude/settings.json), which binds every
+session here including a maintainer's: `permission_mode` never set to
+`bypassPermissions`, no git or GitHub jargon, no mechanical-rule talk,
+restate their ideas back to them in their own words before acting, and route
+every practice idea through the candidate flow below.
+
+**Candidate-capture flow.** When anyone who is not a listed approver raises a
 practice idea in plain language, Claude:
 
 1. Restates it back to them in their own words to confirm before acting.
 2. Drafts a candidate with [`tools/precedent_candidate.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_candidate.py).
-   **Because a non-technical contributor is never a listed approver
+   **Because they are not a listed approver
    (`precedent-team-writing`'s `approvers.json`), this defaults to
    `precedent_candidate.py --as-issue true` against
    `precedent-team-writing`** —
@@ -121,8 +126,8 @@ practice idea in plain language, Claude:
    landing authority is watching it, per
    [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
    rule for team candidates raised by a non-approver. Use a plain individual
-   candidate file instead only if the idea is explicitly just the
-   contributor's own working style, not something to share with the team.
+   candidate file instead only if the idea is explicitly just their own
+   working style, not something to share with the team.
 3. Never mentions promotion, resident budgets, `checked_by`, or any other
    mechanical-rule vocabulary to them — that's an approver's business, not
    theirs.
@@ -196,10 +201,10 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   plain language, and take the verdict in chat.
 - **"Add project members"** — same flow as
   [`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.loader.template)'s
-  own "Add project members" section, with one addition: for a non-technical
-  contributor, grant **Triage** or **Read** (never Write) and apply the
-  "Non-technical contributor access" section above, not the default
-  Read/Write instructions.
+  own "Add project members" section, with one addition: grant **Write**, and
+  check that [`.github/CODEOWNERS`](.github/CODEOWNERS) and branch protection
+  are both in place first. Without them, Write is unrestricted — see
+  "Contributor access" above.
 
 ## Practice sources — Precedent loader (policy)
 

@@ -446,7 +446,7 @@ and there is a person who cares about one of them.
 
 ### The enforcement problem the bridge creates
 
-[spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+[spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)
 already worked this out for the sessions people open themselves, and settled
 on two independent layers: **GitHub's own collaborator role**, which is
 enforced by GitHub whatever Claude is told, and **the session's tool

@@ -847,7 +847,7 @@ _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?
        'no tracked path labels a FILE or DIRECTORY with a skill level; '
        "'technical' and 'non-technical' describe people",
        'the same label inside prose, and a path where the label is followed '
-       'by a person-noun (NONTECHNICAL_CONTRIBUTOR_ACCESS.md names a person '
+       'by a person-noun (a nontechnical-contributor-guide names a person '
        'and is correct). It reads names only -- it cannot see a per-person '
        'rule written into a shared file, which is the failure the name leads '
        'to.')

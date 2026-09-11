@@ -250,14 +250,25 @@ which is the failure this repointing exists to end — write
       before phase 7; `main`'s only three commits since the merge base are
       the bad merge, the revert, and the revert's own pull request merge,
       so there is nothing there to want.
-14. <a id="nontechnical-contributor-access"></a>**Run the non-technical-contributor access plan for real.**
-    [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+14. <a id="contributor-access"></a>**Run the contributor-access plan for real.**
+    [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)
     is drafted but not executed — it doubles as item 9's neighbor,
     [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s still-open item 4 (the
-    first end-to-end rehearsal of INSTALL.md §0). **Blocked on:** a real
-    person and repo to run it against, and Morgan adding the GitHub
-    collaborator role by hand (no tool in this repo's GitHub toolset
-    creates a collaborator invite).
+    first end-to-end rehearsal of INSTALL.md §0). **Rewritten 2026-09-11**
+    on Morgan's line — content is any contributor's, protected paths need an
+    owner's review, practices are suggested by anyone and landed by an
+    approver — replacing a Triage/Read model that denied the contributor
+    every write, documents included.
+
+    **Three of its platform assumptions are unverified and are the cheapest
+    thing to settle first**, ahead of any real person: whether a code-owner
+    review requirement leaves a documents-only pull request mergeable by its
+    author, whether branch protection is available on the plan the repo sits
+    under, and whether the person authenticates to GitHub as themselves. The
+    first one decides whether the design works at all. **Blocked on:** a real
+    person and repo for the rest of it, and Morgan adding the GitHub
+    collaborator role and branch protection by hand (no tool in this repo's
+    GitHub toolset creates a collaborator invite or a protection rule).
 15. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
     [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per
@@ -2636,7 +2647,7 @@ which is the failure this repointing exists to end — write
    review. That turned one paragraph of the document into a real open
    problem, recorded there rather than here: the bot holds one credential and
    pushes as itself, so the GitHub collaborator role that
-   [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+   [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)
    relies on as its platform-enforced layer never binds the person behind the
    thread. **Anything built here needs a write-scope allowlist in the service
    itself**; an instruction to the session is not a boundary.
@@ -2954,15 +2965,33 @@ which is the failure this repointing exists to end — write
    thread that produced the split: *"note a TODO to review the 'technical vs
    nontechnical' permissions later."*
 
-   **What the split now is.** A non-technical contributor is restricted by
+   **ANSWERED 2026-09-11, in the part that was actually blocked on him.**
+   Morgan drew the line himself: *"The dividing line I wanted to make is
+   between whether they can make practices (no, only suggest them) or other
+   'technical' changes (update vendored files, etc)"* — and, on the model the
+   item describes below, *"I think the Nontechnical users still need to
+   contribute. This is an alternative to google docs, they need to write and
+   create hand in hand with AI."* The line is now keyed to **paths and to
+   `approvers.json`, not to a kind of person**, so the two open bullets below
+   are moot rather than decided: there is no per-person restriction left for a
+   mis-set role to be a backstop against, and no forgettable per-person deny
+   list, because the boundary is `.github/CODEOWNERS` plus branch protection.
+   [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md) is the rewrite.
+   **What stays open is smaller and is named there**: the three unverified
+   GitHub behaviours (item 14 carries them), and whether the
+   identity-resolving guardrail in its "What this does not cover" section is
+   worth building at all. `strength: decided` for the line; `assented` for the
+   CODEOWNERS mechanism, which was this session's proposal.
+
+   **What the split used to be.** A non-technical contributor was restricted by
    their GitHub collaborator role (Triage or Read, never Write), which GitHub
    enforces server-side, and by their own session or environment
    configuration — a dedicated `environment_id`, per-session settings, or an
-   untracked `.claude/settings.local.json`. Nothing restricting them lives in
+   untracked `.claude/settings.local.json`. Nothing restricting them lived in
    a tracked file any more:
    [templates/document-project/](templates/document-project/)'s
    `.claude/settings.json` denies `rm` alone, which is not role-specific.
-   [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+   [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)
    Step 3 is the specification;
    [practices/technical-describes-people.md](practices/technical-describes-people.md)
    is the rule that keeps a per-person restriction out of a shared file.
@@ -2987,11 +3016,13 @@ which is the failure this repointing exists to end — write
      [documentation/HOW_TO_USE_THIS_DEVELOPERS.md](documentation/HOW_TO_USE_THIS_DEVELOPERS.md),
      `HOW_TO_USE_THIS_NONTECHNICAL` →
      [documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md](documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md).
-     [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+     [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)
      is correct as it stands — it names a contributor, who is a person, and
      the practice's own check exempts exactly that form.
 
-   **blocked-on:** Morgan — every open question here is a policy call about
+   **blocked-on:** nothing, for the policy call — answered above on
+   2026-09-11. What the original entry said, kept because it is why this sat
+   for a day: every open question here is a policy call about
    how much protection a forgettable manual step may carry, not something a
    session can settle by reading the tree. He named the reason it waits
    rather than the reason it is hard: *"it requires deeper thought of mine

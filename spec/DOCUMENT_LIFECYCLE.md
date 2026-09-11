@@ -60,7 +60,7 @@ Three incidents this standard prevents, all present in the tree today:
    opened 2026-09-03, not closed.**"*;
    [spec/SIMULATION_BRIEF.md](SIMULATION_BRIEF.md) *"**Status: approved;
    phases 1-4 (rough phasing, below) are built.**"*;
-   [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+   [spec/CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md)
    *"**Status: drafted, not executed.**"*; and the remaining 19 files
    declare nothing at all. This is precisely what
    [registry-source-of-truth](../practices/registry-source-of-truth.md)
@@ -161,7 +161,7 @@ it is a true observation of a date, and stays true forever.
 | `procedure` | A repeatable how-to for a contributor. Can become wrong. | [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md), [MOVING_PRACTICES.md](MOVING_PRACTICES.md) |
 | `brief` | What a phase or a session was handed. Finishes. | [PHASE3_BRIEF.md](PHASE3_BRIEF.md), [PHASE6_BRIEF.md](PHASE6_BRIEF.md) |
 | `record` | What a run, audit or investigation found, on a date. Never becomes wrong. | [PRELAUNCH_AUDIT.md](PRELAUNCH_AUDIT.md), [ATTENTION_CEILING.md](ATTENTION_CEILING.md) |
-| `proposal` | An intention not yet carried out. | [NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md), and this document |
+| `proposal` | An intention not yet carried out. | [CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md), and this document |
 
 ### Legal status values, by kind
 
@@ -334,7 +334,7 @@ All 24 files. `→ spec/` means it stays.
 | [ATTENTION_CEILING.md](ATTENTION_CEILING.md) | record | closed 2026-09-04 | `record/` |
 | [VERY_DEEP_CHECK.md](VERY_DEEP_CHECK.md) | record | closed 2026-09-07 | `record/` — but see the cycling note below |
 | [UNBUILT_PLAN_ITEMS.md](UNBUILT_PLAN_ITEMS.md) | record | live | `record/` |
-| [NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md) | proposal | drafted | `record/` |
+| [CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md) | proposal | drafted | `record/` |
 | [DOCUMENT_WORK_PRACTICE_CAPTURE.md](DOCUMENT_WORK_PRACTICE_CAPTURE.md) | proposal | accepted | `record/` |
 | `PREFORK_AUDIT.html` | — | — | see below |
 
@@ -492,7 +492,7 @@ reference counts, 2026-09-07: `PHASE3_BRIEF` 2, `PRIVATE_ENFORCEMENT_BRIEF`
 2, `SIMULATION_BRIEF` 2, `PHASE5_DEEPCHECK` 3, `PREFORK_AUDIT` 3,
 `DOCUMENT_WORK_PRACTICE_CAPTURE` 4, `PHASE5_BRIEF` 4,
 `PRIVATE_SETS_BRIEF` 4, `VERY_DEEP_CHECK` 4,
-`NONTECHNICAL_CONTRIBUTOR_ACCESS` 5, `PHASE6_BRIEF` 6, `PRELAUNCH_AUDIT` 6,
+`CONTRIBUTOR_ACCESS` 5, `PHASE6_BRIEF` 6, `PRELAUNCH_AUDIT` 6,
 `UNBUILT_PLAN_ITEMS` 6, `ATTENTION_CEILING` 14.
 
 *Done when:* `git grep 'spec/PHASE'` and its siblings return nothing, and
