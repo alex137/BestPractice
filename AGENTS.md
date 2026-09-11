@@ -496,6 +496,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Whether an attached practice-set source's vendored engine has gone stale, or is missing the session hooks a source is created with, and repairing either | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes and restores hooks, `--commit` commits |
 | Whether a hook this repo *declares* actually exists on disk and is executable — the failure the harness reports as nothing at all | [tools/precedent_check.py](tools/precedent_check.py) — `--only declared-hooks-exist` |
 | Whether this session's SessionStart hooks actually ran, and repairing them if not | [tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand |
+| Whether `PRECEDENT_FRESHNESS_ALSO` names repositories that are actually there, and what to set it to on this container | [tools/precedent_session_check.py](tools/precedent_session_check.py) — the row prints the corrected value; a dead entry is skipped silently by design, so nothing else reports it |
 | Whether Alex has moved `main` since the last carry onto this branch, and what changed | [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py) — printed at session start; the watermark it compares against is [tools/upstream_watermark.json](tools/upstream_watermark.json), moved with `--record` in the carry's own commit |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
@@ -787,14 +788,19 @@ gotcha every session reads is a gotcha every session pays for.
   session can have attached repositories checked even though their own hooks
   never fire — an environment variable follows a session into every
   repository it touches, the same reasoning as `PRECEDENT_COMMIT_*` for
-  identity. **Check the value before trusting it**: this environment's own
-  entry named `/home/user/precedent-individual` on 2026-09-11 while the
-  individual source actually cloned to `/root/precedent-individual`, so the
-  entry resolved to nothing and was skipped every session. A wrong path here
-  is silent by design — a config typo must not wedge a session — so the
-  hook's own note is the only evidence. Nothing else in this entry is
-  covered: the `pip install`, the path-trigger channel and the rest still
-  need doing by hand.
+  identity. **Write the path as `~/name`, never spelled out.** An individual
+  practice source lives at `$HOME/precedent-individual` and `$HOME` is `/root`
+  on some containers and `/home/user` on others, so an absolute path written
+  on one names nothing on the next — and a dead entry is skipped rather than
+  blocked on, deliberately, so the variable goes on reading as coverage while
+  covering nothing. This environment's own entry did exactly that from the day
+  it was set until 2026-09-11, naming `/home/user/precedent-individual` while
+  the clone sat at `/root/precedent-individual`. The guard expands `~`,
+  `$HOME` and `$CLAUDE_PROJECT_DIR` now, so one value is correct everywhere,
+  and `python3 tools/precedent_session_check.py` has a row that names any
+  entry still resolving to nothing and prints the value to set instead.
+  Nothing else in this entry is covered: the `pip install`, the path-trigger
+  channel and the rest still need doing by hand.
 
 - **A merge conflict in `.claude/hooks/freshness-guard.sh` locks the session
   out of every tool that could repair it, and `git` being exempt does not

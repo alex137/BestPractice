@@ -156,13 +156,47 @@ _also_resolve() {
     echo "NOTE: freshness-guard: PRECEDENT_FRESHNESS_ALSO entry '$entry' is missing a path or a base -- SKIPPED (not checked)." >&2
     return 1
   fi
+
+  # NOTHING EXPANDS A PATH THAT ARRIVES IN A VARIABLE'S VALUE. bash substitutes
+  # `~` and `$HOME` when it parses a word, never when it reads them back out of
+  # a variable, so `~/precedent-individual` set in an environment reaches this
+  # function as those literal characters and `git -C` looks for a directory
+  # with a tilde in its name.
+  #
+  # $HOME is the case that matters and the reason this exists. An individual
+  # practice source lives at $HOME/precedent-individual, and $HOME is not the
+  # same on every container -- so an absolute path written on one of them
+  # silently names nothing on the next. Measured 2026-09-11: this project's own
+  # environment carried /home/user/precedent-individual while the clone was at
+  # /root/precedent-individual, and the entry had been resolving to nothing,
+  # every session, for its whole life. Expanding makes ONE value correct
+  # everywhere, which is the only version of this that survives a fresh
+  # container (practice: durable-fix).
+  #
+  # Done by explicit substitution rather than `eval`: this value is a path, not
+  # a script, and eval on it would run whatever a mistyped entry happened to
+  # contain. ${HOME} before $HOME, or the second pattern eats the first's
+  # braces.
+  case "$path" in
+    '~') path="${HOME:-}" ;;
+    '~/'*) path="${HOME:-}${path#\~}" ;;
+  esac
+  path="${path//\$\{HOME\}/${HOME:-}}"
+  path="${path//\$HOME/${HOME:-}}"
+  path="${path//\$\{CLAUDE_PROJECT_DIR\}/$PROJECT_ROOT}"
+  path="${path//\$CLAUDE_PROJECT_DIR/$PROJECT_ROOT}"
   if [ "$path" = "$PROJECT_ROOT" ]; then
     # Already checked as the project dir; checking it twice would double every
     # warning and, in pre-write, block on the same finding twice.
     return 1
   fi
   if ! git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then
-    echo "NOTE: freshness-guard: PRECEDENT_FRESHNESS_ALSO names '$path', which is not a git repository (or is not there) -- SKIPPED (not checked), not passed." >&2
+    # The entry as WRITTEN is named alongside what it expanded to, because
+    # the two differing is the whole diagnosis when a $HOME-relative value is
+    # being read on a container whose $HOME is somewhere else.
+    local as_written=""
+    [ "$path" = "${entry%%=*}" ] || as_written=" (from '${entry%%=*}')"
+    echo "NOTE: freshness-guard: PRECEDENT_FRESHNESS_ALSO names '$path'$as_written, which is not a git repository (or is not there) -- SKIPPED (not checked), not passed." >&2
     return 1
   fi
   printf '%s\t%s\n' "$path" "$base"
