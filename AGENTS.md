@@ -822,18 +822,42 @@ gotcha every session reads is a gotcha every session pays for.
   `git merge` get the right offset without a `TZ=` prefix, and installs the
   global `core.hooksPath` backstop that refuses a bot-authored commit
   everywhere.
-  **Running it once is not enough, and this is the half that will bite you.**
-  Measured 2026-09-11: immediately after the hook, `/etc/localtime` pointed at
-  Buenos_Aires and git stamped -0300; at the start of a LATER TURN in the same
-  session it was back to `America/New_York` and -0400, with nothing having
-  asked for that. Re-running restored it, and it then held across separate
-  tool shells within that turn. **What reverts it is NOT established** — do not
-  read this as a diagnosed cause. The consequence is the operational half:
-  the identity survives (it is git config), the TIMEZONE may not, so the
-  backstop refuses on the offset alone with the author already correct —
-  `commit refused: author-date offset is '-0400'`. That refusal is the
-  mechanism working; re-run the hook, or prefix the one commit with
-  `TZ="America/Argentina/Buenos_Aires"`. It needs `PRECEDENT_COMMIT_*` in the environment or a resolvable
+  **Running it once is not enough, and there are TWO separate things that
+  undo it. Both were reproduced 2026-09-11; neither was guessed.**
+  **First, and this is the one that kept coming back:
+  `python3 tools/verify_harness.py` used to repoint the REAL container's
+  `/etc/localtime`.** Its fixtures run `commit-identity.sh`, where no identity
+  resolves, so the hook falls to its last rung -- this repo's declared
+  `fallback_timezone`, `America/New_York` -- and moved the machine's own
+  symlink to it. Controlled before/after: Buenos_Aires in, New_York out,
+  across one harness run, with the session's clock left wrong afterwards.
+  **The cost lands nowhere near the harness**: the NEXT commit is refused with
+  `author-date offset is '-0400'` while the author is already correct, which
+  reads as a fresh identity problem and is really this. Fixed by setting
+  `PRECEDENT_LOCALTIME` once for the whole run, the same way the harness
+  already sets `PRECEDENT_ALLOW_ANY_AUTHOR` for fixture commits -- the
+  identical bug, one field over. If a stale harness is around, run it as
+  `PRECEDENT_LOCALTIME=/tmp/x python3 tools/verify_harness.py`.
+  **Second, a slower one that survives the session.** The same fallback rung,
+  reached in a real session because the credential was missing, ALSO writes
+  `TZ=America/New_York` into `.claude/settings.local.json` -- **untracked and
+  gitignored**, so it shows in no diff and no review, and the harness reads
+  that `env` block BEFORE hooks run, where an explicit `TZ` beats
+  `/etc/localtime` outright. One credential-less session therefore poisons
+  every later session in that clone, invisibly. **So read that file before
+  touching any `git config`:**
+  `python3 -c "import json;print(json.load(open('.claude/settings.local.json'))['env'])"`.
+  Between them these explain why repairing the identity never held: after the
+  first repair the identity was never wrong again, and the offset was arriving
+  from a fixture that moved the machine's clock or from a variable a previous
+  session had written. **Note the asymmetry** that hid it: an individual
+  practice source carries a TRACKED `settings.json` env block naming its
+  owner's zone, so work rooted THERE is immune; a shared repository
+  deliberately names nobody, depends entirely on the hook, and is the one that
+  gets poisoned.
+  **The durable answer is `PRECEDENT_COMMIT_TZ` in the environment** -- on
+  EVERY environment sharing a name, per the twin-environment trap above -- so
+  the fallback rung is never reached at all. It needs `PRECEDENT_COMMIT_*` in the environment or a resolvable
   `identity.json`; with the variables present it needs no private repo at all.
   **Verify by effect, never by reading the config you just wrote:**
   `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
