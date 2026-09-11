@@ -520,7 +520,7 @@ def _default_remote_branch(repo_dir):
     """-> the short branch name origin/HEAD points at ('main', typically),
     or None if it can't be determined. `refs/remotes/origin/HEAD` is not set
     on every clone this tool will see -- reproduced directly on this repo's
-    own sibling checkouts of precedent-team-maintainers and
+    own sibling checkouts of precedent-team-repo-maintenance and
     precedent-individual, both attached (not `git clone`d normally) without
     it, where `git symbolic-ref --short refs/remotes/origin/HEAD` just fails
     rather than degrading -- so fall back to checking for a same-named

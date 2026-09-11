@@ -42,7 +42,7 @@ lives in the two repositories this describes.
 |---|---|---|
 | `themorgan/RepoPersonalPreferences` | **read** | The source. Its 46 rules are what gets split. Nothing needs to be written back at this stage. |
 | `themorgan/precedent-individual` | **push** | One of the two destinations. |
-| `themorgan/precedent-team-maintainers` | **push** | The other. |
+| `themorgan/precedent-team-repo-maintenance` | **push** | The other. |
 | `alex137/BestPractice`, branch `precedent-beta-v01` | **read only** | The format spec, the resolver, the harness and the blocklist template all live here, and the work cannot be done without them. |
 
 **The read-only access on the public repo is the whole point of running this
@@ -184,7 +184,7 @@ private sets** (never from here — see
 [Why this could not run from Precedent](../spec/PRIVATE_ENFORCEMENT_BRIEF.md#why-this-could-not-run-from-precedent-original-reasoning-relaxed-2026-09-01)
 for the same two structural reasons): run
 `python3 tools/precedent_resolve.py --repo <a consumer repo>` with a real
-`precedent.json` naming `precedent-team-maintainers` and a user config
+`precedent.json` naming `precedent-team-repo-maintenance` and a user config
 naming `precedent-individual`, and see what the real combined resident
 figure comes to. If either private set marked more than a practice or two
 `tier: resident`, this is very likely to actually fire — that's the point
@@ -206,7 +206,7 @@ of running it, not a sign something is wrong.
 - Both private sets hold practices in the format, parsing under the
   catalogue's own parser.
 - The person-specific handful is in `precedent-individual`, everything else in
-  `precedent-team-maintainers`, and `morgan-scope` and `bestpractice-wins`
+  `precedent-team-repo-maintenance`, and `morgan-scope` and `bestpractice-wins`
   are retired rather than moved.
 - A real `leak-blocklist.txt` exists in the individual set and
   `PRECEDENT_LEAK_BLOCKLIST` points at it.

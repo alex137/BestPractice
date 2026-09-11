@@ -119,21 +119,21 @@ branch:
   landed in `precedent-individual` with the owner's own approval, per that
   level's design. The bug-2 story above, written up as a portable practice
   for any codebase, not just this one.
-- **Team** — [`resolved-issue-note-updates`](https://github.com/themorgan/precedent-team-maintainers/blob/claude/bestpractice-deep-test-tkb03u/practices/resolved-issue-note-updates.md),
-  landed in `precedent-team-maintainers` with a real approver's name from
+- **Team** — [`resolved-issue-note-updates`](https://github.com/themorgan/precedent-team-repo-maintenance/blob/claude/bestpractice-deep-test-tkb03u/practices/resolved-issue-note-updates.md),
+  landed in `precedent-team-repo-maintenance` with a real approver's name from
   that repo's own `approvers.json`. Raised from watching
   [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md)'s own "not yet fixed" bug note go
   stale the moment this session fixed the bug it described — applied to
   itself in the same commit as the fix, immediately below.
 
-Landing the team candidate pushed `precedent-team-maintainers` to 41
+Landing the team candidate pushed `precedent-team-repo-maintenance` to 41
 practices, which immediately tripped that repo's own `no-stale-counts`
 check against its README's hand-typed "40 practices" — fixed in the same
 pass (dropped the number rather than bumping it, per that check's own rule).
 
 `precedent_detect.py restated` was also run for real across all three
 sources together (this repo, `precedent-individual`,
-`precedent-team-maintainers`) for the first time — the brief's own note
+`precedent-team-repo-maintenance`) for the first time — the brief's own note
 that it "only ever ran individual-vs-team." Found nothing, which a planted
 adversarial reword (a genuine near-duplicate, confirmed to fire) shows is a
 true negative, not a silently broken detector. That planted case is now
@@ -161,13 +161,13 @@ unnoticed since they were committed:
   anything more than noting. This session's own commit to that repo (the
   `match-parsed-id-not-prefix` landing) is authored correctly, going
   forward, per that same practice.
-- **`precedent-team-maintainers`, four merge/dev commits**: no `Session:`
+- **`precedent-team-repo-maintenance`, four merge/dev commits**: no `Session:`
   trailer. Three are GitHub-UI merge commits with no custom body (a human
   merge, structurally can't carry one without deliberate authoring); one
   (`61f2ed8`) is a real session commit that *does* carry a session link,
   just under the key `Claude-Session:` rather than the literal `Session:`
   the check's regex requires. **This is a live calibration gap, not
-  something this session judged and fixed**: [precedent-team-maintainers/practices/session-trailer.md](https://github.com/themorgan/precedent-team-maintainers/blob/claude/bestpractice-deep-test-tkb03u/practices/session-trailer.md)'s Rule
+  something this session judged and fixed**: [precedent-team-repo-maintenance/practices/session-trailer.md](https://github.com/themorgan/precedent-team-repo-maintenance/blob/claude/bestpractice-deep-test-tkb03u/practices/session-trailer.md)'s Rule
   text names only `Session:`, and this session's own attribution
   convention is `Claude-Session:` — the two have never agreed, so every
   Claude Code commit to this repo will keep tripping this check on the key
@@ -307,7 +307,7 @@ brief" and says to do it last, after everything above:
   against Morgan's real target repo rather than a
   disposable fork — see the naming discrepancy below) — that repo is
   outside this session's repository scope (only `alex137/BestPractice`,
-  `precedent-individual`, and `precedent-team-maintainers` are attached),
+  `precedent-individual`, and `precedent-team-repo-maintenance` are attached),
   so it could not be started without first requesting access to a fourth
   repo. Morgan will run this in a session coming up soon; notes for that
   session are below. **No new permission or credential is needed for the
@@ -339,10 +339,10 @@ brief" and says to do it last, after everything above:
   set existing") so a future session checks one line instead of
   re-deriving the whole judgment.
 
-## `precedent-team-maintainers` wired into `BestPractice`'s own `precedent.json` — team #1 of 2
+## `precedent-team-repo-maintenance` wired into `BestPractice`'s own `precedent.json` — team #1 of 2
 
 Real, correct, and overdue on its own merits, done at Morgan's request:
-`precedent-team-maintainers` **is** this repo's own maintaining team's
+`precedent-team-repo-maintenance` **is** this repo's own maintaining team's
 conventions (Morgan and Alex; its own README says exactly this — "one
 small group's working conventions... losing to a person's own individual
 set"), but `BestPractice`'s `precedent.json` had only ever declared the
@@ -350,7 +350,7 @@ universal source. The cross-source resident-budget cap had only ever been
 tested against a *synthetic* consumer config naming this team source,
 never `BestPractice`'s own real one.
 
-`precedent.json` now declares `precedent-team-maintainers` as a team
+`precedent.json` now declares `precedent-team-repo-maintenance` as a team
 source (path: a sibling checkout — see the config's own comment for what
 that does and doesn't assume, and the resolver's existing graceful-degrade
 contract for a machine without that sibling). Running the resolver for
@@ -358,7 +358,7 @@ real, from this checkout, with no `--repo` flag needed:
 
 ```
 resolved 94 practice(s) from 2 source(s): 0 individual, 41 team, 53 universal
-  overridden: doc-references-are-links -- team (precedent-team-maintainers) replaces universal (precedent)
+  overridden: doc-references-are-links -- team (precedent-team-repo-maintenance) replaces universal (precedent)
 resident block across all sources: ~560 of 2000 token budget (9 practice(s): ...)
 ```
 
@@ -407,7 +407,7 @@ session that actually has that repo attached, per Morgan's own call:
 - **`tools/precedent_materialize.py` is now available** for step 5 of the
   brief's own walkthrough — point `--repo`/`--user-config` at
   the target repo's real `precedent.json` (naming universal +
-  `precedent-team-maintainers`, or a real second team if one exists there)
+  `precedent-team-repo-maintenance`, or a real second team if one exists there)
   and a user config naming `precedent-individual`, materialize into the
   fork, then vendor this repo's engine `tools/*.py` alongside it (the
   already-solved half — see the tool's own docstring for the split) and

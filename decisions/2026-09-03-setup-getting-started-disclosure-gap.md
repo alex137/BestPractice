@@ -54,7 +54,7 @@ candidate/promotion/approval pipeline in `SETUP.md` and `GETTING_STARTED.md`
 now, since it is real, built, and harness-tested
 (spec/PHASE5_BRIEF.md). Rejected: that pipeline's tooling
 (`tools/precedent_candidate.py` and friends) lives in this repo and in
-`precedent-individual`/`precedent-team-maintainers`, but `SETUP.md` still
+`precedent-individual`/`precedent-team-repo-maintenance`, but `SETUP.md` still
 installs the *old*, pre-fork model into a consumer repo --
 `templates/AGENTS.md.template`'s capture-gate step, `process/upstream/`
 vendoring, no `precedent.json`, no loader. spec/PHASE5_BRIEF.md already

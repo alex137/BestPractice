@@ -24,7 +24,7 @@ actually done it once, on a real repo, for the first time.
 
 **Worked example: the project's own prior notes repository.** Everything below generalizes
 what that repo's own migration actually did on 2026-09-02, first tested
-against the real `precedent-team-maintainers` and `precedent-individual`
+against the real `precedent-team-repo-maintenance` and `precedent-individual`
 repos rather than fixtures. Its own record —
 `process/PRECEDENT_MIGRATION.md`
 (dependent repo, private; not fetchable from a BestPractice-only session) —
@@ -87,7 +87,7 @@ the loader.
      team repo (`../<team-repo-name>`) — **not** vendored. A team set that
      already has its own maintained repo (unlike a domain pack with no repo
      yet) is resolved live, the same way Precedent's own `precedent.json`
-     resolves `precedent-team-maintainers` for itself. On a hosted agent
+     resolves `precedent-team-repo-maintenance` for itself. On a hosted agent
      platform, resolving it live needs the session to actually have git
      read access to that sibling repo — step 4 below covers this gap and
      its fix together with the individual source's identical one; don't

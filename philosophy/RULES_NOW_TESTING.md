@@ -12,7 +12,7 @@ settled policy, not a finished essay, but the checklist a session in any
 of Morgan's real work is expected to follow today, revised the moment
 practice teaches something. A rule earns
 its way onto this list from the brainstorm or one of the two essays; it
-earns its way *off* — into [precedent-team-maintainers](https://github.com/themorgan/precedent-team-maintainers)
+earns its way *off* — into [precedent-team-repo-maintenance](https://github.com/themorgan/precedent-team-repo-maintenance)
 (or `precedent-individual`
 for the rare rule that's genuinely about Morgan the person, not the team),
 for automatic rollout to every project that resolves that source — only
@@ -25,7 +25,7 @@ sync workflow — it's native to this repo, the same as
 [ASSORTED_NOTES.md](ASSORTED_NOTES.md), because working out which rules are
 ready is exactly this repo's job. Nothing here is real company policy for
 another project until a session has separately gone into
-precedent-team-maintainers (or precedent-individual) and landed it there
+precedent-team-repo-maintenance (or precedent-individual) and landed it there
 (see "Promotion" below) — mentioning a rule here is not the same as
 adopting it elsewhere.
 
@@ -33,13 +33,13 @@ adopting it elsewhere.
 
 - **Trial** — being tried in real work now; not yet proven enough to port.
 - **Ready to promote** — proven; the next session touching
-  precedent-team-maintainers (or precedent-individual) should land it there.
+  precedent-team-repo-maintenance (or precedent-individual) should land it there.
 - **Withdrawn** — no longer being tried, with the reason given inline.
 - **Promoted** — already landed there. Kept here only
   as a pointer, not restated in full — full restatement would just be a
   second copy of the same rule that can drift out of sync with the first,
   the same reasoning the team practice set's own
-  [`no-duplication`](https://github.com/themorgan/precedent-team-maintainers/blob/main/practices/no-duplication.md)
+  [`no-duplication`](https://github.com/themorgan/precedent-team-repo-maintenance/blob/main/practices/no-duplication.md)
   gives for not duplicating BestPractice.
 
 ## Rules
@@ -48,7 +48,7 @@ adopting it elsewhere.
 
 ### 1. Push-Back Mode on Writing-And-Thinking Work — *Promoted*
 
-[`push-back`](https://github.com/themorgan/precedent-team-maintainers/blob/main/practices/push-back.md).
+[`push-back`](https://github.com/themorgan/precedent-team-repo-maintenance/blob/main/practices/push-back.md).
 Argue a genuine counter-case before building on a stated stance; flag a
 serious unresolved disagreement before calling a piece done. Never on
 code or other technical work.
@@ -57,7 +57,7 @@ code or other technical work.
 
 ### 2. Provider-Neutral LLM Integrations — *Withdrawn*
 
-[`llm-neutral`](https://github.com/themorgan/precedent-team-maintainers/blob/main/practices/llm-neutral.md).
+[`llm-neutral`](https://github.com/themorgan/precedent-team-repo-maintenance/blob/main/practices/llm-neutral.md).
 Build any LLM integration against a swappable model/token/base-URL
 interface; assume an OpenRouter credential absent other instruction.
 Hedges [`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset)
@@ -161,14 +161,14 @@ against. Tracked instead in [ASSORTED_NOTES.md's Open Questions](ASSORTED_NOTES.
 
 1. Mark the rule **Ready to promote** here, with a line on what proved it
    out (which sessions, what it caught or avoided).
-2. In a separate session against precedent-team-maintainers (or
+2. In a separate session against precedent-team-repo-maintenance (or
    precedent-individual, for the rare rule that's genuinely about Morgan
    the person rather than the team), land it as its own practice file in
    reading-order position among the existing rules, with its own permanent
    slug — that set's own convention for adding a rule without a
    renumbering pass across every dependent repo's citations, since
    citations use the slug, not the position
-   ([`new-rule-placement`](https://github.com/themorgan/precedent-team-maintainers/blob/main/practices/new-rule-placement.md)).
+   ([`new-rule-placement`](https://github.com/themorgan/precedent-team-repo-maintenance/blob/main/practices/new-rule-placement.md)).
 3. Come back here, mark the rule **Promoted**, and cut its entry down to a
    pointer only, per the status key above.
 4. Note the move in [../TODO.md](../TODO.md)'s decision record, same as any

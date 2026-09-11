@@ -341,7 +341,7 @@ here.
 <summary>The full entry as it stood before 2026-09-08</summary>
 
 - **`git log --format=%P` silently reports no parents at all for a commit
-  sitting at a shallow clone's boundary, even when it really has two.** Writing a mechanical check for `precedent-team-maintainers`
+  sitting at a shallow clone's boundary, even when it really has two.** Writing a mechanical check for `precedent-team-repo-maintenance`
   (a `checked_by` script that needed to tell a merge commit apart from an
   ordinary one, to exempt merges from a per-commit rule) used `%P` and
   worked perfectly against a full clone, then silently misclassified the
@@ -522,11 +522,11 @@ here.
 - **The three private practice sets cannot be attached from a session
   rooted in this repo, and it is a session-shape rule, not a permissions
   problem — so do not go hunting for the permission.** As of 2026-09-06,
-  asked to attach `themorgan/precedent-team-maintainers`,
+  asked to attach `themorgan/precedent-team-repo-maintenance`,
   `themorgan/precedent-individual` and `themorgan/precedent-team-tms` while
   working in `alex137/BestPractice`, `add_repo` refuses outright:
   *"cross-tier adds are not supported in v1: requested
-  themorgan/precedent-team-maintainers but session already has repos from
+  themorgan/precedent-team-repo-maintenance but session already has repos from
   owner(s) [alex137]"*. Everything about the surrounding evidence argues the
   other way and is misleading: `list_repos` returns all three, private, with
   `can_push: true` for this account, so access genuinely exists — it is the
@@ -753,7 +753,7 @@ here.
   `verify_harness.py` came back `1 failed` on
   *"every reachable copy of commit-identity.sh is byte-identical (3 copies
   found)"*, listing this repo's two copies in agreement and the copy in
-  the attached `precedent-team-maintainers` clone differing. The check was
+  the attached `precedent-team-repo-maintenance` clone differing. The check was
   correct that the files differed and wrong about what that meant: the
   clone had been taken hours earlier, another session had pushed to that
   repository twice since, and it was **2 commits behind**. A single

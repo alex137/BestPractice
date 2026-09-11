@@ -90,10 +90,10 @@
     "that naming it here cannot leak its existence to everyone on the team.",
     "See tools/precedent_resolve.py for the resolution and precedence rules.",
     "",
-    "The team source below is real: precedent-team-maintainers IS this",
+    "The team source below is real: precedent-team-repo-maintenance IS this",
     "repo's own maintaining team's conventions (Morgan and Alex). Declared",
     "2026-09-02 by the phase-5 deep-check follow-up -- see",
-    "spec/PHASE5_DEEPCHECK.md's 'wiring precedent-team-maintainers into",
+    "spec/PHASE5_DEEPCHECK.md's 'wiring precedent-team-repo-maintenance into",
     "BestPractice' note for what this does and does not change: it makes",
     "precedent_resolve.py (run from a checkout with a sibling clone of that",
     "repo, or precedent_materialize.py against a real checkout) correctly",
@@ -215,8 +215,8 @@
     },
     {
       "level": "team",
-      "name": "precedent-team-maintainers",
-      "path": "../precedent-team-maintainers"
+      "name": "precedent-team-repo-maintenance",
+      "path": "../precedent-team-repo-maintenance"
     },
     {
       "level": "team",

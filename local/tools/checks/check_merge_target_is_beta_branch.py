@@ -24,7 +24,7 @@ of. A repo-local practice's check belongs to the repo-local source, which
 is what this directory is.
 
 Contract, shared with every other per-source check script (the nine in
-precedent-team-maintainers, the five in precedent-individual): no
+precedent-team-repo-maintenance, the five in precedent-individual): no
 arguments; ROOT derived from this file's own location; exit 0 and print
 nothing when clean; exit 1 and print the finding plus the Rule when
 violated; exit 2 when the check cannot run at all -- reported as SKIPPED,

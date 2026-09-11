@@ -25,5 +25,5 @@ canonical, not just a code fix.
 Both keys are accepted, and the practice's Rule text was updated to name
 both explicitly rather than leaving `check_session_trailer.py`'s broader
 behavior undocumented. Landed via
-[precedent-team-maintainers#10](https://github.com/themorgan/precedent-team-maintainers/pull/10),
+[precedent-team-repo-maintenance#10](https://github.com/themorgan/precedent-team-repo-maintenance/pull/10),
 merged.

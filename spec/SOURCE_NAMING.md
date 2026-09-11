@@ -162,7 +162,7 @@ inside the repository it describes, where `local` is unambiguous.
 **Do names assume organization ownership? Open, and deliberately so.** The
 plan's own trigger for moving team sets into a GitHub organization — *once
 there is a second team* — has fired: as of 2026-09-11 this repository declares
-three, `precedent-team-maintainers`, `precedent-team-writing` and
+three, `precedent-team-repo-maintenance`, `precedent-team-writing` and
 `precedent-team-working-style`, all in a personal account. Nothing in this convention breaks either way, because `<owner>` is
 supplied by whoever owns the set and never appears in the name. If team sets
 move, the team row's `<owner>` becomes the organization and the individual

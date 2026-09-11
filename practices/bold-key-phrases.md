@@ -14,7 +14,7 @@ supersedes:  []
 overrides:   null
 added:       2026-08-31
 approved_by: "Morgan F, migrated from RepoPersonalPreferences by the private-set migration session PROMOTED to the universal catalogue 2026-09-07, Morgan F, from
-  precedent-team-maintainers. Both team sets had landed this same practice, byte
+  precedent-team-repo-maintenance. Both team sets had landed this same practice, byte
   for byte, within a day of each other -- and two sources at the same level
   defining one slug is a hard `ResolveError`, so any repo declaring both team
   sources could not resolve at all. Two different teams wanting the identical

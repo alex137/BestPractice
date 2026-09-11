@@ -841,7 +841,7 @@ coverage.
 
 Revised 2026-09-05, on Morgan's direct request, adding the missing-source
 failure and the stale-branch sweep. Both were real, reproduced, not
-hypothetical: this repo's own team source (`../precedent-team-maintainers`)
+hypothetical: this repo's own team source (`../precedent-team-repo-maintenance`)
 is declared in [precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json), yet nothing before that
 revision made a session go get the sibling clone, so a session starting in a
 fresh checkout would run the tool, see the source reported "missing" on

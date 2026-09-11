@@ -46,7 +46,7 @@ decided_by: Morgan
 Morgan asked what a brand-new, unrelated adopter of Precedent actually does
 when they have neither an individual nor a team repo yet -- every real test
 of the three-source model so far used `precedent-individual`/
-`precedent-team-maintainers`, both already populated. Research (see the
+`precedent-team-repo-maintenance`, both already populated. Research (see the
 session transcript, not repeated here) confirmed a real, self-acknowledged
 gap: `SETUP.md` step 2 says "most projects answer no, and that's a complete
 answer" with no follow-up; `templates/` had no individual/team skeleton to

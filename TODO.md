@@ -289,12 +289,12 @@ which is the failure this repointing exists to end — write
     enumeration-only engine, never wired into a gate). The enumeration also
     found something nobody had connected: the same day's earlier phase-3
     migration (v27) had already carried RPP's list into
-    `precedent-team-maintainers` as its own `deep-check` practice, hours
+    `precedent-team-repo-maintenance` as its own `deep-check` practice, hours
     before v28's "not yet inventoried" was written — so the list was never
     actually missing, only unrecognized as fulfilling this commitment, and
     left with no companion engine and no reach outside that one private
     team set. Full record, including what this means for
-    `precedent-team-maintainers`'s own `deep-check` (a team-level call, not
+    `precedent-team-repo-maintenance`'s own `deep-check` (a team-level call, not
     decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
     "Part 1, answered" section.
 18. <a id="ledger-root-commit-exemption"></a>~~**`parallel-artifact-ledger`'s root-commit exemption doesn't cover a    family's own inception commit.**~~ Found 2026-09-05: `_parallel_artifact_ledger`
@@ -407,7 +407,7 @@ which is the failure this repointing exists to end — write
     links**, 39 distinct sibling citations all still resolving. The
     `blocked-on` this item carried turned out to be wrong — nothing
     compared a materialized practice's bytes to its source; that
-    byte-identity audit is about check scripts. `precedent-team-maintainers`'
+    byte-identity audit is about check scripts. `precedent-team-repo-maintenance`'
     own light check has dropped the exemption it needed to stay green, and
     its test case for that path now requires a finding instead of silence.
 
@@ -459,7 +459,7 @@ which is the failure this repointing exists to end — write
     [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md).
 
 23. <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
-    `precedent-team-maintainers`' own `deep-check`.**
+    `precedent-team-repo-maintenance`' own `deep-check`.**
     [practices/very-deep-check.md](practices/very-deep-check.md) was
     restructured 2026-09-06 from one drift checklist into four ordered
     passes — adopter installs, whether the mechanisms tell the truth, the
@@ -473,7 +473,7 @@ which is the failure this repointing exists to end — write
     open cost something. **Blocked on:** an explicit instruction, not
     availability — the source was attached in the session that made this
     change, whose ask was scoped to BestPractice's `precedent-beta-v01`
-    alone. Any session with `precedent-team-maintainers` attached and a
+    alone. Any session with `precedent-team-repo-maintenance` attached and a
     mandate to touch it can close this.
     **Narrowed 2026-09-06:** the `overrides:` half is already ruled out —
     [practices/very-deep-check.md](practices/very-deep-check.md)'s Story
@@ -589,7 +589,7 @@ which is the failure this repointing exists to end — write
 26. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
     holding all four repositories searched by purpose and by mechanism
     across every practice body, frontmatter, check script and test:
-    exactly one duplicate, `header-caps` in `precedent-team-maintainers`,
+    exactly one duplicate, `header-caps` in `precedent-team-repo-maintenance`,
     with its own check and a two-direction test. `precedent-individual`
     had no capitalization practice at all. It was retired there per
     [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md), its check and
@@ -649,7 +649,7 @@ which is the failure this repointing exists to end — write
     is recorded here because no ledger holds it.** RepoPersonalPreferences'
     46 rule identifiers (from its own `process/personal/README.md` headings,
     cross-checked against its `MAP.md`) were diffed against 41 practices in
-    `precedent-team-maintainers`, 10 in `precedent-individual` and the
+    `precedent-team-repo-maintenance`, 10 in `precedent-individual` and the
     placeholder in `precedent-team-tms`. **43 have a live descendant** — 39
     team, 4 individual, plus `bestpractice-sync`, retired in team and active
     in individual after the 2026-09-03 move. **3 have no active descendant,
@@ -706,7 +706,7 @@ which is the failure this repointing exists to end — write
     re-measurement, 2026-09-07.** The backfill happened; this item outlived
     it and went on asserting figures that were no longer true. Every one of
     the **57** practice files across all three private sets — 42 in
-    `precedent-team-maintainers` (40 active, 2 deduplicated), 14 in
+    `precedent-team-repo-maintenance` (40 active, 2 deduplicated), 14 in
     `precedent-individual`, 1 in `precedent-team-tms` — now has a non-empty
     `## Story`, at any status. So do all 57 `## Why` sections. Nine files
     have an empty `## Detail`, which is not a violation:
@@ -733,7 +733,7 @@ which is the failure this repointing exists to end — write
     render identically — the rule is `fail-gracefully`'s second clause, and
     the finding above is what it looks like when nothing enforces it.
 
-33. <a id="team-check-cites-retired-practice"></a>~~**`precedent-team-maintainers`' `check_deep_check.py` cites a practice
+33. <a id="team-check-cites-retired-practice"></a>~~**`precedent-team-repo-maintenance`' `check_deep_check.py` cites a practice
     retired in that same set.**~~ **Resolved by reversal, 2026-09-06.** The
     premise was the bug: `deep-check` was never redundant with
     `very-deep-check` — they are unrelated rules of different kind and
@@ -746,7 +746,7 @@ which is the failure this repointing exists to end — write
 
 34. <a id="attach-private-sources"></a>**Run one session rooted at each private set — this unblocks four other
     items at once.** Established 2026-09-06 by trying it, rather than
-    assumed: all three private repos (`themorgan/precedent-team-maintainers`,
+    assumed: all three private repos (`themorgan/precedent-team-repo-maintenance`,
     `themorgan/precedent-team-tms`, `themorgan/precedent-individual`) are
     **reachable and pushable** by this account. The blocker is not access. It
     is that `add_repo` refuses a cross-owner add — a session already holding
@@ -782,7 +782,7 @@ which is the failure this repointing exists to end — write
     `alex137/*` cannot attach a `themorgan/*` repo. The session running the
     very deep check that day held, simultaneously:
     `alex137/bestpractice`, `themorgan/precedent-individual`,
-    `themorgan/precedent-team-maintainers`, `themorgan/precedent-team-tms`,
+    `themorgan/precedent-team-repo-maintenance`, `themorgan/precedent-team-tms`,
     `the project's own prior notes repository` and one further private `themorgan/*`
     consumer repo — and
     `add_repo` accepted the last of those *during* that session, with all
@@ -831,7 +831,7 @@ which is the failure this repointing exists to end — write
     reports which state a session is in.
 
 35. <a id="convert-team-set-retired-statuses"></a>*(was item 34 — two items carried that number until 2026-09-06.)* **Convert
-    `precedent-team-maintainers`' two `status: retired` practices to
+    `precedent-team-repo-maintenance`' two `status: retired` practices to
     `status: deduplicated`.** `bestpractice-sync` (rule in force at
     individual) and `header-caps` (rule in force at universal) are both
     deduplications recorded under the old vocabulary, and neither can meet
@@ -883,7 +883,7 @@ which is the failure this repointing exists to end — write
     ([cross-source-rollout](practices/cross-source-rollout.md)):** the header
     format changed, so the first regeneration in each team set produces a
     one-time diff. Expected and correct — after it, `--check` is stable.
-    **Blocked on:** `themorgan/precedent-team-maintainers` not attached this
+    **Blocked on:** `themorgan/precedent-team-repo-maintenance` not attached this
     session (`themorgan/precedent-team-tms` was also named here until it was
     retired 2026-09-10). It needs
     `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`
@@ -894,7 +894,7 @@ which is the failure this repointing exists to end — write
     `build_views.py` renders its own catalogue alone — and a universal
     practice cannot reach the set that dropped its own copy in favour of it.
     `very-deep-check` is in force in every consuming project and invisible
-    inside `precedent-team-maintainers` itself; so is
+    inside `precedent-team-repo-maintenance` itself; so is
     `headline-capitalization`, whose team-level copy that set deduplicated.
     This is the structural half of why `status:` went unhonored in three
     loading channels for so long. **A design decision, not a bug fix** — a
@@ -1122,7 +1122,7 @@ which is the failure this repointing exists to end — write
     next cross-set edit.
 
     **Follow-on, 2026-09-07: landing it in BOTH team sets made the resolver refuse.**
-    `bold-key-phrases` now exists in `precedent-team-maintainers` and
+    `bold-key-phrases` now exists in `precedent-team-repo-maintenance` and
     `precedent-team-tms`, and so does `fail-gracefully` — two same-slug practices at
     the same level, landed the same day by two sessions each doing the obviously
     right thing. `precedent_resolve` raises `ResolveError` on a source list holding
@@ -1152,7 +1152,7 @@ which is the failure this repointing exists to end — write
     tell a heading-dense page from an under-emphasized one, which is the whole
     finding — a check here would re-flag the page Morgan just fixed.
 
-    **Where it lives:** the TEAM set, `precedent-team-maintainers`, at `tier:
+    **Where it lives:** the TEAM set, `precedent-team-repo-maintenance`, at `tier:
     resident` — [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
     resolve run and [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md) both
     name it there alongside `nonblocking-questions` and `small-calls`. Being
@@ -1161,7 +1161,7 @@ which is the failure this repointing exists to end — write
 
     **Blocked on:** a session with that set on disk. This one does not have it
     ([tools/precedent_resolve.py](tools/precedent_resolve.py): team source
-    `../precedent-team-maintainers` absent, no individual config — checked on
+    `../precedent-team-repo-maintenance` absent, no individual config — checked on
     disk rather than recalled, per
     [`migrated-practices-lost-their-stories`](TODO.md#migrated-practices-lost-their-stories)'s
     own correction about blockers taken from memory). Asked to attach it
@@ -1175,12 +1175,12 @@ which is the failure this repointing exists to end — write
     **How to run it,** in this order — the order is the whole trick:
 
     1. Start a session whose **initial source** is
-       `themorgan/precedent-team-maintainers`. This is the only step that
+       `themorgan/precedent-team-repo-maintenance`. This is the only step that
        cannot be done from inside another session.
     2. `add_repo` `themorgan/precedent-individual` from there if you want
        it — same owner, so the cross-tier rule does not fire. **It is not
        part of this job.** `bold-key-phrases` is in
-       `precedent-team-maintainers` only, and team sets are siblings rather
+       `precedent-team-repo-maintenance` only, and team sets are siblings rather
        than a hierarchy, so nothing propagates between them. Sharpened
        2026-09-07 after Morgan asked whether this was one team set or all
        `precedent-team-*`. (`precedent-team-tms` was named here too until
@@ -1254,7 +1254,7 @@ which is the failure this repointing exists to end — write
   Found 2026-09-07 by the [very deep check](spec/VERY_DEEP_CHECK.md)'s
   source-shape pass, once that check stopped reporting two false positives
   alongside them. `themorgan/precedent-individual` has no
-  `config.json.sample`; `themorgan/precedent-team-maintainers` has no
+  `config.json.sample`; `themorgan/precedent-team-repo-maintenance` has no
   `leak-blocklist.txt`. Both were migrated into place rather than
   bootstrapped, so neither ever passed through
   [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),
@@ -1327,7 +1327,7 @@ which is the failure this repointing exists to end — write
   verdict.** Listed by name, with what each is ahead by, in
   [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s pass 4. Two of them
   are `claude/pre-launch-audit-fixes-7wumzx`, the same branch name in
-  `precedent-individual` (19 unlanded) and `precedent-team-maintainers` (16
+  `precedent-individual` (19 unlanded) and `precedent-team-repo-maintenance` (16
   unlanded), both last moved 2026-09-06. Either a real body of fixes that
   never landed, or branches whose work reached `main` by another route — the
   diffs do not say which.
@@ -1399,7 +1399,7 @@ which is the failure this repointing exists to end — write
   [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py) each
   name `fail-gracefully` to explain why they degrade rather than fail.
   `python3 tools/precedent_show.py fail-gracefully` exits 1: the practice
-  lives in `precedent-team-maintainers`, a private set, so no reader of this
+  lives in `precedent-team-repo-maintenance`, a private set, so no reader of this
   public repo — and no consumer that vendors this engine — can look it up.
   Nothing in [practices/](practices/) covers graceful degradation.
 
@@ -1442,7 +1442,7 @@ which is the failure this repointing exists to end — write
 
   **Blocked on:** Morgan's call on the level, and nothing else. An earlier
   version of this item also named "a session rooted at
-  `themorgan/precedent-team-maintainers`" — that was wrong, and written
+  `themorgan/precedent-team-repo-maintenance`" — that was wrong, and written
   without checking: all three private sets are attached to *this* session and
   were when it was written. The
   [AGENTS.md](AGENTS.md) gotcha it was reasoning from says `add_repo` cannot
@@ -1463,7 +1463,7 @@ which is the failure this repointing exists to end — write
   back in.
 
   **What is left to do is the sort itself**, one rule at a time, across
-  `precedent-team-maintainers`, `precedent-team-tms` and
+  `precedent-team-repo-maintenance`, `precedent-team-tms` and
   `precedent-individual`: which rules are genuinely one team's, which are
   subject-scoped and want a set of their own, and which are personal to
   Morgan rather than to any team. The test per rule: *who breaks if this is
@@ -1477,7 +1477,7 @@ which is the failure this repointing exists to end — write
   worked exactly as written.
 
   **The sort, and the count that made the case.** Of
-  `precedent-team-maintainers`' 40 practices, 19 were about something other
+  `precedent-team-repo-maintenance`' 40 practices, 19 were about something other
   than maintaining a repository. 16 went to a new `precedent-team-writing`
   (the craft of writing for a human reader: length and emphasis, when a list
   is really a list, drafting markers, citation and linking, keeping a
@@ -1516,7 +1516,7 @@ which is the failure this repointing exists to end — write
 
   **Left alone, and NOT a duplicate — this one is worth reading before the
   next audit re-raises it.** `catalogue-carries-stories` is `active` in
-  `precedent-team-maintainers` *and* `active` at universal, which every
+  `precedent-team-repo-maintenance` *and* `active` at universal, which every
   slug-overlap scan reports and `no-duplication` appears to condemn. It was
   in fact deduplicated on 2026-09-07 and **re-activated the same day**, for a
   mechanical reason the practice file now records in its own `## Story`: **a
@@ -1537,7 +1537,7 @@ which is the failure this repointing exists to end — write
   a preference between two disagreeing team sources, because nothing here
   produced two sources that disagree.
 
-- <a id="team-maintainers-is-a-roster-name"></a>**Rename `precedent-team-maintainers` for its subject.** Raised 2026-09-11,
+- <a id="team-maintainers-is-a-roster-name"></a>**Rename `precedent-team-repo-maintenance` for its subject.** Raised 2026-09-11,
   reviewing what was left in that set after the subject split. Of its 21
   active practices, 19 were about one subject — running a repository that
   vendors a practice layer: install, the two sync workflows, the drift and
@@ -1547,7 +1547,7 @@ which is the failure this repointing exists to end — write
   group of people, which is exactly what
   [source-naming](practices/source-naming.md) says goes stale the moment a
   third person joins, and that rule's own table records that no check can
-  see it — `precedent-team-maintainers` and `precedent-team-morgan-alex` are
+  see it — `precedent-team-repo-maintenance` and `precedent-team-morgan-alex` are
   indistinguishable to a scanner. The other two of the 21 were retired
   outright on 2026-09-11 (`llm-neutral`, `match-parsed-id-not-prefix`);
   neither was about maintaining a repository and no subject set exists for
@@ -1563,15 +1563,71 @@ which is the failure this repointing exists to end — write
   rather than failing loudly. Two team sources claiming one slug is a hard
   refusal, so it has to be a move, not a copy.
 
-  **Blocked on:** the subject-split patch in that set's
-  `handoff/2026-09-09-BESTPRACTICE_SUBJECT_SPLIT.md` landing here first — it
-  is still unapplied, and it edits the same `sources` block in
-  [precedent.json](precedent.json) a rename would rewrite. Rebasing a
-  seven-commit patch onto a rename is the avoidable half of this.
+  **DONE 2026-09-11**, the same day it was raised, on Morgan's instruction —
+  *"go ahead and rename the set too"*, `strength: decided`. The set is
+  `precedent-team-repo-maintenance`.
+
+  The blocker this item named was taken the other way round rather than
+  waited out: the subject-split patch in that set's
+  `handoff/2026-09-09-BESTPRACTICE_SUBJECT_SPLIT.md` is still unapplied and
+  still edits the same `sources` block, so the patch file was **deliberately
+  left carrying the old name** — rewriting strings inside a patch is how you
+  get one that applies cleanly and means something else — and its handoff
+  note now says which single hunk will conflict and how to resolve it.
+
+  **References were rewritten in the same change**, 182 of them across 61
+  files in three repositories, with two deliberate exceptions: the patch
+  above, and each set's **vendored engine** under `tools/`, which is
+  BestPractice's text and travels on its own refresh. Places worth knowing
+  about because nothing would have pointed at them:
+
+  - **`precedent-individual`'s leak blocklist.** Its repo-reference
+    allowlist had an `allow themorgan/precedent-team-maintainers` line, and
+    that allowlist is default-refuse for the whole account. Missed, every
+    reference to the new name in this public tree reads as an undeclared
+    private repository and the gate goes red on the next push. The old name
+    keeps a line of its own, because this item and that set's README record
+    the lineage on purpose.
+  - **`approvers.json`'s `team:` field**, which feeds the generated
+    `CODEOWNERS` through a content hash — so `build_codeowners.py --check`
+    failed until it was regenerated, in a file nobody would think to look at
+    for a rename.
+  - **`PRECEDENT_FRESHNESS_ALSO`** in the environment, which is not in any
+    repository and so could not be changed from here. See the next item.
+
+  **What is NOT done, and cannot be done from a session:** the GitHub
+  repository itself. No tool here renames a repository — the GitHub MCP
+  surface has `create_repository` and nothing that patches one — and
+  creating a new repository instead would have lost the set's issue and
+  pull-request history and left the account holding two. So this landed on
+  the understanding that Morgan renames it in Settings, which is what makes
+  every reference above resolve. GitHub redirects the old URL afterwards, so
+  the order is safe in one direction only: **rename first, then merge this**.
+
+- <a id="freshness-also-names-the-old-set-name"></a>**`PRECEDENT_FRESHNESS_ALSO` still names the set by its old name, and it
+  lives in the environment rather than in any repository.** Measured
+  2026-09-11 on this container:
+  `~/precedent-individual=main;/home/user/precedent-team-maintainers=main;/home/user/precedent-team-working-style=main;/home/user/precedent-team-writing=main`.
+  After the rename the second entry resolves to nothing — and
+  [AGENTS.md](AGENTS.md)'s own gotcha records that **a dead entry is skipped
+  silently by design**, so the variable goes on reading as coverage while
+  covering one repository less. Nothing else reports it except
+  [tools/precedent_session_check.py](tools/precedent_session_check.py)'s own
+  row.
+
+  Two corrections in one edit, and the second is the older bug: the path
+  should also be written `~/precedent-team-repo-maintenance`, not spelled
+  out, because `$HOME` is `/root` on some containers and `/home/user` on
+  others — the same reason that entry was wrong for days in 2026-09. Three of
+  the four entries still carry the absolute form.
+
+  **Blocked on:** Morgan, in the environment settings, on **every**
+  environment sharing a name — the twin-environment trap in the same gotcha.
+  **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
 
 - <a id="individual-copy-points-at-a-retired-slug"></a>**`precedent-individual`'s `match-parsed-id-not-prefix` points at a retired
   slug.** That practice moved from the individual set to
-  `precedent-team-maintainers` in the 2026-09-09 subject split, leaving the
+  `precedent-team-repo-maintenance` in the 2026-09-09 subject split, leaving the
   individual copy as `status: deduplicated` with `in_force_at:` naming the
   team slug — which is what
   [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md)'s status table requires:
@@ -1615,7 +1671,7 @@ which is the failure this repointing exists to end — write
   force must not be readable only through a retired one.
 
   **Blocked on:** Morgan saying whether the hesitance extends to the team
-  half. It is a one-line change either way. **Disposition:** ask.
+  half. It is a one-line change either way. **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
 
 - <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
   **unfolded 2026-09-08, at Morgan's prompting.** Folded into
@@ -1662,7 +1718,7 @@ which is the failure this repointing exists to end — write
 
     **The counter-example this tool must not break, found 2026-09-09:**
     `catalogue-carries-stories` is active at universal AND in
-    `precedent-team-maintainers`, and that second copy is load-bearing. A
+    `precedent-team-repo-maintenance`, and that second copy is load-bearing. A
     source repo consumes no catalogue, so universal's copy never reaches it
     and `precedent_check.py` only runs a check whose practice is in force
     *there* — deduplicating it switches the check off rather than deferring
@@ -1758,7 +1814,7 @@ which is the failure this repointing exists to end — write
 - <a id="consumers-need-refresh-after-promotion"></a>**A consumer that vendors an OLD universal catalogue loses a promoted
   practice at its next sync, silently.** Found 2026-09-07, immediately after
   promoting `fail-gracefully` and `bold-key-phrases` from
-  `precedent-team-maintainers` to universal.
+  `precedent-team-repo-maintenance` to universal.
 
   The shape: a consuming repo vendors universal as tracked files at a pinned
   commit, and resolves its team source live. Promotion deletes the practice
@@ -2235,7 +2291,7 @@ which is the failure this repointing exists to end — write
   doing anything else, because the missing evidence is the whole problem.
 
 - <a id="private-set-audit-branches"></a>**Two `claude/pre-launch-audit-fixes-7wumzx` branches, in
-  `precedent-individual` (19 commits) and `precedent-team-maintainers` (16),
+  `precedent-individual` (19 commits) and `precedent-team-repo-maintenance` (16),
   have not landed since 2026-09-06.** The check scripts and tests they touch
   already exist on `main`, so these are modifications rather than additions,
   and their vendored-engine half is now older than what the 2026-09-08 run
@@ -2305,7 +2361,7 @@ which is the failure this repointing exists to end — write
     and a check behind it — so this changes the rule, not just the names.
   - The names are referenced from **outside** the repositories: per-machine
     user-level config paths, `precedent.json` `path` entries, sibling-clone
-    assumptions like `../precedent-team-maintainers`, the `add_repo` calls
+    assumptions like `../precedent-team-repo-maintenance`, the `add_repo` calls
     three separate `AGENTS.md` banners instruct, and every gotcha entry that
     names one. A rename is a real sweep, and the per-container paths break
     **silently**.
@@ -2457,7 +2513,7 @@ which is the failure this repointing exists to end — write
     team source. **Still worth a clause in `small-calls` as belt-and-braces**
     — an exception naming the brainstorm state, the same way its Rule already
     carves out credentials and production. **Blocked-on:** read-only access
-    to `precedent-team-maintainers` from this session (`cross-source-rollout`).
+    to `precedent-team-repo-maintenance` from this session (`cross-source-rollout`).
     Whoever takes it should check the individual set for the same shape.
 
 46. <a id="decision-strength-private-sources"></a>**Carry `decision-strength` into the two private practice sets.** The
@@ -2476,7 +2532,7 @@ which is the failure this repointing exists to end — write
    whether one already contradicts this, particularly anything that treats a
    recorded approval as final by default.
    **Blocked-on:** read-only access to `precedent-individual` and
-   `precedent-team-maintainers`, neither of which this session could attach
+   `precedent-team-repo-maintenance`, neither of which this session could attach
    (`add_repo` refused with *"cross-tier adds are not supported in v1"*)
    (`cross-source-rollout`).
 
@@ -2750,7 +2806,7 @@ which is the failure this repointing exists to end — write
    Open pull requests carry the work, each awaiting an approver's yes per
    that set's own `approvers.json` — none was merged, correctly:
    `precedent-individual` #60, `precedent-team-writing` #4,
-   `precedent-team-maintainers` #36, `precedent-team-tms` #16,
+   `precedent-team-repo-maintenance` #36, `precedent-team-tms` #16,
    `precedent-team-working-style` #4.
 
    **The audit widened past what this item asked**, and was worth it. It
@@ -2758,7 +2814,7 @@ which is the failure this repointing exists to end — write
    all five, and found **eight more instances in sets nobody had
    suspected** — the item's own reasoning ("found because it fired, not
    because anything looked for it") applied to itself. Among them:
-   `check_light_check.py` in `precedent-team-maintainers`, whose §1-only
+   `check_light_check.py` in `precedent-team-repo-maintenance`, whose §1-only
    link exemption produced **174 unactionable findings inside the mirror**
    in a §0 fixture, 0 after; and four checks across three sets that printed
    `SKIPPED` and returned exit 0, which the runner recorded as a PASS —
@@ -3255,7 +3311,7 @@ which is the failure this repointing exists to end — write
    reaches a new set through
    [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),
    and reaches an existing one through nothing: `precedent-individual`,
-   `precedent-team-maintainers`, `precedent-team-writing` and
+   `precedent-team-repo-maintenance`, `precedent-team-writing` and
    `precedent-team-working-style` all generate views and all carry no gate.
    The work in each is one file copied to `.github/workflows/views-drift.yml`
    plus one pull request; `python3 tools/precedent_bootstrap_source.py
@@ -3282,7 +3338,7 @@ which is the failure this repointing exists to end — write
    **Closed 2026-09-11 — landed in all four.** Verified from this session by
    reading each set's own `origin/main`, not by being told:
    `.github/workflows/views-drift.yml` is present in `precedent-individual`
-   (its PR #76), `precedent-team-maintainers` (#38),
+   (its PR #76), `precedent-team-repo-maintenance` (#38),
    `precedent-team-writing` (#7) and `precedent-team-working-style` (#10),
    each alongside a vendored-engine refresh, so the gate runs against a
    `build_views.py` that writes the corrected header rather than the old one.

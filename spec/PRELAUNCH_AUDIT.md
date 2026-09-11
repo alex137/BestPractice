@@ -30,7 +30,7 @@ describes and running the checks on it**:
 
 - a scratch repository installed per [INSTALL.md](../INSTALL.md) §0
   (Precedent loader, fresh repo),
-- the same with the real `precedent-team-maintainers` set attached,
+- the same with the real `precedent-team-repo-maintenance` set attached,
 - a scratch repository on the classic §1 `process/upstream/` layout, then
   walked through [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)
   steps 3, 7 and 8.
@@ -55,7 +55,7 @@ Grouped by what an adopter would have hit.
 one, and [spec/PRIVATE_ENFORCEMENT_BRIEF.md](PRIVATE_ENFORCEMENT_BRIEF.md)
 explained how to write one — and then no command invoked them. A consuming
 repo held **fourteen real, tested check scripts** (nine in
-`precedent-team-maintainers`, five in `precedent-individual`) that never
+`precedent-team-repo-maintenance`, five in `precedent-individual`) that never
 ran. The enforced channel was live for the universal catalogue and hollow
 for exactly the sources an adopting team writes for itself.
 
@@ -256,7 +256,7 @@ run prompted on every single run.
    sibling citation, an external URL, a link that already resolves, and a
    link already broken at the source alone. Verified against a real
    four-source install: 0 broken links, 39 distinct sibling citations still
-   resolving. `precedent-team-maintainers`' light check dropped the
+   resolving. `precedent-team-repo-maintenance`' light check dropped the
    exemption it needed to stay green, and its test for that path now
    requires a finding instead of silence.
 4. ~~**Nine links pointed at headings that no longer exist.**~~ **Done.**
@@ -556,7 +556,7 @@ acted on where it runs, and whether it has a two-direction test.
   that must never be true here.
 - **The team's nine checks do not run in this repo, and that is a real
   gap, not a bug.** `precedent.json` declares
-  `precedent-team-maintainers` as an in-force team source, but
+  `precedent-team-repo-maintenance` as an in-force team source, but
   `register_materialized_checks()` can only reach scripts that were
   materialized into `tools/checks/` — and Precedent never materializes,
   because `build_views.py` deliberately stays single-source here. Run by
@@ -670,7 +670,7 @@ was worse than expected.**
 ### What was measured
 
 `precedent.json` declares three sources in force in this repo — universal,
-`precedent-team-maintainers`, and the repo-local set — and the user-level
+`precedent-team-repo-maintenance`, and the repo-local set — and the user-level
 config adds `precedent-individual`. Together they put **114 practices in
 force**. Of those, **43 are reachable by no loading channel at all**: not in
 the resident block, not in the occasion index, no gate, and no check this repo
