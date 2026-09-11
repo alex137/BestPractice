@@ -264,6 +264,38 @@ run, with the reason: their integration branch is `main`, this session is
 confined to a working branch in each, and triaging another person's
 backlog is not a review's job.
 
+## What Each Part of the Check Returned, and What It Cost
+
+Every run appends itself to
+[../record/very-deep-check-ledger.json](../record/very-deep-check-ledger.json)
+— one row per section: what it found, what it printed (in tokens, the same
+words × 1.3 estimate used everywhere else here), and how long it took — and
+prints the cross-run read at the end of the run. **Never hand-edit it**: it
+is written by
+[../tools/very_deep_check.py](../tools/very_deep_check.py), and a figure
+typed into it by hand is a figure nothing measured.
+
+**Record each pass here as you finish it, and in the ledger**:
+
+```
+python3 tools/very_deep_check.py --record-pass '1=done,findings=2,tokens=140000,note=…'
+```
+
+The passes are where this check spends most of what it costs, and no tool
+can measure them — so an absent figure is recorded as absent rather than
+estimated.
+
+**The answers to what the ledger names as quiet go below, in this table**,
+in the run that named them. Three answers, none automatic: **keep** (say
+why), **cheapen** (same check, less printed), **retire** (the practice's
+Detail loses the bullet, and
+[decommission-deletes-files](../practices/decommission-deletes-files.md)
+applies to whatever it owned).
+
+| Section | Run that asked | Answer | Why |
+|---|---|---|---|
+| *(none yet — the ledger needs several runs before it asks)* | | | |
+
 ## Runs so far
 
 | Run | Passes completed | What it changed |
