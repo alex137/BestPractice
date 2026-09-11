@@ -53,6 +53,13 @@ Usage:
       [--write-repo-config PATH]     # merge the team source into
                                       # PATH/precedent.json (default: cwd)
 
+  precedent_bootstrap_source.py --verify PATH [--level individual|team]
+                                      # report whether an EXISTING set still
+                                      # has the shape this tool gives a new
+                                      # one; writes nothing. The level is read
+                                      # off the set unless you name it. Exit 1
+                                      # if anything is missing.
+
   --force true    # allow writing into a non-empty --dest
 
 Exit: 0 on success (prints the resulting config wiring either way); 1 on a
@@ -747,8 +754,54 @@ def _parse_args(argv):
     return args
 
 
+def _infer_level(path):
+    """-> 'team' | 'individual' | None, read off the set itself.
+
+    Asking the operator for --level on a set that already exists is asking
+    them to restate something the directory already says: a team set carries
+    approvers.json (build_codeowners.py refuses one without it), an
+    individual set carries an identity or a config naming its owner. Guessing
+    wrong is cheap to notice and never destructive -- verify() only reads.
+    """
+    if (path / 'approvers.json').exists():
+        return 'team'
+    for name in ('identity.json', 'config.json', 'config.json.sample'):
+        if (path / name).exists():
+            return 'individual'
+    return None
+
+
 def main():
     args = _parse_args(sys.argv[1:])
+
+    # --verify PATH: report whether an EXISTING set still has the shape this
+    # tool gives a new one. verify() had no command-line route until
+    # 2026-09-11, while three documents told operators to run one -- a
+    # command named in a document and absent from the tool, which is the
+    # same defect the views-drift work landed that day was fixing one level
+    # up (practice: cite-the-incident).
+    if args.get('--verify'):
+        target = pathlib.Path(args['--verify']).expanduser()
+        if not target.is_dir():
+            sys.exit(f"precedent_bootstrap_source FAIL: --verify {target} is "
+                     f"not a directory")
+        level = args.get('--level') or _infer_level(target)
+        if level not in LEVELS:
+            sys.exit(f"precedent_bootstrap_source FAIL: cannot tell whether "
+                     f"{target} is a team or an individual set (no "
+                     f"approvers.json, identity.json or config.json) -- pass "
+                     f"--level {sorted(LEVELS)} explicitly")
+        missing = verify(level, target)
+        if not missing:
+            print(f"precedent_bootstrap_source --verify OK: {target} has the "
+                  f"shape of a complete {level} set")
+            return 0
+        print(f"precedent_bootstrap_source --verify FAIL: {target} is missing "
+              f"{len(missing)} thing(s) a complete {level} set has:")
+        for m in missing:
+            print(f"  - {m}")
+        return 1
+
     level = args.get('--level')
     name = args.get('--name')
     dest = args.get('--dest')

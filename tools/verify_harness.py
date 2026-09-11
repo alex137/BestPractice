@@ -117,6 +117,27 @@ CREDENTIAL_ENV_VARS = ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL')
 for _var in CREDENTIAL_ENV_VARS:
     os.environ.pop(_var, None)
 
+# A THIRD INSTANCE, three days later, and it turned the whole branch red on
+# any machine that has the also-list set. PRECEDENT_FRESHNESS_ALSO names
+# OTHER repositories the freshness guard should check
+# (.claude/hooks/freshness-guard.sh), and a fixture that runs the guard
+# against its own temporary clone inherits it -- so the guard walked out of
+# the fixture into this container's real attached practice sets, could not
+# fetch one of them (no credential for a private remote), and blocked. The
+# check reported "pre-write does not block a branch absent from origin
+# (exit 2)" in both copies: a correct guard, a correct absent-branch
+# NOTE printed just above it, and a block belonging to a repository the
+# fixture had never heard of.
+#
+# Measured 2026-09-11, same tree, no code change: `2 failed` with the
+# variable set, and exit 0 from the same guard call under `env -u
+# PRECEDENT_FRESHNESS_ALSO`. A fixture exercising the guard owns which
+# repositories it checks exactly as much as it owns the clone it built
+# (practice: fixture-owns-its-state) -- and the only thing that can own an
+# ambient list for every fixture, including the ones written next month, is
+# this block.
+os.environ.pop('PRECEDENT_FRESHNESS_ALSO', None)
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -10047,6 +10068,35 @@ def check_views_drift_gate_reaches_a_source_set():
         cases.append(('verify() names a set that has no views-drift workflow',
                       any('views-drift.yml' in m for m in missing),
                       '; '.join(missing)))
+
+        # The CLI route, pinned because three documents name it. verify()
+        # was reachable only from this harness until 2026-09-11, while
+        # GITHUB_ACTIONS.md, TODO.md and the templates README all told
+        # operators to run `--verify <path>` -- a command named in a
+        # document and absent from the tool, which is the defect the rest
+        # of this check exists to stop, one level up.
+        r = subprocess.run([sys.executable,
+                            str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                            '--verify', str(newset), '--level', 'individual'],
+                           capture_output=True, text=True)
+        cases.append(('`--verify PATH` exists, exits non-zero on the '
+                      'incomplete set, and names what is missing',
+                      r.returncode == 1 and 'views-drift.yml' in r.stdout,
+                      (r.stdout + r.stderr).strip()))
+        # The control: restoring the workflow has to change the report, or
+        # the case above is satisfied by a flag that fails on everything.
+        # This fixture is a bare .github/ directory rather than a finished
+        # set, so it stays incomplete either way -- what is asserted is that
+        # the views-drift line, and only it, goes away.
+        before = set(pbs.verify('individual', newset))
+        pbs._install_workflows(newset)
+        after = set(pbs.verify('individual', newset))
+        gone = before - after
+        cases.append(('restoring the workflow removes that line from '
+                      '`--verify` and nothing else',
+                      len(gone) == 1 and 'views-drift.yml' in gone.pop()
+                      and not (after - before),
+                      f"before={len(before)} after={len(after)}"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -12121,10 +12171,32 @@ def check_fixtures_own_the_credential_environment():
                   r3.stdout.strip() == 'fixture-planted',
                   r3.stdout + r3.stderr))
 
+    # THE SAME SHAPE, THIRD INSTANCE: the freshness also-list. Planted and
+    # measured exactly like the credential pair above, because the failure it
+    # caused was worse -- a guard fixture inheriting it walked out of its own
+    # temporary clone into this container's real attached repositories and
+    # blocked on one it could not fetch, turning two checks red on every
+    # machine that has the variable set and leaving them green everywhere
+    # else.
+    r4 = subprocess.run(
+        [sys.executable, '-c',
+         f'import sys; sys.path.insert(0, {probe_dir!r}); '
+         'import os, verify_harness as vh; '
+         'print(os.environ.get("PRECEDENT_FRESHNESS_ALSO"))'],
+        capture_output=True, text=True,
+        env={**os.environ,
+             'PRECEDENT_FRESHNESS_ALSO': '/planted/repo=main'})
+    tail4 = (r4.stdout or '').strip().splitlines()[-1:] or ['']
+    cases.append(('with PRECEDENT_FRESHNESS_ALSO planted, importing this '
+                  'module removes it too -- a guard fixture checks the '
+                  'repository it built and no other',
+                  r4.returncode == 0 and tail4[0] == 'None',
+                  r4.stdout[-400:] + r4.stderr[-400:]))
+
     bad = [(c[0], c[2]) for c in cases if not c[1]]
-    check(f'no fixture inherits the private-source credential from the '
-          f'container ({len(cases)} stated cases, both variables planted '
-          f'being the controlling case)',
+    check(f'no fixture inherits the private-source credential or the '
+          f'freshness also-list from the container ({len(cases)} stated '
+          f'cases, the planted variables being the controlling ones)',
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 

@@ -42,6 +42,14 @@ assume a session has:
   a target directory, filling in the owner's name (and, for a team, its
   first approver's name and GitHub handle) wherever the skeleton names a
   placeholder.
+- **Reports an EXISTING set's shape** — `python3
+  tools/precedent_bootstrap_source.py --verify PATH`, new 2026-09-11. It
+  writes nothing, reads the level off the set (`--level` overrides), lists
+  everything a complete set of that level has and this one does not, and
+  exits 1 if the list is non-empty. The underlying check had existed since
+  2026-09-06 and was reachable only from
+  [`tools/verify_harness.py`](../tools/verify_harness.py), while three
+  documents already told operators to run a flag that did not exist.
 - **Installs the generated-views drift gate** —
   [`templates/github-actions/views-drift.yml.template`](../templates/github-actions/views-drift.yml.template)
   as the new set's `.github/workflows/views-drift.yml`, new 2026-09-11. A set

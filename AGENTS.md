@@ -1037,6 +1037,16 @@ gotcha every session reads is a gotcha every session pays for.
   both variables in a subprocess, imports the module, and asserts they come
   back gone. Neutering the scrub turns three of its four cases red, the
   planted one included — so it is a control, not a restatement.
+  **Third instance, 2026-09-11, `PRECEDENT_FRESHNESS_ALSO`** — it names
+  OTHER repositories the freshness guard checks, so a guard fixture inheriting
+  it walked out of its own temporary clone into this container's real attached
+  sets, could not fetch a private one, and blocked. Both guard copies reported
+  *"pre-write does not block a branch absent from origin (exit 2)"*, red on any
+  machine with the variable and green everywhere else. **The tell is a block
+  naming a repo or branch the fixture never created.** Scrubbed at the head of
+  [tools/verify_harness.py](tools/verify_harness.py) with the other two, and
+  planted-and-asserted by `check_fixtures_own_the_credential_environment`.
+
   **The generalization is worth more than the fix: an ABSENCE is state
   too.** A fixture constructing "no credential is available" owns that
   absence exactly as much as it owns a file it wrote, and owning it means
