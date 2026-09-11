@@ -3238,16 +3238,16 @@ which is the failure this repointing exists to end — write
 
    It showed up as `verify_harness.py`'s **cross-source resident budget**
    check failing its FIRST direction — *"this repo's own resolved set was
-   wrongly flagged over budget"*. The wording is now wrong twice over: the
-   flag is correct, and the fixture is not measuring "this repo's own set"
-   at all. It calls `precedent_resolve.py --repo <this repo>` with the
-   container's real sources attached, so its result depends on which machine
-   it runs on — the
+   wrongly flagged over budget"*. That wording was wrong twice over: the
+   flag was correct, and the fixture was not measuring "this repo's own set"
+   at all. It called `precedent_resolve.py --repo <this repo>` with the
+   container's real sources attached, so its result depended on which machine
+   it ran on — the
    [fixture-owns-its-state](practices/fixture-owns-its-state.md) shape, one
    level out from the three instances already in
    [AGENTS.md](AGENTS.md)'s gotchas. Fixing the fixture and fixing the
-   overflow are separate pieces of work and neither substitutes for the
-   other.
+   overflow were separate pieces of work and neither substituted for the
+   other; the first is done.
 
    **Morgan picked, 2026-09-11 (`decided`): `small-calls` comes out of the
    resident block.** Measured with the change applied to the attached clone
@@ -3323,9 +3323,11 @@ which is the failure this repointing exists to end — write
    [`views-drift-gate-rollout-to-existing-sets`](TODO.md#views-drift-gate-rollout-to-existing-sets).
 
    **This item closes when a demotion lands and `precedent_resolve.py` stops
-   printing `OVER BUDGET`.** The fixture defect described above is separate
-   and stays open either way — and gets quieter rather than fixed, since it
-   will then answer "clean" while still reading the container's real sources.
+   printing `OVER BUDGET`.** The fixture defect is no longer part of that:
+   it was fixed the same day (see "The fixture half is fixed" above), so the
+   check now measures the mechanism on synthetic sources and would not have
+   gone quiet on a clean-looking answer. The two remaining pushes are the
+   whole of what is left.
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — both reductions are decided; what remains is two pushes, in two repositories no session rooted here can write to.
 
