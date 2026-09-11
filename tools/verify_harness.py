@@ -30,6 +30,31 @@ import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tim
 # coverage is not weakened by it.
 os.environ.setdefault('PRECEDENT_ALLOW_ANY_AUTHOR', '1')
 
+# THE SAME BUG, ON THE CLOCK INSTEAD OF THE AUTHOR, and it escaped the fix
+# above by one field. commit-identity.sh repoints `/etc/localtime` so a
+# session's commits carry the declared offset without a `TZ=` prefix. In a
+# FIXTURE there is no declared identity to resolve, so the hook falls to the
+# last rung -- precedent.json's `fallback_timezone`, America/New_York -- and
+# repoints the REAL container's system clock to it. Two call sites already
+# pass PRECEDENT_LOCALTIME to redirect that write; anything reaching the hook
+# by another path did not, and silently reset the machine.
+#
+# Measured 2026-09-11, before/after on a controlled run: `/etc/localtime` went
+# from America/Argentina/Buenos_Aires to America/New_York across one
+# `verify_harness.py` invocation, with the session's own clock left wrong
+# afterwards. The cost is not the harness's -- it is the NEXT commit in the
+# session, refused by the backstop for `author-date offset is '-0400'` with
+# the author already correct, which reads as a fresh identity problem and is
+# really this. It cost a day of re-fixing git config that was never wrong.
+#
+# Set here for the same reason and in the same way: nothing in a temporary
+# directory owns the machine's clock. The two checks that exercise the hook's
+# own timezone behaviour set their own PRECEDENT_LOCALTIME and are unaffected.
+# (practice: fixture-owns-its-state -- one level further out, since the state
+# the fixture was mutating belonged to the container rather than to git.)
+os.environ.setdefault(
+    'PRECEDENT_LOCALTIME', '/tmp/precedent-harness-localtime')
+
 # Same problem, opposite direction: the harness must OWN the identity its
 # fixtures assert on, instead of inheriting whatever the session exports.
 #
