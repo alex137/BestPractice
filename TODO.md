@@ -3211,10 +3211,25 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-62. <a id="cross-source-resident-block-over-cap"></a>**The resident block is
+62. <a id="cross-source-resident-block-over-cap"></a>~~**The resident block is
    over its 2,000-token cap once the private sources resolve, and has been
-   since before this item was written.**
-   `python3 tools/precedent_resolve.py --repo . --json` reports
+   since before this item was written.**~~ **CLOSED 2026-09-11: both demotions
+   landed, and the block measures 1,695 tokens across 15 practices,
+   `over_budget: false`.**
+
+   `buenos-aires-dates` is `tier: on-demand` on `precedent-individual`'s
+   `main`, and `small-calls` is `tier: on-demand` on
+   `precedent-team-working-style`'s `main`. **Neither practice moved
+   repository and neither was deleted** — both are `status: active`, in the
+   same file in the same set they have always been in, with
+   `buenos-aires-dates` keeping its `checked_by` script and both keeping
+   `applies_to: ["**"]`. The only field that changed is `tier:`, so each is
+   now reached through the occasion index and the path-trigger channel
+   instead of being loaded into every session before it starts.
+
+   The original finding follows, kept for what it measured.
+
+   `python3 tools/precedent_resolve.py --repo . --json` reported
    **2,047 tokens across 17 resident practices** on a session where
    `precedent-individual` and the three `precedent-team-*` sets are attached
    — seven of the seventeen come from those sources
@@ -3338,13 +3353,11 @@ which is the failure this repointing exists to end — write
    blocker or re-raise the budget as a problem. The overage that opened this
    item is gone.
 
-   **This item closes when `small-calls` lands too** — the budget half of its
-   closing condition is already met. The fixture defect is no longer part of
-   it either: that was fixed the same day (see "The fixture half is fixed"
-   above), so the check now measures the mechanism on synthetic sources and
-   would not have gone quiet on a clean-looking answer.
+   **Closed.** Both pushes landed on 2026-09-11, in their own repositories,
+   by sessions rooted at each. Measured here with every source clone pulled
+   current: 1,695 tokens across 15 resident practices, `over_budget: false`,
+   and the full harness at `0 failed`.
 
-   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — both reductions are decided and one has landed; what remains is one push, in a repository no session rooted here can write to.
 
 63. <a id="source-clone-keeps-no-credential"></a>~~**A private source clone carries no credential helper, so every later
     fetch of it fails — and the freshness guard blocks on that.**~~
