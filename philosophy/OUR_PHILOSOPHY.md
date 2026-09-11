@@ -43,9 +43,10 @@ The same five steps repeat every time, in order:
 "work better with AI" advice makes one person faster at their own
 work. This repo assumes something different: several people solving the
 same problem together, with chat as what connects them, not a private
-assistant each person also has. (One part of
-[CORE_PILLARS.md](CORE_PILLARS.md)'s case for
-what makes this approach unique —
+assistant each person also has, where joining costs a repository access
+rather than a day of setup ([`cloud-not-local`](AI_GOVERNANCE_TO_COCREATE.md#cloud-not-local)). (One
+part of [CORE_PILLARS.md](CORE_PILLARS.md)'s case for what makes this
+approach unique —
 [`collaboration-not-just-production`](CORE_PILLARS.md#collaboration-not-just-production).)
 
 ## Working With the Model
@@ -105,13 +106,13 @@ never left unremarked. This repo's team and individual practice sources
 [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)) run that mechanism continuously
 ([`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction);
 [practice 20](../PRACTICES.md#20-mistakes-become-rules-root-cause-the-miss-then-encode-the-prevention)
-is the same move done by hand). It is what makes
+is the same move done by hand). It makes
 [`decisions-carry-their-situation`](#decisions-carry-their-situation)
 affordable and
 [`explicit-ownership-not-hidden-in-the-model`](#explicit-ownership-not-hidden-in-the-model)
-possible at all; the reason it beats documenting by hand is
-[`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing),
-and the payoff is
+possible, beats documenting by hand for
+[`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing)'s
+reason, and pays off as
 [`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented).
 
 <a id="decisions-carry-their-situation"></a>
@@ -126,8 +127,10 @@ BestPractice already requires this
 capture is the
 agents' job, pulled from the work as it happens
 ([`rules-generated-automatically`](#rules-generated-automatically)'s
-rule extraction). What it prevents, concretely, is
-[`situation-heads-off-confusion`](REASONS_WHY.md#situation-heads-off-confusion).
+rule extraction). It prevents
+[`situation-heads-off-confusion`](REASONS_WHY.md#situation-heads-off-confusion), and a
+decision carrying its case is one worth raising unprompted later
+([`active-resurfacing`](AI_GOVERNANCE_TO_COCREATE.md#active-resurfacing)).
 
 ## Visible and Owned, Not Hidden
 

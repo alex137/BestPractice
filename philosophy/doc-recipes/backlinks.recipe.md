@@ -42,6 +42,15 @@ both ways.
   the three `hire-for-drive` hires for" three times before being rewritten.
   If a return reference says nothing but *this links here*, it is the
   generated line again with extra steps.
+- **The reference rides an existing sentence; it does not get its own.**
+  Attach it where the item already says the thing — *"it sounds technical
+  but is `politics`"*, *"the Ghost can't climb a ladder or smell burnt
+  wiring (`sense-of-smell`)"* — rather than appending a clause that restates
+  the relationship. The first round did the latter and grew
+  [../COMPANY_BUILDING_RULES.md](../COMPANY_BUILDING_RULES.md) by a quarter
+  for no new argument, which Morgan read as the sections having become too
+  long. **A connection that cannot be carried by a sentence already there
+  usually needs a longer look at whether the two items are really related.**
 - **An item nothing cites gets no sentence, and that is allowed.** Do not
   manufacture a citation to fill the gap
   ([no-invented-specifics](../../practices/no-invented-specifics.md)). The

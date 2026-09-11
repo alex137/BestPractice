@@ -26,7 +26,7 @@ this page doesn't replace them.*
 - <a id="obsessive-ownership"></a>**Obsessive ownership.** Only someone who truly, deeply cares hunts down
   every last thing that's wrong — a bug, a sloppy paragraph, a process that
   half-works — with the intensity and creativity that comes from treating it
-  as theirs.
+  as theirs ([`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word) is the narrow case).
 - <a id="boundary-pushing"></a>**Boundary pushing.** AI tends to under-push the boundaries a situation
   actually calls for, held back by rules built strict on purpose; a human
   still has to decide when to lean past them.
@@ -35,7 +35,8 @@ this page doesn't replace them.*
 
 - <a id="accountability"></a>**Accountability.** Landing on one name in one room, rather than a
   process nobody can point to
-  ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
+  ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)); at the scale of a single
+  sentence, [`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word).
 - <a id="judgment"></a>**Judgment.** Deciding what gets built and whether it works
   ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute));
   judgment when the rules run out and somebody still has to decide
@@ -43,16 +44,20 @@ this page doesn't replace them.*
 - <a id="actually-managing"></a>**Actually managing.** Somebody has to own a thing while it runs:
   noticing the drift before a customer does, pushing it further than it
   would push itself, pulling it back before it overreaches
-  ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
+  ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute); as a
+  staffed role, [`manager-of-agents`](COMPANY_BUILDING_RULES.md#manager-of-agents)).
 - <a id="verification"></a>**Verification.** Machines can only go so far in making sure that what
-  they are doing is correctly reflected in the real world.
+  they are doing is correctly reflected in the real world — most of all
+  where the real world is physical
+  ([`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge)).
 - <a id="trade-offs-and-hard-decisions"></a>**Trade-offs and hard decisions.** Nothing worth choosing comes free:
   speed against care, this client against that one, the person you like
   against the person who is right. Somebody has to pick, knowing what the
   pick costs, and carry it afterwards.
 - <a id="dirtiness-of-real-life"></a>**Managing the dirtiness of real life.** When you leave the digital world,
   and more often than not when you're on it, very little works smoothly or
-  the way it seems to "on paper".
+  the way it seems to "on paper" — the frontier
+  [`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge) is about reaching.
 
 ### People
 
@@ -65,24 +70,33 @@ this page doesn't replace them.*
   [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) screens for
   it rather than for output.
 - <a id="politics"></a>**Politics.** Any non-trivial team runs on politics as much as on org
-  charts; reading it and managing it is a human job.
+  charts; reading it and managing it is a human job. Every dark process is
+  dark for a political reason
+  ([`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes)).
 - <a id="sense-of-smell"></a>**Sense of smell.** Understanding how reality actually plays out, past
   anything a machine's formal analysis can show: *this vendor is sketchy*,
-  *those guys are always in disasters*, *we just don't get along*.
+  *those guys are always in disasters*, *we just don't get along*. Sometimes
+  literal — the Ghost can't smell burnt wiring
+  ([`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge)) — and the general case is
+  [`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss).
 
 ### The Intangible
 
 - <a id="questions"></a>**Questions.** Asking the right one at the right time may be the hardest
-  of the skills that matter.
+  of the skills that matter; [`three-questions`](COMPANY_BUILDING_RULES.md#three-questions) is the
+  drillable substitute.
 - <a id="taste"></a>**Taste.** Catching the one paragraph in twenty that's quietly wrong
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human);
   [`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
-  The bottleneck
-  [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) is really
-  about: judging fast, not producing.
+  The bottleneck [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) is really about:
+  judging fast, not producing. A model can hand it a starting point by
+  flagging its own weak claims
+  ([`non-uniform-confidence`](AI_GOVERNANCE_TO_COCREATE.md#non-uniform-confidence)).
 - <a id="instinct"></a>**Instinct.** Reading a room, sensing what a client meant but didn't
   say, pushing someone harder when the moment calls for it
-  ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best)).
+  ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best));
+  the answer that felt off and passed every check
+  ([`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss)).
 - <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).

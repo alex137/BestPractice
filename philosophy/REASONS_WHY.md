@@ -16,7 +16,8 @@ The reasoning and discarded options in a private chat window leave with
 it. Doing that same thinking in the open turns it into information the
 company keeps
 ([`protocols-generated-not-just-documented`](#protocols-generated-not-just-documented)
-below).
+below), in state that outlives the session
+([`durable-state-default`](AI_GOVERNANCE_TO_COCREATE.md#durable-state-default)).
 
 <a id="owned-rules-outlast-the-chat"></a>
 
@@ -35,7 +36,8 @@ own.** A proprietary format inside somebody else's product is readable
 only while you keep paying for the reader; the same material as plain
 text in a repository you control can be searched, diffed, copied out and
 handed to a different tool without asking anyone
-([`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge)).
+([`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge)) — and none of
+it sitting on one laptop ([`cloud-not-local`](AI_GOVERNANCE_TO_COCREATE.md#cloud-not-local)).
 
 ## Records and Rules That Write Themselves
 
@@ -47,8 +49,10 @@ and unplanned benefits appear: speaking works as well as typing, a bad
 plan gets contradicted before it fires, and the layer keeps the trace
 of why — next time's rule falls out for free
 ([`protocols-generated-not-just-documented`](#protocols-generated-not-just-documented)
-below;
-[`ai-chat-as-intermediary`](COMPANY_BUILDING_RULES.md#ai-chat-as-intermediary)).
+below; [`ai-chat-as-intermediary`](COMPANY_BUILDING_RULES.md#ai-chat-as-intermediary)). Speaking
+working as well as typing is what
+[`second-language-stops-costing-quality`](#second-language-stops-costing-quality)
+runs on.
 
 <a id="writing-stops-competing-with-doing"></a>
 
@@ -59,8 +63,9 @@ record out as a byproduct of working in the open — instead of a
 follow-up chore
 ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically))
 — removes that tax: the writing already happened while the task did. As a
-standing capability rather than a habit:
-[`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction).
+standing capability, [`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction);
+as the general case, [`enforcement-not-vigilance`](AI_GOVERNANCE_TO_COCREATE.md#enforcement-not-vigilance) —
+any rule kept by memory loses to the same hour.
 
 <a id="protocols-generated-not-just-documented"></a>
 
@@ -98,8 +103,10 @@ same trade
 **8. Working in a second language stops costing quality.** Composing
 in an unfamiliar language spends attention on translation and leaves a
 thinner record. Letting people think in whatever language comes
-naturally, with the AI carrying translation into the repo's shared
-language, gets the real thinking into the record instead
+naturally — speaking as readily as typing
+([`intermediary-layer-side-benefits`](#intermediary-layer-side-benefits)) —
+with the AI carrying translation into the repo's shared language, gets the
+real thinking into the record instead
 ([`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital)).
 
 ## Catching Problems While They're Still Small
@@ -110,10 +117,12 @@ language, gets the real thinking into the record instead
 the same hour costs one correction; caught three weeks later it costs
 the correction plus a meeting reconstructing who approved what
 ([`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate))
-— a wrong idea dies before it acquires allies. Drift is the same
-failure caught by raw contact with the work
-([`human-only-zones`](COMPANY_BUILDING_RULES.md#human-only-zones)) and
-periodic contradiction-checks
+— a wrong idea dies before it acquires allies, which makes
+[`build-five-kill-four`](COMPANY_BUILDING_RULES.md#build-five-kill-four) cheap and
+[`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word) urgent. Drift is the same failure
+caught by raw contact
+with the work ([`human-only-zones`](COMPANY_BUILDING_RULES.md#human-only-zones)) and periodic
+contradiction-checks
 ([`contradiction-scanning`](RULES_NOW_TESTING.md#contradiction-scanning)).
 
 <a id="instinct-catches-what-checklists-miss"></a>
@@ -121,9 +130,10 @@ periodic contradiction-checks
 **10. The biggest problems, that go to the core of why you're there, and get
 caught by instinct, never by smart checklists.** A model flags what
 fails its own checks — a broken link, a bad number. It can't notice an
-answer that felt off, or a plan that's sound yet wrong for reasons
-nobody wrote down — judgment this repo routes to people, not models
-([`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive)).
+answer that felt off ([`instinct`](HUMANS_AT_OUR_BEST.md#instinct)), or a plan that's sound
+yet wrong for reasons nobody wrote down
+([`sense-of-smell`](HUMANS_AT_OUR_BEST.md#sense-of-smell)) — judgment this repo routes to
+people, not models ([`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive)).
 
 ## See Also
 
