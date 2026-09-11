@@ -3322,14 +3322,29 @@ which is the failure this repointing exists to end — write
    has repos from owner(s) [alex137]`. Same wall as
    [`views-drift-gate-rollout-to-existing-sets`](TODO.md#views-drift-gate-rollout-to-existing-sets).
 
-   **This item closes when a demotion lands and `precedent_resolve.py` stops
-   printing `OVER BUDGET`.** The fixture defect is no longer part of that:
-   it was fixed the same day (see "The fixture half is fixed" above), so the
-   check now measures the mechanism on synthetic sources and would not have
-   gone quiet on a clean-looking answer. The two remaining pushes are the
-   whole of what is left.
+   **One of the two has landed, and it was enough on its own.**
+   `buenos-aires-dates` is `tier: on-demand` on `precedent-individual`'s
+   `main` as of 2026-09-11. Measured here with every source clone pulled
+   current: **1,887 tokens across 16 practices, `over_budget: false`** — so
+   the cap is cleared already, and the full harness is back to `0 failed`.
+   `small-calls` is still `tier: resident` on
+   `precedent-team-working-style`'s `main`; its edit was handed off the same
+   day and had not landed at that measurement.
 
-   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — both reductions are decided; what remains is two pushes, in two repositories no session rooted here can write to.
+   **So the second demotion is now elective, and that is worth saying
+   plainly rather than letting it read as outstanding work.** Morgan asked
+   for both, so the handoff stands; but nothing is red while it is pending,
+   and a session finding this item open should not treat `small-calls` as a
+   blocker or re-raise the budget as a problem. The overage that opened this
+   item is gone.
+
+   **This item closes when `small-calls` lands too** — the budget half of its
+   closing condition is already met. The fixture defect is no longer part of
+   it either: that was fixed the same day (see "The fixture half is fixed"
+   above), so the check now measures the mechanism on synthetic sources and
+   would not have gone quiet on a clean-looking answer.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — both reductions are decided and one has landed; what remains is one push, in a repository no session rooted here can write to.
 
 63. <a id="source-clone-keeps-no-credential"></a>~~**A private source clone carries no credential helper, so every later
     fetch of it fails — and the freshness guard blocks on that.**~~
