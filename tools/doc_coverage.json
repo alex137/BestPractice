@@ -37,7 +37,7 @@
       "why": "It teaches the standing command vocabulary. A command whose meaning changes, or a new one landing, changes what this page has to say.",
       "must_mention": "spoken-commands"
     },
-    "documentation/HOW_TO_USE_THIS_NONTECHNICAL.md": {
+    "documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md": {
       "describes": [
         "practices/disclose-landing.md",
         "practices/layered-practice-packs.md",
@@ -46,7 +46,7 @@
       ],
       "why": "It walks a non-developer through how an idea becomes a rule, who approves it, and how a rule moves between levels."
     },
-    "documentation/HOW_TO_USE_THIS_TECHNICAL.md": {
+    "documentation/HOW_TO_USE_THIS_DEVELOPERS.md": {
       "describes": [
         "spec/LOADER.md",
         "spec/ENFORCEMENT.md",

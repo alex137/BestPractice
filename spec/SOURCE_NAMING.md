@@ -177,8 +177,8 @@ question itself is still Morgan's to answer.
 - **It does not rename anything that exists**, beyond this repository's own
   repo-local source, whose name appeared in exactly one tracked file.
 - **It does not resolve the reader-vocabulary tension.** `precedent-` is this
-  project's word, not a reader's. For the non-technical editorial use case in
-  [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md),
+  project's word, not a reader's. For the editorial use case in
+  [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](DOCUMENT_WORK_PRACTICE_CAPTURE.md),
   the prefix buys the clustering benefit and costs
   [readers-vocabulary](../practices/readers-vocabulary.md): an editor sees a
   repository named after a system they never use. Naming the tension rather

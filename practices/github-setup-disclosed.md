@@ -47,8 +47,8 @@ other, so both are done.
 **Said weakly, and kept short.** These are suggestions that avoid a later
 surprise, not a gate an install fails — an install that leans on them
 teaches its reader that the GitHub plumbing is the point, which it is not.
-The technical path gets a sentence on the token and leaves the rest to a
-developer; the non-technical path gets the steps written out, and an offer
+A developer gets a sentence on the token and works the rest out; the path
+for someone who is not one gets the steps written out, and an offer
 of more specific instructions on any of them.
 
 **The owner-only settings, and why each is standing rather than

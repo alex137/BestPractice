@@ -258,8 +258,8 @@ which is the failure this repointing exists to end — write
     person and repo to run it against, and Morgan adding the GitHub
     collaborator role by hand (no tool in this repo's GitHub toolset
     creates a collaborator invite).
-15. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for non-technical document work.**~~ **Done (2026-09-05)** —
-    [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
+15. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
+    [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per
     [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) (empty of
     real practices by design — Morgan named the repo, `approvers.json` seeds
@@ -270,7 +270,7 @@ which is the failure this repointing exists to end — write
 16. <a id="document-project-pilot"></a>**Run the document-project pilot once Morgan has a real first
     project.** Item 15 no longer blocks this — the template and team repo
     are real. Deliberately not planned further than that: see
-    [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
+    [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     "Sequencing" section for why a pilot project and person are not invented
     ahead of a real one existing. **Blocked on:** a real subject and a real
     person, neither of which exists yet.
@@ -1888,7 +1888,7 @@ which is the failure this repointing exists to end — write
      than descriptions of sentences.
 
   Worth knowing while deciding: a team set carries a same-slug
-  `audience-register` requiring a **non-technical** register, and team
+  `audience-register` requiring the **plainer** register, and team
   outranks individual, so in a project declaring that team source the
   plainer rule already wins. This repository declares a different team
   set, so the individual rule is what binds here. Changing the individual
@@ -2620,10 +2620,19 @@ which is the failure this repointing exists to end — write
      so it can simply be forgotten. The contributor is still blocked by their
      role if it is — they just get a worse error — but nobody has decided
      whether that is acceptable or whether the step should be mechanical.
-   - **`spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md` still carries the
-     project-vs-person slippage in its own filename**, the same error the
-     directory rename fixed. `NONTECHNICAL_CONTRIBUTOR_ACCESS.md` is correct
-     as it stands — it names a contributor, who is a person.
+   - ~~**The spec file still carries the project-vs-person slippage in its
+     own filename.**~~ **Fixed 2026-09-10**, together with two documentation
+     guides named for their readers' skill level, after Morgan restated the
+     point directly: *"WE SHOULD NOT MAKE A DIFFERENCE BETWEEN TECHNICAL OR
+     NONTECHNICAL PROJECTS/DOCUMENTS."* `NONTECHNICAL_TEAM_PRACTICE_CAPTURE`
+     → [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md),
+     `HOW_TO_USE_THIS_TECHNICAL` →
+     [documentation/HOW_TO_USE_THIS_DEVELOPERS.md](documentation/HOW_TO_USE_THIS_DEVELOPERS.md),
+     `HOW_TO_USE_THIS_NONTECHNICAL` →
+     [documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md](documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md).
+     [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+     is correct as it stands — it names a contributor, who is a person, and
+     the practice's own check exempts exactly that form.
 
    **blocked-on:** Morgan — every open question here is a policy call about
    how much protection a forgettable manual step may carry, not something a

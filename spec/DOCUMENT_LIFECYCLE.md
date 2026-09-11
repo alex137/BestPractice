@@ -335,7 +335,7 @@ All 24 files. `→ spec/` means it stays.
 | [VERY_DEEP_CHECK.md](VERY_DEEP_CHECK.md) | record | closed 2026-09-07 | `record/` — but see the cycling note below |
 | [UNBUILT_PLAN_ITEMS.md](UNBUILT_PLAN_ITEMS.md) | record | live | `record/` |
 | [NONTECHNICAL_CONTRIBUTOR_ACCESS.md](NONTECHNICAL_CONTRIBUTOR_ACCESS.md) | proposal | drafted | `record/` |
-| [NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md) | proposal | accepted | `record/` |
+| [DOCUMENT_WORK_PRACTICE_CAPTURE.md](DOCUMENT_WORK_PRACTICE_CAPTURE.md) | proposal | accepted | `record/` |
 | `PREFORK_AUDIT.html` | — | — | see below |
 
 **Three of those need a judgment stated rather than assumed.**
@@ -345,7 +345,7 @@ All 24 files. `→ spec/` means it stays.
   the implementer should confirm against
   [tools/practice_simulation.py](../tools/practice_simulation.py) before
   stamping it.
-- [NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)
+- [DOCUMENT_WORK_PRACTICE_CAPTURE.md](DOCUMENT_WORK_PRACTICE_CAPTURE.md)
   has steps 1–2 executed and the pilot deliberately not started, so
   `accepted` (agreed, partly carried out), not `drafted` and not `executed`.
 - `PREFORK_AUDIT.html` (68 KB) is a build output committed beside its
@@ -490,7 +490,7 @@ Move in ascending order of inbound references, so the cheapest moves prove
 the procedure before the expensive ones use it. Approximate inbound markdown
 reference counts, 2026-09-07: `PHASE3_BRIEF` 2, `PRIVATE_ENFORCEMENT_BRIEF`
 2, `SIMULATION_BRIEF` 2, `PHASE5_DEEPCHECK` 3, `PREFORK_AUDIT` 3,
-`NONTECHNICAL_TEAM_PRACTICE_CAPTURE` 4, `PHASE5_BRIEF` 4,
+`DOCUMENT_WORK_PRACTICE_CAPTURE` 4, `PHASE5_BRIEF` 4,
 `PRIVATE_SETS_BRIEF` 4, `VERY_DEEP_CHECK` 4,
 `NONTECHNICAL_CONTRIBUTOR_ACCESS` 5, `PHASE6_BRIEF` 6, `PRELAUNCH_AUDIT` 6,
 `UNBUILT_PLAN_ITEMS` 6, `ATTENTION_CEILING` 14.

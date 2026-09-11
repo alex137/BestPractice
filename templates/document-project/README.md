@@ -1,7 +1,7 @@
 <!-- Template: instantiate one copy of this directory per new document project.
      Not tool-bootstrapped (unlike templates/practice-set-team/) -- copy it by
      hand into the new repo's root and fill in the placeholders below. See
-     spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md for the plan this implements
+     spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md for the plan this implements
      and why it stops here (no pilot project yet). -->
 
 # Document-project template
@@ -86,7 +86,7 @@ rules instead of living and dying inside one document.
 
 ## What this template deliberately does not include
 
-Per [spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md](../../spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md)'s
+Per [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](../../spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
 own scope: no pilot project or pilot person is built into this template —
 neither exists yet. The first repo instantiated from this template *is* that
 pilot, and its own `AGENTS.md` should be adapted with that project's real

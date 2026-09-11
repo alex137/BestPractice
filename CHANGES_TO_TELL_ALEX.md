@@ -575,9 +575,9 @@ is meant to be public** — and everything about it got quieter: these are
 suggestions that head off a later surprise, not a gate an install fails, and
 the whole GitHub passage is deliberately short so it does not read as the
 point of installing Precedent. The two paths now differ on purpose: the
-technical one ([INSTALL.md](INSTALL.md) §1 step 10) is a single short
-paragraph, a sentence of it on the token, and leaves the rest to a
-developer; the non-technical one ([SETUP.md](SETUP.md) step 7) writes the
+one a developer reads ([INSTALL.md](INSTALL.md) §1 step 10) is a single short
+paragraph, a sentence of it on the token, and leaves the rest to them; the
+one for everyone else ([SETUP.md](SETUP.md) step 7) writes the
 steps out and **offers more specific instructions on any of them if the
 person wants them**, which
 [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) repeats so the

@@ -27,8 +27,8 @@ behind both live in your own GitHub repository.
 **New here?** Start with [What This Is (and Why Explore Using
 Precedent)](documentation/WHAT_IS_THIS_AND_BENEFITS.md) for
 the pitch, then jump to the how-to guide for your situation:
-[technical](documentation/HOW_TO_USE_THIS_TECHNICAL.md) or
-[non-technical](documentation/HOW_TO_USE_THIS_NONTECHNICAL.md).
+[if you write code](documentation/HOW_TO_USE_THIS_DEVELOPERS.md), or
+[if you don't](documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md).
 
 **Already set up and just want the daily habits?** [How to Use This Day to
 Day](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md) — four habits and the

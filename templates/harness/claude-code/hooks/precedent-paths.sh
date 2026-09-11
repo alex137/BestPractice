@@ -74,7 +74,7 @@ no_match="(no on-demand practice's applies_to matches the given path(s))"
 # so it is correct under either reading of the contract and costs nothing.
 # It matters most for the case this repo already designs for: a
 # non-technical contributor on a deliberately narrow permission set (see
-# templates/nontechnical-document-project/AGENTS.md), where a practice
+# templates/document-project/AGENTS.md), where a practice
 # loader quietly widening what may be written is the opposite of what was
 # asked for.
 python3 - "$rules" <<'PYEOF'

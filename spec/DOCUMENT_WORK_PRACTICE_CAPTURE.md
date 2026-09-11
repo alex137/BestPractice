@@ -1,5 +1,5 @@
 ---
-title:         "Plan: team-level practice capture for non-technical document work"
+title:         "Plan: team-level practice capture for document work"
 kind:          proposal
 status:        accepted
 opened:        2026-09-04
@@ -7,9 +7,9 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       Team-level practice capture for non-technical document work at scale, with steps 1 and 2 executed and the pilot deliberately not started.
+summary:       Team-level practice capture for document work at scale, with steps 1 and 2 executed and the pilot deliberately not started.
 ---
-# Plan: team-level practice capture for non-technical document work
+# Plan: team-level practice capture for document work
 
 Self-contained, so a fresh session can
 pick it up without the conversation that produced it. This plan does not
@@ -87,7 +87,7 @@ she ever opens GitHub at all.
    here — it fills up from real candidates raised during real document
    work, which is the entire mechanism working as designed, not a
    bootstrapping problem to solve first.
-2. **A reusable document-project template.** Every future non-technical
+2. **A reusable document-project template.** Every future document
    project repo should be instantiated from one place, not re-derived —
    folding together [INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)'s
    vendoring steps, a `precedent.json` declaring the new team source
@@ -131,7 +131,7 @@ invented here to have something to test against.
    else with landing authority over editorial conventions should be named
    now rather than added under pressure later.
 3. **One team repo for everything, or split by subject area later?**
-   Recommend starting with **one** shared team source for all non-technical
+   Recommend starting with **one** shared team source for all
    document work, and splitting only if a real conflict appears between
    subject areas (e.g. marketing copy wants a voice rule that legal
    drafting shouldn't inherit) — the same "revisit when a real case
