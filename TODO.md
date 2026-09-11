@@ -2483,10 +2483,40 @@ which is the failure this repointing exists to end — write
    `assented` rather than `decided` because it is agreement to this session's
    own proposal, not him choosing it independently
    ([decision-strength](practices/decision-strength.md)).
-   **The `commit-identity.sh` half is DONE, landed 2026-09-11 in another
-   session**: the same `BOOTSTRAP DRIFT` check that found it, re-run against
-   all four sets brought current, reports no `commit-identity.sh` difference
-   in any of them.
+   **The `commit-identity.sh` half is NOT done, and the line below claiming
+   it was is wrong.** It read: *"the same `BOOTSTRAP DRIFT` check that found
+   it, re-run against all four sets brought current, reports no
+   `commit-identity.sh` difference in any of them."* Measured again
+   2026-09-11, later the same day, by `verify_harness.py`'s byte-identical
+   copy check with all four sources attached: `precedent-individual` matches
+   canonical, and **all three team sets still differ**. Whatever that earlier
+   re-run covered, it was not these three.
+
+   **What differs is two lines and neither of them executes**, which is why
+   this is housekeeping rather than a live defect. The team sets carry
+   `DEFAULT_TZ="America/Argentina/Buenos_Aires"` and its matching comment;
+   canonical carries `America/New_York`. `DEFAULT_TZ` is the hook's
+   last-resort rung, reached only when the repository declares no
+   `fallback_timezone` — and all three declare one, so the line is
+   unreachable in every repo that has it. No commit's offset has ever come
+   from it.
+
+   **It is staleness, not a hand-edit.** The sets were refreshed to canonical
+   on 2026-09-09 (`c0d0bcb`); canonical then moved that literal in `4abb73b`
+   on 2026-09-10, *"Move the engine's last-resort timezone off one person's
+   zone"*. The sets are simply pre-`4abb73b`.
+
+   **Their `precedent.json` must not be touched while fixing this.** All
+   three declare `fallback_timezone: America/New_York`, decided in `9ad7ff0`
+   on 2026-09-10 — a team set is shared by level, so an unidentified
+   committer there could be anyone, and Buenos Aires is Morgan's own zone and
+   belongs in his individual source. The refresh is about not drifting from
+   canonical; the value that actually fires is already right.
+
+   **Blocked-on:** a session rooted under the sets' own owner. Measured
+   2026-09-11 from here — `git push --dry-run` into a team set returns *"not
+   in this session's authorized repository set, so the proxy will not inject
+   a credential"*, HTTP 403.
 
    **The `freshness-guard.sh` half is DONE too, landed 2026-09-11 here.** The
    direction was upstream, as the 2026-09-11 reading below predicted: the
