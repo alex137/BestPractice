@@ -4046,14 +4046,17 @@ def check_precedent_check_fires():
             # below is what proves it does not.
             f = repo / 'practices' / 'repo-is-memory.md'
             f.write_text(f.read_text(encoding='utf-8') +
-                         '\nIts check: [check_x.py](../tools/checks/check_x.py).\n',
+                         '\nIts check: [check_x.py](../tools/checks/check_x.py), '
+                         'tested by [t.sh](../tools/checks/tests/t.sh).\n',
                          encoding='utf-8')
         case('practice-links-travel', _plant_practice_links,
              setup=_setup_origin)
         _plt = planted['practice-links-travel'][1]
         cases.append(("practice-links-travel: a source's own check script is "
-                      'not reported as failing to travel',
-                      'check_x.py' not in planted['practice-links-travel'][1]))
+                      "not reported as failing to travel, nor is its test "
+                      'under tools/checks/tests/',
+                      'check_x.py' not in planted['practice-links-travel'][1]
+                      and 't.sh' not in planted['practice-links-travel'][1]))
         for _frag, _what in (
                 ('does not travel with this file', 'the relative link'),
                 ('precedent.json declares', 'the wrong-branch URL'),

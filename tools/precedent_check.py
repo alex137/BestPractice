@@ -644,7 +644,16 @@ def _catalogue_carries_stories(ctx):
 _MD_LINK_RE = re.compile(r'(?<!\!)\[[^\]]*\]\(([^)\s]+)\)')
 _BLOB_URL_RE = re.compile(
     r'^https://github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.+)$')
-_CHECK_SCRIPT_RE = re.compile(r'\.\./tools/checks/[^/]+\.py')
+# Anything under tools/checks/, at any depth: materialize copies the
+# whole subtree, so a check's own TEST under tools/checks/tests/
+# travels exactly as the script does. The first version matched only
+# a .py directly in tools/checks/, which still reported 12 correct
+# links across 6 practice files as violations when run against a real
+# private set -- and the repair it printed for each was an absolute
+# URL into that private repository, i.e. the disclosure this very
+# rule exists to prevent. Measured 2026-09-11 by the session that
+# deduplicated the individual copy.
+_CHECK_SCRIPT_RE = re.compile(r'\.\./tools/checks/[^\s)]+')
 
 
 def _markdown_links(text):
