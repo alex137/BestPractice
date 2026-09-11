@@ -4029,7 +4029,8 @@ def check_precedent_check_fires():
                          '[b](https://github.com/alex137/BestPractice/blob/'
                          'main/TODO.md), '
                          '[c](https://github.com/alex137/BestPractice/blob/'
-                         'precedent-beta-v01/no-such-planted-path.md).\n',
+                         'precedent-beta-v01/no-such-planted-path.md), '
+                         '[d](../tools/checks/check_not_here.py).\n',
                          encoding='utf-8')
         # The fixture is a `git init` copy with no remote, and the
         # upstream-URL half of the check asks origin which repository this
@@ -4038,15 +4039,25 @@ def check_precedent_check_fires():
         def _setup_origin(repo):
             git(repo, 'remote', 'add', 'origin',
                 'https://github.com/alex137/BestPractice.git')
-            # And a link to a source's own check script, in BOTH the planted
-            # and the clean tree. This is the FALSE-POSITIVE direction, which
-            # is the one that matters most here: the check shipped on
-            # 2026-09-11 without it and would have fired on the most common
-            # cross-reference a private-set practice makes. The clean case
-            # below is what proves it does not.
+            # And a link to a source's own check script AND to the test that
+            # proves it, in BOTH the planted and the clean tree. This is the
+            # FALSE-POSITIVE direction, which is the one that matters most
+            # here: the check shipped on 2026-09-11 without the check-script
+            # clause at all, and then with one that matched `check_*.py` only
+            # -- so a practice citing its own test still read as a violation.
+            # Both shapes are what precedent_materialize.py actually copies.
+            # The two files are CREATED, not just linked, because the check
+            # requires the target to exist in the tree it is scanning; a
+            # fixture that linked them without writing them would be asserting
+            # the opposite of what it claims (practice: fixture-owns-its-state).
+            d = repo / 'tools' / 'checks' / 'tests'
+            d.mkdir(parents=True, exist_ok=True)
+            (d.parent / 'check_x.py').write_text('# planted\n', encoding='utf-8')
+            (d / 'test_x.sh').write_text('# planted\n', encoding='utf-8')
             f = repo / 'practices' / 'repo-is-memory.md'
             f.write_text(f.read_text(encoding='utf-8') +
-                         '\nIts check: [check_x.py](../tools/checks/check_x.py).\n',
+                         '\nIts check: [check_x.py](../tools/checks/check_x.py), '
+                         'proved by [test_x.sh](../tools/checks/tests/test_x.sh).\n',
                          encoding='utf-8')
         case('practice-links-travel', _plant_practice_links,
              setup=_setup_origin)
@@ -4054,6 +4065,16 @@ def check_precedent_check_fires():
         cases.append(("practice-links-travel: a source's own check script is "
                       'not reported as failing to travel',
                       'check_x.py' not in planted['practice-links-travel'][1]))
+        cases.append(("practice-links-travel: a source's own check-script TEST "
+                      'is not reported as failing to travel',
+                      'test_x.sh' not in planted['practice-links-travel'][1]))
+        # ...and the other direction, which is what keeps the clause above
+        # from being a blanket exemption for anything spelled like a check
+        # script: a tools/checks/ link whose target is not in the tree is
+        # still a dead link, and is still reported.
+        cases.append(('practice-links-travel: a tools/checks/ link with no '
+                      'such file in the tree is still reported',
+                      'check_not_here.py' in planted['practice-links-travel'][1]))
         for _frag, _what in (
                 ('does not travel with this file', 'the relative link'),
                 ('precedent.json declares', 'the wrong-branch URL'),

@@ -2841,9 +2841,37 @@ which is the failure this repointing exists to end — write
    ([cross-source-rollout](practices/cross-source-rollout.md): not attached,
    so it is queued rather than done).
 
-   **Disposition:** wait — nobody is being chased for it, and the rule is in
-   force in the meantime
-   ([open-item-disposition](practices/open-item-disposition.md)).
+   **DONE 2026-09-11.** Both steps are complete. A session rooted in
+   `precedent-individual` did step 2 there (merged as that set's #68): the
+   copy is `status: deduplicated` with `in_force_at: practice-links-travel`,
+   and `tools/checks/check_practice_links_travel.py` and its
+   `tools/checks/tests/test_practice_links_travel.sh` are deleted.
+
+   **It also did what this item asked for and nobody could do from here**:
+   it read the two texts against each other. Four things the individual copy
+   said that the universal one did not came back, and Morgan approved all
+   four. Two landed here in the merge of #194 — the `../tools/checks/`
+   clause in the Rule and in the check, and the failure shape where a link
+   *resolves* in the consumer to that consumer's own file. The other two
+   landed with this item's own closure: the private half of the
+   materialization refusal, quoting `precedent_materialize.py`'s own line,
+   with the standing instruction that a session finding such a link must not
+   make it absolute; and the 2026-09-06 incident, which is the evidence for
+   that half and was missing entirely.
+
+   **Two corrections to what was carried, both deliberate, both for a
+   reviewer to look at.** The check-script clause as it landed in #194
+   matched `check_*.py` only, so a practice citing the test that proves its
+   own check still read as a violation — `precedent_materialize.py` copies
+   `tests/test_*.sh` too, and the check now accepts both and requires the
+   target to exist in the tree it is scanning. And the original's own
+   incident arithmetic does not close: it names three links, then seven
+   more, then two found long-dead, and totals them as "nine". The stages are
+   carried and the total is not, rather than guessing which figure was wrong
+   ([no-invented-specifics](practices/no-invented-specifics.md),
+   [verify-decomposition](practices/verify-decomposition.md)). The private
+   set's own practice slugs were left out of the universal text as well:
+   they name nothing the rule needs, and this repository is public.
 
 57. <a id="session-practices-reports-unresolved-sources"></a>**`.precedent/SESSION_PRACTICES.md` can report a source as unresolved that
     resolved fine minutes later — and a session reading it believes those

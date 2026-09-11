@@ -97,7 +97,7 @@ being checked by it.
 | `orientation-map` | tree | MAP.md exists at the repository root, is not empty, and the session instructions point at it |
 | `parallel-artifact-ledger` | tree | `templates/harness/LEDGER.md` exists, and every commit that touched a harness-adapter member (claude-code/, codex/, or gemini-cli/) has its hash referenced somewhere in the ledger |
 | `practice-export-loop` | tree | every manifest entry marked synced still matches its baseline — a local improvement to a vendored file has been exported, not absorbed |
-| `practice-links-travel` | tree | every link in a practice file THIS repo owns either travels with the file (a sibling practice, a vendored engine file, this source's own tools/checks/ script) or is an absolute URL into this repository on its declared base_branch, naming a path that exists |
+| `practice-links-travel` | tree | every link in a practice file THIS repo owns either travels with the file (a sibling practice, a vendored engine file, this source's own tools/checks/ check script or tests/ test, which must exist here) or is an absolute URL into this repository on its declared base_branch, naming a path that exists |
 | `quick-index` | tree | the session instructions carry a "looking for X → go to Y" table with at least five rows |
 | `rename-updates-links` | tree | no tracked file still references a path this branch renamed away or deleted |
 | `routing-audit` | tree | tools/routing_audit.py exists, and tools/routing_audit_state.json (if present) has no rotation entry for a practice that is not currently active |

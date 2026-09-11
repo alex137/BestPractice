@@ -644,7 +644,13 @@ def _catalogue_carries_stories(ctx):
 _MD_LINK_RE = re.compile(r'(?<!\!)\[[^\]]*\]\(([^)\s]+)\)')
 _BLOB_URL_RE = re.compile(
     r'^https://github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.+)$')
-_CHECK_SCRIPT_RE = re.compile(r'\.\./tools/checks/[^/]+\.py')
+# What precedent_materialize.py actually copies out of a source's
+# tools/checks/: `check_*.py` beside the practices, and `tests/test_*.sh`
+# under them. Both shapes are spelled out rather than a loose `[^/]+` --
+# the tests half was missed the first time, and a private set citing the
+# test that proves its own check is a real cross-reference, not a stray.
+_CHECK_SCRIPT_RE = re.compile(
+    r'\.\./tools/checks/(?:check_[^/]+\.py|tests/test_[^/]+\.sh)')
 
 
 def _markdown_links(text):
@@ -695,7 +701,8 @@ def _origin_slug():
 @check('practice-links-travel', 'tree',
        'every link in a practice file THIS repo owns either travels with the '
        "file (a sibling practice, a vendored engine file, this source's own "
-       'tools/checks/ script) or is an absolute URL into this repository on '
+       'tools/checks/ check script or tests/ test, which must exist here) or '
+       'is an absolute URL into this repository on '
        'its declared base_branch, naming a path that exists',
        'whether the target is the RIGHT file -- including the nastiest '
        'shape of this bug, a link like ../.claude/settings.json that '
@@ -766,8 +773,14 @@ def _practice_links_travel(ctx):
             # on the single most common cross-reference a private-set
             # practice makes -- a practice citing the script that enforces
             # it. Found 2026-09-11 by reading the individual set's original,
-            # which had named both shapes from the start.
-            if _CHECK_SCRIPT_RE.fullmatch(base):
+            # which had named both shapes from the start. It must EXIST in the
+            # tree being scanned -- the same test the sibling-practice case
+            # above uses -- so one check stays right for a private set, whose
+            # scripts sit beside its practices, and for this repository, where
+            # tools/checks/ is materialize's output directory and a link into
+            # it points at nothing.
+            if (_CHECK_SCRIPT_RE.fullmatch(base)
+                    and (ROOT / base[3:]).exists()):
                 continue                        # this source's own check script
             fix = (f'https://github.com/{slug}/blob/{branch or "<branch>"}/'
                    f'{base.lstrip("./")}' if slug else 'an absolute URL')
