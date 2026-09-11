@@ -2462,6 +2462,23 @@ which is the failure this repointing exists to end — write
    `assented` rather than `decided` because it is agreement to this session's
    own proposal, not him choosing it independently
    ([decision-strength](practices/decision-strength.md)).
+   **The `commit-identity.sh` half is DONE, landed 2026-09-11 in another
+   session**: the same `BOOTSTRAP DRIFT` check that found it, re-run against
+   all four sets brought current, reports no `commit-identity.sh` difference
+   in any of them.
+
+   **What is left is one file in one set, and it now points the other way.**
+   `precedent-individual`'s `bootstrap/freshness-guard.sh` still differs from
+   what the generator writes — but it is 27,538 bytes against the template's
+   18,155, so the 2026-09-09 reading above ("an older, shorter build") no
+   longer describes it. That set's copy has grown PAST canonical, which makes
+   the likely direction upstream — into
+   [templates/harness/claude-code/hooks/freshness-guard.sh](templates/harness/claude-code/hooks/freshness-guard.sh),
+   so every set and every adopter gets it — rather than overwriting the set.
+   **Not established:** what the extra 9kB does, or whether all of it is
+   generic enough to travel. Read the diff before deciding; this item is not
+   a licence to copy either file over the other.
+
    **Confirmed independently 2026-09-11**, by the very deep check's new
    `BOOTSTRAP DRIFT` section on its first real run: regenerating each set
    with today's generator and diffing it found `commit-identity.sh`
