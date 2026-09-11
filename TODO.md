@@ -3188,14 +3188,26 @@ which is the failure this repointing exists to end — write
    travels with the engine and will fail in each set on the refresh commit
    until that set regenerates its views, which is the same one-command fix.
 
-   **blocked-on:** a session that can PUSH to those repositories. All four
-   are attached read-only in the session that shipped this
-   ([cross-source-rollout](practices/cross-source-rollout.md) wants the
-   rollout in the same session, and it was not available): `git fetch` inside
-   the attached clone fails with `could not read Username for
-   'https://github.com'`, and `add_repo` with `access: "push"` refuses
-   cross-owner adds. The route is a session rooted at one of those
-   repositories, per [`attach-private-sources`](TODO.md#attach-private-sources).
+   **Closed 2026-09-11 — landed in all four.** Verified from this session by
+   reading each set's own `origin/main`, not by being told:
+   `.github/workflows/views-drift.yml` is present in `precedent-individual`
+   (its PR #76), `precedent-team-maintainers` (#38),
+   `precedent-team-writing` (#7) and `precedent-team-working-style` (#10),
+   each alongside a vendored-engine refresh, so the gate runs against a
+   `build_views.py` that writes the corrected header rather than the old one.
+   The work was done by a session rooted in those repositories, which is what
+   this item was blocked on: a session rooted here can read those clones with
+   `PRECEDENT_GIT_TOKEN` but cannot push to them — measured again 2026-09-11,
+   `add_repo` with `access: "push"` refuses cross-owner and a direct
+   `git push --dry-run` returns 403 from the git proxy.
+
+   **What it also cleared:** the harness check comparing every reachable copy
+   of `commit-identity.sh`. Those copies were never the problem — each set's
+   committed copy was already canonical, and the drift was in one container's
+   stale clones. The durable half of that is
+   [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
+   fast-forwarding an attached team clone at session start instead of
+   reporting it `already on disk`.
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
@@ -3234,4 +3246,22 @@ which is the failure this repointing exists to end — write
    reply-register practices that plausibly overlap; which one leaves is
    Morgan's call.
 
-   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — raised in the reply of the session that measured it, 2026-09-11; only Morgan can move it to `ask`.
+   **Decided 2026-09-11, and in flight.** Morgan, shown the seventeen with
+   what each costs: demote `buenos-aires-dates` (individual, ≈159 tokens) to
+   `tier: on-demand`. It is the one resident rule with mechanical backstops —
+   its own `tools/checks/check_buenos_aires_dates.py`, the `pre-commit` hook
+   that refuses a wrong commit offset, and the zone ladder deriving from
+   `identity.json` — and it already carries an `occasion` and an
+   `index_clause`, so demoting moves it into the occasion index rather than
+   dropping it, and `applies_to: ["**"]` keeps the path-trigger channel
+   firing it. 159 tokens frees more than three times the 47-token overage.
+   **The reply-register practices were explicitly ruled out**: all four are
+   `checked_by: null`, they bind every reply, and this repository's own
+   gotchas record what a session's replies look like when one of them
+   silently fails to load. The edit is one frontmatter line in
+   `precedent-individual`, which no session rooted here can push to; it was
+   handed to a session rooted there. **This item closes when that lands and
+   `precedent_resolve.py` stops printing `OVER BUDGET`** — the fixture defect
+   described above is separate and stays open either way.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — raised in the reply of the session that measured it, 2026-09-11; the reduction is decided, so what remains is mechanical.
