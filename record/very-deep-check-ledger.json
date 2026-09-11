@@ -602,7 +602,40 @@
           "status": "findings"
         }
       ],
-      "passes": [],
+      "passes": [
+        {
+          "pass": "1",
+          "status": "done",
+          "recorded": "2026-09-11T20:17:53-03:00",
+          "findings": 5,
+          "tokens": null,
+          "note": "fresh install and a stale-consumer update, both rebuilt; 3 install defects + 2 update defects fixed; PARTIAL, no real consumer attached"
+        },
+        {
+          "pass": "2",
+          "status": "done",
+          "recorded": "2026-09-11T20:17:53-03:00",
+          "findings": 1,
+          "tokens": null,
+          "note": "read-only verbs, unreachable-source path, duplicate hunt and inherited-config list all clean; one finding lands in another owners repo"
+        },
+        {
+          "pass": "3",
+          "status": "done",
+          "recorded": "2026-09-11T20:17:53-03:00",
+          "findings": 3,
+          "tokens": null,
+          "note": "whole-tree lint clean; one shipped template restating four catalogue rules; two documentation gaps closed"
+        },
+        {
+          "pass": "4",
+          "status": "done",
+          "recorded": "2026-09-11T20:17:53-03:00",
+          "findings": 3,
+          "tokens": null,
+          "note": "phase-7 merge re-rehearsed at 2 conflicts against a recorded 0; four branch verdicts; full catalogue read recorded as not done"
+        }
+      ],
       "completed": true
     }
   ]

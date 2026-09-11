@@ -670,7 +670,12 @@ def iter_prose_paragraphs(path):
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
-    if known is not None and path not in ACRONYM_SKIP_FILES and corpus_is_decisive():
+    # No corpus_is_decisive() guard HERE, deliberately: this caller's output
+    # is a WARNING and precedent_check.py's is a gate, and a guard that
+    # suppresses the detector suppresses the controls that prove it works
+    # (three of verify_harness.py's stated cases build tiny fixture repos
+    # whose corpora are small by construction). The gate carries it.
+    if known is not None and path not in ACRONYM_SKIP_FILES:
         # One detector, shared with precedent_check.py's acronyms-glossary
         # gate — see scan_unglossed's docstring for the drift this closed.
         unglossed = scan_unglossed(

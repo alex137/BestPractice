@@ -234,7 +234,32 @@ which is the failure this repointing exists to end — write
       `git checkout -b phase-7-merge main`, `git revert 97ed078`,
       `git merge precedent-beta-v01`. That came back **0 conflicts and a
       tree byte-identical to `e8341e2`** — an empty `git diff` against this
-      branch. Opening *that branch* as the pull request is what keeps the
+      branch.
+
+      **That figure is no longer true, and the way it went stale is the
+      point.** Re-rehearsed whole-tree 2026-09-11, the same three commands:
+      **2 conflicts**, in [tools/doc_lint.py](tools/doc_lint.py) and
+      [tools/model_audit.py](tools/model_audit.py). Both are real work on
+      both sides of the same function, not noise — `main` carries an
+      anchor-lint check (`check_anchors`) this branch does not have, this
+      branch carries broken-link and heading-skip checks `main` does not,
+      and the merge asks which list `main()` builds. Both must survive; the
+      resolution is a union, not a pick. The cause is
+      [`7d8f5a6`](https://github.com/alex137/BestPractice/commit/7d8f5a6)
+      landing on `main` in the 2026-09-08 carry, which is also why the
+      unmerged branch `claude/sync-practices-54-55-x2w4n3` is **not**
+      unlanded work: its tip is that commit, already on `main`, and
+      `git cherry` calls it unique only because it compares against this
+      branch. Close that branch.
+
+      **A measured number about two moving branches is true on the day it
+      was measured and nothing re-runs it.** The 0-conflict figure was
+      right on 2026-09-07 and wrong by 2026-09-08, and it sat here as fact
+      for three days. Re-rehearse whenever
+      [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py)
+      reports `origin/main` has moved — that notice is already printed at
+      every session start, and it is the trigger this measurement never
+      had. Opening *that branch* as the pull request is what keeps the
       un-revert off `main` until Alex approves: both commits arrive
       together in one merge, so `main` flips from no-Precedent to
       all-of-Precedent exactly once, at the moment he says yes. A straight
@@ -1300,7 +1325,15 @@ which is the failure this repointing exists to end — write
   shape as the stem work already done for the other sources, one source
   later: that set was created after the cuts were measured, and nothing
   revisits the list when a source is added.
-  **The fix is one line in the private list, measured before it lands** —
+  **It is two lines, not one, and the second was found by tripping it.**
+  The set also has no `# visibility-audit: allow` line, so the qualified
+  `owner/name` form cannot be written in this public tree at all — the
+  2026-09-11 very deep check's own run record named it in a scope line and
+  the gate refused the push. Between them the qualified form is unnameable
+  and the bare form is unguarded, which is the worst of both states. The
+  same cause covers both: nothing revisits the blocklist when a source is
+  added.
+  **The stem fix is one line, measured before it lands** —
   truncate to a distinctive head and confirm the hit count against this tree
   is zero, exactly as the existing stems were derived.
   **Blocked on:** the file lives in `themorgan/precedent-individual`, which
