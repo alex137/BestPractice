@@ -82,6 +82,41 @@ os.environ.setdefault(
 for _var in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_AUTHOR_DATE'):
     os.environ.pop(_var, None)
 
+# THE SAME SHAPE AGAIN, on the private-source credential, and this one made
+# the harness's own result depend on which container it ran in. Two fixtures
+# build a scenario where NO credential is available -- "with no base url the
+# team source is named on stderr as NOT in force", and "--write-session-hook
+# with NO --repo-url ... degrades quietly" -- and then spawn a subprocess
+# carrying the container's own environment. Where PRECEDENT_GIT_TOKEN and
+# PRECEDENT_SOURCE_BASE_URL are set (INSTALL.md section 8, and every session
+# since the credential route was verified on 2026-09-10), the subprocess
+# picks them up, finds a URL after all, and does the thing the case says it
+# must not do. The fixture never established the state it asserted on.
+#
+# Measured 2026-09-11, same tree, no code change: `4 failed` with the two
+# variables in the environment, `2 failed` under `env -u` -- so a harness
+# whose credentials happened to be missing reported two checks green that a
+# credentialed one reported red, and neither run was wrong about itself.
+#
+# The first fix popped both variables inside the two fixtures that noticed,
+# and those pops are still there -- they document the hazard where a reader
+# meets it, and they hold if anything ever re-adds a credential in a
+# narrower scope. They are not the whole fix, because a fixture written next
+# month inherits the same invisible dependency and will not have read them.
+# So the scrub is dropped here as well, once, for the same reason as the
+# block above. (practice: fixture-owns-its-state, whose Rule says exactly
+# this: clear the ambient inputs at the top, not in the fixture that
+# happened to notice.)
+#
+# A fixture that genuinely wants a credential sets it explicitly, and still
+# gets it -- check_source_credentials plants its own token and its own
+# file:// base URL, and is unaffected.
+# check_fixtures_own_the_credential_environment asserts this block did its
+# job, planted variables and all.
+CREDENTIAL_ENV_VARS = ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL')
+for _var in CREDENTIAL_ENV_VARS:
+    os.environ.pop(_var, None)
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -11524,6 +11559,96 @@ def check_source_supplied_checks_run():
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_fixtures_own_the_credential_environment():
+    """The harness's own result must not depend on whether the container it
+    runs in happens to carry a private-source credential
+    (practice: fixture-owns-its-state).
+
+    THE INCIDENT (2026-09-11). Two checks below build a scenario where NO
+    credential is available -- check_source_credentials' "with no base url
+    the team source is named on stderr as NOT in force", and
+    check_individual_source_bootstrap_self_heals' "--write-session-hook with
+    NO --repo-url ... degrades quietly" -- and then spawned a subprocess
+    carrying the container's own environment. Since 2026-09-10 a real
+    session carries PRECEDENT_GIT_TOKEN and PRECEDENT_SOURCE_BASE_URL
+    (INSTALL.md section 8), so the subprocess found a URL after all and did
+    the thing the case says it must not do. Measured on one tree with no code
+    change: `4 failed` with the variables set, `2 failed` under `env -u`.
+    Neither run was wrong about itself, which is the whole problem -- a
+    harness result nobody can read.
+
+    The two fixtures were fixed first by popping both variables in their own
+    run() helpers, which is right where a reader meets the hazard and is kept.
+    The scrub at the top of this file is the half that covers the fixture
+    nobody has written yet, for the reason fixture-owns-its-state states
+    outright: it inherits the same invisible dependency and will not notice.
+    This check is what stops that scrub being deleted or quietly outgrown.
+
+    Case 3 is the controlling one, and it is a real negative control rather
+    than a re-reading of case 1: it PLANTS both variables in a subprocess's
+    environment and imports this module there, so it measures the scrub
+    doing its job rather than the container happening to be clean. Case 4 is
+    the other direction -- a fixture that genuinely wants a credential must
+    still be able to set one, or check_source_credentials could not test the
+    credentialed half at all."""
+    probe_dir = str(ROOT / 'tools')
+    cases = []
+
+    cases.append(('this process carries neither credential variable, whatever '
+                  'the container set',
+                  all(v not in os.environ for v in CREDENTIAL_ENV_VARS),
+                  repr({v: os.environ.get(v) for v in CREDENTIAL_ENV_VARS})))
+
+    # An ordinary fixture subprocess, spawned the way every fixture here
+    # spawns one: env=dict(os.environ).
+    r = subprocess.run(
+        [sys.executable, '-c',
+         'import json, os, sys; print(json.dumps([os.environ.get(v) for v in '
+         'sys.argv[1:]]))', *CREDENTIAL_ENV_VARS],
+        capture_output=True, text=True, env=dict(os.environ))
+    cases.append(('a subprocess spawned with env=dict(os.environ) -- what '
+                  'every fixture here does -- carries neither either',
+                  r.returncode == 0 and json.loads(r.stdout or '[1]') ==
+                  [None] * len(CREDENTIAL_ENV_VARS),
+                  r.stdout + r.stderr))
+
+    # THE CONTROLLING CASE: both planted, then this module imported.
+    planted = {**os.environ,
+               'PRECEDENT_GIT_TOKEN': 'planted-not-a-real-token',
+               'PRECEDENT_SOURCE_BASE_URL': 'https://planted.invalid'}
+    r2 = subprocess.run(
+        [sys.executable, '-c',
+         f'import sys; sys.path.insert(0, {probe_dir!r}); '
+         'import json, os, verify_harness as vh; '
+         'print(json.dumps([os.environ.get(v) for v in vh.CREDENTIAL_ENV_VARS]))'],
+        capture_output=True, text=True, env=planted)
+    tail = (r2.stdout or '').strip().splitlines()[-1:] or ['']
+    cases.append(('with both variables PLANTED in the environment, importing '
+                  'this module removes them -- the scrub, measured rather '
+                  'than assumed',
+                  r2.returncode == 0 and json.loads(tail[0] or '[1]') ==
+                  [None] * len(CREDENTIAL_ENV_VARS),
+                  r2.stdout[-400:] + r2.stderr[-400:]))
+
+    # And the other direction.
+    r3 = subprocess.run(
+        [sys.executable, '-c',
+         'import os; print(os.environ.get("PRECEDENT_GIT_TOKEN"))'],
+        capture_output=True, text=True,
+        env={**os.environ, 'PRECEDENT_GIT_TOKEN': 'fixture-planted'})
+    cases.append(('a fixture that sets a credential EXPLICITLY still gets it '
+                  '-- the scrub clears the ambient one, it does not make a '
+                  'credential unreachable',
+                  r3.stdout.strip() == 'fixture-planted',
+                  r3.stdout + r3.stderr))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'no fixture inherits the private-source credential from the '
+          f'container ({len(cases)} stated cases, both variables planted '
+          f'being the controlling case)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_source_credentials():
     """tools/precedent_source_credentials.py, and the one property that
     matters most about it: the token never leaves the environment.
@@ -15326,6 +15451,7 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_source_credentials()
+    check_fixtures_own_the_credential_environment()
     check_pretooluse_hook_fires()
     check_not_binding_actually_exempts_a_check()
     check_mirrored_prefixes_answers_both_install_models()
