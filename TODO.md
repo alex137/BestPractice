@@ -3188,14 +3188,26 @@ which is the failure this repointing exists to end — write
    travels with the engine and will fail in each set on the refresh commit
    until that set regenerates its views, which is the same one-command fix.
 
-   **blocked-on:** a session that can PUSH to those repositories. All four
-   are attached read-only in the session that shipped this
-   ([cross-source-rollout](practices/cross-source-rollout.md) wants the
-   rollout in the same session, and it was not available): `git fetch` inside
-   the attached clone fails with `could not read Username for
-   'https://github.com'`, and `add_repo` with `access: "push"` refuses
-   cross-owner adds. The route is a session rooted at one of those
-   repositories, per [`attach-private-sources`](TODO.md#attach-private-sources).
+   **Closed 2026-09-11 — landed in all four.** Verified from this session by
+   reading each set's own `origin/main`, not by being told:
+   `.github/workflows/views-drift.yml` is present in `precedent-individual`
+   (its PR #76), `precedent-team-maintainers` (#38),
+   `precedent-team-writing` (#7) and `precedent-team-working-style` (#10),
+   each alongside a vendored-engine refresh, so the gate runs against a
+   `build_views.py` that writes the corrected header rather than the old one.
+   The work was done by a session rooted in those repositories, which is what
+   this item was blocked on: a session rooted here can read those clones with
+   `PRECEDENT_GIT_TOKEN` but cannot push to them — measured again 2026-09-11,
+   `add_repo` with `access: "push"` refuses cross-owner and a direct
+   `git push --dry-run` returns 403 from the git proxy.
+
+   **What it also cleared:** the harness check comparing every reachable copy
+   of `commit-identity.sh`. Those copies were never the problem — each set's
+   committed copy was already canonical, and the drift was in one container's
+   stale clones. The durable half of that is
+   [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
+   fast-forwarding an attached team clone at session start instead of
+   reporting it `already on disk`.
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
@@ -3236,30 +3248,100 @@ which is the failure this repointing exists to end — write
    views. The practice stays in force and stays where it is; only the loading
    channel changes, from resident to the occasion index.
 
-   **He also asked whether it should move to the writing set, and the answer
-   given was no**, on two grounds worth keeping so nobody re-proposes it.
-   `small-calls` is about judgment calls in any work — filling in a default,
-   picking between two implementations — and `precedent-team-writing` is
-   seventeen practices about prose and documents; it already sits in
-   `precedent-team-working-style` beside `default-register`,
-   `nonblocking-questions` and `quiet-checks`, which is its subject. And the
-   move would not have achieved the thing anyway: **residency is the `tier:`
-   field, not the level**, so a resident practice carried from one team set
-   to another is still resident and still in every session's block.
+   **Two decisions were recorded on 2026-09-11, in two different threads,
+   naming two different practices. Both are Morgan's; neither session could
+   see the other; this paragraph does not rank them.**
 
-   **blocked-on:** a session that can PUSH to `precedent-team-working-style`.
-   Measured here, 2026-09-11, both routes: `git push` inside the attached
-   clone is refused by the git proxy (`not in this session's authorized
-   repository set`, 403), and `add_repo` with `access: "push"` refuses with
-   `cross-tier adds are not supported in v1 ... session already has repos
-   from owner(s) [alex137]`. Same wall as
-   [`views-drift-gate-rollout-to-existing-sets`](TODO.md#views-drift-gate-rollout-to-existing-sets),
-   and the route is the same: a session rooted at that repository.
+   *Thread A — `buenos-aires-dates`, and already in flight.* Shown the
+   seventeen with what each costs, Morgan chose to demote
+   `buenos-aires-dates` (individual, ≈159 tokens). It is the one resident
+   rule with mechanical backstops — its own
+   `tools/checks/check_buenos_aires_dates.py`, the `pre-commit` hook that
+   refuses a wrong commit offset, and the zone ladder deriving from
+   `identity.json` — and it already carries an `occasion` and an
+   `index_clause`, so demoting moves it into the occasion index rather than
+   dropping it, and `applies_to: ["**"]` keeps the path-trigger channel
+   firing it. **The reply-register practices were explicitly ruled out** in
+   that thread: all four are `checked_by: null`, they bind every reply, and
+   this repository's own gotchas record what a session's replies look like
+   when one of them silently fails to load. The edit is one frontmatter line
+   in `precedent-individual`; it was handed to a session rooted there.
 
-   **The fixture half is separate and is NOT closed by the demotion.**
-   `verify_harness.py`'s cross-source check still resolves the container's
-   real attached sources, so it still answers differently on different
-   machines — it will simply be answering "clean" now, which is the worse
-   version of the same bug.
+   *Thread B — `small-calls`.* Asked directly to drop `small-calls` from the
+   resident block and consider moving it to the writing set. Measured with
+   the change applied to the attached clone and reverted: **1,855 tokens
+   across 16 practices**, under the cap. The edit is
+   `tier: resident` → `tier: on-demand` in
+   `precedent-team-working-style/practices/small-calls.md`, followed by that
+   set regenerating its views. `small-calls` is not one of the four
+   reply-register practices thread A ruled out, so the two decisions do not
+   contradict each other — they overlap.
 
-   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — the decision is made and recorded; what remains is the push, not a question for anyone.
+   **What overlapping costs, and why a session must not just do both.**
+   Either demotion alone clears the overage; doing both takes the block to
+   roughly 1,696 and removes a second rule from every session, which is a
+   change to what fires everywhere and not a rounding adjustment. **Morgan
+   was asked in the reply of thread B which he wants: both, or only one.**
+   Until he answers, thread A's edit stands because it was already handed
+   off, and thread B's is held.
+
+   **The move to the writing set was declined**, on two grounds worth
+   keeping so nobody re-proposes it. `small-calls` is about judgment calls in
+   any work — filling in a default, picking between two implementations — and
+   `precedent-team-writing` is seventeen practices about prose and documents;
+   it already sits in `precedent-team-working-style` beside
+   `default-register`, `nonblocking-questions` and `quiet-checks`, which is
+   its subject. And the move would not have achieved the thing anyway:
+   **residency is the `tier:` field, not the level**, so a resident practice
+   carried from one team set to another is still resident and still in every
+   session's block.
+
+   **blocked-on:** a session that can PUSH to the set being edited — neither
+   `precedent-individual` nor `precedent-team-working-style` is writable from
+   a session rooted here. Measured 2026-09-11, both routes: `git push` inside
+   the attached clone is refused by the git proxy (`not in this session's
+   authorized repository set`, 403), and `add_repo` with `access: "push"`
+   refuses with `cross-tier adds are not supported in v1 ... session already
+   has repos from owner(s) [alex137]`. Same wall as
+   [`views-drift-gate-rollout-to-existing-sets`](TODO.md#views-drift-gate-rollout-to-existing-sets).
+
+   **This item closes when a demotion lands and `precedent_resolve.py` stops
+   printing `OVER BUDGET`.** The fixture defect described above is separate
+   and stays open either way — and gets quieter rather than fixed, since it
+   will then answer "clean" while still reading the container's real sources.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — the reduction is decided twice over; what remains is the push, plus the one question raised in thread B's reply.
+
+63. <a id="source-clone-keeps-no-credential"></a>**A private source clone carries no credential helper, so every later
+    fetch of it fails — and the freshness guard blocks on that.**
+    [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
+    passes the credential as `git -c credential.helper=...` flags on the
+    clone invocation, which is exactly right for keeping the token out of
+    `.git/config`. But nothing configures the clone for later use, so a
+    plain `git fetch origin main` inside it fails with *"could not read
+    Username for 'https://github.com'"* even with `PRECEDENT_GIT_TOKEN`
+    set.
+
+    Measured 2026-09-11, in a container with all four private sources
+    cloned and the token present: `PRECEDENT_FRESHNESS_ALSO` names those
+    sources, the freshness guard's `pre-write` mode fetches each one, the
+    fetch fails, and `_pre_write_one` blocks — **refusing every non-`git`
+    tool call of the session**, repeatedly, since the sentinel is only
+    written after the checks pass. The block message names the source's
+    base branch (`could not fetch origin/main`) while the project dir is on
+    `precedent-beta-v01`, which reads as a problem with the project's own
+    checkout and is not.
+
+    The workaround is one `git config credential.helper` per clone, with
+    the same secret-free shell snippet
+    [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
+    already builds — set by hand in this container to get the session
+    moving. The fix is for the bootstrap to write that helper into each
+    clone's local config at clone time, so it survives the session that
+    made it.
+
+    **out-of-scope:** found while doing an unrelated documentation change
+    ([todo-is-a-handoff](practices/todo-is-a-handoff.md)); it is a code fix
+    in the source bootstrap, not a docs edit.
+
+    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — raised in the reply of the session that hit it, 2026-09-11.
