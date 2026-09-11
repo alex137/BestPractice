@@ -799,6 +799,54 @@ gotcha every session reads is a gotcha every session pays for.
   checks each guarantee by what it left behind, and `--apply` runs the three
   hooks by hand. It cannot itself be a hook, for the obvious reason.
 
+- **Your commits are authored by the bot because the harness sets that
+  identity in git's GLOBAL config AND in every clone's LOCAL config — so a
+  global-only fix is silently overridden, and the Stop hook will tell you to
+  put the bot back.** Measured 2026-09-11: `user.name=Claude`,
+  `user.email=noreply@anthropic.com` in `--global` and in both clones'
+  `--local`, `TZ` unset so the system clock reads **-0400** rather than the
+  declared -0300, and no global backstop installed to refuse any of it.
+  `git var GIT_AUTHOR_IDENT` returned the bot with no env override in sight.
+  The cause is the entry above — a session rooted one directory up, so
+  `commit-identity.sh` never ran — but the SYMPTOM reads as a git-config
+  problem, and the config it reads as is one somebody already set on purpose.
+  **The cost is that a wrong-author commit cannot be repaired after it
+  merges** without rewriting `main`, which is why `fab8d42` and two entries in
+  the individual set's `grandfathered_commit_shas` are permanent.
+  **The remedy is one line, and it is not `git config`:**
+  ```
+  bash .claude/hooks/commit-identity.sh
+  ```
+  It sets the local identity, the GLOBAL one (so a clone attached later
+  inherits a person), repoints `/etc/localtime` so later shells and
+  `git merge` get the right offset without a `TZ=` prefix, and installs the
+  global `core.hooksPath` backstop that refuses a bot-authored commit
+  everywhere.
+  **Running it once is not enough, and this is the half that will bite you.**
+  Measured 2026-09-11: immediately after the hook, `/etc/localtime` pointed at
+  Buenos_Aires and git stamped -0300; at the start of a LATER TURN in the same
+  session it was back to `America/New_York` and -0400, with nothing having
+  asked for that. Re-running restored it, and it then held across separate
+  tool shells within that turn. **What reverts it is NOT established** — do not
+  read this as a diagnosed cause. The consequence is the operational half:
+  the identity survives (it is git config), the TIMEZONE may not, so the
+  backstop refuses on the offset alone with the author already correct —
+  `commit refused: author-date offset is '-0400'`. That refusal is the
+  mechanism working; re-run the hook, or prefix the one commit with
+  `TZ="America/Argentina/Buenos_Aires"`. It needs `PRECEDENT_COMMIT_*` in the environment or a resolvable
+  `identity.json`; with the variables present it needs no private repo at all.
+  **Verify by effect, never by reading the config you just wrote:**
+  `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
+  must name the person and the declared offset.
+  **The second trap is the one that wastes the time.** The harness's own Stop
+  hook flags commits whose committer is not `noreply@anthropic.com` and asks
+  you to `--amend --reset-author` onto exactly the bot account the individual
+  set's own `commit-author` practice refuses and its own mechanical check
+  fails on — the account that practice's Rule calls never a person. Neither
+  file is in this repository, which is why neither is linked here. Following it recreates the violation
+  this repository spent a day fixing. **The repository's gate wins over
+  generic harness guidance**; say so and leave the commit alone.
+
 - **The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are
   missing. Resolve the paths its settings.json actually declares — a
   directory listing cannot answer the question.** 2026-09-09: a session
