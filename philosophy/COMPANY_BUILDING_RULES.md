@@ -34,7 +34,8 @@ A colleague who's been here since the founding, remembers everything, and
 has no eyes or ears, only text: the Ghost. Every untranscribed meeting
 removes an organ; what never became text at all is
 [`digitize-the-edge`](#digitize-the-edge)'s. Most companies do the easy 5%;
-the bar is nearer 90% — testable as [`coldstart-test`](AI_GOVERNANCE_TO_COCREATE.md#coldstart-test),
+the bar is nearer 90% and never 100%, since some of it is
+[`the-unspoken`](HUMANS_AT_OUR_BEST.md#the-unspoken) — testable as [`coldstart-test`](AI_GOVERNANCE_TO_COCREATE.md#coldstart-test),
 and worth it for
 [`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented).
 
@@ -140,7 +141,8 @@ bad trade. Bring several working versions, not a deck arguing for one —
 killing is the point, not the count — a wrong idea dies before it acquires
 allies ([`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early)). This only
 works where killing costs nothing socially, not where the loser's fate
-follows them into review. Whether the lavishness fits is
+follows them into review, and not where the pick itself costs something
+([`trade-offs-and-hard-decisions`](HUMANS_AT_OUR_BEST.md#trade-offs-and-hard-decisions)). Whether the lavishness fits is
 [`cost-awareness-situational`](AI_GOVERNANCE_TO_COCREATE.md#cost-awareness-situational), never a
 policy set once.
 
@@ -194,7 +196,8 @@ back.
 "In the loop" became jargon for a rubber stamp — approving every step,
 since nobody scrutinizes step four thousand like step one. What's
 missing is someone whose job is the fleet itself: watching drift, retuning
-prompts and guardrails, deciding when a step needs a human again —
+prompts and guardrails ([`boundary-pushing`](HUMANS_AT_OUR_BEST.md#boundary-pushing) as a
+standing job), deciding when a step needs a human again —
 [`actually-managing`](HUMANS_AT_OUR_BEST.md#actually-managing), pointed at agents
 ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)). Call
 the role Manager of Agents or don't, but staff it.

@@ -72,7 +72,9 @@ possible; this is what it is for).
 **6. Push-back as a configuration switch, not a personality quirk.**
 Argue a genuine counter-case on writing/thinking work, comply on
 technical execution — the switch should track task shape, not sit fixed
-at the system level. Being run by hand meanwhile as
+at the system level, where a rule built strict on purpose under-serves the
+case in front of it ([`boundary-pushing`](HUMANS_AT_OUR_BEST.md#boundary-pushing)). Being run
+by hand meanwhile as
 [`push-back-writing-thinking`](RULES_NOW_TESTING.md#push-back-writing-thinking).
 
 <a id="three-reflexes-in-system-prompt"></a>

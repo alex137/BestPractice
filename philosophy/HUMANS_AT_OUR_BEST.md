@@ -28,8 +28,11 @@ this page doesn't replace them.*
   half-works — with the intensity and creativity that comes from treating it
   as theirs ([`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word) is the narrow case).
 - <a id="boundary-pushing"></a>**Boundary pushing.** AI tends to under-push the boundaries a situation
-  actually calls for, held back by rules built strict on purpose; a human
-  still has to decide when to lean past them.
+  actually calls for, held back by rules built strict on purpose
+  ([`push-back-as-config-switch`](AI_GOVERNANCE_TO_COCREATE.md#push-back-as-config-switch) is the same
+  tension inside the model); a human still has to decide when to lean past
+  them, which is a standing job
+  ([`manager-of-agents`](COMPANY_BUILDING_RULES.md#manager-of-agents)).
 
 ### Responsibility
 
@@ -53,7 +56,8 @@ this page doesn't replace them.*
 - <a id="trade-offs-and-hard-decisions"></a>**Trade-offs and hard decisions.** Nothing worth choosing comes free:
   speed against care, this client against that one, the person you like
   against the person who is right. Somebody has to pick, knowing what the
-  pick costs, and carry it afterwards.
+  pick costs, and carry it afterwards — where
+  [`build-five-kill-four`](COMPANY_BUILDING_RULES.md#build-five-kill-four) stops applying.
 - <a id="dirtiness-of-real-life"></a>**Managing the dirtiness of real life.** When you leave the digital world,
   and more often than not when you're on it, very little works smoothly or
   the way it seems to "on paper" — the frontier
@@ -101,7 +105,8 @@ this page doesn't replace them.*
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
 - <a id="the-unspoken"></a>**The unspoken.** The things a human can do, and sometimes has to, that
-  are hard to say out loud at all.
+  are hard to say out loud at all — and so the part of
+  [`transcribe-everything`](COMPANY_BUILDING_RULES.md#transcribe-everything) that never arrives.
 
 ## See Also
 
