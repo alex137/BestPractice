@@ -2834,8 +2834,27 @@ which is the failure this repointing exists to end — write
    long as the rule has existed. Once the universal check is in force there
    is nothing left for it to look at.
 
-   **blocked-on:** `precedent-individual` is under a different owner and could
-   not be attached to the session that landed this — the standing cross-owner
+   **DONE 2026-09-11.** The copy in `precedent-individual` is
+   `status: deduplicated`, `in_force_at: practice-links-travel`, and its check
+   script is gone from that set's `tools/checks/`. Its `## Story` records the
+   line-by-line comparison this item asked for and raised four things the
+   universal text was missing; all four are carried up as of
+   [PR #198](https://github.com/alex137/BestPractice/pull/198). One of them
+   was a real defect — the universal check did not know a check script's own
+   test travels, which that session measured as 12 false violations across 6
+   practice files, each one repaired by an absolute URL into a private
+   repository.
+
+   **What unblocked it, and it is worth knowing for the next cross-owner
+   item:** `PRECEDENT_GIT_TOKEN` reached a session rooted here for the first
+   time, so the private sources clone at session start. A session in this
+   repository can now READ that set directly and does not need a person to
+   carry findings between windows
+   ([findings-return-through-repo](practices/findings-return-through-repo.md)).
+   Pushing to it is still cross-owner and still needs a session rooted there.
+
+   **Historical blocked-on:** `precedent-individual` is under a different
+   owner and could not be attached to the session that landed this — the standing cross-owner
    `add_repo` refusal, and no `PRECEDENT_GIT_TOKEN` in that environment. It
    needs a session rooted in that repository, which is a person's act
    ([cross-source-rollout](practices/cross-source-rollout.md): not attached,
