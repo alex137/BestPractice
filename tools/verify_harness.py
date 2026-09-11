@@ -4574,8 +4574,17 @@ def check_precedent_check_fires():
         # half the other checks in this repo on its way past this one, and
         # then a pass here would prove nothing about which check fired.
         def _plant_load_budget(repo):
-            rewrite(repo, 'tools/session_load_budgets.json',
-                    lambda t: t.replace('"ceiling": 19000', '"ceiling": 10', 1))
+            # Parsed, not string-replaced: a plant keyed on the spelling of a
+            # number is a plant that rots the first time somebody reviews the
+            # ceiling, and the case then reports the CHECK as broken. That is
+            # this same fixture's scripts-assert-properties history, and it
+            # happened to this case too, within the hour.
+            def _lower(t):
+                d = json.loads(t)
+                for e in d['surfaces'].values():
+                    e['ceiling'] = 10
+                return json.dumps(d, indent=2) + '\n'
+            rewrite(repo, 'tools/session_load_budgets.json', _lower)
         case('session-load-budget', _plant_load_budget)
         cases.append(('session-load-budget: the planted violation names the '
                       'ceiling it is over, not just that something is big',

@@ -122,11 +122,24 @@ saying every repo in force. And no surface had a declared ceiling, so
 file as a whole could not be over anything, because it was not under
 anything.
 
-Measured the day this was written, on this repository: `AGENTS.md` **18,605
-tokens**, of which the gotchas section is 9,501, the occasion index 2,637 and
+Measured the day this was written, on this repository: `AGENTS.md` **19,687
+tokens**, of which the gotchas section is 10,494, the occasion index 2,678 and
 the resident block 894 — plus `.precedent/SESSION_PRACTICES.md` at 2,887.
-Roughly **21,500 tokens before the first turn**, with a cap declared over 894
-of them.
+**22,624 tokens before the first turn**, with a cap declared over 894 of them.
+
+**It fired on its own repository within the hour**, which is the part worth
+keeping. The ceiling was set at 19,000 against a checkout 14 commits behind;
+merging `precedent-beta-v01` brought a freshness-guard gotcha added upstream
+the same day and put the file at 19,687, over its own ceiling. The rule's
+first demand is a reduction pass, so that is what was run: every entry
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) flagged as claiming its
+own trap settled was read against the tree, and each still bites — including
+the new one, which says in its own words that the shape of the trap survives
+the fix. So nothing was archived and the ceiling was raised once, to 20,000,
+with that reasoning written into the registry entry. **A ceiling raised after
+the review is the mechanism working; one raised instead of it is the failure
+the clause is about**, and the difference is only ever visible in what the
+`why` field says.
 
 ## Install
 The registry is
