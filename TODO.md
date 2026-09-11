@@ -1670,8 +1670,32 @@ which is the failure this repointing exists to end — write
   reason as"), and both now say it in their own words, because a rule in
   force must not be readable only through a retired one.
 
-  **Blocked on:** Morgan saying whether the hesitance extends to the team
-  half. It is a one-line change either way. **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
+  **DONE 2026-09-11**, hours after it was opened. Morgan: *"let's get rid of
+  pack-sync"*, `strength: decided`. It is `status: retired` with
+  `in_force_at: none`, and `bestpractice-sync`'s Story — which said this one
+  was "left open deliberately" — now says what actually happened.
+
+  **The few hours in between are the part worth keeping.** The instruction
+  that retired the first practice named the first practice. A session that
+  had widened it would have got the same end state and learned nothing; a
+  session that had said nothing would have left a rule in force that its
+  owner had already stopped believing in. Raising it cost one line to ask
+  and one line to answer.
+
+  **One thing genuinely went with the rule, and it is named rather than
+  glossed.** `pack-sync` carried a design decision its sibling did not: the
+  private source needs its own repository credential, and a missing one
+  **skips** the update rather than failing the workflow — while raising a
+  tracked issue every time it skips, so a token never set or later revoked
+  is noticed the same day instead of by chance. That pattern is not about
+  syncing, and it survives as `automation-issues`, still in force in that
+  set, which says the same thing for any unattended job.
+
+  **What is now true across the whole system:** no practice anywhere asks
+  for an unattended merge. The update path is `Update Vendors`
+  ([vendor-update-runbook](practices/vendor-update-runbook.md)), started by
+  a person, with that team set's `drift-notice` telling a session at session start that a
+  source has moved.
 
 - <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
   **unfolded 2026-09-08, at Morgan's prompting.** Folded into
