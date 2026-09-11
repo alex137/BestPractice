@@ -1891,6 +1891,28 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=sys.stdout):
             notes.append(f'blocklist at {blocklist_path} could not be read ({e}) '
                          '-- the allow lines were NOT read, so a deliberately '
                          'named repository may be reported below.')
+        # THE SAME FAIL-OPEN THE PUSH GATE NOW REFUSES, in the tool that
+        # actually runs the visibility audit. The loop above carries its own
+        # copy of the allow regex, so a directive that parses as neither is
+        # invisible HERE too -- and the cost is the opposite of the gate's: a
+        # dropped `allow` line makes this audit report a disclosure somebody
+        # already accepted, and a dropped `private-owner` line means the
+        # blocklist says a rule is configured while nothing enforces it.
+        # Reported as findings rather than an exit, because an audit that
+        # stops on the first bad line cannot tell you what else is wrong
+        # (practice: fail-gracefully -- keep going, never look complete). The
+        # push gate is where this is fatal; leak_gate.repo_policy_errors is
+        # the one implementation, so the two cannot drift in what they call
+        # malformed.
+        for _ln, _txt, _why in leak_gate.repo_policy_errors(bl):
+            where = f'{bl}:{_ln}' if _ln else str(bl)
+            findings.append(
+                f'{where}: {_why}. A `# visibility-audit:` line that does not '
+                f'parse is indistinguishable from an ordinary comment, so the '
+                f'allow lines below may be narrower than the file reads -- and '
+                f'this audit and the push gate are both reading it.'
+                + (f' Line reads: {_txt}' if _txt else ''))
+
         try:
             blocked_pats = leak_gate._parse_blocklist(bl)
         except SystemExit as e:

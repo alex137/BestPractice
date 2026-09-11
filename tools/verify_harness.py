@@ -7939,6 +7939,94 @@ def check_repo_reference_allowlist():
         cases.append(('NO owner declared means the rule is inert',
                       lg.repo_ref_hits('acct/secret-thing', {}, {}) == []))
 
+        # GRAMMAR OF THE DIRECTIVES THEMSELVES. Both patterns are
+        # single-line, so a reason on the next comment line drops the whole
+        # directive -- silently, until 2026-09-11. Every case below was
+        # measured before the check was written, including the two that must
+        # NOT fire: characterizing the behaviour is what says which of these
+        # is a bug and which is the documented cost.
+        def errs(body):
+            f = pathlib.Path(td) / f'g{abs(hash(body))}.txt'
+            f.write_text(body + '\n', encoding='utf-8')
+            return lg.repo_policy_errors(f)
+
+        good = ('# visibility-audit: private-owner acct -- one line, fine\n'
+                '# visibility-audit: allow acct/one -- reason on the same line')
+        cases.append(('a well-formed policy file produces no errors',
+                      errs(good) == []))
+
+        # Direction 1: a line that announces a directive and parses as neither.
+        e = errs(good + '\n# visibility-audit: allow acct/two')
+        cases.append(('a directive with no ` -- reason` is an error, '
+                      'naming its line number',
+                      len(e) == 1 and e[0][0] == 3 and 'separator' in e[0][2]))
+
+        e = errs(good + '\n# visibility-audit: allw acct/two -- typo in the verb')
+        cases.append(('a TYPO\'d directive is an error, not an ordinary comment',
+                      len(e) == 1 and e[0][0] == 3
+                      and 'not a recognized directive' in e[0][2]))
+
+        # The reason-on-the-next-line case: parses as NOTHING at all today.
+        e = errs(good + '\n# visibility-audit: allow acct/two --'
+                        '\n#   the reason, pushed onto its own line')
+        cases.append(('a reason on the NEXT line is an error (the directive '
+                      'would otherwise vanish silently)',
+                      len(e) == 1 and e[0][0] == 3 and 'empty' in e[0][2]))
+
+        # Direction 2, the must-not-fire half.
+        # The WRAPPED reason parses, with the reason truncated at the line
+        # end. Lossy, not unsafe, and nothing can tell it from a terse
+        # reason -- so it must NOT be reported, and this locks that in.
+        wrapped = (good + '\n# visibility-audit: allow acct/two -- a reason that '
+                          'begins here and\n#   continues onto this second line')
+        cases.append(('a WRAPPED reason is not an error (documented '
+                      'truncation, not a failure)', errs(wrapped) == []))
+        _o, _a = lg.parse_repo_policy(
+            pathlib.Path(td) / f'g{abs(hash(wrapped))}.txt')
+        cases.append(('...and it parses with the reason TRUNCATED at the '
+                      'line end, which is why it is only a note',
+                      _a.get('acct/two') == 'a reason that begins here and'))
+
+        cases.append(('a plain continuation comment is not flagged on its own',
+                      errs(good + '\n#   just an ordinary comment line') == []))
+        cases.append(('a doubly-commented doc EXAMPLE is not flagged',
+                      errs(good + '\n#   # visibility-audit: allow owner/name '
+                                  '-- why the exposure is accepted') == []))
+
+        # Allow lines under a rule that never runs: every one of them reads as
+        # a deliberate authorization and enforces nothing.
+        e = errs('# visibility-audit: allow acct/one -- named on purpose\n'
+                 '# visibility-audit: allow acct/two -- also on purpose')
+        cases.append(('allow lines with NO private-owner line are an error',
+                      len(e) == 1 and e[0][0] == 0 and 'INERT' in e[0][2]))
+        cases.append(('...but allow lines WITH one are fine', errs(good) == []))
+
+        # Regression guard for the shipped files: the hard failure must not
+        # fire on this repo's own template or committed default. The template
+        # placeholder `<name>` did not parse, so before this was doubly
+        # commented a fresh copy failed the gate at the one moment nobody can
+        # debug it.
+        for _f in (ROOT / 'templates' / 'leak-blocklist.txt.template',
+                   ROOT / 'tools' / 'leak-blocklist.default.txt'):
+            if _f.exists():
+                cases.append((f'the shipped {_f.name} parses clean',
+                              lg.repo_policy_errors(_f) == []))
+
+        # End to end: the gate EXITS on a malformed policy rather than
+        # printing OK. A unit-level error list nobody acts on is the same
+        # fail-open in a new place.
+        bad = pathlib.Path(td) / 'malformed.txt'
+        bad.write_text('# visibility-audit: private-owner acct --\n'
+                       '#   reason on the next line\n'
+                       r'\bSomeSecretTerm\b' + '\n', encoding='utf-8')
+        rb = subprocess.run([sys.executable, str(gate)], capture_output=True,
+                            text=True, cwd=str(ROOT), timeout=300,
+                            env=dict(os.environ,
+                                     PRECEDENT_LEAK_BLOCKLIST=str(bad)))
+        cases.append(('a malformed policy file FAILS the gate', rb.returncode != 0))
+        cases.append(('...and the failure names the line number',
+                      'malformed.txt:1' in (rb.stdout + rb.stderr)))
+
         # ...and an inert rule SAYS SO. A clone that never declared an owner
         # would otherwise get a clean OK covering a rule that inspected
         # nothing -- the fail-open shape the vocabulary layer already learned

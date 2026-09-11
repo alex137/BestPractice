@@ -103,7 +103,13 @@
 # With that line, every `YOUR-ACCOUNT/<name>` mention in a scanned tree is
 # refused unless an allow line permits it, with a reason:
 #
-# visibility-audit: allow YOUR-ACCOUNT/precedent-team-<name> -- declared as a team source in precedent.json
+#   # visibility-audit: allow YOUR-ACCOUNT/precedent-team-NAME -- declared as a team source in precedent.json
+#
+# (Doubly commented so the parser skips it: a `# visibility-audit:` line
+# that does not parse is now a hard failure, and the `<name>` placeholder
+# this line used to carry does not parse -- angle brackets are not legal in
+# a repository name. Left as a live directive it would fail the gate on a
+# fresh copy of this template, which is the one moment nobody can debug it.)
 #
 # WHAT NOT TO PUT HERE, and it is the one that looks like it belongs.
 # Do NOT pre-allow your INDIVIDUAL source. A shared repository is forbidden

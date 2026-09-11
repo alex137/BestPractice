@@ -398,6 +398,72 @@ PRIVATE_OWNER_RE = re.compile(
 ALLOW_REF_RE = re.compile(
     r'#\s*visibility-audit:\s*allow\s+([A-Za-z0-9][\w-]*/[\w.-]+)\s*--\s*(.+)$')
 
+# A line that ANNOUNCES itself as a directive and parses as neither is a hard
+# failure, not a comment. Both patterns above are single-line `re.match`
+# against a stripped line -- there is no continuation syntax and never was --
+# so a reason pushed onto the next comment line silently drops the whole
+# directive. On an `allow` line that fails safe (the repository becomes
+# refused). On the `private-owner` line it voids the ENTIRE repo-reference
+# allowlist while the gate still prints OK, which is the fail-open shape this
+# file exists to refuse.
+#
+# Characterized 2026-09-11 (Buenos Aires) by direct test, not by reading:
+# `allow a/b -- reason` parses; `allow a/b -- reason that` followed by a
+# continuation comment line parses with the reason TRUNCATED at the line end;
+# `allow a/b --` with the reason on the next line parses as NOTHING AT ALL.
+# The truncation case is deliberately left alone: it is lossy, not unsafe, and
+# nothing can tell a deliberately terse reason from a wrapped one.
+#
+# The announce pattern is what makes a typo detectable at all. Before it, a
+# misspelled directive was indistinguishable from an ordinary comment -- the
+# file said a rule was configured and the parser saw prose.
+VIS_AUDIT_ANNOUNCE_RE = re.compile(r'#\s*visibility-audit:')
+
+
+def repo_policy_errors(path):
+    """-> [(line_no, line, why)] for directive lines that parse as neither.
+
+    Line 0 means a whole-file finding rather than one line. Returns [] for an
+    unreadable file: whether the blocklist exists at all is somebody else's
+    error to report, and raising two errors for one cause helps nobody."""
+    out, n_allow, n_owner = [], 0, 0
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return out
+    for i, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip()
+        if not VIS_AUDIT_ANNOUNCE_RE.match(line):
+            continue
+        if PRIVATE_OWNER_RE.match(line):
+            n_owner += 1
+        elif ALLOW_REF_RE.match(line):
+            n_allow += 1
+        elif re.search(r'--\s*$', line):
+            out.append((i, line, 'the reason is empty. A reason must sit on '
+                                 'the SAME line as the directive -- there is '
+                                 'no continuation syntax, so a reason on the '
+                                 'next comment line drops this directive '
+                                 'entirely'))
+        elif '--' not in line:
+            out.append((i, line, 'no ` -- reason` separator. A reason is '
+                                 'mandatory on every directive'))
+        else:
+            out.append((i, line, 'not a recognized directive. Expected '
+                                 '`private-owner <account> -- reason` or '
+                                 '`allow <owner>/<name> -- reason`'))
+    # Allow lines with nothing switched on are not a weaker configuration --
+    # they are somebody having authorized disclosures under a rule that is not
+    # running. Every one of them reads as deliberate and enforces nothing.
+    if n_allow and not n_owner:
+        out.append((0, '', f'{n_allow} `allow` line(s) are declared but NO '
+                           f'`private-owner` line parses, so the '
+                           f'repo-reference allowlist is INERT and every '
+                           f'allow line is authorizing a rule that never '
+                           f'runs. Declare a private-owner line, or remove '
+                           f'the allow lines'))
+    return out
+
 
 def parse_repo_policy(path):
     """-> (private_owners, allowed_refs) from a blocklist file's comments."""
@@ -828,8 +894,23 @@ def main():
     # gets no owner policy either -- and says so through the existing
     # PARTIAL reporting, rather than silently enforcing nothing.
     _raw_bl = os.environ.get(BLOCKLIST_ENV, '').strip()
-    _policy = (parse_repo_policy(pathlib.Path(_raw_bl).expanduser())
-               if _raw_bl else ({}, {}))
+    if _raw_bl:
+        _bl_path = pathlib.Path(_raw_bl).expanduser()
+        _errs = repo_policy_errors(_bl_path)
+        if _errs:
+            for _ln, _txt, _why in _errs:
+                where = f'{_bl_path}:{_ln}' if _ln else str(_bl_path)
+                print(f'leak gate FAIL: {where}: {_why}.'
+                      + (f'\n    {_txt}' if _txt else ''), file=sys.stderr)
+            sys.exit('leak gate FAIL: the repo-reference policy in '
+                     f'{_bl_path} does not parse. This is a hard failure and '
+                     'not a NOTE: a directive that does not parse is '
+                     'indistinguishable from an ordinary comment, so the gate '
+                     'would otherwise print OK while enforcing less than the '
+                     'file says.')
+        _policy = parse_repo_policy(_bl_path)
+    else:
+        _policy = ({}, {})
     _vis, _why = declared_visibility(ROOT)
     if _vis == 'private':
         print(f'leak gate NOT APPLICABLE: {_why}, so pushing this tree '
