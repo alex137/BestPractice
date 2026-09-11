@@ -1026,3 +1026,49 @@ they stand in AGENTS.md unchanged.
   it.
 
 </details>
+
+
+## 30. A `BLOCKED by freshness-guard` on your first tool call can mean your branch has no counterpart on origin yet
+
+**Verdict: `archived`.** The trap cannot fire any more. Fixed 2026-09-11 in
+both copies of the guard -- [.claude/hooks/freshness-guard.sh](../.claude/hooks/freshness-guard.sh)
+and [templates/harness/claude-code/hooks/freshness-guard.sh](../templates/harness/claude-code/hooks/freshness-guard.sh):
+`pre-write` and `session-start` now ask
+`git ls-remote --exit-code --heads origin <branch>` before deciding what a
+failed fetch meant, and wave through only exit 2 -- origin answered and does
+not have the ref. Asserted in both directions in
+[tools/verify_harness.py](../tools/verify_harness.py), including the negative
+controls that an unreachable origin still exits 2 and still blocks, and that a
+branch absent from origin is still refused when its base has moved. The live
+entry in [AGENTS.md](../AGENTS.md) keeps only the lesson that survives the
+fix: a refusal naming a remedy that cannot work is a question about what the
+guard measured, never a reason to set `precedent.freshness.override`.
+
+**Read the fix date against the tree before acting on the workaround below.**
+Pushing an empty branch to give the guard a counterpart was the right move on
+2026-09-09 and is unnecessary now.
+
+<details>
+<summary>The full entry as it stood before 2026-09-11</summary>
+
+- **A `BLOCKED by freshness-guard` on your first tool call can mean your
+  BRANCH has no counterpart on origin yet, not that your checkout is stale —
+  and the override the message offers switches the guard off for the whole
+  checkout.** Reported 2026-09-09 by a session working in one of the private
+  practice-set repositories: its first command was refused because the branch
+  it had been told to work on did not exist on origin, so there was nothing
+  for the guard to fetch or compare against. **The remedy the refusal names
+  is the wrong one here.** `git config precedent.freshness.override true`
+  buys past a branch-shaped inconvenience by disabling freshness checking for
+  the rest of the session — trading the guard that catches the single most
+  expensive failure class in this file for the smallest possible convenience.
+  **Push the branch instead.** It gives the guard a counterpart to fetch,
+  costs nothing (the branch carries no commits beyond its base yet), and
+  leaves every later check running. That session did exactly that, after
+  confirming by hand that its HEAD matched `origin/main` on a clean tree.
+  **Not established from here:** which of the guard's paths produced the
+  refusal, or whether that set's copy is the older build named two entries
+  above — that repository is under another owner and cannot be attached to a
+  session rooted here, per the cross-owner entry below.
+
+</details>

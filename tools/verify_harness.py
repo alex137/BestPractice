@@ -7555,42 +7555,41 @@ def _declared_fallback_tz():
     return precedent_time.FALLBACK_TZ
 
 
-def check_freshness_guard_new_branch_and_also_list():
-    """The two mechanisms carried up from a downstream set on 2026-09-11,
-    asserted by running the real hook against real repositories.
+def check_freshness_guard_checks_attached_repositories():
+    """PRECEDENT_FRESHNESS_ALSO, carried up from a downstream set 2026-09-11.
 
-    Both are behaviours the guard gets WRONG in one specific way each, and
-    each one's naive fix is the other's inversion -- which is why the cases
-    are stated in pairs rather than as one "it works" assertion.
+    A hook fires for the project dir and nothing else, so a repository the
+    session merely has ATTACHED -- `add_repo`, a SessionStart clone, the
+    sibling clone a team practice source resolves to -- runs none of its own
+    freshness checking however correctly its guard is installed (AGENTS.md's
+    gotchas carry the general form of this). An environment variable is the
+    one thing that follows a session into every repository it touches, which
+    is the same reasoning that put PRECEDENT_COMMIT_* at the top of the
+    identity chain.
 
-    1. A BRANCH WITH NO COUNTERPART ON ORIGIN is not the unverifiable case.
-       `git fetch origin <branch>` fails identically for "you never pushed
-       this" and "origin is unreachable", and the guard treated the pair as
-       one -- so the first tool call of every session on every new feature
-       branch was refused, offering `precedent.freshness.override` as the way
-       out. A guard whose documented escape hatch is a flag that switches it
-       off teaches people to set that flag. The split is `ls-remote
-       --exit-code`, and case 2 below is the control that keeps the fix from
-       becoming "never block on a failed fetch", which would invert the whole
-       practice into a skip that reads as a pass.
+    THE CONTROL IS THE POINT. Case 2 runs the identical stale attached repo
+    with the variable unset and requires it to pass in silence -- otherwise
+    case 1 proves only that something exited 2, not that the also-list is
+    what found it, and the check would keep passing if the mechanism were
+    deleted tomorrow. Case 3 holds the other edge: an entry naming a path
+    that is not there is a config typo, not a stale checkout, and blocking on
+    it would wedge every session over a mistyped value and teach people to
+    unset the variable. Each case asserts the guard's own words rather than
+    an exit status (practice: control-asserts-which-failure) -- exit 2 is
+    also what the stale-base case returns, and exit 0 is what a spent
+    sentinel returns.
 
-    2. A REPOSITORY THE SESSION MERELY HAS ATTACHED is never checked by its
-       own guard, because a hook fires for the project dir and nothing else
-       (AGENTS.md's gotchas: an attached sibling runs none of its own
-       SessionStart hooks). PRECEDENT_FRESHNESS_ALSO closes that, and case 3
-       is paired with a control showing the same stale attached repo passing
-       silently when the variable is unset -- otherwise the case proves only
-       that something exited 2, not that the also-list is what found it.
-
-    Every case asserts the MESSAGE, not merely the exit status
-    (control-asserts-which-failure): the guard has several ways to exit 2 and
-    several to exit 0, and "it blocked" is not evidence it blocked for the
-    reason claimed."""
+    Both copies are run, this repo's own and the one an adopter instantiates,
+    for the reason parallel-artifact-ledger names."""
     import tempfile
-    guard = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh'
-    if not guard.exists():
-        check('the freshness guard handles a new branch and the also-list',
-              False, f'{guard} is missing')
+
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+               / 'freshness-guard.sh')]
+    missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
+    if missing:
+        not_applicable('the freshness guard checks attached repositories',
+                       f'not in this tree: {missing}')
         return
 
     env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
@@ -7602,111 +7601,248 @@ def check_freshness_guard_new_branch_and_also_list():
         return subprocess.run(['git', '-C', str(cwd), *args], env=env0,
                               capture_output=True, text=True)
 
-    def run(project, session, also=None):
-        """The hook as the harness invokes it: a JSON payload on stdin, the
-        project dir in the environment. The session id keys the once-per-
-        session sentinel, so every case needs its own or the second one is
-        skipped -- which looks exactly like a pass.
+    cases = []
+    for guard in guards:
+        tag = guard.relative_to(ROOT).as_posix()
+        with tempfile.TemporaryDirectory() as td:
+            w = pathlib.Path(td)
+            # The guard's once-per-session sentinel lives in TMPDIR keyed by
+            # session id. The ids below are fixed strings, so without a
+            # fixture-owned TMPDIR the SECOND run in a container finds every
+            # sentinel already there and every case exits 0 in silence --
+            # which would read as a pass if these asserted exit codes alone
+            # (practice: fixture-owns-its-state).
+            sentinels = w / 'sentinels'
+            sentinels.mkdir()
 
-        TMPDIR is redirected into the fixture, because that sentinel is where
-        this check's state leaks out of it: the ids below are fixed strings,
-        so the SECOND run of this harness in the same container found every
-        sentinel already there and every case exited 0 in silence -- which
-        renders as three of them failing on a missing message, and would have
-        rendered as a pass had the assertions stopped at the exit status
-        (practice: fixture-owns-its-state)."""
-        env = dict(env0)
-        env['TMPDIR'] = str(sentinels)
-        if also is None:
-            env.pop('PRECEDENT_FRESHNESS_ALSO', None)
-        else:
-            env['PRECEDENT_FRESHNESS_ALSO'] = also
-        env['CLAUDE_PROJECT_DIR'] = str(project)
-        payload = json.dumps({'session_id': session, 'tool_name': 'Write',
-                              'tool_input': {'command': ''}})
-        r = subprocess.run(['bash', str(guard), 'pre-write', 'main'],
-                           input=payload, env=env, capture_output=True,
-                           text=True, cwd=str(project))
-        return r.returncode, r.stderr
+            def run(project, session, also=None):
+                env = dict(env0, TMPDIR=str(sentinels),
+                           CLAUDE_PROJECT_DIR=str(project))
+                if also is None:
+                    env.pop('PRECEDENT_FRESHNESS_ALSO', None)
+                else:
+                    env['PRECEDENT_FRESHNESS_ALSO'] = also
+                r = subprocess.run(
+                    ['bash', str(guard), 'pre-write', 'main'],
+                    input=json.dumps({'session_id': session,
+                                      'tool_name': 'Write',
+                                      'tool_input': {'command': ''}}),
+                    env=env, capture_output=True, text=True, cwd=str(project))
+                return r.returncode, r.stderr
+
+            def make(name):
+                """A real origin, not a URL: the guard fetches and compares,
+                so there has to be something on the other end."""
+                bare, seed, clone = (w / f'{name}.git', w / f'{name}-seed',
+                                     w / name)
+                subprocess.run(['git', 'init', '-q', '--bare', str(bare)],
+                               env=env0)
+                subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)],
+                               env=env0)
+                git(seed, 'remote', 'add', 'origin', str(bare))
+                (seed / 'f').write_text('a\n')
+                git(seed, 'add', 'f'); git(seed, 'commit', '-qm', 'a')
+                git(seed, 'push', '-q', 'origin', 'main')
+                subprocess.run(['git', 'clone', '-q', '-b', 'main', str(bare),
+                                str(clone)], env=env0, capture_output=True)
+                return seed, clone
+
+            _, proj = make('proj')
+            other_seed, other = make('other')
+
+            # The attached repo falls one commit behind its own origin, clean
+            # tree. The project dir stays perfectly current throughout, so
+            # anything found here was found through the also-list.
+            (other_seed / 'f').write_text('a\nb\n')
+            git(other_seed, 'commit', '-qam', 'b')
+            git(other_seed, 'push', '-q', 'origin', 'main')
+            git(other, 'fetch', '-q', 'origin', 'main')
+            behind = git(other, 'rev-list', '--count',
+                         'HEAD..origin/main').stdout.strip()
+            cases.append((f'{tag}: the fixture attached repo really is behind '
+                          f'its origin (got {behind!r})', behind == '1'))
+
+            rc, err = run(proj, 'also-stale', also=f'{other}=main')
+            cases.append((f'{tag}: a stale ATTACHED repo is acted on through '
+                          f'PRECEDENT_FRESHNESS_ALSO (rc={rc})',
+                          rc == 2 and 'fast-forwarded' in err))
+
+            # THE CONTROL. Same stale repo, variable unset: the gap the
+            # mechanism closes has to be demonstrably open without it.
+            git(other, 'reset', '-q', '--hard', 'HEAD~1')
+            rc, err = run(proj, 'also-unset')
+            cases.append((f'{tag}: with the variable unset that same stale '
+                          f'attached repo goes unnoticed -- the gap being '
+                          f'closed (rc={rc}, stderr={err.strip()[:60]!r})',
+                          rc == 0 and not err.strip()))
+
+            rc, err = run(proj, 'also-bad',
+                          also=f'{w / "ghost"}=main;no-equals-sign')
+            cases.append((f'{tag}: an unresolvable also-list entry is NOTEd '
+                          f'and skipped, never blocked on (rc={rc})',
+                          rc == 0 and 'is not a git repository' in err
+                          and "no \'=<base branch>\'" in err))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the freshness guard checks attached repositories '
+          f'({len(cases)} stated cases, both copies)',
+          not failed, '; '.join(failed))
+
+
+def check_freshness_guard_waves_through_a_branch_origin_never_saw():
+    """The guard's two fetch failures are not the same failure.
+
+    `git fetch origin <branch>` exits non-zero both when origin is
+    unreachable and when origin simply has no such ref, and `pre-write`
+    treated them identically: it exited 2, which refused the first write of
+    every newly created branch. A branch with no remote counterpart has
+    nothing to be behind, so there is no staleness there to refuse. The cost
+    was not the refusal but the remedy -- the block's own message names
+    `git fetch origin <branch>`, which cannot succeed against a ref that does
+    not exist, so the only way forward a session finds is
+    `git config precedent.freshness.override true`, which switches the guard
+    off for that checkout permanently, including the stale-base check that
+    catches the real incident. `session-start` had the same bug in its milder
+    form: a WARN saying freshness was NOT verified, on every new branch.
+
+    BOTH DIRECTIONS ARE ASSERTED, not only the one being fixed. A guard
+    relaxed until it stops complaining is not a guard, so the unreachable
+    origin must still block -- and per control-asserts-which-failure, the
+    block is asserted by the message it prints, never by the exit code alone:
+    exit 2 is also what the stale-base case returns, one case over.
+
+    The third case is the one that makes the fix safe rather than merely
+    quiet: a branch absent from origin AND built on a stale base must STILL
+    be refused. Waving the missing counterpart through has to leave the
+    base-branch check running, since that is the check the whole guard exists
+    for.
+
+    Both copies are run -- the one this repo uses on itself and the one an
+    adopter instantiates -- because a fix that reaches only one of them is
+    the drift parallel-artifact-ledger names."""
+    import tempfile
+
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+               / 'freshness-guard.sh')]
+    missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
+    if missing:
+        not_applicable('freshness-guard waves through a branch origin has '
+                       'never seen', f'not in this tree: {missing}')
+        return
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
 
     cases = []
     with tempfile.TemporaryDirectory() as td:
-        w = pathlib.Path(td)
-        sentinels = w / 'sentinels'
-        sentinels.mkdir()
+        tmp = pathlib.Path(td)
 
-        def make(name):
-            """A repo with a real origin, one pushed commit on main. A local
-            bare repo, not a URL: ls-remote has to genuinely answer, since the
-            three exit codes ARE the mechanism under test."""
-            bare, seed, clone = w / f'{name}.git', w / f'{name}-seed', w / name
-            subprocess.run(['git', 'init', '-q', '--bare', str(bare)], env=env0)
-            subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)], env=env0)
-            git(seed, 'remote', 'add', 'origin', str(bare))
-            (seed / 'f').write_text('a\n')
-            git(seed, 'add', 'f'); git(seed, 'commit', '-qm', 'a')
-            git(seed, 'push', '-q', 'origin', 'main')
-            subprocess.run(['git', 'clone', '-q', '-b', 'main', str(bare),
-                            str(clone)], env=env0, capture_output=True)
-            return bare, seed, clone
+        # fixture-owns-its-state: every ambient input that can change the
+        # result is set here. TMPDIR carries the guard's per-session
+        # sentinel, so a stale one from the real session would make
+        # pre-write exit 0 without running a single check -- which is a
+        # green result meaning nothing at all. GIT_CONFIG_GLOBAL empties the
+        # container's global identity AND its core.hooksPath backstop, which
+        # would otherwise refuse these fixture commits.
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['TMPDIR'] = str(tmp / 'sentinels')
+        (tmp / 'sentinels').mkdir()
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = \
+            'harness@example.com'
 
-        _, proj_seed, proj = make('proj')
+        def _run(guard, cwd, mode, session):
+            payload = json.dumps({'session_id': session,
+                                  'tool_name': 'Write',
+                                  'tool_input': {'file_path': 'x'}})
+            return subprocess.run(['bash', str(guard), mode, 'main'],
+                                  cwd=str(cwd), input=payload,
+                                  capture_output=True, text=True, env=env)
 
-        # 1. A branch that exists only locally. Not pushed, on purpose.
-        git(proj, 'checkout', '-qb', 'feature')
-        rc, err = run(proj, 'case-new-branch')
-        cases.append((f'a branch with no counterpart on origin is NOT blocked '
-                      f'on, and says so (rc={rc})',
-                      rc == 0 and 'no counterpart on origin yet' in err))
+        origin = tmp / 'origin'
+        subprocess.run(['git', 'init', '-q', '--bare', str(origin)],
+                       capture_output=True, text=True, env=env)
+        seed = tmp / 'seed'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)],
+                       capture_output=True, text=True, env=env)
+        (seed / 'f.txt').write_text('one\n', encoding='utf-8')
+        _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main')
+        # A bare repo's HEAD defaults to refs/heads/master, so without this
+        # every clone below lands on an unborn HEAD and the base check has
+        # no commits to read -- a fixture that measures nothing while
+        # looking like it measured something.
+        _git(origin, 'symbolic-ref', 'HEAD', 'refs/heads/main')
 
-        # 2. The control for 1: origin genuinely unreachable, same branch.
-        # Without this, "don't block on a failed fetch" passes case 1 too.
-        git(proj, 'remote', 'set-url', 'origin', str(w / 'gone.git'))
-        rc, err = run(proj, 'case-unreachable')
-        cases.append((f'an UNREACHABLE origin still blocks, naming that it '
-                      f'could not reach origin rather than a staleness '
-                      f'finding (rc={rc})',
-                      rc == 2 and 'could not reach origin' in err))
-        git(proj, 'remote', 'set-url', 'origin', str(w / 'proj.git'))
-        git(proj, 'checkout', '-q', 'main')
+        def _clone(name, branch):
+            d = tmp / name
+            subprocess.run(['git', 'clone', '-q', str(origin), str(d)],
+                           capture_output=True, text=True, env=env)
+            _git(d, 'checkout', '-q', '-b', branch)
+            return d
 
-        # 3. An ATTACHED repo left one commit behind its own origin, while the
-        # project dir is perfectly current.
-        _, other_seed, other = make('other')
-        (other_seed / 'f').write_text('a\nb\n')
-        git(other_seed, 'commit', '-qam', 'b')
-        git(other_seed, 'push', '-q', 'origin', 'main')
-        behind = git(other, 'fetch', '-q', 'origin', 'main') and git(
-            other, 'rev-list', '--count', 'HEAD..origin/main').stdout.strip()
-        cases.append((f'the fixture attached repo really is behind its origin '
-                      f'(got {behind!r})', behind == '1'))
+        for guard in guards:
+            tag = ('installed' if guard.parent.parent.parent == ROOT
+                   else 'template')
 
-        rc, err = run(proj, 'case-also-stale', also=f'{other}=main')
-        cases.append((f'a stale ATTACHED repo is acted on through '
-                      f'PRECEDENT_FRESHNESS_ALSO (rc={rc})',
-                      rc == 2 and 'fast-forwarded' in err))
+            # 1. The branch origin has never seen: not blocked.
+            d = _clone(f'absent-{tag}', 'brand-new-branch')
+            r = _run(guard, d, 'pre-write', f'absent-{tag}')
+            cases.append((f'{tag}: pre-write does not block a branch absent '
+                          f'from origin (exit {r.returncode})',
+                          r.returncode == 0))
 
-        # The control: the SAME stale state, variable unset. This is the gap
-        # the mechanism closes, and it has to be demonstrably open without it.
-        git(other, 'reset', '-q', '--hard', 'HEAD~1')
-        rc, err = run(proj, 'case-also-unset')
-        cases.append((f'with the variable unset that same stale attached repo '
-                      f'goes unnoticed -- the gap being closed (rc={rc})',
-                      rc == 0 and not err.strip()))
+            # 2. session-start says so instead of warning it could not check.
+            r = _run(guard, d, 'session-start', f'absent-ss-{tag}')
+            cases.append((f'{tag}: session-start reports the absent branch '
+                          f'rather than an unverified fetch',
+                          r.returncode == 0
+                          and 'does not exist on origin yet' in r.stderr
+                          and 'could not fetch' not in r.stderr))
 
-        # 4. A malformed or absent entry is a config typo, never a stale
-        # checkout: it is NOTEd and skipped. Blocking here would wedge every
-        # session over a mistyped path and teach people to unset the variable.
-        rc, err = run(proj, 'case-also-bad',
-                      also=f'{w / "ghost"}=main;no-equals-sign')
-        cases.append((f'an unresolvable also-list entry is NOTEd and skipped, '
-                      f'never blocked on (rc={rc})',
-                      rc == 0 and 'is not a git repository' in err
-                      and "no '=<base branch>'" in err))
+            # 3. THE OTHER DIRECTION. An unreachable origin still blocks, and
+            # the block is identified by its message: exit 2 alone would
+            # also match case 4.
+            d = _clone(f'unreachable-{tag}', 'another-new-branch')
+            _git(d, 'remote', 'set-url', 'origin', str(tmp / 'no-such-repo'))
+            r = _run(guard, d, 'pre-write', f'unreachable-{tag}')
+            cases.append((f'{tag}: pre-write still blocks when origin is '
+                          f'unreachable, naming the fetch it could not make '
+                          f'(exit {r.returncode})',
+                          r.returncode == 2
+                          and 'could not fetch origin/another-new-branch'
+                          in r.stderr))
+
+            # 4. Waving the missing counterpart through must not skip the
+            # base-branch check, which is the one the guard exists for.
+            d = _clone(f'stale-base-{tag}', 'stale-based-branch')
+            (seed / 'g.txt').write_text('two\n', encoding='utf-8')
+            _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'two')
+            _git(seed, 'push', '-q', 'origin', 'main')
+            r = _run(guard, d, 'pre-write', f'stale-base-{tag}')
+            cases.append((f'{tag}: a branch absent from origin is still '
+                          f'refused when its base moved (exit '
+                          f'{r.returncode})',
+                          r.returncode == 2
+                          and 'missing 1 commit(s) from origin/main'
+                          in r.stderr))
+            _git(seed, 'reset', '-q', '--hard', 'HEAD~1')
+            _git(seed, 'push', '-q', '--force', 'origin', 'main')
 
     failed = [n for n, ok in cases if not ok]
-    check(f'the freshness guard handles a new branch and the also-list '
-          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+    check(f'freshness-guard separates a branch origin never saw from an '
+          f'origin it could not reach ({len(cases)} stated cases, both '
+          f'copies: absent branch waved through at pre-write and named at '
+          f'session-start, unreachable origin still blocked, stale base '
+          f'still refused)',
+          not failed, '; '.join(failed))
 
 
 def check_commit_identity_copies_are_identical():
@@ -11686,8 +11822,19 @@ def check_source_credentials():
 
         # --- 6: the CLI's own contract -------------------------------------
         def run(*args, env_extra=None):
+            # Scrub BOTH credential variables, not just the token. A case
+            # below asserts what happens with NO base url, and this harness
+            # runs in a container that normally HAS one -- so the subprocess
+            # inherited a real base url, tried to clone from github.com, and
+            # failed on "could not read Username" instead of reporting the
+            # variable as unset. The case was testing a state the fixture had
+            # never established (practice: fixture-owns-its-state). Any case
+            # that wants either variable supplies it through env_extra, which
+            # is the only way to tell "the fixture set this" from "the
+            # container happened to carry it".
             env = dict(os.environ)
             env.pop(psc.TOKEN_ENV, None)
+            env.pop(psb.BASE_URL_ENV, None)
             if env_extra:
                 env.update(env_extra)
             r = subprocess.run([sys.executable, *args], capture_output=True,
@@ -11857,6 +12004,8 @@ def check_individual_source_bootstrap_self_heals():
     stated cases, all fast: --retry-delay 0 proves an explicitly-requested
     retry count without a real wall-clock wait."""
     import shutil, tempfile
+    import precedent_source_credentials as psc
+    import precedent_source_bootstrap as psb
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-source-bootstrap-'))
     cases = []
@@ -11864,8 +12013,21 @@ def check_individual_source_bootstrap_self_heals():
         bootstrap_tool = ROOT / 'tools' / 'precedent_source_bootstrap.py'
         resolve_tool = ROOT / 'tools' / 'precedent_resolve.py'
 
-        def run(*args, env_extra=None):
+        def _no_credentials():
             env = dict(os.environ)
+            env.pop(psc.TOKEN_ENV, None)
+            env.pop(psb.BASE_URL_ENV, None)
+            return env
+
+        def run(*args, env_extra=None):
+            # Same scrub as check_source_credentials's run(), for the same
+            # reason: cases here assert what a bootstrap does with no
+            # credential and no base url, and this harness runs in a
+            # container that normally carries both
+            # (practice: fixture-owns-its-state).
+            env = dict(os.environ)
+            env.pop(psc.TOKEN_ENV, None)
+            env.pop(psb.BASE_URL_ENV, None)
             if env_extra is not None:
                 env.update(env_extra)
             r = subprocess.run([sys.executable, *args], capture_output=True,
@@ -12097,7 +12259,7 @@ def check_individual_source_bootstrap_self_heals():
         home_hook.mkdir()
         rh = subprocess.run(['bash', str(own_hook)], capture_output=True,
                             text=True, timeout=180,
-                            env={**os.environ, 'HOME': str(home_hook),
+                            env={**_no_credentials(), 'HOME': str(home_hook),
                                  'CLAUDE_PROJECT_DIR': str(ROOT),
                                  'CLAUDE_CODE_REMOTE': 'true'})
         cases.append(("this repo's own bootstrap hook exits 0 when it cannot "
@@ -12152,7 +12314,7 @@ def check_individual_source_bootstrap_self_heals():
         live_home.mkdir()
         r12 = subprocess.run(['bash', str(live_hook)], capture_output=True,
                              text=True, timeout=180,
-                             env={**os.environ, 'HOME': str(live_home),
+                             env={**_no_credentials(), 'HOME': str(live_home),
                                   'CLAUDE_PROJECT_DIR': str(ROOT),
                                   'CLAUDE_CODE_REMOTE': 'true'})
         live_cfg = live_home / '.config' / 'precedent' / 'config.json'
@@ -12174,9 +12336,14 @@ def check_individual_source_bootstrap_self_heals():
         nourl_hook = nourl_proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
         nourl_home = tmp / 'home-no-url-hook'
         nourl_home.mkdir()
+        # The hook DERIVES its URL from the base url when no URL was baked
+        # in, so a fixture asserting "it degrades quietly when nothing else
+        # supplies one" has to be the thing that establishes "nothing else
+        # supplies one". Inheriting the container's own base url made this
+        # case assert the opposite of what it ran (2026-09-11).
         r13 = subprocess.run(['bash', str(nourl_hook)], capture_output=True,
                              text=True, timeout=180,
-                             env={**os.environ, 'HOME': str(nourl_home),
+                             env={**_no_credentials(), 'HOME': str(nourl_home),
                                   'CLAUDE_PROJECT_DIR': str(ROOT),
                                   'CLAUDE_CODE_REMOTE': 'true'})
         cases.append(('--write-session-hook with NO --repo-url still writes a '
@@ -12194,7 +12361,7 @@ def check_individual_source_bootstrap_self_heals():
         raw_home.mkdir()
         r14 = subprocess.run(['bash', str(raw_template)], capture_output=True,
                              text=True, timeout=180,
-                             env={**os.environ, 'HOME': str(raw_home),
+                             env={**_no_credentials(), 'HOME': str(raw_home),
                                   'CLAUDE_PROJECT_DIR': str(ROOT),
                                   'CLAUDE_CODE_REMOTE': 'true'})
         cases.append(('the RAW template, run without being instantiated, still '
@@ -15205,6 +15372,8 @@ def main():
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_freshness_gate_fires()
+    check_freshness_guard_checks_attached_repositories()
+    check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
@@ -15270,7 +15439,6 @@ def main():
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
-    check_freshness_guard_new_branch_and_also_list()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
     check_repo_reference_allowlist()

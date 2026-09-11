@@ -78,19 +78,11 @@
 # gotchas log, a pull run inside a checkout someone handed you is exactly
 # how a session got silently moved onto the wrong branch mid-work).
 #
-# WHY A BRANCH WITH NO REMOTE IS NOT THE UNVERIFIABLE CASE. The pre-write
-# half fails closed, deliberately -- but "closed" has to mean the state where
-# the guard genuinely cannot tell, and a branch created locally and not yet
-# pushed is not that state. It has no counterpart on origin, so there is
-# nothing it can be behind; the question the branch comparison asks simply
-# does not apply. Conflating the two made the guard block the first tool call
-# of every session on every new feature branch, naming two remedies -- push
-# the branch, or set precedent.freshness.override -- that are respectively
-# premature and exactly the habit this guard must not teach. The split is
-# `git ls-remote --exit-code`, whose exit status distinguishes a remote that
-# answered "no such branch" (2) from one that could not be reached at all
-# (128); see _remote_branch_state. The BASE check still runs in both cases,
-# and on a new branch it is the one carrying all the weight.
+# WHY IT CHECKS REPOSITORIES THE SESSION MERELY HAS ATTACHED. A hook fires
+# for the project dir and nothing else, so an attached sibling clone runs none
+# of its own freshness checking however correctly its guard is installed.
+# PRECEDENT_FRESHNESS_ALSO names those repositories; see _also_entries. Unset,
+# nothing about this script's behaviour changes.
 #
 # WHY THIS NEVER TOUCHES THE BASE BRANCH AUTOMATICALLY. Bringing origin/BASE
 # into a feature branch is a real merge with real conflict potential -- the
@@ -185,30 +177,20 @@ _have_ref() { _git rev-parse --verify -q "$1" >/dev/null 2>&1; }
 
 _in_git() { _git rev-parse --git-dir >/dev/null 2>&1; }
 
-# Separates "this branch has no counterpart on origin YET" from "origin could
-# not be reached at all". `git fetch origin <branch>` fails identically for
-# both, and treating the pair as one is what made the guard refuse the first
-# tool call of every session on a newly created branch: the branch has never
-# been pushed, so the fetch cannot succeed, so the pre-write half blocked and
-# offered two remedies -- push the branch, or switch the guard off -- neither
-# of which is the right answer to "I just made this branch". A guard whose
-# documented escape hatch is `precedent.freshness.override true` teaches
-# people to set that flag, and a gate that can only be ignored is worse than
-# no gate.
+# Is this branch simply absent from origin, rather than origin being
+# unreachable? `git fetch origin <branch>` exits non-zero for BOTH, and
+# treating them the same is what made pre-write refuse the first write of
+# every new branch: a branch origin has never heard of has nothing to be
+# behind, so there is no staleness to guard against.
 #
-# ls-remote answers the question fetch cannot, and the three cases are
-# distinguishable by exit code alone -- measured, not assumed:
-#   0   the branch is there
-#   2   --exit-code's "no matching refs", and crucially the remote ANSWERED
-#   *   could not talk to origin (128 for an unreachable URL)
-# Only the third is the unverifiable state this guard exists to refuse.
-_remote_branch_state() {
+# `ls-remote --exit-code` separates them: 0 means origin answered AND has
+# the ref, 2 means origin answered and does not, anything else means the
+# question could not be asked at all. Only the middle case is safe to wave
+# through -- an unreachable origin still blocks, which is the whole point
+# of this guard.
+_branch_absent_from_origin() {
   _git ls-remote --exit-code --heads origin "$1" >/dev/null 2>&1
-  case "$?" in
-    0) printf 'present' ;;
-    2) printf 'absent' ;;
-    *) printf 'unreachable' ;;
-  esac
+  [ "$?" = "2" ]
 }
 
 _current_branch() {
@@ -319,26 +301,14 @@ _session_start_one() {
     return 0
   }
 
-  # Same three-way split as pre-write, reported rather than enforced. `fetched`
-  # stays meaningful only in the `present` case: in the other two there is no
-  # origin/$branch ref, so every use of it below sits inside _have_ref and is
-  # unreachable.
   local fetched=1
-  case "$(_remote_branch_state "$branch")" in
-    unreachable)
-      fetched=0
-      echo "WARN: freshness-guard: could not reach origin to check '$branch' -- freshness NOT verified. Everything below is measured against a possibly stale remote-tracking ref; a silent result here means 'not checked', never 'in sync'." >&2
-      ;;
-    absent)
-      echo "NOTE: freshness-guard: '$branch' has no counterpart on origin yet -- nothing to be behind, so the branch comparison is SKIPPED (not passed). The base check below still runs." >&2
-      ;;
-    present)
-      _git fetch --quiet origin "$branch" 2>/dev/null || {
-        fetched=0
-        echo "WARN: freshness-guard: could not fetch origin/$branch -- freshness NOT verified. Everything below is measured against a possibly stale remote-tracking ref; a silent result here means 'not checked', never 'in sync'." >&2
-      }
-      ;;
-  esac
+  _git fetch --quiet origin "$branch" 2>/dev/null || fetched=0
+  if [ "$fetched" -eq 0 ] && _branch_absent_from_origin "$branch"; then
+    fetched=1
+    echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind. Checking it against the base branch only." >&2
+  elif [ "$fetched" -eq 0 ]; then
+    echo "WARN: freshness-guard: could not fetch origin/$branch -- freshness NOT verified. Everything below is measured against a possibly stale remote-tracking ref; a silent result here means 'not checked', never 'in sync'." >&2
+  fi
 
   if _have_ref "origin/$branch"; then
     local behind ahead
@@ -493,7 +463,10 @@ EOF
 }
 
 # One repository, enforced. Returns 0 when it is current; calls _block (which
-# exits 2) when it is not.
+# exits 2) when it is not. The sentinel is passed in rather than read from the
+# caller's scope: bash would resolve it dynamically either way, and a helper
+# that silently depends on a `local` two frames up breaks the moment anything
+# else calls it.
 _pre_write_one() {
   ROOT="$1"
   BASE_ARG="$2"
@@ -505,24 +478,13 @@ _pre_write_one() {
   local branch
   branch="$(_current_branch)" || return 0
 
-  # A branch with no remote counterpart is NOT the unverifiable case: there is
-  # nothing on origin for it to be behind, so the branch comparison below has
-  # no question to answer. The base check further down still runs, and it is
-  # the one that matters here -- a branch cut from a stale base is exactly the
-  # incident this guard's header describes, and it is reachable on a brand-new
-  # branch precisely because nothing else has looked at it yet.
-  case "$(_remote_branch_state "$branch")" in
-    unreachable)
-      _block "could not reach origin to check '$branch', so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
-      ;;
-    absent)
-      echo "NOTE: freshness-guard: '$branch' has no counterpart on origin yet, so there is nothing for it to be behind -- the branch comparison is SKIPPED (not passed). The base check still runs below, and on a new branch it is the one that matters." >&2
-      ;;
-    present)
-      _git fetch --quiet origin "$branch" 2>/dev/null || \
-        _block "could not fetch origin/$branch, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
-      ;;
-  esac
+  if ! _git fetch --quiet origin "$branch" 2>/dev/null; then
+    if _branch_absent_from_origin "$branch"; then
+      echo "NOTE: freshness-guard: '$branch' does not exist on origin yet -- nothing to be behind, so this call is not blocked on it. The base-branch check below still runs." >&2
+    else
+      _block "could not fetch origin/$branch, so this checkout's freshness could not be verified at all. A check that could not run is not a check that passed. Run: git fetch origin $branch"
+    fi
+  fi
 
   if _have_ref "origin/$branch"; then
     local behind ahead
