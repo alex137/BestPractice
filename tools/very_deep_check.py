@@ -1232,7 +1232,7 @@ def _bootstrap_drift_one(level, name, path):
             pass
         recorded = manifest.get('sha256', {})
 
-        findings, notes, absent = [], [], []
+        findings, notes, absent, behind = [], [], [], []
         for gen_path in sorted(gen_root.rglob('*')):
             if not gen_path.is_file():
                 continue
@@ -1259,33 +1259,61 @@ def _bootstrap_drift_one(level, name, path):
                 continue
             if _same_bytes(gen_path, real_path, gen_root, real_root):
                 continue
-            if rel in owned:
+            # settings.json is the set's OWN wiring, not a file with one
+            # right content: verify() already allows a source to point it at
+            # hooks kept somewhere else, and precedent-individual does
+            # exactly that, on purpose and documented. Calling that a finding
+            # would report a deliberate decision as drift every run
+            # (practice: control-asserts-which-failure -- a check that fires
+            # on the wrong thing teaches people to skim it).
+            if rel in owned or rel.endswith('settings.json'):
                 notes.append(rel)
                 continue
-            why = ''
             eng_name = pathlib.Path(rel).name
             if rel.startswith('tools' + os.sep) and eng_name in recorded:
                 actual = bootstrap_source.precedent_vendor_engine._sha256(real_path)
-                why = (' -- matches its own ENGINE_MANIFEST, so the set is a '
-                       'faithful vendoring of an OLDER upstream commit: '
-                       '`precedent_vendor_engine.py refresh`'
-                       if actual == recorded[eng_name] else
-                       ' -- does NOT match its own ENGINE_MANIFEST either, so it '
-                       'was hand-edited in place: move the change upstream '
-                       'rather than refreshing over it')
-            findings.append(f'{rel} differs from what the generator writes today{why}')
+                if actual == recorded[eng_name]:
+                    # Not news per file: the set is a faithful vendoring of an
+                    # older commit, so EVERY engine file differs and one fact
+                    # prints as a dozen findings. Collapsed below.
+                    behind.append(rel)
+                else:
+                    findings.append(
+                        f'{rel} differs from what the generator writes today '
+                        f'and does NOT match its own ENGINE_MANIFEST either, so '
+                        f'it was hand-edited in place: move the change upstream '
+                        f'rather than refreshing over it')
+                continue
+            findings.append(f'{rel} differs from what the generator writes today')
+
+        # Absent engine files are the same one fact as `behind` -- a name the
+        # engine gained after this set was last vendored -- so they collapse
+        # with it rather than printing per file. Anything else absent is its
+        # own news and stays.
+        if behind:
+            absent, folded = ([a for a in absent if not a.startswith('tools' + os.sep)],
+                              [a for a in absent if a.startswith('tools' + os.sep)])
+        else:
+            folded = []
 
         out = []
+        commit = manifest.get('source_commit')
+        head = bootstrap_source.precedent_vendor_engine._head_commit(ROOT)
+        if behind:
+            where = (f' (vendored at {commit[:9]}, this checkout at {head[:9]})'
+                     if commit and head else '')
+            gained = (f'; {len(folded)} file(s) the engine gained since are '
+                      f'absent: {", ".join(sorted(folded))}' if folded else '')
+            out.append(f'FINDING {level} {name}: its vendored engine is an '
+                       f'OLDER upstream vendoring{where} -- {len(behind)} file(s) '
+                       f'differ, every one still matching its own '
+                       f'ENGINE_MANIFEST{gained}. `precedent_vendor_engine.py '
+                       f'refresh` is the whole fix.')
         for rel in absent:
             out.append(f'FINDING {level} {name}: the generator writes {rel!r} '
                        f'and this set does not have it')
         for msg in findings:
             out.append(f'FINDING {level} {name}: {msg}')
-        commit = manifest.get('source_commit')
-        head = bootstrap_source.precedent_vendor_engine._head_commit(ROOT)
-        if commit and head and commit != head and (findings or absent):
-            out.append(f'  (its engine was vendored at {commit[:9]}; this '
-                       f'checkout is at {head[:9]})')
         if notes:
             out.append(f'note {level} {name}: {len(notes)} skeleton-shipped '
                        f'file(s) differ, which is what a set being lived in '
