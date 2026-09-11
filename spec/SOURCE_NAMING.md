@@ -72,7 +72,7 @@ distinct things as one. They fail differently:
 
 | # | The name | Who reads it | If it varies | Answer |
 |---|---|---|---|---|
-| 1 | The GitHub repository name (`themorgan/precedent-team-tms`) | people, browsing | nothing breaks immediately; a later rename breaks every vendored reference | **Recommended**, and disclosed before anyone picks one |
+| 1 | The GitHub repository name (`themorgan/precedent-team-writing`) | people, browsing | nothing breaks immediately; a later rename breaks every vendored reference | **Recommended**, and disclosed before anyone picks one |
 | 2 | The local clone directory (the `path` in [precedent.json](../precedent.json)) | the resolver, per machine | the declared relative path is wrong on that machine | **Warned** about, never refused |
 | 3 | The `name` field in [precedent.json](../precedent.json) or the user config | the resolver, `MANIFEST.json` attribution, every error message | attribution stops matching; messages name a set nobody recognizes | **Refused** |
 | 4 | A team slug's meaning — purpose, not roster | people, over years | the name goes stale rather than wrong | Judgment; no check can see it |
@@ -148,7 +148,7 @@ name. Leaving all of it advisory was the status quo, and the status quo had
 already drifted in the document adopters read.
 
 **Must a team slug describe purpose? Yes, and it stays judgment.**
-`precedent-team-tms` and `precedent-team-morgan-alex` are indistinguishable to
+`precedent-team-writing` and `precedent-team-morgan-alex` are indistinguishable to
 a regular expression. The Rule says it, with the reason attached; no check
 pretends to see it.
 
@@ -161,9 +161,9 @@ inside the repository it describes, where `local` is unambiguous.
 
 **Do names assume organization ownership? Open, and deliberately so.** The
 plan's own trigger for moving team sets into a GitHub organization — *once
-there is a second team* — has fired: as of 2026-09-06 there are two,
-`precedent-team-maintainers` and `precedent-team-tms`, both in a personal
-account. Nothing in this convention breaks either way, because `<owner>` is
+there is a second team* — has fired: as of 2026-09-11 this repository declares
+three, `precedent-team-maintainers`, `precedent-team-writing` and
+`precedent-team-working-style`, all in a personal account. Nothing in this convention breaks either way, because `<owner>` is
 supplied by whoever owns the set and never appears in the name. If team sets
 move, the team row's `<owner>` becomes the organization and the individual
 row's stays the person; no name changes. That is the reason it was safe to
