@@ -78,6 +78,12 @@
 # gotchas log, a pull run inside a checkout someone handed you is exactly
 # how a session got silently moved onto the wrong branch mid-work).
 #
+# WHY IT CHECKS REPOSITORIES THE SESSION MERELY HAS ATTACHED. A hook fires
+# for the project dir and nothing else, so an attached sibling clone runs none
+# of its own freshness checking however correctly its guard is installed.
+# PRECEDENT_FRESHNESS_ALSO names those repositories; see _also_entries. Unset,
+# nothing about this script's behaviour changes.
+#
 # WHY THIS NEVER TOUCHES THE BASE BRANCH AUTOMATICALLY. Bringing origin/BASE
 # into a feature branch is a real merge with real conflict potential -- the
 # opposite of the fast-forward above, which is a no-op or nothing. The
@@ -89,9 +95,78 @@ set -uo pipefail
 MODE="${1:-}"
 BASE_ARG="${2:-}"
 
-ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+# The repository currently being checked. It STARTS as the project dir and is
+# reassigned as the also-list below is walked, so every helper here keeps
+# working unchanged against whichever repo is in hand.
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+ROOT="$PROJECT_ROOT"
 
 _git() { git -C "$ROOT" "$@"; }
+
+# WHY AN ENV VAR, AND NOT MORE HOOK WIRING. A hook fires for the project dir
+# and nothing else, so a repository ATTACHED to a session rooted somewhere
+# else -- `add_repo`, a SessionStart clone, a sibling clone a team practice
+# source resolves to -- is never checked by its own guard, because its own
+# settings.json is never read. That is not theoretical: a branch was cut from
+# a stale main on 2026-09-11 while that repository's own guard sat installed
+# and silent one directory away.
+#
+# The identity chain already solved the same shape, and this is deliberately
+# the same answer: precedent_identity.py's rung 1 is PRECEDENT_COMMIT_*,
+# checked before anything that needs a clone or a hook, precisely because
+# environment variables follow a session into every repository it touches.
+# PRECEDENT_FRESHNESS_ALSO is that rung for freshness.
+#
+#   PRECEDENT_FRESHNESS_ALSO="/path/to/repo=main;/path/to/other=beta-branch"
+#
+# Entries are `;`-separated, each `<path>=<base branch>`. The base is spelled
+# out per entry for the same reason the hook takes it as an argument: it is
+# not detectable, and a repo whose configured default branch is not its base
+# branch is exactly where detection gets it wrong. An entry whose path is
+# absent or is not a git repository is NOTED and skipped, never blocked on --
+# a typo in a config value is not a stale checkout, and wedging every session
+# over one would teach people to unset the variable.
+#
+# Unset, this is a no-op: the project dir is checked exactly as before.
+_also_entries() {
+  local raw="${PRECEDENT_FRESHNESS_ALSO:-}"
+  [ -n "$raw" ] || return 0
+  # `printf '%s'` leaves the final entry unterminated, and `read` returns
+  # non-zero on an unterminated line -- so the loop body never ran for the LAST
+  # entry, which for a single-entry variable meant it never ran at all. Caught
+  # by a fixture, not by reading. The trailing newline is the fix.
+  printf '%s\n' "$raw" | tr ';' '\n' | while IFS= read -r entry; do
+    entry="$(printf '%s' "$entry" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [ -n "$entry" ] || continue
+    printf '%s\n' "$entry"
+  done
+}
+
+# Prints "path<TAB>base" for a usable entry; prints nothing and NOTEs when the
+# entry names somewhere this guard cannot check.
+_also_resolve() {
+  local entry="$1" path base
+  case "$entry" in
+    *=*) path="${entry%%=*}"; base="${entry#*=}" ;;
+    *)   echo "NOTE: freshness-guard: PRECEDENT_FRESHNESS_ALSO entry '$entry' has no '=<base branch>' -- SKIPPED (not checked). Spell the base out: <path>=<base>." >&2; return 1 ;;
+  esac
+  path="$(printf '%s' "$path" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  base="$(printf '%s' "$base" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  if [ -z "$path" ] || [ -z "$base" ]; then
+    echo "NOTE: freshness-guard: PRECEDENT_FRESHNESS_ALSO entry '$entry' is missing a path or a base -- SKIPPED (not checked)." >&2
+    return 1
+  fi
+  if [ "$path" = "$PROJECT_ROOT" ]; then
+    # Already checked as the project dir; checking it twice would double every
+    # warning and, in pre-write, block on the same finding twice.
+    return 1
+  fi
+  if ! git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "NOTE: freshness-guard: PRECEDENT_FRESHNESS_ALSO names '$path', which is not a git repository (or is not there) -- SKIPPED (not checked), not passed." >&2
+    return 1
+  fi
+  printf '%s\t%s\n' "$path" "$base"
+}
 
 # `git rev-parse <missing-ref>` exits non-zero but PRINTS THE REF NAME on
 # stdout, so `$(git rev-parse X) || fallback` binds a ref name where a hash
@@ -212,14 +287,18 @@ _throttle_due() {
 # ---------------------------------------------------------------------------
 # session-start
 # ---------------------------------------------------------------------------
-mode_session_start() {
-  _in_git || exit 0
+# One repository, reported and never enforced. Returns 0 always, like the mode
+# that calls it.
+_session_start_one() {
+  ROOT="$1"
+  BASE_ARG="$2"
+  _in_git || return 0
   _widen_refspec
 
   local branch
   branch="$(_current_branch)" || {
-    echo "NOTE: freshness-guard: HEAD is detached -- no branch to check." >&2
-    exit 0
+    echo "NOTE: freshness-guard: HEAD is detached in $ROOT -- no branch to check." >&2
+    return 0
   }
 
   local fetched=1
@@ -272,6 +351,25 @@ mode_session_start() {
     echo "NOTE: freshness-guard: no base branch given and origin/HEAD does not resolve -- base-branch check SKIPPED (not passed). Pass the base as the hook's second argument in .claude/settings.json." >&2
   fi
 
+  return 0
+}
+
+# The project dir first, then every repository the session merely has
+# ATTACHED. Always exits 0: this half reports, and a freshness question must
+# never be the thing that wedges a session.
+mode_session_start() {
+  _session_start_one "$PROJECT_ROOT" "$BASE_ARG"
+  local entry resolved path base
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    resolved="$(_also_resolve "$entry")" || continue
+    path="${resolved%%$'\t'*}"
+    base="${resolved#*$'\t'}"
+    echo "NOTE: freshness-guard: also checking attached repository $path (base $base)." >&2
+    _session_start_one "$path" "$base"
+  done <<EOF
+$(_also_entries)
+EOF
   exit 0
 }
 
@@ -341,10 +439,44 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
     exit 0
   fi
 
+  _pre_write_one "$PROJECT_ROOT" "$BASE_ARG" "$sentinel"
+
+  # Every ATTACHED repository, under the same enforcement. A session reads its
+  # practices out of these, so working against a stale one is the same failure
+  # as working against a stale project dir -- and the override above is
+  # deliberately NOT re-read per repo: it is set on the checkout somebody chose
+  # to stop guarding, and this loop must not let that decision silence a
+  # different repository.
+  local entry resolved path base
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    resolved="$(_also_resolve "$entry")" || continue
+    path="${resolved%%$'\t'*}"
+    base="${resolved#*$'\t'}"
+    _pre_write_one "$path" "$base" "$sentinel"
+  done <<EOF
+$(_also_entries)
+EOF
+
+  : > "$sentinel"
+  exit 0
+}
+
+# One repository, enforced. Returns 0 when it is current; calls _block (which
+# exits 2) when it is not. The sentinel is passed in rather than read from the
+# caller's scope: bash would resolve it dynamically either way, and a helper
+# that silently depends on a `local` two frames up breaks the moment anything
+# else calls it.
+_pre_write_one() {
+  ROOT="$1"
+  BASE_ARG="$2"
+  local sentinel="$3"
+
+  _in_git || return 0
   _widen_refspec
 
   local branch
-  branch="$(_current_branch)" || { : > "$sentinel"; exit 0; }
+  branch="$(_current_branch)" || return 0
 
   if ! _git fetch --quiet origin "$branch" 2>/dev/null; then
     if _branch_absent_from_origin "$branch"; then
@@ -388,8 +520,7 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
     fi
   fi
 
-  : > "$sentinel"
-  exit 0
+  return 0
 }
 
 # Deliberately delegates to mode_session_start instead of restating its

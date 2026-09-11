@@ -781,6 +781,39 @@ gotcha every session reads is a gotcha every session pays for.
   from `1 failed` to `0 failed` with no code change. Treat every entry here
   that says "the session-start hook does this" as **not** done when you
   arrived as a sibling.
+  **One guarantee has an environment-level route out of this since
+  2026-09-11, and only one**: the freshness guard reads
+  `PRECEDENT_FRESHNESS_ALSO` (`;`-separated `<path>=<base branch>`), so a
+  session can have attached repositories checked even though their own hooks
+  never fire — an environment variable follows a session into every
+  repository it touches, the same reasoning as `PRECEDENT_COMMIT_*` for
+  identity. **Check the value before trusting it**: this environment's own
+  entry named `/home/user/precedent-individual` on 2026-09-11 while the
+  individual source actually cloned to `/root/precedent-individual`, so the
+  entry resolved to nothing and was skipped every session. A wrong path here
+  is silent by design — a config typo must not wedge a session — so the
+  hook's own note is the only evidence. Nothing else in this entry is
+  covered: the `pip install`, the path-trigger channel and the rest still
+  need doing by hand.
+
+- **A merge conflict in `.claude/hooks/freshness-guard.sh` locks the session
+  out of every tool that could repair it, and `git` being exempt does not
+  help.** 2026-09-11: merging `origin/precedent-beta-v01` into a branch that
+  had also touched the guard left conflict markers in the live PreToolUse
+  hook. Bash aborts on the parse error before reaching either the git
+  exemption or the once-per-session sentinel, and exits 2 — which is exactly
+  how a PreToolUse hook refuses a call. The matcher is
+  `Edit|Write|NotebookEdit|Bash`, so **Edit, Write and Bash were all refused
+  at once**, and the guard's own fail-open path does not cover this: it is
+  written for "cannot read the payload", not for "will not parse".
+  **The way out is a tool the matcher does not name.** `Monitor` runs a
+  shell command under a different tool name, so it is not matched:
+  `Monitor(command: "cd <repo> && git checkout --ours .claude/hooks/freshness-guard.sh")`
+  restored a parseable file and every tool came back. A subagent is NOT a way
+  out — it inherits the same project hooks.
+  **Prefer avoiding it**: when a merge is going to touch the guard, expect
+  this and resolve that file first. Nothing detects it in advance, because
+  the hook is fine right up until the merge writes the markers.
 
 - **The session's PRIMARY repo does not run its SessionStart hooks either,
   when the harness rooted the session one directory ABOVE it — and this

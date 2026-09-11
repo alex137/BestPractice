@@ -7590,6 +7590,140 @@ def _declared_fallback_tz():
     return precedent_time.FALLBACK_TZ
 
 
+def check_freshness_guard_checks_attached_repositories():
+    """PRECEDENT_FRESHNESS_ALSO, carried up from a downstream set 2026-09-11.
+
+    A hook fires for the project dir and nothing else, so a repository the
+    session merely has ATTACHED -- `add_repo`, a SessionStart clone, the
+    sibling clone a team practice source resolves to -- runs none of its own
+    freshness checking however correctly its guard is installed (AGENTS.md's
+    gotchas carry the general form of this). An environment variable is the
+    one thing that follows a session into every repository it touches, which
+    is the same reasoning that put PRECEDENT_COMMIT_* at the top of the
+    identity chain.
+
+    THE CONTROL IS THE POINT. Case 2 runs the identical stale attached repo
+    with the variable unset and requires it to pass in silence -- otherwise
+    case 1 proves only that something exited 2, not that the also-list is
+    what found it, and the check would keep passing if the mechanism were
+    deleted tomorrow. Case 3 holds the other edge: an entry naming a path
+    that is not there is a config typo, not a stale checkout, and blocking on
+    it would wedge every session over a mistyped value and teach people to
+    unset the variable. Each case asserts the guard's own words rather than
+    an exit status (practice: control-asserts-which-failure) -- exit 2 is
+    also what the stale-base case returns, and exit 0 is what a spent
+    sentinel returns.
+
+    Both copies are run, this repo's own and the one an adopter instantiates,
+    for the reason parallel-artifact-ledger names."""
+    import tempfile
+
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+               / 'freshness-guard.sh')]
+    missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
+    if missing:
+        not_applicable('the freshness guard checks attached repositories',
+                       f'not in this tree: {missing}')
+        return
+
+    env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    env0.pop('PRECEDENT_FRESHNESS_ALSO', None)
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env0,
+                              capture_output=True, text=True)
+
+    cases = []
+    for guard in guards:
+        tag = guard.relative_to(ROOT).as_posix()
+        with tempfile.TemporaryDirectory() as td:
+            w = pathlib.Path(td)
+            # The guard's once-per-session sentinel lives in TMPDIR keyed by
+            # session id. The ids below are fixed strings, so without a
+            # fixture-owned TMPDIR the SECOND run in a container finds every
+            # sentinel already there and every case exits 0 in silence --
+            # which would read as a pass if these asserted exit codes alone
+            # (practice: fixture-owns-its-state).
+            sentinels = w / 'sentinels'
+            sentinels.mkdir()
+
+            def run(project, session, also=None):
+                env = dict(env0, TMPDIR=str(sentinels),
+                           CLAUDE_PROJECT_DIR=str(project))
+                if also is None:
+                    env.pop('PRECEDENT_FRESHNESS_ALSO', None)
+                else:
+                    env['PRECEDENT_FRESHNESS_ALSO'] = also
+                r = subprocess.run(
+                    ['bash', str(guard), 'pre-write', 'main'],
+                    input=json.dumps({'session_id': session,
+                                      'tool_name': 'Write',
+                                      'tool_input': {'command': ''}}),
+                    env=env, capture_output=True, text=True, cwd=str(project))
+                return r.returncode, r.stderr
+
+            def make(name):
+                """A real origin, not a URL: the guard fetches and compares,
+                so there has to be something on the other end."""
+                bare, seed, clone = (w / f'{name}.git', w / f'{name}-seed',
+                                     w / name)
+                subprocess.run(['git', 'init', '-q', '--bare', str(bare)],
+                               env=env0)
+                subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)],
+                               env=env0)
+                git(seed, 'remote', 'add', 'origin', str(bare))
+                (seed / 'f').write_text('a\n')
+                git(seed, 'add', 'f'); git(seed, 'commit', '-qm', 'a')
+                git(seed, 'push', '-q', 'origin', 'main')
+                subprocess.run(['git', 'clone', '-q', '-b', 'main', str(bare),
+                                str(clone)], env=env0, capture_output=True)
+                return seed, clone
+
+            _, proj = make('proj')
+            other_seed, other = make('other')
+
+            # The attached repo falls one commit behind its own origin, clean
+            # tree. The project dir stays perfectly current throughout, so
+            # anything found here was found through the also-list.
+            (other_seed / 'f').write_text('a\nb\n')
+            git(other_seed, 'commit', '-qam', 'b')
+            git(other_seed, 'push', '-q', 'origin', 'main')
+            git(other, 'fetch', '-q', 'origin', 'main')
+            behind = git(other, 'rev-list', '--count',
+                         'HEAD..origin/main').stdout.strip()
+            cases.append((f'{tag}: the fixture attached repo really is behind '
+                          f'its origin (got {behind!r})', behind == '1'))
+
+            rc, err = run(proj, 'also-stale', also=f'{other}=main')
+            cases.append((f'{tag}: a stale ATTACHED repo is acted on through '
+                          f'PRECEDENT_FRESHNESS_ALSO (rc={rc})',
+                          rc == 2 and 'fast-forwarded' in err))
+
+            # THE CONTROL. Same stale repo, variable unset: the gap the
+            # mechanism closes has to be demonstrably open without it.
+            git(other, 'reset', '-q', '--hard', 'HEAD~1')
+            rc, err = run(proj, 'also-unset')
+            cases.append((f'{tag}: with the variable unset that same stale '
+                          f'attached repo goes unnoticed -- the gap being '
+                          f'closed (rc={rc}, stderr={err.strip()[:60]!r})',
+                          rc == 0 and not err.strip()))
+
+            rc, err = run(proj, 'also-bad',
+                          also=f'{w / "ghost"}=main;no-equals-sign')
+            cases.append((f'{tag}: an unresolvable also-list entry is NOTEd '
+                          f'and skipped, never blocked on (rc={rc})',
+                          rc == 0 and 'is not a git repository' in err
+                          and "no \'=<base branch>\'" in err))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the freshness guard checks attached repositories '
+          f'({len(cases)} stated cases, both copies)',
+          not failed, '; '.join(failed))
+
+
 def check_freshness_guard_waves_through_a_branch_origin_never_saw():
     """The guard's two fetch failures are not the same failure.
 
@@ -15363,6 +15497,7 @@ def main():
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_freshness_gate_fires()
+    check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()

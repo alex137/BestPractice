@@ -2467,17 +2467,63 @@ which is the failure this repointing exists to end — write
    all four sets brought current, reports no `commit-identity.sh` difference
    in any of them.
 
-   **What is left is one file in one set, and it now points the other way.**
-   `precedent-individual`'s `bootstrap/freshness-guard.sh` still differs from
-   what the generator writes — but it is 27,538 bytes against the template's
-   18,155, so the 2026-09-09 reading above ("an older, shorter build") no
-   longer describes it. That set's copy has grown PAST canonical, which makes
-   the likely direction upstream — into
-   [templates/harness/claude-code/hooks/freshness-guard.sh](templates/harness/claude-code/hooks/freshness-guard.sh),
-   so every set and every adopter gets it — rather than overwriting the set.
-   **Not established:** what the extra 9kB does, or whether all of it is
-   generic enough to travel. Read the diff before deciding; this item is not
-   a licence to copy either file over the other.
+   **The `freshness-guard.sh` half is DONE too, landed 2026-09-11 here.** The
+   direction was upstream, as the 2026-09-11 reading below predicted: the
+   set's copy carried two mechanisms canonical did not. **One of them was
+   already being fixed in parallel** — `e572e9e` landed
+   `_branch_absent_from_origin` the same day, from the incident rather than
+   from the set — so only the other was carried, and canonical KEPT its own
+   version of the first.
+
+   - **The absent-branch split: not carried, upstream's shape kept.** Both
+     ask `git ls-remote --exit-code`. The set's `_remote_branch_state`
+     returns a three-way state and is called BEFORE the fetch; canonical's
+     `_branch_absent_from_origin` returns a boolean and is called only AFTER
+     a fetch has already failed, so the common case costs one round trip
+     instead of two. Same behaviour in all three cases, and canonical's is
+     cheaper for a hook that runs at every session start and first write.
+   - **`PRECEDENT_FRESHNESS_ALSO`: carried.** A `;`-separated
+     `<path>=<base branch>` list of repositories the session merely has
+     ATTACHED, with the per-repo split (`_session_start_one`,
+     `_pre_write_one`, `_also_entries`, `_also_resolve`) that makes both
+     modes walk them. Generic: a hook fires for the project dir and nothing
+     else, so a sibling clone a team source resolves to runs none of its own
+     freshness checking — that is Precedent architecture, not one person's
+     layout. Unset, it changes nothing.
+
+   `check_freshness_guard_checks_attached_repositories` in
+   [tools/verify_harness.py](tools/verify_harness.py) runs both copies of the
+   real hook against real repositories and asserts the guard's own words, with
+   a control requiring the same stale attached repo to pass silently when the
+   variable is unset
+   ([control-asserts-which-failure](practices/control-asserts-which-failure.md)).
+
+   **What the set and canonical still differ on, so the remainder is
+   explained rather than open.** Four comment differences, each deliberate:
+   its own `bootstrap/` install path (that set wires hooks from a tracked
+   directory on purpose, one copy with nothing to drift from it, and
+   canonical must describe the layout an adopter gets); a citation of one of
+   that set's private practices, which an adopter cannot read; and two places
+   naming this repository where canonical needs the generic case. Plus the
+   one real code difference above — the two shapes of the absent-branch
+   check.
+
+   **Blocked-on, and it needs a session rooted under the sets' own owner:**
+   the set should take canonical's `_branch_absent_from_origin` in place of
+   its own `_remote_branch_state`, which is the cheaper shape and ends the
+   divergence; and a later `--apply` that brings hooks up to canonical wants
+   those four comment differences reconciled deliberately rather than
+   silently overwritten, since two of them are that set's own layout being
+   correct about itself. This repository's sessions cannot push there
+   (re-confirmed 2026-09-09 by `add_repo` refusing at `access: "push"`).
+
+   **Also blocked-on, and smaller:** in `pre-write` the per-repo messages do
+   not name WHICH repository they are about — `fast-forwarded 'main'` reads as
+   the project dir even when the also-list found it in an attached one (the
+   `session-start` half does print `also checking attached repository
+   <path>`). Left as-is deliberately: changing those strings would diverge
+   the two files' executable content again, and that set's own mutation test
+   asserts them, so the fix has to land in both at once.
 
    **Confirmed independently 2026-09-11**, by the very deep check's new
    `BOOTSTRAP DRIFT` section on its first real run: regenerating each set

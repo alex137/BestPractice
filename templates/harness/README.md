@@ -36,6 +36,14 @@ and wire its session-start half plus
 [claude-code/hooks/commit-identity.sh](claude-code/hooks/commit-identity.sh)
 into whatever answer question (2) gave, since neither depends on anything
 Claude Code specific beyond how it is invoked.
+
+The freshness gate also reads `PRECEDENT_FRESHNESS_ALSO` from the
+environment — `;`-separated `<path>=<base branch>` entries for repositories
+the session merely has **attached**. That part is not harness-specific at
+all: a hook fires for the project dir and nothing else, so an attached
+sibling clone runs none of its own freshness checking no matter which
+harness is in play, and an adapter that ports the gate should read the
+variable too. Unset, it changes nothing.
 Then contribute the adapter back upstream.
 
 **Transfer verdicts for changes to any one adapter are ledgered:**
