@@ -3277,13 +3277,19 @@ which is the failure this repointing exists to end — write
    reply-register practices thread A ruled out, so the two decisions do not
    contradict each other — they overlap.
 
-   **What overlapping costs, and why a session must not just do both.**
-   Either demotion alone clears the overage; doing both takes the block to
-   roughly 1,696 and removes a second rule from every session, which is a
-   change to what fires everywhere and not a rounding adjustment. **Morgan
-   was asked in the reply of thread B which he wants: both, or only one.**
-   Until he answers, thread A's edit stands because it was already handed
-   off, and thread B's is held.
+   **Both. Morgan, 2026-09-11 (`decided`), asked which he wanted:**
+   *"I want to remove both. The other session is removing
+   buenos-aires-date."* So the two demotions are one decision in two threads,
+   not a collision to resolve — each set's edit proceeds independently, and
+   the paragraphs above are kept because they record what each thread
+   measured and ruled out, which is the part a later session would otherwise
+   re-derive.
+
+   Combined effect, from the two measurements above: the resident block goes
+   from 2,047 tokens across 17 practices to roughly **1,696 across 15**. Both
+   demoted practices keep an `occasion` and an `index_clause`, so each moves
+   into the occasion index rather than out of force, and both keep
+   `applies_to: ["**"]`, so the path-trigger channel still fires them.
 
    **The move to the writing set was declined**, on two grounds worth
    keeping so nobody re-proposes it. `small-calls` is about judgment calls in
@@ -3310,7 +3316,7 @@ which is the failure this repointing exists to end — write
    and stays open either way — and gets quieter rather than fixed, since it
    will then answer "clean" while still reading the container's real sources.
 
-   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — the reduction is decided twice over; what remains is the push, plus the one question raised in thread B's reply.
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — both reductions are decided; what remains is two pushes, in two repositories no session rooted here can write to.
 
 63. <a id="source-clone-keeps-no-credential"></a>**A private source clone carries no credential helper, so every later
     fetch of it fails — and the freshness guard blocks on that.**
