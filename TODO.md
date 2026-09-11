@@ -3175,6 +3175,19 @@ which is the failure this repointing exists to end — write
    before the gate means anything, since a stale `build_views.py` regenerates
    the old header and the check would report drift on the header itself.
 
+   **A second reason to refresh, added 2026-09-11
+   ([cross-source-rollout](practices/cross-source-rollout.md)):**
+   [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md)
+   landed, and `build_views.py` now writes a `Source:` clause into every
+   generated header — the clause that says where a change belongs instead of
+   in the file. All four sets generate their own `MAP.md`, `GLOSSARY.md` and
+   loader block from a vendored engine that predates it, so until each is
+   refreshed their headers still say only how an edit gets destroyed. The
+   universal check
+   (`python3 tools/precedent_check.py --only generated-edit-goes-upstream`)
+   travels with the engine and will fail in each set on the refresh commit
+   until that set regenerates its views, which is the same one-command fix.
+
    **blocked-on:** a session that can PUSH to those repositories. All four
    are attached read-only in the session that shipped this
    ([cross-source-rollout](practices/cross-source-rollout.md) wants the
@@ -3185,3 +3198,40 @@ which is the failure this repointing exists to end — write
    repositories, per [`attach-private-sources`](TODO.md#attach-private-sources).
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
+
+62. <a id="cross-source-resident-block-over-cap"></a>**The resident block is
+   over its 2,000-token cap once the private sources resolve, and has been
+   since before this item was written.**
+   `python3 tools/precedent_resolve.py --repo . --json` reports
+   **2,047 tokens across 17 resident practices** on a session where
+   `precedent-individual` and the three `precedent-team-*` sets are attached
+   — seven of the seventeen come from those sources
+   (`audience-register`, `buenos-aires-dates`, `default-register`,
+   `half-the-words`, `nonblocking-questions`, `reply-is-short`,
+   `small-calls`). This repository alone is at 876 tokens and clean; the
+   overflow only exists in the combination, which is exactly the case
+   [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md) flagged as the
+   open gap and the cross-source cap was built for.
+
+   It shows up as `verify_harness.py`'s **cross-source resident budget**
+   check failing its FIRST direction — *"this repo's own resolved set was
+   wrongly flagged over budget"*. The wording is now wrong twice over: the
+   flag is correct, and the fixture is not measuring "this repo's own set"
+   at all. It calls `precedent_resolve.py --repo <this repo>` with the
+   container's real sources attached, so its result depends on which machine
+   it runs on — the
+   [fixture-owns-its-state](practices/fixture-owns-its-state.md) shape, one
+   level out from the three instances already in
+   [AGENTS.md](AGENTS.md)'s gotchas. Fixing the fixture and fixing the
+   overflow are separate pieces of work and neither substitutes for the
+   other.
+
+   **blocked-on:** the reduction is somebody's to choose, not a session's.
+   [session-load-budget](practices/session-load-budget.md)'s own Rule says
+   so twice: a source over its ceiling is a finding to report to whoever owns
+   it, never an edit to make from here, and **when the resident cap refuses a
+   new practice the person picks what comes out**. Six of the seven are
+   reply-register practices that plausibly overlap; which one leaves is
+   Morgan's call.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — raised in the reply of the session that measured it, 2026-09-11; only Morgan can move it to `ask`.

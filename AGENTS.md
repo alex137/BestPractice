@@ -188,9 +188,9 @@ plan's premise.
 
 <!-- BEGIN GENERATED: precedent-loader -->
 
-<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. -->
+<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 98 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 99 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -312,6 +312,8 @@ When adding to a file every session loads, or asking what a session pays before 
   session-load-budget — declare a ceiling for what every session loads; reduce by archiving
 When an install step adds something GitHub-specific, or a first install finishes:
   github-setup-disclosed — disclose GitHub setup where its people read; offer owner settings at install
+When asked to add, change or remove something in a generated file:
+  generated-edit-goes-upstream — change the input the file is built from, never the file -- and say which input
 When asking the person to do something in another session:
   handoff-is-pasteable — name the repo, give the exact text to paste, end with the way back
 When building a mechanism that makes something discoverable or reachable:
@@ -1174,17 +1176,6 @@ gotcha every session reads is a gotcha every session pays for.
   that, every repo's own gates vanish silently. Resolve that path with
   `rev-parse --absolute-git-dir`, never `rev-parse --git-path hooks`: the
   latter *respects* `core.hooksPath` and so names the global directory.
-
-- **If you suspect a timezone problem, check `date` and
-  `ls -l .git/hooks/pre-commit`, not the `env` block.** The block in
-  `.claude/settings.local.json` is inert — the harness reads environment
-  before hooks run — and reading it sent two diagnoses down the wrong path.
-  `TZ` is unset in every tool shell, so git falls back to the SYSTEM zone;
-  [.claude/hooks/commit-identity.sh](.claude/hooks/commit-identity.sh)
-  repoints `/etc/localtime` for a **declared** zone, which is the one lever a
-  hook can move mid-session that every later shell and `git merge` picks up.
-  `PRECEDENT_LOCALTIME` overrides the target so this is testable. The
-  derivation is in the archive.
 
 - **"no individual source resolved" is not noise — it means every personal
   and team practice is silently absent, and the session will confidently
