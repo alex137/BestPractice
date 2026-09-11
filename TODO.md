@@ -1631,6 +1631,28 @@ which is the failure this repointing exists to end — write
   one line. Closed on his word, with the verification named rather than
   assumed.
 
+  **CONFIRMED 2026-09-11, on a fresh container**, by that row: `OK
+  PRECEDENT_FRESHNESS_ALSO names repositories that exist`. The reasoning
+  matters as much as the row, because a passing row can also mean the check
+  found nothing to check: that session had **resolved its private sources**,
+  so all four sets were on disk under their current names — a variable still
+  naming `/home/user/precedent-team-maintainers` would have failed, since
+  nothing is at that path any more. So the row is evidence, not an absence.
+
+  Two `??` rows in the same run, both benign and worth knowing so nobody
+  reads them as failures: **branch drift** was a first run with no earlier
+  baseline to compare against, and **session root** cannot be answered from a
+  tool shell at all — `CLAUDE_PROJECT_DIR` is usually unset there, which
+  proves nothing either way, and is exactly why the effect checks above it
+  exist ([AGENTS.md](AGENTS.md)'s "do not diagnose this from `env`").
+
+  **The same run is the first evidence in this repository of a session
+  starting fully wired** — `.precedent/SESSION_PRACTICES.md` written, private
+  sources resolved, commits authored by a person, global backstop installed,
+  gate packages present, every branch visible, not behind the base. Every
+  session working on this repository earlier that day had some half of that
+  off and had to repair it by hand.
+
   **One trap if anyone pastes that row's suggested value.** It is computed
   from what is on disk in the container it runs in, so on a container where
   a team set was never cloned it simply drops that set from the value it
