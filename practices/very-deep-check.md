@@ -224,6 +224,22 @@ method"). Build the fixtures.
   Each degradation path should degrade with a named reason — never pass
   silently on a scan that never ran, and never fail on something the adopter
   cannot fix.
+- **The generator, against the sets that already exist.** Run
+  [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
+  for each resolved team and individual source and diff its output against
+  the real set, file by file — the tool's `BOOTSTRAP DRIFT` section does
+  this, and it needs those sets attached to do anything at all. A set is
+  created once and then lived in for months while the generator keeps
+  moving, so the two drift apart in both directions and nothing else here
+  looks: `verify()` and the template-freshness scan both ask which files
+  exist, never what any of them says. A difference in a file the skeleton
+  ships is the set being used and is not a finding. A difference in a file
+  bootstrap *generates* — the vendored engine, the session hooks,
+  `settings.json` — is, and the set's own `ENGINE_MANIFEST.json` says which
+  fix applies: refresh an older vendoring, or move a hand-edit upstream.
+  **Without the sets attached this is a SKIP, not a pass** — the section
+  says so in those words, and a run that leaves it skipped records pass 1
+  as PARTIAL exactly as the real-consumer step above does.
 - **Cross-repo relationships and permissions.** Walk who must be able to read
   or write what, for a *new* repo and a *new* person: the vendored engine,
   each declared source, approvers and CODEOWNERS, and the restricted GitHub
@@ -981,6 +997,20 @@ keyed on the git subcommand**, not at the three call sites that fetch
 today: this sweep grew three new fetches in a fortnight, and a per-caller
 fix covers whatever existed the day it was written
 ([durable-fix](durable-fix.md)).
+
+**The generator check above came from a question, not a failure, and that is
+worth saying plainly.** Morgan asked on 2026-09-11, after reading how a
+brand-new adopter with no team or individual set gets one, whether that path
+was tested here at all — and named the shape of what worried him: he updates
+the files in his own sets over months while the generator that made them
+keeps moving, and nothing would ever say the two had parted. It had not been
+tested. Two checks looked adjacent and neither was: `verify()` asks whether a
+real set still has every file the skeleton ships, and the template-freshness
+scan asks the reverse for filenames — **both are about which files exist, and
+between them they had never compared a single byte.** No incident is attached
+because none happened; a gap can be found by reading, and
+[cite-the-incident](cite-the-incident.md) asks for the real story, which here
+is that somebody asked the right question before it cost anything.
 
 ## Install
 [tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope
