@@ -6,6 +6,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
@@ -36,6 +37,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | practice-set source | [source-naming](practices/source-naming.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
+| session load | [session-load-budget](practices/session-load-budget.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | Three Things | [three-things](practices/three-things.md) |

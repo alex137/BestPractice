@@ -44,7 +44,10 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   so every repo in force is asked whether it still EXISTS and still accepts
   a push, not only whether the clone is current -- \"make sure it doesn't
   automatically try to open a repo that doesn't exist / was deleted /
-  archived\""
+  archived\"; extended again 2026-09-11, Morgan F
+  (strength: decided), so pass 3's session-load read covers every repo in
+  force rather than this checkout alone, with the ceilings themselves moved
+  out to session-load-budget"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -456,12 +459,19 @@ first so this pass spends its attention on what they cannot see.
   the glossary, and was one edit away from reversing a decision made that
   morning — so check where a keyword IS defined before calling it
   undefined.
-- **What every session loads, and what it costs.** The one measurement no
-  gate can make, because nothing is wrong at any single commit: every line in
-  an always-loaded file was right to add on the day it was added, and it only
-  goes wrong in aggregate, months later.
+- **What every session loads, and what it costs.** The rule is
+  [session-load-budget](session-load-budget.md) — every always-loaded surface
+  carries a declared ceiling in
+  [tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/session_load_budgets.json), and
+  `precedent_check.py --only session-load-budget` tests this checkout's
+  against them on every run. **What this pass adds is the half no ceiling
+  covers**: the sum across every repo in force, and the judgment about what to
+  move. Nothing is wrong at any single commit — every line in an always-loaded
+  file was right to add on the day it was added, and it only goes wrong in
+  aggregate, months later.
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s "SESSION LOAD"
-  section counts the instructions file section by section, plus the untracked
+  section counts the instructions file section by section for this checkout
+  **and for each attached team and individual source**, plus the untracked
   practice file when private sources resolved, and flags any section large
   enough to be worth splitting and any entry whose own text says its trap is
   settled. **Read those flags, do not obey them:** an entry's claim that it

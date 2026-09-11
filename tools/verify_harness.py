@@ -4568,6 +4568,29 @@ def check_precedent_check_fires():
         case('session-bootstrap',
              lambda repo: shutil.rmtree(repo / '.claude' / 'hooks'))
 
+        # session-load-budget -- the instructions file over its declared
+        # ceiling. Planted by moving the CEILING rather than by growing the
+        # file: a fixture that pasted 20,000 tokens into AGENTS.md would trip
+        # half the other checks in this repo on its way past this one, and
+        # then a pass here would prove nothing about which check fired.
+        def _plant_load_budget(repo):
+            # Parsed, not string-replaced: a plant keyed on the spelling of a
+            # number is a plant that rots the first time somebody reviews the
+            # ceiling, and the case then reports the CHECK as broken. That is
+            # this same fixture's scripts-assert-properties history, and it
+            # happened to this case too, within the hour.
+            def _lower(t):
+                d = json.loads(t)
+                for e in d['surfaces'].values():
+                    e['ceiling'] = 10
+                return json.dumps(d, indent=2) + '\n'
+            rewrite(repo, 'tools/session_load_budgets.json', _lower)
+        case('session-load-budget', _plant_load_budget)
+        cases.append(('session-load-budget: the planted violation names the '
+                      'ceiling it is over, not just that something is big',
+                      'over its declared ceiling of 10'
+                      in planted['session-load-budget'][1]))
+
         # declared-hooks-exist -- settings.json still declares a hook file
         # that is no longer there. This is the 2026-09-08 incident with the
         # variables swapped: there every hook path was right and the session
@@ -5113,10 +5136,18 @@ def check_precedent_check_fires():
                       out_shapes))
 
         # scripts-assert-properties -- an instrumented script whose own
-        # invariant no longer holds
+        # invariant no longer holds. The plant moves the resident cap, which
+        # lives in tools/session_load_budgets.json since 2026-09-11
+        # (session-load-budget) -- it used to rewrite the literal
+        # `RESIDENT_BUDGET_TOKENS = 2000` in build_views.py, and the moment
+        # that literal became a registry lookup the rewrite silently matched
+        # nothing and the case reported the check as broken. A plant keyed on
+        # a spelling is a plant that rots.
         case('scripts-assert-properties',
-             lambda repo: rewrite(repo, 'tools/build_views.py', lambda t: t.replace(
-                 'RESIDENT_BUDGET_TOKENS = 2000', 'RESIDENT_BUDGET_TOKENS = 10')))
+             lambda repo: rewrite(repo, 'tools/session_load_budgets.json',
+                                  lambda t: t.replace(
+                                      '"resident_block_tokens": 2000',
+                                      '"resident_block_tokens": 10')))
 
         # Regression: an INSTRUMENTED script with neither self_check() nor
         # check_anchors() is reported by model_audit.py as a WARN, not a

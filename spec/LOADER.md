@@ -175,14 +175,14 @@ a number in a sentence. That is `docs-track-models`, happening here.
 <!--gen:catalogue-->
 | | |
 |---|---|
-| Practices in the catalogue | 95 |
-| Resident, loaded every session | 10 of 95 practices |
+| Practices in the catalogue | 96 |
+| Resident, loaded every session | 10 of 96 practices |
 | Resident block size | ≈876 tokens of a 2000-token hard cap |
 | `## Rule` share of the catalogue | 18% of the catalogue |
-| Rules still over 150 words | 26 |
-| Carrying a `## Detail` | 56 |
-| Carrying a `## Story` | 95 |
-| Enforced by a check | 44 of 95 practices carry a `checked_by` |
+| Rules still over 150 words | 27 |
+| Carrying a `## Detail` | 57 |
+| Carrying a `## Story` | 96 |
+| Enforced by a check | 45 of 96 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py

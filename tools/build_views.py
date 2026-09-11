@@ -73,7 +73,20 @@ import split_practices as sp
 BEGIN_MARKER = '<!-- BEGIN GENERATED: precedent-loader -->'
 END_MARKER = '<!-- END GENERATED -->'
 
-RESIDENT_BUDGET_TOKENS = 2000
+# code-cites-practice: session-load-budget -- one registry holds every
+# always-loaded ceiling, so the resident cap is not spelled twice. The literal
+# is the fallback for a vendored copy that arrived without the registry, and
+# is the value the registry was created with.
+def _budget(key, default):
+    f = pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
+    try:
+        v = json.loads(f.read_text(encoding='utf-8')).get(key)
+    except (OSError, ValueError, AttributeError):
+        return default
+    return v if isinstance(v, int) else default
+
+
+RESIDENT_BUDGET_TOKENS = _budget('resident_block_tokens', 2000)
 WORD_RE = re.compile(r"\S+")
 
 

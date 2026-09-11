@@ -725,7 +725,8 @@ _SHIPPED_SUFFIXES = ('.template', '.md', '.sh', '.txt')
 
 # What a session pays before it does anything. The threshold is a prompt, not
 # a limit: a section over it may be entirely correct and still worth splitting.
-_SECTION_FLAG_TOKENS = 2500
+# code-cites-practice: session-load-budget -- the registry owns it.
+_SECTION_FLAG_TOKENS = bv._budget('section_review_tokens', 2500)
 # A live entry claiming its own trap is fixed is the archive candidate this
 # whole pass exists to surface -- the entry is the thing that knows.
 _SETTLED_MARKERS = ('fixed ', 'no longer true', 'applies itself now',
@@ -2678,9 +2679,26 @@ def main():
     print()
 
     print("SESSION LOAD -- what every session pays before it does anything\n")
-    _rows, _sl = _session_load(repo_root)
-    if _rows:
+    # Every repo in force, not this checkout alone (session-load-budget): a
+    # session loads its own instructions file AND whatever each attached
+    # source contributes, and what it pays is the sum. Measuring repo_root
+    # alone reported a fraction of the real cost and read as the whole of it.
+    _sl_targets = [('this checkout', repo_root)]
+    for _s in data['sources']:
+        _p = _s.get('path')
+        if _s.get('level') in ('team', 'individual') and _p:
+            _sl_targets.append((_s.get('name'), pathlib.Path(_p)))
+    _grand, _sl = 0, []
+    for _sname, _sp in _sl_targets:
+        if not pathlib.Path(_sp).is_dir():
+            continue
+        _rows, _msgs = _session_load(_sp)
+        _sl.extend(_msgs)
+        if not _rows:
+            continue
         _tot = sum(n for _, _, n in _rows)
+        _grand += _tot
+        print(f"  {_sname}:")
         for _f, _name, _n in sorted(_rows, key=lambda r: -r[2])[:8]:
             print(f"  {_n:7,d}  {_f} :: {_name[:60]}")
         _rest = len(_rows) - min(8, len(_rows))
@@ -2688,8 +2706,13 @@ def main():
             print(f"  {sum(n for _,_,n in sorted(_rows, key=lambda r: -r[2])[8:]):7,d}"
                   f"  ({_rest} smaller section(s), combined)")
         print(f"  {'-'*7}")
-        print(f"  {_tot:7,d}  TOTAL, every session, before any work starts "
-              f"(rough: words x 1.3)\n")
+        print(f"  {_tot:7,d}  subtotal\n")
+    if _grand:
+        print(f"  {_grand:7,d}  TOTAL across every repo in force, every session, "
+              f"before any\n           work starts (rough: words x 1.3). Declared "
+              f"ceilings live in\n           tools/session_load_budgets.json; "
+              f"precedent_check.py --only\n           session-load-budget tests "
+              f"this checkout's against them.\n")
     for _m in _sl:
         print(f"  {_m}")
     if not _sl:
