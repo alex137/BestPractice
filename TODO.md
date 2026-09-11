@@ -3588,36 +3588,64 @@ which is the failure this repointing exists to end — write
     `check_source_clone_keeps_its_credential` holds it, with two negative
     controls that were run rather than assumed.
 
-64. <a id="renamed-team-source-not-in-allowlist"></a>**The leak gate is red on
-    `precedent-beta-v01` itself: the renamed team source has no allowlist
-    entry.** Merging the beta branch on 2026-09-11 turned
-    `python3 tools/leak_gate.py` from `OK` to `FAIL: 30 hit(s)` on a branch
-    whose own diff touched none of the files reported. Established as the base
-    branch's rather than a feature branch's by running the gate against a
-    clean `origin/precedent-beta-v01` worktree: the identical 30 hits, in the
-    same files. The rename that landed with
-    [PR #226](https://github.com/alex137/BestPractice/pull/226) rewrote the
-    team source's name across 147 occurrences in the tracked tree, and the
-    private blocklist still allows only the OLD name — so every occurrence of
-    the new one reads as an undeclared reference to a private-by-default
-    owner. Nothing leaked: the names were already published by that merge, and
-    the gate is now refusing what is already public, which is the failure mode
-    that gets a gate switched off.
-    **Blocked on / out of scope:** the fix is three lines in
-    `leak-blocklist.txt`, which is tracked in the private individual source
-    and not in this repository — it needs its own change there, not a commit
-    here. Worth doing in the same pass:
-    [practices/rename-updates-links](practices/rename-updates-links.md)'s
-    reasoning applies to an allowlist entry exactly as it does to a link, and
-    nothing currently checks that a rename carried one. The gate's own
-    standing NOTE about a bare-name stem is a separate, older item.
-    **Handoff:** a session rooted in the private individual source, seeded
-    with the whole diagnosis and the postcondition to test, is open at
-    <https://claude.ai/code/session_019hZrE9pyvuSsioqaeCpXds> — it cannot be
-    done from a session rooted here, because that repo is under a different
-    owner and `add_repo` refuses across owners
-    ([handoff-is-pasteable](practices/handoff-is-pasteable.md)).
-    **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
+64. <a id="renamed-team-source-not-in-allowlist"></a>**Nothing checks that a
+    rename carried its allowlist entry.** *(The anchor is kept and the title
+    changed: anchors are permanent here
+    ([rename-updates-links](practices/rename-updates-links.md)), and this
+    item's original claim — that the leak gate was red on
+    `precedent-beta-v01` because the renamed team source had no allowlist
+    entry — was **wrong**. What is left is the half that was right, and it is
+    the more useful half.)*
+
+    **What actually happened, 2026-09-11.** The gate reported `FAIL: 30
+    hit(s)` and it was reading a **stale blocklist**. The allowlist line for
+    the renamed source had landed in the private individual source at
+    `549bccb` (16:19 -0300); the session that filed this item held a clone
+    taken before that. Measured both ways against
+    `precedent-beta-v01` at `17d261b`: with that file at `origin/main` the
+    gate reports `OK, 944 unit(s) clean`; with the same file at its previous
+    commit `3b1c73b`, `FAIL: 30 hit(s)` — the same 30, to the number. **A
+    correct gate, correct output, stale input**, which is indistinguishable
+    from a real failure by construction. Nothing needed committing in another
+    owner's repository; the line was already there.
+    The seeded session sent to add the missing lines found them already
+    there and did something better instead: it corrected that line's
+    **reason**, which the rename had copied from the old name's line rather
+    than re-derived — the allowlist is kept green by what the tree NAMES, not
+    by what `precedent.json` declares (its own preamble says so). Landed as
+    that set's PR #85.
+    The diagnosis is now mechanical too: the gate names its blocklist's own
+    clone and how far behind it is whenever it fails
+    ([PR #232](https://github.com/alex137/BestPractice/pull/232)), and the
+    story is the second instance on the sibling-clone gotcha in
+    [AGENTS.md](AGENTS.md).
+
+    **What is still open, and was this item's real finding.**
+    [rename-updates-links](practices/rename-updates-links.md)'s reasoning
+    applies to an allowlist entry exactly as it does to a link — renaming a
+    private repository means repointing every reference to it, and the
+    repo-reference allowlist in a private blocklist is a reference. **Nothing
+    checks it.** The rename on 2026-09-11 did carry its entry, by a session
+    remembering to, which is the condition this repository normally refuses
+    to rely on ([checkable-gets-checked](practices/checkable-gets-checked.md)).
+    A check is awkward but not impossible: the blocklist lives outside this
+    repository, so it cannot be a `precedent_check.py` check here — the
+    natural home is the private source's own checks, or
+    [tools/very_deep_check.py](tools/very_deep_check.py)'s
+    repository-visibility pass, which already reads that file and already
+    asks GitHub about each name.
+    **Blocked on / out of scope:** a session that can write to the private
+    individual source, and a decision about which of those two homes it
+    belongs in. **Disposition:** wait (2026-09-11, Morgan — a session did not
+    set this to `ask`; he is the one it waits on)
+
+    **An earlier version of this item carried a handoff link** to a session
+    seeded with the wrong diagnosis — go add three allowlist lines that
+    already existed. That session was archived unused on 2026-09-11 rather
+    than left to do it. The link is removed rather than kept, because a
+    pasteable handoff to the wrong work is worse than none
+    ([handoff-is-pasteable](practices/handoff-is-pasteable.md) is about
+    making the right handoff easy, not about having one).
 
 65. <a id="figures-reach-commit-messages-ungated"></a>**A figure can reach a
     commit message without anything checking it, and it did twice in two
