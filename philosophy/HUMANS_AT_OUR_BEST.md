@@ -22,9 +22,10 @@ this page doesn't replace them.*
 - **Getting sh\*t done.** The will to keep pushing something through every
   stall, handoff, and objection until it's actually finished, not just
   planned.
-- **Obsessive, creative quality assurance (QA).** Only someone who truly,
-  deeply cares hunts every issue — software or otherwise — with the
-  intensity and creativity that real ownership brings.
+- **Obsessive ownership.** Only someone who truly, deeply cares hunts down
+  every last thing that's wrong — a bug, a sloppy paragraph, a process that
+  half-works — with the intensity and creativity that comes from treating it
+  as theirs.
 - **Boundary pushing.** AI tends to under-push the boundaries a situation
   actually calls for, held back by rules built strict on purpose; a human
   still has to decide when to lean past them.
@@ -38,15 +39,17 @@ this page doesn't replace them.*
   ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute));
   judgment when the rules run out and somebody still has to decide
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
-- **Running a fleet of agent-driven processes.** Increasingly a
-  human-only skill of its own: noticing the drift before a customer does,
-  pushing a process further than it would push itself, and pulling it
-  back before it overreaches
+- **Actually managing.** Somebody has to own a thing while it runs:
+  noticing the drift before a customer does, pushing it further than it
+  would push itself, pulling it back before it overreaches
   ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
-- **Managing the dirtiness of real life.** Some processes, companies, and
-  teams work better — and more in your own style, more to your liking —
-  than others; the job is finding the ones that do, and solving the
-  problems caused by the ones that don't.
+- **Trade-offs and hard decisions.** Nothing worth choosing comes free:
+  speed against care, this client against that one, the person you like
+  against the person who is right. Somebody has to pick, knowing what the
+  pick costs, and carry it afterwards.
+- **Managing the dirtiness of real life.** When you leave the digital world,
+  and more often than not when you're on it, very little works smoothly or
+  the way it seems to "on paper".
 
 ### People
 
