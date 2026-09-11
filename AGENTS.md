@@ -1107,6 +1107,21 @@ gotcha every session reads is a gotcha every session pays for.
   Same reasoning for a check younger than your branch: rule out "never been
   green here" by running it against the untouched tip before fixing it.
 
+  **Second instance, 2026-09-11, where the stale clone was the LEAK GATE's
+  blocklist** — and it put a wrong finding in a pull request. The gate
+  reported 30 undeclared-repo hits; a session read them as a real defect,
+  wrote "red on the base branch too" into its gate block, and filed a TODO
+  item for a fix already merged. Its clone of the private set predated a
+  repository rename by hours, so it lacked the allowlist line those 30
+  references needed. **A correct gate, correct output, stale input —
+  indistinguishable from a real failure by construction.** The gate says so
+  itself now: on failure it names the blocklist's clone and how far behind
+  it is. It never claims a clone is current (an unfetched remote-tracking
+  ref cannot prove that) and never fetches, since a gate that reaches the
+  network to grade itself can hang on a push. **When a gate whose input
+  lives in another repository fails, ask how old the input is before
+  believing the finding.**
+
 - **A scratch COPY of this repo, taken to prototype a change without
   touching the working tree, goes stale the moment the freshness guard
   fast-forwards the real checkout under you — and copying the prototyped
