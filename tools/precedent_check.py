@@ -3295,6 +3295,72 @@ def _shallow_boundary_commits():
 # believe you are on, confirm WHICH COMMIT is actually checked out before
 # concluding the check is wrong. Four rounds of content verification cannot
 # distinguish a wrong answer from a right answer about a different tree.
+# A ledger row's OWN change is the commit in its "Originating change"
+# column -- not every hash that appears anywhere on the line. The rows cite
+# each other on purpose: a row saying "no wiring change; the same SessionStart
+# entry from 810a1dc runs it" is doing exactly what a ledger is for, and
+# 03f201c, 67df89d and 82572e7 all cite 810a1dc that way while carrying their
+# own subjects.
+#
+# Reading the whole line instead cost two false VIOLATIONs that sat red on
+# precedent-beta-v01 (found 2026-09-11 from an unrelated pull request, whose
+# own diff touched no ledger): "3 rows reference 810a1dc" and "2 rows
+# reference adc36bb" -- every one of them a cross-reference, and the remedy
+# the message proposed, "merge them", would have destroyed three real and
+# distinct transfer verdicts to silence a check that was miscounting.
+#
+# THE SPLIT RESPECTS `\|`. A row's claude-code cell contains a hook matcher
+# written `Edit\|Write\|NotebookEdit\|Bash` inside a code span, so a naive
+# `line.split('|')` reports nine columns for a five-column table and reads
+# the subject out of the wrong cell. (practice: convention-to-audit)
+_LEDGER_HASH_RE = re.compile(r'\b([0-9a-f]{7,40})\b')
+
+
+def _ledger_row_cells(line):
+    """Split one markdown table row on UNESCAPED pipes."""
+    cells, buf, i = [], [], 0
+    while i < len(line):
+        c = line[i]
+        if c == '\\' and i + 1 < len(line):
+            buf.append(line[i:i + 2])
+            i += 2
+            continue
+        if c == '|':
+            cells.append(''.join(buf).strip())
+            buf = []
+        else:
+            buf.append(c)
+        i += 1
+    cells.append(''.join(buf).strip())
+    return cells
+
+
+def _ledger_row_subject(line):
+    """-> the commit hash a ledger row is ABOUT, or None.
+
+    The first hash in the "Originating change" cell. `None` for a heading,
+    a separator, or any row whose change cell names no commit -- those are
+    not rows about a change, so they are not duplicates of anything."""
+    cells = _ledger_row_cells(line)
+    # cells[0] is the empty string before the leading pipe.
+    if len(cells) < 3:
+        return None
+    m = _LEDGER_HASH_RE.search(cells[2])
+    return m.group(1) if m else None
+
+
+def _ledger_subjects(ledger_text):
+    """-> {full-or-short hash: [row, ...]} keyed by each row's own subject."""
+    out = {}
+    for ln in ledger_text.splitlines():
+        if not ln.startswith('|'):
+            continue
+        subj = _ledger_row_subject(ln)
+        if subj:
+            out.setdefault(subj, []).append(ln)
+    return out
+
+
 @check('parallel-artifact-ledger', 'tree',
        '`templates/harness/LEDGER.md` exists, and every commit that touched '
        'a harness-adapter member (claude-code/, codex/, or gemini-cli/) has '
@@ -3341,6 +3407,7 @@ def _parallel_artifact_ledger(ctx):
     roots = set(_git('rev-list', '--max-parents=0', 'HEAD').stdout.split())
     roots |= _shallow_boundary_commits()
     findings = []
+    _subjects = _ledger_subjects(ledger_text)
     for member_dir in _LEDGER_MEMBER_DIRS:
         # `git log` is newest-first, so the LAST entry is this member
         # directory's own first commit -- the one that created it. A family
@@ -3360,7 +3427,12 @@ def _parallel_artifact_ledger(ctx):
         for full_hash in out:
             if full_hash in roots or full_hash in inception:
                 continue
-            if full_hash[:7] not in ledger_text and full_hash not in ledger_text:
+            # A commit CITED by another row's prose is not a commit
+            # with a row. Matching the whole file let a cross-reference
+            # satisfy the requirement, so a change could be ledgered by
+            # somebody else's row mentioning it in passing.
+            if not any(subj.startswith(full_hash[:7]) or full_hash.startswith(subj)
+                       for subj in _subjects):
                 findings.append(Finding(
                     'templates/harness/LEDGER.md',
                     f'no row references {full_hash[:7]} ({member_dir}), a '
@@ -3381,9 +3453,9 @@ def _parallel_artifact_ledger(ctx):
     for full_hash in {h for d in _LEDGER_MEMBER_DIRS
                       for h in _git('log', '--no-merges', '--format=%H',
                                     '--', d).stdout.split()}:
-        rows = [ln for ln in ledger_text.splitlines()
-                if ln.startswith('|')
-                and (full_hash[:7] in ln or full_hash in ln)]
+        rows = [ln for subj, lns in _subjects.items()
+                for ln in lns
+                if subj.startswith(full_hash[:7]) or full_hash.startswith(subj)]
         if len(rows) > 1:
             findings.append(Finding(
                 'templates/harness/LEDGER.md',

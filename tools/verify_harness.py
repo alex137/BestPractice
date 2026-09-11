@@ -5102,8 +5102,18 @@ def check_precedent_check_fires():
         # to be in the ledger before "clean" means clean here.
         def _ledger_setup(repo):
             baseline_hash = git(repo, 'rev-parse', 'HEAD')
+            # A REAL TABLE ROW, not an HTML comment. This used to append
+            # `<!-- harness-test baseline: <hash> -->`, which satisfied the
+            # check only because it matched the whole file for the hash --
+            # the same looseness that let a cross-reference in one row's
+            # prose count as another commit's ledger entry, and that put two
+            # false VIOLATIONs on precedent-beta-v01 (2026-09-11). The
+            # practice's Install says a dated ROW; a comment is not one, so
+            # the fixture now writes what the rule actually asks for.
             rewrite(repo, 'templates/harness/LEDGER.md',
-                   lambda t: t + f'\n<!-- harness-test baseline: {baseline_hash} -->\n')
+                   lambda t: t + f'\n| 2026-01-01 | `{baseline_hash}` — '
+                                 f'harness-test baseline commit | n/a | n/a '
+                                 f'| n/a |\n')
 
         def _plant_unledgered_harness_change(repo):
             (repo / 'templates' / 'harness' / 'claude-code' / 'fixture.txt'
@@ -5374,8 +5384,38 @@ def check_parallel_artifact_ledger_fires():
         no_ledger = fn(None)
         ledger_path.write_text('no commit hashes here\n', encoding='utf-8')
         unreferenced = fn(None)
-        ledger_path.write_text(f'{member_commit}\n', encoding='utf-8')
+        # A REAL ROW. This used to write the bare hash on a line of its
+        # own, which cleared the finding only because the check matched the
+        # whole file -- the same looseness that let one row's prose
+        # cross-reference count as another commit's entry. The practice's
+        # Install says a dated row; the fixture now writes one.
+        def _row(subject, extra=''):
+            return (f'| 2026-01-01 | `{subject}` \u2014 fixture change{extra} '
+                    f'| n/a | n/a | n/a |\n')
+
+        ledger_path.write_text(_row(member_commit), encoding='utf-8')
         referenced = fn(None)
+
+        # THE REGRESSION THIS FIX IS ABOUT: a commit named only inside
+        # ANOTHER row's prose has no row of its own, and must still be a
+        # finding. Under the old whole-file match this read as ledgered,
+        # which is how three real cross-references were reported as
+        # duplicate rows on precedent-beta-v01 (2026-09-11).
+        ledger_path.write_text(_row('f' * 40, f', see {member_commit}'),
+                               encoding='utf-8')
+        cited_only = fn(None)
+
+        # ...and two rows that genuinely share a subject are still caught.
+        ledger_path.write_text(_row(member_commit) + _row(member_commit),
+                               encoding='utf-8')
+        duplicated = fn(None)
+
+        # A row's cells are split on UNESCAPED pipes: a real row carries a
+        # hook matcher written `Edit\|Write\|Bash` inside a code span, and a
+        # naive split reads the subject out of the wrong cell.
+        escaped = pc._ledger_row_subject(
+            '| 2026-01-01 | `' + member_commit + '` \u2014 x '
+            '| applied as `Edit\\|Write\\|Bash` | n/a | n/a |')
 
         # A ledger naming ONLY the later change: the inception commit must
         # not be demanded. Before this exemption, f2078d6 -- the commit
@@ -5392,13 +5432,21 @@ def check_parallel_artifact_ledger_fires():
              not inception_exempt),
             ("a ledger with no reference to the commit is a finding",
              len(unreferenced) == 1),
-            ("a ledger referencing the commit's hash clears the finding",
+            ("a ledger row whose subject IS the commit clears the finding",
              referenced == []),
+            ("a commit named only in ANOTHER row's prose is still a finding",
+             len(cited_only) == 1),
+            ("two rows sharing one subject are a finding",
+             any('rows reference' in str(f) for f in duplicated)),
+            ("a row's subject is read from the change column, with `\\|` "
+             "inside a code span not splitting the cell",
+             escaped == member_commit),
         ]
         bad = [n for n, ok in cases if not ok]
         check(f"parallel-artifact-ledger check fires ({len(cases)} stated cases: "
-              f"no ledger, ledger missing the commit, ledger referencing it, "
-              f"a family's own inception commit needing no row)",
+              f"no ledger, ledger missing the commit, a row whose subject is "
+              f"it, a prose-only citation, a duplicated subject, escaped "
+              f"pipes, and a family's own inception commit needing no row)",
               not bad, '; '.join(bad))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
