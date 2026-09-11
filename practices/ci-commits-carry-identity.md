@@ -107,4 +107,4 @@ passing vacuously.
 For the workflow itself: resolve the three values in a step of its own,
 before any `git commit`, and `exit 1` on a missing one. The limit this
 enforces is written up for adopters in
-[GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)'s "Limits".
+[GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GITHUB_ACTIONS.md)'s "Limits".

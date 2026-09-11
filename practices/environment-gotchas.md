@@ -38,5 +38,5 @@ whether the note still applies.
 
 ## Install
 A gotchas section in the instructions file
-([templates/AGENTS.md.template](../templates/AGENTS.md.template)), plus
+([templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template)), plus
 [session-bootstrap](session-bootstrap.md) (encode the fixes as a bootstrap hook so they apply themselves).

@@ -65,7 +65,7 @@ Nothing about it is specific to one team or one person.
 2026-09-07, and the history is the argument for the shape this landed in.
 
 **The overcorrection paragraph arrived later, 2026-09-08**, out of
-[templates/VOICE.md.template](../templates/VOICE.md.template)'s section 11,
+[templates/VOICE.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/VOICE.md.template)'s section 11,
 when Morgan decided that template should ship only a project's own voice and
 its generic half was read against this practice to see what would be lost. It
 is the one piece that belonged here rather than in a new practice: a rule
@@ -99,11 +99,11 @@ regex is the obvious mechanical check, so it was written and run against
 this repository's whole tree before being rejected. It produced three
 findings, and **all three were legitimate prose**: "the direction is not
 an artifact of the key, but the exact gap could be"
-([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)), "A universal
+([PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/PRACTICE_ENGINE_PLAN.md)), "A universal
 candidate is not private, but the gate bans…"
-([spec/SOURCES.md](../spec/SOURCES.md)), and "worth noting that the
+([spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/SOURCES.md)), and "worth noting that the
 failure mode here was *inventing* work, not missing it"
-([spec/VERY_DEEP_CHECK.md](../spec/VERY_DEEP_CHECK.md)). Three for three
+([spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)). Three for three
 false positives. `checkable-gets-checked` calls a check that fires on
 correct work worse than no check, because it teaches the next session to
 ignore the gate — and this one would have fired on nothing else.

@@ -434,6 +434,13 @@
       ],
       "gates_why": "The export gate fires before a thread ends; a merge is where that is checked."
     },
+    "practice-links-travel": {
+      "globs": [
+        "practices/*.md"
+      ],
+      "why": "The path IS the distinguishing condition: the rule is about what a file in the published catalogue may link, and every such file is in practices/. local/practices/*.md is deliberately out -- a repo-local source is read in place here and materialized nowhere, so its links travel nowhere.",
+      "decided": "2026-09-11, when the practice landed at universal"
+    },
     "quote-discipline": {
       "globs": [
         "**"

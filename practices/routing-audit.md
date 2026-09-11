@@ -48,7 +48,7 @@ this practice implements compares "practices that matched" against
 what a past session actually loaded, so `coverage` reports only which
 practices *should* have fired, not whether they did. A match with no
 `checked_by`/`gates` is a candidate, not a proven miss. See
-[spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md).
+[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md).
 
 ## Why
 The loader's whole architecture accepts a real risk in exchange for not
@@ -74,7 +74,7 @@ audit*") and never built — not tracked in `TODO.md`, not carried forward in
 2026-09-03 session was asked to build a related, human-requested audit
 mechanism and read the plan first rather than building from memory of the
 conversation alone. See
-[spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md) for the
+[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) for the
 investigation this gap itself opens: why an approved phase-5 deliverable
 fell through, and what else the plan approved that the tree does not show.
 
@@ -91,7 +91,7 @@ judgment step shares its mechanism with
 [full-practice-audit](full-practice-audit.md)'s whole sweep, and shares
 that practice's evaluation results — 6 of 6 (100%) on each of two small,
 independent single-judge runs, 2026-09-04 and 2026-09-05, see
-[spec/ATTENTION_CEILING.md](../spec/ATTENTION_CEILING.md), "The
+[spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/ATTENTION_CEILING.md), "The
 audit-judgment result" and "run 2." On-demand only, invoked explicitly; not wired into
 a commit, push, or merge gate until a session validates it is worth the
-cost (see [spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md)).
+cost (see [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md)).

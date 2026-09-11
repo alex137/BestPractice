@@ -65,7 +65,7 @@ step's log). This check is **advisory-only as of 2026-09-05**
 (findings still print; they no longer fail the run) until that CI-only
 anomaly is root-caused — see [tools/precedent_check.py](../tools/precedent_check.py)'s
 own dated comment above `_parallel_artifact_ledger()` for the full
-account, and [TODO.md](../TODO.md) for the tracked follow-up and re-promotion
+account, and [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md) for the tracked follow-up and re-promotion
 condition. A session reading this practice should not expect its own
 `checked_by` audit to gate a merge right now.
 
@@ -76,13 +76,13 @@ whatever registry tracks the family — any marked date without a complete
 ledger row fails. The family definition itself lives at the top of the
 ledger, with the origin incident ([mistakes-become-rules](mistakes-become-rules.md)).
 
-This repo's own instance: [templates/harness/LEDGER.md](../templates/harness/LEDGER.md)
-for the [claude-code/codex/gemini-cli harness adapter family](../templates/harness/README.md);
+This repo's own instance: [templates/harness/LEDGER.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/LEDGER.md)
+for the [claude-code/codex/gemini-cli harness adapter family](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/README.md);
 `tools/precedent_check.py`'s `parallel-artifact-ledger` check (found by
 `checked_by` above) walks `git log --no-merges` for each member directory
 (excluding the repository's own root commit, which is inception rather
 than a change) and fails if any commit's hash isn't referenced somewhere
 in the ledger. Checks only that a row exists for every commit that touched
 a member, not that the recorded verdict is correct — see
-[spec/ATTENTION_CEILING.md](../spec/ATTENTION_CEILING.md)'s "audit-judgment
+[spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/ATTENTION_CEILING.md)'s "audit-judgment
 result" for the run whose blind judge named this gap in the first place.

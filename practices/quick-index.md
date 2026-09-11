@@ -48,4 +48,4 @@ questions, and collapsing them produces a document that serves neither.
 
 ## Install
 Part of
-[templates/AGENTS.md.template](../templates/AGENTS.md.template).
+[templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template).

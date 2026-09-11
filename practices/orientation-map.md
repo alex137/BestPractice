@@ -44,6 +44,6 @@ rule names it as the crucial one rather than settling for "where things
 are".
 
 ## Install
-[templates/MAP.md.template](../templates/MAP.md.template). Keep the
+[templates/MAP.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/MAP.md.template). Keep the
 deliverable→backing-docs index current: any thread that adds a document adds
 its row.

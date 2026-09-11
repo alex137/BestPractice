@@ -245,7 +245,11 @@ its Detail grew a postcondition-check requirement), and to 18 practices,
 3,667 words, on 2026-09-10, when `github-setup-disclosed` gained a Detail
 carrying the owner-only GitHub settings a first install mentions — 3,785
 words later the same day, when that Detail gained the repository's own
-visibility and the note on keeping the whole thing short. Only the two figures
+visibility and the note on keeping the whole thing short. It moved once more,
+to 19 practices and 3,876 words, on 2026-09-11, when
+`doc-references-are-links` gained a Detail recording the one exception to its
+own relative-link clause — a practice file links what does not travel with it
+absolutely (`practice-links-travel`). Only the two figures
 `tools/catalogue_stats.py` prints an anchor for — the Rule-share-derived
 counts, not the raw word totals — are mechanically checked against this
 table; the word-count cells are updated by hand alongside them.)*

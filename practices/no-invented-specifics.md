@@ -62,7 +62,7 @@ replaced, and is discovered — if ever — by the reader who acted on it.
 
 ## Story
 **Written 2026-09-08, rescuing content rather than inventing a rule.** It was
-section 8 of [templates/VOICE.md.template](../templates/VOICE.md.template),
+section 8 of [templates/VOICE.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/VOICE.md.template),
 under "Concreteness, and Its Limit", and it came out when Morgan decided that
 template should ship only a project's own voice: *"if it is just talk like a
 human rules, then maybe we should eliminate all that text (by default), and
@@ -76,7 +76,7 @@ template's generic half without landing this first would have quietly removed
 the only statement of it anywhere.
 
 The incident behind the "round number" paragraph is this repository's own,
-recorded in [AGENTS.md](../AGENTS.md)'s gotchas: a draft entry asserted
+recorded in [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md)'s gotchas: a draft entry asserted
 counts that had never been counted, and the fix had to replace them with the
 frequency that was actually checkable.
 
