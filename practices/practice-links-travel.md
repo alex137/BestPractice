@@ -24,9 +24,10 @@ it.** Three things do: **another practice file in the same directory**, cited
 the normal way as a markdown link to its own `<slug>.md`; **the vendored
 engine files under `../tools/`** that every consumer receives; and **a
 source's own check scripts and their tests under `../tools/checks/`**, which
-materialization copies alongside the practices — a practice citing the script
-that enforces it is the most common cross-reference a private set makes, and
-it is a correct one.
+materialization copies alongside the practices — the `check_*.py` scripts
+and the `test_*.sh` files under `tests/` — a practice citing the script that
+enforces it is the most common cross-reference a private set makes, and it is
+a correct one.
 
 **Everything else in the publishing repository does not travel** — `spec/`,
 `templates/`, root documents, decisions, records, hooks. Link one of those
@@ -40,7 +41,10 @@ reader gets a live link wherever they are reading, and the writer gets to
 keep the reference. **From a PRIVATE source, drop the link markup and keep
 the backticked path** — an absolute URL would publish the private
 repository's name into every consumer that materializes the practice, which
-is a worse failure than a reference the reader has to go find.
+is a worse failure than a reference the reader has to go find. **Nothing downstream will
+repair that one, and nothing downstream should** — `_rewrite_links` refuses
+the private case on purpose, so the unlinked path is load-bearing rather than
+an oversight somebody should tidy up later.
 
 ## Detail
 **The public and private answers differ, and neither is the general case.**

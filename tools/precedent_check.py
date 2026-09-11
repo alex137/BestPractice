@@ -645,10 +645,16 @@ _MD_LINK_RE = re.compile(r'(?<!\!)\[[^\]]*\]\(([^)\s]+)\)')
 _BLOB_URL_RE = re.compile(
     r'^https://github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.+)$')
 # What precedent_materialize.py actually copies out of a source's
-# tools/checks/: `check_*.py` beside the practices, and `tests/test_*.sh`
-# under them. Both shapes are spelled out rather than a loose `[^/]+` --
-# the tests half was missed the first time, and a private set citing the
-# test that proves its own check is a real cross-reference, not a stray.
+# tools/checks/, and it is two globs rather than a subtree: `check_*.py`
+# beside the practices, and `tests/test_*.sh` under them. Both shapes are
+# spelled out, because the tests half was missed the first time -- run
+# against a real private set that version reported 12 correct links across
+# 6 practice files as violations, and the repair it printed for each was an
+# absolute URL into that private repository, i.e. the disclosure this very
+# rule exists to prevent (measured 2026-09-11 by the session that
+# deduplicated the individual copy). A loose "anything under tools/checks/"
+# would clear those 12 too, and would also clear a link to a file
+# materialize does not copy -- so the target must exist as well, below.
 _CHECK_SCRIPT_RE = re.compile(
     r'\.\./tools/checks/(?:check_[^/]+\.py|tests/test_[^/]+\.sh)')
 
