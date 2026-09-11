@@ -7594,8 +7594,8 @@ def check_freshness_guard_new_branch_and_also_list():
         return
 
     env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
-                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.invalid',
-                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.invalid')
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
     env0.pop('PRECEDENT_FRESHNESS_ALSO', None)
 
     def git(cwd, *args):
@@ -7606,8 +7606,17 @@ def check_freshness_guard_new_branch_and_also_list():
         """The hook as the harness invokes it: a JSON payload on stdin, the
         project dir in the environment. The session id keys the once-per-
         session sentinel, so every case needs its own or the second one is
-        skipped -- which looks exactly like a pass."""
+        skipped -- which looks exactly like a pass.
+
+        TMPDIR is redirected into the fixture, because that sentinel is where
+        this check's state leaks out of it: the ids below are fixed strings,
+        so the SECOND run of this harness in the same container found every
+        sentinel already there and every case exited 0 in silence -- which
+        renders as three of them failing on a missing message, and would have
+        rendered as a pass had the assertions stopped at the exit status
+        (practice: fixture-owns-its-state)."""
         env = dict(env0)
+        env['TMPDIR'] = str(sentinels)
         if also is None:
             env.pop('PRECEDENT_FRESHNESS_ALSO', None)
         else:
@@ -7623,6 +7632,8 @@ def check_freshness_guard_new_branch_and_also_list():
     cases = []
     with tempfile.TemporaryDirectory() as td:
         w = pathlib.Path(td)
+        sentinels = w / 'sentinels'
+        sentinels.mkdir()
 
         def make(name):
             """A repo with a real origin, one pushed commit on main. A local
