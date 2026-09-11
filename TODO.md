@@ -3572,6 +3572,10 @@ which is the failure this repointing exists to end — write
     reasoning applies to an allowlist entry exactly as it does to a link, and
     nothing currently checks that a rename carried one. The gate's own
     standing NOTE about a bare-name stem is a separate, older item.
-    **Disposition:** ask (2026-09-11 — the deep check's push gate is red for
-    every session on this branch until it is done, and only Morgan can change
-    the private set)
+    **Handoff:** a session rooted in the private individual source, seeded
+    with the whole diagnosis and the postcondition to test, is open at
+    <https://claude.ai/code/session_019hZrE9pyvuSsioqaeCpXds> — it cannot be
+    done from a session rooted here, because that repo is under a different
+    owner and `add_repo` refuses across owners
+    ([handoff-is-pasteable](practices/handoff-is-pasteable.md)).
+    **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
