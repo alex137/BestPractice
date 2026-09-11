@@ -3039,7 +3039,26 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-58. <a id="provenance-check-skips-in-a-source-set"></a>**A universal
+58. <a id="source-load-ceilings"></a>**Declare session-load ceilings in the attached practice-set sources, and
+   measure the real total a session pays.**
+   [session-load-budget](practices/session-load-budget.md) landed 2026-09-11
+   with a registry
+   ([tools/session_load_budgets.json](tools/session_load_budgets.json)) and a
+   check that covers **this** repo's surfaces only. Each attached source
+   carries its own `AGENTS.md` — measured the same day: 943, 956 and 963
+   tokens for the three team sets — and none declares a ceiling, so nothing
+   there ratchets. [tools/very_deep_check.py](tools/very_deep_check.py)'s
+   SESSION LOAD section now sums every repo in force, which is how the real
+   figure gets read; what is missing is a per-source registry and the check
+   running there.
+
+   **blocked-on:** each source's vendored engine is behind
+   `precedent-beta-v01` (all four were, at this session's start), so the check
+   does not exist in those checkouts yet — and landing a file in any of them
+   is a merge under that repository's own rules, not this one's. Do it in the
+   session that refreshes their engines.
+
+59. <a id="provenance-check-skips-in-a-source-set"></a>**A universal
    practice's mechanical check cannot bind a source set, and three sets are
    relying on checks that silently skip there.**
    [tools/precedent_check.py](tools/precedent_check.py) skips any check whose
@@ -3075,7 +3094,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-59. <a id="consumer-views-drift-uncheckable-in-ci"></a>**A consuming repo's
+60. <a id="consumer-views-drift-uncheckable-in-ci"></a>**A consuming repo's
    generated loader block cannot be drift-checked in CI, and today nothing
    checks it anywhere.** A consuming repo materializes `practices/` from the
    sources it resolves. A team source is a sibling clone outside the repo; an
@@ -3109,7 +3128,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-60. <a id="views-drift-gate-rollout-to-existing-sets"></a>**Install the views
+61. <a id="views-drift-gate-rollout-to-existing-sets"></a>**Install the views
    drift gate in the four existing private sets.**
    [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template)
    reaches a new set through

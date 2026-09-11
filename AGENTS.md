@@ -190,7 +190,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 97 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 98 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -308,6 +308,8 @@ When adding or re-levelling a heading in any document:
   heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
 When adding or re-syncing a document under philosophy/:
   philosophy-declares-its-source — an essay carries its origin on line one -- a record, not a sync pointer
+When adding to a file every session loads, or asking what a session pays before it starts work:
+  session-load-budget — declare a ceiling for what every session loads; reduce by archiving
 When an install step adds something GitHub-specific, or a first install finishes:
   github-setup-disclosed — disclose GitHub setup where its people read; offer owner settings at install
 When asking the person to do something in another session:
@@ -487,6 +489,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Team-level practice capture for document work at scale (a shared editorial team repo + a reusable document-project template — the "alternative to Google Docs" use case) — the template is built and live at [templates/document-project/](templates/document-project/); the pilot itself deliberately still not done, and the team set bootstrapped for it was retired 2026-09-10 unused | [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md) |
 | The reusable document-project template a future pilot instantiates from | [templates/document-project/](templates/document-project/) |
 | What zone a date or time gets stamped in, why an unidentified person's records still carry a real offset, and where the fallback is declared | [practices/timestamps-carry-offset.md](practices/timestamps-carry-offset.md), engine at [tools/precedent_time.py](tools/precedent_time.py) — run it bare to see which rung answered; the value is `fallback_timezone` in [precedent.json](precedent.json) |
+| What a session pays before its first turn, the declared ceiling on each always-loaded file, and how to reduce one without deleting what still bites | [practices/session-load-budget.md](practices/session-load-budget.md), registry at [tools/session_load_budgets.json](tools/session_load_budgets.json) — `python3 tools/precedent_check.py --only session-load-budget` |
 | Why each practice is routed the way it is (every glob, and every `**`) | [tools/routing_scope.json](tools/routing_scope.json) |
 | The routing audit: coverage check + rotating deep read, on-demand, never a routine gate | [practices/routing-audit.md](practices/routing-audit.md), engine at [tools/routing_audit.py](tools/routing_audit.py) |
 | The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
@@ -496,6 +499,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Whether an attached practice-set source's vendored engine has gone stale, or is missing the session hooks a source is created with, and repairing either | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes and restores hooks, `--commit` commits |
 | Whether a hook this repo *declares* actually exists on disk and is executable — the failure the harness reports as nothing at all | [tools/precedent_check.py](tools/precedent_check.py) — `--only declared-hooks-exist` |
 | Whether this session's SessionStart hooks actually ran, and repairing them if not | [tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand |
+| Whether `PRECEDENT_FRESHNESS_ALSO` names repositories that are actually there, and what to set it to on this container | [tools/precedent_session_check.py](tools/precedent_session_check.py) — the row prints the corrected value; a dead entry is skipped silently by design, so nothing else reports it |
 | Whether Alex has moved `main` since the last carry onto this branch, and what changed | [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py) — printed at session start; the watermark it compares against is [tools/upstream_watermark.json](tools/upstream_watermark.json), moved with `--record` in the carry's own commit |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
@@ -788,14 +792,19 @@ gotcha every session reads is a gotcha every session pays for.
   session can have attached repositories checked even though their own hooks
   never fire — an environment variable follows a session into every
   repository it touches, the same reasoning as `PRECEDENT_COMMIT_*` for
-  identity. **Check the value before trusting it**: this environment's own
-  entry named `/home/user/precedent-individual` on 2026-09-11 while the
-  individual source actually cloned to `/root/precedent-individual`, so the
-  entry resolved to nothing and was skipped every session. A wrong path here
-  is silent by design — a config typo must not wedge a session — so the
-  hook's own note is the only evidence. Nothing else in this entry is
-  covered: the `pip install`, the path-trigger channel and the rest still
-  need doing by hand.
+  identity. **Write the path as `~/name`, never spelled out.** An individual
+  practice source lives at `$HOME/precedent-individual` and `$HOME` is `/root`
+  on some containers and `/home/user` on others, so an absolute path written
+  on one names nothing on the next — and a dead entry is skipped rather than
+  blocked on, deliberately, so the variable goes on reading as coverage while
+  covering nothing. This environment's own entry did exactly that from the day
+  it was set until 2026-09-11, naming `/home/user/precedent-individual` while
+  the clone sat at `/root/precedent-individual`. The guard expands `~`,
+  `$HOME` and `$CLAUDE_PROJECT_DIR` now, so one value is correct everywhere,
+  and `python3 tools/precedent_session_check.py` has a row that names any
+  entry still resolving to nothing and prints the value to set instead.
+  Nothing else in this entry is covered: the `pip install`, the path-trigger
+  channel and the rest still need doing by hand.
 
 - **A merge conflict in `.claude/hooks/freshness-guard.sh` locks the session
   out of every tool that could repair it, and `git` being exempt does not

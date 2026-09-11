@@ -43,7 +43,10 @@ the session merely has **attached**. That part is not harness-specific at
 all: a hook fires for the project dir and nothing else, so an attached
 sibling clone runs none of its own freshness checking no matter which
 harness is in play, and an adapter that ports the gate should read the
-variable too. Unset, it changes nothing.
+variable too. Unset, it changes nothing. A ported gate must **expand `~`,
+`$HOME` and `$CLAUDE_PROJECT_DIR` in each path**: nothing expands a value
+read back out of a variable, and `$HOME` differs between containers, so the
+unexpanded form names nothing on half the machines it runs on.
 Then contribute the adapter back upstream.
 
 **Transfer verdicts for changes to any one adapter are ledgered:**

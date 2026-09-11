@@ -404,6 +404,18 @@ def scan_unglossed(text, known, path=None):
             continue
         if incode:
             continue
+        if line.lstrip().startswith('>'):
+            # A blockquote is somebody else's words, quoted verbatim. A
+            # document cannot gloss an acronym inside a quotation without
+            # altering the quote, and shouting inside one is the quoted
+            # person's emphasis, not the document's -- precedent-individual's
+            # name-the-branch practice quotes an all-caps message, and PLEASE,
+            # DO and LIKE were all reported as unglossed acronyms, landing on
+            # whichever consumer repo materialized that practice first. Same
+            # reasoning as the fenced-block skip above; the alternative, a
+            # hand-kept list of ordinary words somebody shouted, is wrong the
+            # first time somebody shouts a word nobody thought of.
+            continue
         clean = _decontent(line)
         for m in ACRONYM_RE.finditer(clean):
             tok = m.group(1)
