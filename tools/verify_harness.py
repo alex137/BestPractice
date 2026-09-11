@@ -11184,6 +11184,34 @@ def check_philosophy_readme_lists_every_file():
               + ([f'listed but absent: {", ".join(sorted(stale))}'] if stale else [])))
 
 
+def check_philosophy_citations_run_both_ways():
+    """Every item-to-item citation in philosophy/ is answered by the cited item.
+
+    The essays cite each other by slug. A citation written in one direction
+    only leaves the cited item with no way back, which is the whole thing
+    philosophy/doc-recipes/backlinks.recipe.md exists to prevent -- and it
+    is invisible by inspection, since a one-way link looks exactly like a
+    correct one from the citing end.
+
+    The return reference is prose somebody wrote, never generated, so this
+    can only report the gap and name the item whose text is missing a
+    sentence. tools/philosophy_backlinks.py is the engine; running it here
+    is what keeps the convention from being advisory-only
+    (checkable-gets-checked).
+    """
+    tool = ROOT / 'tools' / 'philosophy_backlinks.py'
+    if not tool.is_file():
+        not_applicable('philosophy citations run both ways',
+                       'tools/philosophy_backlinks.py does not exist -- not a pass')
+        return
+    r = subprocess.run([sys.executable, str(tool)], cwd=str(ROOT),
+                       capture_output=True, text=True)
+    out = (r.stdout + r.stderr).strip()
+    check('every philosophy/ citation runs both ways',
+          r.returncode == 0,
+          out.replace('\n', ' ')[:400])
+
+
 def _looks_like_help(tool, out):
     """Does this output actually answer --help, or is it the tool running?
 

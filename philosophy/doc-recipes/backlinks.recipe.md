@@ -29,7 +29,11 @@ both ways.
 - **The back-reference is written by hand. Nothing generates it.**
   [../../tools/philosophy_backlinks.py](../../tools/philosophy_backlinks.py)
   only reports citations that run one way, and names the item whose prose
-  needs the return sentence. Run it after changing any citation.
+  needs the return sentence. Run it after changing any citation;
+  [../../tools/verify_harness.py](../../tools/verify_harness.py) runs it too,
+  so the deep check fails on a one-way citation rather than leaving this
+  advisory
+  ([checkable-gets-checked](../../practices/checkable-gets-checked.md)).
 - **Why it is not generated**, since the obvious build would be: the first
   version of this did generate it, as a `*Cited by: ...*` line under each
   cited item. Morgan read that on 2026-09-11 and said it made the
