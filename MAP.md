@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 96 practice files (10 resident, 86 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 97 practice files (10 resident, 87 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -22,6 +22,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [checkable-gets-checked](practices/checkable-gets-checked.md) | on-demand | writing a new convention or rule |
 | [ci-commits-carry-identity](practices/ci-commits-carry-identity.md) | on-demand | adding or editing a CI workflow that commits, pushes, or opens a pull request |
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
+| [clean-session](practices/clean-session.md) | on-demand | handing the person work to do, or starting work that may touch a repository this session cannot reach |
 | [code-cites-practice](practices/code-cites-practice.md) | on-demand | writing code because a specific practice requires it |
 | [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) | on-demand | writing a document that cites a computed number |
 | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor |
