@@ -672,6 +672,7 @@ not this section.
    | Artifact | What a §0 install needs |
    |---|---|
    | [templates/github-actions/doc-lint.yml.template](templates/github-actions/doc-lint.yml.template) | **Nothing — already handled.** It discovers `doc_lint.py` at either `process/upstream/tools/` or `tools/` and watches both. Install it verbatim. |
+   | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) | **Not this repo's — skip it.** It gates the generated views of a repo that AUTHORS its `practices/` (an individual or team practice set). A consuming repo materializes `practices/` from sources a CI runner cannot reach, so there is nothing on the runner to check the views against, and the workflow exits non-zero saying so rather than passing blind. See [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)'s Limits. |
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
 
    After instantiating, grep the new root for `process/upstream` — in a §0

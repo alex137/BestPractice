@@ -149,6 +149,43 @@ HARNESS_HOOKS_REL = 'templates/harness/claude-code/hooks/'
 HARNESS_SETTINGS_REL = 'templates/harness/claude-code/settings.json'
 
 
+WORKFLOW_TEMPLATES = (
+    # (template under templates/github-actions/, path in the new set)
+    ('views-drift.yml.template', '.github/workflows/views-drift.yml'),
+)
+WORKFLOWS_REL = 'templates/github-actions/'
+
+
+def _install_workflows(dest):
+    """Give a new source the CI gate its generated views had nowhere else.
+
+    A set that vendors the engine generates AGENTS.md's loader block, MAP.md
+    and GLOSSARY.md, and until 2026-09-11 nothing checked any of them
+    outside this repo: verify_harness.py is deliberately not vendored
+    (precedent_vendor_engine.py's own comment), and precedent_check.py's
+    `generated-artifact-provenance` -- which does run `build_views.py
+    --check` -- skips itself in a source set, because that check's practice
+    is universal and a source set's practices/ holds only its own. Measured:
+    an individual set's MAP.md sat three practices stale under a generated
+    header claiming a guard was failing the build on exactly that.
+
+    Same reasoning as _install_session_hooks: the workflow FILES are
+    rewritten on every call, so a set this is re-run against picks up the
+    current template, and verify() reports a set that never got one --
+    every set created before this date is in that position, and this tool
+    cannot reach them on its own.
+    """
+    written = []
+    for template, rel in WORKFLOW_TEMPLATES:
+        out = dest / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            (ROOT / 'templates' / 'github-actions' / template)
+            .read_text(encoding='utf-8'), encoding='utf-8')
+        written.append(out)
+    return written
+
+
 def _install_session_hooks(dest, base_branch='main'):
     """Give a new source the two hooks that keep its own sessions honest:
     freshness-guard.sh (never work on, or write to, a stale checkout) and
@@ -316,6 +353,17 @@ def verify(level, path):
         missing.append(f"{pathlib.Path('.claude') / 'hooks' / name} "
                        f"(from {HARNESS_HOOKS_REL}, and unwired: no command "
                        f"in .claude/settings.json points at a copy of it)")
+    # Like the hooks, the workflows are not in either skeleton -- they come
+    # from templates/github-actions/, one copy, shared with dependent repos.
+    # A set bootstrapped before 2026-09-11 has none of them.
+    for _template, rel in WORKFLOW_TEMPLATES:
+        if not (path / rel).exists():
+            missing.append(f"{rel} (from {WORKFLOWS_REL}{_template}; without "
+                           f"it nothing checks this set's generated views for "
+                           f"drift -- verify_harness.py is not vendored here "
+                           f"and precedent_check.py's provenance check skips "
+                           f"itself in a source set)")
+
     if not (path / '.claude' / 'settings.json').exists():
         missing.append(f"{pathlib.Path('.claude') / 'settings.json'} "
                        f"(written by this tool's bootstrap, not shipped in "
@@ -572,6 +620,7 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     if level == 'team':
         _seed_approvers_json(dest, approvers)
     written += _install_session_hooks(dest)
+    written += _install_workflows(dest)
     written += precedent_vendor_engine.seed(dest)
 
     return {'dest': dest, 'written': written}

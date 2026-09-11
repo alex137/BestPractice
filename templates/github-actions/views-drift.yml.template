@@ -1,0 +1,168 @@
+# Install as .github/workflows/views-drift.yml in a repository that
+# GENERATES its own Precedent views -- an individual or team practice set,
+# or any repo whose practices/ it authors itself rather than materializing
+# from sources it resolves. See GITHUB_ACTIONS.md, "Install in a
+# Practice-Set Repository".
+#
+# WHY THIS EXISTS (practice: cite-the-incident). Every set that vendors the
+# engine generates AGENTS.md's loader block, MAP.md and GLOSSARY.md -- and
+# until 2026-09-11 nothing checked any of them anywhere but in BestPractice
+# itself, where .github/workflows/deep-check.yml runs verify_harness.py.
+# verify_harness.py is deliberately not vendored into a source set
+# (precedent_vendor_engine.py says so in as many words), so the guard
+# existed in exactly one repo out of all of them.
+#
+# What that cost, measured: an individual set's MAP.md sat three practices
+# stale -- claiming 12 practice files while practices/ held 15, one practice
+# missing from its table from the day it landed -- under a generated header
+# saying a check was failing the build on exactly that. Nothing was failing.
+# Nobody looked, because the header said somebody already was. The header is
+# fixed too (it names `build_views.py --check` now, which exists wherever
+# the block does); this workflow is the half that makes something look.
+#
+# The vendored engine already carries a drift check and it cannot fire here:
+# precedent_check.py's `generated-artifact-provenance` runs
+# `build_views.py --check` as a subprocess, but precedent_check.py skips any
+# check whose practice is not in force in the repo it runs in -- and a
+# source set's practices/ holds its OWN practices, never the universal one
+# that check belongs to. Measured in a real individual set on 2026-09-11:
+# `--only generated-artifact-provenance` reports `1 skipped`, and a skip is
+# not a pass. So this workflow calls build_views.py directly.
+#
+# IT GATES, IT DOES NOT FIX. Regenerating in CI would leave the branch's own
+# diff wrong and put a runner bot in the authorship path that
+# ci-commits-carry-identity exists to keep clean. The fix is one
+# `python3 tools/build_views.py` on the branch, by whoever drifted it.
+#
+# IT REFUSES RATHER THAN PASSING BLIND, in three situations, each with its
+# own message: the engine is vendored under process/upstream/ (INSTALL.md
+# section 1's consuming-repo layout); the loader block is built from sources
+# a runner cannot reach, which is every consuming repo resolving a team or
+# individual set (build_views.py itself reports NOT VERIFIABLE and exits 0
+# there -- correct for a person, a silent green for a gate); or no engine is
+# vendored at all. A repo in any of those states should not carry this
+# workflow, and a red check saying so is better than a green one that
+# checked nothing.
+name: Generated views drift
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# No `paths:` filter on purpose. The check takes seconds, and the inputs to
+# a generated view are wider than they look -- a practice's frontmatter,
+# precedent.json's visibility, the engine itself, the routing vocabulary. A
+# filter that misses one input is a workflow that reports nothing while
+# looking green, which is the failure above wearing a different hat.
+
+# Read-only on purpose: this reports, and has no business holding a token
+# that could write.
+permissions:
+  contents: read
+
+jobs:
+  views-drift:
+    name: Generated views match a fresh regeneration
+    runs-on: ubuntu-latest
+
+    steps:
+      # The PR HEAD, not refs/pull/N/merge. Auditing the merge tree asks
+      # whether the views match a tree that exists on neither branch, and
+      # reports drift belonging to neither -- the author cannot act on it,
+      # and nothing on their branch is wrong.
+      - name: Check out the pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # fetch-depth left at the default: nothing here walks history.
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Decide what this repo generates
+        id: layout
+        run: |
+          set -eu
+          if [ ! -f tools/build_views.py ]; then
+            if [ -f process/upstream/tools/build_views.py ]; then
+              echo "This repo vendors the engine under process/upstream/, which is" \
+                   "INSTALL.md section 1's CONSUMING-repo layout: its practices/ is" \
+                   "materialized from sources that do not exist in a CI checkout, so" \
+                   "there is nothing here to check the generated views against. A run" \
+                   "that passed would be reporting coverage it does not have. Remove" \
+                   "this workflow; GITHUB_ACTIONS.md's Limits section says what does" \
+                   "cover a consuming repo." >&2
+              exit 1
+            fi
+            echo "No tools/build_views.py -- the engine was never vendored into this" \
+                 "repo, or it lives somewhere this workflow does not know about." \
+                 "Vendor it (tools/precedent_vendor_engine.py) or add the path here." >&2
+            exit 1
+          fi
+
+          # A repo that has not instantiated its instructions file yet has no
+          # generated views at all, and build_views.py exits non-zero saying
+          # so. That is a real message for a person and a wrong one for a
+          # gate: nothing has drifted, because nothing is generated. A
+          # brand-new bootstrapped set is in exactly this state, and a red
+          # check on its very first pull request is an adopter's first
+          # impression of the whole system. Report NOT CHECKED in those
+          # words rather than passing quietly.
+          if ! grep -q 'BEGIN GENERATED: precedent-loader' AGENTS.md CLAUDE.md 2>/dev/null \
+             && ! grep -q 'build_views.py' MAP.md GLOSSARY.md 2>/dev/null; then
+            echo "views=none" >> "$GITHUB_OUTPUT"
+            echo "NOT CHECKED: no generated views in this repo yet -- no loader block" \
+                 "in an instructions file, and no MAP.md/GLOSSARY.md stamped by" \
+                 "build_views.py. Nothing has drifted because nothing is generated." \
+                 "Instantiate the loader block (INSTALL.md) and run" \
+                 "python3 tools/build_views.py; this check starts covering them."
+            exit 0
+          fi
+
+          # MAP.md and GLOSSARY.md are whole generated files in a source
+          # set and HAND-AUTHORED from templates/ in a consuming repo, which
+          # is the same distinction precedent_check.py's
+          # generated-artifact-provenance reads the same way: off the files
+          # themselves, by whether they name their generator. Checking a
+          # hand-authored MAP.md against a regeneration reports drift for a
+          # file that was never generated and never should be.
+          if grep -q 'build_views.py' MAP.md GLOSSARY.md 2>/dev/null; then
+            echo "views=generated" >> "$GITHUB_OUTPUT"
+          else
+            echo "views=agents-only" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --repo . is load-bearing: build_views.py derives its root from its
+      # own file location, which is right for a source set and wrong the
+      # moment the engine is nested.
+      - name: Check the generated views
+        if: steps.layout.outputs.views != 'none'
+        run: |
+          set -eu
+          args="--repo . --check"
+          if [ "${{ steps.layout.outputs.views }}" = "agents-only" ]; then
+            args="$args --agents-only"
+          fi
+          # build_views.py exits 0 when a declared source is unreachable --
+          # "not verified is not a failure, and not a pass either", in its
+          # own words. For a gate it has to be a failure: the whole job of
+          # this workflow is to be something that actually looked.
+          set +e
+          out="$(python3 tools/build_views.py $args 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          if printf '%s' "$out" | grep -q 'NOT VERIFIABLE'; then
+            echo "This repo's loader block is built from sources a CI runner cannot" \
+                 "reach, so this workflow cannot gate it -- see the NOTICE lines" \
+                 "above for which source and why. Run" \
+                 "'python3 tools/precedent_sync_views.py --repo . --check' in a" \
+                 "session where every declared source resolves, and remove this" \
+                 "workflow from this repo: a green check here would mean nothing." >&2
+            exit 1
+          fi

@@ -42,6 +42,22 @@ assume a session has:
   a target directory, filling in the owner's name (and, for a team, its
   first approver's name and GitHub handle) wherever the skeleton names a
   placeholder.
+- **Installs the generated-views drift gate** —
+  [`templates/github-actions/views-drift.yml.template`](../templates/github-actions/views-drift.yml.template)
+  as the new set's `.github/workflows/views-drift.yml`, new 2026-09-11. A set
+  that generates `AGENTS.md`'s loader block, `MAP.md` and `GLOSSARY.md` had
+  nothing checking any of them: `verify_harness.py` is deliberately not
+  vendored into a source set, and
+  [`tools/precedent_check.py`](../tools/precedent_check.py)'s
+  `generated-artifact-provenance` — which does run `build_views.py --check` —
+  **skips itself here**, because its practice is universal and a source set's
+  `practices/` holds only its own (measured in a real individual set:
+  `1 skipped`, and a skip is not a pass). The cost was three stale practices
+  in a live set's `MAP.md`, under a generated header claiming a guard was
+  failing the build on exactly that. Like the session hooks, the file is
+  rewritten on every run, so re-running this tool against an existing set
+  installs or refreshes it; `--verify` names a set that has none, which is
+  every set created before that date.
 - **Vendors a real engine into the new set's own `tools/`** —
   [`tools/precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s
   `seed()`, called from `bootstrap()` itself, with no separate step to

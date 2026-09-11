@@ -188,7 +188,7 @@ plan's premise.
 
 <!-- BEGIN GENERATED: precedent-loader -->
 
-<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
+<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. -->
 
 ## Resident block (~876 of 2000 token budget, 10 of 97 practices (10 universal))
 
@@ -527,6 +527,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](MOBILE.md) |
 | A brainstormed WhatsApp bridge — a bot with a private thread per person, committing what they say into a project repo. **Speculative: nobody has decided to build it, and every platform claim in it is unverified** | [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md) |
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) |
+| Whether anything catches a drifted `MAP.md`, `GLOSSARY.md` or loader block in a practice SET (it does since 2026-09-11 — and `precedent_check.py`'s own provenance check skips itself there, so it never did) | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template), installed by [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py); the skip is [TODO.md's `provenance-check-skips-in-a-source-set`](TODO.md#provenance-check-skips-in-a-source-set) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
 | The full text of every gotcha that was shortened or retired — the story behind a live entry, and the settled ones | [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) |
 | GitAround — the reading view this work spun out | [alex137/GitAround](https://github.com/alex137/GitAround), a separate product since 2026-08-14; a branch here still staging it under proposals/ is superseded, and its documents live there now |

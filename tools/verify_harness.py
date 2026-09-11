@@ -9715,6 +9715,151 @@ def _write_fixture_practice(path, slug, applies_to, rule_text):
         encoding='utf-8')
 
 
+def check_views_drift_gate_reaches_a_source_set():
+    """A generated view's header may only name a command that EXISTS where
+    the view does, and a set that generates views ships something that runs
+    it.
+
+    THE INCIDENT (2026-09-11, TODO.md's
+    loader-comment-names-an-unvendored-check). Every view build_views.py
+    writes -- AGENTS.md's loader block, MAP.md, GLOSSARY.md -- carried a
+    header saying `tools/verify_harness.py`'s regeneration check fails the
+    build on drift. This file is deliberately not vendored into a source set
+    (precedent_vendor_engine.py's own comment), so in every private set the
+    one line telling a session the block was protected named a file that is
+    not there. It cost an individual set three stale practices in MAP.md,
+    one of them missing from its table from the day it landed: nobody
+    looked, because the header said somebody already was.
+
+    Two properties, and the first is the general one -- it fails for ANY
+    tool a future header names that a source set does not get, not just for
+    verify_harness.py:
+
+      1. Regenerate the views inside a fixture set built from ENGINE_FILES
+         alone, and require every `*.py` named in their generated headers to
+         exist in that set's own tools/.
+      2. `build_views.py --check` -- what the headers now name, and what
+         templates/github-actions/views-drift.yml.template runs -- actually
+         gates there: exit 0 clean, non-zero on one planted line.
+
+    Plus the shipping half: the template exists, gates without writing, and
+    precedent_bootstrap_source.py installs it into a new set (and reports a
+    set that has none, which is every set created before that date).
+
+    The fixture copies ENGINE_FILES out of THIS working tree, for the same
+    reason check_precedent_check_degrades_in_a_source_set does: seeding from
+    a committed ref would leave this check one commit behind the engine
+    change it is meant to test.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-views-gate-'))
+    cases = []
+    try:
+        dest = tmp / 'srcset'
+        (dest / 'tools').mkdir(parents=True)
+        (dest / 'practices').mkdir()
+        for name in pve.ENGINE_FILES:
+            src = ROOT / 'tools' / name
+            if src.is_file():
+                shutil.copy2(src, dest / 'tools' / name)
+        shutil.copy2(ROOT / 'tools' / 'routing_scope.json',
+                     dest / 'tools' / 'routing_scope.json')
+        # Two real practices, so the resident set and the occasion index
+        # both have something to render rather than exercising the
+        # empty-catalogue path.
+        for slug in ('repo-is-memory', 'verify-postcondition'):
+            shutil.copy2(ROOT / 'practices' / f'{slug}.md',
+                         dest / 'practices' / f'{slug}.md')
+        (dest / 'AGENTS.md').write_text(
+            '# Fixture set instructions\n\n'
+            '<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+
+        def bv(*args):
+            r = subprocess.run([sys.executable, str(dest / 'tools' / 'build_views.py'),
+                                '--repo', str(dest), *args],
+                               capture_output=True, text=True, cwd=str(dest))
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = bv()
+        cases.append(('a source set built from ENGINE_FILES alone can generate '
+                      'its own views', rc == 0, out))
+
+        # Every tool a generated header names has to be present HERE. The
+        # headers are the first lines of MAP.md and GLOSSARY.md and the
+        # first comment inside AGENTS.md's markers, so reading the first
+        # 1200 characters of each covers all three without parsing.
+        vendored = {p.name for p in (dest / 'tools').glob('*.py')}
+        for name in ('AGENTS.md', 'MAP.md', 'GLOSSARY.md'):
+            head = (dest / name).read_text(encoding='utf-8')[:1200]
+            named = set(re.findall(r'[\w/]*?(\w+\.py)\b', head))
+            absent = sorted(n for n in named if n not in vendored)
+            cases.append((f"{name}'s generated header names no tool this set "
+                          f"does not have", not absent,
+                          f"names {', '.join(absent)}, absent from a source "
+                          f"set's tools/ -- a header a session reads instead "
+                          f"of checking" if absent else ''))
+
+        rc, out = bv('--check')
+        cases.append(('build_views.py --check passes on the freshly generated '
+                      'views', rc == 0, out))
+
+        with (dest / 'MAP.md').open('a', encoding='utf-8') as fh:
+            fh.write('\n<!-- planted drift -->\n')
+        rc, out = bv('--check')
+        cases.append(('build_views.py --check fails on one planted line -- the '
+                      'command the headers and the shipped workflow both name '
+                      'actually gates', rc != 0 and 'MAP.md' in out, out))
+
+        # The shipping half.
+        tmpl = ROOT / 'templates' / 'github-actions' / 'views-drift.yml.template'
+        text = tmpl.read_text(encoding='utf-8') if tmpl.is_file() else ''
+        cases.append(('templates/github-actions/views-drift.yml.template ships '
+                      'the gate to adopters', bool(text), ''))
+        cases.append(('it runs build_views.py --check, and only reads the repo',
+                      '--check' in text and 'build_views.py' in text
+                      and 'contents: read' in text,
+                      'a workflow that regenerates in CI puts a runner bot in '
+                      'the authorship path ci-commits-carry-identity keeps clean'))
+        cases.append(('it checks out the pull request head, not refs/pull/N/merge',
+                      'pull_request.head.sha' in text,
+                      'auditing the merge tree reports drift belonging to '
+                      'neither branch'))
+        cases.append(('it refuses the layouts it cannot cover rather than '
+                      'passing blind',
+                      'process/upstream/tools/build_views.py' in text
+                      and 'NOT VERIFIABLE' in text, ''))
+        cases.append(('README.md in templates/github-actions/ names it, so an '
+                      'adopter can find it',
+                      'views-drift.yml.template' in
+                      (ROOT / 'templates' / 'github-actions' / 'README.md')
+                      .read_text(encoding='utf-8'), ''))
+
+        import precedent_bootstrap_source as pbs
+        newset = tmp / 'bootstrapped'
+        installed = [pathlib.Path(f) for f in pbs._install_workflows(newset)]
+        cases.append(('precedent_bootstrap_source.py installs the gate into a '
+                      'new set, so an adopter does not have to know it exists',
+                      all(f.is_file() for f in installed)
+                      and (newset / '.github' / 'workflows' / 'views-drift.yml').is_file(),
+                      str(installed)))
+        # Every set created before 2026-09-11 has none, and this tool cannot
+        # reach them -- so verify() has to say so.
+        (newset / '.github' / 'workflows' / 'views-drift.yml').unlink()
+        missing = pbs.verify('individual', newset)
+        cases.append(('verify() names a set that has no views-drift workflow',
+                      any('views-drift.yml' in m for m in missing),
+                      '; '.join(missing)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    for label, ok, detail in cases:
+        check(label, ok, detail if not ok else '')
+
+
 def check_precedent_check_degrades_in_a_source_set():
     """precedent_check.py entered ENGINE_FILES on 2026-09-07, so it now runs
     inside SOURCE sets -- which deliberately do NOT carry its four optional
@@ -10265,6 +10410,12 @@ def check_source_shape_is_verified():
             # bootstrap() does, rather than by copying a tree that was
             # never going to contain them.
             bss._install_session_hooks(d)
+            # Same reasoning for the CI gates: they live in
+            # templates/github-actions/, not in either skeleton, and
+            # bootstrap() installs them. A fixture standing in for a
+            # FINISHED source has them (a set that does not is reported,
+            # which check_views_drift_gate_reaches_a_source_set asserts).
+            bss._install_workflows(d)
             for rel, text in edits.items():
                 if text is None:
                     (d / rel).unlink(missing_ok=True)
@@ -15574,6 +15725,7 @@ def main():
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_source_engine_is_functional()
+    check_views_drift_gate_reaches_a_source_set()
     check_precedent_check_degrades_in_a_source_set()
     check_vendor_engine_consumer_case()
     check_rule_rewrite_detection()

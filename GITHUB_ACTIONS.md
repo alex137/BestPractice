@@ -77,6 +77,58 @@ process/upstream/tools/doc_lint.py
 
 If the dependent repository instead copies or adapts the linter into its own tools directory, update the workflow command to use that local path and record the adaptation in `process/manifest.json`.
 
+## Install in a Practice-Set Repository (the Views Drift Gate)
+
+An individual or team practice set generates its own views — `AGENTS.md`'s
+loader block, [MAP.md](MAP.md) and [GLOSSARY.md](GLOSSARY.md) — from its
+`practices/` directory and the engine vendored into its own `tools/`. Copy:
+
+```text
+templates/github-actions/views-drift.yml.template
+```
+
+to:
+
+```text
+.github/workflows/views-drift.yml
+```
+
+It runs `python3 tools/build_views.py --repo . --check`, which exits
+non-zero when any of the three has drifted from a fresh regeneration. Sets
+created by
+[tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+get it installed automatically; every set created before 2026-09-11 needs
+the copy above, and
+`python3 tools/precedent_bootstrap_source.py --verify <path>` names it as
+missing until it is there.
+
+**Why a source set needs its own gate.** Until 2026-09-11 nothing checked a
+generated view anywhere but in this repo, where
+[deep-check.yml](.github/workflows/deep-check.yml) runs
+[tools/verify_harness.py](tools/verify_harness.py) — and `verify_harness.py`
+is deliberately not vendored into a source set. Worse, the generated header
+on each view *said* a check was failing the build on drift, so a session
+that wondered read the header instead of running anything. Measured in a
+real individual set: `MAP.md` sat three practices stale, one of them missing
+from its table from the day it landed, under that header. The header now
+names `build_views.py --check`, which exists wherever the view does; this
+workflow is the half that makes something actually look.
+
+The engine's own drift check cannot substitute.
+[tools/precedent_check.py](tools/precedent_check.py) *is* vendored and its
+`generated-artifact-provenance` check does run `build_views.py --check` —
+but `precedent_check.py` skips any check whose practice is not in force in
+the repo it runs in, and a source set's `practices/` holds only its own
+practices, never the universal one that check belongs to. Run against a real
+individual set on 2026-09-11 it reported `1 skipped`, and a skip is not a
+pass.
+
+The workflow **gates and does not fix**: regenerating in CI would leave the
+branch's own diff wrong and put a runner bot in the authorship path that
+[practices/ci-commits-carry-identity.md](practices/ci-commits-carry-identity.md)
+exists to keep clean. The fix is one `python3 tools/build_views.py` on the
+branch.
+
 ## Enable GitHub Actions
 
 GitHub Actions is normally available automatically, but an organization or repository administrator can restrict it. After merging the workflow onto the default branch:
@@ -163,6 +215,23 @@ vendored engine that same day. The moment they went live, the workflow's own
 commit was the first thing they flagged. **Two silent failures were holding
 each other up**, which is the general shape worth remembering: a check that
 cannot run is not evidence that what it checks is fine.
+
+**A CONSUMING repo's generated views cannot be gated in CI at all, and
+the drift gate above refuses rather than pretending.** A consuming repo's
+`practices/` is materialized from the sources it resolves: a team source is
+a sibling clone outside the repo, an individual source resolves through a
+private user-level config. Neither exists in a bare CI checkout, so there is
+nothing on the runner to regenerate the views *from* — and
+[tools/build_views.py](tools/build_views.py) deliberately exits 0 rather
+than writing a block from an incomplete source set, which is the shape a
+green-but-blind check would take. So
+[views-drift.yml.template](templates/github-actions/views-drift.yml.template)
+exits non-zero when it finds the vendored `process/upstream/` layout instead
+of running. What covers a consuming repo today is a session running
+`python3 tools/precedent_sync_views.py --repo . --check` where the sources
+do resolve; [TODO.md](TODO.md)'s
+`consumer-views-drift-uncheckable-in-ci` item holds the question of whether
+anything better is possible.
 
 Precedent itself ships no committing workflow — its three
 ([deep-check](.github/workflows/deep-check.yml),

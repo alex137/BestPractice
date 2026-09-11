@@ -1641,7 +1641,28 @@ which is the failure this repointing exists to end — write
     separately**, rather than letting a comment stay false while the design question
     is open.
 
-    **Blocked on:** nothing but the work, for the first half.
+    **Closed 2026-09-11 — the honest fix landed, and it is better than
+    "say plainly that nothing checks it".** Both headers now name
+    `python3 tools/build_views.py --check`: the same file that writes the
+    view, so it exists wherever the view does, and it exits 1 on drift and 0
+    clean (two-direction tested in a real individual set before wiring).
+    Adopters also get a CI gate that runs it —
+    [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template),
+    installed into every new set by
+    [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+    and named as missing by its `--verify` for the sets that predate it.
+
+    **What the work found, and it changes this item's "better fix" half:**
+    `precedent_check.py` already hosts exactly the check this item wished
+    for — `generated-artifact-provenance` runs `build_views.py --check` as a
+    subprocess — and it is inert in every source set. Measured 2026-09-11 in
+    a real individual set: `--only generated-artifact-provenance` reports
+    `1 skipped`, because `precedent_check.py` skips any check whose practice
+    is not in force in the repo it runs in, and a source set's `practices/`
+    holds only its own practices, never the universal one that check belongs
+    to. So the design question is not where to host a regeneration check; it
+    is [`provenance-check-skips-in-a-source-set`](TODO.md#provenance-check-skips-in-a-source-set)
+    below, which is a bigger question than this item was.
 
 - <a id="consumers-need-refresh-after-promotion"></a>**A consumer that vendors an OLD universal catalogue loses a promoted
   practice at its next sync, silently.** Found 2026-09-07, immediately after
@@ -3015,5 +3036,103 @@ which is the failure this repointing exists to end — write
    [tools/leak_gate.py](tools/leak_gate.py) here, and the measurement above is
    already done. It is queued for thought rather than permission, which is
    what Morgan asked for.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
+
+58. <a id="provenance-check-skips-in-a-source-set"></a>**A universal
+   practice's mechanical check cannot bind a source set, and three sets are
+   relying on checks that silently skip there.**
+   [tools/precedent_check.py](tools/precedent_check.py) skips any check whose
+   practice is not in force in the repo it runs in — correct for a consuming
+   repo, where a check belonging to an unresolved source has nothing to say.
+   A **source set** is the case that breaks: it vendors `precedent_check.py`
+   as part of the engine, and its `practices/` holds its own practices only,
+   so every universal check in the vendored file skips itself there.
+
+   **Measured 2026-09-11**, in a real individual set:
+   `python3 tools/precedent_check.py --only generated-artifact-provenance`
+   reports `0 passed, 0 violated, 1 skipped`. That is the check that runs
+   `build_views.py --check`, i.e. the one that would have caught the stale
+   `MAP.md` that started
+   [`loader-comment-names-an-unvendored-check`](TODO.md#loader-comment-names-an-unvendored-check).
+   The views drift gate shipped for that one case runs `build_views.py`
+   directly and does not depend on this; **every other universal check is
+   still skipping in every source set**, and nobody has counted which ones
+   those are or what each would have caught.
+
+   **Shapes worth weighing, none chosen:** vendor the universal practice
+   FILES a check needs into a source set (they are public, and the set
+   already vendors the engine that reads them); let a check declare that it
+   binds any repo running the engine rather than any repo holding its
+   practice; or accept it and say so in `precedent_check.py`'s own output,
+   so `1 skipped` in a source set reads as a designed gap rather than an
+   accident. Today it reads as neither — the line says the practice belongs
+   to a source this repo does not resolve, which is true and sounds benign.
+
+   **blocked-on:** nothing mechanical. It needs the count first — which
+   universal checks skip in a source set, and which of those matter — and
+   then a design call on the three shapes above.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
+
+59. <a id="consumer-views-drift-uncheckable-in-ci"></a>**A consuming repo's
+   generated loader block cannot be drift-checked in CI, and today nothing
+   checks it anywhere.** A consuming repo materializes `practices/` from the
+   sources it resolves. A team source is a sibling clone outside the repo; an
+   individual source resolves through a private user-level config. Neither
+   exists in a bare CI checkout, so there is nothing on a runner to
+   regenerate the block from — and
+   [tools/build_views.py](tools/build_views.py) deliberately exits 0 with
+   `NOT VERIFIABLE` rather than calling the difference drift, which is
+   right for a person and a silent green for a gate.
+
+   So [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template)
+   refuses that layout outright rather than shipping a check that passes
+   blind, and what covers a consuming repo is a session remembering to run
+   `python3 tools/precedent_sync_views.py --repo . --check` where the sources
+   do resolve. That is exactly the "session discipline only" state
+   [.github/workflows/deep-check.yml](.github/workflows/deep-check.yml) was
+   added here to end.
+
+   **Shapes worth weighing:** a self-hosted or credentialed runner that can
+   clone the private sources (moves the problem into secret management for
+   somebody else's repo); a committed manifest of source content hashes the
+   block was built from, so CI can at least detect *"the block was built
+   against different inputs than these"* without resolving anything; or
+   accept it and make the session-start path loud instead, since
+   [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+   already reports stale sources at session start and could report a drifted
+   block in the same line. The middle one is the only one that gates in CI.
+
+   **blocked-on:** a consuming repo to measure against — the shapes above
+   differ mostly in what a real adopter's CI can be asked to hold.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
+
+60. <a id="views-drift-gate-rollout-to-existing-sets"></a>**Install the views
+   drift gate in the four existing private sets.**
+   [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template)
+   reaches a new set through
+   [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),
+   and reaches an existing one through nothing: `precedent-individual`,
+   `precedent-team-maintainers`, `precedent-team-writing` and
+   `precedent-team-working-style` all generate views and all carry no gate.
+   The work in each is one file copied to `.github/workflows/views-drift.yml`
+   plus one pull request; `python3 tools/precedent_bootstrap_source.py
+   --verify <path>` names it as missing until it is there.
+
+   Each set also needs its vendored engine refreshed
+   (`python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`)
+   before the gate means anything, since a stale `build_views.py` regenerates
+   the old header and the check would report drift on the header itself.
+
+   **blocked-on:** a session that can PUSH to those repositories. All four
+   are attached read-only in the session that shipped this
+   ([cross-source-rollout](practices/cross-source-rollout.md) wants the
+   rollout in the same session, and it was not available): `git fetch` inside
+   the attached clone fails with `could not read Username for
+   'https://github.com'`, and `add_repo` with `access: "push"` refuses
+   cross-owner adds. The route is a session rooted at one of those
+   repositories, per [`attach-private-sources`](TODO.md#attach-private-sources).
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
