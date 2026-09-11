@@ -2569,6 +2569,28 @@ which is the failure this repointing exists to end — write
    `precedent_vendor_engine.py` refresh, with no further change on that
    side.
 
+   **A second engine defect came back on 2026-09-10, after this item was
+   closed, and it is the mirror image of the one above.** The audit this
+   item describes swept all five private sets for the §1-only assumption
+   and never swept THIS repo's own `tools/`, because the engine half was
+   recorded as done the moment `mirrored_prefixes()` existed — writing the
+   authority is not the same act as calling it. Six engine sites were still
+   matching the literal `process/upstream/` to decide what they mirror:
+   [doc_lint.py](tools/doc_lint.py)'s `VENDORED_PREFIXES`, three in
+   [precedent_check.py](tools/precedent_check.py) (`technical-describes-people`'s
+   skip list, `rename-updates-links`' received-file exemption, and
+   `_open_item_disposition`'s TODO walk), its centralized `_is_vendored()`
+   feeding four more changed-markdown checks at once, and
+   [very_deep_check.py](tools/very_deep_check.py)'s tracked-text walk, which
+   applies the same literal to every repo in force regardless of that repo's
+   install model. All six now ask the engine.
+   **Encoded so there is no seventh** ([convention-to-audit](practices/convention-to-audit.md)):
+   `verify_harness.py`'s `check_no_engine_tool_hardcodes_a_mirror_path()`
+   fails any `.startswith()`/`.endswith()` call in `tools/*.py` whose
+   argument names that path, scanning all 49 tools. Prose, comments and the
+   two documented import-failure fallbacks stay legal, since only a
+   path-matching call is a decision.
+
 53. <a id="review-skill-level-permissions"></a>**Review the whole
    technical/non-technical permission split, now that the pieces are in
    three separate places.** Asked for by Morgan on 2026-09-10, closing the

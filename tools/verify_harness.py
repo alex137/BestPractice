@@ -12139,6 +12139,58 @@ def check_mirrored_prefixes_answers_both_install_models():
           '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
+def check_no_engine_tool_hardcodes_a_mirror_path():
+    """No engine tool decides what it mirrors by matching a literal path.
+
+    practice: convention-to-audit -- this convention was broken six times
+    before anybody wrote it down, which is exactly the threshold that
+    practice names.
+
+    THE BUG THIS CATCHES, in its own words. `process/upstream/` is
+    INSTALL.md §1's layout, and for a long time it was the only one, so
+    every check that had to skip a mirrored tree simply matched that
+    string. INSTALL.md §0 mirrors somewhere else entirely -- the vendored
+    catalogue sits at whatever path precedent.json's `universal` source
+    names -- so in a §0 install each of those exclusions silently stopped
+    excluding anything, and the checks went looking inside a tree the
+    consumer may not edit and cannot fix. Measured in a real §0 install
+    (2026-09-10): doc_lint went red on 109 broken relative links, every one
+    of them inside a mirror; technical-describes-people flagged Precedent's
+    own practice file; rename-updates-links reported two findings in
+    Precedent's prose for a file the consumer had deleted from its own
+    tree. All unactionable, all caused by the constant meant to prevent
+    exactly that.
+
+    precedent_resolve.mirrored_prefixes() is the one authority, and it
+    never raises, so there is no reason left to match a literal.
+
+    WHAT IS DELIBERATELY STILL ALLOWED, and why the check reads calls
+    rather than the whole file: the string appears legitimately in prose,
+    in comments explaining this very history, and in the two documented
+    import-failure fallbacks (doc_lint.py and precedent_check.py both ship
+    into trees carrying no precedent_resolve.py). Only a path-matching CALL
+    is a violation -- that is where the decision actually gets made."""
+    import re as _re
+    # A `.startswith(...)` / `.endswith(...)` call whose argument text
+    # mentions the §1 mirror path: the decision site, not the prose.
+    call = _re.compile(r'\.(?:startswith|endswith)\(([^)]*)\)')
+    scanned = sorted((ROOT / 'tools').glob('*.py'))
+    bad = []
+    for f in scanned:
+        rel = f.relative_to(ROOT).as_posix()
+        for i, line in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
+            if line.lstrip().startswith('#'):
+                continue
+            for m in call.finditer(line):
+                if 'process/upstream/' in m.group(1):
+                    bad.append(f'{rel}:{i}: {line.strip()[:90]}')
+    check(f'no engine tool decides what it mirrors by matching a literal '
+          f'path -- mirrored_prefixes() is the one authority '
+          f'({len(scanned)} tools scanned)',
+          not bad,
+          '; '.join(bad))
+
+
 def check_declared_identity_has_a_passing_state_in_a_shared_repo():
     """`commit-author` and `buenos-aires-dates` have to be able to PASS in
     a repo many people commit to.
@@ -14735,6 +14787,7 @@ def main():
     check_pretooluse_hook_fires()
     check_not_binding_actually_exempts_a_check()
     check_mirrored_prefixes_answers_both_install_models()
+    check_no_engine_tool_hardcodes_a_mirror_path()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
     check_tools_answer_help_without_writing()
