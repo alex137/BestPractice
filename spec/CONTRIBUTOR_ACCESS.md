@@ -18,8 +18,9 @@ platform behaviours it rests on are unverified — see "Verify these first."
 
 ## What this replaced, and when
 
-Until 2026-09-11 this file was `spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md`, and
-it drew the line in a different place: a **non-technical contributor** was
+Until 2026-09-11 this file was named `NONTECHNICAL_CONTRIBUTOR_ACCESS.md`
+(here in `spec/` — the name is recorded so anyone holding the old link can
+see where it went), and it drew the line in a different place: a **non-technical contributor** was
 given GitHub's **Triage** or **Read** role, and a per-person session
 configuration denied `git push` and `git merge`.
 
