@@ -47,7 +47,13 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   archived\"; extended again 2026-09-11, Morgan F
   (strength: decided), so pass 3's session-load read covers every repo in
   force rather than this checkout alone, with the ceilings themselves moved
-  out to session-load-budget"
+  out to session-load-budget; extended again 2026-09-11, Morgan F
+  (strength: decided), so every run records what each of its parts
+  returned and what each cost into a ledger that outlives the run, and
+  reads them against the runs before it -- \"the check now has many
+  different components and when you run it, I want you to track the
+  results of each part and compare at the end to ... find any aspects of
+  the very deep check that weren't useful\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -127,6 +133,32 @@ where it went. A later session resumes at the next unfinished pass rather
 than starting over, and a pass is never quietly skipped — a pass deliberately
 not run is recorded as not run, with the reason.
 
+**Every run records what each of its parts returned and what each cost, and
+reads them against the runs before it.** This check grew a section at a time,
+each one added because a real run wanted it, and until 2026-09-11 nothing had
+ever asked the reverse question: does any of them still earn its place?
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) appends every run to
+[record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/very-deep-check-ledger.json)
+— per section: what it found, what it printed, how long it took — and prints
+the cross-run read at the end of each run. **The tokens it reports are what a
+section PRINTED**, which is what it costs a session's context to read it, and
+never the model's spend on judging that material, which no tool here can see.
+The four passes are the expensive half and are the session's own measurement:
+record each one as you finish it with `--record-pass`, findings and cost
+included where you have them and left absent where you do not.
+
+**A section that has come back empty across every recorded run gets a
+decision, not a drift.** The run names those at the end, with three answers
+and none of them automatic: **keep** it and say why here, **cheapen** it
+(same check, less printed), or **retire** it — which means this practice's
+Detail loses the bullet and
+[decommission-deletes-files](decommission-deletes-files.md) applies to
+whatever it owned. **Quiet is not the same as useless**: a guard that never
+fires may be exactly why nothing is broken, and several of these sections
+were written after one expensive incident they exist to prevent. Quiet is
+also not the same as unmeasurable — a section that could not produce a count
+is reported separately and is never graded as clean.
+
 Fix what a pass turns up in the same pass — most findings are small — then
 re-run the mechanical audits, since the fixes themselves break links.
 Anything deliberately left alone gets a line in [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md) saying
@@ -192,6 +224,15 @@ cannot tell a drift this run introduced from one that was there before. So:
    writing it up: if a branch already fixes it, the finding is "this is
    written and unlanded", which is a different problem with a different
    remedy.
+7. **Record each pass as you finish it, and read the component ledger
+   last.** `--record-pass '<pass>=<status>,findings=N,tokens=N,note=…'`
+   puts the expensive half's outcome and cost beside the tool's own
+   sections; the cross-run read printed at the end of every run is then
+   about the whole check rather than about its cheap half. Answer whatever
+   it names as quiet — keep, cheapen, or retire — in the same run, in
+   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md). A
+   section left on that list across runs with no answer written down is the
+   drift this step exists to stop.
 
 The same rule holds inside a pass: where a mechanical check covers part of a
 bullet, run it first and read only what it cannot see.
@@ -785,6 +826,21 @@ building a fixture and running the checks on it produces evidence, not a
 judgment, so its findings do not depend on this caveat.
 
 ## Story
+**The component ledger was Morgan's, 2026-09-11**, and it was asked for in
+the shape of a suspicion rather than a complaint: *"maybe the simulation
+doesn't find anything so it's not worth it to do."* The check had grown to
+around twenty sections, each added by a run that wanted it, and **not one of
+them had ever been asked to justify itself** — there was no record of what
+any part had returned, so the question could not be settled by anything but
+memory. **What is on the record is only the asking**: no section has yet
+been retired on this evidence, and claiming one had would be the invention
+[no-invented-specifics](no-invented-specifics.md) forbids. The first run
+after it landed did make one thing plain — the printed checklist is by far
+the largest thing the tool emits, and it finds nothing by construction,
+because it is material for a session to read rather than a check. That is a
+cost question, not a usefulness one, which is why the run prints the two
+side by side and decides neither.
+
 **The liveness half was Morgan's, 2026-09-11**, and it was asked for
 before anything broke: *"make sure it doesn't automatically try to open a
 repo that doesn't exist / was deleted / archived."* No deleted or archived

@@ -15476,6 +15476,161 @@ def check_unlanded_work_is_reported_before_the_passes():
               not failed, detail)
 
 
+def check_very_deep_check_records_its_components():
+    """Every run records what each of its sections returned and cost, and a
+    section it did not run is recorded as skipped rather than as clean
+    (practice: very-deep-check).
+
+    THE POINT OF THE LEDGER is a question no single run can answer -- which
+    parts of this check stopped earning their place -- so the properties
+    that matter are all about what survives to the NEXT run: the file is
+    written, an unrun section is distinguishable from a quiet one, a run
+    that aborted at the freshness gate still leaves its trace, and the
+    quiet-section question is asked only once there are enough runs to ask
+    it (QUIET_RUNS_BEFORE_QUESTION), never extrapolated from one.
+
+    Each case asserts the tool's own words, not merely a non-zero exit
+    (practice: control-asserts-which-failure): 'skipped' as a recorded
+    status, 'first run in the ledger', 'FOUND NOTHING, ACROSS EVERY
+    RECORDED RUN', and --record-pass's own refusal text.
+    """
+    import tempfile, shutil
+    import json as _json
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'f.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        _git(work, 'config', 'user.email', 'harness@example.com')
+        _git(work, 'config', 'user.name', 'Harness')
+        (work / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': '.'}]}), encoding='utf-8')
+        (work / 'practices').mkdir()
+        shutil.copy(next(PRACTICES_DIR.glob('*.md')), work / 'practices')
+        _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'declare a source')
+        _git(work, 'push', '-q', 'origin', 'main')
+
+        # The fixture owns every ambient input it is graded on
+        # (practice: fixture-owns-its-state): its own user config, so no real
+        # individual source resolves, and its own ledger path, so the
+        # repository's committed ledger is neither read nor written.
+        ledger = tmp / 'ledger.json'
+        env = dict(os.environ,
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+
+        def _run():
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+                 '--repo', str(work), '--ledger', str(ledger),
+                 '--skip-liveness', '--skip-visibility',
+                 '--skip-branch-scan', '--skip-endgame-merge'],
+                capture_output=True, text=True, cwd=str(work), env=env)
+
+        first = _run()
+        results = [('the run writes a ledger', ledger.is_file())]
+        data = {}
+        if ledger.is_file():
+            try:
+                data = _json.loads(ledger.read_text(encoding='utf-8'))
+            except ValueError as exc:
+                results.append((f'the ledger parses ({exc})', False))
+        runs = (data.get('runs') or [])
+        rows = runs[-1].get('components', []) if runs else []
+        by_name = {r.get('name'): r for r in rows}
+        results.append(('one run is recorded', len(runs) == 1))
+        results.append(('a section that ran carries a countable result',
+                        any(r.get('findings') is not None for r in rows)))
+        results.append(('a section that ran carries its printed cost',
+                        any(r.get('output_tokens', 0) > 0 for r in rows)))
+        # The controlling case: --skip-branch-scan must not read as clean.
+        branch_row = by_name.get('BRANCHES -- verdicts owed', {})
+        results.append(("a skipped section is recorded 'skipped', never "
+                        "as a clean zero",
+                        branch_row.get('status') == 'skipped'
+                        and branch_row.get('findings') is None))
+        results.append(('one run says so rather than extrapolating',
+                        'first run in the ledger' in first.stdout))
+        results.append(('one run does NOT yet name a quiet section',
+                        'FOUND NOTHING, ACROSS EVERY RECORDED RUN'
+                        not in first.stdout))
+
+        import very_deep_check as vdc
+        for _ in range(max(0, vdc.QUIET_RUNS_BEFORE_QUESTION - 1)):
+            last = _run()
+        results.append((f'at {vdc.QUIET_RUNS_BEFORE_QUESTION} runs the quiet '
+                        f'sections are named',
+                        'FOUND NOTHING, ACROSS EVERY RECORDED RUN'
+                        in last.stdout))
+
+        # --record-pass: the good case lands, the malformed one refuses in
+        # its own words and writes nothing.
+        ok = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+             '--ledger', str(ledger), '--record-pass', '2=done,findings=3'],
+            capture_output=True, text=True, env=env)
+        data2 = _json.loads(ledger.read_text(encoding='utf-8'))
+        passes = (data2.get('runs') or [{}])[-1].get('passes') or []
+        results.append(('a hand-worked pass is recorded against the run',
+                        ok.returncode == 0 and len(passes) == 1
+                        and passes[0].get('findings') == 3))
+        bad = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
+             '--ledger', str(ledger), '--record-pass', 'nonsense'],
+            capture_output=True, text=True, env=env)
+        results.append(('a malformed --record-pass refuses in its own words',
+                        bad.returncode != 0
+                        and '--record-pass wants PASS=STATUS' in bad.stderr))
+        data3 = _json.loads(ledger.read_text(encoding='utf-8'))
+        results.append(('and writes nothing when it refuses',
+                        data3 == data2))
+
+        # A run that ABORTS still leaves its trace. Losing it would lose the
+        # only evidence the aborted run produced -- and would also make the
+        # ledger's own averages quietly wrong, since the sections it never
+        # reached would simply be missing rather than marked. A tracked
+        # file that does not parse is the tool's own hard stop, taken here
+        # because it fires deterministically and offline.
+        (work / 'broken.json').write_text('{not json', encoding='utf-8')
+        _git(work, 'add', '-A'); _git(work, 'commit', '-qm', 'a file that does not parse')
+        before = len(_json.loads(ledger.read_text(encoding='utf-8'))['runs'])
+        aborted = _run()
+        after = _json.loads(ledger.read_text(encoding='utf-8'))['runs']
+        results.append(('a run that aborts mid-check is still recorded',
+                        aborted.returncode != 0 and len(after) == before + 1))
+        results.append(('and is marked incomplete rather than counted as a '
+                        'clean run',
+                        bool(after) and after[-1].get('completed') is False
+                        and len(after[-1].get('components', [])) >= 1))
+        results.append(("the aborting section's own result is kept",
+                        bool(after) and any(
+                            r.get('name') == 'MACHINE-READABLE FILES'
+                            and r.get('findings') == 1
+                            for r in after[-1].get('components', []))))
+
+        failed = [n for n, ok_ in results if not ok_]
+        detail = ''
+        if failed:
+            detail = (f"{'; '.join(failed)} "
+                      f"[first run exited {first.returncode}; stdout tail: "
+                      f"{(first.stdout or '')[-300:]!r}; stderr tail: "
+                      f"{(first.stderr or '')[-200:]!r}]")
+        check(f'the very deep check records what each of its parts returned '
+              f'and cost ({len(results)} stated cases)', not failed, detail)
+
+
 def check_shallow_clone_never_fabricates_unlanded_work():
     """A branch whose merge base is out of reach must never be reported as
     carrying a COUNT of unlanded commits (practice: very-deep-check,
@@ -16635,6 +16790,7 @@ def main():
     check_assumed_visibility_never_deletes_practices()
     check_sync_refuses_to_write_from_incomplete_sources()
     check_unlanded_work_is_reported_before_the_passes()
+    check_very_deep_check_records_its_components()
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
     check_leak_gate_refuses_a_fresh_container()

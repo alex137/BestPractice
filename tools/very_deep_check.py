@@ -102,6 +102,18 @@ current work is missing and fixed bugs are open. It verifies rather than
 mutates; --freshen fast-forwards, and only a clean tree that is strictly
 behind.
 
+RECORDS WHAT EACH OF ITS OWN SECTIONS RETURNED AND COST, every run, into
+record/very-deep-check-ledger.json, and prints the cross-run read at the
+end. This check grew a section at a time and nothing ever asked the reverse
+question -- does any of them still earn its place? A section that has come
+back empty across several runs is named at the end of every run with three
+answers offered (keep, cheapen, retire) and none taken automatically: a
+guard that never fires may be exactly why nothing is broken. "Tokens" here
+is what a section PRINTED (words x 1.3), which is what it costs a session's
+context to read it -- never the model's spend on judging it, which no tool
+here can see. The four hand-worked passes are the expensive half, and a
+session records what one cost with --record-pass, from its own measurement.
+
 Run:
   python3 tools/very_deep_check.py [--repo PATH] [--user-config PATH]
       -- the scope to read, plus the checklist, as plain text.
@@ -125,11 +137,18 @@ Run:
   python3 tools/very_deep_check.py --allow-stale
       -- run anyway on a tree that is not provably current. For a
       deliberately offline run only; every finding is then provisional.
+  python3 tools/very_deep_check.py --record-pass '2=done,findings=3,tokens=120000,note=...'
+      -- record a hand-worked pass's outcome against the most recent run in
+      the ledger, and exit. `findings`, `tokens` and `note` are each
+      optional; an absent one is recorded as absent, never estimated.
+  python3 tools/very_deep_check.py --ledger PATH
+      -- read and write the run ledger somewhere else (a fixture, or a
+      second repository's own ledger).
 Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import datetime, json, os, pathlib, re, subprocess, sys, urllib.parse
+import datetime, io, json, os, pathlib, re, subprocess, sys, time, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -449,8 +468,14 @@ def freshen(repo_dir, verdict):
     return freshness(repo_dir, fetch=False)
 
 
-def report_freshness(label, verdict, out=sys.stdout):
+def report_freshness(label, verdict, out=None):
     """-> True if this repo is clean enough to read."""
+    # `out` is resolved HERE, not in the signature: a default
+    # evaluated at import time captures the ORIGINAL sys.stdout, so
+    # this helper would write straight past the run ledger's tee and
+    # its section would report a cost it never paid
+    # (practice: very-deep-check).
+    out = out if out is not None else sys.stdout
     s = verdict['status']
     if s == 'not-a-checkout':
         return True
@@ -2133,7 +2158,7 @@ def _referenced_repos(repo_dir):
     return found
 
 
-def repo_visibility_audit(repo_dir, blocklist_path=None, out=sys.stdout):
+def repo_visibility_audit(repo_dir, blocklist_path=None, out=None):
     """-> (findings, notes). Findings are real; notes are what could not run.
 
     A repository this PUBLIC tree names, which is PRIVATE, is a finding
@@ -2142,6 +2167,7 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=sys.stdout):
     finding: it costs false positives and pressure to delete real content.
     """
     findings, notes = [], []
+    out = out if out is not None else sys.stdout   # see report_freshness
 
     probe, err = _api_json('user')
     if err or not isinstance(probe, dict) or not probe.get('login'):
@@ -2388,9 +2414,10 @@ def _repos_in_force(repo_root, sources=(), missing=(), base_url=None):
 
 
 def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
-                         out=sys.stdout):
+                         out=None):
     """-> (findings, notes). One API call per repo in force."""
     findings, notes = [], []
+    out = out if out is not None else sys.stdout   # see report_freshness
     rows = _repos_in_force(repo_root, sources, missing, base_url)
     token, var = _api_token()
     checked = bad = 0
@@ -2466,12 +2493,438 @@ def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
     return findings, notes
 
 
+# ---------------------------------------------------------------------------
+# THE COMPONENT LEDGER (practice: very-deep-check).
+#
+# This check grew a section at a time -- each one added because a real run
+# wanted it -- and nothing has ever asked the reverse question: does any of
+# them still earn its place? A section that has found nothing across several
+# runs is not automatically waste (a guard that never fires may be the reason
+# nothing is broken), but nobody could even ASK, because no run recorded what
+# its parts returned or cost.
+#
+# So every section reports three things -- what it found, what it printed,
+# how long it took -- and the run is appended to a ledger on disk, because
+# the question is a comparison ACROSS runs and one run cannot answer it
+# (practice: repo-is-memory: a figure that lives only in a chat thread is
+# already lost). The cross-run read is printed at the end of every run.
+#
+# WHAT "tokens" MEANS HERE, and it is the narrow thing: the tokens this
+# section PRINTED, which is what it costs the session's context to read it.
+# It is not the model's spend on judging that material, which no tool here
+# can see -- claiming otherwise would be a manufactured figure
+# (practice: no-invented-specifics). The expensive half of this check is the
+# four passes a session works by hand, and a session records what those cost
+# with --record-pass, from its own measurement, or not at all.
+LEDGER_PATH = ROOT / 'record' / 'very-deep-check-ledger.json'
+LEDGER_VERSION = 1
+
+# How many recorded runs a section has to come back empty across before the
+# ledger asks about it. A threshold nobody decided is doctrine, so it is
+# declared here as an input rather than buried in a comparison
+# (practice: constants-are-risk-inputs). 3 is a STARTING VALUE, not a
+# measured one: it is the smallest number at which "it found nothing" stops
+# reading as "nothing was wrong that day".
+QUIET_RUNS_BEFORE_QUESTION = 3
+
+# The ledger keeps the most recent runs and says so when it drops one.
+# Silently discarding history is the failure this file exists to avoid.
+LEDGER_KEEP_RUNS = 50
+
+
+class _Tee:
+    """Writes through to the real stream and keeps a copy for measuring."""
+
+    def __init__(self, real):
+        self.real, self.buf = real, io.StringIO()
+
+    def write(self, s):
+        self.buf.write(s)
+        return self.real.write(s)
+
+    def flush(self):
+        self.real.flush()
+
+    def isatty(self):
+        return False
+
+
+class RunLedger:
+    """Per-section results and cost for one run, plus the runs before it.
+
+    Deliberately NOT a context manager wrapping each section: the sections
+    are long inline blocks in main(), and re-indenting three thousand lines
+    to gain a `with` is a large diff whose every hunk has to be read for a
+    change that is really two lines per section.
+    """
+
+    def __init__(self, path=LEDGER_PATH, repo=None, argv=()):
+        self.path = pathlib.Path(path)
+        self.repo = str(repo) if repo else None
+        self.argv = list(argv)
+        self.components = []
+        self.passes = []
+        self._open = None
+        self._real_stdout = None
+        self._t0 = time.monotonic()
+        # practice: timestamps-carry-offset -- the person's zone, with its
+        # offset, never the container's UTC.
+        self.started = precedent_time.stamp_iso(repo)
+        self.date = precedent_time.today(repo)
+        self.history = self._load()
+        self.saved = False
+
+    # -- history ---------------------------------------------------------
+    def _load(self):
+        if not self.path.is_file():
+            return []
+        try:
+            data = json.loads(self.path.read_text(encoding='utf-8'))
+        except (ValueError, OSError) as exc:
+            # Loud and non-fatal: a ledger that does not parse is a finding
+            # about the ledger, never a reason to lose this run's check
+            # (practice: fail-gracefully).
+            print(f"  note: {self.path} does not parse ({exc}) -- this run "
+                  f"is recorded, the runs before it cannot be read.",
+                  file=sys.stderr)
+            return []
+        runs = data.get('runs')
+        return runs if isinstance(runs, list) else []
+
+    # -- recording one section -------------------------------------------
+    def start(self, name, kind='mechanical'):
+        """Begin measuring a section. Everything printed until end() counts."""
+        if self._open is not None:          # a section left open by a raise
+            self.end(status='aborted')
+        self._open = {'name': name, 'kind': kind, 'started': time.monotonic()}
+        self._real_stdout = sys.stdout
+        sys.stdout = _Tee(sys.stdout)
+
+    def end(self, findings=None, items=None, status=None, extra_seconds=0.0):
+        """Close the open section.
+
+        `findings` is the count of things a person has to act on. None is
+        NOT zero and is never folded into it: None means this section does
+        not produce a countable finding, or could not measure one, and the
+        cross-run read below refuses to grade an unknown as quiet.
+        """
+        if self._open is None:
+            return
+        tee, self._open['tee'] = sys.stdout, None
+        sys.stdout = self._real_stdout
+        printed = tee.buf.getvalue() if isinstance(tee, _Tee) else ''
+        row = {
+            'name': self._open['name'],
+            'kind': self._open['kind'],
+            'findings': findings,
+            'items': items,
+            # practice: one-formatter-per-quantity -- the same words x 1.3
+            # estimate build_views.py caps the resident block with, so a
+            # token here and a token there are the same unit.
+            'output_tokens': bv._approx_tokens(printed),
+            'seconds': round(time.monotonic() - self._open['started']
+                             + (extra_seconds or 0.0), 2),
+        }
+        if status:
+            row['status'] = status
+        elif findings is None:
+            row['status'] = 'material' if self._open['kind'] == 'read' else 'unknown'
+        elif findings:
+            row['status'] = 'findings'
+        else:
+            row['status'] = 'clean'
+        self.components.append(row)
+        self._open = None
+
+    def skipped(self, name, why, kind='mechanical'):
+        """Record a section this run did not run, and why."""
+        self.components.append({'name': name, 'kind': kind, 'findings': None,
+                                'items': None, 'output_tokens': 0,
+                                'seconds': 0.0, 'status': 'skipped',
+                                'note': why})
+
+    # -- writing ---------------------------------------------------------
+    def record(self):
+        return {
+            'run_id': self.started,
+            'date': self.date,
+            'repo': self.repo,
+            'argv': self.argv,
+            'seconds': round(time.monotonic() - self._t0, 2),
+            'components': self.components,
+            'passes': self.passes,
+        }
+
+    def finish(self, completed=True):
+        if self._open is not None:
+            self.end(status='aborted')
+        if self.saved:
+            return
+        run = self.record()
+        run['completed'] = bool(completed)
+        runs = list(self.history) + [run]
+        dropped = max(0, len(runs) - LEDGER_KEEP_RUNS)
+        if dropped:
+            runs = runs[dropped:]
+            print(f"  note: the ledger keeps the last {LEDGER_KEEP_RUNS} "
+                  f"runs; {dropped} older run(s) dropped.", file=sys.stderr)
+        payload = {
+            '_generated_by': 'tools/very_deep_check.py -- never hand-edit; '
+                             'each run appends itself',
+            'ledger_version': LEDGER_VERSION,
+            'runs': runs,
+        }
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(payload, indent=2) + '\n',
+                                 encoding='utf-8')
+            self.saved = True
+        except OSError as exc:
+            print(f"  note: could not write {self.path} ({exc}) -- this "
+                  f"run's component results are NOT recorded.",
+                  file=sys.stderr)
+
+    # -- the cross-run read ----------------------------------------------
+    def report(self, out=None):
+        out = out if out is not None else sys.stdout   # see report_freshness
+        print("COMPONENT LEDGER -- what each part of this check returned, and "
+              "what it cost\n", file=out)
+        print("  Tokens are what the section PRINTED (words x 1.3) -- the "
+              "context it costs\n  a session to read it, not the model's "
+              "spend on judging it, which nothing\n  here can see. Findings "
+              "are things a person has to act on; '--' means the\n  section "
+              "produces material to read rather than a countable finding.\n",
+              file=out)
+        print(f"  {'result':>9}  {'find':>5}  {'out-tok':>8}  {'secs':>6}  "
+              f"section", file=out)
+        for row in self.components:
+            find = '--' if row['findings'] is None else f"{row['findings']:,}"
+            print(f"  {row['status']:>9}  {find:>5}  "
+                  f"{row['output_tokens']:>8,}  {row['seconds']:>6.1f}  "
+                  f"{row['name']}", file=out)
+        tot_tok = sum(r['output_tokens'] for r in self.components)
+        tot_find = sum(r['findings'] or 0 for r in self.components)
+        print(f"  {'':>9}  {tot_find:>5,}  {tot_tok:>8,}  "
+              f"{round(time.monotonic() - self._t0, 1):>6.1f}  TOTAL, this "
+              f"run", file=out)
+        self._report_across_runs(out)
+
+    def _report_passes(self, runs, out):
+        """The hand-worked passes, across the ledger.
+
+        They are where this check spends most of what it costs, and no tool
+        can measure them -- so they appear only when a session recorded
+        them, and their absence is printed as absence rather than left to
+        read as "the passes were free" (practice: no-invented-specifics).
+        """
+        rows = [(r.get('date'), p) for r in runs for p in (r.get('passes') or [])]
+        if rows:
+            print("\n  PASSES recorded by hand, across the ledger:\n", file=out)
+            for date, p in rows:
+                tok = (f"{p['tokens']:,} tok" if p.get('tokens')
+                       else 'cost not recorded')
+                fnd = ('-- finding(s)' if p.get('findings') is None
+                       else f"{p['findings']} finding(s)")
+                print(f"    {date}  pass {p.get('pass')}: "
+                      f"{p.get('status')}, {fnd}, {tok}"
+                      + (f"\n      {p['note']}" if p.get('note') else ''),
+                      file=out)
+        else:
+            print("\n  No pass has been recorded by hand (--record-pass), so "
+                  "the table above is\n  the tool's own sections only, not "
+                  "what the four passes cost.", file=out)
+
+    def _report_across_runs(self, out):
+        runs = list(self.history) + [self.record()]
+        completed = [r for r in runs if r.get('completed', True)]
+        print(f"\n  ACROSS {len(runs)} RECORDED RUN(S) -- "
+              f"{self.path.relative_to(ROOT) if self.path.is_relative_to(ROOT) else self.path}\n",
+              file=out)
+        if len(runs) < 2:
+            print("  This is the first run in the ledger, so there is nothing "
+                  "to compare it\n  against yet. The question this section "
+                  "exists to answer -- which parts of\n  this check stopped "
+                  "earning their place -- needs several runs, and it is\n"
+                  "  deliberately not guessed at from one.\n", file=out)
+            self._report_passes(runs, out)
+            return
+        seen = {}
+        order = []
+        for run in runs:
+            for row in run.get('components', []):
+                name = row.get('name')
+                if name not in seen:
+                    seen[name] = []
+                    order.append(name)
+                seen[name].append((run, row))
+        print(f"  {'runs':>5}  {'found':>5}  {'tok/run':>8}  {'last found':>10}"
+              f"  section", file=out)
+        quiet, unknown, gone = [], [], []
+        for name in order:
+            rows = seen[name]
+            ran = [r for _, r in rows if r.get('status') != 'skipped']
+            with_find = [(run, r) for run, r in rows if (r.get('findings') or 0) > 0]
+            unk = [r for _, r in rows if r.get('status') == 'unknown']
+            toks = [r.get('output_tokens', 0) for _, r in rows]
+            avg = int(sum(toks) / len(toks)) if toks else 0
+            # A read section cannot find anything by construction, so a 0
+            # in its row would read as "it looked and found nothing" -- the
+            # one reading that would put it on the retirement list below for
+            # doing exactly its job.
+            is_read = all(r.get('kind') == 'read' for _, r in rows)
+            found = '--' if is_read else f"{len(with_find):,}"
+            last = ('n/a' if is_read else
+                    max((run.get('date') or '?' for run, _ in with_find),
+                        default='never'))
+            print(f"  {len(ran):>5}  {found:>5}  {avg:>8,}  "
+                  f"{last:>10}  {name}", file=out)
+            if name not in {r['name'] for r in self.components}:
+                gone.append(name)
+            elif (len(ran) >= QUIET_RUNS_BEFORE_QUESTION and not with_find
+                    and not unk
+                    and any(r.get('kind') == 'mechanical' for _, r in rows)):
+                quiet.append((name, len(ran), avg))
+            if len(unk) >= QUIET_RUNS_BEFORE_QUESTION:
+                unknown.append((name, len(unk)))
+        # Usefulness is only half the question Morgan asked; the other half
+        # is what each part costs, and the two have to be read side by side
+        # or a cheap quiet section reads the same as an expensive one.
+        costly = sorted(
+            ((int(sum(r.get('output_tokens', 0) for _, r in seen[n])
+                  / max(1, len(seen[n]))), n) for n in order),
+            reverse=True)[:3]
+        if costly and costly[0][0]:
+            total = sum(int(sum(r.get('output_tokens', 0) for _, r in seen[n])
+                            / max(1, len(seen[n]))) for n in order)
+            print("\n  COSTLIEST TO READ, per run -- cost and usefulness are "
+                  "separate questions\n  and this is the other one:\n", file=out)
+            for tok, name in costly:
+                share = f" ({tok * 100 // total}% of the run's output)" if total else ''
+                print(f"    {tok:>7,} tok  {name}{share}", file=out)
+        self._report_passes(runs, out)
+        print(f"\n  ({len(completed)} of {len(runs)} run(s) reached the end; "
+              f"a run that aborted early\n  recorded only the sections it got "
+              f"to, and its empty sections are not\n  evidence of anything.)",
+              file=out)
+        if quiet:
+            print("\n  FOUND NOTHING, ACROSS EVERY RECORDED RUN -- decide, do "
+                  "not drift:\n", file=out)
+            for name, ran, avg in quiet:
+                print(f"    {name}: {ran} run(s), no finding, "
+                      f"≈{avg:,} tokens each time", file=out)
+            print("\n  Nothing is retired automatically, and a quiet section "
+                  "is not a useless one:\n  a guard that never fires may be "
+                  "why nothing is broken, and several of these\n  were "
+                  "written after one expensive incident they are meant never "
+                  "to repeat.\n  The three answers are KEEP (say why, here), "
+                  "CHEAPEN (same check, less\n  printed), and RETIRE (the "
+                  "practice's own Detail loses the bullet, and\n"
+                  "  decommission-deletes-files applies to whatever it owned).",
+                  file=out)
+        if unknown:
+            print("\n  COULD NOT MEASURE, repeatedly -- an unknown is not a "
+                  "quiet section:\n", file=out)
+            for name, n in unknown:
+                print(f"    {name}: {n} run(s) could not produce a count",
+                      file=out)
+        if gone:
+            print("\n  In earlier runs and NOT in this one (skipped by a flag, "
+                  "renamed, or\n  removed) -- their history above is about a "
+                  "section this run never ran:\n", file=out)
+            for name in gone:
+                print(f"    {name}", file=out)
+        print(file=out)
+
+
+def _record_pass(value, path=LEDGER_PATH, repo=None):
+    """--record-pass: append a hand-worked pass's outcome to the last run.
+
+    The four passes are where this check actually spends its time, and their
+    cost is the session's own measurement -- so it is recorded when a session
+    has it and left absent when it does not, never estimated here
+    (practice: no-invented-specifics).
+    """
+    head, _, rest = value.partition('=')
+    name = head.strip()
+    if not name or not rest.strip():
+        print("very deep check FAIL: --record-pass wants PASS=STATUS, e.g. "
+              "--record-pass '2=done,findings=3,tokens=120000,note=...'",
+              file=sys.stderr)
+        return 1
+    fields, note = {}, None
+    parts = rest.split(',')
+    # `note=` takes the rest of the string verbatim, commas included -- it is
+    # prose, and splitting it would truncate the one field a person wrote.
+    for i, part in enumerate(parts):
+        if part.strip().startswith('note='):
+            note = ','.join(parts[i:]).strip()[len('note='):].strip()
+            parts = parts[:i]
+            break
+    status = parts[0].strip() if parts else ''
+    for part in parts[1:]:
+        k, _, v = part.partition('=')
+        fields[k.strip()] = v.strip()
+    entry = {'pass': name, 'status': status,
+             'recorded': precedent_time.stamp_iso(repo)}
+    for key in ('findings', 'tokens'):
+        raw = fields.get(key)
+        if raw is None:
+            entry[key] = None
+            continue
+        if not raw.isdigit():
+            print(f"very deep check FAIL: --record-pass {key}= wants a whole "
+                  f"number, not {raw!r}.", file=sys.stderr)
+            return 1
+        entry[key] = int(raw)
+    if note:
+        entry['note'] = note
+    path = pathlib.Path(path)
+    if not path.is_file():
+        print(f"very deep check FAIL: no ledger at {path} yet -- run the "
+              f"check once before recording a pass against it.",
+              file=sys.stderr)
+        return 1
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except ValueError as exc:
+        print(f"very deep check FAIL: {path} does not parse ({exc}).",
+              file=sys.stderr)
+        return 1
+    runs = data.get('runs') or []
+    if not runs:
+        print(f"very deep check FAIL: {path} records no run yet.",
+              file=sys.stderr)
+        return 1
+    runs[-1].setdefault('passes', []).append(entry)
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    print(f"recorded: pass {name} = {status or '(no status)'} against the run "
+          f"of {runs[-1].get('run_id')} in {path}.")
+    return 0
+
+
 def _exit(message):
     print(message, file=sys.stderr)
     return 1
 
 
 def main():
+    """Run the check, and record what each of its parts returned and cost.
+
+    The recording is in a finally, deliberately: a run that aborts at the
+    freshness gate has still told the ledger something (which sections it
+    reached), and losing that is losing the only evidence the aborted run
+    produced (practice: very-deep-check).
+    """
+    box = {'completed': False}
+    try:
+        return _main(box)
+    finally:
+        led = box.get('ledger')
+        if led is not None:
+            led.finish(completed=box['completed'])
+
+
+def _main(box):
     args = sys.argv[1:]
     repo, user_config, checkout_target, stale_days = None, None, None, None
     for flag, dest in (('--repo', 'repo'), ('--user-config', 'user_config'),
@@ -2497,6 +2950,24 @@ def main():
                 stale_days = int(value)
             else:
                 checkout_target = value
+    record_pass = None
+    if '--record-pass' in args:
+        i = args.index('--record-pass')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --record-pass needs a value, "
+                     "e.g. --record-pass '2=done,findings=3'.")
+        record_pass = args[i + 1]
+        args = args[:i] + args[i + 2:]
+    ledger_path = LEDGER_PATH
+    if '--ledger' in args:
+        i = args.index('--ledger')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --ledger needs a path.")
+        ledger_path = pathlib.Path(args[i + 1])
+        args = args[:i] + args[i + 2:]
+    if record_pass is not None:
+        return _record_pass(record_pass, ledger_path, repo)
+
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
@@ -2511,7 +2982,15 @@ def main():
     # evidence about anything -- so proving the tree current has to precede
     # the first read, not follow it.
     repo_root = pathlib.Path(repo or ROOT).resolve()
+    # The ledger opens before the first section so that a run which aborts
+    # at the freshness gate still records having got that far.
+    led = None
+    if not as_json:
+        led = RunLedger(ledger_path, repo_root, sys.argv[1:])
+        box['ledger'] = led
     _fresh = {}
+    if led:
+        led.start('FRESHNESS -- this checkout')
     _v = freshness(repo_root)
     if do_freshen:
         _v = freshen(repo_root, _v)
@@ -2519,6 +2998,8 @@ def main():
     if not as_json:
         print("FRESHNESS -- every repo in force, before anything is read\n")
         report_freshness(f'this checkout ({repo_root})', _v)
+    if led:
+        led.end(findings=0 if _v['status'] in FRESHNESS_CLEAN else 1)
     if _v['status'] not in FRESHNESS_CLEAN and not allow_stale:
         sys.exit(f"\nvery deep check FAIL: this checkout is not provably "
                  f"current ({_v['status']}). Everything below would be "
@@ -2540,6 +3021,8 @@ def main():
     # already covers files a change TOUCHED, and a file nobody has touched
     # in months is exactly what only this sweep will ever look at again.
     _root = pathlib.Path(repo or ROOT).resolve()
+    if led:
+        led.start('MACHINE-READABLE FILES')
     _paths = pcheck.tracked(_root)
     _failures, _parsed, _skipped = pcheck.validate(_root, _paths)
     if not as_json:
@@ -2555,6 +3038,8 @@ def main():
             print(f"  OK: {len(pcheck.candidates(_root, _paths))} file(s) parse "
                   f"({', '.join(_parsed) or 'none tracked'}).")
         print()
+    if led:
+        led.end(findings=len(_failures))
     if _failures:
         sys.exit(f"very deep check FAIL: {len(_failures)} tracked file(s) do "
                  f"not parse. Fix those first -- this tool reads "
@@ -2588,6 +3073,8 @@ def main():
     # session-start freshness guard fires for the session's primary repo
     # only, so an attached source has never been checked by anything.
     _stale_sources = []
+    if led:
+        led.start('FRESHNESS -- declared sources')
     if not as_json:
         print("FRESHNESS -- declared sources (below the parse, because "
               "precedent.json\nis what names them)\n")
@@ -2608,6 +3095,8 @@ def main():
             _stale_sources.append(s['name'])
     if not as_json:
         print()
+    if led:
+        led.end(findings=len(_stale_sources))
     if _stale_sources and not allow_stale:
         return _exit(f"very deep check FAIL: {len(_stale_sources)} source(s) "
                      f"not provably current ({', '.join(_stale_sources)}). "
@@ -2626,6 +3115,8 @@ def main():
     # "nothing you write here can ever land" is worth more before the read
     # than after it.
     if not skip_liveness and not as_json:
+        if led:
+            led.start('REPOS IN FORCE -- still there, still writable')
         print("REPOS IN FORCE -- still there, still writable\n")
         _lf, _ln = repos_in_force_audit(repo_root, data['sources'],
                                         data['missing'])
@@ -2634,6 +3125,11 @@ def main():
         for n in _ln:
             print(f'  note: {n}')
         print()
+        if led:
+            led.end(findings=len(_lf))
+    elif led and skip_liveness:
+        led.skipped('REPOS IN FORCE -- still there, still writable',
+                    '--skip-liveness')
 
     # EVERY source precedent.json declares, not only the private ones.
     # This used to be gated on FATAL_MISSING_LEVELS ('team', 'individual'),
@@ -2656,7 +3152,14 @@ def main():
     # clone. Scanning it twice would print the same 68 branches under two
     # headings, which reads as two repos needing attention.
     branch_scans = {}
+    # The scan FETCHES and runs a merge test per branch, so it is one of the
+    # most expensive parts of this check and it prints nothing where it runs
+    # -- its output comes out under BRANCHES, much later. Timed here and
+    # added to that section's row, so the ledger's cost column is about the
+    # work and not about where the text happened to be printed.
+    _scan_secs = 0.0
     if not skip_branch_scan:
+        _scan_t0 = time.monotonic()
         _, checkout_branch, _ = _run_git(repo_root, 'rev-parse', '--abbrev-ref', 'HEAD')
         branch_scans['checkout'] = scan_branches(
             repo_root, checkout_target,
@@ -2675,8 +3178,11 @@ def main():
             branch_scans[f"{s['level']} source {s['name']}"] = scan_branches(
                 s['path'], exclude=(src_branch,) if src_branch else (),
                 stale_days=stale_days)
+        _scan_secs = round(time.monotonic() - _scan_t0, 2)
 
+    _endgame_t0 = time.monotonic()
     endgame = None if skip_endgame else endgame_merge(repo_root, checkout_target)
+    _endgame_secs = round(time.monotonic() - _endgame_t0, 2)
 
     if as_json:
         data['branches'] = branch_scans
@@ -2685,6 +3191,8 @@ def main():
         return 0
 
     c = data['checkout']
+    if led:
+        led.start('SCOPE -- documents and practices to read', kind='read')
     print(f"very deep check -- scope to read (not enforcement, judgment):\n")
     print(f"this checkout ({c['path']}):")
     print(f"  documents: {', '.join(c['docs']) if c['docs'] else '(none of the recognized names present)'}")
@@ -2719,7 +3227,12 @@ def main():
     # four universal practices share "writing or editing a document" and are
     # complementary, not conflicting. An occasion is a routing key, not a
     # claim of exclusivity.
+    if led:
+        led.end(items=c['practice_count']
+                + sum(s['practice_count'] for s in data['sources']))
+        led.start('WITHIN-SOURCE CONFLICTS')
     print("WITHIN-SOURCE CONFLICTS -- one catalogue disagreeing with itself\n")
+    _conf_n = 0
     _conf_any = False
     for _src in [{'name': 'this checkout', 'path': str(repo_root)}] + [
             {'name': s['name'], 'path': s['path']} for s in data['sources']]:
@@ -2763,6 +3276,7 @@ def main():
                                   f"precedence orders levels, not siblings")
         if _found:
             _conf_any = True
+            _conf_n += len(_found)
             print(f"  {_src['name']}:")
             for _msg in _found:
                 print(f"      {_msg}")
@@ -2770,8 +3284,12 @@ def main():
         print("  none -- no duplicate `defines:` term, and no `overrides:` or\n"
               "  `in_force_at:` naming a sibling, in any source in force.")
     print()
+    if led:
+        led.end(findings=_conf_n)
+        led.start('SOURCE SHAPE')
 
     print("SOURCE SHAPE -- files each level's skeleton ships\n")
+    _shape_n = 0
     _shape_any = False
     for _s in data['sources']:
         _lvl, _path = _s.get('level'), _s.get('path')
@@ -2779,6 +3297,7 @@ def main():
             continue
         _shape_any = True
         _missing = bootstrap_source.verify(_lvl, _path)
+        _shape_n += len(_missing)
         if _missing:
             # Each entry names its own origin where that is not the
             # skeleton -- the session hooks and settings.json come from the
@@ -2794,6 +3313,12 @@ def main():
     if not _shape_any:
         print("  (no team or individual source resolved here)")
     print()
+    if led:
+        # No source resolved means this section could not run, which is not
+        # the same as a source with nothing missing -- an unknown, never a
+        # clean row (practice: fail-gracefully).
+        led.end(findings=_shape_n if _shape_any else None)
+        led.start('TEMPLATE FRESHNESS')
 
     # The mirror of SOURCE SHAPE above, in both directions it cannot see.
     print("TEMPLATE FRESHNESS -- what the skeletons do NOT ship\n")
@@ -2812,6 +3337,9 @@ def main():
         print("  none -- every file the resolved sources share at their root "
               "is\n  either shipped by the skeleton, generated, or vendored.")
     print()
+    if led:
+        led.end(findings=len(_tf))
+        led.start('BOOTSTRAP DRIFT')
 
     # The third direction, and the only one that reads the files rather than
     # their names: run the generator now and diff it against the sets that
@@ -2827,6 +3355,9 @@ def main():
               "resolved\n  source and says the same thing, outside the "
               "skeleton files a set owns.")
     print()
+    if led:
+        led.end(findings=len(_bd))
+        led.start('EXPIRING PRACTICES')
 
     # A condition-shaped `expires:` field cannot be evaluated by any script, so
     # it is surfaced instead -- every run, in front of a person, rather than
@@ -2880,8 +3411,12 @@ def main():
         print("  none -- no practice in force carries a condition-shaped "
               "expiry.")
     print()
+    if led:
+        led.end(findings=len(_exp))
+        led.start('ORPHANS')
 
     print("ORPHANS -- files nothing owns any more\n")
+    _orph_n = 0
     _orph_any = False
     _orph_seen = False
     _orph_targets = [('this checkout', repo_root)]
@@ -2894,6 +3429,7 @@ def main():
             continue
         _orph_seen = True
         _found = _orphan_scan(_p)
+        _orph_n += len(_found)
         if _found:
             _orph_any = True
             print(f"  {_name}:")
@@ -2906,6 +3442,9 @@ def main():
               "entry the\n  current kind dropped, no unrecorded engine "
               "file, and no check\n  script whose practice is gone.")
     print()
+    if led:
+        led.end(findings=_orph_n if _orph_seen else None)
+        led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")
     # Every repo in force, not this checkout alone (session-load-budget): a
@@ -2975,6 +3514,9 @@ def main():
           "is it\". What no longer bites moves to a\n  linked archive IN FULL, "
           "never to a deletion.")
     print()
+    if led:
+        led.end(findings=len(_sl) + len(_gc_msgs if _gc_rows else []))
+        led.start('TIER PLACEMENT', kind='read')
 
     print("TIER PLACEMENT -- which practices are loaded from turn one\n")
     _resp = _resident_practices(repo_root)
@@ -2999,6 +3541,9 @@ def main():
     else:
         print("  none -- this repository has no resident practice.")
     print()
+    if led:
+        led.end(items=len(_resp))
+        led.start('RULES WE SHIP SOMEWHERE ELSE', kind='read')
 
     print("RULES WE SHIP SOMEWHERE ELSE -- inert here, binding there\n")
     _ship = _shipped_rules(repo_root)
@@ -3028,6 +3573,9 @@ def main():
         print("  none -- this repository ships no templates carrying "
               "rule-shaped prose.")
     print()
+    if led:
+        led.end(items=len(_ship))
+        led.start('DOCUMENTATION CURRENCY')
 
     print("DOCUMENTATION CURRENCY -- what changed, against what still says "
           "it is true\n")
@@ -3044,6 +3592,8 @@ def main():
               "that teaches them, and\n  no reader-facing document is "
               "missing from the registry.")
     print()
+    if led:
+        led.end(findings=len(_doc_find))
 
     # UNLANDED WORK, printed BEFORE the checklist rather than with the rest
     # of the branch scan at the end (practice: very-deep-check, step 4 of its
@@ -3062,6 +3612,8 @@ def main():
     # asked what was sitting unmerged, because the list only appeared after
     # every pass had already run.
     if not skip_branch_scan:
+        if led:
+            led.start('UNLANDED WORK')
         _unlanded = []
         _unknown = []
         for _name, _scan in branch_scans.items():
@@ -3106,8 +3658,16 @@ def main():
                 print(f"      {_r['verdict']}")
             print(f"\n  {len(_unknown)} branch(es) unmeasurable. Deepen the clone and\n"
                   f"  re-run before treating this section as read.\n")
+        if led:
+            # An unmeasurable branch makes the count unknown, not zero: the
+            # same distinction the section itself is written around.
+            led.end(findings=None if _unknown else len(_unlanded))
+    elif led:
+        led.skipped('UNLANDED WORK', '--skip-branch-scan')
 
     if not skip_visibility:
+        if led:
+            led.start('REPOSITORY VISIBILITY')
         print()
         print("REPOSITORY VISIBILITY -- private names in a public tree\n")
         _bl = os.environ.get('PRECEDENT_LEAK_BLOCKLIST')
@@ -3119,10 +3679,20 @@ def main():
         if not _vf and not _vn:
             print('  nothing referenced, nothing to check')
         print()
+        if led:
+            led.end(findings=len(_vf))
+    elif led:
+        led.skipped('REPOSITORY VISIBILITY', '--skip-visibility')
 
+    if led:
+        led.start('CHECKLIST -- the four passes a session works', kind='read')
     print(checklist())
+    if led:
+        led.end()
 
     if not skip_branch_scan:
+        if led:
+            led.start('BRANCHES -- verdicts owed')
         print("\nBRANCHES -- both directions. A merged branch nobody deleted is\n"
               "clutter; an unmerged branch nobody decided about is lost work, and\n"
               "the second costs more. Every branch below needs a verdict -- see\n"
@@ -3195,12 +3765,26 @@ def main():
                 print(f"    -> git -C {scan.get('path', '<repo>')} fetch "
                       f"--depth=50 origin   # then re-run")
             print()
+        if led:
+            # A verdict is owed on every branch listed, in both directions:
+            # that is what this section asks for, so that is what it counts.
+            _owed = sum(len(s.get('merged', [])) + len(s.get('unmerged', []))
+                        for s in branch_scans.values() if s)
+            _incomplete = any((s or {}).get('unreachable')
+                              or (s or {}).get('unfetched')
+                              for s in branch_scans.values())
+            led.end(findings=None if _incomplete else _owed,
+                    extra_seconds=_scan_secs)
+    elif led:
+        led.skipped('BRANCHES -- verdicts owed', '--skip-branch-scan')
 
     # THE ENDGAME MERGE (practice: very-deep-check, pass 4). Printed with
     # the branch material because it is the same question one level up: the
     # branch sweep asks which branches never landed, this asks what happens
     # when the branch everything lands ON finally lands itself.
     if endgame is not None:
+        if led:
+            led.start('ENDGAME MERGE')
         print(f"ENDGAME MERGE -- rehearsing origin/{endgame['target']} into "
               f"origin/{endgame['base']}\n")
         if endgame['status'] in ('cannot-tell', 'error'):
@@ -3240,7 +3824,18 @@ def main():
                       f"(`git fetch --unshallow origin`, or a bounded "
                       f"--depth=N) and re-run before\n  trusting an empty "
                       f"result.\n")
+        if led:
+            led.end(findings=(None if endgame['status'] in
+                              ('cannot-tell', 'error')
+                              else len(endgame['dropped'])),
+                    extra_seconds=_endgame_secs)
+    elif led:
+        led.skipped('ENDGAME MERGE', '--skip-endgame-merge')
 
+    if led:
+        led.report()
+
+    box['completed'] = True
     return 0
 
 
