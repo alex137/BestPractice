@@ -2625,6 +2625,11 @@ which is the failure this repointing exists to end — write
    should not be answered before it — including the new one, whether a
    project digest is a utility or a marketing template, which is the
    difference between a free relay phase and a metered one.
+   **The platform is not one of the open questions.** Morgan settled it on
+   2026-09-11 (`strength: decided`, quoted in the document): the people this
+   exists for are on WhatsApp and will not change apps, so Telegram is a
+   rehearsal that ends and never the destination. A session triaging this
+   item should not re-open it as "maybe just ship the Telegram one".
    **Blocked-on:** for the WhatsApp half, a Meta Business account, a business
    entity that clears verification, and a dedicated phone number — none of
    which exists yet and none of which a session can obtain. It is queued
