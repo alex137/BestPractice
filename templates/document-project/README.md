@@ -38,7 +38,7 @@ rules instead of living and dying inside one document.
    `freshness-guard.sh` commands with the repo's real base branch.
 
    Read [templates/harness/README.md](../harness/README.md) for what each
-   adapter is, and [INSTALL.md §1 step 2](../../INSTALL.md#1-installing-into-a-repo-that-already-has-its-own-process)'s
+   adapter is, and [INSTALL.md §1 step 2](../../INSTALL.md#1-install-into-a-dependent-repo)'s
    hook decision table for which hooks are decisions and which are not. This
    template has already made those calls: it wires the three the table marks
    *always*, plus `precedent-paths.sh` (the table's "only with the Precedent
