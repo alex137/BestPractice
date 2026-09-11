@@ -112,7 +112,7 @@ decisions taken.
 ## What phase 3 did not do, and why it could not be done from here
 
 **The two private sets exist but are still empty.** The plan's phase-3 item 1
-is to populate `precedent-individual` and `precedent-team-maintainers` from
+is to populate `precedent-individual` and `precedent-team-repo-maintenance` from
 RepoPersonalPreferences' 46 rules — default everything to team, promote to
 universal individually, move the person-specific handful to individual, and
 retire `morgan-scope` and `bestpractice-wins` because the structure now says

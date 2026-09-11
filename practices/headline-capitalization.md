@@ -96,7 +96,7 @@ case only because they had been dictated that way.
 
 The reason no practice fired is worth recording with the practice, because
 it is not "nobody wrote one." The rule may well exist in
-`precedent-team-maintainers` or in the individual set. Neither can load in
+`precedent-team-repo-maintenance` or in the individual set. Neither can load in
 a BestPractice session: [tools/build_views.py](../tools/build_views.py)
 builds this repo's own loader from the universal catalogue alone, so a team
 or individual practice never reaches the occasion index a session actually

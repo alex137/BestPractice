@@ -93,7 +93,7 @@ every time, without anyone having to remember to look. Turning it into
 a standing rule is a human call, routed by this repo's own rules to
 whoever's responsible — and a spotted pattern always gets surfaced,
 never left unremarked. This repo's team and individual practice sources
-(precedent-team-maintainers, precedent-individual — see
+(precedent-team-repo-maintenance, precedent-individual — see
 [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)) run that mechanism continuously
 ([`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction);
 [practice 20](../PRACTICES.md#20-mistakes-become-rules-root-cause-the-miss-then-encode-the-prevention)

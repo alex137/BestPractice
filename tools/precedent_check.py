@@ -215,7 +215,7 @@ def register_materialized_checks():
     refused to land a team or individual practice without one, and
     `spec/PRIVATE_ENFORCEMENT_BRIEF.md` told a private set how to write
     them -- and then a consuming repo held fourteen real, tested check
-    scripts (nine in precedent-team-maintainers, five in
+    scripts (nine in precedent-team-repo-maintenance, five in
     precedent-individual, as of 2026-09-06) that no command ever ran. The
     enforced channel was live for the universal catalogue and hollow for
     exactly the sources an adopting team writes for itself.
@@ -3857,7 +3857,7 @@ def _code_cites_practice(ctx):
             # A slug some IN-FORCE practice declares it overrides is
             # superseded, not missing. In a consuming repo a higher-precedence
             # source can replace a universal practice under a different name
-            # -- precedent-team-maintainers' `rule-links` overrides the
+            # -- precedent-team-repo-maintenance' `rule-links` overrides the
             # universal `doc-references-are-links` -- and the overridden slug
             # then resolves to no file at all. The universal engine code that
             # cites it is still correct about why it exists; the rule simply

@@ -26,7 +26,7 @@ criteria is refused with a reason** — proven directly by
 |---|---|---|
 | 2 — Candidate | [tools/precedent_candidate.py](../tools/precedent_candidate.py) | create / list / expire, against the schema [spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md) documents |
 | 3 — Promotion criteria | [tools/precedent_promote.py](../tools/precedent_promote.py) | the four criteria, each refusing with a named reason |
-| 4 — Approval | [tools/precedent_land.py](../tools/precedent_land.py) (individual/universal), the pre-existing `approvers.json`/`CODEOWNERS` in `precedent-team-maintainers` (team) | see "Stage 4's actual scope" below |
+| 4 — Approval | [tools/precedent_land.py](../tools/precedent_land.py) (individual/universal), the pre-existing `approvers.json`/`CODEOWNERS` in `precedent-team-repo-maintenance` (team) | see "Stage 4's actual scope" below |
 | 5 — Landing | [tools/precedent_land.py](../tools/precedent_land.py) | writes the file, hard-refuses an unregistered `checked_by` |
 | 1 — Detection | [tools/precedent_detect.py](../tools/precedent_detect.py) | the mechanical signals that don't need a live conversation or a trip-log |
 | 6 — Retirement | [tools/precedent_retire.py](../tools/precedent_retire.py) | the periodic report — proposes, never acts |
@@ -61,7 +61,7 @@ new code:
   `precedent_land.py` *is* the approval, per the plan's own text. No pull
   request (PR), no review.
 - **Team** — `approvers.json` and its generated `CODEOWNERS` **already
-  existed** in `precedent-team-maintainers` before this phase started (a
+  existed** in `precedent-team-repo-maintenance` before this phase started (a
   private-repo reconcile session built it, independently, to satisfy the
   plan's own stated requirement ahead of phase 5 actually needing it).
   `precedent_land.py` verifies the named approver against that file before
@@ -336,7 +336,7 @@ works:
      BestPractice at `precedent-beta-v01`, copy its `practices/` tree into
      the fork at a tracked path of your choosing (e.g. `precedent/universal/`),
      and record the exact commit copied from — the same discipline
-     `precedent-team-maintainers/practices/install.md` already names for
+     `precedent-team-repo-maintenance/practices/install.md` already names for
      the old vendoring model ("record the source repo and the commit it
      was installed from, so a later sync has something real to compare
      against"), ported to this branch rather than `main`. This is committed,
@@ -355,7 +355,7 @@ works:
    migration looks like, and a real migration vendors.
 
 **2. Vendor the team source the same way**, from
-`precedent-team-maintainers`'s own `practices/`, and **wire the individual
+`precedent-team-repo-maintenance`'s own `practices/`, and **wire the individual
 source using the pattern that's already built and already validated** —
 [`precedent-individual`'s own `claude-web-bootstrap.md`](https://github.com/themorgan/precedent-individual/blob/main/practices/claude-web-bootstrap.md)
 names the exact two files to copy in

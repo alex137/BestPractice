@@ -46,7 +46,7 @@ never addressed (it was written for one person, one repo).
 repo of practices, resolved live (never vendored) into every consuming
 repo's `precedent.json`, at precedence `team > repo-local > individual >
 universal`. The one existing example,
-`themorgan/precedent-team-maintainers` (see
+`themorgan/precedent-team-repo-maintenance` (see
 [spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md)), holds code-repo
 conventions. Nothing about the mechanism assumes code — a `team` source is
 just practices, and a practice is just a Rule with a Story behind it. What's
@@ -80,7 +80,7 @@ she ever opens GitHub at all.
 ## Architecture — three pieces
 
 1. **One shared, private team practice repo**, dedicated to editorial and
-   content conventions — distinct from `precedent-team-maintainers`, which
+   content conventions — distinct from `precedent-team-repo-maintenance`, which
    is about this account's code repos, not this. Starts **empty**: unlike
    [spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md)'s migration (46
    existing rules to split), there is no pre-existing rule set to import
@@ -124,7 +124,7 @@ invented here to have something to test against.
 ## Prerequisites — decisions only Morgan can make
 
 1. **Name and location of the new team practice repo.** Private, distinct
-   from `precedent-team-maintainers`. Not yet chosen.
+   from `precedent-team-repo-maintenance`. Not yet chosen.
 2. **Who goes in `approvers.json`.** At minimum Morgan
    (`{"name": ..., "github": ...}` entries, per
    [tools/precedent_land.py](../tools/precedent_land.py)'s format) — anyone

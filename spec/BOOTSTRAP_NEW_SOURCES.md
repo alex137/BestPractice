@@ -22,7 +22,7 @@ assumed the repo already existed.
 **This is a different document from
 [PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md), on purpose.** That brief
 records how `themorgan/precedent-individual` and
-`themorgan/precedent-team-maintainers` were actually populated: bespoke,
+`themorgan/precedent-team-repo-maintenance` were actually populated: bespoke,
 one-off work, done from a session opened directly against those two
 already-*existing* private repos, carrying RepoPersonalPreferences' (RPP)
 real 46 rules across.
@@ -79,7 +79,7 @@ assume a session has:
   as of this document's 2026-09-05 update; before it, the tool wrote only
   practice content, config, approvers and the leak-blocklist, and every
   engine copy that existed (`precedent-individual`,
-  `precedent-team-maintainers`) came from an undocumented, one-off
+  `precedent-team-repo-maintenance`) came from an undocumented, one-off
   hand-copy that nothing could tell was stale (`precedent-team-tms`'s was
   simply missing).
 - Refuses to write into a non-empty destination without `--force true`.

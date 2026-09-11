@@ -1,7 +1,7 @@
 ---
 date:        2026-09-01
 question:    Should a session working on Precedent be allowed to also hold
-             themorgan/precedent-individual and themorgan/precedent-team-maintainers
+             themorgan/precedent-individual and themorgan/precedent-team-repo-maintenance
              (read and write), and may content from them be staged into
              Precedent's working tree, during active pre-Phase-5 development?
 decision:    Yes, for now. The plan's blanket prohibition -- "a session cannot
@@ -76,7 +76,7 @@ across all three repos from any session, for two stated reasons:
   correctly describe why phase 3's population happened the way it did, and
   that history is not being edited.
 - Future Precedent sessions may `add_repo` themorgan/precedent-individual
-  and themorgan/precedent-team-maintainers alongside BestPractice, read and
+  and themorgan/precedent-team-repo-maintenance alongside BestPractice, read and
   write across all three, and stage private-set content into Precedent's
   working tree if that is genuinely useful for the work at hand.
 - The leak gate (tools/leak_gate.py) is UNCHANGED -- its structural layer

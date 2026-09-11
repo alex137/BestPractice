@@ -204,7 +204,7 @@ not have known.** The private-set migration that populated RPP's two
 successor repos (v27, "Phase 3 closed") landed *earlier the same day*
 (2026-09-01) as v28's "not yet inventoried here" line — and that migration
 had already carried RPP's exact list into
-[`precedent-team-maintainers`](https://github.com/themorgan/precedent-team-maintainers)
+[`precedent-team-repo-maintenance`](https://github.com/themorgan/precedent-team-repo-maintenance)
 as its own `deep-check` practice, generalized (RPP's vendored-`process/`-tree
 language dropped, since Precedent's private sets aren't vendored the way
 RPP's own tree was) but otherwise the same enumeration now written here.
@@ -214,11 +214,11 @@ the same day's two changes against each other, and it existed only as prose
 in one private team practice with no companion engine and no reach outside
 that one team's own set. `practices/very-deep-check.md` is the universal
 version: reachable by any repo running Precedent, not only Morgan and
-Alex's. Whether `precedent-team-maintainers`'s own `deep-check` should now
+Alex's. Whether `precedent-team-repo-maintenance`'s own `deep-check` should now
 `overrides:` this one, or stand as a separate team-level restatement of the
 same rule, is that team's own call to make — raised, not decided, here;
 not actioned in this pass since it needs that set's own approver sign-off
-([`precedent-team-maintainers`](https://github.com/themorgan/precedent-team-maintainers)'s
+([`precedent-team-repo-maintenance`](https://github.com/themorgan/precedent-team-repo-maintenance)'s
 `approvers.json`), not something to decide from BestPractice.
 
 `TODO.md` item 17 (the current position — item numbers shift as items are

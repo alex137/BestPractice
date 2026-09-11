@@ -102,7 +102,7 @@ with three blocks numbered 1, 2, 3 whose repositories mapped to his #3, #2,
 #1. Each block did name its repository correctly — the rule above was
 followed — and each also carried a "(session #N)" cross-reference pointing
 the other way. The block written for `precedent-individual` went to the
-`precedent-team-maintainers` session, which spent its turn establishing that
+`precedent-team-repo-maintenance` session, which spent its turn establishing that
 `check_commit_author.py`, `TODO.md` item 1, PR #60 and commit `8e0fc68` were
 all absent, and answering: *"everything naming 'your work' belongs to another
 session."* It was right. The repository name was in the heading and the

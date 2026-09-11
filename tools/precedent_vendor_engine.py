@@ -4,7 +4,7 @@ consumes it, as real tracked files instead of an undocumented hand-copy.
 Two KINDS, sharing one mechanism:
 
   'source'   — an individual or team practice SET (precedent-individual,
-               precedent-team-maintainers, precedent-team-tms). Needs only
+               precedent-team-repo-maintenance, precedent-team-tms). Needs only
                ENGINE_FILES: enough to run its own AGENTS.md loader block
                (precedent_show.py's Rule/Detail/Why/Story/Install split,
                build_views.py's `--agents-only` regeneration,
@@ -95,7 +95,7 @@ of BestPractice's OWN 60-odd practices, which has no meaning in either a
 source set or a consumer repo with a different catalogue entirely.
 `_trim_routing_scope` below keeps only the first and drops the second — the
 same trim a prior, undocumented hand-copy already applied by hand to every
-repo that needed it (precedent-individual, precedent-team-maintainers, and
+repo that needed it (precedent-individual, precedent-team-repo-maintenance, and
 and a private consumer repo's own top-level tools/routing_scope.json, all three
 confirmed byte-identical to this function's output before this tool
 existed, or was extended to the consumer kind); this tool just makes that
@@ -749,7 +749,7 @@ def _untracked_engine_files(dest_tools, manifest):
     _local_drift() above walks the manifest and asks "is each recorded file
     still what we wrote?" That direction is blind to a file nobody recorded,
     and the blind spot is not hypothetical. 2026-09-06, in
-    precedent-team-maintainers: its engine was a faithful, internally
+    precedent-team-repo-maintenance: its engine was a faithful, internally
     consistent vendoring of one upstream commit -- seven files, every hash
     matching -- and beside it sat a hand-copied `build_codeowners.py` from a
     LATER upstream commit. build_views.py scans `tools/*.py` and requires a

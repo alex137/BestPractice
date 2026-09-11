@@ -33,7 +33,7 @@ findings themselves live in the commits that fixed them and in
 ahead of showing `precedent-beta-v01` to Alex, after several days of heavy
 change (153 commits on the integration branch since the previous run
 began). Scope: all four repos in force — `alex137/BestPractice`,
-`themorgan/precedent-individual`, `themorgan/precedent-team-maintainers`,
+`themorgan/precedent-individual`, `themorgan/precedent-team-repo-maintenance`,
 `themorgan/precedent-team-tms`. Working branch
 `claude/deep-review-before-sharing-6zvsio` in each.
 
@@ -212,7 +212,7 @@ recent work before trusting a checklist written before it.
 **Cross-source staleness — rolled out, not deferred.** All four attached
 sources were behind; all are now on the current engine with views
 regenerated and each repo's own checks at `0 violated`.
-`precedent-team-maintainers` was at `1 violated` before this run and is
+`precedent-team-repo-maintenance` was at `1 violated` before this run and is
 not any more.
 
 ### Pass 4 — catalogue, backlog, and branches
@@ -229,7 +229,7 @@ not any more.
   It vendors `c6c885033a9f`, which is now an ancestor of what this run
   vendored into that set. Mechanically superseded; nothing is lost.
 - `precedent-individual: claude/pre-launch-audit-fixes-7wumzx` (19
-  commits) and `precedent-team-maintainers: …` (16) — **CLOSED without
+  commits) and `precedent-team-repo-maintenance: …` (16) — **CLOSED without
   merging, 2026-09-08, on Morgan's decision after this run put the
   evidence to him.** Both are far BEHIND `main`, not ahead of it: 83 and
   58 commits respectively, branched 2026-09-05. Their substance was
