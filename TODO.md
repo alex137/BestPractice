@@ -1526,6 +1526,56 @@ which is the failure this repointing exists to end — write
   a preference between two disagreeing team sources, because nothing here
   produced two sources that disagree.
 
+- <a id="team-maintainers-is-a-roster-name"></a>**Rename `precedent-team-maintainers` for its subject.** Raised 2026-09-11,
+  reviewing what was left in that set after the subject split. Of its 21
+  active practices, 19 were about one subject — running a repository that
+  vendors a practice layer: install, the two sync workflows, the drift and
+  freshness notices, the light and deep checks, branch setup, the backlog
+  gate, how a rule is placed and scoped in the catalogue. **The set is
+  already subject-scoped; what is stale is its name.** "Maintainers" names a
+  group of people, which is exactly what
+  [source-naming](practices/source-naming.md) says goes stale the moment a
+  third person joins, and that rule's own table records that no check can
+  see it — `precedent-team-maintainers` and `precedent-team-morgan-alex` are
+  indistinguishable to a scanner. The other two of the 21 were retired
+  outright on 2026-09-11 (`llm-neutral`, `match-parsed-id-not-prefix`);
+  neither was about maintaining a repository and no subject set exists for
+  engineering craft. `precedent-team-repo-maintenance` is the obvious
+  candidate name.
+
+  **Not done, deliberately, and this is a judgment call rather than a
+  blocker.** A source's name is not a filename: it is the GitHub repository
+  name, the sibling clone path every `precedent.json` names, and what the
+  session-start hook clones from `PRECEDENT_SOURCE_BASE_URL`. Renaming it
+  moves all three at once, in every consumer, and a consumer whose
+  `precedent.json` still names the old path resolves *nothing* from the set
+  rather than failing loudly. Two team sources claiming one slug is a hard
+  refusal, so it has to be a move, not a copy.
+
+  **Blocked on:** the subject-split patch in that set's
+  `handoff/2026-09-09-BESTPRACTICE_SUBJECT_SPLIT.md` landing here first — it
+  is still unapplied, and it edits the same `sources` block in
+  [precedent.json](precedent.json) a rename would rewrite. Rebasing a
+  seven-commit patch onto a rename is the avoidable half of this.
+
+- <a id="individual-copy-points-at-a-retired-slug"></a>**`precedent-individual`'s `match-parsed-id-not-prefix` points at a retired
+  slug.** That practice moved from the individual set to
+  `precedent-team-maintainers` in the 2026-09-09 subject split, leaving the
+  individual copy as `status: deduplicated` with `in_force_at:` naming the
+  team slug — which is what
+  [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md)'s status table requires:
+  a slug that **resolves in force**. On 2026-09-11 the team copy was retired,
+  so it no longer does. The individual copy now claims a rule is in force
+  somewhere it is not, which is the one thing that status is not allowed to
+  say.
+
+  Either re-point it or re-activate it — re-activating is the smaller claim,
+  since the rule was written as one person's own default before the split
+  moved it. **Blocked on:** a session that can reach `precedent-individual`.
+  This one could not: the session was rooted one directory above both
+  repositories, so no SessionStart hook ran and no private source was cloned,
+  and only `BestPractice` and `precedent-team-maintainers` were on disk.
+
 - <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
   **unfolded 2026-09-08, at Morgan's prompting.** Folded into
   [item 7](TODO.md#multiple-team-sources-disagree) on 2026-09-07 on the

@@ -9323,7 +9323,10 @@ def check_creation_pipeline_fires():
             rc, out = pyrun(*args)
             if rc != 0:
                 raise RuntimeError(f"fixture candidate creation failed: {out}")
-            # practice: match-parsed-id-not-prefix -- `glob(f'{slug}-*.md')`
+            # The rule this came from (slug match-parsed-id-not-prefix)
+            # was retired on 2026-09-11 with the maintainers' set
+            # review -- the fix stands, the standing instruction does
+            # not. Left uncited on purpose: `glob(f'{slug}-*.md')`
             # also matches every LONGER slug sharing this one's prefix, so
             # this helper could hand back a different candidate entirely.
             # It is the exact bug the prefix case below tests for, in the
