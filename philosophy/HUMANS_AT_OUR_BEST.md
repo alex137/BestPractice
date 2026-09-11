@@ -19,67 +19,73 @@ this page doesn't replace them.*
 
 ### Drive
 
-- **Getting sh\*t done.** The will to keep pushing something through every
+- <a id="getting-things-done"></a>**Getting sh\*t done.** The will to keep pushing something through every
   stall, handoff, and objection until it's actually finished, not just
   planned.
-- **Obsessive ownership.** Only someone who truly, deeply cares hunts down
+  *Cited by: [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) in Company Building Rules.*
+- <a id="obsessive-ownership"></a>**Obsessive ownership.** Only someone who truly, deeply cares hunts down
   every last thing that's wrong — a bug, a sloppy paragraph, a process that
   half-works — with the intensity and creativity that comes from treating it
   as theirs.
-- **Boundary pushing.** AI tends to under-push the boundaries a situation
+- <a id="boundary-pushing"></a>**Boundary pushing.** AI tends to under-push the boundaries a situation
   actually calls for, held back by rules built strict on purpose; a human
   still has to decide when to lean past them.
 
 ### Responsibility
 
-- **Accountability.** Landing on one name in one room, rather than a
+- <a id="accountability"></a>**Accountability.** Landing on one name in one room, rather than a
   process nobody can point to
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
-- **Judgment.** Deciding what gets built and whether it works
+  *Cited by: [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
+- <a id="judgment"></a>**Judgment.** Deciding what gets built and whether it works
   ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute));
   judgment when the rules run out and somebody still has to decide
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
-- **Actually managing.** Somebody has to own a thing while it runs:
+  *Cited by: [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
+- <a id="actually-managing"></a>**Actually managing.** Somebody has to own a thing while it runs:
   noticing the drift before a customer does, pushing it further than it
   would push itself, pulling it back before it overreaches
   ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
-- **Verification.** Machines can only go so far in making sure that what
+- <a id="verification"></a>**Verification.** Machines can only go so far in making sure that what
   they are doing is correctly reflected in the real world.
-- **Trade-offs and hard decisions.** Nothing worth choosing comes free:
+- <a id="trade-offs-and-hard-decisions"></a>**Trade-offs and hard decisions.** Nothing worth choosing comes free:
   speed against care, this client against that one, the person you like
   against the person who is right. Somebody has to pick, knowing what the
   pick costs, and carry it afterwards.
-- **Managing the dirtiness of real life.** When you leave the digital world,
+- <a id="dirtiness-of-real-life"></a>**Managing the dirtiness of real life.** When you leave the digital world,
   and more often than not when you're on it, very little works smoothly or
   the way it seems to "on paper".
 
 ### People
 
-- **Relationships.** A counterparty trusts because of who's on the other
+- <a id="relationships"></a>**Relationships.** A counterparty trusts because of who's on the other
   end of them
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human));
   sensing what a client meant but didn't say
   ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best)).
-- **Politics.** Any non-trivial team runs on politics as much as on org
+  *Cited by: [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) in Company Building Rules; [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
+- <a id="politics"></a>**Politics.** Any non-trivial team runs on politics as much as on org
   charts; reading it and managing it is a human job.
-- **Sense of smell.** Understanding how reality actually plays out, past
+- <a id="sense-of-smell"></a>**Sense of smell.** Understanding how reality actually plays out, past
   anything a machine's formal analysis can show: *this vendor is sketchy*,
   *those guys are always in disasters*, *we just don't get along*.
 
 ### The Intangible
 
-- **Questions.** Asking the right one at the right time may be the hardest
+- <a id="questions"></a>**Questions.** Asking the right one at the right time may be the hardest
   of the skills that matter.
-- **Taste.** Catching the one paragraph in twenty that's quietly wrong
+- <a id="taste"></a>**Taste.** Catching the one paragraph in twenty that's quietly wrong
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human);
   [`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
-- **Instinct.** Reading a room, sensing what a client meant but didn't
+  *Cited by: [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) in Company Building Rules; [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
+- <a id="instinct"></a>**Instinct.** Reading a room, sensing what a client meant but didn't
   say, pushing someone harder when the moment calls for it
   ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best)).
-- **The human spark.** What makes someone worth working for, not merely
+- <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
-- **The unspoken.** The things a human can do, and sometimes has to, that
+  *Cited by: [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
+- <a id="the-unspoken"></a>**The unspoken.** The things a human can do, and sometimes has to, that
   are hard to say out loud at all.
 
 ## See Also

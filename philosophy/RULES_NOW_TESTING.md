@@ -51,7 +51,8 @@ adopting it elsewhere.
 [`push-back`](https://github.com/themorgan/precedent-team-repo-maintenance/blob/main/practices/push-back.md).
 Argue a genuine counter-case before building on a stated stance; flag a
 serious unresolved disagreement before calling a piece done. Never on
-code or other technical work.
+code or other technical work — the trial of
+[`push-back-as-config-switch`](AI_GOVERNANCE_TO_COCREATE.md#push-back-as-config-switch).
 
 <a id="provider-neutral-llm"></a>
 
@@ -81,6 +82,9 @@ a draft — post a half-formed position and invite disagreement instead of
 a finished one. Keeps the disagreement in the record, not just its
 resolution
 ([`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate)).
+The trial of
+[`argue-in-the-open`](AI_GOVERNANCE_TO_COCREATE.md#argue-in-the-open),
+asked of a person rather than configured into the system.
 
 <a id="three-reflexes-out-loud"></a>
 
@@ -92,7 +96,8 @@ Before calling work done, answer all three out loud in the reply:
 - Have I done this shape before, or will I again?
 - Is there a way this could be better — not just faster?
 
-([`three-questions`](COMPANY_BUILDING_RULES.md#three-questions).)
+([`three-questions`](COMPANY_BUILDING_RULES.md#three-questions); the trial
+of [`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt).)
 
 <a id="write-like-a-human"></a>
 
@@ -109,6 +114,8 @@ as a single universal practice on 2026-09-07 — deliberately a short
 guiding point, replacing the long vendored ruleset this entry used to
 name.
 
+*Cited by: [`no-ai-voice`](COMPANY_BUILDING_RULES.md#no-ai-voice) in Company Building Rules.*
+
 <a id="dark-process-self-audit"></a>
 
 ### 6. Dark-Process Self-Audit, Including the Session's Own Habits — *Trial*
@@ -116,7 +123,11 @@ name.
 Periodically, same cadence as the BestPractice check-in — list workflows
 whose only interface is a human inbox, the assistant's own included, and
 propose an addressable alternative
-([`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes)).
+([`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes); the
+trial of
+[`ai-hunts-dark-processes`](AI_GOVERNANCE_TO_COCREATE.md#ai-hunts-dark-processes)).
+
+*Cited by: [`contradiction-scanning`](#contradiction-scanning).*
 
 <a id="contradiction-scanning"></a>
 
@@ -125,6 +136,8 @@ propose an addressable alternative
 Periodically re-read [ASSORTED_NOTES.md](ASSORTED_NOTES.md) and this document for entries
 that now disagree — same cadence as
 [`dark-process-self-audit`](#dark-process-self-audit), not a one-off.
+
+*Cited by: [`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early) in Reasons Why.*
 
 ## Not Yet Ready for This List
 
