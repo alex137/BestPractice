@@ -116,6 +116,13 @@ universal's extra caution just because it crosses a level boundary.
 
 ## Worked example: `bestpractice-sync`, team → individual
 
+**The practice itself was retired on 2026-09-11** — Morgan, on an
+unattended self-merging sync being the wrong bet against a layer this
+size. The example below is kept as what it always was: a record of how a
+two-step move is done, which does not depend on the moved rule still
+being in force. Note that it moved once more after this, team-ward, in
+the 2026-09-09 subject split.
+
 `bestpractice-sync` — the practice describing an unattended, scheduled
 workflow that takes upstream BestPractice updates into a vendored copy —
 was migrated to `precedent-team-maintainers` in the original RepoPersonalPreferences
