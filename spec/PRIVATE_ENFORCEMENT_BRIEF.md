@@ -48,7 +48,7 @@ Measured 2026-09-07, with all four sources attached:
 | `precedent` (universal) | 66 | 34 | in `precedent_check.py` |
 | `precedent-team-maintainers` | 40 | 8 | 8 |
 | `precedent-individual` | 15 | 8 | 8 |
-| `precedent-team-tms` | 2 | 0 | 0 |
+| `precedent-team-tms` | 2 | 0 | 0 | ← **retired 2026-09-10**, see below
 
 So both of the sets this brief was written for now have their own
 `tools/checks/` directories with real, tested check scripts — the procedure
@@ -56,6 +56,17 @@ below was followed and it worked. What is left is the ordinary long tail: 32
 of 40 and 7 of 15 still carry `checked_by: null`, which is not by itself a
 defect, since [checkable-gets-checked](../practices/checkable-gets-checked.md)
 asks for an attempt and a recorded reason, not a check at any cost.
+
+**`precedent-team-tms` no longer exists.** It was retired on 2026-09-10,
+holding one practice by then rather than the two this table counted on
+2026-09-01 — that practice, `audience-register`, moved to
+`precedent-team-working-style`, whose subject it always was (its own text
+says it governs how a session talks to the reader, not the team's
+documents). No repository declared the set in anger; it had been
+bootstrapped for an editorial pilot that was deliberately never started.
+The row is left in place rather than deleted because the reasoning under it
+is still the useful part, and because a table that silently loses a row
+reads as a table nobody updated.
 
 `precedent-team-tms`'s 0 of 2 was checked and is **correct**, not a gap:
 `audience-register`'s subject is the wording of a reply, which is not an

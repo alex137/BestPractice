@@ -11,12 +11,10 @@
     "INSTALL.md \u00a70 step 1 -- not a live reference; every collaborator and",
     "every fresh container needs it without a sibling checkout.",
     "",
-    "THREE team sources, each named for a SUBJECT rather than for a roster,",
+    "TWO team sources, each named for a SUBJECT rather than for a roster,",
     "and a project declares the ones its kind of work needs (INSTALL.md's",
     "'Which team sets does this repo declare?'):",
     "",
-    "  precedent-team-tms -- this team's own conventions for non-technical",
-    "    document work; see spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md.",
     "  precedent-team-writing -- the craft of documents and prose: length,",
     "    emphasis, lists, drafting markers, citation and linking. Wanted by",
     "    anyone writing for a human reader, on any team.",
@@ -24,6 +22,18 @@
     "    person: decide small calls, don't stall on a non-blocking question,",
     "    don't repeat the same disclaimer every run. Mostly resident, so it",
     "    fires on every turn.",
+    "precedent-team-tms was declared here until 2026-09-10 and is RETIRED.",
+    "  It held exactly one practice, `audience-register`, which moved to",
+    "  precedent-team-working-style -- its subject is how a session talks to",
+    "  the person, not this team's documents, and the file said so itself.",
+    "  The move keeps the rule's whole point intact: it exists to override a",
+    "  same-slug INDIVIDUAL practice asking for a more technical register,",
+    "  and precedence is by LEVEL (team > repo-local > individual >",
+    "  universal), so any team set outranks the individual one. A set that",
+    "  was built for an editorial pilot nobody started, and that no repo",
+    "  ever declared in anger, is a source a session has to resolve for",
+    "  nothing.",
+    "",
     "",
     "precedent-team-maintainers is deliberately NOT declared here: it holds",
     "repo and practice-set mechanics -- syncs, gates, branch setup, catalogue",
@@ -33,7 +43,7 @@
     "conventions', which was never true: over half its rules were about",
     "writing, and they were unreachable from here because of it.)",
     "",
-    "All three are resolved LIVE from sibling clones, never vendored, per",
+    "Both are resolved LIVE from sibling clones, never vendored, per",
     "those sources' own precedence rules. A hosted/ephemeral session needs",
     "AGENTS.md's own instruction to call add_repo for each at session start",
     "-- that instruction reads this file's `sources` rather than naming any",
@@ -76,11 +86,6 @@
     },
     {
       "level": "team",
-      "name": "precedent-team-tms",
-      "path": "../precedent-team-tms"
-    },
-    {
-      "level": "team",
       "name": "precedent-team-writing",
       "path": "../precedent-team-writing"
     },
@@ -93,11 +98,11 @@
   "not_binding": [
     {
       "slug": "catalogue-carries-stories",
-      "reason": "Governs landing practices in bulk into a catalogue. This project consumes a catalogue and holds none of its own; the practices it captures go to precedent-team-tms, where this rule is in force."
+      "reason": "Governs landing practices in bulk into a catalogue. This project consumes a catalogue and holds none of its own; the practices it captures go to precedent-team-writing, where this rule is in force."
     },
     {
       "slug": "full-practice-audit",
-      "reason": "A sweep of every source's full catalogue. This project owns no catalogue to sweep; the audit belongs to whoever maintains precedent-team-tms and the universal set."
+      "reason": "A sweep of every source's full catalogue. This project owns no catalogue to sweep; the audit belongs to whoever maintains precedent-team-writing and the universal set."
     },
     {
       "slug": "very-deep-check",
@@ -109,7 +114,7 @@
     },
     {
       "slug": "practice-export-loop",
-      "reason": "Vendoring an upstream practice layer and checking improvements back in. This project vendors the engine but does not maintain it, and contributes practices through precedent-team-tms instead."
+      "reason": "Vendoring an upstream practice layer and checking improvements back in. This project vendors the engine but does not maintain it, and contributes practices through precedent-team-writing instead."
     },
     {
       "slug": "cross-source-rollout",
@@ -149,7 +154,7 @@
     },
     {
       "slug": "checkable-gets-checked",
-      "reason": "Requires attempting a mechanical check before leaving a new rule advisory-only. The people who write rules here cannot write checks; the attempt belongs with precedent-team-tms's maintainers, and this project's rules reach them as candidates."
+      "reason": "Requires attempting a mechanical check before leaving a new rule advisory-only. The people who write rules here cannot write checks; the attempt belongs with precedent-team-writing's maintainers, and this project's rules reach them as candidates."
     },
     {
       "slug": "convention-to-audit",
@@ -166,7 +171,7 @@
     "an exemption nobody argued for is the same silence this mechanism replaces.",
     "",
     "Why this list exists at all: this template declares the full universal",
-    "catalogue (66 active practices) alongside precedent-team-tms, and",
+    "catalogue alongside its declared team sets, and",
     "materialization flattens both, so without these entries an editorial",
     "project receives every rule about running a code repository. Found",
     "2026-09-07 by the very deep check. The right correction is to exempt what",

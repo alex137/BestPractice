@@ -236,6 +236,31 @@ def unresolved_private_sources(repo_root=None, env=None):
     return out
 
 
+# THE THIRD CAUSE THIS FILE CANNOT MEASURE, AND WHY IT IS SAID ANYWAY.
+# Every message below assumed an unresolved source is an ACCESS problem --
+# no credential, a refused one, a session rooted under the wrong owner --
+# and offered the credential remedy for all of them. A source whose
+# repository has been RETIRED produces an identical reading and that remedy
+# is wrong for it: no token will ever clone a repo that is gone, so the
+# reader is sent to configure access for something that does not exist.
+#
+# Telling the two apart needs a network call, and this tool must work
+# offline and in continuous integration -- so it does not guess. It names
+# the possibility and the different remedy, which costs one sentence and is
+# the whole difference between a reader who checks precedent.json and one
+# who spends an afternoon on a token.
+#
+# Written 2026-09-10, retiring precedent-team-tms: a set built for a pilot
+# nobody started, that no repo declared in anger, whose one practice moved
+# to the set whose subject it always was. The first real retirement of a
+# practice source, and the first time this message was wrong.
+_RETIRED_CLAUSE = (
+    'AND IF THE SOURCE WAS RETIRED: a deleted repository reads exactly like '
+    'an unreachable one here, and no credential fixes it. Check whether '
+    'precedent.json still declares a source somebody has since retired -- if '
+    'so the fix is to remove that declaration, not to configure access.')
+
+
 def assess(repo_root=None, env=None):
     """-> (verdict, message). verdict is one of:
          'ok'       -- every private source this repo expects is on disk
@@ -261,7 +286,9 @@ def assess(repo_root=None, env=None):
             f'precedent_source_bootstrap.py names a REFUSED credential '
             f'separately from an absent one, and an inherited harness token '
             f'is refused for most repositories because it is scoped to the '
-            f'ones the harness attached. Sources: {detail}')
+            f'ones the harness attached. '
+            + _RETIRED_CLAUSE +
+            f' Sources: {detail}')
     if (env.get(TOKEN_ENV) or '').strip() == INHERIT:
         return 'missing', (
             f'{len(unresolved)} private source(s) did not resolve ({named}). '
@@ -285,7 +312,8 @@ def assess(repo_root=None, env=None):
         f'that is already running, and this line looks exactly the same for '
         f'"never set" and "set after this container started" -- start a NEW '
         f'session and check `env | grep -c PRECEDENT` before concluding '
-        f'anything about the token itself')
+        f'anything about the token itself. '
+        + _RETIRED_CLAUSE)
 
 
 def remind(repo_root=None, env=None, prefix='precedent_source_credentials'):
