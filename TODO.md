@@ -3249,33 +3249,85 @@ which is the failure this repointing exists to end — write
    overflow are separate pieces of work and neither substitutes for the
    other.
 
-   **blocked-on:** the reduction is somebody's to choose, not a session's.
-   [session-load-budget](practices/session-load-budget.md)'s own Rule says
-   so twice: a source over its ceiling is a finding to report to whoever owns
-   it, never an edit to make from here, and **when the resident cap refuses a
-   new practice the person picks what comes out**. Six of the seven are
-   reply-register practices that plausibly overlap; which one leaves is
-   Morgan's call.
+   **Morgan picked, 2026-09-11 (`decided`): `small-calls` comes out of the
+   resident block.** Measured with the change applied to the attached clone
+   and reverted: **1,855 tokens across 16 practices**, under the cap, so this
+   one demotion closes the overflow on its own and nothing else needs to
+   move. The whole edit is one word in
+   `precedent-team-working-style/practices/small-calls.md` — `tier: resident`
+   becomes `tier: on-demand` — followed by that set regenerating its own
+   views. The practice stays in force and stays where it is; only the loading
+   channel changes, from resident to the occasion index.
 
-   **Decided 2026-09-11, and in flight.** Morgan, shown the seventeen with
-   what each costs: demote `buenos-aires-dates` (individual, ≈159 tokens) to
-   `tier: on-demand`. It is the one resident rule with mechanical backstops —
-   its own `tools/checks/check_buenos_aires_dates.py`, the `pre-commit` hook
-   that refuses a wrong commit offset, and the zone ladder deriving from
+   **Two decisions were recorded on 2026-09-11, in two different threads,
+   naming two different practices. Both are Morgan's; neither session could
+   see the other; this paragraph does not rank them.**
+
+   *Thread A — `buenos-aires-dates`, and already in flight.* Shown the
+   seventeen with what each costs, Morgan chose to demote
+   `buenos-aires-dates` (individual, ≈159 tokens). It is the one resident
+   rule with mechanical backstops — its own
+   `tools/checks/check_buenos_aires_dates.py`, the `pre-commit` hook that
+   refuses a wrong commit offset, and the zone ladder deriving from
    `identity.json` — and it already carries an `occasion` and an
    `index_clause`, so demoting moves it into the occasion index rather than
    dropping it, and `applies_to: ["**"]` keeps the path-trigger channel
-   firing it. 159 tokens frees more than three times the 47-token overage.
-   **The reply-register practices were explicitly ruled out**: all four are
-   `checked_by: null`, they bind every reply, and this repository's own
-   gotchas record what a session's replies look like when one of them
-   silently fails to load. The edit is one frontmatter line in
-   `precedent-individual`, which no session rooted here can push to; it was
-   handed to a session rooted there. **This item closes when that lands and
-   `precedent_resolve.py` stops printing `OVER BUDGET`** — the fixture defect
-   described above is separate and stays open either way.
+   firing it. **The reply-register practices were explicitly ruled out** in
+   that thread: all four are `checked_by: null`, they bind every reply, and
+   this repository's own gotchas record what a session's replies look like
+   when one of them silently fails to load. The edit is one frontmatter line
+   in `precedent-individual`; it was handed to a session rooted there.
 
-   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — raised in the reply of the session that measured it, 2026-09-11; the reduction is decided, so what remains is mechanical.
+   *Thread B — `small-calls`.* Asked directly to drop `small-calls` from the
+   resident block and consider moving it to the writing set. Measured with
+   the change applied to the attached clone and reverted: **1,855 tokens
+   across 16 practices**, under the cap. The edit is
+   `tier: resident` → `tier: on-demand` in
+   `precedent-team-working-style/practices/small-calls.md`, followed by that
+   set regenerating its views. `small-calls` is not one of the four
+   reply-register practices thread A ruled out, so the two decisions do not
+   contradict each other — they overlap.
+
+   **Both. Morgan, 2026-09-11 (`decided`), asked which he wanted:**
+   *"I want to remove both. The other session is removing
+   buenos-aires-date."* So the two demotions are one decision in two threads,
+   not a collision to resolve — each set's edit proceeds independently, and
+   the paragraphs above are kept because they record what each thread
+   measured and ruled out, which is the part a later session would otherwise
+   re-derive.
+
+   Combined effect, from the two measurements above: the resident block goes
+   from 2,047 tokens across 17 practices to roughly **1,696 across 15**. Both
+   demoted practices keep an `occasion` and an `index_clause`, so each moves
+   into the occasion index rather than out of force, and both keep
+   `applies_to: ["**"]`, so the path-trigger channel still fires them.
+
+   **The move to the writing set was declined**, on two grounds worth
+   keeping so nobody re-proposes it. `small-calls` is about judgment calls in
+   any work — filling in a default, picking between two implementations — and
+   `precedent-team-writing` is seventeen practices about prose and documents;
+   it already sits in `precedent-team-working-style` beside
+   `default-register`, `nonblocking-questions` and `quiet-checks`, which is
+   its subject. And the move would not have achieved the thing anyway:
+   **residency is the `tier:` field, not the level**, so a resident practice
+   carried from one team set to another is still resident and still in every
+   session's block.
+
+   **blocked-on:** a session that can PUSH to the set being edited — neither
+   `precedent-individual` nor `precedent-team-working-style` is writable from
+   a session rooted here. Measured 2026-09-11, both routes: `git push` inside
+   the attached clone is refused by the git proxy (`not in this session's
+   authorized repository set`, 403), and `add_repo` with `access: "push"`
+   refuses with `cross-tier adds are not supported in v1 ... session already
+   has repos from owner(s) [alex137]`. Same wall as
+   [`views-drift-gate-rollout-to-existing-sets`](TODO.md#views-drift-gate-rollout-to-existing-sets).
+
+   **This item closes when a demotion lands and `precedent_resolve.py` stops
+   printing `OVER BUDGET`.** The fixture defect described above is separate
+   and stays open either way — and gets quieter rather than fixed, since it
+   will then answer "clean" while still reading the container's real sources.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — both reductions are decided; what remains is two pushes, in two repositories no session rooted here can write to.
 
 63. <a id="source-clone-keeps-no-credential"></a>**A private source clone carries no credential helper, so every later
     fetch of it fails — and the freshness guard blocks on that.**
