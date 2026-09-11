@@ -56,9 +56,9 @@ reason one level up: a template is a layout to populate from what happened,
 never a set of prompts to answer plausibly.
 
 ## Install
-[templates/pull_request_template.md.template](../templates/pull_request_template.md.template)
+[templates/pull_request_template.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/pull_request_template.md.template)
 → `.github/pull_request_template.md` — installed the same way as `AGENTS.md`
 (§1), propagated to existing installs the same way (§2). The "write from the
 diff, unchecked is fine" instruction lives in
-[templates/AGENTS.md.template](../templates/AGENTS.md.template) so every
+[templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template) so every
 session opening a PR sees it, not just the template itself.

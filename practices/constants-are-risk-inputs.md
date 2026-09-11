@@ -75,7 +75,7 @@ don't have doctrine about numbers."*
 
 ## Install
 Create the register next to the models it governs; add the guard to the model
-audit ([tools/model_audit.py](../tools/model_audit.py)'s
+audit ([tools/model_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/model_audit.py)'s
 `check_constants_register`, which a host arms by pointing
 `CONSTANTS_REGISTER` at the register's repo-relative path — comment-attached
 settled words then have to be registered or opted out with a reason, and

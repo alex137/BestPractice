@@ -30,6 +30,14 @@ anchors in rendered markdown, so an "open in new tab" link silently does
 nothing there (*as of 2026-08*).
 
 ## Detail
+**A practice file is the one document here that does not follow clause (a)
+to the letter, and [practice-links-travel](practice-links-travel.md) is why.**
+The catalogue is copied into every repository that adopts it, so a relative
+link out of `practices/` is live where it was written and dead everywhere it
+is read. Inside `practices/`, a reference to something that does not travel
+with the file is an absolute URL into the publishing repository instead. The
+clause is unchanged for every other document in the tree, which is nearly all
+of them.
 
 ## Why
 All born from real bugs: readers hunting for referenced files, an

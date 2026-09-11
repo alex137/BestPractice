@@ -120,7 +120,7 @@ which rung answered**, because "declared in your identity.json" and
 "nobody said, so the fallback" produce the same offset on a good day and
 mean opposite things.
 
-**The session half.** [.claude/hooks/commit-identity.sh](../.claude/hooks/commit-identity.sh)
+**The session half.** [.claude/hooks/commit-identity.sh](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/.claude/hooks/commit-identity.sh)
 resolves the same ladder at session start, repoints the container's system
 zone, and writes `TZ` into the harness `env` block — so `git`, `git merge`
 and every tool that asks the clock get the right offset without anybody

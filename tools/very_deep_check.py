@@ -31,6 +31,18 @@ READ practices/very-deep-check.md's Why section before trusting this
 mechanism's own reliability -- it has not been evaluated the way
 full-practice-audit and routing-audit have.
 
+Runs the BOOTSTRAP GENERATOR against every resolved team/individual
+source and diffs the result file by file -- the one direction neither
+`bootstrap_source.verify()` (does a real set still have every skeleton file?)
+nor `_template_freshness()` (does the skeleton still ship what real sets
+carry?) can see, since both are about which files exist and neither compares
+a byte. A difference in a file the skeleton ships is the set being lived in
+and is reported as a note; a difference in a file bootstrap GENERATES -- the
+vendored engine, the session hooks, settings.json -- is a finding, with the
+set's own ENGINE_MANIFEST saying whether it is an older vendoring to refresh
+or a hand-edit to move upstream. Nothing resolved is reported as a SKIP, not
+as clean.
+
 A missing declared team or individual source FAILS this tool by default
 (practice: very-deep-check) -- the ordinary loader degrades gracefully when
 one is absent, which is right for routine loading but wrong here: a very
@@ -1111,6 +1123,200 @@ def _template_freshness(sources):
     return out
 
 
+def _skeleton_rel_paths(level):
+    """-> {str} every path the level's skeleton ships, spelled the way
+    bootstrap() writes it at the destination (`.template` stripped, the
+    `.sample` suffix kept -- _copy_skeleton strips one and not the other,
+    and a check that guesses at that mismatches every file it touches)."""
+    skeleton = bootstrap_source.SKELETONS.get(level)
+    if skeleton is None or not skeleton.is_dir():
+        return set()
+    out = set()
+    for src in skeleton.rglob('*'):
+        if not src.is_file():
+            continue
+        rel = str(src.relative_to(skeleton))
+        if rel.endswith('.template'):
+            rel = rel[: -len('.template')]
+        out.add(rel)
+    return out
+
+
+def _same_bytes(gen_path, real_path, gen_root, real_root):
+    """-> True if the two files say the same thing once the one difference
+    that is never drift is normalized away: bootstrap() substitutes
+    {{DEST_PATH}}, so every generated file that quotes its own location
+    differs from a real set by nothing but the path it was written to."""
+    gen, real = gen_path.read_bytes(), real_path.read_bytes()
+    if gen == real:
+        return True
+    try:
+        gen_text = gen.decode('utf-8')
+    except UnicodeDecodeError:
+        return False
+    normalized = gen_text.replace(str(gen_root), str(real_root))
+    return normalized.encode('utf-8') == real
+
+
+def _bootstrap_drift_one(level, name, path):
+    """-> [str] what today's generator would write for a set that already
+    exists, where that differs from the set itself.
+
+    THE QUESTION NEITHER OTHER CHECK ASKS. bootstrap_source.verify() asks
+    whether a real source still has every file the skeleton ships;
+    _template_freshness() asks the reverse, for names. Both are about which
+    files EXIST. Neither has ever compared a byte -- so a set and the
+    generator that made it can say different things in the same file
+    forever, in either direction (the generator moving on after the set was
+    created, or the set being edited where it was never meant to be), while
+    every mechanism here reports healthy.
+
+    Raised by Morgan on 2026-09-11, reading the brand-new-adopter path:
+    "I'm worried about my updating those levels files but the original
+    generator generating something different." No incident is attached and
+    none is invented -- this is a gap found by reading rather than by a
+    failure, which is the other way findings arrive here
+    (practice: cite-the-incident, no-invented-specifics).
+
+    The owned/shape split is what keeps the output short enough to read. A
+    file the SKELETON ships is the person's -- "edit this file freely
+    afterward, it is yours", in the skeleton README's own words -- so a
+    difference there is a note, never a finding. A file bootstrap
+    GENERATES (the vendored engine, the session hooks, settings.json) is
+    the set's shape and carries "never hand-edit these", so a difference
+    there is a finding WITH A DIRECTION: the set's own ENGINE_MANIFEST says
+    whether it is a faithful vendoring of an older upstream commit (refresh
+    it) or a hand-edit that needs to move upstream instead
+    (practice: engine-plus-host-shims).
+
+    Runs the real generator into a throwaway directory rather than reading
+    the skeleton, because the skeleton is only half of what bootstrap()
+    writes -- the half this check was asked about is the other half."""
+    import contextlib, io, shutil, tempfile
+
+    real_root = pathlib.Path(path)
+    approvers = None
+    if level == 'team':
+        try:
+            data = json.loads((real_root / 'approvers.json').read_text(encoding='utf-8'))
+            approvers = data.get('approvers') or None
+        except Exception:                                         # noqa: BLE001
+            pass
+        if not approvers:
+            # bootstrap() refuses a team set with no approver, and refusing
+            # to run the check at all over a seed value that never reaches
+            # a compared file (approvers.json is skeleton-owned) would be
+            # the guard costing more than it protects.
+            approvers = [{'name': 'drift-check placeholder', 'github': 'drift-check'}]
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-drift-'))
+    gen_root = tmp / 'generated'
+    try:
+        try:
+            # bootstrap() prints its own stale-clone warning; that belongs to
+            # a person bootstrapping a set, not to this section's output.
+            with contextlib.redirect_stdout(io.StringIO()):
+                bootstrap_source.bootstrap(level, name, gen_root, approvers=approvers)
+        except Exception as exc:                                  # noqa: BLE001
+            return [f'FINDING {level}: the generator could not be run for '
+                    f'{name!r}, so NOTHING here was compared -- '
+                    f'{type(exc).__name__}: {exc}']
+
+        owned = _skeleton_rel_paths(level)
+        wired = {w.name: w for w in bootstrap_source._wired_hook_paths(real_root)}
+        manifest = {}
+        try:
+            manifest = json.loads(
+                (real_root / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+        except Exception:                                         # noqa: BLE001
+            pass
+        recorded = manifest.get('sha256', {})
+
+        findings, notes, absent = [], [], []
+        for gen_path in sorted(gen_root.rglob('*')):
+            if not gen_path.is_file():
+                continue
+            rel = str(gen_path.relative_to(gen_root))
+            # practices/ is the set's own content, and example-starter is
+            # the one file an adopter is told to delete.
+            if rel.split(os.sep)[0] == 'practices':
+                continue
+            # The manifest records the commit and hashes of the vendoring
+            # that happened, so it differs by construction; what it has to
+            # say is reported below as a commit gap, not as a diff.
+            if rel.endswith('ENGINE_MANIFEST.json'):
+                continue
+            real_path = real_root / rel
+            if not real_path.is_file():
+                # A hook the set wires from somewhere other than
+                # .claude/hooks/ is installed, not missing -- the same
+                # allowance verify() makes, for the same live source.
+                alt = wired.get(pathlib.Path(rel).name)
+                real_path = (real_root / alt) if alt and (real_root / alt).is_file() else None
+            if real_path is None:
+                if rel not in owned:
+                    absent.append(rel)
+                continue
+            if _same_bytes(gen_path, real_path, gen_root, real_root):
+                continue
+            if rel in owned:
+                notes.append(rel)
+                continue
+            why = ''
+            eng_name = pathlib.Path(rel).name
+            if rel.startswith('tools' + os.sep) and eng_name in recorded:
+                actual = bootstrap_source.precedent_vendor_engine._sha256(real_path)
+                why = (' -- matches its own ENGINE_MANIFEST, so the set is a '
+                       'faithful vendoring of an OLDER upstream commit: '
+                       '`precedent_vendor_engine.py refresh`'
+                       if actual == recorded[eng_name] else
+                       ' -- does NOT match its own ENGINE_MANIFEST either, so it '
+                       'was hand-edited in place: move the change upstream '
+                       'rather than refreshing over it')
+            findings.append(f'{rel} differs from what the generator writes today{why}')
+
+        out = []
+        for rel in absent:
+            out.append(f'FINDING {level} {name}: the generator writes {rel!r} '
+                       f'and this set does not have it')
+        for msg in findings:
+            out.append(f'FINDING {level} {name}: {msg}')
+        commit = manifest.get('source_commit')
+        head = bootstrap_source.precedent_vendor_engine._head_commit(ROOT)
+        if commit and head and commit != head and (findings or absent):
+            out.append(f'  (its engine was vendored at {commit[:9]}; this '
+                       f'checkout is at {head[:9]})')
+        if notes:
+            out.append(f'note {level} {name}: {len(notes)} skeleton-shipped '
+                       f'file(s) differ, which is what a set being lived in '
+                       f'looks like, not drift: {", ".join(sorted(notes))}')
+        return out
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _bootstrap_drift(sources):
+    """-> [str] _bootstrap_drift_one across every resolved team/individual
+    source, or one line saying why nothing was compared. A section that
+    prints nothing when no source resolved reads exactly like a section
+    that compared everything and found it clean
+    (practice: fail-gracefully)."""
+    out, seen = [], False
+    for s in sources:
+        level, path = s.get('level'), s.get('path')
+        if level not in ('team', 'individual') or not path:
+            continue
+        if not pathlib.Path(path).is_dir():
+            continue
+        seen = True
+        out.extend(_bootstrap_drift_one(level, s.get('name'), path))
+    if not seen:
+        return ['no team or individual source resolved here, so the generator '
+                'was NOT compared against anything -- this is a skip, not a '
+                'clean result. Attach the sets and re-run.']
+    return out
+
+
 def _merged_row(repo_dir, name, ref, stale_days):
     """-> the evidence a session needs to DELETE one branch that is already
     an ancestor of the integration branch: {'name', 'last', 'age_days',
@@ -1685,6 +1891,28 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=sys.stdout):
             notes.append(f'blocklist at {blocklist_path} could not be read ({e}) '
                          '-- the allow lines were NOT read, so a deliberately '
                          'named repository may be reported below.')
+        # THE SAME FAIL-OPEN THE PUSH GATE NOW REFUSES, in the tool that
+        # actually runs the visibility audit. The loop above carries its own
+        # copy of the allow regex, so a directive that parses as neither is
+        # invisible HERE too -- and the cost is the opposite of the gate's: a
+        # dropped `allow` line makes this audit report a disclosure somebody
+        # already accepted, and a dropped `private-owner` line means the
+        # blocklist says a rule is configured while nothing enforces it.
+        # Reported as findings rather than an exit, because an audit that
+        # stops on the first bad line cannot tell you what else is wrong
+        # (practice: fail-gracefully -- keep going, never look complete). The
+        # push gate is where this is fatal; leak_gate.repo_policy_errors is
+        # the one implementation, so the two cannot drift in what they call
+        # malformed.
+        for _ln, _txt, _why in leak_gate.repo_policy_errors(bl):
+            where = f'{bl}:{_ln}' if _ln else str(bl)
+            findings.append(
+                f'{where}: {_why}. A `# visibility-audit:` line that does not '
+                f'parse is indistinguishable from an ordinary comment, so the '
+                f'allow lines below may be narrower than the file reads -- and '
+                f'this audit and the push gate are both reading it.'
+                + (f' Line reads: {_txt}' if _txt else ''))
+
         try:
             blocked_pats = leak_gate._parse_blocklist(bl)
         except SystemExit as e:
@@ -2100,6 +2328,21 @@ def main():
     else:
         print("  none -- every file the resolved sources share at their root "
               "is\n  either shipped by the skeleton, generated, or vendored.")
+    print()
+
+    # The third direction, and the only one that reads the files rather than
+    # their names: run the generator now and diff it against the sets that
+    # exist (practice: very-deep-check, pass 1).
+    print("BOOTSTRAP DRIFT -- what the generator would write today, against "
+          "the real sets\n")
+    _bd = _bootstrap_drift(data['sources'])
+    if _bd:
+        for _m in _bd:
+            print(f"  {_m}")
+    else:
+        print("  none -- every file the generator writes is present in each "
+              "resolved\n  source and says the same thing, outside the "
+              "skeleton files a set owns.")
     print()
 
     # A condition-shaped `expires:` field cannot be evaluated by any script, so

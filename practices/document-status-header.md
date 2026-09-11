@@ -23,7 +23,7 @@ in three seconds whether they are holding a live reference or the record of
 something that finished. The fields are `title`, `kind`, `status`, `opened`,
 `closed`, `superseded_by`, `supersedes`, `audience`, `summary` — the full
 schema, and the legal `status` values for each `kind`, are in
-[spec/DOCUMENT_LIFECYCLE.md](../spec/DOCUMENT_LIFECYCLE.md).
+[spec/DOCUMENT_LIFECYCLE.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/DOCUMENT_LIFECYCLE.md).
 
 **The kind decides what "outdated" can even mean for the file.** A
 `reference` states how the system works and can become wrong. A `record` is a
@@ -107,13 +107,13 @@ check could read it.
 
 ## Install
 Add frontmatter to every document under `spec/` and `record/` with the schema
-in [spec/DOCUMENT_LIFECYCLE.md](../spec/DOCUMENT_LIFECYCLE.md), and delete the
+in [spec/DOCUMENT_LIFECYCLE.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/DOCUMENT_LIFECYCLE.md), and delete the
 prose status sentence and any `Last updated:` comment in the same commit —
 leaving both is how the two copies start disagreeing. Stamp one file first
 and run the check across the whole tree in `--warn-only` mode to see the real
 violation count before committing to it; a standard that fails twenty files
 on the commit that introduces it is a standard people switch off.
-[tools/doc_lifecycle.py](../tools/doc_lifecycle.py) is the check, registered
+[tools/doc_lifecycle.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_lifecycle.py) is the check, registered
 in [tools/precedent_check.py](../tools/precedent_check.py); flip it to
 blocking once the backfill is done.
 

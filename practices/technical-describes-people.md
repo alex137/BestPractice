@@ -94,10 +94,10 @@ whole-tree question.
 **That is the reusable part: a check scoped to what changed is blind to what
 already landed.** It is the right scope for stopping the next one, and it is
 not an audit of the ones before it. The names are now
-[spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](../spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md),
-[documentation/HOW_TO_USE_THIS_DEVELOPERS.md](../documentation/HOW_TO_USE_THIS_DEVELOPERS.md)
+[spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md),
+[documentation/HOW_TO_USE_THIS_DEVELOPERS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/HOW_TO_USE_THIS_DEVELOPERS.md)
 and
-[documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md](../documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md),
+[documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md),
 and the prose that labelled a project, a template, a register or a path by a
 skill level went with them. Morgan's own restatement is the reason the sweep
 ran at all: *"WE SHOULD NOT MAKE A DIFFERENCE BETWEEN TECHNICAL OR

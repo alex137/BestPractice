@@ -47,7 +47,7 @@ When a person explicitly asks for a "very deep check", or after work that
 invites drift (a batch of practices added or reordered, a practice that
 changed shape, an install into a new repo, a merge that resolved conflicts
 across several shared files), run
-[tools/very_deep_check.py](../tools/very_deep_check.py) and work the four
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) and work the four
 passes in Detail, in that order. The tool enumerates the scope — this
 checkout's own top-level documents, plus the `practices/*.md` tree of every
 source in force, resolved exactly the way
@@ -67,7 +67,7 @@ together rather than one at a time.
 
 **Before anything is read, every repo in force must be provably current
 against its origin** — this checkout and every attached source.
-[tools/very_deep_check.py](../tools/very_deep_check.py) fetches and compares
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) fetches and compares
 each one as its first act and refuses to go further otherwise, because a
 very deep check's whole product is judgment about what the repos say: a stale tree does not degrade
 that judgment, it inverts it — work that landed last week reads as missing,
@@ -83,7 +83,7 @@ says so on stderr — the right call for routine loading, where one operator's
 absent individual set is expected. It is the wrong call here: a very deep
 check is explicitly asked for and scoped to the whole set of repos in force,
 so a silently dropped source defeats the reason it was asked.
-[tools/very_deep_check.py](../tools/very_deep_check.py) fails loudly rather
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) fails loudly rather
 than degrading. On that
 failure, attach or clone the missing source (this harness's own
 repo-attachment mechanism, or a plain `git clone`) and re-run — never re-run
@@ -98,7 +98,7 @@ queue ahead of a pass-1 one because it is easier to fix, and never report a
 run as done with a pass-1 roadblock still open.
 
 **This is more than one session's work, and is meant to be split.** Keep the
-run's state in [spec/VERY_DEEP_CHECK.md](../spec/VERY_DEEP_CHECK.md): which
+run's state in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md): which
 passes are done, what each turned up, what was fixed, what was deferred and
 where it went. A later session resumes at the next unfinished pass rather
 than starting over, and a pass is never quietly skipped — a pass deliberately
@@ -106,7 +106,7 @@ not run is recorded as not run, with the reason.
 
 Fix what a pass turns up in the same pass — most findings are small — then
 re-run the mechanical audits, since the fixes themselves break links.
-Anything deliberately left alone gets a line in [TODO.md](../TODO.md) saying
+Anything deliberately left alone gets a line in [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md) saying
 so, rather than being silently dropped.
 
 ## Detail
@@ -138,10 +138,10 @@ cannot tell a drift this run introduced from one that was there before. So:
    session-start freshness guard runs for the session's primary repo only,
    so an attached sibling has never been checked by anything.
 2. **Run the deep check suite as it stands** — the five gates
-   [AGENTS.md](../AGENTS.md) names ([two-check-levels](two-check-levels.md))
+   [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
    `0 violated` is the starting line, not the finish.
-3. **Run [tools/very_deep_check.py](../tools/very_deep_check.py)** for the
+3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)** for the
    enumeration, the machine-readable parse, the source-shape check, and the
    branch scan. A missing declared source stops the run here.
 4. **Read the unmerged-branch inventory, before any pass begins.** Not the
@@ -177,11 +177,11 @@ weight: an install happens once, an **update** happens forever, and for a
 long time only the first was ever tested. Reading the install documents finds
 almost none of them: every significant finding of the 2026-09-06 pre-launch
 audit came from **building the thing the document describes and running the
-checks on it** ([spec/PRELAUNCH_AUDIT.md](../spec/PRELAUNCH_AUDIT.md), "The
+checks on it** ([spec/PRELAUNCH_AUDIT.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRELAUNCH_AUDIT.md), "The
 method"). Build the fixtures.
 
 - **A real from-scratch install.** A scratch repository with nothing in it,
-  installed per [INSTALL.md](../INSTALL.md) §0 against `precedent-beta-v01`
+  installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0 against `precedent-beta-v01`
   alone — no team set, no individual set, none of the sibling clones this
   session happens to have — following the documents exactly as written,
   without leaning on what this session already knows. Then run the deep
@@ -190,7 +190,7 @@ method"). Build the fixtures.
   clean on a correct fresh install.
 - **A real migration**, the same way: a scratch repo on the classic
   `process/upstream/` layout, walked end to end through
-  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md).
+  [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md).
 - **An update, not only an install.** Vendor a scratch consumer at an OLD
   upstream commit, then bring it forward to the current one with the
   documented tooling and run the checks. Every fixture above builds a repo
@@ -224,17 +224,33 @@ method"). Build the fixtures.
   Each degradation path should degrade with a named reason — never pass
   silently on a scan that never ran, and never fail on something the adopter
   cannot fix.
+- **The generator, against the sets that already exist.** Run
+  [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_bootstrap_source.py)
+  for each resolved team and individual source and diff its output against
+  the real set, file by file — the tool's `BOOTSTRAP DRIFT` section does
+  this, and it needs those sets attached to do anything at all. A set is
+  created once and then lived in for months while the generator keeps
+  moving, so the two drift apart in both directions and nothing else here
+  looks: `verify()` and the template-freshness scan both ask which files
+  exist, never what any of them says. A difference in a file the skeleton
+  ships is the set being used and is not a finding. A difference in a file
+  bootstrap *generates* — the vendored engine, the session hooks,
+  `settings.json` — is, and the set's own `ENGINE_MANIFEST.json` says which
+  fix applies: refresh an older vendoring, or move a hand-edit upstream.
+  **Without the sets attached this is a SKIP, not a pass** — the section
+  says so in those words, and a run that leaves it skipped records pass 1
+  as PARTIAL exactly as the real-consumer step above does.
 - **Cross-repo relationships and permissions.** Walk who must be able to read
   or write what, for a *new* repo and a *new* person: the vendored engine,
   each declared source, approvers and CODEOWNERS, and the restricted GitHub
-  roles [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](../spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+  roles [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
   describes. A step that works only because this session's operator already
   has access is a finding.
 - **Not the practice simulation.** This pass installs real fixtures and runs
   the ordinary checks on them. It does not run
-  [tools/precedent_simulate.py](../tools/precedent_simulate.py) or its
+  [tools/precedent_simulate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_simulate.py) or its
   siblings, which are deliberately never reachable from an occasion, gate, or
-  hook ([spec/SIMULATION_BRIEF.md](../spec/SIMULATION_BRIEF.md), "Never
+  hook ([spec/SIMULATION_BRIEF.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/SIMULATION_BRIEF.md), "Never
   automatic") — this practice is not standing to run them either.
 
 ### Pass 2 — Do the mechanisms report what they claim to?
@@ -278,7 +294,7 @@ confidently.
 6. **Is a file the format it claims?** Parse with a real third-party parser,
    never the repo's own reader, which is more permissive than the standard
    and so never notices.
-   [tools/very_deep_check.py](../tools/very_deep_check.py) now does this for
+   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) now does this for
    every tracked JSON and YAML file; what stays a judgment call is every other
    declared format — a schema, a fenced block, a manifest — that no parser
    here covers. *(Found: 10 practice files and 4 decision records PyYAML
@@ -304,7 +320,7 @@ confidently.
    with a recorded commit, never whether a copy exists. *(Found: this
    practice's own checklist, living both in the Detail section below and as
    a `CHECKLIST` string literal inside
-   [tools/very_deep_check.py](../tools/very_deep_check.py), with nothing
+   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py), with nothing
    keeping the two in step — the tool printed the copy, so a session would
    have worked the stale list without ever seeing the current one.)*
 9. **Does anything use alphabetical order to pick a winner?** Often the
@@ -373,7 +389,7 @@ first so this pass spends its attention on what they cannot see.
   resident practice block, and nothing on either side compares the two. So
   ask it directly, every run: **what rules does this repository ship into
   somebody else's, and do they agree with the catalogue?**
-  [tools/very_deep_check.py](../tools/very_deep_check.py)'s "RULES WE SHIP
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s "RULES WE SHIP
   SOMEWHERE ELSE" section hands you the inventory — every shipped file
   carrying imperative prose, with a count — so this is a read of a short
   list, not a browse of a directory. **Read them against the RESIDENT
@@ -407,10 +423,10 @@ first so this pass spends its attention on what they cannot see.
   check") needs somewhere a session meeting it cold can look it up. A
   trigger word reachable only by already knowing it is not a keyword, it is
   folklore. The usual home is a practice's `defines:` field, which lands it
-  in [GLOSSARY.md](../GLOSSARY.md) — **but a glossary entry is not the
+  in [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GLOSSARY.md) — **but a glossary entry is not the
   property; being findable is.** "Go merge" and "Park it" are deliberately
   NOT in the glossary (Morgan, 2026-09-08: *"Don't put it in the
-  glossary."*); both are defined in [AGENTS.md](../AGENTS.md), which is
+  glossary."*); both are defined in [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md), which is
   where a session actually reads them, and `check_park_it.py` fails if that
   paragraph goes missing. This bullet named "Go merge" as its own example
   until 2026-09-08, when a run followed it, found the phrase missing from
@@ -421,7 +437,7 @@ first so this pass spends its attention on what they cannot see.
   gate can make, because nothing is wrong at any single commit: every line in
   an always-loaded file was right to add on the day it was added, and it only
   goes wrong in aggregate, months later.
-  [tools/very_deep_check.py](../tools/very_deep_check.py)'s "SESSION LOAD"
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s "SESSION LOAD"
   section counts the instructions file section by section, plus the untracked
   practice file when private sources resolved, and flags any section large
   enough to be worth splitting and any entry whose own text says its trap is
@@ -439,7 +455,7 @@ first so this pass spends its attention on what they cannot see.
   block's 2,000-token budget had been reporting green for weeks while the
   file around it reached ≈17,000 — the budget governed 4% of the cost, and
   nothing was measuring the rest. The first pass moved 24 entries' full text
-  to [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) and took ≈4,900
+  to [record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS_ARCHIVE.md) and took ≈4,900
   tokens off every session, deleting nothing. A consuming repo measured the
   same day had the same disease in a different section, so this is structural
   rather than one repository's untidiness.)*
@@ -456,7 +472,7 @@ first so this pass spends its attention on what they cannot see.
   on-demand practice only reaches a session that thought to ask for it.
   **Judge the occasions, not the token count** — a demotion made to free
   budget is the SESSION LOAD trap one level up.
-  *(Read [spec/LOADER.md](../spec/LOADER.md)'s replay before any verdict, because
+  *(Read [spec/LOADER.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/LOADER.md)'s replay before any verdict, because
   it makes the third answer visible. It ran `verify-postcondition` and
   `environment-gotchas` resident at two Rule lengths; the arm reading only the
   resident block found `verify-postcondition` **0 of 2** with the long Rule and
@@ -466,7 +482,7 @@ first so this pass spends its attention on what they cannot see.
   length**, and what both runs agree they needed was a `checked_by`. So
   "neither tier is the problem" is an available verdict, and was the right one
   twice.)*
-  [tools/very_deep_check.py](../tools/very_deep_check.py)'s "TIER PLACEMENT"
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s "TIER PLACEMENT"
   section hands you the resident set with each practice's occasion and
   whether a check already covers it, so this is a read of a short list. It
   enumerates and does not judge, and no `checked_by` will: the cap already
@@ -476,7 +492,7 @@ first so this pass spends its attention on what they cannot see.
   check here, which all ask whether something that should be present *is*.
   An orphan is present and in nobody's list, so no mechanism keyed on a
   current list can see it.
-  [tools/very_deep_check.py](../tools/very_deep_check.py) now sweeps four
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) now sweeps four
   kinds mechanically — a tombstoned engine file, a manifest entry the
   current kind dropped, an unrecorded engine file hand-copied in, and a
   `check_<slug>.py` whose practice is gone — so read only what it cannot:
@@ -557,12 +573,12 @@ first so this pass spends its attention on what they cannot see.
 Last because none of it strands an adopter, and none of it is cheap.
 
 - **The full catalogue, every practice.** Run
-  [tools/full_practice_audit.py](../tools/full_practice_audit.py) across every
+  [tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/full_practice_audit.py) across every
   source in force. That tool deliberately prints enforced practices as one
   line each; pass 2's *read each enforced practice's check against its own
   Rule* is where those get their real read, so the two
   together are what "every single practice was looked at" actually means.
-- **Backlog drift.** Read [TODO.md](../TODO.md) (and each source's equivalent)
+- **Backlog drift.** Read [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md) (and each source's equivalent)
   end to end: entries already done, no longer relevant, or never actually
   decided. Treat an entry that is really just an unfixed bug as work, not as
   backlog — [todo-is-a-handoff](todo-is-a-handoff.md) queues only what is
@@ -572,7 +588,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   already read at step 4 of the order of operations, for a different
   reason — to stop this run rediscovering work that exists. What is left
   here is the expensive half: a verdict on each.
-  [tools/very_deep_check.py](../tools/very_deep_check.py) reports, for this
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) reports, for this
   checkout and for every source that is its own git checkout (a repo-local
   source inside the parent checkout shares its parent's branches and isn't
   swept separately), two lists per repo. Neither may be left without a
@@ -601,7 +617,7 @@ Last because none of it strands an adopter, and none of it is cheap.
 
   **Every row carries the date it last moved, and the list is split at a
   declared staleness threshold** — `branch_stale_days` in the repo's own
-  [precedent.json](../precedent.json), overridable for one run with
+  [precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json), overridable for one run with
   `--stale-days N`. Both halves are equally proven safe to delete by the
   ancestor test; the split sorts the chore rather than grading the
   branches. **Merged *and* long-finished is the safest thing on the page**;
@@ -663,7 +679,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   `main` is the case — and that merge gets exactly one attempt, usually
   under time pressure, usually by whoever approves it rather than whoever
   built it. Rehearse it here, every run:
-  [tools/very_deep_check.py](../tools/very_deep_check.py) merges the
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) merges the
   integration branch into its base in a throwaway worktree, commits nothing,
   and reports **two sets, separately**. *Conflicting paths* are loud, and
   whoever runs the real merge will deal with them. *Paths present on the
@@ -691,7 +707,7 @@ Last because none of it strands an adopter, and none of it is cheap.
 
 ## Why
 The mechanical audits ([doc_lint.py](../tools/doc_lint.py),
-[leak_gate.py](../tools/leak_gate.py),
+[leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py),
 [precedent_check.py](../tools/precedent_check.py),
 [doc_sync.py](../tools/doc_sync.py)) catch broken links, bad syntax, and enforcement drift; the
 routing audit catches a practice that should have fired and didn't. None of
@@ -712,7 +728,7 @@ preference, it is what makes the check worth its cost.
 
 **Read this before trusting the result, the same caution
 `full-practice-audit` states for itself.**
-[spec/ATTENTION_CEILING.md](../spec/ATTENTION_CEILING.md)'s review-arm result
+[spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/ATTENTION_CEILING.md)'s review-arm result
 (54% recall on a whole-catalogue judgment pass, worse than no review at all)
 was measured against practice-compliance judging, not document-coherence
 reading or fixture-building — different tasks, so that figure does not
@@ -724,13 +740,13 @@ building a fixture and running the checks on it produces evidence, not a
 judgment, so its findings do not depend on this caveat.
 
 ## Story
-Named in [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s v28 amendment
+Named in [PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/PRACTICE_ENGINE_PLAN.md)'s v28 amendment
 (2026-09-01) as "the inherited RepoPersonalPreferences (RPP) audit list ...
 heavier than any of [light check, deep check, routing audit] ... not yet
 inventoried here (RPP is a separate private repo); enumerate and wire it as
 an on-demand tool when phase 5 or later actually needs it" — tracked nowhere
 else, the same
-structural gap [spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md)
+structural gap [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md)
 found `routing-audit` fell into, and logged there as `TODO.md` item 17.
 
 Enumerating it turned up that earlier that same day, the phase-3 private-set
@@ -759,14 +775,14 @@ question this Story used to carry — whether it should point here via
 there is nothing to override.
 
 This is the whole argument of
-[decisions/2026-09-06-deduplication-not-retirement.md](../decisions/2026-09-06-deduplication-not-retirement.md)
+[decisions/2026-09-06-deduplication-not-retirement.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/decisions/2026-09-06-deduplication-not-retirement.md)
 in miniature: two rules resembled each other, and resemblance was accepted as
 coverage.
 
 Revised 2026-09-05, on Morgan's direct request, adding the missing-source
 failure and the stale-branch sweep. Both were real, reproduced, not
 hypothetical: this repo's own team source (`../precedent-team-maintainers`)
-is declared in [precedent.json](../precedent.json), yet nothing before that
+is declared in [precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json), yet nothing before that
 revision made a session go get the sibling clone, so a session starting in a
 fresh checkout would run the tool, see the source reported "missing" on
 stderr, and call the result a very deep check anyway. And a request in the
@@ -780,7 +796,7 @@ cross-source-staleness bullet, whose standing prevention side is
 
 Restructured 2026-09-06, on Morgan's direct request, into the four ordered
 passes above. Two things drove it. The first was the pre-launch audit of the
-same date ([spec/PRELAUNCH_AUDIT.md](../spec/PRELAUNCH_AUDIT.md)): every one
+same date ([spec/PRELAUNCH_AUDIT.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRELAUNCH_AUDIT.md)): every one
 of pass 2's questions but one is a defect that audit actually found, and not
 one of them was reachable from the drift checklist this practice carried at
 the time — the check was looking only at prose while the mechanisms
@@ -805,7 +821,7 @@ as not the one that runs — so it belongs in pass 2, immediately before the
 tie-break question it generalizes, rather than appended to pass 3's list.
 The restructure had produced an instance of it in the same commit: this
 practice's own checklist existed both here and as a `CHECKLIST` literal in
-[tools/very_deep_check.py](../tools/very_deep_check.py), and the tool
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py), and the tool
 printed the copy. The order of operations came from the same message: the
 passes were ordered, but nothing said to run the cheap mechanical gates
 before spending judgment, which is how a session ends up hand-reading for
@@ -862,7 +878,7 @@ records solved problems as open.
 So the inventory — cheap, mechanical, and the only step here that PREVENTS
 work rather than finding it — moves to step 4 of the order of operations,
 before any pass. The verdicts — expensive, and judgment — stay in pass 4.
-[tools/very_deep_check.py](../tools/very_deep_check.py) prints the
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) prints the
 unlanded-work block before the checklist a session works from, and
 verify_harness.py asserts that ordering specifically, since a block that
 exists but prints last is exactly the failure being fixed.
@@ -891,7 +907,7 @@ force a fetch before anything else. It should, and prose was never going to
 carry it: the order of operations added the day before *said* to freshen
 first, and prose is exactly what a session skips when the thing it is stale
 about is the instructions. The evidence was already written down three
-times in [AGENTS.md](../AGENTS.md)'s gotchas — a session 366 commits behind
+times in [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md)'s gotchas — a session 366 commits behind
 that reported files landed days earlier as not existing, and a
 session-start guard that could not help because the container's copy of the
 guard predated the guard. So the tool now fetches and compares every repo
@@ -942,7 +958,7 @@ rather than fixing in code**: the engine's conservative default of 90 days
 put *every one* of this repo's 69 branches on the recent side — a feature
 that shipped inert in the repo that asked for it. This repo declares 30.
 Nothing measured that either number is right; both are values picked to fit
-a distribution, said so in [precedent.json](../precedent.json) rather than
+a distribution, said so in [precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json) rather than
 dressed up ([no-invented-specifics](no-invented-specifics.md)).
 
 **And the sweep covered fewer repos than it read as covering.** It scanned
@@ -961,7 +977,7 @@ which it settles by looking; sources resolving to one clone are swept once.
 **The same day, one more, and it was found by running the check rather
 than reading it.** The sweep widened above could not actually reach the
 repos it had just been widened to: in a session where the credential route
-was working exactly as [INSTALL.md](../INSTALL.md) §8 describes — all four
+was working exactly as [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §8 describes — all four
 private sources cloned before the first turn — **every one of them failed
 this tool's own freshness gate** with *"could not read Username for
 `https://github.com`"*, and the run refused to read a line. The token was
@@ -982,8 +998,22 @@ today: this sweep grew three new fetches in a fortnight, and a per-caller
 fix covers whatever existed the day it was written
 ([durable-fix](durable-fix.md)).
 
+**The generator check above came from a question, not a failure, and that is
+worth saying plainly.** Morgan asked on 2026-09-11, after reading how a
+brand-new adopter with no team or individual set gets one, whether that path
+was tested here at all — and named the shape of what worried him: he updates
+the files in his own sets over months while the generator that made them
+keeps moving, and nothing would ever say the two had parted. It had not been
+tested. Two checks looked adjacent and neither was: `verify()` asks whether a
+real set still has every file the skeleton ships, and the template-freshness
+scan asks the reverse for filenames — **both are about which files exist, and
+between them they had never compared a single byte.** No incident is attached
+because none happened; a gap can be found by reading, and
+[cite-the-incident](cite-the-incident.md) asks for the real story, which here
+is that somebody asked the right question before it cost anything.
+
 ## Install
-[tools/very_deep_check.py](../tools/very_deep_check.py) enumerates the scope
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
 `practices/*.md` tree, reusing
 [tools/precedent_resolve.py](../tools/precedent_resolve.py)'s own source
@@ -996,7 +1026,7 @@ scope the tool enumerates, the same class of resistant-to-automation
 practice `full-practice-audit` and `mistakes-become-rules` already name. See
 [full-practice-audit](full-practice-audit.md) for the narrower,
 already-built sibling this one deliberately does not replace, and
-[spec/UNBUILT_PLAN_ITEMS.md](../spec/UNBUILT_PLAN_ITEMS.md) for the decision
+[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) for the decision
 record this practice's own build closes out.
 
 Six parts of the check *are* mechanical, as far as a mechanical check can
@@ -1027,7 +1057,7 @@ list rather than the first ten. It reports CANNOT TELL, never clean, when
 the two branches have no common ancestor in this clone: an under-fetched
 history yields an empty difference that reads exactly like a good result.
 Its negative control is
-[tools/verify_harness.py](../tools/verify_harness.py)'s
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py)'s
 `check_endgame_merge_finds_the_silent_drop`, which plants one file of each
 class and asserts *which path lands in which set by name* — a count would
 have passed while reproducing the original miss

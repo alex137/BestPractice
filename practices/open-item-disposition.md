@@ -84,7 +84,7 @@ how the BestPractice is to put everything we discuss on the TODO (that is
 amazing so we never forget anything), but some things are just minor and you
 don't need to keep on bringing them up so insistently."*
 
-[TODO.md](../TODO.md) held 52 open items at that point and nothing in the
+[TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md) held 52 open items at that point and nothing in the
 format could distinguish one he wanted pressed from one he had already heard
 and set aside. The question in question was genuinely undecided and
 genuinely minor, and he had no pattern yet to turn into a rule — so every
@@ -96,7 +96,7 @@ Write the disposition line into the item itself, in the format above.
 Nothing has to be backfilled: an item with no line is `wait`, which is the
 quiet state.
 
-The TODO template ([templates/TODO.md.template](../templates/TODO.md.template)) carries the convention in
+The TODO template ([templates/TODO.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/TODO.md.template)) carries the convention in
 its header, beside [todo-is-a-handoff](todo-is-a-handoff.md)'s. The `reply` gate carries this Rule, so
 it is in front of a session at the moment the raising would happen —
 `python3 tools/precedent_gate.py reply`. The grammar is enforced by

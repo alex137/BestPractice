@@ -4014,6 +4014,40 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('catalogue-carries-stories', _plant_catalogue_stories)
 
+        # practice-links-travel -- all three shapes at once, in one existing
+        # practice file: a relative link into a directory that does not
+        # travel, an upstream URL on a branch this repo is not publishing
+        # from, and an upstream URL naming a path that does not exist. One
+        # planted file rather than three cases because `case()` keys its
+        # fixture directory by slug; the three are told apart below by the
+        # messages the check prints, not by the exit status
+        # (practice: control-asserts-which-failure).
+        def _plant_practice_links(repo):
+            f = repo / 'practices' / 'repo-is-memory.md'
+            f.write_text(f.read_text(encoding='utf-8') +
+                         '\nPlanted: [a](../spec/LOADER.md), '
+                         '[b](https://github.com/alex137/BestPractice/blob/'
+                         'main/TODO.md), '
+                         '[c](https://github.com/alex137/BestPractice/blob/'
+                         'precedent-beta-v01/no-such-planted-path.md).\n',
+                         encoding='utf-8')
+        # The fixture is a `git init` copy with no remote, and the
+        # upstream-URL half of the check asks origin which repository this
+        # is -- without this the two URL cases below would be skipped and
+        # read as passing. (practice: fixture-owns-its-state)
+        def _setup_origin(repo):
+            git(repo, 'remote', 'add', 'origin',
+                'https://github.com/alex137/BestPractice.git')
+        case('practice-links-travel', _plant_practice_links,
+             setup=_setup_origin)
+        _plt = planted['practice-links-travel'][1]
+        for _frag, _what in (
+                ('does not travel with this file', 'the relative link'),
+                ('precedent.json declares', 'the wrong-branch URL'),
+                ('no such path exists here', 'the dead-path URL')):
+            cases.append((f'practice-links-travel: {_what} is named in the '
+                          f'finding, not merely counted', _frag in _plt))
+
         # technical-describes-people -- a DIRECTORY named for a person's
         # skill level. The person-noun form (`nontechnical-contributor-*`)
         # is deliberately NOT planted here: it must stay silent, and the
@@ -7938,6 +7972,94 @@ def check_repo_reference_allowlist():
                       refs('vendor/acct/thing and a/b/c') == []))
         cases.append(('NO owner declared means the rule is inert',
                       lg.repo_ref_hits('acct/secret-thing', {}, {}) == []))
+
+        # GRAMMAR OF THE DIRECTIVES THEMSELVES. Both patterns are
+        # single-line, so a reason on the next comment line drops the whole
+        # directive -- silently, until 2026-09-11. Every case below was
+        # measured before the check was written, including the two that must
+        # NOT fire: characterizing the behaviour is what says which of these
+        # is a bug and which is the documented cost.
+        def errs(body):
+            f = pathlib.Path(td) / f'g{abs(hash(body))}.txt'
+            f.write_text(body + '\n', encoding='utf-8')
+            return lg.repo_policy_errors(f)
+
+        good = ('# visibility-audit: private-owner acct -- one line, fine\n'
+                '# visibility-audit: allow acct/one -- reason on the same line')
+        cases.append(('a well-formed policy file produces no errors',
+                      errs(good) == []))
+
+        # Direction 1: a line that announces a directive and parses as neither.
+        e = errs(good + '\n# visibility-audit: allow acct/two')
+        cases.append(('a directive with no ` -- reason` is an error, '
+                      'naming its line number',
+                      len(e) == 1 and e[0][0] == 3 and 'separator' in e[0][2]))
+
+        e = errs(good + '\n# visibility-audit: allw acct/two -- typo in the verb')
+        cases.append(('a TYPO\'d directive is an error, not an ordinary comment',
+                      len(e) == 1 and e[0][0] == 3
+                      and 'not a recognized directive' in e[0][2]))
+
+        # The reason-on-the-next-line case: parses as NOTHING at all today.
+        e = errs(good + '\n# visibility-audit: allow acct/two --'
+                        '\n#   the reason, pushed onto its own line')
+        cases.append(('a reason on the NEXT line is an error (the directive '
+                      'would otherwise vanish silently)',
+                      len(e) == 1 and e[0][0] == 3 and 'empty' in e[0][2]))
+
+        # Direction 2, the must-not-fire half.
+        # The WRAPPED reason parses, with the reason truncated at the line
+        # end. Lossy, not unsafe, and nothing can tell it from a terse
+        # reason -- so it must NOT be reported, and this locks that in.
+        wrapped = (good + '\n# visibility-audit: allow acct/two -- a reason that '
+                          'begins here and\n#   continues onto this second line')
+        cases.append(('a WRAPPED reason is not an error (documented '
+                      'truncation, not a failure)', errs(wrapped) == []))
+        _o, _a = lg.parse_repo_policy(
+            pathlib.Path(td) / f'g{abs(hash(wrapped))}.txt')
+        cases.append(('...and it parses with the reason TRUNCATED at the '
+                      'line end, which is why it is only a note',
+                      _a.get('acct/two') == 'a reason that begins here and'))
+
+        cases.append(('a plain continuation comment is not flagged on its own',
+                      errs(good + '\n#   just an ordinary comment line') == []))
+        cases.append(('a doubly-commented doc EXAMPLE is not flagged',
+                      errs(good + '\n#   # visibility-audit: allow owner/name '
+                                  '-- why the exposure is accepted') == []))
+
+        # Allow lines under a rule that never runs: every one of them reads as
+        # a deliberate authorization and enforces nothing.
+        e = errs('# visibility-audit: allow acct/one -- named on purpose\n'
+                 '# visibility-audit: allow acct/two -- also on purpose')
+        cases.append(('allow lines with NO private-owner line are an error',
+                      len(e) == 1 and e[0][0] == 0 and 'INERT' in e[0][2]))
+        cases.append(('...but allow lines WITH one are fine', errs(good) == []))
+
+        # Regression guard for the shipped files: the hard failure must not
+        # fire on this repo's own template or committed default. The template
+        # placeholder `<name>` did not parse, so before this was doubly
+        # commented a fresh copy failed the gate at the one moment nobody can
+        # debug it.
+        for _f in (ROOT / 'templates' / 'leak-blocklist.txt.template',
+                   ROOT / 'tools' / 'leak-blocklist.default.txt'):
+            if _f.exists():
+                cases.append((f'the shipped {_f.name} parses clean',
+                              lg.repo_policy_errors(_f) == []))
+
+        # End to end: the gate EXITS on a malformed policy rather than
+        # printing OK. A unit-level error list nobody acts on is the same
+        # fail-open in a new place.
+        bad = pathlib.Path(td) / 'malformed.txt'
+        bad.write_text('# visibility-audit: private-owner acct --\n'
+                       '#   reason on the next line\n'
+                       r'\bSomeSecretTerm\b' + '\n', encoding='utf-8')
+        rb = subprocess.run([sys.executable, str(gate)], capture_output=True,
+                            text=True, cwd=str(ROOT), timeout=300,
+                            env=dict(os.environ,
+                                     PRECEDENT_LEAK_BLOCKLIST=str(bad)))
+        cases.append(('a malformed policy file FAILS the gate', rb.returncode != 0))
+        cases.append(('...and the failure names the line number',
+                      'malformed.txt:1' in (rb.stdout + rb.stderr)))
 
         # ...and an inert rule SAYS SO. A clone that never declared an owner
         # would otherwise get a clean OK covering a rule that inspected
@@ -13004,6 +13126,94 @@ def check_public_tree_bakes_in_no_owner_account():
           '; '.join(offenders[:5]) if offenders else '')
 
 
+def check_very_deep_check_bootstrap_drift():
+    """very_deep_check's BOOTSTRAP DRIFT section compares what the generator
+    writes TODAY against a set that already exists (practice:
+    very-deep-check, pass 1).
+
+    WHY A FIXTURE RATHER THAN A GLANCE. The two checks that look like this
+    one -- bootstrap_source.verify() and _template_freshness() -- both ask
+    which files exist, and a drift check that silently compared nothing
+    would read exactly like a clean one. So every case below asserts the
+    MESSAGE, not the exit status (practice: control-asserts-which-failure):
+    a hand-edit and an older vendoring differ only in the remedy printed,
+    and getting that backwards sends somebody to refresh over their own
+    work.
+
+    The fixture owns every byte it reads (practice: fixture-owns-its-state):
+    it bootstraps its own set into a scratch directory rather than touching
+    any real source, and the no-source case is asserted too, because "no
+    source resolved" must read as a SKIP and never as clean."""
+    import hashlib, shutil, tempfile
+    import very_deep_check as vdc
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-drift-harness-'))
+    cases = []
+    try:
+        dest = tmp / 'set'
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                        '--level', 'individual', '--name', 'precedent-individual',
+                        '--dest', str(dest)], capture_output=True, text=True)
+        src = [{'level': 'individual', 'name': 'precedent-individual', 'path': str(dest)}]
+
+        out = vdc._bootstrap_drift(src)
+        cases.append(('a set the generator just wrote reports no drift at all',
+                      out == [], repr(out)))
+
+        cases.append(('no resolved source reads as a SKIP, in those words, '
+                      'never as clean',
+                      any('NOT compared' in m and 'skip' in m.lower()
+                          for m in vdc._bootstrap_drift([])),
+                      repr(vdc._bootstrap_drift([]))))
+
+        # A file the skeleton hands over ("edit this file freely afterward,
+        # it is yours") must never be a finding.
+        readme = dest / 'README.md'
+        readme.write_text(readme.read_text(encoding='utf-8') + '\nmine\n', encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('an edited skeleton file is a note, not a FINDING',
+                      out and all(m.startswith('note') for m in out)
+                      and 'README.md' in out[0], repr(out)))
+
+        # A vendored engine file edited in place: the remedy is upstream,
+        # and refreshing over it would destroy the edit.
+        show = dest / 'tools' / 'precedent_show.py'
+        show.write_text(show.read_text(encoding='utf-8') + '\n# local tweak\n', encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('a hand-edited engine file is a FINDING that says to move '
+                      'it upstream, not to refresh',
+                      any(m.startswith('FINDING') and 'precedent_show.py' in m
+                          and 'hand-edited in place' in m for m in out), repr(out)))
+
+        # The same file, recorded in the manifest: a faithful vendoring of an
+        # older upstream commit, whose remedy is the opposite one.
+        manifest = dest / 'tools' / 'ENGINE_MANIFEST.json'
+        data = json.loads(manifest.read_text(encoding='utf-8'))
+        data['sha256']['precedent_show.py'] = hashlib.sha256(show.read_bytes()).hexdigest()
+        manifest.write_text(json.dumps(data, indent=2), encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('an engine file matching its own manifest is a FINDING '
+                      'that says to refresh',
+                      any(m.startswith('FINDING') and 'precedent_show.py' in m
+                          and 'refresh' in m and 'hand-edited' not in m
+                          for m in out), repr(out)))
+
+        # A file the generator writes and the set does not have at all.
+        (dest / 'tools' / 'precedent_time.py').unlink()
+        out = vdc._bootstrap_drift(src)
+        cases.append(('a generated file the set is missing is named as missing',
+                      any('precedent_time.py' in m and 'does not have it' in m
+                          for m in out), repr(out)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'very_deep_check reports bootstrap drift against a real set '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f'{n} -- {d[:600]}' for n, d in bad))
+
+
 def check_very_deep_check_authenticates_its_own_fetches():
     """very_deep_check's network calls carry the credential the environment
     holds (practice: very-deep-check; durable-fix).
@@ -14702,6 +14912,7 @@ def main():
     check_branch_scan_sees_every_branch()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
     check_very_deep_check_authenticates_its_own_fetches()
+    check_very_deep_check_bootstrap_drift()
     check_public_tree_bakes_in_no_owner_account()
     check_public_consumer_does_not_materialize_private_text()
     check_assumed_visibility_never_deletes_practices()

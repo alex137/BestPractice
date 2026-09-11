@@ -34,7 +34,7 @@ individual; *only here?* → repo-local — and the session applies it and
 proceeds. **Do not stop to ask which level.** The person reviews the choice
 before the merge, which is the right moment for it: they can see the actual
 text by then, and a wrong level is one file move away
-([spec/MOVING_PRACTICES.md](../spec/MOVING_PRACTICES.md)), not a rewrite.
+([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md)), not a rewrite.
 
 **A level stated without its reason cannot be disagreed with**, which is the
 whole point of stating it. *"Universal, because nothing in it is specific to

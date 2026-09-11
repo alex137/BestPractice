@@ -64,6 +64,17 @@ code on the first try; only rebuilding the fixture made them
 discriminate, and one of them is now documented as NOT discriminating so
 a later session does not over-trust it.
 
+**And run pass 1's newest step with the private sets actually attached.**
+The `BOOTSTRAP DRIFT` section — added 2026-09-11, after Morgan asked
+whether the brand-new-adopter path was checked at all — regenerates each
+resolved team and individual set with today's generator and diffs it
+against the real thing. **It has never run against a real set.** The
+session that added it could resolve no private source, so it has only ever
+been exercised against its own scratch fixtures, and it reports that state
+as a SKIP in those words. A run with the sets attached is the first real
+test of it, and the likeliest place a finding is waiting: those sets were
+created months of generator changes ago.
+
 ### Prerequisites
 
 All four repos proved current against origin before anything was read.

@@ -75,7 +75,7 @@ seven real pre-existing commits, and the test reports a failure it
 manufactured itself. Found from a consumer repo's session during a vendor
 update; four sites, not the two first reported.
 
-**The two before it are in [AGENTS.md](../AGENTS.md)'s gotchas, and neither
+**The two before it are in [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md)'s gotchas, and neither
 was recognised as the same problem at the time.** A harness fixture set a
 global git identity and asserted commits used it, while `GIT_AUTHOR_*` —
 exported by a practice set's own settings — silently outranked it: 4 of 11

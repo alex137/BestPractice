@@ -88,7 +88,7 @@ adopters whose references a correction would break.
 [tools/precedent_resolve.py](../tools/precedent_resolve.py)'s `load_config`
 refuses a `name` that does not match its level's shape, and warns when a
 source's `name` and the basename of its `path` disagree.
-[tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
+[tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_bootstrap_source.py)
 refuses a non-conforming `--name` before it creates anything, which is the
 last moment a wrong name is still cheap.
 [tools/precedent_check.py](../tools/precedent_check.py) checks every
