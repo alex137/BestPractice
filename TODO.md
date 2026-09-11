@@ -3548,3 +3548,30 @@ which is the failure this repointing exists to end — write
     failed an hour earlier. `verify_harness.py`'s
     `check_source_clone_keeps_its_credential` holds it, with two negative
     controls that were run rather than assumed.
+
+64. <a id="renamed-team-source-not-in-allowlist"></a>**The leak gate is red on
+    `precedent-beta-v01` itself: the renamed team source has no allowlist
+    entry.** Merging the beta branch on 2026-09-11 turned
+    `python3 tools/leak_gate.py` from `OK` to `FAIL: 30 hit(s)` on a branch
+    whose own diff touched none of the files reported. Established as the base
+    branch's rather than a feature branch's by running the gate against a
+    clean `origin/precedent-beta-v01` worktree: the identical 30 hits, in the
+    same files. The rename that landed with
+    [PR #226](https://github.com/alex137/BestPractice/pull/226) rewrote the
+    team source's name across 147 occurrences in the tracked tree, and the
+    private blocklist still allows only the OLD name — so every occurrence of
+    the new one reads as an undeclared reference to a private-by-default
+    owner. Nothing leaked: the names were already published by that merge, and
+    the gate is now refusing what is already public, which is the failure mode
+    that gets a gate switched off.
+    **Blocked on / out of scope:** the fix is three lines in
+    `leak-blocklist.txt`, which is tracked in the private individual source
+    and not in this repository — it needs its own change there, not a commit
+    here. Worth doing in the same pass:
+    [practices/rename-updates-links](practices/rename-updates-links.md)'s
+    reasoning applies to an allowlist entry exactly as it does to a link, and
+    nothing currently checks that a rename carried one. The gate's own
+    standing NOTE about a bare-name stem is a separate, older item.
+    **Disposition:** ask (2026-09-11 — the deep check's push gate is red for
+    every session on this branch until it is done, and only Morgan can change
+    the private set)
