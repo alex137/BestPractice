@@ -9930,6 +9930,116 @@ def _write_fixture_practice(path, slug, applies_to, rule_text):
         encoding='utf-8')
 
 
+def check_session_start_refreshes_an_attached_team_clone():
+    """A team source that is already on disk is PULLED at session start, not
+    waved through.
+
+    THE INCIDENT (2026-09-11). teams_from_repo() returned
+    `(name, True, 'already on disk')` the moment a clone had a practices/
+    directory, so a team clone was pulled exactly once -- when it was created
+    -- and every session afterwards read whatever it held that day. Measured
+    on a real container: four attached sources 4, 4, 6 and 19 commits behind
+    their own origin/main, with the session-start line reporting all four
+    fine.
+
+    The cost surfaced nowhere near the cause. This harness kept failing
+    `every reachable copy of commit-identity.sh is byte-identical`, naming
+    four repositories whose committed copies were in fact already canonical:
+    the drift was in the stale clones on disk. A session reading it would go
+    fix four repositories that had nothing wrong with them.
+
+    Three cases, and the second and third are what keep the fix honest: a
+    clone that cannot be fast-forwarded must stay IN FORCE (it is on disk and
+    resolvable) while saying plainly that it was not refreshed, and it must
+    not be clobbered -- somebody's uncommitted work in a source clone is
+    still their work.
+    """
+    import json as _json, shutil, subprocess as sp, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_bootstrap as psb
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-team-refresh-'))
+    env = dict(os.environ)
+    env.update({'GIT_CONFIG_GLOBAL': str(tmp / 'gitconfig'),
+                'PRECEDENT_ALLOW_ANY_AUTHOR': '1',
+                'GIT_AUTHOR_NAME': 'Harness', 'GIT_COMMITTER_NAME': 'Harness',
+                'GIT_AUTHOR_EMAIL': 'harness@example.com',
+                'GIT_COMMITTER_EMAIL': 'harness@example.com'})
+    (tmp / 'gitconfig').write_text('', encoding='utf-8')
+
+    def git(d, *a, check=True):
+        r = sp.run(['git', '-C', str(d), *a], capture_output=True, text=True,
+                   env=env)
+        if check and r.returncode != 0:
+            raise RuntimeError(f'fixture setup: git {" ".join(a)}: '
+                               f'{(r.stderr or r.stdout).strip()}')
+        return r
+
+    cases = []
+    try:
+        upstream = tmp / 'precedent-team-fixture'
+        upstream.mkdir()
+        sp.run(['git', 'init', '-q', '-b', 'main', str(upstream)], env=env,
+               capture_output=True, text=True, check=True)
+        (upstream / 'practices').mkdir()
+        (upstream / 'practices' / 'x.md').write_text('v1\n', encoding='utf-8')
+        git(upstream, 'add', '-A'); git(upstream, 'commit', '-qm', 'one')
+
+        clone = tmp / 'clone-of-it'
+        sp.run(['git', 'clone', '-q', f'file://{upstream}', str(clone)],
+               env=env, capture_output=True, text=True, check=True)
+
+        # Upstream moves after the clone was taken -- the ordinary state of
+        # every attached source on a container that has been up for a day.
+        (upstream / 'practices' / 'x.md').write_text('v2\n', encoding='utf-8')
+        git(upstream, 'commit', '-qam', 'two')
+
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'format_version': 1,
+             'sources': [{'level': 'team', 'name': 'precedent-team-fixture',
+                          'path': '../clone-of-it'}]}), encoding='utf-8')
+
+        name, ok, msg = psb.teams_from_repo(repo)[0]
+        cases.append(('a team clone that is behind its own origin is '
+                      'fast-forwarded at session start',
+                      ok and (clone / 'practices' / 'x.md').read_text().strip()
+                      == 'v2', msg))
+        cases.append(('and the line says it moved, rather than only that the '
+                      'clone exists',
+                      'fast-forwarded' in msg, msg))
+
+        name, ok, msg = psb.teams_from_repo(repo)[0]
+        cases.append(('a second run reports it current rather than claiming '
+                      'to have moved it again',
+                      ok and 'current' in msg and 'fast-forwarded' not in msg,
+                      msg))
+
+        # A source clone somebody is editing: not this tool's to clobber.
+        (clone / 'practices' / 'x.md').write_text('v2\nlocal work\n',
+                                                  encoding='utf-8')
+        (upstream / 'practices' / 'x.md').write_text('v3\n', encoding='utf-8')
+        git(upstream, 'commit', '-qam', 'three')
+        name, ok, msg = psb.teams_from_repo(repo)[0]
+        cases.append(('a clone with uncommitted work is left alone',
+                      'local work' in (clone / 'practices' / 'x.md').read_text(),
+                      msg))
+        cases.append(('it stays IN FORCE -- present and resolvable is not the '
+                      'same as current', ok, msg))
+        cases.append(('and it says it could not be refreshed, naming git\'s '
+                      'own reason rather than a bare pronoun',
+                      'could NOT be brought up to date' in msg
+                      and 'local changes' in msg, msg))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, okc, d in cases if not okc]
+    check(f'session start refreshes an attached team clone rather than '
+          f'waving it through ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:200]}' for n, d in bad))
+
+
 def check_views_drift_gate_reaches_a_source_set():
     """A generated view's header may only name a command that EXISTS where
     the view does, and a set that generates views ships something that runs
@@ -15992,6 +16102,7 @@ def main():
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_source_engine_is_functional()
+    check_session_start_refreshes_an_attached_team_clone()
     check_views_drift_gate_reaches_a_source_set()
     check_precedent_check_degrades_in_a_source_set()
     check_vendor_engine_consumer_case()

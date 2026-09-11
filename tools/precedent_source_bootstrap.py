@@ -389,7 +389,54 @@ def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             continue
         clone_path = (repo_path / rel).resolve()
         if (clone_path / 'practices').is_dir():
-            results.append((name, True, 'already on disk'))
+            # ON DISK IS NOT THE SAME AS CURRENT, and until 2026-09-11 this
+            # returned 'already on disk' and stopped -- so a team clone was
+            # pulled exactly once, when it was created, and every session
+            # afterwards read whatever it held that day. Measured on a real
+            # container: four attached sources 4, 4, 6 and 19 commits behind
+            # their own origin/main, with session start reporting all four
+            # fine. The cost lands somewhere else entirely -- the harness
+            # reported `commit-identity.sh` copies disagreeing across
+            # repositories and the drift was in this clone, not in any
+            # repository (practice: durable-fix -- the recurring failure was
+            # the symptom; this is what kept producing it).
+            #
+            # _try_sync() is the same clone-or-pull used for a fresh source,
+            # so the branch pin above applies here too. The URL is read off
+            # the clone's own remote: a pull needs no base URL, and this path
+            # must keep working for a session whose environment carries no
+            # PRECEDENT_SOURCE_BASE_URL at all.
+            ok_url, url = _run_git(['-C', str(clone_path), 'remote',
+                                    'get-url', 'origin'])
+            ok_before, before = _run_git(['-C', str(clone_path), 'rev-parse',
+                                          'HEAD'])
+            ok, out = _try_sync(url if ok_url else f'{base}/{name}' if base
+                                else '', clone_path)
+            if not ok:
+                # A source that is present but could not be refreshed is
+                # still IN FORCE -- it is on disk and resolvable -- so this
+                # stays True. What it must not do is report freshness it did
+                # not establish (practice: fail-gracefully).
+                why = _diagnose(out)
+                if why == 'it':
+                    # _diagnose's fallback is a bare pronoun, written for a
+                    # caller whose own sentence carries the verb. Here it
+                    # would swallow git's message entirely, which is the
+                    # "could not check" that renders as nothing at all.
+                    lines = [ln.strip() for ln in (out or '').splitlines()
+                             if ln.strip()]
+                    # The FIRST line, not the last: git leads with the reason
+                    # ("Your local changes ... would be overwritten") and ends
+                    # with "Aborting", which names no cause at all.
+                    why = lines[0][:200] if lines else 'git reported nothing'
+                results.append((name, True, 'already on disk, but could NOT '
+                                            'be brought up to date: ' + why))
+                continue
+            ok_after, after = _run_git(['-C', str(clone_path), 'rev-parse',
+                                        'HEAD'])
+            moved = (ok_before and ok_after and before != after)
+            results.append((name, True, 'already on disk, fast-forwarded'
+                            if moved else 'already on disk and current'))
             continue
         if not base:
             results.append((name, False,
