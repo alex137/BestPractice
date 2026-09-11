@@ -853,7 +853,18 @@ which is the failure this repointing exists to end — write
     `bestpractice-sync` (same slug, active in `precedent-individual`), and
     leaves `header-caps` UNDETERMINED because its successor is renamed —
     `--set header-caps=headline-capitalization`. Run it report-only first.
-    **Blocked on:** a session holding `themorgan/precedent-team-maintainers`.
+
+    **Done — and neither half ended up needing the migration.** `header-caps`
+    was converted to `status: deduplicated` with
+    `in_force_at: headline-capitalization` at some point before 2026-09-11,
+    which is what this item asked for. `bestpractice-sync` went the other
+    way: it was still `active` in the team set (the 2026-09-09 subject split
+    had reversed which copy was the live one, so this item's parenthetical
+    "rule in force at individual" had gone stale), and on 2026-09-11 Morgan
+    retired the rule outright. It is now `status: retired` with
+    `in_force_at: none` and a Story saying why, in both sets — which is the
+    one state the old record was never entitled to claim and is now simply
+    true.
 
 36. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
     and writes anyway.**~~ **Done 2026-09-06.** Both defects fixed in
@@ -1569,12 +1580,42 @@ which is the failure this repointing exists to end — write
   somewhere it is not, which is the one thing that status is not allowed to
   say.
 
-  Either re-point it or re-activate it — re-activating is the smaller claim,
-  since the rule was written as one person's own default before the split
-  moved it. **Blocked on:** a session that can reach `precedent-individual`.
-  This one could not: the session was rooted one directory above both
-  repositories, so no SessionStart hook ran and no private source was cloned,
-  and only `BestPractice` and `precedent-team-maintainers` were on disk.
+  **DONE 2026-09-11**, the same day it was raised, from a session that could
+  reach the set after all: `add_repo` for `themorgan/precedent-individual`
+  succeeded from a session already holding `alex137/BestPractice`, which is
+  the cross-owner add the [AGENTS.md](AGENTS.md) gotcha records as refused in
+  three separate measurements and permitted in two others. **One more data
+  point for a contradiction nobody has explained, not a resolution of it** —
+  call it and read what it says, as that gotcha already advises.
+
+  The copy was **retired**, not re-pointed and not re-activated. A
+  deduplicated copy does not become the surviving copy when the surviving
+  copy is withdrawn: re-activating it would have kept a rule the person had
+  just decided to withdraw, on the technicality that the individual set is
+  where it was written first. `bestpractice-sync`'s copy in the same set had
+  the identical problem the same day, for the same reason, and went the same
+  way.
+
+- <a id="pack-sync-is-the-same-unattended-merge"></a>**`pack-sync` mandates the unattended self-merging run that
+  `bestpractice-sync` was just retired for.** Morgan retired
+  `bestpractice-sync` on 2026-09-11 — *"now that it's getting more complex,
+  I'm more hesitant about syncing it automatically"* — and it was the
+  universal half of a pair. `pack-sync`, still active in the maintainers'
+  set, is the same compare-then-update workflow pointed at that team's own
+  **private** source, and its own Story calls it "an unattended self-merging
+  run". The reasoning that retired the first applies to the second without
+  modification, and arguably harder: the private half is the one whose
+  auto-merged pull request nobody outside the team can review.
+
+  It stays in force because the instruction named `bestpractice-sync` and
+  nothing else, and **a decision is not widened on the person's behalf**.
+  What was done instead: both its Rule and its Install had defined
+  themselves by pointing at the retired sibling ("same shape as", "same
+  reason as"), and both now say it in their own words, because a rule in
+  force must not be readable only through a retired one.
+
+  **Blocked on:** Morgan saying whether the hesitance extends to the team
+  half. It is a one-line change either way. **Disposition:** ask.
 
 - <a id="practice-consistency-across-team-repos"></a>**How one practice lives in several team repos and stays consistent** —
   **unfolded 2026-09-08, at Morgan's prompting.** Folded into
