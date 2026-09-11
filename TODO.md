@@ -2630,6 +2630,16 @@ which is the failure this repointing exists to end — write
    exists for are on WhatsApp and will not change apps, so Telegram is a
    rehearsal that ends and never the destination. A session triaging this
    item should not re-open it as "maybe just ship the Telegram one".
+   **Nor is the shape.** Same day, same strength: it is a voice interface to
+   a continuing Claude session, the way the Claude app's voice mode is, and
+   the person merges their own work through it rather than queueing it for
+   review. That turned one paragraph of the document into a real open
+   problem, recorded there rather than here: the bot holds one credential and
+   pushes as itself, so the GitHub collaborator role that
+   [spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md](spec/NONTECHNICAL_CONTRIBUTOR_ACCESS.md)
+   relies on as its platform-enforced layer never binds the person behind the
+   thread. **Anything built here needs a write-scope allowlist in the service
+   itself**; an instruction to the session is not a boundary.
    **Blocked-on:** for the WhatsApp half, a Meta Business account, a business
    entity that clears verification, and a dedicated phone number — none of
    which exists yet and none of which a session can obtain. It is queued
