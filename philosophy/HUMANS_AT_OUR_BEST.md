@@ -43,6 +43,8 @@ this page doesn't replace them.*
   noticing the drift before a customer does, pushing it further than it
   would push itself, pulling it back before it overreaches
   ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
+- **Verification.** Machines can only go so far in making sure that what
+  they are doing is correctly reflected in the real world.
 - **Trade-offs and hard decisions.** Nothing worth choosing comes free:
   speed against care, this client against that one, the person you like
   against the person who is right. Somebody has to pick, knowing what the
