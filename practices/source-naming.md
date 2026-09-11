@@ -44,7 +44,7 @@ differently, so they are enforced differently:
 | The `name` field in `precedent.json` or the user-level config | Attribution in a materialized `MANIFEST.json` stops matching; every error message names a set nobody recognizes | **Refused** by [tools/precedent_resolve.py](../tools/precedent_resolve.py) |
 | The clone directory a source's `path` points at | The declared relative path is wrong on that machine | **Warned** about, never refused: continuous integration checkouts and git worktrees legitimately differ |
 | The GitHub repository name | Nothing breaks today; a later rename breaks every vendored reference | **Recommended**, and disclosed per the Rule above |
-| A team slug's meaning (purpose, not roster) | The name goes stale rather than wrong | Judgment. No check can tell `precedent-team-tms` from `precedent-team-morgan-alex` |
+| A team slug's meaning (purpose, not roster) | The name goes stale rather than wrong | Judgment. No check can tell `precedent-team-writing` from `precedent-team-morgan-alex` |
 
 A repo-local source's `name` is the literal string `local`, matching its
 already-fixed `path`, so the answer travels from one Precedent repository to

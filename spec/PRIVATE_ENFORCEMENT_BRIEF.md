@@ -41,14 +41,13 @@ prevent and proves it fires. This brief then said: *"Neither private set has
 any of that. Both of their practices currently carry `checked_by: null`, and
 no infrastructure exists yet — in either private repo."*
 
-Measured 2026-09-07, with all four sources attached:
+Measured 2026-09-07, across the sources attached then:
 
 | Source | Active practices | With a `checked_by` | Check scripts |
 |---|---|---|---|
 | `precedent` (universal) | 66 | 34 | in `precedent_check.py` |
 | `precedent-team-maintainers` | 40 | 8 | 8 |
 | `precedent-individual` | 15 | 8 | 8 |
-| `precedent-team-tms` | 2 | 0 | 0 | ← **retired 2026-09-10**, see below
 
 So both of the sets this brief was written for now have their own
 `tools/checks/` directories with real, tested check scripts — the procedure
@@ -56,24 +55,6 @@ below was followed and it worked. What is left is the ordinary long tail: 32
 of 40 and 7 of 15 still carry `checked_by: null`, which is not by itself a
 defect, since [checkable-gets-checked](../practices/checkable-gets-checked.md)
 asks for an attempt and a recorded reason, not a check at any cost.
-
-**`precedent-team-tms` no longer exists.** It was retired on 2026-09-10,
-holding one practice by then rather than the two this table counted on
-2026-09-01 — that practice, `audience-register`, moved to
-`precedent-team-working-style`, whose subject it always was (its own text
-says it governs how a session talks to the reader, not the team's
-documents). No repository declared the set in anger; it had been
-bootstrapped for an editorial pilot that was deliberately never started.
-The row is left in place rather than deleted because the reasoning under it
-is still the useful part, and because a table that silently loses a row
-reads as a table nobody updated.
-
-`precedent-team-tms`'s 0 of 2 was checked and is **correct**, not a gap:
-`audience-register`'s subject is the wording of a reply, which is not an
-artifact any repository holds, and its `## Install` says exactly that;
-`fail-gracefully`'s Install carries its own enforcement analysis, including
-a measurement of why the general form floods. Both are considered noes, which
-is what that practice asks for.
 
 Never re-type these figures — run `python3 tools/catalogue_stats.py`, and see
 [spec/ENFORCEMENT.md](ENFORCEMENT.md). The table above is dated for the same
