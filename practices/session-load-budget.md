@@ -49,6 +49,15 @@ drifts up unnoticed. Raising one is a decision made on purpose, in a commit,
 with the reason written in the registry — never a way to make a red check
 green.
 
+**When the resident cap refuses a new practice, the person picks what comes
+out.** [tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py)
+exits non-zero rather than write an over-budget block, and its message says
+to demote or retire a resident practice — that is a session's cue to **ask**,
+not to choose. List the resident practices with what each costs and what
+dropping it would let through, recommend one, and wait for an answer.
+Demoting a practice to `on-demand` to make room changes which rules fire in
+every session afterwards, decided by the session that wanted the room.
+
 ## Detail
 **What counts as an always-loaded surface.** Anything in a session's context
 before its first turn: `AGENTS.md` and `CLAUDE.md` (and whichever of the two
@@ -140,6 +149,17 @@ with that reasoning written into the registry entry. **A ceiling raised after
 the review is the mechanism working; one raised instead of it is the failure
 the clause is about**, and the difference is only ever visible in what the
 `why` field says.
+
+
+**The ask-before-demoting clause was added later the same day**, also by
+Morgan, asking what happens when a new resident practice would break the
+2,000-token cap: *"do we check to see if it kills the 2000 token limit before
+we do that? If it does, it should ask what we want to remove."* The check
+existed — [tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py)
+refuses to write an over-budget block and exits non-zero — and what was
+missing was the second half: its failure message tells a session to demote or
+retire something, and says nothing about whose call that is. The obvious
+reading of a refusal is that the session clears its own path.
 
 ## Install
 The registry is
