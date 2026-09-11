@@ -336,6 +336,12 @@ LOWERCASE_WORD_RE = re.compile(r'\b([a-z]{2,8})\b')
 # 0.4 rather than 0.5 because the caps count is inflated by headings and
 # filename stems, which are the same token doing a different job.
 WORD_FORM_RATIO = 0.4
+# Below this many distinct ALL-CAPS tokens, the corpus cannot tell a
+# shouted English word from an initialism -- see corpus_is_decisive().
+# 50 is the smallest round number well clear of what a repo carrying
+# only a README and a template or two produces (single digits), and far
+# below what any repo with a materialized catalogue produces.
+CORPUS_MIN_TOKENS = 50
 _corpus_cache = None
 
 
@@ -350,11 +356,27 @@ def corpus_word_forms():
     if _corpus_cache is not None:
         return _corpus_cache
     lower, caps = {}, {}
+    # TRACKED markdown alone is not the corpus, and reading it as one broke
+    # a fresh install. `git ls-files` returns only what is committed, so a
+    # repo that has just materialized its `practices/` tree -- 97 files of
+    # real prose, untracked until the install commit -- measures its
+    # vocabulary against whatever two files it happened to start with. The
+    # old `or list(ROOT.rglob(...))` fallback covered "ls-files returned
+    # nothing" and not this, which is the case that actually happens: two
+    # tracked files is not nothing, it is just not a corpus. Union both.
+    paths = []
     try:
         listed = _git(['ls-files', '*.md'], cwd=ROOT).splitlines()
-        paths = [ROOT / f for f in listed] or list(ROOT.rglob('*.md'))
+        paths = [ROOT / f for f in listed]
     except Exception:
-        paths = []
+        pass
+    try:
+        seen_paths = {p.resolve() for p in paths}
+        for f in ROOT.rglob('*.md'):
+            if f.resolve() not in seen_paths:
+                paths.append(f)
+    except OSError:
+        pass
     for f in paths:
         try:
             text = f.read_text(encoding='utf-8', errors='ignore')
@@ -368,6 +390,22 @@ def corpus_word_forms():
                      / (lower.get(tok.lower(), 0) + n)
                      for tok, n in caps.items() if n}
     return _corpus_cache
+
+
+def corpus_is_decisive():
+    """True when this repo's own prose is a big enough corpus for
+    `looks_like_a_word()` to mean anything.
+
+    An empty or near-empty corpus does not make `looks_like_a_word()`
+    return "don't know" -- it returns False, which is the same answer it
+    gives for a genuine initialism, so every ordinary English word anybody
+    shouted reads as an unglossed acronym. That is not a theoretical
+    degradation: it is what a correct fresh install looked like on
+    2026-09-11, red on words inside the VENDORED catalogue that the adopter
+    did not write and cannot fix. A caller that cannot decide must say so
+    (practice: fail-gracefully) rather than fall back to the behaviour this
+    measurement was built to replace."""
+    return len(corpus_word_forms()) >= CORPUS_MIN_TOKENS
 
 
 def looks_like_a_word(tok):
@@ -632,7 +670,7 @@ def iter_prose_paragraphs(path):
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
-    if known is not None and path not in ACRONYM_SKIP_FILES:
+    if known is not None and path not in ACRONYM_SKIP_FILES and corpus_is_decisive():
         # One detector, shared with precedent_check.py's acronyms-glossary
         # gate — see scan_unglossed's docstring for the drift this closed.
         unglossed = scan_unglossed(

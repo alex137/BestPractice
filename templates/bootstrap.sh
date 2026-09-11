@@ -130,8 +130,8 @@ fi
 # everybody does. --check never writes: it reports, and this never fails
 # the session.
 if [ -f tools/precedent_sync_views.py ] && [ -f precedent.json ]; then
-  if ! python3 tools/precedent_sync_views.py --check >/dev/null 2>&1; then
-    echo "WARN: AGENTS.md's generated loader block is out of date with precedent.json's sources. Fix: python3 tools/precedent_sync_views.py, review the diff, commit." >&2
+  if ! python3 tools/precedent_sync_views.py --repo . --check >/dev/null 2>&1; then
+    echo "WARN: AGENTS.md's generated loader block is out of date with precedent.json's sources. Fix: python3 tools/precedent_sync_views.py --repo ., review the diff, commit." >&2
   fi
 fi
 

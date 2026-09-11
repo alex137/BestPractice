@@ -18,7 +18,7 @@ deliverables and indexes which documents back each part of each one.
 <!-- BEGIN GENERATED: precedent-loader -->
 <!-- END GENERATED -->
 
-<!-- The block above is written by `python3 tools/precedent_sync_views.py`
+<!-- The block above is written by `python3 tools/precedent_sync_views.py --repo .`
      (INSTALL.md §0 step 6) — never hand-edit between the markers; the
      regeneration check fails loudly on drift. Leave the markers themselves
      exactly as shown, on their own lines, with nothing between them until
@@ -47,7 +47,7 @@ deliverables and indexes which documents back each part of each one.
 - At session start, run `bash tools/bootstrap.sh` before other work (harnesses
   with a hook mechanism run it automatically — see `templates/harness/`).
 - **Keep `AGENTS.md`'s generated block current.** Before relying on it,
-  run `python3 tools/precedent_sync_views.py --check` — it exits non-zero
+  run `python3 tools/precedent_sync_views.py --repo . --check` — it exits non-zero
   if any declared source (`precedent.json`) has moved since the block was
   last regenerated. Re-run without `--check` to refresh it, review the
   diff, and commit.
@@ -62,7 +62,7 @@ deliverables and indexes which documents back each part of each one.
 - **Light check** — `python3 tools/doc_lint.py` on the markdown you touched.
   Fast, run before every commit without thinking about it. Gates a commit.
 - **Deep check** — the full suite: `python3 tools/precedent_check.py`,
-  `python3 tools/precedent_sync_views.py --check`, and `<your own audits>`.
+  `python3 tools/precedent_sync_views.py --repo . --check`, and `<your own audits>`.
   Gates a push and a merge.
 
 ### Build-environment gotchas — do NOT rediscover these
@@ -153,7 +153,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
    (`tools/precedent_candidate.py` and friends, in the source repo's own
    `tools/`) is not wired into a fresh install as of this writing; a plain
    PR against the upstream repo is the real mechanism until it is. Then run
-   `python3 tools/precedent_sync_views.py` locally to pick your own change
+   `python3 tools/precedent_sync_views.py --repo .` locally to pick your own change
    back up once it lands upstream.
 1. Fetch and merge the default branch locally.
 2. Resolve by fixed per-file-class rules (practice `merge-runbook`):
@@ -170,11 +170,11 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
    - **Generated outputs: never hand-merge.** The side matching the
      committed manifest wins; unshipped builds are deleted and rebuilt —
      for the `<!-- BEGIN GENERATED: precedent-loader -->` block above, that
-     means re-running `python3 tools/precedent_sync_views.py`, never
+     means re-running `python3 tools/precedent_sync_views.py --repo .`, never
      hand-resolving its own conflict markers.
 3. Run the audits — **all must pass before the merge commits**:
    `<your audit commands>` and
-   `python3 tools/precedent_sync_views.py --check`.
+   `python3 tools/precedent_sync_views.py --repo . --check`.
 4. Commit the merge, push, land per this repo's convention.
 
 ## Conventions
@@ -362,7 +362,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   `process/upstream/` model enforced with `practice_audit.py`, ported
   here. No enforcement script for this exists yet in the loader model;
   review changes under the vendored path by hand until one does.
-- `python3 tools/precedent_sync_views.py --check` is this repo's own
+- `python3 tools/precedent_sync_views.py --repo . --check` is this repo's own
   drift gate — run it before trusting `AGENTS.md`'s generated block, and
   after any source's vendored copy or `precedent.json` itself changes.
 - Export gate = merge runbook step 0b, above.

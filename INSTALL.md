@@ -674,10 +674,15 @@ not this section.
    | [templates/github-actions/doc-lint.yml.template](templates/github-actions/doc-lint.yml.template) | **Nothing — already handled.** It discovers `doc_lint.py` at either `process/upstream/tools/` or `tools/` and watches both. Install it verbatim. |
    | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) | **Not this repo's — skip it.** It gates the generated views of a repo that AUTHORS its `practices/` (an individual or team practice set). A consuming repo materializes `practices/` from sources a CI runner cannot reach, so there is nothing on the runner to check the views against, and the workflow exits non-zero saying so rather than passing blind. See [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)'s Limits. |
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
+   | [templates/VOICE.md.template](templates/VOICE.md.template) and [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Both mention `process/upstream/` in prose — the export-gate route in one, a review-grouping hint in the other. Neither breaks anything, and both name a directory your repo does not have, so a reader follows a dead path. Reword or drop those lines. |
 
    After instantiating, grep the new root for `process/upstream` — in a §0
-   install every remaining hit is a path that does not exist.
-6. **Run `python3 tools/precedent_sync_views.py`** — it resolves every
+   install every remaining hit is a path that does not exist. The table
+   above is the list as of 2026-09-11 and the grep is what keeps it
+   honest: trust the grep, not the table.
+6. **Run `python3 tools/precedent_sync_views.py --repo .`** — from the
+   repo's own root; `--repo` is required and the tool refuses without it.
+   It resolves every
    source `precedent.json` declares and writes `AGENTS.md`'s generated
    block from the result (the resident block, the occasion index, the
    standing instruction). Confirm it prints `OK`, not `FAIL`, and that
@@ -745,6 +750,45 @@ deliberate procedure below.
 > change and something your project changed on purpose — in that case it
 > will show you both versions and ask which should win, the same as
 > reviewing any proposed edit.
+
+**Which install model is this? Steps 1–5 are §1's, and a §0 install skips
+them.** §1 vendors upstream's *prose* under `process/upstream/` and tracks it
+in `process/manifest.json`, which is what steps 1–5 merge, record and audit.
+A §0 install has neither: it vendors a `practices/` tree and the engine, and
+nothing else. So a §0 repo's whole update is **step 0 below, then step 6** —
+and step 0 is new here, because until 2026-09-11 this section covered the
+engine and never mentioned the catalogue, so a §0 repo following it exactly
+refreshed its tools, kept a frozen practice catalogue, and got `OK` from
+every check. Measured that day on a scratch consumer vendored at a
+2026-09-07 commit: after the documented update it still materialized 72
+practices while upstream carried 98, with nothing said.
+
+0. **(§0 installs) Replace the vendored universal catalogue.** From a
+   sibling Precedent clone, already on `precedent-beta-v01` and pulled:
+   ```
+   rm -rf <your universal source path>/practices
+   cp -r ../BestPractice/practices <your universal source path>/practices
+   ```
+   `<your universal source path>` is the `path` of the `level: "universal"`
+   entry in your `precedent.json` (§0 step 2 recommends
+   `precedent/universal`). It is a wholesale replace, not a merge: this
+   tree carries **zero** local variance by design, the same rule the
+   engine follows in step 6 — a local edit here belongs upstream, through
+   §3's export gate. Then re-run
+   `python3 tools/precedent_sync_views.py --repo .` and review the diff to
+   `AGENTS.md`'s generated block and your materialized `practices/`: new
+   practices, changed Rules and retired ones all arrive here, and this is
+   the only place a reader sees them.
+
+   **Expect one refusal, and read it before reaching for the flag.** If
+   anything was retired upstream since you installed, the sync refuses
+   rather than deleting a practice your committed `MANIFEST.json` records.
+   Retirement is the ordinary case when you have just replaced the whole
+   catalogue, and then `--allow-removals` is the correct answer — but the
+   same refusal also fires when your vendored copy is *stale*, which needs a
+   refresh instead. The message names both and says which is which; check
+   the named practices against upstream's
+   [MAP.md](MAP.md) withdrawn-practices table before overriding.
 
 1. Fetch the new upstream tree; diff it against the vendored copy at the
    **recorded base commit** (manifest `upstream.commit`).

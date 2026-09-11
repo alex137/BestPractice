@@ -256,8 +256,8 @@ them.** Click-paths as of <install date>.
      `<upstream-docs>/`. Add a line whenever a future install step
      introduces a new one (a required secret, a new required check). -->
 
-- **A Markdown check runs on every pull request** (a GitHub Actions
-  workflow) and catches a couple of specific formatting mistakes before
+- **A Markdown check runs on every pull request** (the GitHub Actions
+  workflow `doc-lint.yml`) and catches a couple of specific formatting mistakes before
   they reach the shared project. It needs no maintenance. If it doesn't
   appear on a pull request's checks, GitHub Actions may be disabled for
   this repository — an administrator can turn it on at repository

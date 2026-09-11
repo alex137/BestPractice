@@ -355,12 +355,17 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                 "is still declared -- "
                 + '; '.join(f"{s} (from {src})"
                             for s, src in sorted(_lost['blocking']))
-                + ". The usual cause is a stale vendored copy: the rule moved "
-                "between levels upstream, so a copy pinned before the move "
-                "has it in neither source. Refresh and re-run "
-                "(`process/upstream/tools/checkin.py update <clone>`). If the "
-                "removal is intended -- retired upstream, or you meant to "
-                "drop it -- re-run with --allow-removals.")
+                + ". Two causes, and the remedy differs: a STALE vendored "
+                "copy (the rule moved between levels upstream, so a copy "
+                "pinned before the move has it in neither source) -- refresh "
+                "the vendored source and re-run, with "
+                "`process/upstream/tools/checkin.py update <clone>` on an "
+                "INSTALL.md \u00a71 install and INSTALL.md \u00a72 step 0 "
+                "on a \u00a70 one, which has no process/upstream/ to run "
+                "anything from. Or the practice was RETIRED upstream, which "
+                "is the ordinary case when you have just replaced the "
+                "catalogue with a newer one -- then the removal is correct "
+                "and `--allow-removals` is the answer, not a workaround.")
         if _lost['source_dropped']:
             print("precedent_sync_views: removing "
                   f"{len(_lost['source_dropped'])} practice(s) whose source "

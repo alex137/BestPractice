@@ -2642,6 +2642,16 @@ def _acronyms_glossary(ctx):
         raise NotApplicable('no GLOSSARY.md in this repo, so the acronym '
                             'check has nothing to check unglossed terms '
                             'against')
+    # A skip, deliberately, and never a pass: with too small a corpus the
+    # word/initialism test answers False for both, so every shouted English
+    # word in the vendored catalogue reads as a violation the adopter
+    # cannot fix. practice: fail-gracefully -- degrade with a named reason.
+    if not dl.corpus_is_decisive():
+        raise NotApplicable(
+            "this repo's own markdown is too small a corpus to tell a "
+            'shouted English word from an initialism, so every ALL-CAPS '
+            'token would be reported -- add prose, or gloss terms by hand, '
+            'until tools/doc_lint.py corpus_is_decisive() is true')
     files = [f for f in _md_in_scope(ctx) if f not in dl.ACRONYM_SKIP_FILES]
     if not files:
         raise NotApplicable('no changed markdown file is in scope')

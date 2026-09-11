@@ -55,7 +55,7 @@ rules instead of living and dying inside one document.
 4. Follow [INSTALL.md §0](../../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)'s
    steps 1 and 6: vendor Precedent's `practices/` tree and whole `tools/`
    directory at the path `precedent.json` already names
-   (`precedent/universal/`), then run `python3 tools/precedent_sync_views.py`
+   (`precedent/universal/`), then run `python3 tools/precedent_sync_views.py --repo .`
    to fill in `AGENTS.md`'s generated block. Confirm it prints `OK`.
 
    Then run `python3 tools/precedent_check.py` and read its practice count.
