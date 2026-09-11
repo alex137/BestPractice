@@ -225,7 +225,7 @@ method"). Build the fixtures.
   silently on a scan that never ran, and never fail on something the adopter
   cannot fix.
 - **The generator, against the sets that already exist.** Run
-  [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)
+  [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_bootstrap_source.py)
   for each resolved team and individual source and diff its output against
   the real set, file by file — the tool's `BOOTSTRAP DRIFT` section does
   this, and it needs those sets attached to do anything at all. A set is

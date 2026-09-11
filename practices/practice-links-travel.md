@@ -21,8 +21,8 @@ strength:    assented
 **A practice file is published into every repository that adopts the
 catalogue, so a relative link in one only works if the target travels with
 it.** Two things do: **another practice file in the same directory**, cited
-the normal way as a markdown link to its own `<slug>.md`, and **the vendored engine
-files under `../tools/`** that every consumer receives.
+the normal way as a markdown link to its own `<slug>.md`, and **the
+vendored engine files under `../tools/`** that every consumer receives.
 
 **Everything else in the publishing repository does not travel** — `spec/`,
 `templates/`, root documents, decisions, records, hooks. Link one of those
