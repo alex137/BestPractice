@@ -228,6 +228,24 @@ them.** Click-paths as of <install date>.
 - **Automation is allowed to open proposals** — **Settings → Actions →
   General → Workflow permissions**, with *Allow GitHub Actions to create
   and approve pull requests* ticked.
+- **A few settings inside Claude itself**, if you work in Claude Code on
+  the web. Open [claude.ai/code](https://claude.ai/code), go to the
+  environment this project runs in, and add these to its **environment
+  variables**, with your own values:
+
+  ```
+  PRECEDENT_COMMIT_NAME=Your Name
+  PRECEDENT_COMMIT_EMAIL=you@example.com
+  PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires
+  ```
+
+  Without them your work gets committed under the assistant's own account
+  rather than your name, with the wrong timezone on it. If you have a
+  practices repo of your own, add `PRECEDENT_GIT_TOKEN` (a read-only
+  personal access token that can see it) and `PRECEDENT_SOURCE_BASE_URL`
+  (`https://github.com/your-account`) too, or your own practices never
+  load. **A change here does not reach a session already open** — start a
+  new one to test it.
 
 ### Automatic Checks Installed for This Project
 

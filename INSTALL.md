@@ -1295,6 +1295,26 @@ which means the token is not the problem and the clone itself is. The same
 line is printed by the session check, by the source-freshness report at
 session start, and by a vendor update.
 
+### Setting These on the Environment, With an Example for Each
+
+**Recommended, not required.** Precedent installs and runs with none of this
+set. What it buys is that three problems stop recurring per session: private
+practices that silently never load, commits authored by the assistant's bot
+account instead of a person, and attached repositories nobody checks for
+staleness. Set on the environment rather than per checkout, they follow a
+session into every repository it touches.
+
+| Variable | Status | Example value |
+|---|---|---|
+| `PRECEDENT_GIT_TOKEN` | Required to reach a private practice set from a hosted session; irrelevant without one | `github_pat_<the rest of your read-only token>` |
+| `PRECEDENT_SOURCE_BASE_URL` | Required whenever `PRECEDENT_GIT_TOKEN` is set — the token says you may read, this says what to read | `https://github.com/your-github-account` |
+| `PRECEDENT_COMMIT_NAME` | Recommended | `Your Name` |
+| `PRECEDENT_COMMIT_EMAIL` | Recommended, alongside the name | `you@example.com` |
+| `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
+| `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `~/precedent-individual=main;~/precedent-team-writing=main` |
+| `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
+| `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |
+
 ### Optional, and Each One an Escape Hatch
 
 | Setting | Where | Effect |
