@@ -112,6 +112,30 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
 
 
+# Which trees this repo MIRRORS from somewhere else, and therefore may not
+# edit. precedent_resolve.mirrored_prefixes() is the one place that question
+# is answered -- its own docstring carries the reasoning and the incident.
+# Several checks here need it, and each of them used to hardcode
+# 'process/upstream/', which is INSTALL.md §1's layout and invisible to a §0
+# install. Cached because it reads files and is asked once per check.
+#
+# It never raises, so the only thing guarded is the import: precedent_check.py
+# ships into source sets, which vendor it without precedent_resolve.py.
+_MIRRORED_CACHE = {}
+
+
+def _mirrored(repo):
+    """-> tuple of repo-relative prefixes this repo mirrors; () if none."""
+    key = str(repo)
+    if key not in _MIRRORED_CACHE:
+        try:
+            import precedent_resolve as pr
+            _MIRRORED_CACHE[key] = tuple(pr.mirrored_prefixes(repo))
+        except Exception:
+            _MIRRORED_CACHE[key] = ('process/upstream/',)
+    return _MIRRORED_CACHE[key]
+
+
 # --------------------------------------------------------------------------
 # The one code path: a failure message is the practice's own Rule.
 # --------------------------------------------------------------------------
@@ -668,10 +692,18 @@ _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?
        'to.')
 def _technical_describes_people(ctx):
     out = []
+    # practices/ names files after their SLUG, and a rule about this label
+    # must contain it; record/ is settled history nobody renames. The third
+    # exclusion is every tree this repo MIRRORS, and it used to be the
+    # literal 'process/upstream/' -- INSTALL.md §1's layout, and the wrong
+    # one for a §0 install, whose vendored catalogue sits wherever
+    # precedent.json's `universal` source points. In a §0 consumer the only
+    # path this check ever flagged was Precedent's own
+    # technical-describes-people.md, inside a mirror the consumer may not
+    # edit and cannot rename. Ask the engine (practice: durable-fix).
+    skip = ('practices/', 'record/') + _mirrored(ROOT)
     for f in ctx.changed:
-        # practices/ names files after their SLUG, and a rule about this
-        # label must contain it; record/ is settled history nobody renames.
-        if f.startswith(('practices/', 'record/', 'process/upstream/')):
+        if f.startswith(skip):
             continue
         for part in pathlib.PurePath(f).parts:
             m = _SKILL_LABEL_RE.search(part)
@@ -692,7 +724,15 @@ def _technical_describes_people(ctx):
 # (practice: filename-separator -- the rule is about names somebody HERE
 # chose). Vendored upstream, materialized output, and instantiable skeletons
 # whose names are copied verbatim into an adopter's tree.
-_SEPARATOR_FOREIGN = ('process/upstream/', 'tools/checks/', 'practices/')
+_SEPARATOR_FOREIGN_FIXED = ('tools/checks/', 'practices/')
+
+
+def _separator_foreign():
+    # The mirrored trees are asked for, not listed: the literal
+    # 'process/upstream/' that used to sit here is INSTALL.md §1's
+    # layout, and a §0 install mirrors the catalogue somewhere else
+    # entirely. Same root cause as _mirrored()'s own comment.
+    return _SEPARATOR_FOREIGN_FIXED + _mirrored(ROOT)
 
 
 @check('filename-separator', 'tree',
@@ -724,7 +764,7 @@ def _filename_separator(ctx):
     # file at all, which the harness's own planted case caught.
     for f in _git('ls-files', '--cached', '--others',
                   '--exclude-standard').stdout.split():
-        if any(f.startswith(x) for x in _SEPARATOR_FOREIGN):
+        if any(f.startswith(x) for x in _separator_foreign()):
             continue
         path = pathlib.PurePath(f)
         # The FIRST dot ends the stem: `a_b.md.template` is named after
@@ -2202,11 +2242,15 @@ def _doc_lint():
 # reason; centralizing it here so the same exemption reaches every check that
 # walks changed markdown, rather than being re-derived per check.
 # practice: scrub-gate (the vendored tree's own gate is practice_audit.py)
-VENDORED_PREFIXES = ('process/upstream/',)
-
-
+# The path is ASKED FOR, never written down here. The literal that used to
+# sit at this line was 'process/upstream/' -- INSTALL.md §1's layout -- so
+# every check routed through _is_vendored() below silently lost its exemption
+# in a §0 install, where the vendored catalogue lives at whatever path
+# precedent.json's `universal` source names. That is the broadest instance of
+# the bug: this one exemption feeds acronyms-glossary, header-caps,
+# no-stale-counts and migration-scrubs-vocabulary at once.
 def _is_vendored(path):
-    return path.startswith(VENDORED_PREFIXES)
+    return path.startswith(_mirrored(ROOT))
 
 
 def _md_in_scope(ctx):
@@ -2856,10 +2900,19 @@ def _rename_updates_links(ctx):
             if old in withheld:
                 continue      # withheld, not deleted -- see the note above
             # A file the consuming repo RECEIVED cannot be repointed there:
-            # the vendored upstream tree and the vendored engine are mirrored
-            # wholesale from a published commit, and an edit is overwritten by
-            # the next refresh. The reference is upstream's, and so is the fix.
-            if rel.startswith('process/upstream/') or rel in _vendored_engine \
+            # a mirrored tree and the vendored engine are copied wholesale
+            # from a published commit, and an edit is overwritten by the next
+            # refresh. The reference is upstream's, and so is the fix.
+            #
+            # THE VENDORED CATALOGUE IS THE THIRD SUCH TREE and this check did
+            # not know it. The engine and the materialized tree were already
+            # attributed from the committed manifest; the catalogue was
+            # excluded by the literal 'process/upstream/', which is
+            # INSTALL.md §1's layout only. A §0 consumer deleting one of its
+            # OWN files got two findings inside Precedent's practice prose,
+            # where the path named is correct upstream and where the consumer
+            # can repoint nothing. Ask the engine (practice: durable-fix).
+            if rel.startswith(_mirrored(ROOT)) or rel in _vendored_engine \
                     or rel in received or rel == DECOMMISSIONED_PATHS_REGISTRY \
                     or any(_exempt_matches(rel, e) for e in _retired_exempt):
                 # The decommissioning registry names every path this repo has
@@ -3871,7 +3924,9 @@ def _open_item_disposition(ctx):
         else:
             found = [glob] if (ROOT / glob).is_file() else []
         for rel in found:
-            if rel.split('/')[0] == '.git' or rel.startswith('process/upstream/'):
+            # _mirrored() guards its own import, so the fixture-safety
+            # note above still holds: copied alone, it falls back.
+            if rel.split('/')[0] == '.git' or rel.startswith(_mirrored(ROOT)):
                 continue
             if rel not in files:
                 files.append(rel)
