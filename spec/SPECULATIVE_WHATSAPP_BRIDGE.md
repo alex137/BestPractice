@@ -43,11 +43,22 @@ not open a Claude session, will not learn what a branch is, and will
 cheerfully send a two-minute voice note about the same subject. A chat app
 is where that person already is.
 
-**WhatsApp is the destination; Telegram is how you find out whether the idea
-works.** The two are interchangeable for everything above — the hub shape,
-the repository layout, the Claude turn, the relay — and completely different
-in what they cost to start. That split is the whole reason for the phasing
-below.
+**WhatsApp is the destination, and that is decided rather than assumed.**
+Morgan, 2026-09-11, asked directly whether a working Telegram bot might just
+become the answer: *"the people I want to use this with to collaborate with
+already live within using whatsapp, they won't change apps, and I want to go
+where they are."* **So the platform is not one of the things being tested.**
+The people this exists for are on WhatsApp and will not move, which is the
+entire reason the idea is worth anything — a bridge to an app they do not use
+is not a cheaper version of this, it is a different and useless thing.
+
+**Telegram is a rehearsal, and nothing more.** The two platforms are
+interchangeable for everything above — the hub shape, the repository layout,
+the Claude turn, the relay — and completely different in what they cost to
+start, which is the only reason to touch Telegram at all: it answers *does
+this loop work and will a person use it* without waiting on Meta. **What it
+must never do is become the destination by default.** Phase 1 exists to be
+thrown away, or ported.
 
 ## Why a bot in a real group chat is the wrong shape
 
@@ -404,12 +415,21 @@ session's. Consecutive messages from one person should be batched, with a
 delay of a few minutes before a Claude turn is triggered, or the cost and
 the noise both scale with chatter rather than with content.
 
-**A Telegram proof of concept that succeeds is its own risk.** If phase 1
-works and the participant likes it, the pressure will be to stay on Telegram
-and skip the verification queue entirely — which may be the right answer, and
-**may also be the answer that quietly abandons the premise**, since the whole
-argument for this idea is that the target person is on WhatsApp and will not
-move. Decide that on purpose if it comes up; do not arrive at it by default.
+**The Telegram phase can capture the project, and that is the risk to
+watch.** Not because staying on Telegram might be right — Morgan has settled
+that it is not, above — but because a working thing exerts a pull regardless
+of whether anybody endorses it. **The failure shape is drift, not a
+decision**: a comfortable phase-1 build that keeps growing Telegram-shaped
+features, each one reasonable, until porting is expensive enough to argue
+about. Meta's verification queue sitting in the way makes every individual
+delay look sensible.
+
+Two things hold the line, and both belong in phase 1 rather than in
+somebody's memory. **The platform adapter sits behind an interface from the
+first commit** — the constraint phase 1 already carries. And **phase 1 is
+done when the participant has used it for a while, at which point Meta
+onboarding starts whatever else is happening**: the point of a rehearsal is
+that it ends.
 
 ## Open questions
 
@@ -426,13 +446,21 @@ nothing is being built.
 3. **Whether a project digest is a utility template or a marketing one** in
    Meta's categorization. It is the difference between a free phase 4 and a
    metered one, and it is a question for phase 2.
-4. **Whether Morgan has, or wants, a business entity that clears Meta's
-   verification.** If not, the WhatsApp destination is a different plan, and
-   that is better known early than late.
+4. **What Morgan has that clears Meta's business verification**, and what
+   that takes if the answer is nothing yet. **This is no longer a question
+   about whether to go to WhatsApp at all** — that is settled — so it is not
+   a fork in the plan, it is the first real obstacle on the only road. It is
+   worth knowing early for that reason rather than the opposite one, and
+   what it actually demands is itself a phase-2 finding: this document's
+   account of it is second-hand.
 
-**One former open question is now answered.** *Telegram for phase 1, or
-straight to WhatsApp and accept the lead time* — Morgan chose Telegram on
-2026-09-11, which is what this revision reflects.
+**Two former open questions are now answered, both by Morgan on
+2026-09-11.** *Telegram for phase 1, or straight to WhatsApp and accept the
+lead time* — Telegram, `strength: decided`. And *whether a working Telegram
+bot could simply become the answer* — no, `strength: decided`, in the words
+quoted under [What it is](#what-it-is). Recorded with their strength per
+[decision-strength](../practices/decision-strength.md); both are quotable
+choices rather than assent to a session's proposal.
 
 ## Where this came from
 
