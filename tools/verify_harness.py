@@ -11688,8 +11688,19 @@ def check_source_credentials():
 
         # --- 6: the CLI's own contract -------------------------------------
         def run(*args, env_extra=None):
+            # Scrub BOTH credential variables, not just the token. A case
+            # below asserts what happens with NO base url, and this harness
+            # runs in a container that normally HAS one -- so the subprocess
+            # inherited a real base url, tried to clone from github.com, and
+            # failed on "could not read Username" instead of reporting the
+            # variable as unset. The case was testing a state the fixture had
+            # never established (practice: fixture-owns-its-state). Any case
+            # that wants either variable supplies it through env_extra, which
+            # is the only way to tell "the fixture set this" from "the
+            # container happened to carry it".
             env = dict(os.environ)
             env.pop(psc.TOKEN_ENV, None)
+            env.pop(psb.BASE_URL_ENV, None)
             if env_extra:
                 env.update(env_extra)
             r = subprocess.run([sys.executable, *args], capture_output=True,
@@ -11859,6 +11870,8 @@ def check_individual_source_bootstrap_self_heals():
     stated cases, all fast: --retry-delay 0 proves an explicitly-requested
     retry count without a real wall-clock wait."""
     import shutil, tempfile
+    import precedent_source_credentials as psc
+    import precedent_source_bootstrap as psb
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-source-bootstrap-'))
     cases = []
@@ -11866,8 +11879,21 @@ def check_individual_source_bootstrap_self_heals():
         bootstrap_tool = ROOT / 'tools' / 'precedent_source_bootstrap.py'
         resolve_tool = ROOT / 'tools' / 'precedent_resolve.py'
 
-        def run(*args, env_extra=None):
+        def _no_credentials():
             env = dict(os.environ)
+            env.pop(psc.TOKEN_ENV, None)
+            env.pop(psb.BASE_URL_ENV, None)
+            return env
+
+        def run(*args, env_extra=None):
+            # Same scrub as check_source_credentials's run(), for the same
+            # reason: cases here assert what a bootstrap does with no
+            # credential and no base url, and this harness runs in a
+            # container that normally carries both
+            # (practice: fixture-owns-its-state).
+            env = dict(os.environ)
+            env.pop(psc.TOKEN_ENV, None)
+            env.pop(psb.BASE_URL_ENV, None)
             if env_extra is not None:
                 env.update(env_extra)
             r = subprocess.run([sys.executable, *args], capture_output=True,
@@ -12099,7 +12125,7 @@ def check_individual_source_bootstrap_self_heals():
         home_hook.mkdir()
         rh = subprocess.run(['bash', str(own_hook)], capture_output=True,
                             text=True, timeout=180,
-                            env={**os.environ, 'HOME': str(home_hook),
+                            env={**_no_credentials(), 'HOME': str(home_hook),
                                  'CLAUDE_PROJECT_DIR': str(ROOT),
                                  'CLAUDE_CODE_REMOTE': 'true'})
         cases.append(("this repo's own bootstrap hook exits 0 when it cannot "
@@ -12154,7 +12180,7 @@ def check_individual_source_bootstrap_self_heals():
         live_home.mkdir()
         r12 = subprocess.run(['bash', str(live_hook)], capture_output=True,
                              text=True, timeout=180,
-                             env={**os.environ, 'HOME': str(live_home),
+                             env={**_no_credentials(), 'HOME': str(live_home),
                                   'CLAUDE_PROJECT_DIR': str(ROOT),
                                   'CLAUDE_CODE_REMOTE': 'true'})
         live_cfg = live_home / '.config' / 'precedent' / 'config.json'
@@ -12176,9 +12202,14 @@ def check_individual_source_bootstrap_self_heals():
         nourl_hook = nourl_proj / '.claude' / 'hooks' / 'precedent-individual-bootstrap.sh'
         nourl_home = tmp / 'home-no-url-hook'
         nourl_home.mkdir()
+        # The hook DERIVES its URL from the base url when no URL was baked
+        # in, so a fixture asserting "it degrades quietly when nothing else
+        # supplies one" has to be the thing that establishes "nothing else
+        # supplies one". Inheriting the container's own base url made this
+        # case assert the opposite of what it ran (2026-09-11).
         r13 = subprocess.run(['bash', str(nourl_hook)], capture_output=True,
                              text=True, timeout=180,
-                             env={**os.environ, 'HOME': str(nourl_home),
+                             env={**_no_credentials(), 'HOME': str(nourl_home),
                                   'CLAUDE_PROJECT_DIR': str(ROOT),
                                   'CLAUDE_CODE_REMOTE': 'true'})
         cases.append(('--write-session-hook with NO --repo-url still writes a '
@@ -12196,7 +12227,7 @@ def check_individual_source_bootstrap_self_heals():
         raw_home.mkdir()
         r14 = subprocess.run(['bash', str(raw_template)], capture_output=True,
                              text=True, timeout=180,
-                             env={**os.environ, 'HOME': str(raw_home),
+                             env={**_no_credentials(), 'HOME': str(raw_home),
                                   'CLAUDE_PROJECT_DIR': str(ROOT),
                                   'CLAUDE_CODE_REMOTE': 'true'})
         cases.append(('the RAW template, run without being instantiated, still '

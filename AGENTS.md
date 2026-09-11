@@ -957,6 +957,34 @@ gotcha every session reads is a gotcha every session pays for.
   the work is **not lost** — `git reflog` lists the commit, `git checkout`
   returns to it, `git cherry-pick` recovers anything committed after.
 
+- **A `verify_harness.py` fixture that builds a "no credential" scenario
+  inherits the container's real credential, so it asserts the opposite of
+  what it ran — and it only fails once the environment starts carrying
+  one.** 2026-09-11: four harness failures were reported to a person as
+  "the absent `PRECEDENT_GIT_TOKEN`". The token was **present**
+  (`env | grep -c PRECEDENT` said 6), and two of the four failed *because*
+  of that. `check_source_credentials` and
+  `check_individual_source_bootstrap_self_heals` each spawn subprocesses
+  with `{**os.environ, ...}`; the cases asserting *"with no base url the
+  team source is named as NOT in force"* and *"that hook degrades quietly
+  when nothing else supplies one"* therefore ran against a real
+  `PRECEDENT_SOURCE_BASE_URL`, tried to clone from github.com, and failed on
+  `could not read Username` — which reads exactly like a missing credential
+  and is a present one.
+  **The diagnosis is backwards in the expensive direction**: it sends you to
+  go fix access you already have. Separate the two by running
+  `env -u PRECEDENT_GIT_TOKEN -u PRECEDENT_SOURCE_BASE_URL python3
+  tools/verify_harness.py` — if failures *disappear*, the fixture is
+  inheriting, not missing.
+  One fixture's own comment said *"Run here with a HOME that has nothing and
+  no git credentials"* while inheriting both, which is the tell: **a premise
+  stated in a comment is not a premise the fixture established**
+  ([fixture-owns-its-state](practices/fixture-owns-its-state.md)). Both
+  `run()` helpers and all four hook subprocesses now pop the two variables,
+  so a case that wants either supplies it explicitly. Before that the whole
+  harness's result depended on which container it ran in, and nothing said
+  so.
+
 - **A harness run that overlaps a write to the tree fails on a change
   belonging to no commit, and the count alone cannot tell you that.**
   `verify_harness.py` reads the tree as it goes, over a hundred-odd checks
