@@ -24,9 +24,10 @@ it.** Three things do: **another practice file in the same directory**, cited
 the normal way as a markdown link to its own `<slug>.md`; **the vendored
 engine files under `../tools/`** that every consumer receives; and **a
 source's own check scripts and their tests under `../tools/checks/`**, which
-materialization copies alongside the practices, subtree and all — a practice citing the script that enforces
-it is the most common cross-reference a private set makes, and it is a
-correct one.
+materialization copies alongside the practices — the `check_*.py` scripts
+and the `test_*.sh` files under `tests/` — a practice citing the script that
+enforces it is the most common cross-reference a private set makes, and it is
+a correct one.
 
 **Everything else in the publishing repository does not travel** — `spec/`,
 `templates/`, root documents, decisions, records, hooks. Link one of those
@@ -67,14 +68,28 @@ about. No lint anywhere reports it; only reading the link as a claim about
 because `.claude/` does not travel — nothing would catch it if it did.
 
 **Do not assume materialization repairs this for a public source.**
-`precedent_materialize.py`'s `_rewrite_links` does turn an unplaceable
-relative link into an absolute URL when the source is public, which reads
+[precedent_materialize.py](../tools/precedent_materialize.py)'s
+`_rewrite_links` does turn an unplaceable relative link into an absolute
+URL when the source is public, which reads
 like the problem solving itself. It does not, in the install that matters
 most: when the universal source is a tracked tree *inside* the consuming
 repository, the rewriter resolves the target within that repository instead,
 finds nothing there, and leaves the link exactly as written — it will not
 invent a target it cannot place. That is the right refusal and it is why the
 links have to be correct in the publishing source.
+
+**For a PRIVATE source it refuses on purpose, and the dead link is
+load-bearing.** The same rewriter passes `may_name_source_repo=False` for
+an individual source, so it leaves the relative link exactly as written
+rather than minting an absolute URL into the publishing repository. That is
+a privacy boundary, not a gap: the URL would hand a consuming repo's tracked
+tree that private repository's owner and name, and a consuming repo can be
+public. Its own words: *"a
+relative link that does not resolve is a smaller failure than a disclosure
+that cannot be taken back."* **So a session that finds such a link must not
+make it absolute** — that is the disclosure, and it is the first thing
+anyone tries. Nothing downstream repairs it and nothing downstream should;
+the repair belongs in the publishing source, as a backticked path.
 
 ## Why
 The catalogue is written in one repository and read in all of them, and
@@ -86,14 +101,30 @@ link has no way to tell what it was ever pointing at.
 
 ## Story
 **The rule is older than this file, and the private original had already
-named two things this one missed.** Written in `precedent-individual` on
-2026-09-06 after the same mistake landed three times in one day against one
-directory — nine dead links across four practices, one batch of which was
-"fixed" by making the links absolute, which tripped a consuming repo's
-private-repo scrub and had to be undone. The universal text here was written
-without being able to read it, and shipped a check that would have fired on a
-correct link to a source's own check script. Both gaps were closed on
-2026-09-11, by reading the original once the private sources resolved.
+named four things this one missed.** It was written in `precedent-individual`
+on 2026-09-06, out of the incident below. The universal text here was written
+by a session that could not attach that repository and had never read it, so
+it shipped without the check-script clause, without the shape that resolves
+to the wrong file, without the private half of the materialization refusal,
+and without the incident itself — and its check would have fired on a
+correct link to a source's own check script. All four were closed on
+2026-09-11, once the private sources resolved and the two texts could be
+read against each other.
+
+**The incident: 2026-09-06, three sessions, one day, one directory.** A
+practice landed carrying three `../bootstrap/` links. The first push that
+vendored it turned a consuming repo's Markdown lint red — three broken
+relative links, a hard failure — and **the fix made them absolute, which
+tripped that same repo's `private-repo-scrub`**, because an absolute URL was
+precisely the disclosure the rewriter refuses to make. They were corrected to
+bare backticked paths. Hours later two more practices landed with seven more
+of the same, from a different session that had no way to know. A sweep then
+found two in a third practice that had been dead **for weeks** and had never
+been reported once — `doc_lint` scopes to CHANGED files, and nobody had
+touched that file since. A gotchas note written after the first batch
+prevented neither the second nor the third, which is the case for a check
+rather than more prose
+([checkable-gets-checked](checkable-gets-checked.md)).
 
 **Measured 2026-09-11, in this repository at engine `89c90d7`: 134 relative
 links across 42 of the 94 universal practice files pointed at 57 targets

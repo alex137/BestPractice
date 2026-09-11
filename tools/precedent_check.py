@@ -644,16 +644,19 @@ def _catalogue_carries_stories(ctx):
 _MD_LINK_RE = re.compile(r'(?<!\!)\[[^\]]*\]\(([^)\s]+)\)')
 _BLOB_URL_RE = re.compile(
     r'^https://github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.+)$')
-# Anything under tools/checks/, at any depth: materialize copies the
-# whole subtree, so a check's own TEST under tools/checks/tests/
-# travels exactly as the script does. The first version matched only
-# a .py directly in tools/checks/, which still reported 12 correct
-# links across 6 practice files as violations when run against a real
-# private set -- and the repair it printed for each was an absolute
-# URL into that private repository, i.e. the disclosure this very
-# rule exists to prevent. Measured 2026-09-11 by the session that
-# deduplicated the individual copy.
-_CHECK_SCRIPT_RE = re.compile(r'\.\./tools/checks/[^\s)]+')
+# What precedent_materialize.py actually copies out of a source's
+# tools/checks/, and it is two globs rather than a subtree: `check_*.py`
+# beside the practices, and `tests/test_*.sh` under them. Both shapes are
+# spelled out, because the tests half was missed the first time -- run
+# against a real private set that version reported 12 correct links across
+# 6 practice files as violations, and the repair it printed for each was an
+# absolute URL into that private repository, i.e. the disclosure this very
+# rule exists to prevent (measured 2026-09-11 by the session that
+# deduplicated the individual copy). A loose "anything under tools/checks/"
+# would clear those 12 too, and would also clear a link to a file
+# materialize does not copy -- so the target must exist as well, below.
+_CHECK_SCRIPT_RE = re.compile(
+    r'\.\./tools/checks/(?:check_[^/]+\.py|tests/test_[^/]+\.sh)')
 
 
 def _markdown_links(text):
@@ -704,7 +707,8 @@ def _origin_slug():
 @check('practice-links-travel', 'tree',
        'every link in a practice file THIS repo owns either travels with the '
        "file (a sibling practice, a vendored engine file, this source's own "
-       'tools/checks/ script) or is an absolute URL into this repository on '
+       'tools/checks/ check script or tests/ test, which must exist here) or '
+       'is an absolute URL into this repository on '
        'its declared base_branch, naming a path that exists',
        'whether the target is the RIGHT file -- including the nastiest '
        'shape of this bug, a link like ../.claude/settings.json that '
@@ -775,8 +779,14 @@ def _practice_links_travel(ctx):
             # on the single most common cross-reference a private-set
             # practice makes -- a practice citing the script that enforces
             # it. Found 2026-09-11 by reading the individual set's original,
-            # which had named both shapes from the start.
-            if _CHECK_SCRIPT_RE.fullmatch(base):
+            # which had named both shapes from the start. It must EXIST in the
+            # tree being scanned -- the same test the sibling-practice case
+            # above uses -- so one check stays right for a private set, whose
+            # scripts sit beside its practices, and for this repository, where
+            # tools/checks/ is materialize's output directory and a link into
+            # it points at nothing.
+            if (_CHECK_SCRIPT_RE.fullmatch(base)
+                    and (ROOT / base[3:]).exists()):
                 continue                        # this source's own check script
             fix = (f'https://github.com/{slug}/blob/{branch or "<branch>"}/'
                    f'{base.lstrip("./")}' if slug else 'an absolute URL')

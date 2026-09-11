@@ -2835,15 +2835,24 @@ which is the failure this repointing exists to end — write
    is nothing left for it to look at.
 
    **DONE 2026-09-11.** The copy in `precedent-individual` is
-   `status: deduplicated`, `in_force_at: practice-links-travel`, and its check
-   script is gone from that set's `tools/checks/`. Its `## Story` records the
-   line-by-line comparison this item asked for and raised four things the
-   universal text was missing; all four are carried up as of
-   [PR #198](https://github.com/alex137/BestPractice/pull/198). One of them
-   was a real defect — the universal check did not know a check script's own
-   test travels, which that session measured as 12 false violations across 6
-   practice files, each one repaired by an absolute URL into a private
-   repository.
+   `status: deduplicated`, `in_force_at: practice-links-travel`, and its
+   check script and that script's own test are gone from that set's
+   `tools/checks/`. Its `## Story` records the line-by-line comparison this
+   item asked for and raised four things the universal text was missing.
+   **All four are up as of [PR #197](https://github.com/alex137/BestPractice/pull/197)**,
+   across three pull requests: #194 carried the `../tools/checks/` clause and
+   the failure shape where a link *resolves* in the consumer to that
+   consumer's own file; #198 widened the clause to a check's own test and
+   summarized the private refusal in the Rule; #197 added the two that were
+   still missing — the Detail paragraph quoting `precedent_materialize.py`'s
+   own line, with the standing instruction that a session finding such a link
+   must not make it absolute, and the 2026-09-06 incident that is the
+   evidence for that half of the rule.
+
+   One of the four was a real defect: the universal check did not know a
+   check script's own test travels, measured against that set as 12 false
+   violations across 6 practice files, each one repaired by an absolute URL
+   into a private repository.
 
    **What unblocked it, and it is worth knowing for the next cross-owner
    item:** `PRECEDENT_GIT_TOKEN` reached a session rooted here for the first
@@ -2860,9 +2869,25 @@ which is the failure this repointing exists to end — write
    ([cross-source-rollout](practices/cross-source-rollout.md): not attached,
    so it is queued rather than done).
 
-   **Disposition:** wait — nobody is being chased for it, and the rule is in
-   force in the meantime
-   ([open-item-disposition](practices/open-item-disposition.md)).
+   **Three corrections made while carrying the last two, all deliberate.**
+   The check-script clause as #194 landed it matched `check_*.py` only;
+   #198 then widened it to anything under `tools/checks/` at any depth.
+   Neither is what `precedent_materialize.py` does — it copies two globs,
+   `check_*.py` and `tests/test_*.sh`, not a subtree — so the check now
+   matches exactly those two **and** requires the target to exist in the
+   tree being scanned, which a depth-anything pattern would not catch.
+   #198's harness control planted a test named `t.sh`, which materialize
+   would not copy at all; it is `test_x.sh` now, and the fixture creates the
+   files it links instead of only linking them. And the original's own
+   incident arithmetic does not close — it names three links, then seven
+   more, then two found long-dead, and totals them as "nine" — so the stages
+   are carried and the total is not, rather than guessing which figure was
+   wrong ([no-invented-specifics](practices/no-invented-specifics.md),
+   [verify-decomposition](practices/verify-decomposition.md)). **If someone
+   can settle that count from `precedent-individual`'s history, the number
+   belongs back in.** The private set's own practice slugs were left out of
+   the universal text as well: they name nothing the rule needs, and this
+   repository is public.
 
 57. <a id="session-practices-reports-unresolved-sources"></a>**`.precedent/SESSION_PRACTICES.md` can report a source as unresolved that
     resolved fine minutes later — and a session reading it believes those
