@@ -39,6 +39,20 @@ acting on anything.
 **Four entries are not here at all** — they were short and wholly live, so
 they stand in AGENTS.md unchanged.
 
+**Later passes append rather than rewrite this file**, so the paragraphs above
+describe the 2026-09-08 pass that started it and not the whole of what is
+here. Entries are numbered in the order they arrived; a gap in the numbering
+is an entry that was never archived, not one that went missing. The most
+recent pass is 2026-09-11, which moved six entries — the three largest in the
+section among them — after verifying each against the tree rather than against
+its own claim about itself.
+
+**Link targets in an archived entry are repointed** from the repo root to
+`../`, so they resolve from this directory
+([rename-updates-links](../practices/rename-updates-links.md)). Nothing else
+about the text is touched: that is the only edit an entry gets on its way
+here.
+
 
 ## 2. A git helper that returns stdout and drops the exit code will hand you a
 
@@ -1111,3 +1125,370 @@ unaffected and stands.
   derivation is in the archive.
 
 </details>
+
+
+## 32. Your commits are authored by the bot because the harness sets that identity in git's GLOBAL config AND in every clone's LOCAL config
+
+**Verdict: `compressed`.** Live where `PRECEDENT_COMMIT_*` is not set on the environment, and that is
+still every fresh container nobody has configured -- so a live entry stands.
+What moved here is the forensics of the two things that kept UNDOING the
+repair, because both are now closed at the cause. `PRECEDENT_COMMIT_NAME`,
+`_EMAIL` and `_TZ` in the environment are rung 1 of the hook's ladder: they
+need no clone, no private source and no credential, so the fallback rung that
+repointed `/etc/localtime` and wrote `TZ=America/New_York` into
+`.claude/settings.local.json` is never reached. Verified 2026-09-11 by
+controlled test -- a throwaway repo with an empty HOME, the two credential
+variables scrubbed, and the bot identity preloaded as the harness sets it: the
+hook resolved at rung 1, set the person, the global identity and the declared
+-0300, and installed the backstop. The Stop-hook trap stayed in the live
+entry; it is harness behaviour nothing here controls.
+
+**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+
+- **Your commits are authored by the bot because the harness sets that
+  identity in git's GLOBAL config AND in every clone's LOCAL config — so a
+  global-only fix is silently overridden, and the Stop hook will tell you to
+  put the bot back.** Measured 2026-09-11: `user.name=Claude`,
+  `user.email=noreply@anthropic.com` in `--global` and in both clones'
+  `--local`, `TZ` unset so the system clock reads **-0400** rather than the
+  declared -0300, and no global backstop installed to refuse any of it.
+  `git var GIT_AUTHOR_IDENT` returned the bot with no env override in sight.
+  The cause is the entry above — a session rooted one directory up, so
+  `commit-identity.sh` never ran — but the SYMPTOM reads as a git-config
+  problem, and the config it reads as is one somebody already set on purpose.
+  **The cost is that a wrong-author commit cannot be repaired after it
+  merges** without rewriting `main`, which is why `fab8d42` and two entries in
+  the individual set's `grandfathered_commit_shas` are permanent.
+  **The remedy is one line, and it is not `git config`:**
+  ```
+  bash .claude/hooks/commit-identity.sh
+  ```
+  It sets the local identity, the GLOBAL one (so a clone attached later
+  inherits a person), repoints `/etc/localtime` so later shells and
+  `git merge` get the right offset without a `TZ=` prefix, and installs the
+  global `core.hooksPath` backstop that refuses a bot-authored commit
+  everywhere.
+  **Running it once is not enough, and there are TWO separate things that
+  undo it. Both were reproduced 2026-09-11; neither was guessed.**
+  **First, and this is the one that kept coming back:
+  `python3 tools/verify_harness.py` used to repoint the REAL container's
+  `/etc/localtime`.** Its fixtures run `commit-identity.sh`, where no identity
+  resolves, so the hook falls to its last rung -- this repo's declared
+  `fallback_timezone`, `America/New_York` -- and moved the machine's own
+  symlink to it. Controlled before/after: Buenos_Aires in, New_York out,
+  across one harness run, with the session's clock left wrong afterwards.
+  **The cost lands nowhere near the harness**: the NEXT commit is refused with
+  `author-date offset is '-0400'` while the author is already correct, which
+  reads as a fresh identity problem and is really this. Fixed by setting
+  `PRECEDENT_LOCALTIME` once for the whole run, the same way the harness
+  already sets `PRECEDENT_ALLOW_ANY_AUTHOR` for fixture commits -- the
+  identical bug, one field over. If a stale harness is around, run it as
+  `PRECEDENT_LOCALTIME=/tmp/x python3 tools/verify_harness.py`.
+  **Second, a slower one that survives the session.** The same fallback rung,
+  reached in a real session because the credential was missing, ALSO writes
+  `TZ=America/New_York` into `.claude/settings.local.json` -- **untracked and
+  gitignored**, so it shows in no diff and no review, and the harness reads
+  that `env` block BEFORE hooks run, where an explicit `TZ` beats
+  `/etc/localtime` outright. One credential-less session therefore poisons
+  every later session in that clone, invisibly. **So read that file before
+  touching any `git config`:**
+  `python3 -c "import json;print(json.load(open('.claude/settings.local.json'))['env'])"`.
+  Between them these explain why repairing the identity never held: after the
+  first repair the identity was never wrong again, and the offset was arriving
+  from a fixture that moved the machine's clock or from a variable a previous
+  session had written. **Note the asymmetry** that hid it: an individual
+  practice source carries a TRACKED `settings.json` env block naming its
+  owner's zone, so work rooted THERE is immune; a shared repository
+  deliberately names nobody, depends entirely on the hook, and is the one that
+  gets poisoned.
+  **The durable answer is `PRECEDENT_COMMIT_TZ` in the environment** -- on
+  EVERY environment sharing a name, per the twin-environment trap above -- so
+  the fallback rung is never reached at all. It needs `PRECEDENT_COMMIT_*` in the environment or a resolvable
+  `identity.json`; with the variables present it needs no private repo at all.
+  **Verify by effect, never by reading the config you just wrote:**
+  `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
+  must name the person and the declared offset.
+  **The second trap is the one that wastes the time.** The harness's own Stop
+  hook flags commits whose committer is not `noreply@anthropic.com` and asks
+  you to `--amend --reset-author` onto exactly the bot account the individual
+  set's own `commit-author` practice refuses and its own mechanical check
+  fails on — the account that practice's Rule calls never a person. Neither
+  file is in this repository, which is why neither is linked here. Following it recreates the violation
+  this repository spent a day fixing. **The repository's gate wins over
+  generic harness guidance**; say so and leave the commit alone.
+
+
+
+## 33. A `verify_harness.py` fixture that builds a "no credential" scenario inherits the container's real credential
+
+**Verdict: `archived`.** The bug is fixed at the head of
+[tools/verify_harness.py](../tools/verify_harness.py) -- all three variables
+are scrubbed once, for every fixture, rather than in the fixture that happened
+to notice -- and `check_fixtures_own_the_credential_environment` holds it
+there as a control rather than a restatement: it plants the variables in a
+subprocess, imports the module, and asserts they come back gone. Verified
+present in the tree 2026-09-11, not taken from the entry's own claim. A short
+live entry survives carrying only the diagnostic tell, because the failure
+still reads as a missing credential when it happens and that reading sends a
+session to fix access it already has.
+
+**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+
+- **A `verify_harness.py` fixture that builds a "no credential" scenario
+  inherits the container's real credential, so it asserts the opposite of
+  what it ran — and it only fails once the environment starts carrying
+  one.** 2026-09-11: four harness failures were reported to a person as
+  "the absent `PRECEDENT_GIT_TOKEN`". The token was **present**
+  (`env | grep -c PRECEDENT` said 6), and two of the four failed *because*
+  of that. `check_source_credentials` and
+  `check_individual_source_bootstrap_self_heals` each spawn subprocesses
+  with `{**os.environ, ...}`; the cases asserting *"with no base url the
+  team source is named as NOT in force"* and *"that hook degrades quietly
+  when nothing else supplies one"* therefore ran against a real
+  `PRECEDENT_SOURCE_BASE_URL`, tried to clone from github.com, and failed on
+  `could not read Username` — which reads exactly like a missing credential
+  and is a present one.
+  **The diagnosis is backwards in the expensive direction**: it sends you to
+  go fix access you already have. Separate the two by running
+  `env -u PRECEDENT_GIT_TOKEN -u PRECEDENT_SOURCE_BASE_URL python3
+  tools/verify_harness.py` — if failures *disappear*, the fixture is
+  inheriting, not missing.
+  One fixture's own comment said *"Run here with a HOME that has nothing and
+  no git credentials"* while inheriting both, which is the tell: **a premise
+  stated in a comment is not a premise the fixture established**
+  ([fixture-owns-its-state](../practices/fixture-owns-its-state.md)). Both
+  `run()` helpers and all four hook subprocesses now pop the two variables,
+  so a case that wants either supplies it explicitly. Before that the whole
+  harness's result depended on which container it ran in, and nothing said
+  so.
+  **The per-fixture pops are not the whole fix, because the next fixture
+  will not have read them.** That practice's own Rule says to clear the
+  ambient inputs at the top, once, rather than in the fixture that happened
+  to notice — so the scrub also sits at the head of
+  [tools/verify_harness.py](../tools/verify_harness.py), beside the
+  `GIT_AUTHOR_*` one that was the identical shape four days earlier, and
+  `check_fixtures_own_the_credential_environment` holds it there: it plants
+  both variables in a subprocess, imports the module, and asserts they come
+  back gone. Neutering the scrub turns three of its four cases red, the
+  planted one included — so it is a control, not a restatement.
+  **Third instance, 2026-09-11, `PRECEDENT_FRESHNESS_ALSO`** — it names
+  OTHER repositories the freshness guard checks, so a guard fixture inheriting
+  it walked out of its own temporary clone into this container's real attached
+  sets, could not fetch a private one, and blocked. Both guard copies reported
+  *"pre-write does not block a branch absent from origin (exit 2)"*, red on any
+  machine with the variable and green everywhere else. **The tell is a block
+  naming a repo or branch the fixture never created.** Scrubbed at the head of
+  [tools/verify_harness.py](../tools/verify_harness.py) with the other two, and
+  planted-and-asserted by `check_fixtures_own_the_credential_environment`.
+
+  **The generalization is worth more than the fix: an ABSENCE is state
+  too.** A fixture constructing "no credential is available" owns that
+  absence exactly as much as it owns a file it wrote, and owning it means
+  scrubbing the environment rather than merely declining to set anything.
+  Same shape as the fixture whose `HOME` got a clone written into it, one
+  level out — that one owned its scenario and not the environment the
+  scenario was read from.
+
+
+
+## 34. Attaching the private practice sets is a session-shape question, and what is measured about it does not add up
+
+**Verdict: `compressed`.** The credential route made the `add_repo` question secondary rather than
+primary: with `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` on the
+environment the SessionStart hook clones every source before the first turn,
+verified end to end on fresh containers 2026-09-10 and again 2026-09-11. So
+the long 2026-09-09 measurement sequence -- the authenticated HTTPS probe, the
+ambient-credential test, the credential-helper test that established that
+route -- has done its work and is history. The live entry keeps the
+contradiction in one paragraph (it is still true that nobody can explain it,
+and a session may still need the fallback) and keeps the twin-environment trap
+in full, which is the only half that still costs days.
+
+**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+
+- **Attaching the private practice sets is a session-shape question, and what
+  is measured about it does not add up — so measure, do not reason.** Three
+  separate 2026-09-07 measurements had `add_repo` refusing a cross-owner add
+  in BOTH directions with *"cross-tier adds are not supported in v1"*,
+  including as a session's very first tool call. Two other sessions —
+  2026-09-07 and 2026-09-08 — held `alex137/bestpractice` and four or more
+  `themorgan/*` repositories at once, worked in and pushed to all of them.
+  **Nobody has an explanation that fits both.** Do not build on either
+  outcome and do not repeat an attempt expecting a remembered result: call
+  `add_repo`, read what it says, and proceed from that.
+  What is NOT in doubt is the cost of skipping it, and it is the entry above:
+  a session with `individual` and `team` unresolved applies the wrong rules
+  all day and cannot tell. If the adds are refused, **root the session in the
+  repo you must PUSH to** and expect the other owner's repositories to be
+  unattachable for its whole life — that is why work spanning both owners is
+  split across two sessions. The full contradictory sequence is in the
+  archive; read the verdict there before any single paragraph of it.
+
+  **2026-09-09 adds one measurement that is not contradictory, and one route
+  that does not depend on `add_repo` at all.** The refusal was reproduced as
+  a session's very FIRST tool call, rooted at `alex137/bestpractice` — so
+  "call it before anything else" is not a remedy: the initial repository
+  already counts as *"session already has repos from owner(s)"*. Three other
+  things were measured in the same container. An authenticated HTTPS request
+  to github.com **reaches GitHub's own authentication** rather than a proxy
+  error. There is **no ambient credential** for a private repo (a bare
+  `git ls-remote` on one asks for a username; the same call on a public repo
+  succeeds). And the credential helper in
+  [tools/precedent_source_credentials.py](../tools/precedent_source_credentials.py)
+  **does deliver** a token to git — with a deliberately invalid one, git sent
+  it and GitHub rejected it rather than prompting. **So set
+  `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` in the environment
+  ([INSTALL.md](../INSTALL.md) §8) and the SessionStart hook clones the sources
+  before the first turn, where no ordering rule can reach it.** **Verified end to end
+  2026-09-10**: a real read-scoped token in the environment, and a brand-new
+  container came up with all four private sources cloned before the first
+  turn — [tools/precedent_resolve.py](../tools/precedent_resolve.py) reported 146 practices
+  from 6 sources (41 team, 13 individual) in a repo that had been resolving
+  89 from 1. That tool prints `MISSING` when no credential is set and `SET`
+  when one is set and a clone still failed, and the session check, the
+  session-start source report and every vendor update print the same line.
+
+  **The trap that made this look impossible for three days, and the only
+  live half left: an account can hold TWO environments with the SAME NAME,
+  and the selector gives you no way to tell them apart.** Measured 2026-09-09
+  and 2026-09-10 — three sessions across two fresh containers reported
+  `env | grep -c PRECEDENT` as **0**, with not one user-defined variable of
+  any kind in a full name dump. That reads exactly like "the runner does not
+  pass them through", and it is not that: `list_environments` showed **two
+  environments both named `Default`**, same description, created 100 ms
+  apart. The variables were set on one; the sessions ran in the other.
+  Setting the same values on both fixed it in a single session. **Not
+  established:** whether the twin was the whole cause or the first save had
+  also failed — both fit what was measured, and nobody re-ran it to find out.
+  **So: give your environments distinct names**, and put a throwaway
+  `PRECEDENT_PING=1` beside the token — the ping separates "the variables do
+  not arrive" from "the token is wrong", which print identically otherwise.
+  An environment change never reaches a session already running, so test in a
+  NEW one. The three-day sequence, including two readings that were right
+  about the measurement and wrong about the cause, is entry 29 in
+  [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md).
+
+
+
+## 35. A `BLOCKED by freshness-guard` on your first tool call is no longer the new-branch false positive it was until 2026-09-11
+
+**Verdict: `archived`.** The mechanism is fixed in both copies of the guard and verified in the tree
+2026-09-11: `git ls-remote --exit-code --heads origin <branch>` separates
+"origin has no such branch" from "origin could not be reached". What the entry
+had beyond the mechanism was a general lesson, and a general lesson does not
+need 278 tokens in a file every session reads -- a one-line survivor carries
+it, since the override is still offered in every block message and so the
+shape can recur in some other guard.
+
+**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+
+- **A `BLOCKED by freshness-guard` on your first tool call is no longer the
+  new-branch false positive it was until 2026-09-11 — so read what it
+  actually says before reaching for the override.** The guard used to treat
+  "origin has no such branch" and "origin could not be reached" as the same
+  failure, and refused the first write of every newly created branch; the
+  remedy it named, `git fetch origin <branch>`, could not succeed against a
+  ref that does not exist, so the only way forward a session found was
+  `git config precedent.freshness.override true` — which switches freshness
+  checking off for that checkout permanently, including the stale-base check
+  that catches the single most expensive failure class in this file. Fixed in
+  both copies here: `git ls-remote --exit-code --heads origin <branch>`
+  separates the two, and only the branch-absent case is waved through — with
+  the base-branch check still running on it. **What stays true is the shape
+  of the trap**, since the override is still on offer in every block message:
+  a refusal naming a remedy that cannot work is the moment to ask what the
+  guard actually measured, not to disable it. **An unreachable origin still
+  blocks, deliberately.** The 2026-09-09 incident, and the push-the-branch
+  workaround it had to use, are entry 30 in
+  [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md).
+
+
+
+## 36. `git clone` with no `--branch` asks the SERVER which branch to check out
+
+**Verdict: `compressed`.** Pinned since 2026-09-10 and verified in the tree 2026-09-11:
+[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+clones with an explicit branch and puts an existing clone back on it before
+pulling, refusing rather than moving one with uncommitted work, and
+[tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
+reports a clone sitting off its branch at session start. The live entry keeps
+the incident in short form and the lesson in full -- **when a rule forbids
+asking a question, check whether something else is asking it for you** -- for
+the reason the entry gives itself: the guard reads Python and could not see a
+`git clone` making the same inference on our behalf, so the class is open even
+though this instance is shut.
+
+**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+
+- **`git clone` with no `--branch` asks the SERVER which branch to check out,
+  and the answer is a setting on a web page that nothing in this repository
+  can see.** The remote's `HEAD` symref is whatever the repository's default
+  branch is set to, and git follows it silently. 2026-09-09, measured from a
+  consuming repo: two practice-source repositories had that setting pointed at
+  a feature branch, so every session-start clone of those sources landed on an
+  older tree. `precedent_sync_views.py --check` then reported the CONSUMER as
+  drifted, and a plain sync would have written the older text over newer
+  committed text — deleting a practice's whole `## Story` block and a clause
+  of its Rule, with no warning and exit 0. **The consuming repo had never been
+  stale; the clone had been pointed somewhere else.**
+  **The second half is what made it persist**: `git pull --ff-only` pulls
+  whatever branch the checkout is already on, so a clone that landed wrong
+  once stayed wrong every session afterwards.
+  **The trap for a reader is that this repository already forbids exactly this
+  inference and the guard could not see it.** `precedent_check.py --only
+  declared-base-branch` fails any tool resolving `refs/remotes/origin/HEAD`
+  without reading a DECLARED branch first — six tools carried that bug and two
+  were actively wrong. It reads Python, so it never saw a `git clone` making
+  the same inference implicitly, on our behalf. **When a rule forbids asking a
+  question, check whether something else is asking it for you.**
+  Pinned since 2026-09-10:
+  [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+  clones with an explicit branch and puts an existing clone back on it before
+  pulling — declared `base_branch` if the source declares one, else `main`,
+  never the remote's HEAD. It **refuses** rather than moving a clone that is on
+  the wrong branch with uncommitted work in it, because that is somebody's
+  working copy. And
+  [tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
+  reports an attached clone sitting off its branch at session start, since a
+  pin only takes effect the next time something clones or pulls.
+
+
+
+## 37. The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are missing
+
+**Verdict: `compressed`.** Both halves are mechanical and both were verified passing 2026-09-11
+(`precedent_check.py --only declared-hooks-exist`, and
+[tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)'s
+per-source pass). The misreading is still available to a session that reasons
+from a directory listing instead of running the check, so a live entry stands;
+what moved here is the detail of which set it was and how the first repair
+attempt would itself have installed the second copy that set exists to
+prevent.
+
+**Verbatim, as it stood in [AGENTS.md](../AGENTS.md) before the 2026-09-11 currency pass:**
+
+- **The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are
+  missing. Resolve the paths its settings.json actually declares — a
+  directory listing cannot answer the question.** 2026-09-09: a session
+  measured that an individual practice source had a `.claude/settings.json`
+  and no `.claude/hooks/` directory at all, and concluded from that pair
+  alone that the set's freshness guard and commit-identity backstop had been
+  declared and silently off for its whole life. **They had not been.** That
+  set wires four hooks to its own tracked `bootstrap/` directory, on purpose,
+  so that one copy exists and nothing can drift from it; all four resolve,
+  exist, and are executable. A path-resolving check across all five private
+  sets then found every declared hook present and executable in every one.
+  The wrong reading was easy because it names a real failure — a hook whose
+  path does not exist really is silent, per the two entries above — and the
+  two states look identical from a listing.
+  **Both halves are mechanical now.**
+  `python3 tools/precedent_check.py --only declared-hooks-exist` resolves
+  every `$CLAUDE_PROJECT_DIR` hook path a settings.json declares and fails on
+  one that is missing or not executable, in any repository the engine is
+  vendored into.
+  [tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
+  does the same per attached source and **refuses to "repair" a hook declared
+  outside `.claude/hooks/`**: its own first version assumed the standard
+  layout, and against that individual set would have installed exactly the
+  second copy its comment exists to prevent.
+
