@@ -781,6 +781,20 @@ gotcha every session reads is a gotcha every session pays for.
   from `1 failed` to `0 failed` with no code change. Treat every entry here
   that says "the session-start hook does this" as **not** done when you
   arrived as a sibling.
+  **One guarantee has an environment-level route out of this since
+  2026-09-11, and only one**: the freshness guard reads
+  `PRECEDENT_FRESHNESS_ALSO` (`;`-separated `<path>=<base branch>`), so a
+  session can have attached repositories checked even though their own hooks
+  never fire — an environment variable follows a session into every
+  repository it touches, the same reasoning as `PRECEDENT_COMMIT_*` for
+  identity. **Check the value before trusting it**: this environment's own
+  entry named `/home/user/precedent-individual` on 2026-09-11 while the
+  individual source actually cloned to `/root/precedent-individual`, so the
+  entry resolved to nothing and was skipped with a note every session. A
+  wrong path here is silent by design — a config typo must not wedge a
+  session — so the hook's own note is the only evidence. Nothing else in
+  this entry is covered: the `pip install`, the path-trigger channel and the
+  rest still need doing by hand.
 
 - **The session's PRIMARY repo does not run its SessionStart hooks either,
   when the harness rooted the session one directory ABOVE it — and this
@@ -930,6 +944,13 @@ gotcha every session reads is a gotcha every session pays for.
   costs nothing (the branch carries no commits beyond its base yet), and
   leaves every later check running. That session did exactly that, after
   confirming by hand that its HEAD matched `origin/main` on a clean tree.
+  **Fixed upstream 2026-09-11, and the fix is why this entry stays**: the
+  guard now asks `git ls-remote --exit-code` before concluding anything, so
+  a remote that ANSWERED "no such branch" (exit 2) reads as "nothing to be
+  behind" and is skipped with a note, while only a remote it could not reach
+  at all (exit 128) still refuses. A set or an adopter running a guard older
+  than that date still has the old behaviour, and the remedy above is still
+  the right one there — push the branch, never the override.
   **Not established from here:** which of the guard's paths produced the
   refusal, or whether that set's copy is the older build named two entries
   above — that repository is under another owner and cannot be attached to a

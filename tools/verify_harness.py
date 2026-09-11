@@ -7555,6 +7555,149 @@ def _declared_fallback_tz():
     return precedent_time.FALLBACK_TZ
 
 
+def check_freshness_guard_new_branch_and_also_list():
+    """The two mechanisms carried up from a downstream set on 2026-09-11,
+    asserted by running the real hook against real repositories.
+
+    Both are behaviours the guard gets WRONG in one specific way each, and
+    each one's naive fix is the other's inversion -- which is why the cases
+    are stated in pairs rather than as one "it works" assertion.
+
+    1. A BRANCH WITH NO COUNTERPART ON ORIGIN is not the unverifiable case.
+       `git fetch origin <branch>` fails identically for "you never pushed
+       this" and "origin is unreachable", and the guard treated the pair as
+       one -- so the first tool call of every session on every new feature
+       branch was refused, offering `precedent.freshness.override` as the way
+       out. A guard whose documented escape hatch is a flag that switches it
+       off teaches people to set that flag. The split is `ls-remote
+       --exit-code`, and case 2 below is the control that keeps the fix from
+       becoming "never block on a failed fetch", which would invert the whole
+       practice into a skip that reads as a pass.
+
+    2. A REPOSITORY THE SESSION MERELY HAS ATTACHED is never checked by its
+       own guard, because a hook fires for the project dir and nothing else
+       (AGENTS.md's gotchas: an attached sibling runs none of its own
+       SessionStart hooks). PRECEDENT_FRESHNESS_ALSO closes that, and case 3
+       is paired with a control showing the same stale attached repo passing
+       silently when the variable is unset -- otherwise the case proves only
+       that something exited 2, not that the also-list is what found it.
+
+    Every case asserts the MESSAGE, not merely the exit status
+    (control-asserts-which-failure): the guard has several ways to exit 2 and
+    several to exit 0, and "it blocked" is not evidence it blocked for the
+    reason claimed."""
+    import tempfile
+    guard = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh'
+    if not guard.exists():
+        check('the freshness guard handles a new branch and the also-list',
+              False, f'{guard} is missing')
+        return
+
+    env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.invalid',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.invalid')
+    env0.pop('PRECEDENT_FRESHNESS_ALSO', None)
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env0,
+                              capture_output=True, text=True)
+
+    def run(project, session, also=None):
+        """The hook as the harness invokes it: a JSON payload on stdin, the
+        project dir in the environment. The session id keys the once-per-
+        session sentinel, so every case needs its own or the second one is
+        skipped -- which looks exactly like a pass."""
+        env = dict(env0)
+        if also is None:
+            env.pop('PRECEDENT_FRESHNESS_ALSO', None)
+        else:
+            env['PRECEDENT_FRESHNESS_ALSO'] = also
+        env['CLAUDE_PROJECT_DIR'] = str(project)
+        payload = json.dumps({'session_id': session, 'tool_name': 'Write',
+                              'tool_input': {'command': ''}})
+        r = subprocess.run(['bash', str(guard), 'pre-write', 'main'],
+                           input=payload, env=env, capture_output=True,
+                           text=True, cwd=str(project))
+        return r.returncode, r.stderr
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+
+        def make(name):
+            """A repo with a real origin, one pushed commit on main. A local
+            bare repo, not a URL: ls-remote has to genuinely answer, since the
+            three exit codes ARE the mechanism under test."""
+            bare, seed, clone = w / f'{name}.git', w / f'{name}-seed', w / name
+            subprocess.run(['git', 'init', '-q', '--bare', str(bare)], env=env0)
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)], env=env0)
+            git(seed, 'remote', 'add', 'origin', str(bare))
+            (seed / 'f').write_text('a\n')
+            git(seed, 'add', 'f'); git(seed, 'commit', '-qm', 'a')
+            git(seed, 'push', '-q', 'origin', 'main')
+            subprocess.run(['git', 'clone', '-q', '-b', 'main', str(bare),
+                            str(clone)], env=env0, capture_output=True)
+            return bare, seed, clone
+
+        _, proj_seed, proj = make('proj')
+
+        # 1. A branch that exists only locally. Not pushed, on purpose.
+        git(proj, 'checkout', '-qb', 'feature')
+        rc, err = run(proj, 'case-new-branch')
+        cases.append((f'a branch with no counterpart on origin is NOT blocked '
+                      f'on, and says so (rc={rc})',
+                      rc == 0 and 'no counterpart on origin yet' in err))
+
+        # 2. The control for 1: origin genuinely unreachable, same branch.
+        # Without this, "don't block on a failed fetch" passes case 1 too.
+        git(proj, 'remote', 'set-url', 'origin', str(w / 'gone.git'))
+        rc, err = run(proj, 'case-unreachable')
+        cases.append((f'an UNREACHABLE origin still blocks, naming that it '
+                      f'could not reach origin rather than a staleness '
+                      f'finding (rc={rc})',
+                      rc == 2 and 'could not reach origin' in err))
+        git(proj, 'remote', 'set-url', 'origin', str(w / 'proj.git'))
+        git(proj, 'checkout', '-q', 'main')
+
+        # 3. An ATTACHED repo left one commit behind its own origin, while the
+        # project dir is perfectly current.
+        _, other_seed, other = make('other')
+        (other_seed / 'f').write_text('a\nb\n')
+        git(other_seed, 'commit', '-qam', 'b')
+        git(other_seed, 'push', '-q', 'origin', 'main')
+        behind = git(other, 'fetch', '-q', 'origin', 'main') and git(
+            other, 'rev-list', '--count', 'HEAD..origin/main').stdout.strip()
+        cases.append((f'the fixture attached repo really is behind its origin '
+                      f'(got {behind!r})', behind == '1'))
+
+        rc, err = run(proj, 'case-also-stale', also=f'{other}=main')
+        cases.append((f'a stale ATTACHED repo is acted on through '
+                      f'PRECEDENT_FRESHNESS_ALSO (rc={rc})',
+                      rc == 2 and 'fast-forwarded' in err))
+
+        # The control: the SAME stale state, variable unset. This is the gap
+        # the mechanism closes, and it has to be demonstrably open without it.
+        git(other, 'reset', '-q', '--hard', 'HEAD~1')
+        rc, err = run(proj, 'case-also-unset')
+        cases.append((f'with the variable unset that same stale attached repo '
+                      f'goes unnoticed -- the gap being closed (rc={rc})',
+                      rc == 0 and not err.strip()))
+
+        # 4. A malformed or absent entry is a config typo, never a stale
+        # checkout: it is NOTEd and skipped. Blocking here would wedge every
+        # session over a mistyped path and teach people to unset the variable.
+        rc, err = run(proj, 'case-also-bad',
+                      also=f'{w / "ghost"}=main;no-equals-sign')
+        cases.append((f'an unresolvable also-list entry is NOTEd and skipped, '
+                      f'never blocked on (rc={rc})',
+                      rc == 0 and 'is not a git repository' in err
+                      and "no '=<base branch>'" in err))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'the freshness guard handles a new branch and the also-list '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_commit_identity_copies_are_identical():
     """The hook exists three times and every copy must be the same file.
 
@@ -15116,6 +15259,7 @@ def main():
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
+    check_freshness_guard_new_branch_and_also_list()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
     check_repo_reference_allowlist()

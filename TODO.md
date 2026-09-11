@@ -2467,17 +2467,67 @@ which is the failure this repointing exists to end — write
    all four sets brought current, reports no `commit-identity.sh` difference
    in any of them.
 
-   **What is left is one file in one set, and it now points the other way.**
-   `precedent-individual`'s `bootstrap/freshness-guard.sh` still differs from
-   what the generator writes — but it is 27,538 bytes against the template's
-   18,155, so the 2026-09-09 reading above ("an older, shorter build") no
-   longer describes it. That set's copy has grown PAST canonical, which makes
-   the likely direction upstream — into
-   [templates/harness/claude-code/hooks/freshness-guard.sh](templates/harness/claude-code/hooks/freshness-guard.sh),
-   so every set and every adopter gets it — rather than overwriting the set.
-   **Not established:** what the extra 9kB does, or whether all of it is
-   generic enough to travel. Read the diff before deciding; this item is not
-   a licence to copy either file over the other.
+   **The `freshness-guard.sh` half is DONE too, landed 2026-09-11 here.** The
+   direction was upstream, as the 2026-09-11 reading below predicted: the
+   set's copy carried two mechanisms canonical did not, and both were carried
+   into
+   [templates/harness/claude-code/hooks/freshness-guard.sh](templates/harness/claude-code/hooks/freshness-guard.sh)
+   (and this repo's own dogfooded copy) rather than either file being copied
+   over the other.
+
+   - **`_remote_branch_state`** — `git ls-remote --exit-code` splits "this
+     branch has no counterpart on origin yet" (exit 2, the remote answered)
+     from "origin could not be reached at all" (exit 128). Generic: the old
+     conflation refused the first tool call of every session on every new
+     feature branch and offered `precedent.freshness.override` as the way
+     out, which is the one habit this guard cannot afford to teach. That is
+     the refusal [AGENTS.md](AGENTS.md)'s own gotcha describes.
+   - **`PRECEDENT_FRESHNESS_ALSO`** — `;`-separated `<path>=<base branch>`
+     entries for repositories the session merely has ATTACHED, with the
+     per-repo split (`_session_start_one`, `_pre_write_one`, `_also_entries`,
+     `_also_resolve`) that makes both modes walk them. Generic: a hook fires
+     for the project dir and nothing else, so a sibling clone a team source
+     resolves to runs none of its own freshness checking — which is Precedent
+     architecture, not one person's layout. Unset, it changes nothing.
+
+   Both are covered by
+   `check_freshness_guard_new_branch_and_also_list` in
+   [tools/verify_harness.py](tools/verify_harness.py), which runs the real
+   hook against real repositories and asserts the message rather than the
+   exit status, with a control for each mechanism's over-correction
+   ([control-asserts-which-failure](practices/control-asserts-which-failure.md)).
+
+   **What was deliberately NOT carried, so the remaining difference is
+   explained rather than open.** The two files' executable code is now
+   identical; only four comments differ, each on purpose:
+
+   - the install path (`bootstrap/freshness-guard.sh` and
+     `bootstrap/session-start.sh` against `.claude/hooks/…`) — that set wires
+     its hooks from a tracked `bootstrap/` directory on purpose, one copy with
+     nothing to drift from it, and canonical must describe the standard
+     layout an adopter gets;
+   - a citation of that set's own private practice, which an adopter cannot
+     read; canonical states the reasoning inline instead;
+   - two places naming this repository, or that set's own fixture, where
+     canonical needs the generic case.
+
+   **Blocked-on, and it needs a session rooted under the sets' own owner:**
+   nothing in the set has to change for correctness — its copy is a superset
+   of canonical in comments only — but a later `--apply` that brings hooks up
+   to canonical will want those four comment differences reconciled
+   deliberately rather than silently overwritten, since two of them are that
+   set's own layout being correct about itself. This repository's sessions
+   cannot push there (re-confirmed 2026-09-09 by `add_repo` refusing at
+   `access: "push"`).
+
+   **Also blocked-on, and smaller:** in `pre-write` the per-repo messages do
+   not name WHICH repository they are about — `fast-forwarded 'main'` reads as
+   the project dir even when the also-list found it in an attached one (the
+   `session-start` half does print `also checking attached repository <path>`).
+   Left as-is deliberately: changing the message text here would diverge the
+   two files' executable content, and that set's own mutation test asserts
+   those strings, so the fix has to land in both at once — which this session
+   cannot do.
 
    **Confirmed independently 2026-09-11**, by the very deep check's new
    `BOOTSTRAP DRIFT` section on its first real run: regenerating each set
