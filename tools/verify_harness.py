@@ -12698,6 +12698,174 @@ def check_source_credentials():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_source_clone_keeps_its_credential():
+    """A synced source clone carries the credential helper in its OWN config,
+    so git commands run inside it later can authenticate too.
+
+    THE INCIDENT (practice: cite-the-incident), 2026-09-11.
+    precedent_source_credentials.credential_args covers exactly one git
+    invocation -- the clone. The clone it produces remembered nothing of it,
+    so every later command inside it met a private remote with no credential
+    and failed on `could not read Username for 'https://github.com'` with
+    PRECEDENT_GIT_TOKEN sitting right there in the environment. Because
+    PRECEDENT_FRESHNESS_ALSO names those clones, the freshness guard's
+    pre-write mode fetched each one, failed, and blocked -- and blocked again
+    on every retry, since its once-per-session sentinel is only written after
+    the checks pass. A session could run nothing but `git` for its first six
+    tool calls, and the block named the SOURCE's branch while the project dir
+    sat on another, so it read as the project's own checkout being broken.
+
+    Case 4 is the one that would have caught it: not "a helper is configured"
+    but "git, run plainly inside the clone with no -c flags, actually answers
+    with the credential". `git credential fill` is that question asked
+    directly, and it needs no network.
+
+    TWO NEGATIVE CONTROLS, RUN 2026-09-11 rather than assumed, because the
+    two halves fail independently (practice: control-asserts-which-failure).
+    Neutering persist_credential_helper so it writes nothing turned cases
+    2, 3 and 4 red -- and case 4 failed printing
+    `fatal: could not read Username for 'https://github.com'`, which is the
+    incident's own message, from git, unprompted. Separately, deleting
+    _persist_credential's call from ensure_source turned only case 5's two
+    red, with everything else green: the helper still worked, nothing
+    called it.
+
+    Hermetic: a file:// origin for the clone, an https remote written into
+    it afterwards to exercise the https-only rule, a fixture token, and a
+    fixture HOME. No network."""
+    import shutil, tempfile
+
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_credentials as psc
+    import precedent_source_bootstrap as psb
+
+    TOKEN = 'fixture-token-never-a-real-one'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-clone-cred-'))
+    cases = []
+    try:
+        source = tmp / 'source-repo'
+        source.mkdir()
+        for cmd in (['init', '-q', '-b', 'main'],
+                    ['config', 'user.email', 'harness@example.com'],
+                    ['config', 'user.name', 'harness']):
+            subprocess.run(['git', '-C', str(source), *cmd], check=True,
+                           capture_output=True, text=True)
+        (source / 'practices').mkdir()
+        (source / 'practices' / 'p.md').write_text('fixture\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(source), 'add', '-A'], check=True,
+                       capture_output=True, text=True)
+        subprocess.run(['git', '-C', str(source), 'commit', '-qm', 'seed'],
+                       check=True, capture_output=True, text=True)
+
+        env = {psc.TOKEN_ENV: TOKEN}
+        https = 'https://github.com/example/precedent-individual'
+
+        # --- 1: nothing to persist is not a failure, and writes nothing -----
+        quiet = tmp / 'quiet'
+        subprocess.run(['git', 'clone', '-q', f'file://{source}', str(quiet)],
+                       check=True, capture_output=True, text=True)
+        wrote = psc.persist_credential_helper(quiet, f'file://{source}', env=env)
+        got = subprocess.run(['git', '-C', str(quiet), 'config', '--get-all',
+                              'credential.helper'], capture_output=True, text=True)
+        cases.append(('a non-https remote is never given the credential, and '
+                      'nothing is written into its config',
+                      wrote is False and got.stdout.strip() == '',
+                      f'wrote={wrote} config={got.stdout!r}'))
+        cases.append(('no token means nothing is written either',
+                      psc.persist_credential_helper(quiet, https, env={}) is False,
+                      'persist returned truthy with an empty environment'))
+
+        # --- 2..4: an https remote gets a usable, secret-free helper --------
+        clone = tmp / 'clone'
+        subprocess.run(['git', 'clone', '-q', f'file://{source}', str(clone)],
+                       check=True, capture_output=True, text=True)
+        subprocess.run(['git', '-C', str(clone), 'remote', 'set-url', 'origin',
+                        https], check=True, capture_output=True, text=True)
+        wrote = psc.persist_credential_helper(clone, https, env=env)
+        cfg = (clone / '.git' / 'config').read_text(encoding='utf-8')
+        cases.append(('an https remote gets the helper written into the '
+                      "clone's own config", wrote is True
+                      and psc.TOKEN_ENV in cfg, f'wrote={wrote} {cfg[-400:]}'))
+        cases.append(('...and the token itself is NOT in that config -- only '
+                      'the NAME of the variable git should read',
+                      TOKEN not in cfg, cfg[-400:]))
+
+        # --- 3: idempotent. A session-start hook runs this every session ----
+        for _ in range(3):
+            psc.persist_credential_helper(clone, https, env=env)
+        entries = subprocess.run(['git', '-C', str(clone), 'config', '--get-all',
+                                  'credential.helper'], capture_output=True,
+                                 text=True).stdout.splitlines()
+        cases.append(('re-running does not accumulate helper entries: the '
+                      'empty reset plus one helper, however many times it runs',
+                      len(entries) == 2 and entries[0] == ''
+                      and entries[1].startswith('!f()'),
+                      f'{len(entries)} entrie(s): {entries!r}'))
+
+        # --- 4: git, run PLAINLY inside the clone, answers with the token ---
+        # The property the incident was about. No -c flags, no credential
+        # args -- just git, in that directory, the way a hook or a person
+        # runs it. `credential fill` asks git the same question a fetch asks
+        # and needs no network.
+        filled = subprocess.run(
+            ['git', '-C', str(clone), 'credential', 'fill'],
+            input='protocol=https\nhost=github.com\n\n',
+            capture_output=True, text=True,
+            env={**os.environ, psc.TOKEN_ENV: TOKEN,
+                 'GIT_TERMINAL_PROMPT': '0'})
+        cases.append(('git run plainly inside the clone -- no -c flags -- '
+                      'answers with the credential from the environment',
+                      f'password={TOKEN}' in filled.stdout
+                      and f'username={psc.DEFAULT_TOKEN_USER}' in filled.stdout,
+                      f'rc={filled.returncode} {filled.stdout[:200]} '
+                      f'{filled.stderr[:200]}'))
+
+        # --- 5: the bootstrap actually calls it, on EVERY successful sync ---
+        # The wiring, which is the half a unit test of the helper cannot
+        # reach. It is asserted by recording the call rather than by reading
+        # the resulting config, because ensure_source can only be exercised
+        # hermetically against a file:// origin -- and a file:// origin is
+        # exactly the case that correctly gets no credential (case 1). So the
+        # https behaviour is cases 2-4's to prove, and this is only "the
+        # bootstrap asks".
+        #
+        # Both halves matter. A FRESH clone needs it or the clone is unusable
+        # tomorrow; an EXISTING one needs it or every clone made before this
+        # landed stays broken forever, which is most of the ones on disk.
+        calls = []
+        original = psb._persist_credential
+        psb._persist_credential = lambda c, u: calls.append((str(c), u))
+        try:
+            fresh = tmp / 'fresh'
+            ok_fresh, _ = psb.ensure_source(
+                'individual', 'precedent-individual', f'file://{source}',
+                fresh, tmp / 'cfg.json', branch='main')
+            existing = tmp / 'existing'
+            subprocess.run(['git', 'clone', '-q', f'file://{source}',
+                            str(existing)], check=True, capture_output=True,
+                           text=True)
+            ok_existing, _ = psb.ensure_source(
+                'individual', 'precedent-individual', f'file://{source}',
+                existing, tmp / 'cfg.json', branch='main')
+        finally:
+            psb._persist_credential = original
+        cases.append(('a FRESH clone is offered the helper',
+                      ok_fresh and (str(fresh), f'file://{source}') in calls,
+                      f'ok={ok_fresh} calls={calls!r}'))
+        cases.append(('and so is an EXISTING one, on every later sync -- '
+                      'which is the repair path for every clone made before '
+                      'this landed',
+                      ok_existing and (str(existing), f'file://{source}') in calls,
+                      f'ok={ok_existing} calls={calls!r}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a synced source clone keeps the credential helper in its own '
+          f'config, with no secret in it ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_individual_source_bootstrap_self_heals():
     """practices/session-bootstrap.md's Detail, tested rather than trusted
     -- and corrected 2026-09-06 after this check's own first version
@@ -16195,6 +16363,7 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_source_credentials()
+    check_source_clone_keeps_its_credential()
     check_fixtures_own_the_credential_environment()
     check_pretooluse_hook_fires()
     check_not_binding_actually_exempts_a_check()
