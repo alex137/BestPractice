@@ -13004,6 +13004,94 @@ def check_public_tree_bakes_in_no_owner_account():
           '; '.join(offenders[:5]) if offenders else '')
 
 
+def check_very_deep_check_bootstrap_drift():
+    """very_deep_check's BOOTSTRAP DRIFT section compares what the generator
+    writes TODAY against a set that already exists (practice:
+    very-deep-check, pass 1).
+
+    WHY A FIXTURE RATHER THAN A GLANCE. The two checks that look like this
+    one -- bootstrap_source.verify() and _template_freshness() -- both ask
+    which files exist, and a drift check that silently compared nothing
+    would read exactly like a clean one. So every case below asserts the
+    MESSAGE, not the exit status (practice: control-asserts-which-failure):
+    a hand-edit and an older vendoring differ only in the remedy printed,
+    and getting that backwards sends somebody to refresh over their own
+    work.
+
+    The fixture owns every byte it reads (practice: fixture-owns-its-state):
+    it bootstraps its own set into a scratch directory rather than touching
+    any real source, and the no-source case is asserted too, because "no
+    source resolved" must read as a SKIP and never as clean."""
+    import hashlib, shutil, tempfile
+    import very_deep_check as vdc
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-drift-harness-'))
+    cases = []
+    try:
+        dest = tmp / 'set'
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                        '--level', 'individual', '--name', 'precedent-individual',
+                        '--dest', str(dest)], capture_output=True, text=True)
+        src = [{'level': 'individual', 'name': 'precedent-individual', 'path': str(dest)}]
+
+        out = vdc._bootstrap_drift(src)
+        cases.append(('a set the generator just wrote reports no drift at all',
+                      out == [], repr(out)))
+
+        cases.append(('no resolved source reads as a SKIP, in those words, '
+                      'never as clean',
+                      any('NOT compared' in m and 'skip' in m.lower()
+                          for m in vdc._bootstrap_drift([])),
+                      repr(vdc._bootstrap_drift([]))))
+
+        # A file the skeleton hands over ("edit this file freely afterward,
+        # it is yours") must never be a finding.
+        readme = dest / 'README.md'
+        readme.write_text(readme.read_text(encoding='utf-8') + '\nmine\n', encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('an edited skeleton file is a note, not a FINDING',
+                      out and all(m.startswith('note') for m in out)
+                      and 'README.md' in out[0], repr(out)))
+
+        # A vendored engine file edited in place: the remedy is upstream,
+        # and refreshing over it would destroy the edit.
+        show = dest / 'tools' / 'precedent_show.py'
+        show.write_text(show.read_text(encoding='utf-8') + '\n# local tweak\n', encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('a hand-edited engine file is a FINDING that says to move '
+                      'it upstream, not to refresh',
+                      any(m.startswith('FINDING') and 'precedent_show.py' in m
+                          and 'hand-edited in place' in m for m in out), repr(out)))
+
+        # The same file, recorded in the manifest: a faithful vendoring of an
+        # older upstream commit, whose remedy is the opposite one.
+        manifest = dest / 'tools' / 'ENGINE_MANIFEST.json'
+        data = json.loads(manifest.read_text(encoding='utf-8'))
+        data['sha256']['precedent_show.py'] = hashlib.sha256(show.read_bytes()).hexdigest()
+        manifest.write_text(json.dumps(data, indent=2), encoding='utf-8')
+        out = vdc._bootstrap_drift(src)
+        cases.append(('an engine file matching its own manifest is a FINDING '
+                      'that says to refresh',
+                      any(m.startswith('FINDING') and 'precedent_show.py' in m
+                          and 'refresh' in m and 'hand-edited' not in m
+                          for m in out), repr(out)))
+
+        # A file the generator writes and the set does not have at all.
+        (dest / 'tools' / 'precedent_time.py').unlink()
+        out = vdc._bootstrap_drift(src)
+        cases.append(('a generated file the set is missing is named as missing',
+                      any('precedent_time.py' in m and 'does not have it' in m
+                          for m in out), repr(out)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'very_deep_check reports bootstrap drift against a real set '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f'{n} -- {d[:600]}' for n, d in bad))
+
+
 def check_very_deep_check_authenticates_its_own_fetches():
     """very_deep_check's network calls carry the credential the environment
     holds (practice: very-deep-check; durable-fix).
@@ -14702,6 +14790,7 @@ def main():
     check_branch_scan_sees_every_branch()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
     check_very_deep_check_authenticates_its_own_fetches()
+    check_very_deep_check_bootstrap_drift()
     check_public_tree_bakes_in_no_owner_account()
     check_public_consumer_does_not_materialize_private_text()
     check_assumed_visibility_never_deletes_practices()
