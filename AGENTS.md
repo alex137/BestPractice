@@ -999,6 +999,27 @@ gotcha every session reads is a gotcha every session pays for.
   Same reasoning for a check younger than your branch: rule out "never been
   green here" by running it against the untouched tip before fixing it.
 
+- **A scratch COPY of this repo, taken to prototype a change without
+  touching the working tree, goes stale the moment the freshness guard
+  fast-forwards the real checkout under you — and copying the prototyped
+  files back reverts every commit that arrived in between, silently.**
+  2026-09-11: a session copied the tree to the scratchpad, prototyped a fix
+  to `precedent_check.py` there, measured it, and copied the two changed
+  files back. In between, the guard had done exactly what it is built to do
+  and moved the checkout forward three merges. `git diff` against the copy
+  had read clean when the copy was taken, which is the whole trap: it rots
+  from the OTHER side, so nothing about the copy looks different afterwards.
+  The revert took out another session's refinement of an unrelated check's
+  description, and **only [tools/doc_sync.py](tools/doc_sync.py) caught it** —
+  `spec/ENFORCEMENT.md`'s generated block regenerated to text OLDER than the
+  committed block, which is a shape no other gate here looks for. The
+  wholesale-copy-back is the mistake; a prototype copy is still the right
+  way to measure. **Re-apply the edits to the CURRENT file** — the same
+  patch script, run against `HEAD`'s version, with each `old` string
+  asserted to occur exactly once so a moved file fails loudly instead of
+  half-applying — **then read `git diff` before committing and confirm every
+  hunk is one you meant.** A hunk you did not write is the revert.
+
 - **`HEAD == origin/<branch>` and a clean tree is NOT evidence that your work
   landed — it is the exact reading you get when your commit has been thrown
   away.** 2026-09-07: a session committed on local `precedent-beta-v01`, then
