@@ -3122,6 +3122,106 @@ def check_generated_views_regenerate():
           ok, detail)
 
 
+def check_resident_rule_links_are_placed_for_the_block():
+    """A resident practice's Rule links are repointed for the file the block
+    lands in, and an unplaceable one is said out loud instead of mangled.
+
+    THE INCIDENT (2026-09-11). A `tier: resident` practice's ## Rule is
+    copied verbatim into the loader block, which lands in AGENTS.md at the
+    repository ROOT -- while the Rule was written in practices/, one
+    directory down. An individual set's new practice carried the only link
+    in the whole resident block, `[audience-register](audience-register.md)`,
+    and it reached a consuming repo as a hard doc_lint BROKEN RELATIVE LINK
+    inside a generated region no session there is allowed to edit. It was
+    patched at the source by dropping the markup, which holds by convention
+    only.
+
+    Four behaviours, and the last two are the ones that keep the fix from
+    being worse than the bug: a link that cannot be placed is LEFT as its
+    author wrote it, never turned into an absolute URL that would name a
+    private repository, and never into a machine-specific path out of the
+    tree (practice: control-asserts-which-failure -- each case asserts the
+    text produced, not merely that something happened)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rulelinks-'))
+    cases = []
+    try:
+        repo = tmp / 'repo'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'tools' / 'checks').mkdir(parents=True)
+        (repo / 'tools' / 'checks' / 'check_x.py').write_text('x\n', encoding='utf-8')
+        (repo / 'practices' / 'sibling.md').write_text('y\n', encoding='utf-8')
+        rule = ("See [a](sibling.md), [b](../tools/checks/check_x.py), "
+                "[c](https://example.com/x), [d](#rule) and [e](gone.md).")
+        placed, unplaced = bv._place_rule_links(
+            rule, repo / 'practices' / 'p.md', repo)
+        cases.append(('a sibling practice citation is repointed at '
+                      'practices/ for a block rendered at the repo root',
+                      '[a](practices/sibling.md)' in placed))
+        cases.append(("a practice's own check script is repointed at "
+                      'tools/checks/, and an absolute URL and a bare '
+                      'fragment are untouched',
+                      '[b](tools/checks/check_x.py)' in placed
+                      and '[c](https://example.com/x)' in placed
+                      and '[d](#rule)' in placed))
+        cases.append(('a link to a file that is not there is left exactly as '
+                      'written, and reported as unplaceable',
+                      '[e](gone.md)' in placed and unplaced == ['gone.md']))
+
+        # A Rule that SHOWS a reader what a link looks like is exactly the
+        # practice that would carry one, and rewriting it would edit the
+        # prose this file only relays. doc_lint skips both regions for the
+        # same reason.
+        literal = ("Prose [a](sibling.md), a span `[b](sibling.md)`, and\n"
+                   "```\n[c](sibling.md)\n```\nthen [d](sibling.md).")
+        placed_lit, _ = bv._place_rule_links(
+            literal, repo / 'practices' / 'p.md', repo)
+        cases.append(('a link inside a code span or a fenced block is left '
+                      'alone, while the prose links around it are placed',
+                      placed_lit.count('(practices/sibling.md)') == 2
+                      and '`[b](sibling.md)`' in placed_lit
+                      and '\n[c](sibling.md)\n' in placed_lit))
+
+        # Rendered one directory DOWN (.precedent/SESSION_PRACTICES.md), a
+        # link out of practices/ legitimately climbs -- so "starts with .."
+        # is not the test, and this is the case that proves it is not.
+        placed_down, _ = bv._place_rule_links(
+            rule, repo / 'practices' / 'p.md', repo / '.precedent', repo)
+        cases.append(('a block rendered below the repo root gets ../ links, '
+                      'not a refusal',
+                      '[a](../practices/sibling.md)' in placed_down
+                      and '[b](../tools/checks/check_x.py)' in placed_down))
+
+        # THE PRIVACY CASE. A team or individual practice resolves from a
+        # clone outside the consuming repo, where no relative link reaches.
+        outside = tmp / 'precedent-individual'
+        (outside / 'practices').mkdir(parents=True)
+        (outside / 'practices' / 'sibling.md').write_text('y\n', encoding='utf-8')
+        placed_out, unplaced_out = bv._place_rule_links(
+            "See [a](sibling.md).", outside / 'practices' / 'p.md',
+            repo / '.precedent', repo)
+        cases.append(('a practice resolved from a source clone OUTSIDE the '
+                      'repo is left as written -- no absolute URL naming the '
+                      'source, no path out of the tree',
+                      placed_out == "See [a](sibling.md)."
+                      and unplaced_out == ['sibling.md']
+                      and str(outside) not in placed_out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    ok = all(passed for _, passed in cases)
+    for name, passed in cases:
+        if not passed:
+            print(f"  build_views did NOT place a resident Rule's links as "
+                  f"stated: {name}")
+    check(f"a resident Rule's relative links are placed for the block's own "
+          f"directory ({len(cases)} stated cases, including the two "
+          f"unplaceable shapes)", ok)
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -9105,8 +9205,17 @@ def check_sync_views_cross_source():
 
         write_practice(universal / 'practices' / 'uni-fixture.md', 'uni-fixture',
                         'A universal fixture rule.', tier='resident')
+        # The team fixture's Rule carries a SIBLING PRACTICE LINK, which is
+        # legal in a practice file (practice: practice-links-travel) and was
+        # dead in the consumer until 2026-09-11: a resident Rule is embedded
+        # verbatim in a block that lands at the repo ROOT, one directory up
+        # from where the link was written. A PRIVATE source is the case that
+        # was reported, and it is the hard one -- the practice text comes
+        # from a clone outside this repo, and only the MATERIALIZED copy is
+        # placeable.
         write_practice(team / 'practices' / 'team-fixture.md', 'team-fixture',
-                        'A team fixture rule.', tier='resident')
+                        'A team fixture rule, citing [ind-fixture](ind-fixture.md).',
+                        tier='resident')
         write_practice(individual / 'practices' / 'ind-fixture.md', 'ind-fixture',
                         'An individual fixture rule.', occasion='doing individual things')
         # repo-local at a SUBDIRECTORY, per the recommended convention --
@@ -9158,6 +9267,17 @@ def check_sync_views_cross_source():
         cases.append(('the repo-local source file at its OWN subdirectory '
                       'survives the sync untouched',
                       (consumer / 'local' / 'practices' / 'local-fixture.md').exists()))
+
+        cases.append(("a resident Rule's sibling-practice link is repointed "
+                      "at practices/ for the root the block lands in, even "
+                      "though the practice text came from a source clone "
+                      "outside this repo",
+                      '[ind-fixture](practices/ind-fixture.md)' in agents_text,
+                      agents_text[agents_text.find('team-fixture'):][:200]))
+        cases.append(('and no absolute URL naming the private source repo is '
+                      'minted to do it',
+                      str(team) not in agents_text and 'http' not in
+                      agents_text.split('## Occasion index')[0]))
 
         rc2, out2 = run('--check')
         cases.append(('--check on a just-synced, unmodified AGENTS.md exits 0',
@@ -9341,6 +9461,9 @@ def check_sync_views_cross_source():
           f'sources ({len(cases)} stated cases: clean sync, both resident '
           f'sources shown, correct level-of-resident counting, occasion '
           f'index reaches on-demand practices, --check both directions, a '
+          f"resident Rule's sibling link placed at practices/ for the root "
+          f'the block lands in with no URL minted for the private source it '
+          f'came from, a '
           f'self-referential source is refused rather than crashed or '
           f'silently overwritten, alone or shadowed, and build_views.py '
           f'--check agrees with what this tool wrote)',
@@ -16872,6 +16995,7 @@ def main():
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
     check_build_views_summary_matches_what_it_wrote()
+    check_resident_rule_links_are_placed_for_the_block()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_not_binding_cannot_be_abused()

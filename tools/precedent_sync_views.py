@@ -387,16 +387,35 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # already carries the parsed frontmatter+sections build_loader_block()
     # needs, and reusing it means this can never drift from what actually
     # got materialized.
-    triples = [(p['fm'], p['sections'], pathlib.Path(p['file']))
-               for p in res['practices'].values()]
+    #
+    # THE FILE PATH IS THE MATERIALIZED ONE, NOT THE SOURCE'S. A resident
+    # practice's Rule is embedded verbatim in the block, and build_views
+    # repoints its relative links against the tree the block describes --
+    # which is THIS repo's practices/, where materialize() just wrote them,
+    # not the source clone the text came from. Passing the source path made
+    # every private source's practice look like it lived outside the repo,
+    # so a sibling citation in a resident Rule was left dead at the root:
+    # exactly the 2026-09-11 report this handling exists for.
+    _placed_dir = pathlib.Path(repo) / 'practices'
+    triples = [(p['fm'], p['sections'], _placed_dir / f'{slug}.md')
+               for slug, p in res['practices'].items()]
     levels = {slug: p['level'] for slug, p in res['practices'].items()}
     # omits_private must match what this run actually left out, or the
     # standing instruction disagrees with build_views.py's own render of the
     # same repo -- and `generated-artifact-provenance` then reports the file
     # the documented install step just wrote as hand-edited, with no state of
     # the repo able to satisfy it. Found exactly that way.
+    # What this run will have written by the time anyone reads the block --
+    # asked of the plan, never of the disk, because materialize() empties
+    # practices/ and tools/checks/ before refilling them and a --check run
+    # writes nothing at all.
+    planned = {f"practices/{w['slug']}.md" for w in written}
+    planned.update(c['path'] for c in checks_written)
     block, _tokens, _n = bv.build_loader_block(
-        triples, source_levels=levels, omits_private=bool(omitted))
+        triples, source_levels=levels, omits_private=bool(omitted),
+        # The block lands in <repo>/AGENTS.md, so a resident Rule's relative
+        # links are placed against <repo>, never this engine's own root.
+        block_dir=pathlib.Path(repo), planned=planned)
 
     agents_md = pathlib.Path(repo) / 'AGENTS.md'
     if not agents_md.exists():

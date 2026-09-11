@@ -105,7 +105,7 @@ def collect(repo):
     return extra, levels, notes
 
 
-def render(extra, levels, notes):
+def render(extra, levels, notes, repo=None):
     head = [
         '<!-- GENERATED at session start by '
         'tools/precedent_session_practices.py. UNTRACKED and gitignored, on '
@@ -134,7 +134,17 @@ def render(extra, levels, notes):
         return '\n'.join(head)
     # build_loader_block returns (text, resident_tokens, resident_count) --
     # the same renderer AGENTS.md uses, so this block cannot drift from it.
-    block, _tokens, _count = bv.build_loader_block(extra, source_levels=levels)
+    #
+    # block_dir is OUT_DIR, not the repo root: this block lands one directory
+    # down, so a resident Rule's relative links are placed against
+    # `.precedent/`. Most of them cannot be placed at all here -- these
+    # practices live in source clones OUTSIDE this repository, where no
+    # relative path reaches and an absolute one would name a private repo --
+    # and build_loader_block says so on stderr rather than inventing one.
+    _repo = pathlib.Path(repo or _ENGINE_DIR.parent)
+    block, _tokens, _count = bv.build_loader_block(
+        extra, source_levels=levels,
+        block_dir=_repo / OUT_DIR, repo_root=_repo)
     head += [block, '']
     return '\n'.join(head)
 
@@ -155,7 +165,7 @@ def main():
 
     extra, levels, notes = collect(repo)
     try:
-        text = render(extra, levels, notes)
+        text = render(extra, levels, notes, repo=repo)
     except Exception as e:                                   # noqa: BLE001
         # This runs from a session-start hook, where an exception takes the
         # whole session down. Reproduced while writing it: build_loader_block
