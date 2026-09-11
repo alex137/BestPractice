@@ -3226,12 +3226,40 @@ which is the failure this repointing exists to end — write
    overflow are separate pieces of work and neither substitutes for the
    other.
 
-   **blocked-on:** the reduction is somebody's to choose, not a session's.
-   [session-load-budget](practices/session-load-budget.md)'s own Rule says
-   so twice: a source over its ceiling is a finding to report to whoever owns
-   it, never an edit to make from here, and **when the resident cap refuses a
-   new practice the person picks what comes out**. Six of the seven are
-   reply-register practices that plausibly overlap; which one leaves is
-   Morgan's call.
+   **Morgan picked, 2026-09-11 (`decided`): `small-calls` comes out of the
+   resident block.** Measured with the change applied to the attached clone
+   and reverted: **1,855 tokens across 16 practices**, under the cap, so this
+   one demotion closes the overflow on its own and nothing else needs to
+   move. The whole edit is one word in
+   `precedent-team-working-style/practices/small-calls.md` — `tier: resident`
+   becomes `tier: on-demand` — followed by that set regenerating its own
+   views. The practice stays in force and stays where it is; only the loading
+   channel changes, from resident to the occasion index.
 
-   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — raised in the reply of the session that measured it, 2026-09-11; only Morgan can move it to `ask`.
+   **He also asked whether it should move to the writing set, and the answer
+   given was no**, on two grounds worth keeping so nobody re-proposes it.
+   `small-calls` is about judgment calls in any work — filling in a default,
+   picking between two implementations — and `precedent-team-writing` is
+   seventeen practices about prose and documents; it already sits in
+   `precedent-team-working-style` beside `default-register`,
+   `nonblocking-questions` and `quiet-checks`, which is its subject. And the
+   move would not have achieved the thing anyway: **residency is the `tier:`
+   field, not the level**, so a resident practice carried from one team set
+   to another is still resident and still in every session's block.
+
+   **blocked-on:** a session that can PUSH to `precedent-team-working-style`.
+   Measured here, 2026-09-11, both routes: `git push` inside the attached
+   clone is refused by the git proxy (`not in this session's authorized
+   repository set`, 403), and `add_repo` with `access: "push"` refuses with
+   `cross-tier adds are not supported in v1 ... session already has repos
+   from owner(s) [alex137]`. Same wall as
+   [`views-drift-gate-rollout-to-existing-sets`](TODO.md#views-drift-gate-rollout-to-existing-sets),
+   and the route is the same: a session rooted at that repository.
+
+   **The fixture half is separate and is NOT closed by the demotion.**
+   `verify_harness.py`'s cross-source check still resolves the container's
+   real attached sources, so it still answers differently on different
+   machines — it will simply be answering "clean" now, which is the worse
+   version of the same bug.
+
+   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)) — the decision is made and recorded; what remains is the push, not a question for anyone.
