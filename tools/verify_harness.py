@@ -4038,9 +4038,22 @@ def check_precedent_check_fires():
         def _setup_origin(repo):
             git(repo, 'remote', 'add', 'origin',
                 'https://github.com/alex137/BestPractice.git')
+            # And a link to a source's own check script, in BOTH the planted
+            # and the clean tree. This is the FALSE-POSITIVE direction, which
+            # is the one that matters most here: the check shipped on
+            # 2026-09-11 without it and would have fired on the most common
+            # cross-reference a private-set practice makes. The clean case
+            # below is what proves it does not.
+            f = repo / 'practices' / 'repo-is-memory.md'
+            f.write_text(f.read_text(encoding='utf-8') +
+                         '\nIts check: [check_x.py](../tools/checks/check_x.py).\n',
+                         encoding='utf-8')
         case('practice-links-travel', _plant_practice_links,
              setup=_setup_origin)
         _plt = planted['practice-links-travel'][1]
+        cases.append(("practice-links-travel: a source's own check script is "
+                      'not reported as failing to travel',
+                      'check_x.py' not in planted['practice-links-travel'][1]))
         for _frag, _what in (
                 ('does not travel with this file', 'the relative link'),
                 ('precedent.json declares', 'the wrong-branch URL'),
@@ -5116,6 +5129,43 @@ def check_precedent_check_fires():
         # planted violation must fail the check again like every other one.
         case('parallel-artifact-ledger', _plant_unledgered_harness_change,
              setup=_ledger_setup)
+
+        # The DUPLICATE-ROW half of this check had no planted case at all,
+        # and that is exactly how a false positive shipped: it counted any
+        # row CONTAINING a commit hash, so three correct rows citing an
+        # earlier one in their prose read as three duplicates of one change,
+        # and precedent-beta-v01 sat red against a tree nobody had edited
+        # (found 2026-09-11). Both directions below; the second is the one
+        # that would have caught it.
+        def _ledger_row(repo, cell_hash, prose_hash=None):
+            h = f'[`{cell_hash[:7]}`](https://example.invalid/{cell_hash})'
+            tail = (f' — same reason as the [`{prose_hash[:7]}`]'
+                    f'(https://example.invalid/{prose_hash}) row'
+                    if prose_hash else '')
+            return f'| 2026-01-01 | {h} — planted | applied{tail} | n/a | n/a |'
+
+        dup = fresh('parallel-artifact-ledger-dup')
+        _ledger_setup(dup)
+        _dh = git(dup, 'rev-parse', 'HEAD')
+        rewrite(dup, 'templates/harness/LEDGER.md',
+                lambda s: s + '\n' + _ledger_row(dup, _dh)
+                             + '\n' + _ledger_row(dup, _dh) + '\n')
+        _rc, _out = run(dup, 'parallel-artifact-ledger')
+        cases.append(('parallel-artifact-ledger: two rows whose commit cell '
+                      'names one change fail the check',
+                      _rc == 1 and 'rows reference' in _out))
+
+        xref = fresh('parallel-artifact-ledger-xref')
+        _ledger_setup(xref)
+        _xh = git(xref, 'rev-parse', 'HEAD')
+        rewrite(xref, 'templates/harness/LEDGER.md',
+                lambda s: s + '\n' + _ledger_row(xref, _xh)
+                             + '\n' + _ledger_row(xref, _xh[::-1][:40],
+                                                   prose_hash=_xh) + '\n')
+        _rc2, _out2 = run(xref, 'parallel-artifact-ledger')
+        cases.append(('parallel-artifact-ledger: a later row CITING that '
+                      'change in its prose is not a duplicate of it',
+                      _rc2 == 0 and 'rows reference' not in _out2))
 
         # declared-base-branch -- plant the exact regression the check
         # exists for: a resolver that infers the branch from origin/HEAD
