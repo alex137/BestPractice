@@ -20,7 +20,17 @@ option you already killed. Capturing it is capital expenditure, not
 overhead. A *corpus* is a body — stop feeding it and it dies. Competitors
 rent the same models by Thursday; what nobody can rent is yours.
 
-*Cited by: [`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital) in Our Philosophy; [`durable-state-default`](AI_GOVERNANCE_TO_COCREATE.md#durable-state-default) in AI Governance; [`contradiction-scanning-recurring`](AI_GOVERNANCE_TO_COCREATE.md#contradiction-scanning-recurring) in AI Governance; [`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge) in AI Governance; [`provider-neutral-llm`](RULES_NOW_TESTING.md#provider-neutral-llm) in Rules Now Testing.*
+Most of what follows leans on this one:
+[`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital) states it as
+theory,
+[`durable-state-default`](AI_GOVERNANCE_TO_COCREATE.md#durable-state-default)
+is the shape the state has to take for it to be true,
+[`contradiction-scanning-recurring`](AI_GOVERNANCE_TO_COCREATE.md#contradiction-scanning-recurring)
+is the upkeep a body needs, and
+[`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge)
+is the bet that it can't be stranded —
+[`provider-neutral-llm`](RULES_NOW_TESTING.md#provider-neutral-llm) was
+that hedge written as code, until it was withdrawn.
 
 <a id="transcribe-everything"></a>
 
@@ -29,8 +39,11 @@ rent the same models by Thursday; what nobody can rent is yours.
 A colleague who's been here since the founding, remembers everything, and
 has no eyes or ears, only text: the Ghost. Every untranscribed meeting
 removes an organ. Most companies do the easy 5%; the bar is nearer 90%.
-
-*Cited by: [`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented) in Reasons Why; [`coldstart-test`](AI_GOVERNANCE_TO_COCREATE.md#coldstart-test) in AI Governance.*
+Whether the Ghost actually has what it needs is testable —
+[`coldstart-test`](AI_GOVERNANCE_TO_COCREATE.md#coldstart-test) — and what
+it buys is
+[`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented):
+knowledge that outlives anyone's employment.
 
 <a id="own-every-word"></a>
 
@@ -53,8 +66,10 @@ Every plan runs through it first — not for the output, but for the
 pushback: the hole in the logic, the option you missed. Arguing before you
 commit becomes free. (Part of [CORE_PILLARS.md](CORE_PILLARS.md)'s case —
 [`chat-is-the-entry-point`](CORE_PILLARS.md#chat-is-the-entry-point).)
-
-*Cited by: [`chat-is-the-entry-point`](CORE_PILLARS.md#chat-is-the-entry-point) in Core Pillars; [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model) in Our Philosophy; [`intermediary-layer-side-benefits`](REASONS_WHY.md#intermediary-layer-side-benefits) in Reasons Why.*
+What the arguing itself looks like:
+[`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model). The
+benefits nobody planned for:
+[`intermediary-layer-side-benefits`](REASONS_WHY.md#intermediary-layer-side-benefits).
 
 <a id="co-create-dont-delegate"></a>
 
@@ -65,9 +80,12 @@ high-value mode is thinking with the model in real time — arguing the
 opposite side, asking for the hole in your logic before you've committed.
 The tell: sessions that read like fights, not requests. Research and
 drafting are the beginner uses; the real gain is catching your own error
-an hour later, not three weeks later in front of the client.
-
-*Cited by: [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model) in Our Philosophy; [`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early) in Reasons Why; [`argue-in-the-open`](RULES_NOW_TESTING.md#argue-in-the-open) in Rules Now Testing.*
+an hour later, not three weeks later in front of the client — which is
+[`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early)'s whole
+point. Stated as theory in
+[`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model);
+[`argue-in-the-open`](RULES_NOW_TESTING.md#argue-in-the-open) is the half
+of it being tried in public.
 
 <a id="think-in-workflows"></a>
 
@@ -76,9 +94,11 @@ an hour later, not three weeks later in front of the client.
 Don't systematize a one-off — first time, by hand, with the model. Third
 time you've seen the shape, stop: that's the workflow spec. A protocol
 needs only one judgment call. Systematize everything and you ship nothing,
-beautifully diagrammed.
-
-*Cited by: [`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt) in AI Governance; [`automatic-workflow-detection`](AI_GOVERNANCE_TO_COCREATE.md#automatic-workflow-detection) in AI Governance.*
+beautifully diagrammed. Noticing the third time is the hard part:
+[`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt)
+makes an agent ask mid-task, and
+[`automatic-workflow-detection`](AI_GOVERNANCE_TO_COCREATE.md#automatic-workflow-detection)
+mines the history so nobody has to notice at all.
 
 <a id="three-questions"></a>
 
@@ -97,7 +117,10 @@ reflexes — the same three the AI is running too:
 *Faster* gets people thinking about the work they already do. *Better*
 gets them noticing the work they'd quietly stopped proposing.
 
-*Cited by: [`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt) in AI Governance; [`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud) in Rules Now Testing.*
+In the system prompt rather than a person's habit:
+[`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt).
+Answered out loud mid-task, which is what is actually being tried:
+[`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud).
 
 ## Shipping and Process
 
@@ -109,9 +132,12 @@ A workflow triggered only by emailing a person becomes the bottleneck
 for everything downstream. Kill every process whose only interface is
 somebody's inbox: "just email me" is a process going dark. It sounds
 technical but is political — every dark process is dark for a reason,
-with a name and a desk attached.
-
-*Cited by: [`processes-should-be-visible`](OUR_PHILOSOPHY.md#processes-should-be-visible) in Our Philosophy; [`ai-hunts-dark-processes`](AI_GOVERNANCE_TO_COCREATE.md#ai-hunts-dark-processes) in AI Governance; [`dark-process-self-audit`](RULES_NOW_TESTING.md#dark-process-self-audit) in Rules Now Testing.*
+with a name and a desk attached. Why this matters past tidiness:
+[`processes-should-be-visible`](OUR_PHILOSOPHY.md#processes-should-be-visible).
+[`ai-hunts-dark-processes`](AI_GOVERNANCE_TO_COCREATE.md#ai-hunts-dark-processes)
+makes the hunt a standing job;
+[`dark-process-self-audit`](RULES_NOW_TESTING.md#dark-process-self-audit)
+is that job run by hand today.
 
 <a id="build-five-kill-four"></a>
 
@@ -121,9 +147,9 @@ When an option costs nearly nothing to build, deliberating first is a
 bad trade. Bring several working versions, not a deck arguing for one —
 killing is the point, not the count. This only works where killing
 costs nothing socially, not where the loser's fate follows them into
-review.
-
-*Cited by: [`cost-awareness-situational`](AI_GOVERNANCE_TO_COCREATE.md#cost-awareness-situational) in AI Governance.*
+review. When this lavishness is the right posture and when it isn't is
+[`cost-awareness-situational`](AI_GOVERNANCE_TO_COCREATE.md#cost-awareness-situational)'s
+problem, not a policy anyone sets once.
 
 <a id="digitize-the-edge"></a>
 
@@ -144,8 +170,8 @@ the bolded summary nobody asked for — reads as nobody home. Unrewritten output
 nobody thought about. Ship it in your voice. (Now
 [`write-like-a-human`](../practices/write-like-a-human.md), universal since
 2026-09-07; [how it got there](RULES_NOW_TESTING.md#write-like-a-human).)
-
-*Cited by: [`structural-ai-voice-check`](AI_GOVERNANCE_TO_COCREATE.md#structural-ai-voice-check) in AI Governance; [`write-like-a-human`](RULES_NOW_TESTING.md#write-like-a-human) in Rules Now Testing.*
+The fingerprints are mechanical enough to check for before publishing:
+[`structural-ai-voice-check`](AI_GOVERNANCE_TO_COCREATE.md#structural-ai-voice-check).
 
 ## People
 
@@ -162,9 +188,11 @@ trusts, and who has taste — one part of the picture, not the headline.
 [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
 [`taste`](HUMANS_AT_OUR_BEST.md#taste) are three entries on the one full
 list of what stays human — see
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md).)
-
-*Cited by: [`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss) in Reasons Why; [`non-uniform-confidence`](AI_GOVERNANCE_TO_COCREATE.md#non-uniform-confidence) in AI Governance.*
+[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md).) The skill this is really
+hiring for is
+[`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss);
+[`non-uniform-confidence`](AI_GOVERNANCE_TO_COCREATE.md#non-uniform-confidence)
+is what a model owes it back — somewhere to start looking.
 
 <a id="manager-of-agents"></a>
 
@@ -174,9 +202,9 @@ list of what stays human — see
 since nobody scrutinizes step four thousand like step one. What's
 missing is someone whose job is the fleet itself: watching drift,
 retuning prompts and guardrails, deciding when a step needs a human
-again. Call the role Manager of Agents or don't, but staff it.
-
-*Cited by: [`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute) in Our Philosophy.*
+again. Call the role Manager of Agents or don't, but staff it. The posture
+it is staffed for is
+[`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute).
 
 <a id="human-only-zones"></a>
 
@@ -186,8 +214,9 @@ If everyone consumes only summaries, nobody can detect the moment they
 drift — everything still reads coherent. Mandate raw contact as ritual —
 founders reading unfiltered complaints, managers watching real work in
 silence — and put it on the calendar so it survives being inconvenient.
-
-*Cited by: [`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early) in Reasons Why.*
+Drift caught this way is the same saving as
+[`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early), bought
+on the one error a checklist can't see.
 
 <a id="structurally-human"></a>
 
@@ -201,7 +230,11 @@ trusts, [`accountability`](HUMANS_AT_OUR_BEST.md#accountability) on one
 name, [`the-human-spark`](HUMANS_AT_OUR_BEST.md#the-human-spark).
 ([HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md))
 
-*Cited by: [`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best) in Our Philosophy; [`periodic-checkins-not-expiry`](AI_GOVERNANCE_TO_COCREATE.md#periodic-checkins-not-expiry) in AI Governance; [`accountability`](HUMANS_AT_OUR_BEST.md#accountability) in Humans at Our Best; [`judgment`](HUMANS_AT_OUR_BEST.md#judgment) in Humans at Our Best; [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) in Humans at Our Best; [`taste`](HUMANS_AT_OUR_BEST.md#taste) in Humans at Our Best; [`the-human-spark`](HUMANS_AT_OUR_BEST.md#the-human-spark) in Humans at Our Best.*
+Stated as theory in
+[`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best).
+Read too literally it sunsets arrangements that are working, which is
+[`periodic-checkins-not-expiry`](AI_GOVERNANCE_TO_COCREATE.md#periodic-checkins-not-expiry)'s
+correction to it.
 
 ## See Also
 

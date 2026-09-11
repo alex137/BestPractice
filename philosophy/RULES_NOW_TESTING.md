@@ -114,8 +114,6 @@ as a single universal practice on 2026-09-07 — deliberately a short
 guiding point, replacing the long vendored ruleset this entry used to
 name.
 
-*Cited by: [`no-ai-voice`](COMPANY_BUILDING_RULES.md#no-ai-voice) in Company Building Rules.*
-
 <a id="dark-process-self-audit"></a>
 
 ### 6. Dark-Process Self-Audit, Including the Session's Own Habits — *Trial*
@@ -126,8 +124,8 @@ propose an addressable alternative
 ([`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes); the
 trial of
 [`ai-hunts-dark-processes`](AI_GOVERNANCE_TO_COCREATE.md#ai-hunts-dark-processes)).
-
-*Cited by: [`contradiction-scanning`](#contradiction-scanning).*
+Shares its cadence with
+[`contradiction-scanning`](#contradiction-scanning).
 
 <a id="contradiction-scanning"></a>
 
@@ -135,9 +133,10 @@ trial of
 
 Periodically re-read [ASSORTED_NOTES.md](ASSORTED_NOTES.md) and this document for entries
 that now disagree — same cadence as
-[`dark-process-self-audit`](#dark-process-self-audit), not a one-off.
-
-*Cited by: [`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early) in Reasons Why.*
+[`dark-process-self-audit`](#dark-process-self-audit), not a one-off. It
+is the periodic half of
+[`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early) — drift
+caught by re-reading rather than by contact.
 
 ## Not Yet Ready for This List
 

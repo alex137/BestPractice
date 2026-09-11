@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Make philosophy/ cross-references bidirectional.
+"""Check that philosophy/ cross-references run both ways.
 
 Every item in the core philosophy documents carries a permanent slug. When
-one item cites another, only the citing end says so; a reader landing on the
-cited item has no way to discover who leaned on it. This tool reads the
-whole citation graph and writes the reverse edge back under each cited item
-as a `*Cited by: ...*` line.
+one item cites another, a reader landing on the cited end should be able to
+find their way back -- so a citation is expected to be reciprocated, in the
+cited item's own prose, the same way the forward citation is written.
 
-The lines are generated, never hand-edited: run this after changing any
-citation and commit what it writes. `--check` exits non-zero when the files
-on disk disagree with the graph.
+This tool does NOT write those sentences. An earlier version generated a
+`*Cited by: ...*` line under each cited item; Morgan read the result on
+2026-09-11 and said it made the documents confusing -- machine output bolted
+under prose reads as exactly that. So the back-reference is written by hand,
+in the document's voice, and this tool only reports which ones are missing.
 
 Experimental (2026-09-11). See philosophy/doc-recipes/backlinks.recipe.md.
 """
@@ -41,23 +42,8 @@ HEADING = re.compile(r'^#{1,6} ')
 PREFIX = "*Cited by: "
 
 
-def strip_generated(lines):
-    """Drop previously generated lines, and any blank line they introduced."""
-    out = []
-    for line in lines:
-        if CITED_BY.match(line):
-            # A generated paragraph in a numbered document is preceded by the
-            # blank line that separates it; take that back too.
-            if out and out[-1].strip() == "":
-                out.pop()
-            continue
-        out.append(line)
-    return out
-
-
 def parse_items(name, lines):
-    """Return [(slug, start, end)] -- end is exclusive, and excludes trailing
-    blanks so an insertion lands against the item's own last line."""
+    """Return [(slug, start, end)] -- end exclusive, trailing blanks trimmed."""
     starts = [(i, m.group(1)) for i, line in enumerate(lines)
               if (m := ANCHOR.search(line))]
     items = []
@@ -84,75 +70,54 @@ def parse_items(name, lines):
     return items
 
 
-def build_graph(docs):
-    """slug-key -> [citing slug-key], in document then reading order."""
-    cited_by = {}
-    for name, (lines, items) in docs.items():
-        for slug, start, end in items:
-            for line in lines[start:end]:
-                for m in LINK.finditer(line):
-                    target = (m.group(1) or name, m.group(2))
-                    if target[0] not in DOCS or target == (name, slug):
-                        continue
-                    cited_by.setdefault(target, [])
-                    if (name, slug) not in cited_by[target]:
-                        cited_by[target].append((name, slug))
-    return cited_by
-
-
-def render(target_doc, citers):
-    parts = []
-    for doc, slug in citers:
-        link = f"[`{slug}`](#{slug})" if doc == target_doc \
-            else f"[`{slug}`]({doc}#{slug}) in {DOCS[doc]}"
-        parts.append(link)
-    return PREFIX + "; ".join(parts) + ".*"
+def links_in(name, lines, start, end):
+    """The items this item cites, as (document, slug)."""
+    out = []
+    for line in lines[start:end]:
+        for m in LINK.finditer(line):
+            target = (m.group(1) or name, m.group(2))
+            if target[0] in DOCS and target != (name, start):
+                out.append(target)
+    return out
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--check", action="store_true",
-                    help="report drift instead of writing")
+    ap.add_argument("--quiet", action="store_true",
+                    help="print the count only")
     args = ap.parse_args()
 
-    docs = {}
+    docs, cites = {}, {}
     for name in DOCS:
-        lines = strip_generated((HERE / name).read_text().split("\n"))
-        docs[name] = (lines, parse_items(name, lines))
+        lines = (HERE / name).read_text().split("\n")
+        items = parse_items(name, lines)
+        docs[name] = (lines, items)
+        for slug, start, end in items:
+            cites[(name, slug)] = {t for t in links_in(name, lines, start, end)
+                                   if t != (name, slug)}
 
-    cited_by = build_graph(docs)
+    missing, total = [], 0
+    for source, targets in sorted(cites.items()):
+        for target in sorted(targets):
+            if target not in cites:
+                continue          # a slug that is not an item -- nothing to do
+            total += 1
+            if source not in cites[target]:
+                missing.append((target, source))
 
-    drift, written = [], 0
-    for name, (lines, items) in docs.items():
-        out = list(lines)
-        # Insert from the bottom so earlier offsets stay valid.
-        for slug, start, end in reversed(items):
-            citers = cited_by.get((name, slug))
-            if not citers:
-                continue
-            line = render(name, citers)
-            if BULLET.match(lines[start]):
-                out.insert(end, "  " + line)   # continues the list item
-            else:
-                out.insert(end, "")
-                out.insert(end + 1, line)
-        text = "\n".join(out)
-        path = HERE / name
-        if path.read_text() != text:
-            drift.append(name)
-            if not args.check:
-                path.write_text(text)
-                written += 1
+    if args.quiet:
+        print(f"philosophy-backlinks: {total - len(missing)}/{total} reciprocated")
+        return 1 if missing else 0
 
-    total = sum(len(v) for v in cited_by.values())
-    if args.check:
-        if drift:
-            print("philosophy-backlinks: STALE in " + ", ".join(drift))
-            return 1
-        print(f"philosophy-backlinks: OK ({total} reverse edges)")
-        return 0
-    print(f"philosophy-backlinks: {total} reverse edges across "
-          f"{len(cited_by)} items; rewrote {written} file(s)")
+    if missing:
+        print(f"philosophy-backlinks: {len(missing)} citation(s) run one way only.\n"
+              f"Write the return reference into the cited item's own prose -- "
+              f"a clause in the document's voice, not a generated list.\n")
+        for (tdoc, tslug), (sdoc, sslug) in missing:
+            print(f"  {tdoc}#{tslug}")
+            print(f"      is cited by {sdoc}#{sslug}, and does not point back")
+        return 1
+    print(f"philosophy-backlinks: OK -- all {total} citations run both ways")
     return 0
 
 

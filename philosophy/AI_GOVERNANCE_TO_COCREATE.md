@@ -23,9 +23,8 @@ essay gets tried before it's called a rule.*
 not a special case.** Context only behaves like capital
 ([`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset)) if it
 outlives the session that made it — durable, diffable state should beat
-ephemeral chat by default.
-
-*Cited by: [`version-control-and-audit-trail`](#version-control-and-audit-trail).*
+ephemeral chat by default. What that durability is *for* is
+[`version-control-and-audit-trail`](#version-control-and-audit-trail).
 
 <a id="automatic-rule-extraction"></a>
 
@@ -37,8 +36,6 @@ sources (precedent-team-repo-maintenance, precedent-individual — see
 [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)) run this continuously
 ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically);
 [`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing)).
-
-*Cited by: [`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically) in Our Philosophy.*
 
 <a id="coldstart-test"></a>
 
@@ -71,9 +68,8 @@ possible; this is what it is for).
 **6. Push-back as a configuration switch, not a personality quirk.**
 Argue a genuine counter-case on writing/thinking work, comply on
 technical execution — the switch should track task shape, not sit fixed
-at the system level.
-
-*Cited by: [`push-back-writing-thinking`](RULES_NOW_TESTING.md#push-back-writing-thinking) in Rules Now Testing.*
+at the system level. Being run by hand meanwhile as
+[`push-back-writing-thinking`](RULES_NOW_TESTING.md#push-back-writing-thinking).
 
 <a id="three-reflexes-in-system-prompt"></a>
 
@@ -82,17 +78,19 @@ at the system level.
 the system prompt, not just a human's habit.** An agent that asks itself
 "have I done this shape before" mid-task, and says so, does more of
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows)'s
-work than a person remembering to ask.
-
-*Cited by: [`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud) in Rules Now Testing.*
+work than a person remembering to ask. Until it is configured, a person
+asks them out loud:
+[`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud).
 
 <a id="argue-in-the-open"></a>
 
 **8. Argue in the open.** An AI reviewer that holds a half-formed
 position and invites disagreement, rather than posting a clean
 finished-looking suggestion, keeps the disagreement itself in the record.
-
-*Cited by: [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model) in Our Philosophy; [`argue-in-the-open`](RULES_NOW_TESTING.md#argue-in-the-open) in Rules Now Testing.*
+It is the system-level form of
+[`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model), and
+[`argue-in-the-open`](RULES_NOW_TESTING.md#argue-in-the-open) is it asked
+of people first, before anything is built to do it.
 
 ## Interface
 
@@ -170,8 +168,8 @@ to start.
 periodically list workflows whose only interface is a human inbox —
 including its own — and propose an addressable alternative, per
 [`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes).
-
-*Cited by: [`dark-process-self-audit`](RULES_NOW_TESTING.md#dark-process-self-audit) in Rules Now Testing.*
+Running by hand today as
+[`dark-process-self-audit`](RULES_NOW_TESTING.md#dark-process-self-audit).
 
 <a id="periodic-checkins-not-expiry"></a>
 
@@ -198,9 +196,8 @@ someone thinks of it.
 [`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset), not a
 preference.** Context built against one vendor's tooling shouldn't be
 strandable by a provider switch — the capital asset is the context, not
-the platform it's sitting in today.
-
-*Cited by: [`open-formats-you-own`](REASONS_WHY.md#open-formats-you-own) in Reasons Why.*
+the platform it's sitting in today. What the hedge looks like in practice:
+[`open-formats-you-own`](REASONS_WHY.md#open-formats-you-own).
 
 ## See Also
 

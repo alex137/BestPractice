@@ -21,8 +21,8 @@ this page doesn't replace them.*
 
 - <a id="getting-things-done"></a>**Getting sh\*t done.** The will to keep pushing something through every
   stall, handoff, and objection until it's actually finished, not just
-  planned.
-  *Cited by: [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) in Company Building Rules.*
+  planned. [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive)
+  names this one first, and unmanaged.
 - <a id="obsessive-ownership"></a>**Obsessive ownership.** Only someone who truly, deeply cares hunts down
   every last thing that's wrong — a bug, a sloppy paragraph, a process that
   half-works — with the intensity and creativity that comes from treating it
@@ -36,12 +36,10 @@ this page doesn't replace them.*
 - <a id="accountability"></a>**Accountability.** Landing on one name in one room, rather than a
   process nobody can point to
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
-  *Cited by: [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
 - <a id="judgment"></a>**Judgment.** Deciding what gets built and whether it works
   ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute));
   judgment when the rules run out and somebody still has to decide
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
-  *Cited by: [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
 - <a id="actually-managing"></a>**Actually managing.** Somebody has to own a thing while it runs:
   noticing the drift before a customer does, pushing it further than it
   would push itself, pulling it back before it overreaches
@@ -63,7 +61,9 @@ this page doesn't replace them.*
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human));
   sensing what a client meant but didn't say
   ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best)).
-  *Cited by: [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) in Company Building Rules; [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
+  What a counterparty trusts is a person, which is why
+  [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) screens for
+  it rather than for output.
 - <a id="politics"></a>**Politics.** Any non-trivial team runs on politics as much as on org
   charts; reading it and managing it is a human job.
 - <a id="sense-of-smell"></a>**Sense of smell.** Understanding how reality actually plays out, past
@@ -77,14 +77,15 @@ this page doesn't replace them.*
 - <a id="taste"></a>**Taste.** Catching the one paragraph in twenty that's quietly wrong
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human);
   [`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
-  *Cited by: [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) in Company Building Rules; [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
+  The bottleneck
+  [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) is really
+  about: judging fast, not producing.
 - <a id="instinct"></a>**Instinct.** Reading a room, sensing what a client meant but didn't
   say, pushing someone harder when the moment calls for it
   ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best)).
 - <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
-  *Cited by: [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in Company Building Rules.*
 - <a id="the-unspoken"></a>**The unspoken.** The things a human can do, and sometimes has to, that
   are hard to say out loud at all.
 

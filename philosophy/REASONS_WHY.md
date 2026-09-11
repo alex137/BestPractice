@@ -28,8 +28,6 @@ instead, it becomes a rule anyone can read, edit, and hand to a
 different model
 ([`explicit-ownership-not-hidden-in-the-model`](OUR_PHILOSOPHY.md#explicit-ownership-not-hidden-in-the-model)).
 
-*Cited by: [`explicit-ownership-not-hidden-in-the-model`](OUR_PHILOSOPHY.md#explicit-ownership-not-hidden-in-the-model) in Our Philosophy.*
-
 <a id="open-formats-you-own"></a>
 
 **3. Information that stays in text and open formats, in accounts you
@@ -60,9 +58,9 @@ Documenting loses to the work competing for the same hour. Pulling the
 record out as a byproduct of working in the open — instead of a
 follow-up chore
 ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically))
-— removes that tax: the writing already happened while the task did.
-
-*Cited by: [`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction) in AI Governance.*
+— removes that tax: the writing already happened while the task did. As a
+standing capability rather than a habit:
+[`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction).
 
 <a id="protocols-generated-not-just-documented"></a>
 
@@ -77,9 +75,11 @@ session inherits, captured as it happens
 ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically)).
 Knowledge that outlives any employment relationship
 ([`transcribe-everything`](COMPANY_BUILDING_RULES.md#transcribe-everything)'s
-Ghost) turns someone leaving into a staffing change.
-
-*Cited by: [`rules-emerge-person-approved`](CORE_PILLARS.md#rules-emerge-person-approved) in Core Pillars; [`private-chat-is-lost-knowledge`](#private-chat-is-lost-knowledge); [`intermediary-layer-side-benefits`](#intermediary-layer-side-benefits).*
+Ghost) turns someone leaving into a staffing change. This is what
+[`private-chat-is-lost-knowledge`](#private-chat-is-lost-knowledge) is
+losing and what
+[`intermediary-layer-side-benefits`](#intermediary-layer-side-benefits)
+gets for free.
 
 <a id="situation-heads-off-confusion"></a>
 
@@ -101,8 +101,6 @@ thinner record. Letting people think in whatever language comes
 naturally, with the AI carrying translation into the repo's shared
 language, gets the real thinking into the record instead
 ([`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital)).
-
-*Cited by: [`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital) in Our Philosophy.*
 
 ## Catching Problems While They're Still Small
 

@@ -48,8 +48,6 @@ assistant each person also has. (One part of
 what makes this approach unique —
 [`collaboration-not-just-production`](CORE_PILLARS.md#collaboration-not-just-production).)
 
-*Cited by: [`collaboration-not-just-production`](CORE_PILLARS.md#collaboration-not-just-production) in Core Pillars.*
-
 ## Working With the Model
 
 <a id="people-manage-agents-execute"></a>
@@ -62,9 +60,11 @@ the first attempt reveals what the brief missed
 ([`manager-of-agents`](COMPANY_BUILDING_RULES.md#manager-of-agents))
 — same posture as [`arguing-with-the-model`](#arguing-with-the-model),
 applied to management. (Full list:
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md).)
-
-*Cited by: [`human-led`](CORE_PILLARS.md#human-led) in Core Pillars; [`judgment`](HUMANS_AT_OUR_BEST.md#judgment) in Humans at Our Best; [`actually-managing`](HUMANS_AT_OUR_BEST.md#actually-managing) in Humans at Our Best; [`taste`](HUMANS_AT_OUR_BEST.md#taste) in Humans at Our Best.*
+[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — this is the claim behind
+its [`judgment`](HUMANS_AT_OUR_BEST.md#judgment),
+[`actually-managing`](HUMANS_AT_OUR_BEST.md#actually-managing) and
+[`taste`](HUMANS_AT_OUR_BEST.md#taste) entries, and behind
+[`human-led`](CORE_PILLARS.md#human-led).)
 
 <a id="arguing-with-the-model"></a>
 
@@ -76,8 +76,9 @@ agreement just hands back your blind spots
 ([`ai-chat-as-intermediary`](COMPANY_BUILDING_RULES.md#ai-chat-as-intermediary),
 [`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate);
 [`argue-in-the-open`](AI_GOVERNANCE_TO_COCREATE.md#argue-in-the-open)).
-
-*Cited by: [`people-manage-agents-execute`](#people-manage-agents-execute).*
+It is also what
+[`people-manage-agents-execute`](#people-manage-agents-execute) means by
+briefing a model and staying engaged.
 
 ## Knowledge That Gets Captured
 
@@ -92,8 +93,6 @@ reads as if it had always been obvious. Language works the same way:
 the AI carrying the translation keeps thinking real, not thinned
 ([`second-language-stops-costing-quality`](REASONS_WHY.md#second-language-stops-costing-quality)).
 
-*Cited by: [`second-language-stops-costing-quality`](REASONS_WHY.md#second-language-stops-costing-quality) in Reasons Why.*
-
 <a id="rules-generated-automatically"></a>
 
 **5. Protocols, rules, and preferences get generated automatically.**
@@ -106,9 +105,14 @@ never left unremarked. This repo's team and individual practice sources
 [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)) run that mechanism continuously
 ([`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction);
 [practice 20](../PRACTICES.md#20-mistakes-become-rules-root-cause-the-miss-then-encode-the-prevention)
-is the same move done by hand).
-
-*Cited by: [`decisions-carry-their-situation`](#decisions-carry-their-situation); [`explicit-ownership-not-hidden-in-the-model`](#explicit-ownership-not-hidden-in-the-model); [`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing) in Reasons Why; [`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented) in Reasons Why; [`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction) in AI Governance.*
+is the same move done by hand). It is what makes
+[`decisions-carry-their-situation`](#decisions-carry-their-situation)
+affordable and
+[`explicit-ownership-not-hidden-in-the-model`](#explicit-ownership-not-hidden-in-the-model)
+possible at all; the reason it beats documenting by hand is
+[`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing),
+and the payoff is
+[`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented).
 
 <a id="decisions-carry-their-situation"></a>
 
@@ -122,9 +126,8 @@ BestPractice already requires this
 capture is the
 agents' job, pulled from the work as it happens
 ([`rules-generated-automatically`](#rules-generated-automatically)'s
-rule extraction).
-
-*Cited by: [`situation-heads-off-confusion`](REASONS_WHY.md#situation-heads-off-confusion) in Reasons Why.*
+rule extraction). What it prevents, concretely, is
+[`situation-heads-off-confusion`](REASONS_WHY.md#situation-heads-off-confusion).
 
 ## Visible and Owned, Not Hidden
 
@@ -147,8 +150,6 @@ private session, or files the team can edit and hand to another model
 ([`rules-generated-automatically`](#rules-generated-automatically);
 [`owned-rules-outlast-the-chat`](REASONS_WHY.md#owned-rules-outlast-the-chat)).
 
-*Cited by: [`owned-rules-outlast-the-chat`](REASONS_WHY.md#owned-rules-outlast-the-chat) in Reasons Why.*
-
 ## Humans Should Do What Humans Do Best
 
 <a id="humans-do-what-humans-do-best"></a>
@@ -160,9 +161,9 @@ calls for it. Optimizing a person to act like a fast, tireless model
 optimizes away what they're for
 ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)) —
 hold them to that standard, not a machine's. (Full list:
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md).)
-
-*Cited by: [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) in Humans at Our Best; [`instinct`](HUMANS_AT_OUR_BEST.md#instinct) in Humans at Our Best.*
+[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — this is the claim behind
+its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
+[`instinct`](HUMANS_AT_OUR_BEST.md#instinct) entries.)
 
 ## See Also
 
