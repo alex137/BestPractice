@@ -80,11 +80,13 @@ The restriction itself moved to the two layers that can see who is running —
 the contributor's GitHub role, and their own session configuration.
 
 **The directory rename did not finish the job, and the check could not say
-so.** Three more tracked files carried the same label the same day —
-`spec/NONTECHNICAL_TEAM_PRACTICE_CAPTURE.md`, naming *work*, and
-`documentation/HOW_TO_USE_THIS_TECHNICAL.md` and its `_NONTECHNICAL` twin,
-naming *documents by their readers' skill level*. The check finds all but the
-first of them, and had been reporting **1 passed** every run, because a
+so.** Three more tracked files carried the same label the same day — a
+planning document under `spec/` whose name began `NONTECHNICAL_` and went on
+to name *work*, and the pair of how-to guides under `documentation/` whose
+names ended `_TECHNICAL` and `_NONTECHNICAL`, labelling *documents by their
+readers' skill level*. The check finds the two guides and not the first, whose
+label is followed by a person-noun. It had been reporting **1 passed** every
+run, because a
 tree-scope check reads the working diff unless somebody passes `--all`, and
 the violations were already committed. It fired the moment it was asked the
 whole-tree question.
