@@ -1621,9 +1621,24 @@ which is the failure this repointing exists to end — write
   others — the same reason that entry was wrong for days in 2026-09. Three of
   the four entries still carry the absolute form.
 
-  **Blocked on:** Morgan, in the environment settings, on **every**
-  environment sharing a name — the twin-environment trap in the same gotcha.
-  **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
+  **Morgan says he fixed it, 2026-09-11, and this session cannot confirm
+  that — which is not a doubt about him, it is a property of the
+  mechanism.** An environment change never reaches a session already
+  running, so `env` here still prints the old value and will until this
+  container ends. That reading is not evidence either way.
+  **Confirm on the next fresh container** with
+  `python3 tools/precedent_session_check.py`, whose own row answers it in
+  one line. Closed on his word, with the verification named rather than
+  assumed.
+
+  **One trap if anyone pastes that row's suggested value.** It is computed
+  from what is on disk in the container it runs in, so on a container where
+  a team set was never cloned it simply drops that set from the value it
+  proposes — this session's own run proposed a value naming
+  `precedent-individual` twice and omitting `precedent-team-writing` and
+  `precedent-team-working-style` entirely, because neither was on disk here.
+  Read it as "these entries resolve to nothing", never as "here is your
+  variable".
 
 - <a id="individual-copy-points-at-a-retired-slug"></a>**`precedent-individual`'s `match-parsed-id-not-prefix` points at a retired
   slug.** That practice moved from the individual set to
