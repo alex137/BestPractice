@@ -15,7 +15,7 @@ in OUR_PHILOSOPHY.md,
 COMPANY_BUILDING_RULES.md) keep their own wording and link back here —
 this page doesn't replace them.*
 
-## The List
+## The Four Aspects of the Human Genius
 
 ### Drive
 
@@ -86,9 +86,6 @@ this page doesn't replace them.*
 
 ### The Intangible
 
-- <a id="questions"></a>**Questions.** Asking the right one at the right time may be the hardest
-  of the skills that matter; [`three-questions`](COMPANY_BUILDING_RULES.md#three-questions) is the
-  drillable substitute.
 - <a id="taste"></a>**Taste.** Catching the one paragraph in twenty that's quietly wrong
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human);
   [`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
@@ -101,6 +98,10 @@ this page doesn't replace them.*
   ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best));
   the answer that felt off and passed every check
   ([`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss)).
+- <a id="questions"></a>**The right questions.** Asking the right one at the right time may be
+  the hardest of the skills that matter;
+  [`three-questions`](COMPANY_BUILDING_RULES.md#three-questions) is the
+  drillable substitute.
 - <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
