@@ -1040,7 +1040,43 @@ def _generated_artifact_provenance(ctx):
 # practice: generated-edit-goes-upstream
 _DONT_EDIT_RE = re.compile(r'<!--(?:(?!-->).)*?do not hand-edit(?:(?!-->).)*?-->',
                            re.I | re.S)
-_SOURCE_CLAUSE_RE = re.compile(r'\bSource:\s*([^-]+?)\s*(?:--|—|\.|-->)', re.S)
+# Where the clause ENDS is the whole difficulty, and the first attempt got it
+# wrong in both directions. It read
+# `\bSource:\s*([^-]+?)\s*(?:--|—|\.|-->)`, which (a) could not cross a
+# hyphen, so a real clause naming `business-modeling/doc-recipes/x.recipe.md`
+# did not match AT ALL and the file was reported as carrying no `Source:`
+# clause -- sending the reader to look for a clause sitting right there in the
+# header -- and (b) terminated on any `.`, so even a hyphen-free
+# `Source: docs/plain.md -- fine` captured `docs/plain` and was reported as a
+# path that does not exist. Hyphenated paths are the common case in these
+# repos, not the edge case, so the rule was close to unsatisfiable: both
+# failure messages pointed at the wrong problem, and a session trying to
+# COMPLY had no way to. Found 2026-09-11 from a consuming repo while adding a
+# clause to a generated header.
+#
+# What actually ends a clause, and why each terminator is written the way it
+# is:
+#   `-->`        the end of the HTML comment. Matched with no whitespace
+#                requirement, and FIRST, so it wins over the `--` inside it.
+#   whitespace + `--`
+#                this project's prose dash. The lookbehind is the fix for (a):
+#                a hyphen inside a path is never preceded by whitespace, so
+#                `doc-recipes/` reads as path and ` -- the recipe` reads as the
+#                end of the clause.
+#   `—`          an em dash never occurs in a path, so it needs no guard.
+#   `.` + whitespace or end
+#                a sentence-ending period. The lookahead is the fix for (b):
+#                an extension's dot is always followed by its extension, never
+#                by a space, so `.md ` no longer truncates. Dropping `.`
+#                altogether was the alternative and is worse -- without it a
+#                clause written as a sentence swallows the rest of the comment,
+#                and every path-shaped token in that prose is then checked as
+#                if the header had named it.
+#   end of text  a clause with no terminator at all captures to the end rather
+#                than failing to match, because "no `Source:` clause" is the
+#                one message that must mean what it says.
+_SOURCE_CLAUSE_RE = re.compile(
+    r'\bSource:\s*(.+?)\s*(?:-->|(?<=\s)--|—|\.(?=\s|$)|$)', re.S)
 # A path-shaped token inside the Source clause: something with a slash or a
 # known extension. Prose around it ("every resolved source's practice files")
 # is deliberately not parsed -- naming a directory is a legitimate Source, and

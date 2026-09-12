@@ -3837,7 +3837,75 @@ which is the failure this repointing exists to end — write
     item and said in the same breath that it is a weak one.
     **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
 
-66. <a id="source-name-check-cannot-run-in-a-hosted-session"></a>**The
+66. <a id="source-clause-check-reads-only-html-comments"></a>**The `Source:`
+    clause check reads only HTML comments, so a generated file whose header is
+    a `#` comment is never asked for one.**
+    [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md)'s
+    check looks for its marker only inside an HTML comment
+    (`<!-- ... -->`), which covers every markdown view and the loader block.
+    It does not cover the two generated files here whose headers are shell or
+    Python comments:
+    [tools/precedent_materialize.py](tools/precedent_materialize.py)'s emitted
+    `run_all.sh`, whose header is a `# GENERATED FILE` line carrying the same
+    marker, and [tools/build_codeowners.py](tools/build_codeowners.py)'s
+    `CODEOWNERS`.
+    Both name the script that rebuilds them; neither names where a change
+    belongs, which is the half the rule is about. Found 2026-09-11 while
+    sweeping every header in the tree after fixing the clause matcher — the
+    sweep is what made the gap visible, since these files never appear in the
+    check's own output at all.
+    **Out of scope for that fix rather than blocked:** widening the matcher to
+    `#` headers is a scope decision with its own sweep to run first, and a
+    check that starts firing on files nobody has written a clause for yet is
+    exactly what [checkable-gets-checked](practices/checkable-gets-checked.md)
+    forbids landing unmeasured. The work is: extend `_DONT_EDIT_RE` to the
+    `#`-comment form, run it against the whole tree, add the clause to
+    whatever it names, and plant a case per header shape.
+    **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
+
+67. <a id="consuming-repo-clause-clears-on-vendor-update"></a>**Confirm the
+    consuming repo's `Source:` clause actually clears, rather than assuming
+    it.** The clause-matcher faults in item 66's sibling fix were found from a
+    consuming repo, whose generator emits a hyphenated `Source:` path. That
+    repo kept the clause in place while it still failed, on the grounds that
+    it was correct and a reader could use it, so its
+    `generated-edit-goes-upstream` violation should clear on its next vendor
+    update with no edit on its side. The regex accepts that clause shape now —
+    asserted as a harness case — but whether the path it names resolves in
+    that repo's own tree is a fact about that tree.
+    **Blocked on a session rooted in that repository:** it is under a
+    different owner, and `add_repo` refuses cross-owner, so nothing here can
+    read it. One command there answers it:
+    `python3 tools/precedent_check.py --only generated-edit-goes-upstream`
+    after the vendor update.
+    **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
+
+68. <a id="source-sets-vendor-the-broken-clause-matcher"></a>**All four
+    practice-set sources vendor the pre-fix `Source:` clause matcher.**
+    `precedent_check.py` is in `ENGINE_FILES`, so `precedent-individual`,
+    `precedent-team-repo-maintenance`, `precedent-team-writing` and
+    `precedent-team-working-style` each carry their own copy, and each will
+    keep rejecting a hyphenated or extension-carrying `Source:` path until it
+    is refreshed. **No impact today, which is the only reason this is an item
+    rather than the work:** every one of their generated headers names
+    `practices/`, which both the old and the new matcher read identically. It
+    bites the first time any of those sets writes a clause naming a real file.
+    The fix in each is the same one command item 61 already established:
+    `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`,
+    then regenerate views and open a pull request there.
+    **blocked-on: no push access to the source repositories from a session
+    rooted here** — they are under a different owner, and
+    [cross-source-rollout](practices/cross-source-rollout.md)'s "roll it out
+    now, it is attached" does not reach them because attachment here is read
+    only. Re-measured 2026-09-11 rather than taken from item 61's record:
+    `git push --dry-run` into one of the clones returns
+    `access denied by the git proxy ... not in this session's authorized
+    repository set` and HTTP 403. The clones are also behind their own
+    `origin`, so a commit made on top of one here would be built on a stale
+    tree.
+    **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
+
+69. <a id="source-name-check-cannot-run-in-a-hosted-session"></a>**The
     source-name check reports UNVERIFIED for every private source in a hosted
     session, which is where most vendor updates happen.**
     [tools/precedent_source_names.py](tools/precedent_source_names.py) asks

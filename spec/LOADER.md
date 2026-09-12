@@ -148,6 +148,28 @@ What the generator does now:
 | no practice registering a gate | no `precedent_gate.py` sentence |
 | a practice registering *some* gates | a `precedent_gate.py` sentence naming **only those gates**, in the vocabulary's own order |
 | no practices at all | one line saying so, rather than three empty headings |
+| a resident practice whose Rule carries a relative link | that link repointed for the directory the block lands in — see below |
+
+**A resident Rule's relative links are placed, not copied** (2026-09-11). The
+Rule is embedded verbatim, and it was written in `practices/` while the block
+lands in [AGENTS.md](../AGENTS.md) at the repository root — so a sibling citation legal in
+the practice file, `[audience-register](audience-register.md)`, resolved to
+nothing from the root and reached a consuming repo as a hard `doc_lint` broken
+link inside a generated region no session there may edit. Reported by a
+consuming repo taking a vendor update.
+[tools/build_views.py](../tools/build_views.py)'s `_place_rule_links` now
+repoints each one against the block's own directory — `practices/…` for the
+instructions file, `../practices/…` for `.precedent/SESSION_PRACTICES.md` — using
+the **materialized** copy's path, since a team or individual practice's text
+comes from a clone outside the consuming repo entirely.
+
+A link it cannot place is **left exactly as its author wrote it** and named on
+standard error. It is never turned into an absolute URL, because that URL
+would publish a private source repository's name into every consumer that
+materializes the practice — the same refusal
+[tools/precedent_materialize.py](../tools/precedent_materialize.py)'s
+`_rewrite_links` already makes, for the same reason: a relative link that does
+not resolve is a smaller failure than a disclosure that cannot be taken back.
 
 The gate list and the moment phrases beside it are both derived — the names
 from the practices that register them, the phrases from

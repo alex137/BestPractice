@@ -3146,6 +3146,106 @@ def check_generated_views_regenerate():
           ok, detail)
 
 
+def check_resident_rule_links_are_placed_for_the_block():
+    """A resident practice's Rule links are repointed for the file the block
+    lands in, and an unplaceable one is said out loud instead of mangled.
+
+    THE INCIDENT (2026-09-11). A `tier: resident` practice's ## Rule is
+    copied verbatim into the loader block, which lands in AGENTS.md at the
+    repository ROOT -- while the Rule was written in practices/, one
+    directory down. An individual set's new practice carried the only link
+    in the whole resident block, `[audience-register](audience-register.md)`,
+    and it reached a consuming repo as a hard doc_lint BROKEN RELATIVE LINK
+    inside a generated region no session there is allowed to edit. It was
+    patched at the source by dropping the markup, which holds by convention
+    only.
+
+    Four behaviours, and the last two are the ones that keep the fix from
+    being worse than the bug: a link that cannot be placed is LEFT as its
+    author wrote it, never turned into an absolute URL that would name a
+    private repository, and never into a machine-specific path out of the
+    tree (practice: control-asserts-which-failure -- each case asserts the
+    text produced, not merely that something happened)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as bv
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rulelinks-'))
+    cases = []
+    try:
+        repo = tmp / 'repo'
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'tools' / 'checks').mkdir(parents=True)
+        (repo / 'tools' / 'checks' / 'check_x.py').write_text('x\n', encoding='utf-8')
+        (repo / 'practices' / 'sibling.md').write_text('y\n', encoding='utf-8')
+        rule = ("See [a](sibling.md), [b](../tools/checks/check_x.py), "
+                "[c](https://example.com/x), [d](#rule) and [e](gone.md).")
+        placed, unplaced = bv._place_rule_links(
+            rule, repo / 'practices' / 'p.md', repo)
+        cases.append(('a sibling practice citation is repointed at '
+                      'practices/ for a block rendered at the repo root',
+                      '[a](practices/sibling.md)' in placed))
+        cases.append(("a practice's own check script is repointed at "
+                      'tools/checks/, and an absolute URL and a bare '
+                      'fragment are untouched',
+                      '[b](tools/checks/check_x.py)' in placed
+                      and '[c](https://example.com/x)' in placed
+                      and '[d](#rule)' in placed))
+        cases.append(('a link to a file that is not there is left exactly as '
+                      'written, and reported as unplaceable',
+                      '[e](gone.md)' in placed and unplaced == ['gone.md']))
+
+        # A Rule that SHOWS a reader what a link looks like is exactly the
+        # practice that would carry one, and rewriting it would edit the
+        # prose this file only relays. doc_lint skips both regions for the
+        # same reason.
+        literal = ("Prose [a](sibling.md), a span `[b](sibling.md)`, and\n"
+                   "```\n[c](sibling.md)\n```\nthen [d](sibling.md).")
+        placed_lit, _ = bv._place_rule_links(
+            literal, repo / 'practices' / 'p.md', repo)
+        cases.append(('a link inside a code span or a fenced block is left '
+                      'alone, while the prose links around it are placed',
+                      placed_lit.count('(practices/sibling.md)') == 2
+                      and '`[b](sibling.md)`' in placed_lit
+                      and '\n[c](sibling.md)\n' in placed_lit))
+
+        # Rendered one directory DOWN (.precedent/SESSION_PRACTICES.md), a
+        # link out of practices/ legitimately climbs -- so "starts with .."
+        # is not the test, and this is the case that proves it is not.
+        placed_down, _ = bv._place_rule_links(
+            rule, repo / 'practices' / 'p.md', repo / '.precedent', repo)
+        cases.append(('a block rendered below the repo root gets ../ links, '
+                      'not a refusal',
+                      '[a](../practices/sibling.md)' in placed_down
+                      and '[b](../tools/checks/check_x.py)' in placed_down))
+
+        # THE PRIVACY CASE. A team or individual practice resolves from a
+        # clone outside the consuming repo, where no relative link reaches.
+        outside = tmp / 'precedent-individual'
+        (outside / 'practices').mkdir(parents=True)
+        (outside / 'practices' / 'sibling.md').write_text('y\n', encoding='utf-8')
+        placed_out, unplaced_out = bv._place_rule_links(
+            "See [a](sibling.md).", outside / 'practices' / 'p.md',
+            repo / '.precedent', repo)
+        cases.append(('a practice resolved from a source clone OUTSIDE the '
+                      'repo is left as written -- no absolute URL naming the '
+                      'source, no path out of the tree',
+                      placed_out == "See [a](sibling.md)."
+                      and unplaced_out == ['sibling.md']
+                      and str(outside) not in placed_out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    ok = all(passed for _, passed in cases)
+    for name, passed in cases:
+        if not passed:
+            print(f"  build_views did NOT place a resident Rule's links as "
+                  f"stated: {name}")
+    check(f"a resident Rule's relative links are placed for the block's own "
+          f"directory ({len(cases)} stated cases, including the two "
+          f"unplaceable shapes)", ok)
+
+
 def check_source_names_detects_a_rename():
     """precedent_source_names.py -- a declared source repository that has been
     RENAMED is reported, and a name it could not check is never reported as
@@ -4443,13 +4543,38 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('catalogue-carries-stories', _plant_catalogue_stories)
 
-        # generated-edit-goes-upstream -- two shapes in one fixture, told
+        # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
         # (practice: control-asserts-which-failure). MAP.md loses its
         # `Source:` clause entirely, which is the header every generated view
         # here carried until 2026-09-11 and the one that produces the hand
         # edit; GLOSSARY.md keeps a clause and points it at a directory that
         # does not exist, which is the worse case -- it reads as an answer.
+        #
+        # The other two headers are CORRECT, and the check reported both as
+        # violations until 2026-09-11 -- one per fault in the terminator
+        # `_SOURCE_CLAUSE_RE` used to carry, found from a consuming repo by a
+        # session trying to COMPLY with the rule. They are cases rather than
+        # a comment because both faults produced a message pointing at the
+        # wrong problem, so a regression looks like a pass to anybody reading
+        # the exit status: the hyphen fault reported a clause sitting in the
+        # header as missing, and the extension fault reported a path that
+        # exists as gone.
+        _SOURCE_OK = (
+            # A hyphenated path. `[^-]+?` could not cross the hyphen, so the
+            # clause did not match AT ALL and the file was reported as
+            # carrying no `Source:` clause -- and most real paths in these
+            # repos are hyphenated, so this was the common case.
+            ('fixture-hyphenated-source.md',
+             'Source: practices/generated-edit-goes-upstream.md -- the '
+             'practice this header exists to satisfy.'),
+            # A hyphen-free path, so this case isolates the second fault: `\.`
+            # in the terminator truncated at the extension, and the clause was
+            # reported as naming `spec/LOADER`, which does not exist.
+            ('fixture-dotted-source.md',
+             'Source: spec/LOADER.md -- the loader spec.'),
+        )
+
         def _plant_generated_source(repo):
             m = repo / 'MAP.md'
             head, rest = m.read_text(encoding='utf-8').split('\n', 1)
@@ -4460,7 +4585,68 @@ def check_precedent_check_fires():
                          .replace('Source: practices/ --',
                                   'Source: catalogue/entries/ --', 1),
                          encoding='utf-8')
+            for rel, clause in _SOURCE_OK:
+                # Assembled rather than written literally, for the reason the
+                # leak-gate fixture above is: spelled out, the marker makes
+                # THIS file match `_DONT_EDIT_RE`, and since the header here
+                # is a template with no `Source:` in it, the check then
+                # reports verify_harness.py as a generated view that does not
+                # say where its content comes from. Caught by this fixture's
+                # own unplanted baseline on 2026-09-11, which is what that
+                # baseline is for.
+                marker = 'do not ' + 'hand-edit'
+                (repo / rel).write_text(
+                    f'<!-- GENERATED by the harness -- {marker}. '
+                    f'Regenerate with: nothing, this file is a fixture. '
+                    f'{clause} -->\n', encoding='utf-8')
+            # Tracked, or `git ls-files` never hands them to the check and
+            # the cases below pass by never being looked at
+            # (practice: fixture-owns-its-state).
+            git(repo, 'add', '-A')
         case('generated-edit-goes-upstream', _plant_generated_source)
+        _ges = planted['generated-edit-goes-upstream'][1]
+        cases.append(('generated-edit-goes-upstream: the header with no clause '
+                      'is reported as having none, not merely counted',
+                      'no `Source:` clause' in _ges))
+        cases.append(('generated-edit-goes-upstream: the clause pointing at a '
+                      'directory that has moved names that directory',
+                      'names `catalogue/entries/` as its Source and that path '
+                      'does not exist' in _ges))
+        for _rel, _clause in _SOURCE_OK:
+            cases.append((f'generated-edit-goes-upstream: {_rel}, whose header '
+                          f'is correct, is not reported at all',
+                          _rel not in _ges))
+        # The sharper half of the extension fault: its old message named a
+        # path nobody wrote. A regression that truncated the clause again
+        # would still be a finding about a header that is right.
+        cases.append(('generated-edit-goes-upstream: a Source path is not '
+                      'truncated at its file extension',
+                      '`spec/LOADER`' not in _ges))
+
+        # And the terminator itself, per fault, so a regression is reported as
+        # the regex being wrong rather than as a fixture file the check could
+        # not read.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_check as _pcsrc
+        for _shape, _clause, _want in (
+                ('a hyphenated path',
+                 'Source: business-modeling/doc-recipes/OUT.recipe.md -- x',
+                 'business-modeling/doc-recipes/OUT.recipe.md'),
+                ('a path carrying an extension',
+                 'Source: docs/plain.md -- fine', 'docs/plain.md')):
+            _m = _pcsrc._SOURCE_CLAUSE_RE.search(_clause)
+            cases.append((f'generated-edit-goes-upstream: {_shape} survives '
+                          f'the Source-clause terminator whole',
+                          _m is not None and _m.group(1) == _want))
+        # ...and the terminator still has to STOP. Widening it is what makes
+        # the clause swallow the comment's prose, and every path-shaped word
+        # in that prose is then checked as if the header had named it.
+        _m = _pcsrc._SOURCE_CLAUSE_RE.search(
+            'Source: practices/ -- edit tools/build_views.py instead -->')
+        cases.append(('generated-edit-goes-upstream: the Source clause still '
+                      'stops at the prose dash instead of swallowing the rest '
+                      'of the comment',
+                      _m is not None and _m.group(1) == 'practices/'))
 
         # practice-links-travel -- all three shapes at once, in one existing
         # practice file: a relative link into a directory that does not
@@ -9270,8 +9456,17 @@ def check_sync_views_cross_source():
 
         write_practice(universal / 'practices' / 'uni-fixture.md', 'uni-fixture',
                         'A universal fixture rule.', tier='resident')
+        # The team fixture's Rule carries a SIBLING PRACTICE LINK, which is
+        # legal in a practice file (practice: practice-links-travel) and was
+        # dead in the consumer until 2026-09-11: a resident Rule is embedded
+        # verbatim in a block that lands at the repo ROOT, one directory up
+        # from where the link was written. A PRIVATE source is the case that
+        # was reported, and it is the hard one -- the practice text comes
+        # from a clone outside this repo, and only the MATERIALIZED copy is
+        # placeable.
         write_practice(team / 'practices' / 'team-fixture.md', 'team-fixture',
-                        'A team fixture rule.', tier='resident')
+                        'A team fixture rule, citing [ind-fixture](ind-fixture.md).',
+                        tier='resident')
         write_practice(individual / 'practices' / 'ind-fixture.md', 'ind-fixture',
                         'An individual fixture rule.', occasion='doing individual things')
         # repo-local at a SUBDIRECTORY, per the recommended convention --
@@ -9323,6 +9518,17 @@ def check_sync_views_cross_source():
         cases.append(('the repo-local source file at its OWN subdirectory '
                       'survives the sync untouched',
                       (consumer / 'local' / 'practices' / 'local-fixture.md').exists()))
+
+        cases.append(("a resident Rule's sibling-practice link is repointed "
+                      "at practices/ for the root the block lands in, even "
+                      "though the practice text came from a source clone "
+                      "outside this repo",
+                      '[ind-fixture](practices/ind-fixture.md)' in agents_text,
+                      agents_text[agents_text.find('team-fixture'):][:200]))
+        cases.append(('and no absolute URL naming the private source repo is '
+                      'minted to do it',
+                      str(team) not in agents_text and 'http' not in
+                      agents_text.split('## Occasion index')[0]))
 
         rc2, out2 = run('--check')
         cases.append(('--check on a just-synced, unmodified AGENTS.md exits 0',
@@ -9506,6 +9712,9 @@ def check_sync_views_cross_source():
           f'sources ({len(cases)} stated cases: clean sync, both resident '
           f'sources shown, correct level-of-resident counting, occasion '
           f'index reaches on-demand practices, --check both directions, a '
+          f"resident Rule's sibling link placed at practices/ for the root "
+          f'the block lands in with no URL minted for the private source it '
+          f'came from, a '
           f'self-referential source is refused rather than crashed or '
           f'silently overwritten, alone or shadowed, and build_views.py '
           f'--check agrees with what this tool wrote)',
@@ -17037,6 +17246,7 @@ def main():
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
     check_build_views_summary_matches_what_it_wrote()
+    check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
