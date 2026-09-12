@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 100 practice files (10 resident, 90 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 101 practice files (10 resident, 91 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -90,6 +90,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [search-by-purpose](practices/search-by-purpose.md) | on-demand | starting work the repository may already cover |
 | [second-pass-capture](practices/second-pass-capture.md) | on-demand | finishing a substantial work-product, before the merge-time capture gate |
 | [section-order-by-frequency](practices/section-order-by-frequency.md) | on-demand | ordering sections in a document |
+| [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md) | on-demand | seeding a prompt into another session -- spawning one, or scheduling a message into one |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
 | [session-load-budget](practices/session-load-budget.md) | on-demand | adding to a file every session loads, or asking what a session pays before it starts work |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |

@@ -4222,3 +4222,45 @@ which is the failure this repointing exists to end — write
   defines the expected set — and deliberately out of scope of the change that
   raised it, which was the pass 2 question alone (itself pending review).
   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md))
+
+- <a id="leak-gate-directive-newer-than-the-engine"></a>**A private blocklist
+  gained a directive this engine cannot parse, so the leak gate's vocabulary
+  layer hard-fails for every session working here.** Found 2026-09-12 running
+  the deep check. An individual practice set's `leak-blocklist.txt` acquired a
+  `# visibility-audit: stem-notes off` line, and
+  [tools/leak_gate.py](tools/leak_gate.py) has no support for `stem-notes`
+  (`grep -c` returns 0). The gate refuses rather than enforcing less than the
+  file says, which is the right behaviour and is stated in its own failure
+  text — a directive it cannot parse is indistinguishable from a comment, so
+  the alternative is printing OK while silently enforcing less.
+
+  **It is not a stale clone, which is the failure this resembles.** The
+  blocklist clone is current with its own `main`, and the base branch's own
+  `leak_gate.py`, run against the same file, exits 1 identically — so the
+  input is NEWER than the engine rather than older. That is the inverse of the
+  shape [AGENTS.md](AGENTS.md)'s gotchas warn about, and it reads the same
+  from inside: a correct gate, correct output, and a finding that belongs to
+  neither the branch under test nor the gate.
+
+  **What it costs while it stands:** the structural half still runs and
+  passes, so a push is not blocked, but **the private vocabulary half does not
+  run at all** — a session pushing to this public repository has no automated
+  check that a private term is absent, and has to do that pass by hand and say
+  so. Two of this session's pull requests say exactly that rather than
+  claiming the gate passed.
+
+  **Two fixes, and the choice is not this repo's alone:** teach
+  `leak_gate.py` the `stem-notes` directive here, or revert the directive in
+  the set that added it. The set's own line points at a practice file
+  (`leak-gate-is-background.md`) that explains the intent, so the directive is
+  deliberate and the engine is simply behind it — which makes teaching the
+  engine the likelier answer.
+
+  **Blocked on / out of scope:** the directive was added in a private set this
+  session cannot push to (`add_repo` refuses cross-owner, re-measured
+  2026-09-12), and teaching the engine a new directive is a change to the leak
+  gate rather than to anything the work that found it was touching.
+  **Disposition:** ask (2026-09-12, this session) — it silently removes a
+  publication-safety check from every session working here, and the fix needs a
+  decision in a repository this one cannot push to
+  ([open-item-disposition](practices/open-item-disposition.md)).
