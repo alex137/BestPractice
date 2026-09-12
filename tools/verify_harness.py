@@ -6818,7 +6818,11 @@ def check_materialize_bridges_loader():
         # exist -- so before 2026-09-06 no consuming repo could satisfy that
         # practice, and its far more useful half (each check has a test; no test
         # outlives its check) never ran, because the check returns early on the
-        # missing file. Four properties, each with its own way of regressing.
+        # missing file. Twelve properties, each with its own way of regressing:
+        # four about the generated driver itself, then eight about the 2026-09-12
+        # change that stopped REPORTING the replaced source copy as a dropped
+        # file and started reporting the one thing a person can act on -- a
+        # source driver that does not declare itself local.
         run_all = consumer / 'tools' / 'checks' / 'tests' / 'run_all.sh'
         run_all_text = run_all.read_text(encoding='utf-8') if run_all.is_file() else ''
         cases.append(('the test driver is generated into the consumer even though '
@@ -6852,6 +6856,85 @@ def check_materialize_bridges_loader():
                       'no tests, rather than failing on the unexpanded glob',
                       bool(run_all_text) and r3.returncode == 0))
 
+        # --- the source's OWN driver: replaced, not dropped, and asked to
+        # say so. Before 2026-09-12 a source's run_all.sh fell into the
+        # generic `skipped` bucket and printed "not a per-check file, not
+        # vendored" on every sync forever -- true about the source's copy,
+        # and read by more than one person as "so this repo has no driver",
+        # which cost a cross-repo investigation to settle. The line is gone;
+        # what replaced it names a source whose driver does not declare
+        # itself local, and goes silent once the source declares. `helper.py`
+        # is the control: a file that really WAS dropped must still report
+        # under the old wording, or this change has simply muted a real
+        # signal along with the misleading one. ---------------------------
+        #
+        # These two runs own their SOURCE SET, which the cases above do not
+        # need to: precedent.json names two fixture sources, but the resolver
+        # also picks up whatever individual source ~/.config/precedent names,
+        # and this container's real one ships an undeclared driver. Left
+        # inherited, the silence case can never pass no matter what the
+        # fixture does -- it would be measuring this container, which is
+        # practices/fixture-owns-its-state.md exactly. HOME is redirected to
+        # a directory the fixture made; CLAUDE_CODE_REMOTE is dropped as well
+        # because precedent_resolve's self-heal CLONES the individual source
+        # into whatever HOME it is handed, but only in a hosted session, so
+        # unsetting it is what keeps the fixture HOME actually empty.
+        fixture_home = tmp / 'driver-home'
+        fixture_home.mkdir(parents=True, exist_ok=True)
+        iso_env = {k: v for k, v in os.environ.items()
+                   if k != 'CLAUDE_CODE_REMOTE' and not k.startswith('PRECEDENT_')}
+        iso_env['HOME'] = str(fixture_home)
+
+        def run_isolated():
+            r = subprocess.run([sys.executable, materialize_tool,
+                                 '--out', str(consumer), '--repo', str(consumer)],
+                                capture_output=True, text=True, env=iso_env)
+            return r.returncode, r.stdout + r.stderr
+
+        team_checks = team / 'tools' / 'checks'
+        write_check(team_checks / 'helper.py')
+        team_driver = team_checks / 'tests' / 'run_all.sh'
+        team_driver.parent.mkdir(parents=True, exist_ok=True)
+        team_driver.write_text('#!/bin/bash\n# a local driver\nexit 0\n',
+                               encoding='utf-8')
+
+        rc4, out4 = run_isolated()
+        skip_line4 = next((ln for ln in out4.splitlines()
+                           if 'not a per-check file, not vendored' in ln), '')
+        marker = 'LOCAL DRIVER -- not shipped to consumers'
+        cases.append(("a source driver that does not declare itself local warns, "
+                      "naming that source",
+                      'does not say so' in out4
+                      and 'precedent-team-fixture' in out4))
+        cases.append(('that warning states the remedy -- the exact marker line '
+                      'to add -- rather than only naming the problem',
+                      marker in out4))
+        cases.append(('the undeclared driver still MATERIALIZES: it warns, it '
+                      'does not fail, and the generated driver is still written',
+                      rc4 == 0 and run_all.is_file()))
+        cases.append(("a file that really was dropped still reports under the "
+                      "existing 'not a per-check file, not vendored' wording",
+                      'helper.py' in skip_line4))
+        cases.append(('that wording no longer names run_all.sh, which is '
+                      'replaced rather than dropped',
+                      bool(skip_line4) and 'run_all.sh' not in skip_line4))
+
+        team_driver.write_text(f'#!/bin/bash\n# {marker}\nexit 0\n',
+                               encoding='utf-8')
+        rc5, out5 = run_isolated()
+        cases.append(('the warning goes SILENT once the source declares its '
+                      'driver local -- silence is the compliance signal',
+                      rc5 == 0 and 'does not say so' not in out5))
+        cases.append(('the generated driver is still written for a source that '
+                      'declares its own',
+                      rc5 == 0 and run_all.is_file()))
+        # If this fails, the silence case above was measuring this container's
+        # own individual source rather than the fixture's two sources, and
+        # every verdict either way is worthless.
+        cases.append(('the isolated runs really did own their source set -- '
+                      'nothing cloned an individual source into the fixture HOME',
+                      not any(fixture_home.iterdir())))
+
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -6860,8 +6943,9 @@ def check_materialize_bridges_loader():
           f'a checks/ collision refuses, an over-budget combined set refuses, a clean '
           f"materialize feeds both a copied and an in-place --repo build_views.py "
           f"both sources' content, and the test driver is generated rather than "
-          f'copied -- present, globbing, recorded in the manifest, and exiting 0 '
-          f'on an empty test set)',
+          f'copied -- present, globbing, recorded in the manifest, exiting 0 '
+          f'on an empty test set, and warning only about a source driver that '
+          f'does not declare itself local, silently once it does)',
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
