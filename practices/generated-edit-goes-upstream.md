@@ -173,6 +173,28 @@ files from the header requirement. It is the shortest fix and it removes the
 routing from the file that most needs it — a reader holding a mirror is
 further from the source than anyone, not closer.
 
+**The accepted cost, stated rather than discovered later: the parenthetical
+is unvalidatable, so it doubles as an escape hatch.** Nothing can confirm
+that the place named is real, that the source is actually there, or that it
+is not simply this repo under another description — so an author facing a
+hard failure on a genuinely local `Source:` can add `(in X)` and turn it into
+an advisory line. That is the price of free text, and it was taken
+deliberately: the alternative is a fixed vocabulary, which is the trap the
+paragraphs above are about.
+
+**Two things bound it, and only one of them is load-bearing today.** Every
+qualified clause prints under `COULD NOT VERIFY`, by file, on every run,
+whether the check passed or not — so the hatch is loud rather than silent,
+and a reviewer sees the claim being made. `--strict` turns it back into a
+failure. **But nothing in this repository runs `precedent_check.py
+--strict`** — not the deep-check workflow, not any hook, not the deep check
+[AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md)
+defines, not any template a dependent repo instantiates (checked across the
+tree, 2026-09-12; the only `--strict` callers there are
+`precedent_resolve.py`'s). So the second bound is available and unused, and
+the visible-every-run line is the whole of what actually holds. Recorded as
+the trade, not as a solved problem.
+
 ## Install
 `python3 tools/precedent_check.py --only generated-edit-goes-upstream`
 enforces the half of this rule a machine can see: **every file carrying a

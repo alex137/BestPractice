@@ -67,7 +67,9 @@ Run:
   python3 tools/precedent_check.py --all            # change scope = whole tree
   python3 tools/precedent_check.py --list           # what is registered
   python3 tools/precedent_check.py --explain        # what each check does NOT check
-  python3 tools/precedent_check.py --strict         # a SKIP is a failure
+  python3 tools/precedent_check.py --strict         # a SKIP, or a thing a
+                                                    # check COULD NOT VERIFY,
+                                                    # is a failure
 """
 import ast, difflib, functools, io, json, os, pathlib, re, subprocess, sys
 
