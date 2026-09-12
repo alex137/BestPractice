@@ -4143,6 +4143,15 @@ which is the failure this repointing exists to end — write
     say what a session does with what the gate prints.
     Moving it is [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md)'s
     procedure, not a rewrite.
+
+    **Since 2026-09-12 there is a second test to apply here**, and the two
+    readings above are exactly what it was written for:
+    [rule-level-by-reach](practices/rule-level-by-reach.md) asks *would this
+    still be true for a different person?* before asking about an unrelated
+    repository. It does not settle this item -- that is still his call, and
+    the disposition below stands -- but it says which question to put to him:
+    whether the rule is about what the gate prints (reach: anyone) or about
+    what he wants to be interrupted by (reach: him).
     **Blocked on / out of scope:** Morgan's decision, explicitly deferred
     while he finished the change itself.
     **Disposition:** ask (2026-09-12, Morgan)

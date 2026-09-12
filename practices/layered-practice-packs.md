@@ -30,6 +30,11 @@ The decision rule for any new rule: *would this hold in an unrelated repo?*
 kind of program?* → domain-scoped, on-demand (see Detail). *Only here?* →
 repo-local.
 
+**That axis is about a rule's content, not its home.** Which *set* publishes
+it — repo-local, team, individual or universal — is a separate question with
+its own tests, and
+[rule-level-by-reach](rule-level-by-reach.md) answers it.
+
 ## Detail
 **Superseded, 2026-09-01, for any repo running Precedent's loader: the
 vendored-pack mechanism.** This practice originally routed domain rules by
