@@ -109,6 +109,92 @@ not after. [spec/SOURCE_NAMING.md](SOURCE_NAMING.md) carries the reasoning,
 the four distinct name layers and why they are enforced differently, and the
 decisions taken.
 
+## Harness adapters travel with the source, since 2026-09-12
+
+**A source publishes three kinds of thing, and until 2026-09-12 only two of
+them travelled mechanically.** The engine moves by
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py), a
+sha256 per file in `ENGINE_MANIFEST.json`, so a hand-edit is refused as drift.
+Practices and their check scripts move by
+[tools/precedent_materialize.py](../tools/precedent_materialize.py), recorded
+in `MANIFEST.json`. The third kind — the **harness adapters**, a source's
+`bootstrap/*.sh` that its own practices tell every consuming repo to wire into
+`.claude/hooks/` — moved by somebody remembering to copy them.
+
+**So a repo carrying a copy went silently behind the moment the source's
+script changed.** It cost two sessions in two days in September 2026 — both
+measured in a consuming repo by the session that proposed this change, and
+recorded here from its account rather than re-verified from this repository,
+which cannot reach that one. One was
+briefed with two findings against a freshness guard as open defects in the
+source set; both had been fixed there already, and the findings were true
+statements about the consuming repo's own months-old copy — the first hour of
+that session went on disproving them. Separately, a consuming repo's
+`commit-identity.sh` sat about five kilobytes behind its source, a hundred
+lines present canonically and absent there, with no local adaptation and every
+local check green: each check was reading the stale copy.
+
+**A source now declares them in its own `precedent.json`**, and
+[`precedent_materialize.py`](../tools/precedent_materialize.py) installs them
+on every sync alongside the practices
+and checks:
+
+```json
+"adapters": [
+  {"from": "bootstrap/freshness-guard.sh",
+   "to":   ".claude/hooks/freshness-guard.sh"}
+]
+```
+
+Each copy is recorded in the consuming repo's `MANIFEST.json` with its source,
+its hash and whether it is executable, so it is a **declared derived artifact**
+rather than an untracked hand-copy — which is also what makes a later hand-edit
+a `--check` finding rather than a silence. The registry is the source's
+existing `precedent.json` rather than a new `bootstrap/ADAPTERS.json`, per
+[registry-source-of-truth](../practices/registry-source-of-truth.md): one
+machine-readable registry, and an audit that detects the disagreement.
+
+**What deliberately does not travel is the settings wiring.** A source's
+`bootstrap/*.snippet.json` carries `main` as the base branch and each consuming
+repo substitutes its own, so the install step stays "copy the script; merge the
+snippet by hand, replacing the base branch". Copying a consumer's
+`.claude/settings.json` would silently repoint its base branch — the one
+inference the freshness guard refuses to make for itself. That is a refusal,
+not a paragraph: a declared destination whose basename is `settings.json` or
+`settings.local.json` is rejected, as are an absolute path, a `..` walk, and a
+destination inside the directories materialize deletes and rewrites.
+
+**Three more decisions, each the smaller failure of its pair.** A *destination
+collision* between two sources refuses, exactly as a `tools/checks/` filename
+collision does. A declared adapter whose file is **not in the source tree**
+warns and is skipped rather than refusing — the file is in another repository
+and the ordinary cause is a stale clone, so refusing would break every
+consumer's sync over a state only a `git pull` somewhere else can fix. And an
+adapter a consumer installed that **no source declares any more** is reported
+and left in place, never deleted: `.claude/hooks/` is not materialize's
+directory to empty, a consumer's own hooks live there too, and by the time a
+declaration goes away the file may already be wired into a `settings.json` this
+tool deliberately never reads
+([decommission-deletes-files](../practices/decommission-deletes-files.md) wants
+an audit before a delete, and that audit is not this tool's to run).
+
+**A consumer that edited its copy is overwritten, and told.** The adaptation
+point for an adapter is the wiring, which does not travel; the script itself is
+a derived artifact like every other file materialize writes, and a consumer
+holding a private edit of one is the state this whole mechanism exists to end.
+The first replacement of content the tree never recorded as materialized — a
+hand-copy being adopted, or a local edit being reverted — prints a notice
+naming the file, while an ordinary update from a source that moved stays quiet.
+
+**Not yet done, deliberately: this repository declares no adapters of its own.**
+The six hook templates under
+[templates/harness/claude-code/hooks/](../templates/harness/claude-code/hooks/)
+are still installed by hand, because switching them on would start writing into
+every consuming repo's `.claude/hooks/` — a real behavioural change to every
+install, with wiring implications each repo has to accept deliberately. The
+mechanism is the change here; declaring is a separate decision. Tracked in
+[TODO.md](../TODO.md) as `universal-adapters-undeclared`.
+
 ## What phase 3 did not do, and why it could not be done from here
 
 **The two private sets exist but are still empty.** The plan's phase-3 item 1

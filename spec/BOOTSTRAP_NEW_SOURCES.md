@@ -201,6 +201,24 @@ recorded) unless `--force` is passed — this engine is meant to carry zero
 local variance, so a hand-edit is a signal something needs to move
 upstream into BestPractice instead, not to be silently discarded.
 
+**If the set ships harness adapters, declare them.** A source whose practices
+tell a consuming repo to install a `bootstrap/*.sh` into its `.claude/hooks/`
+adds an `adapters` list to the set's own `precedent.json`, and every consuming
+repo then receives the script on its next sync instead of by hand-copy:
+
+```json
+"adapters": [
+  {"from": "bootstrap/freshness-guard.sh",
+   "to":   ".claude/hooks/freshness-guard.sh"}
+]
+```
+
+The settings snippet beside it stays a hand-merge, deliberately — it carries a
+base branch each repo replaces with its own, and a declared destination named
+`settings.json` is refused for exactly that reason. Full reasoning, and what
+happens to a consumer that edited its copy, in
+[`spec/SOURCES.md`](SOURCES.md)'s "Harness adapters travel with the source".
+
 **Why this isn't `tools/checkin.py` extended, rather than a new tool**:
 `checkin.py` mirrors a consumer's entire `process/upstream/` tree,
 deleting anything the tree no longer has, in both directions. A source
