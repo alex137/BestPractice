@@ -922,6 +922,50 @@ branch pin added the same day governs how practice-set *sources* are cloned,
 never which branch anyone works on, and the three tools involved are absent
 from `main` entirely.
 
+## Not a practice change — three leak-gate behaviours change under you
+
+Same reason as the section above: not a change to what one of your practices
+means, and worth hearing before you run the gate and find it acting
+differently.
+
+**1. The blocklist is discovered, not only exported.** With
+`PRECEDENT_LEAK_BLOCKLIST` unset, `tools/leak_gate.py` now reads
+`leak-blocklist.txt` from the individual set your `~/.config/precedent/config.json`
+names — the path [INSTALL.md](INSTALL.md) section 8 already tells everyone to
+put it at. Before, an unexported variable meant the vocabulary layer quietly
+dropped to its structural half and printed `PARTIAL`. **If you have a list
+there, expect the gate to start applying it in shells where it previously did
+not** — more patterns, not fewer, so a tree that was passing can legitimately
+start failing. The variable still wins where it is set, and
+`--structural-only` is still how continuous integration opts out by name.
+
+**2. A private repository's bare name can be covered without a pattern.**
+`# visibility-audit: auto-cover-bare-names on -- <reason>` turns every clone
+on the disk under your private-by-default owner, with no `allow` line, into a
+whole-word pattern — so naming one in this public tree is a hard failure
+instead of a note asking somebody to write a stem. **Off by default**, and
+worth leaving off unless you want it: it can fail a push that passed
+yesterday. Switching it on here immediately found a real gap — one team set
+was named 28 times in this tree with no `allow` line, covered only in its
+`owner/name` form.
+
+**3. The routine stem note can be switched off, per person, in your own
+blocklist.** `# visibility-audit: stem-notes off -- <reason>` stops the gate
+noting every private-by-default clone on the disk whose bare name no pattern
+matches. **Default is unchanged**: without that line you get exactly the notes
+you get today. The notes are not lost where somebody switches them off —
+`leak_gate.py --survey` prints them, and `tools/very_deep_check.py`'s
+repository-visibility pass calls it, so they arrive as `RECOMMENDATION:` lines
+inside a review somebody asked for.
+
+Morgan asked for the third one on 2026-09-12, after a session relayed the
+note and offered to add a stem: *"I just want to ignore it, UNTIL I tell you
+explicitly to add something to a blocklist."* The second is what he asked for
+in the same thread once the first was agreed — *"there is ONE THING I want to
+stop from leaking: private repo names"* — because silencing a note removes the
+request, not the risk it was about. His account's blocklist carries both
+directives; nothing about yours changed.
+
 ## Not a practice change — the merge-back itself has a trap in it
 
 Everything above is a change to what one of your practices means. This is

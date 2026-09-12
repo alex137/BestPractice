@@ -70,7 +70,13 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   approved by anyone -- with pass 2's does-it-ever-run question, after a
   source set was measured running 12 of its 54 registered checks and
   skipping the other 42 for one cause, with the rule governing what its
-  own published practice files may link among them"
+  own published practice files may link among them; extended again
+  2026-09-12, Morgan F (strength: decided), so the repository-visibility
+  pass also carries the leak RECOMMENDATIONS the push gate used to print
+  beside every run -- \"you look to see if anything is being leaked that you
+  think shouldn't be and you make the recommendation to me ... but only when
+  I ask for it as part of a very thorough review I'm in the mindset of
+  doing\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -751,6 +757,26 @@ Last because none of it strands an adopter, and none of it is cheap.
   line each; pass 2's *read each enforced practice's check against its own
   Rule* is where those get their real read, so the two
   together are what "every single practice was looked at" actually means.
+- **Private names in a public tree, and the leak recommendations.**
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+  `REPOSITORY VISIBILITY` section asks two questions that neither the push
+  gate nor any offline check can answer together. Its `FINDING:` lines are
+  the networked half — a repository this public tree NAMES which GitHub says
+  is private, and the opposite, a blocklist entry for a repository that has
+  since gone public and is now costing real content. Its `RECOMMENDATION:`
+  lines are the offline half: a private-by-default repository sitting on this
+  disk whose bare name no blocklist pattern matches — latent risk, nothing
+  the tree says today.
+
+  **This is the ONE place those recommendations are raised.** The push gate
+  printed them on every run, so sessions relayed them on every run, and a
+  recommendation arriving beside unrelated work is an interruption with a
+  decision attached. They were moved here rather than switched off, which is
+  the only version of this that does not trade noise for a blind spot: the
+  gate still prints them under `--survey`, and this pass is what asks. Each
+  one needs an answer — a stem, an `allow` line saying the name may be said,
+  or a decision to leave it — and the answer is the person's, not the
+  session's.
 - **Backlog drift.** Read [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md) (and each source's equivalent)
   end to end: entries already done, no longer relevant, or never actually
   decided. Treat an entry that is really just an unfixed bug as work, not as

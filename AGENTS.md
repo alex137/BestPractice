@@ -741,6 +741,13 @@ gotcha every session reads is a gotcha every session pays for.
   goes through with only the structural rules applied. Every push here is
   publication into a public repository, so the half-configured state is the
   dangerous one. See `python3 tools/leak_gate.py --explain`.
+  **Narrowed 2026-09-12**: with the variable unset the gate now reads
+  `leak-blocklist.txt` from the individual set `~/.config/precedent/config.json`
+  names, so the common case — a list sitting where INSTALL.md section 8 puts
+  it, in a shell nobody exported anything in — runs the full layer instead of
+  reporting `PARTIAL`. The trap that remains is the one this entry is really
+  about: a list somewhere ELSE, with neither the variable nor the git config
+  set, still fails open and still looks like a pass.
 
 - **A bare `python3 tools/leak_gate.py` refuses when a private source
   RESOLVED and no blocklist is set — and allows, loudly, when the private

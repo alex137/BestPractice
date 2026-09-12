@@ -1103,6 +1103,8 @@ def check_leak_gate_fires():
                     repo / 'tools' / 'leak-blocklist.default.txt')
         blocklist = tmp / 'blocklist.txt'          # OUTSIDE the repo, as required
         blocklist.write_text('zorbulon\n\\bproject[- ]nightjar\\b\n', encoding='utf-8')
+        scratch_home = tmp / 'home'                # see gate() below
+        scratch_home.mkdir()
 
         git(repo, 'init', '-q')
         git(repo, 'config', 'user.email', 'harness@example.com')
@@ -1113,8 +1115,17 @@ def check_leak_gate_fires():
         base = git(repo, 'rev-parse', 'HEAD')
 
         def gate(*args, blocklist_set=True):
+            # HOME IS PART OF THE ABSENCE, not just the variable. Since
+            # 2026-09-12 an unset PRECEDENT_LEAK_BLOCKLIST falls back to the
+            # individual set named in ~/.config/precedent/config.json -- so a
+            # fixture that only pops the variable inherits the CONTAINER's
+            # real private list and asserts the opposite of what it ran
+            # (practice: fixture-owns-its-state; the same shape cost an hour
+            # on 2026-09-08 with three other variables). Pointing HOME at an
+            # empty directory is what makes "no blocklist configured" true.
             env = dict(os.environ)
             env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            env['HOME'] = str(scratch_home)
             if blocklist_set:
                 env['PRECEDENT_LEAK_BLOCKLIST'] = str(blocklist)
             return subprocess.run(
@@ -1365,12 +1376,12 @@ def check_leak_gate_notes_an_uncovered_private_repo():
         declared = ('# visibility-audit: private-owner fixtureacct -- fixture\n'
                     '\\bquillon[\\w-]*\n')
 
-        def gate_output(text):
+        def gate_output(text, *args):
             blocklist.write_text(text, encoding='utf-8')
             env = dict(os.environ)
             env['PRECEDENT_LEAK_BLOCKLIST'] = str(blocklist)
             r = subprocess.run(
-                [sys.executable, str(repo / 'tools' / 'leak_gate.py')],
+                [sys.executable, str(repo / 'tools' / 'leak_gate.py'), *args],
                 capture_output=True, text=True, cwd=str(repo), env=env)
             return r.returncode, r.stdout + r.stderr
 
@@ -1408,6 +1419,65 @@ def check_leak_gate_notes_an_uncovered_private_repo():
                       'Kestrelwood' not in out_inert
                       and 'allowlist is INERT' in out_inert))
 
+        # `stem-notes off` moves this note to the very deep check for the
+        # one person whose blocklist says so (practice, in the individual
+        # set: leak-gate-is-background). Three cases, because the failure
+        # that matters is not "off did not silence it" but "off silenced it
+        # EVERYWHERE" -- a note nobody can get back is a blind spot, and
+        # very_deep_check.py's visibility pass reaches it through --survey.
+        _off = '# visibility-audit: stem-notes off -- fixture\n'
+        _rc_off, out_off = gate_output(declared + _off)
+        _rc_surv, out_survey = gate_output(declared + _off, '--survey')
+        _rc_on, out_on = gate_output(
+            declared + '# visibility-audit: stem-notes on -- fixture\n')
+        cases += [
+            ('`stem-notes off` silences the routine note',
+             'Kestrelwood' not in out_off),
+            ('`stem-notes off` is not a parse error -- the directive is '
+             'recognized, not read as a typo', _rc_off == 0
+             and 'does not parse' not in out_off),
+            ('--survey prints the note anyway, which is how the very deep '
+             'check still reaches it', 'Kestrelwood' in out_survey),
+            ('`stem-notes on` keeps the note, so the default is unchanged '
+             'for anybody who has not opted out', 'Kestrelwood' in out_on),
+            ('silencing the note does not silence a HIT: the gate still '
+             'exits 0 here only because there is nothing to catch',
+             _rc_off == 0 and _rc_surv == 0),
+        ]
+
+        # auto-cover-bare-names: the half that REFUSES rather than notes.
+        # Silencing the survey removed the request to write a stem, not the
+        # risk it was about -- Morgan, 2026-09-12: "there is ONE THING I want
+        # to stop from leaking: private repo names."
+        (repo / 'names-it.md').write_text(
+            'the Kestrelwood rollout is going fine\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'names a private repo by its bare name')
+        _auto = '# visibility-audit: auto-cover-bare-names on -- fixture\n'
+        rc_auto, out_auto = gate_output(declared + _auto)
+        rc_default, out_default = gate_output(declared)
+        rc_allowed, out_allowed2 = gate_output(
+            declared + _auto +
+            '# visibility-audit: allow fixtureacct/Kestrelwood -- fixture\n')
+        cases += [
+            ('`auto-cover-bare-names on` FAILS the push on a bare private '
+             'repo name -- a refusal, not a note', rc_auto == 1),
+            ('...and says which name and that it was auto-covered, so the '
+             'remedy is obvious from the message',
+             'private repository name "Kestrelwood"' in out_auto
+             and 'auto-covered' in out_auto),
+            ('...and points at the two real remedies rather than a stem',
+             'Scrub it' in out_auto and 'allow line' in out_auto),
+            ('the default is OFF: without the directive the same tree passes, '
+             'so nobody else\'s gate changes under them', rc_default == 0),
+            ('an `allow` line beats auto-cover -- an accepted exposure stays '
+             'accepted, and the tree naming it passes',
+             rc_allowed == 0 and 'LEAK' not in out_allowed2),
+            ('a repo whose bare name an existing stem already covers is not '
+             'double-reported as auto-covered',
+             'private repository name "QuillonNotes"' not in out_auto),
+        ]
+
         ok = all(passed for _, passed in cases)
         for name, passed in cases:
             if not passed:
@@ -1415,6 +1485,91 @@ def check_leak_gate_notes_an_uncovered_private_repo():
         check(f'the leak gate notes a private clone with no blocklist stem '
               f'({len(cases)} stated cases, each asserting the printed text)', ok)
     finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_leak_gate_discovers_the_individual_blocklist():
+    """The private list is found without PRECEDENT_LEAK_BLOCKLIST being set.
+
+    WHAT IT GUARDS. Before this, the vocabulary layer ran only for a shell
+    that had exported the variable -- so every fresh container, every new
+    session and every forgotten export downgraded the gate to its structural
+    half and produced a PARTIAL that reads like a fault. The list was on disk
+    the whole time, where INSTALL.md section 8 puts it.
+
+    THE FIXTURE OWNS ITS ABSENCE (practice: fixture-owns-its-state). It
+    scrubs PRECEDENT_LEAK_BLOCKLIST and points HOME at a directory it built
+    -- three separate variables have made a fixture assert the opposite of
+    what it ran by inheriting the container's real one. It also asserts the
+    NEGATIVE case from the same fixture: a HOME with no config must still
+    resolve to nothing, or "discovery" would just be "whatever was lying
+    around".
+
+    It resolves the config file directly and never calls
+    precedent_resolve.load_config(), which self-heals by CLONING the
+    individual source into whatever HOME it is handed -- the 2026-09-08
+    gotcha where a fixture built to hold "no private source" turned itself
+    into "a private source resolved" mid-run.
+    """
+    import shutil, tempfile, json as _json
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as _lg
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-bldiscover-'))
+    saved = {k: os.environ.get(k) for k in ('HOME', 'PRECEDENT_LEAK_BLOCKLIST')}
+    try:
+        home = tmp / 'home'
+        (home / '.config' / 'precedent').mkdir(parents=True)
+        individual = tmp / 'individual'
+        individual.mkdir()
+        (individual / 'leak-blocklist.txt').write_text(
+            '# visibility-audit: private-owner fixtureacct -- fixture\n'
+            '\\bquillon[\\w-]*\n', encoding='utf-8')
+        (home / '.config' / 'precedent' / 'config.json').write_text(
+            _json.dumps({'individual': {'path': str(individual)}}), encoding='utf-8')
+
+        os.environ['HOME'] = str(home)
+        os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        found, how = _lg.resolve_blocklist_path()
+
+        # An env var still wins, so a caller can point at another list.
+        other = tmp / 'other.txt'
+        other.write_text('\\bsomething\n', encoding='utf-8')
+        os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(other)
+        overridden, how_over = _lg.resolve_blocklist_path()
+
+        # No config at all: nothing discovered, and nothing invented.
+        os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        os.environ['HOME'] = str(tmp / 'empty-home')
+        (tmp / 'empty-home').mkdir()
+        absent, how_absent = _lg.resolve_blocklist_path()
+
+        cases = [
+            ('the individual set\'s leak-blocklist.txt is found with no '
+             'variable set', found == individual / 'leak-blocklist.txt'),
+            ('and says where it came from, so a reader can tell a discovered '
+             'list from an exported one', how == 'individual source'),
+            ('PRECEDENT_LEAK_BLOCKLIST still overrides it',
+             overridden == other and how_over == 'env'),
+            ('a HOME with no precedent config discovers nothing, rather than '
+             'falling back to whatever is on the disk',
+             absent is None and how_absent is None),
+            ('discovery does not clone anything into the HOME it was handed '
+             '-- it reads, it does not repair',
+             not (tmp / 'empty-home' / 'precedent-individual').exists()),
+        ]
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  blocklist discovery did NOT behave as stated: {name}")
+        check(f'the leak gate discovers the individual set\'s blocklist with '
+              f'no variable exported ({len(cases)} stated cases)', ok)
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -3594,7 +3749,15 @@ def check_default_blocklist_runs_the_vocabulary_layer():
     # gate correctly refused the tree, which is the check working.
     word = _b64.b64decode('ZnVjaw==').decode()
     derived_probe = _b64.b64decode('d2hhdCBhIGJ1bmNoIG9mIGFzc2hvbGVz').decode()
+    # A HOME of its own, for the reason spelled out in check_leak_gate_fires:
+    # with the variable unset the gate reads the individual set named in
+    # ~/.config/precedent/config.json, and this check's whole subject is what
+    # happens when NOTHING is configured. Inheriting the container's real HOME
+    # would quietly configure it (practice: fixture-owns-its-state).
+    import tempfile as _tf
+    _scratch_home = _tf.mkdtemp(prefix='precedent-defaultbl-home-')
     env_clean = {k: v for k, v in os.environ.items() if k != 'PRECEDENT_LEAK_BLOCKLIST'}
+    env_clean['HOME'] = _scratch_home
 
     def gate(*args, env=None, cwd=None):
         # --structural-only always, because that is exactly what this check is
@@ -3610,7 +3773,24 @@ def check_default_blocklist_runs_the_vocabulary_layer():
                               capture_output=True, text=True, env=env or env_clean,
                               cwd=str(cwd or ROOT))
 
-    pats, source, private_configured = lg.load_blocklist()
+    # In-process calls read os.environ, not the env_clean handed to
+    # subprocesses -- so the same absence has to be owned here too, or
+    # load_blocklist() discovers the container's real individual set and
+    # `private_configured` comes back True in a check whose subject is the
+    # state where nothing is configured.
+    def _unconfigured(fn):
+        _saved = os.environ.get('HOME')
+        os.environ['HOME'] = _scratch_home
+        os.environ.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+        try:
+            return fn()
+        finally:
+            if _saved is None:
+                os.environ.pop('HOME', None)
+            else:
+                os.environ['HOME'] = _saved
+
+    pats, source, private_configured = _unconfigured(lg.load_blocklist)
     cases = [
         ('the default blocklist is applied with no environment variable set',
          len(pats) > 0 and not private_configured),
@@ -3653,7 +3833,7 @@ def check_default_blocklist_runs_the_vocabulary_layer():
     with tempfile.TemporaryDirectory() as td:
         priv = pathlib.Path(td) / 'private.txt'
         priv.write_text('acme-corp-secret-codename\n', encoding='utf-8')
-        os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(priv)
+        os.environ['PRECEDENT_LEAK_BLOCKLIST'] = str(priv)  # wins over discovery
         try:
             merged, src, configured = lg.load_blocklist()
         finally:
@@ -18058,6 +18238,7 @@ def main():
     check_title_case_output_paths_inverts_the_default()
     check_checkin_update_never_mutates_the_clone()
     check_leak_gate_notes_an_uncovered_private_repo()
+    check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_names_a_stale_blocklist_clone()
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
