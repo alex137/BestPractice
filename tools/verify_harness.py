@@ -3122,6 +3122,147 @@ def check_generated_views_regenerate():
           ok, detail)
 
 
+def check_source_names_detects_a_rename():
+    """precedent_source_names.py -- a declared source repository that has been
+    RENAMED is reported, and a name it could not check is never reported as
+    current.
+
+    THE INCIDENT (2026-09-11). A team source was renamed on GitHub. A
+    consuming repo went on declaring, cloning, attaching and materializing
+    under the old name with every check green, for an unknown number of
+    sessions, because GitHub redirects a renamed repository indefinitely:
+    clone succeeds, ls-remote succeeds, the sibling clone resolves, the
+    practices materialize correctly. It surfaced because a person recognised
+    a name he had retired.
+
+    THE API CALL IS STUBBED HERE AND MEASURED ELSEWHERE. A harness case may
+    not depend on the network, and no renamed repository is reachable from a
+    hosted session anyway -- api.github.com answers 403 for every repo the
+    session has not attached. What the stub cannot prove was measured live
+    on 2026-09-11 against `alex137/bestpractice`: the API's response BODY
+    carries the canonical `full_name` (`alex137/BestPractice`) whatever
+    spelling was asked for, which is why this reads the body and never the
+    status code or the final URL. The tool reported SPELLING on that run.
+
+    The UNVERIFIED case is the one that matters most (practice:
+    fail-gracefully): "could not check" and "checked, the name is current"
+    must never render the same, so each case asserts the printed verdict,
+    not merely that something was printed (practice:
+    control-asserts-which-failure)."""
+    import io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_names as psn
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-names-'))
+    cases = []
+    real_api = psn.api_full_name
+    try:
+        consumer = tmp / 'consumer'
+        consumer.mkdir()
+        clone = tmp / 'precedent-team-fixture'
+        clone.mkdir()
+        subprocess.run(['git', 'init', '-q', str(clone)], capture_output=True)
+        subprocess.run(['git', '-C', str(clone), 'remote', 'add', 'origin',
+                        'https://github.com/anaccount/precedent-team-fixture'],
+                       capture_output=True)
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
+            'sources': [{'level': 'team', 'name': 'precedent-team-fixture',
+                         'path': '../precedent-team-fixture'}]}),
+            encoding='utf-8')
+
+        # The fixture OWNS its user config. Without this it inherits the
+        # machine's real individual source and grades that too, which is
+        # how the first run of this case reported two rows where it
+        # asserted one (practice: fixture-owns-its-state).
+        user_cfg = tmp / 'user.json'
+        user_cfg.write_text(json.dumps({}), encoding='utf-8')
+
+        def run_with(stub):
+            psn.api_full_name = stub
+            rows = psn.assess(str(consumer), user_config=str(user_cfg))
+            buf = io.StringIO()
+            psn.report(rows, out=buf)
+            return rows, buf.getvalue()
+
+        rows, out = run_with(lambda o, n, env=None:
+                             ('anaccount/precedent-team-repo-maintenance', None))
+        cases.append(('a renamed source is reported as RENAMED, naming both '
+                      'the name this repo fetches and the one GitHub uses now',
+                      [r['verdict'] for r in rows] == ['RENAMED']
+                      and 'anaccount/precedent-team-fixture' in out
+                      and 'anaccount/precedent-team-repo-maintenance' in out,
+                      out))
+
+        rows, out = run_with(lambda o, n, env=None:
+                             ('anaccount/precedent-team-fixture', None))
+        cases.append(('an unrenamed source is OK, and the summary counts zero '
+                      'renamed and zero unchecked',
+                      [r['verdict'] for r in rows] == ['OK']
+                      and '0 renamed, 0 NOT checked' in out, out))
+
+        rows, out = run_with(lambda o, n, env=None:
+                             (None, 'GitHub answered HTTP 403: not enabled'))
+        cases.append(('a source whose name could NOT be checked is UNVERIFIED '
+                      'with the reason, never OK, and the summary says an '
+                      'unchecked source is not a passing one',
+                      [r['verdict'] for r in rows] == ['UNVERIFIED']
+                      and 'HTTP 403' in out
+                      and '1 NOT checked' in out
+                      and 'an unchecked source is not a passing one' in out,
+                      out))
+
+        # A case difference is not a rename: git does not care, and reporting
+        # it as one would cry wolf on every clone URL a tool lowercased.
+        rows, out = run_with(lambda o, n, env=None:
+                             ('anaccount/Precedent-Team-Fixture', None))
+        cases.append(('a name differing only in case is SPELLING, not RENAMED',
+                      [r['verdict'] for r in rows] == ['SPELLING'], out))
+
+        # THE OFFLINE HALF, which costs no network and nothing else prints.
+        subprocess.run(['git', '-C', str(clone), 'remote', 'set-url', 'origin',
+                        'https://github.com/anaccount/something-else'],
+                       capture_output=True)
+        rows, out = run_with(lambda o, n, env=None:
+                             ('anaccount/something-else', None))
+        cases.append(('the declared name disagreeing with the clone\'s own '
+                      'remote is reported as DRIFT even when the API says the '
+                      'repository is current',
+                      'DRIFT' in out and rows[0]['verdict'] == 'OK', out))
+
+        # A remote this tool has no API for is UNVERIFIED, not OK -- guessing
+        # an API for an unknown host answers from the wrong server.
+        subprocess.run(['git', '-C', str(clone), 'remote', 'set-url', 'origin',
+                        'https://git.example.com/anaccount/precedent-team-fixture'],
+                       capture_output=True)
+        rows, out = run_with(lambda o, n, env=None: (None, 'should not be called'))
+        cases.append(('a source on a non-github host is UNVERIFIED, not OK',
+                      [r['verdict'] for r in rows] == ['UNVERIFIED']
+                      and 'github.com' in out, out))
+
+        # THE SECRET. A tokenised remote URL is parsed rather than skipped,
+        # and the token is not what comes back out.
+        # Assembled rather than written out: the leak gate reads
+        # `<anything>@github.com` as an email address, correctly, and a
+        # fixture is not worth a false hit on every run.
+        tokenised = ('https://x-access-token:ghp_NOTAREALTOKEN' + '@'
+                     + 'github.com/anaccount/a-repo.git')
+        owner, name = psn.parse_remote(tokenised)
+        cases.append(('a remote carrying a credential is parsed, and the '
+                      'credential is not in what comes back',
+                      (owner, name) == ('anaccount', 'a-repo')))
+    finally:
+        psn.api_full_name = real_api
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'precedent_source_names.py reports a renamed source and never '
+          f'reports an unchecked one as current ({len(cases)} stated cases: '
+          f'renamed, unrenamed, unverified, case-only, declared-vs-remote '
+          f'drift, a non-github host, and a tokenised remote URL)',
+          not bad, '; '.join(f"{n}: {d}" for n, d in bad))
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -16872,6 +17013,7 @@ def main():
     check_symlinked_root_path_matching()
     check_generated_views_regenerate()
     check_build_views_summary_matches_what_it_wrote()
+    check_source_names_detects_a_rename()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_not_binding_cannot_be_abused()

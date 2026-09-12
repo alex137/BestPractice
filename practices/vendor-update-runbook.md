@@ -56,7 +56,16 @@ every step's answer is wrong if the one before it was skipped.
    `MISSING` means a source is absent and no credential is set, so the
    session is running on the universal catalogue alone and nothing else
    will say so.
-8. **Verify by content on the remote**, never by ref equality
+8. **Check that every source repository is still CALLED what this repo
+   calls it.** A renamed repository redirects indefinitely, so the clone,
+   the fetch and the materialize all keep succeeding under the old name and
+   nothing anywhere fails. This is the one moment a session is already
+   online and already reconciling its sources, so it is where the question
+   gets asked. Run
+   [tools/precedent_source_names.py](../tools/precedent_source_names.py);
+   `UNVERIFIED` means the name was not checked, which is not the same as
+   checked and current.
+9. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
 
 **A refusal naming a file that no longer exists upstream means reseed, not
@@ -114,6 +123,15 @@ the day this practice was written, three practice sets could not refresh at
 all: upstream had renamed an engine file, and each set's own vendored copy
 of the vendoring tool still asked for the old path.
 
+**Step 8 is a failure that never failed.** A team source was renamed on
+GitHub, and a consuming repo went on declaring, cloning, attaching and
+materializing under the old name with every check green, for an unknown
+number of sessions -- because GitHub redirects a renamed repository
+indefinitely. It surfaced on 2026-09-11 only because a person recognised a
+name he had retired. The content was right the whole time; the name was a
+ghost, and every vendored reference to it was one repository-settings change
+away from a 404 nobody could date.
+
 **The phrase this began as is deliberately not here.** A keyword is one
 person's preference, and a universal rule telling every adopting repository
 to go invent a keyword of its own is exactly what got
@@ -129,6 +147,12 @@ most often gets skipped.
 Then run the sequence above, and report which layers moved and which did
 not. "Updated" without naming the layers is the report that hides half a
 job.
+
+**Step 8 is the one nobody can discover from a failure**, because there is
+never a failure to discover it from. Only the GitHub API answers it: it
+carries the repository's current `full_name` in the response body, so a name
+that has moved shows up as a mismatch against what this repo declares. Every
+git operation follows the redirect silently and reports success.
 
 Step 7 runs itself: [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
 prints the same line after a `refresh` or a `status`, so an update made
