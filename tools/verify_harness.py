@@ -7006,6 +7006,214 @@ def check_materialize_bridges_loader():
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_materialize_carries_harness_adapters():
+    """tools/precedent_materialize.py — a practice source's HARNESS ADAPTERS
+    travel with it, the way its checks already do.
+
+    Until 2026-09-12 a source's `bootstrap/*.sh` reached a consuming repo's
+    `.claude/hooks/` by hand-copy, per each practice's own Install section, so
+    a repo carrying a copy went silently behind the moment the source's script
+    changed. Measured twice in two days: findings fixed upstream briefed as
+    open defects in the source, because they were really about the consuming
+    repo's stale copy; and a `commit-identity.sh` about five kilobytes behind
+    its source with every local check green.
+
+    Every case here is a behaviour something would silently lose: the file
+    lands EXECUTABLE (a hook that is not is a hook the harness never runs),
+    it is recorded in MANIFEST.json (an unrecorded file reads as hand-dropped
+    to a consumer's own orphan detection), a hand-edit afterwards is a drift()
+    finding, a destination collision across sources refuses like a checks/
+    one, and `.claude/settings.json` is REFUSED as a destination -- that file
+    carries each consumer's own base branch, and copying it would silently
+    repoint the freshness guard at the wrong one."""
+    import shutil, subprocess, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-adapters-'))
+    cases = []
+    try:
+        uni, team, consumer = tmp / 'universal', tmp / 'team', tmp / 'consumer'
+        for root, slug in ((uni, 'uni-fixture'), (team, 'team-fixture')):
+            p = root / 'practices' / f'{slug}.md'
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(
+                f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+                f'severity: default\napplies_to: ["**"]\noccasion: "x"\n'
+                f'gates: []\nindex_clause: "x"\nchecked_by: null\ndefines: []\n'
+                f'status: active\nsupersedes: []\noverrides: null\n'
+                f'added: 2026-09-02\napproved_by: "harness, 2026-09-02"\n'
+                f'source_practice_number: null\n---\n## Rule\nx\n\n'
+                f'## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+                encoding='utf-8')
+            boot = root / 'bootstrap'
+            boot.mkdir(parents=True, exist_ok=True)
+            (boot / 'guard.sh').write_text('#!/bin/bash\necho v1\n', encoding='utf-8')
+            os.chmod(boot / 'guard.sh', 0o755)
+
+        def declare(root, adapters):
+            (root / 'precedent.json').write_text(
+                json.dumps({'format_version': 1, 'adapters': adapters}),
+                encoding='utf-8')
+
+        declare(uni, [{'from': 'bootstrap/guard.sh',
+                       'to': '.claude/hooks/guard.sh'}])
+        declare(team, [])
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+                        {'level': 'team', 'name': 'precedent-team-fixture',
+                         'path': str(team)}]}), encoding='utf-8')
+
+        # The fixture owns its HOME for the reason spelled out in
+        # check_materialize_bridges_loader(): the resolver otherwise picks up
+        # whatever individual source ~/.config/precedent names, and this
+        # container's real one would then be declaring adapters into the
+        # fixture consumer -- every verdict below would be about that source
+        # instead (practices/fixture-owns-its-state.md).
+        fixture_home = tmp / 'home'
+        fixture_home.mkdir()
+        env = {k: v for k, v in os.environ.items()
+               if k != 'CLAUDE_CODE_REMOTE' and not k.startswith('PRECEDENT_')}
+        env['HOME'] = str(fixture_home)
+        tool = str(ROOT / 'tools' / 'precedent_materialize.py')
+
+        def run():
+            r = subprocess.run([sys.executable, tool, '--out', str(consumer),
+                                '--repo', str(consumer)],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        installed = consumer / '.claude' / 'hooks' / 'guard.sh'
+        rc, out = run()
+        cases.append(('a declared harness adapter is installed at its declared '
+                      'destination', rc == 0 and installed.is_file()))
+        cases.append(('it lands EXECUTABLE -- a hook that is not is a hook the '
+                      'harness silently never runs',
+                      installed.is_file() and os.access(installed, os.X_OK)))
+        # Every read below tolerates the file being absent: a regression in
+        # the mechanism under test must report as named FAILING CASES, not as
+        # a traceback that takes the whole harness run down before the later
+        # refusal cases have even run (control-asserts-which-failure -- a
+        # control proves a guard fires by what it SAYS, and a crash says
+        # nothing about which of fifteen behaviours broke).
+        mf = consumer / 'MANIFEST.json'
+        manifest = (json.loads(mf.read_text(encoding='utf-8'))
+                    if mf.is_file() else {})
+        entry = [a for a in manifest.get('adapters', [])
+                 if a.get('path') == '.claude/hooks/guard.sh']
+        cases.append(('it is recorded in MANIFEST.json with its source and '
+                      'hash, so it is a declared derived artifact rather than '
+                      'a file a consumer reads as hand-dropped',
+                      len(entry) == 1 and entry[0].get('source') == 'precedent'
+                      and bool(entry[0].get('sha256_16'))))
+        cases.append(('the fixture really owned its source set -- nothing '
+                      'cloned an individual source into the fixture HOME',
+                      not any(fixture_home.iterdir())))
+
+        # --- a source that moves reaches the consumer on the next sync -----
+        (uni / 'bootstrap' / 'guard.sh').write_text('#!/bin/bash\necho v2\n',
+                                                    encoding='utf-8')
+        rc, out = run()
+        cases.append(('a change in the SOURCE reaches the consumer on the next '
+                      'sync -- the whole point: no hand-copy step',
+                      rc == 0 and installed.is_file()
+                      and 'v2' in installed.read_text(encoding='utf-8')))
+        cases.append(('and an ordinary update like that says nothing -- the '
+                      'notice is for content this tree never recorded',
+                      'REPLACED' not in out))
+
+        # --- a hand-edit afterwards is drift, not silence ------------------
+        installed.parent.mkdir(parents=True, exist_ok=True)
+        installed.write_text('#!/bin/bash\necho hand edited\n', encoding='utf-8')
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_resolve as _pr, precedent_materialize as _pm
+        _home = os.environ.get('HOME')
+        try:
+            os.environ['HOME'] = str(fixture_home)
+            srcs = _pr.load_config(str(consumer), None)
+            found = _pm.drift(srcs, _pr.resolve(srcs), consumer)
+        finally:
+            if _home is not None:
+                os.environ['HOME'] = _home
+        cases.append(('a hand-edit to an installed adapter is reported by '
+                      'drift() -- the audit half, which a mechanism that only '
+                      'copies would still owe',
+                      any('.claude/hooks/guard.sh differs' in x for x in found)))
+
+        # --- adopting an unrecorded copy is loud ---------------------------
+        rc, out = run()
+        cases.append(('replacing content this tree never recorded as '
+                      'materialized -- a hand-copy being adopted, or a local '
+                      'edit reverted -- says so and names the file',
+                      rc == 0 and 'REPLACED' in out
+                      and '.claude/hooks/guard.sh' in out))
+
+        # --- an adapter no source declares any more is reported, not deleted
+        declare(uni, [])
+        rc, out = run()
+        cases.append(('an adapter no declared source publishes any more is '
+                      'left in place and REPORTED -- `.claude/hooks/` is not '
+                      "materialize()'s to empty, and the file may already be "
+                      'wired into a settings.json this tool never reads',
+                      rc == 0 and installed.is_file()
+                      and 'no declared source publishes any more' in out))
+
+        # --- refusals ------------------------------------------------------
+        declare(uni, [{'from': 'bootstrap/guard.sh', 'to': '.claude/hooks/guard.sh'}])
+        declare(team, [{'from': 'bootstrap/guard.sh', 'to': '.claude/hooks/guard.sh'}])
+        rc, out = run()
+        cases.append(('two sources installing to one destination refuses, the '
+                      'same discipline a tools/checks/ filename collision gets',
+                      rc == 1 and 'collision' in out))
+
+        declare(team, [{'from': 'bootstrap/guard.sh', 'to': '.claude/settings.json'}])
+        rc, out = run()
+        cases.append(('.claude/settings.json is REFUSED as a destination -- it '
+                      "carries each consumer's own base branch, and copying it "
+                      'would silently repoint the freshness guard',
+                      rc == 1 and 'does not travel' in out))
+
+        declare(team, [{'from': 'bootstrap/guard.sh', 'to': '../escape.sh'}])
+        rc, out = run()
+        cases.append(('a destination walking out of the consuming repo with '
+                      '".." refuses',
+                      rc == 1 and 'walks above the consuming repo' in out))
+
+        declare(team, [{'from': 'bootstrap/guard.sh',
+                        'to': 'practices/guard.sh'}])
+        rc, out = run()
+        cases.append(("a destination inside materialize()'s own wiped "
+                      'directories refuses -- the file would not survive its '
+                      'own sync', rc == 1 and 'deletes and rewrites' in out))
+
+        declare(team, [{'from': 'bootstrap/absent.sh', 'to': '.claude/hooks/absent.sh'}])
+        rc, out = run()
+        cases.append(('a declared adapter whose file is not in the source tree '
+                      'WARNS and is skipped, never refuses -- the ordinary '
+                      "cause is a stale clone of a repo the consumer does not "
+                      'own',
+                      rc == 0 and 'not in the source tree' in out
+                      and not (consumer / '.claude' / 'hooks' / 'absent.sh').exists()))
+
+        (team / 'precedent.json').write_text('{ not json', encoding='utf-8')
+        rc, out = run()
+        cases.append(("a source's unreadable precedent.json refuses rather "
+                      'than silently reading as "publishes no adapters"',
+                      rc == 1 and 'not readable JSON' in out))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'precedent_materialize.py carries a source\'s harness adapters '
+          f'({len(cases)} stated cases: installed executable and recorded in '
+          f'the manifest, a source change reaching the consumer with no '
+          f'hand-copy, a hand-edit reported by drift(), an unrecorded copy '
+          f'adopted loudly and an ordinary update quietly, an undeclared one '
+          f'reported rather than deleted, and five refusals -- destination '
+          f'collision, settings.json, "..", a wiped directory, and an '
+          f'unreadable source config)',
+          not bad, '; '.join(bad))
+
+
 def check_show_flags_unreachable_materialized_source():
     """practices/verify-postcondition.md, applied to the READ side of the
     gap practices/session-bootstrap.md's Story records on the write side.
@@ -17507,6 +17715,7 @@ def main():
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
+    check_materialize_carries_harness_adapters()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()

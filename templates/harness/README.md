@@ -49,6 +49,19 @@ read back out of a variable, and `$HOME` differs between containers, so the
 unexpanded form names nothing on half the machines it runs on.
 Then contribute the adapter back upstream.
 
+**A practice SOURCE's adapters can travel mechanically, since 2026-09-12.**
+Everything above is about the adapter templates in this directory, which a
+repo installs by hand. A practice source (an individual or team set) that
+ships its own `bootstrap/*.sh` no longer needs that step: it declares each one
+in its own `precedent.json`, and
+[tools/precedent_materialize.py](../../tools/precedent_materialize.py)
+installs it into every consuming repo on the same sync that carries the
+practices and checks, recording the copy in that repo's `MANIFEST.json` so a
+later hand-edit shows up as drift. The settings wiring still does not travel
+and is refused as a destination — each repo substitutes its own base branch
+there. See [spec/SOURCES.md](../../spec/SOURCES.md)'s "Harness adapters travel
+with the source" for the two incidents behind it and the decisions taken.
+
 **Transfer verdicts for changes to any one adapter are ledgered:**
 [LEDGER.md](LEDGER.md) — a change to one member presumptively transfers to
 the others, and this family's ledger records the per-member verdict for

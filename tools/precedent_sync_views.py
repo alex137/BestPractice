@@ -10,8 +10,10 @@ new mechanism:
 
   1. tools/precedent_materialize.py — resolve() every declared source
      (precedent_resolve.py) and write the merged practices/ + tools/checks/
-     into the target repo, refusing an over-budget resident set or a
-     tools/checks/ filename collision across sources.
+     into the target repo, plus each source's declared harness adapters
+     (its `bootstrap/*.sh` into this repo's `.claude/hooks/`), refusing an
+     over-budget resident set, a tools/checks/ filename collision across
+     sources, or a malformed or colliding adapter declaration.
   2. tools/build_views.py's build_loader_block() (the SAME renderer this
      repo uses on its own single-source catalogue) — fed the resolved
      practices directly from step 1's in-memory result, not re-read from
@@ -48,8 +50,8 @@ Run:
 
 Exit: 0 on a clean sync, 1 on anything precedent_materialize.py or the
 resident-budget check would themselves exit 1 on (a resolve conflict, a
-tools/checks/ filename collision, an over-budget resident set), or on
---check finding drift.
+tools/checks/ filename collision, an over-budget resident set, a bad harness
+adapter declaration), or on --check finding drift.
 """
 import json
 import pathlib
@@ -132,8 +134,9 @@ def _lost_practices(repo, res, sources, withheld):
 
 def sync(repo, user_config=None, check=False, allow_missing=False,
          allow_removals=False):
-    """-> (written, checks_written, rstats, agents_md_path, changed: bool,
-    tree_drift: [str]).  tree_drift is always empty unless check=True.
+    """-> (written, checks_written, adapters_written, rstats,
+    agents_md_path, changed: bool, tree_drift: [str]).  tree_drift is always
+    empty unless check=True.
     Raises pr.ResolveError or pm.MaterializeError on failure, exactly as
     the two tools this wraps would -- this function is thin on purpose,
     the two tools underneath carry all the real logic and all the real
@@ -375,7 +378,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                               for s, src in sorted(_lost['source_dropped'])),
                   file=sys.stderr)
 
-    written, checks_written, rstats = pm.materialize(
+    written, checks_written, adapters_written, rstats = pm.materialize(
         sources, res, pathlib.Path(repo), dry_run=check,
         withheld=locals().get('withheld_slugs'))
     tree_drift = (pm.drift(sources, res, pathlib.Path(repo),
@@ -435,11 +438,11 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     new_text = pre + block + post
 
     if check:
-        return (written, checks_written, rstats, agents_md,
+        return (written, checks_written, adapters_written, rstats, agents_md,
                 (new_text != original), tree_drift)
 
     agents_md.write_text(new_text, encoding='utf-8')
-    return (written, checks_written, rstats, agents_md,
+    return (written, checks_written, adapters_written, rstats, agents_md,
             (new_text != original), tree_drift)
 
 
@@ -475,7 +478,8 @@ def main():
                  "confident, wrong, hard failure everywhere else.")
 
     try:
-        written, checks_written, rstats, agents_md, changed, tree_drift = sync(
+        (written, checks_written, adapters_written, rstats, agents_md,
+         changed, tree_drift) = sync(
             repo, user_config, check=check, allow_missing=allow_missing,
             allow_removals=allow_removals)
     except (pr.ResolveError, pm.MaterializeError) as e:
@@ -496,12 +500,14 @@ def main():
         print(f"precedent_sync_views --check OK: {agents_md} and the "
               f"materialized tree are byte-identical to a fresh sync "
               f"({len(written)} practice(s), {len(checks_written)} check "
-              f"file(s), {len(rstats['practices'])} resident, "
+              f"file(s), {len(adapters_written)} harness adapter(s), "
+              f"{len(rstats['practices'])} resident, "
               f"~{rstats['tokens']} of {rstats['budget']} token budget)")
         return 0
 
-    print(f"precedent_sync_views OK: materialized {len(written)} practice(s) "
-          f"and {len(checks_written)} check script(s)/test(s), wrote "
+    print(f"precedent_sync_views OK: materialized {len(written)} practice(s), "
+          f"{len(checks_written)} check script(s)/test(s) and "
+          f"{len(adapters_written)} harness adapter(s), wrote "
           f"{agents_md} (resident ~{rstats['tokens']} of {rstats['budget']} "
           f"token budget)")
     return 0
