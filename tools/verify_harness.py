@@ -2438,6 +2438,29 @@ def check_doc_lint_fires():
         cases.append(('templates/ is exempt -- its links name files in the '
                       'repo the template is instantiated INTO',
                       dl.check_broken_links('templates/README.md') == []))
+
+        # ...but only for the PATH half. A fragment on a target that
+        # resolves to a real file HERE is checked even under templates/:
+        # the 2026-09-11 dead anchor in templates/document-project/README.md
+        # survived a heading rename because the whole file returned [].
+        # The control asserts WHICH failure, not merely that one happened
+        # (practice: control-asserts-which-failure).
+        (tmp / 'guide.md').write_text("# Install Into a Dependent Repo\n",
+                                      encoding='utf-8')
+        (tmp / 'templates' / 'anchored.md').write_text(
+            "Live: [a](../guide.md#install-into-a-dependent-repo).\n"
+            "Dead: [b](../guide.md#installing-into-a-repo-that-already-has-one).\n"
+            "Still exempt: [c](tools/lands-there-later.py).\n",
+            encoding='utf-8')
+        dl._anchor_cache.clear()
+        anchored = dl.check_broken_links('templates/anchored.md')
+        cases.append(("a dead #fragment under templates/ IS caught, while a "
+                      "live one and a path naming the instantiated tree are "
+                      "not",
+                      anchored == [(2, '../guide.md#installing-into-a-repo-'
+                                       'that-already-has-one',
+                                    'no heading makes #installing-into-a-repo-'
+                                    'that-already-has-one in guide.md')]))
     finally:
         dl.ROOT = real_root
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2455,7 +2478,8 @@ def check_doc_lint_fires():
           f'English word from a real initialism with no wordlist, and a '
           f'broken relative link is '
           f'caught while a correct one, a code span, a fenced block, a URL, '
-          f'an anchor and templates/ are not)', ok)
+          f'an anchor and a templates/ PATH are not -- though a dead '
+          f'#fragment under templates/ is)', ok)
 
 
 def check_practice_heading_parsing():

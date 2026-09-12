@@ -209,7 +209,35 @@ CODE_SPAN_RE = re.compile(r'`[^`]*`')
 #                  headline capitalization. Found 2026-09-07: merging one
 #                  such eval put 80 "broken" links into a gate that had been
 #                  clean, none of them fixable without rewriting evidence.
-LINK_CHECK_EXEMPT_DIRS = ('templates/', 'deck/', 'evals/')
+LINK_CHECK_EXEMPT_DIRS = ('deck/', 'evals/')
+
+# ...and the directories where only the PATH half of that argument holds.
+#
+# The exemption above is about a target that names a tree this repo does not
+# have. It says nothing about a FRAGMENT on a target that resolves right here,
+# and templates/ is full of those: a template's prose links up and out of
+# itself into this repo's own documents, and `../../INSTALL.md` is this repo's
+# INSTALL.md for every reader of the raw template. When the destination
+# resolves, no "it means the instantiated tree" reading saves a fragment that
+# names no heading in it -- the reader lands at the top of the right document
+# and nobody reports it.
+#
+# THE INCIDENT (practice: cite-the-incident). templates/document-project/
+# README.md linked INSTALL.md's old "#1-installing-into-a-repo-that-already-
+# has-its-own-process" after that heading was reworded to "## 1. Install Into
+# a Dependent Repo". Every other reference in the tree was repointed with the
+# rename; this one was not, because it sits under templates/ where the link
+# check returned [] before reading a single link. It was found on 2026-09-11
+# by a person reading the template, from a consuming repo -- which is not a
+# mechanism (practice: convention-to-audit). Measured when this split was
+# written: six fragment links under templates/ resolve to a real file here,
+# one of them broken, and zero links anywhere in the tree carry a fragment
+# INTO templates/ -- so this costs one finding and no false positives.
+#
+# deck/ and evals/ deliberately stay wholly exempt. An eval's frozen snapshot
+# is the case this must not touch: a stale anchor there is correct history,
+# and the fix a gate would demand is rewriting the evidence.
+ANCHOR_CHECKED_EXEMPT_DIRS = ('templates/',)
 
 
 # Anchors. A link's fragment is as breakable as its path and breaks more
@@ -285,6 +313,8 @@ def check_broken_links(path):
     rel = str(path).replace('\\', '/')
     if rel.startswith(LINK_CHECK_EXEMPT_DIRS):
         return []
+    # Paths exempt, fragments still checked -- see ANCHOR_CHECKED_EXEMPT_DIRS.
+    anchors_only = rel.startswith(ANCHOR_CHECKED_EXEMPT_DIRS)
     p = ROOT / path
     out, incode = [], False
     for i, line in enumerate(p.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
@@ -300,12 +330,16 @@ def check_broken_links(path):
             bare, _, frag = target.partition('#')
             dest = p if not bare else (p.parent / bare)
             if bare and not dest.exists():
-                out.append((i, target, 'no such file'))
+                if not anchors_only:
+                    out.append((i, target, 'no such file'))
                 continue
             if not frag or dest.suffix.lower() != '.md':
                 continue
             # An anchor into a tree that is not this repo's is as
-            # unresolvable-on-purpose as a path into one.
+            # unresolvable-on-purpose as a path into one. A destination
+            # under ANCHOR_CHECKED_EXEMPT_DIRS is NOT that case: it is a
+            # real file here, with real headings, so a fragment naming none
+            # of them is broken whichever document points at it.
             try:
                 drel = str(dest.resolve().relative_to(ROOT.resolve()))
             except ValueError:
