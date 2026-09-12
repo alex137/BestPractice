@@ -221,7 +221,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 101 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 102 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -444,6 +444,8 @@ When writing a test, fixture or control that proves a guard fires:
   control-asserts-which-failure — a non-zero exit is not evidence; assert the message that guard prints
 When writing a test, fixture or control that reads or edits state it did not create:
   fixture-owns-its-state — a fixture that inherits real state is testing the environment too
+When writing about a person in the third person -- a reply, a document, a commit message, a pull-request body:
+  declared-pronouns — use the pronouns a person declares; none declared means they/them, never guess
 When writing an outward-facing document:
   readers-vocabulary — use the reader's words; gloss inline or replace
 When writing an outward-facing summary of claims:

@@ -159,6 +159,17 @@
       "why": "The mark is written into the frontmatter of a practice file or a decision record, so those paths ARE the distinguishing condition: a file that records someone's approval. The reply gate carries the other half -- citing a past approval back to them -- which no glob reaches.",
       "decided": "2026-09-09"
     },
+    "declared-pronouns": {
+      "globs": [
+        "**"
+      ],
+      "why": "Deliberately unrouted by path. The occasion is writing about a person in the third person, which happens in a reply, a commit message and a pull-request body as readily as in a tracked file -- no glob reaches the first three, and a glob that tried would fire on every markdown file in the repo to catch the few that name a person. The index clause carries the whole rule in one line, which is what makes leaving it at '**' cheap.",
+      "decided": "2026-09-12, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Writing the reply is the moment a session refers to the person it is working with, which is the commonest occasion by far and the one no path can reach."
+    },
     "deliverables-look-like-output": {
       "globs": [
         "**/*.md"

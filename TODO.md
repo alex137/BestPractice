@@ -3993,3 +3993,40 @@ which is the failure this repointing exists to end — write
     that may hold an older copy on purpose.
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
+
+- **What to call Morgan in prose, when it is not what git records.**
+  Raised 2026-09-12, in the thread that landed
+  [declared-pronouns](practices/declared-pronouns.md). Asking for the
+  pronoun rule he described the standing practice as *"always refer to me as
+  a he, him, and Mel"* — but nothing in his individual set says "Mel."
+  `identity.json` declares `Morgan F`, and the clause that came out of
+  `commit-author` said to use "Morgan." So either that was dictation, or he
+  wants a prose name distinct from the one git records, which would be a
+  second field beside `pronouns` (`name` is what a commit is authored as and
+  cannot double as a display name without breaking
+  `check_commit_author.py`'s comparison). Nothing was invented either way —
+  the pronouns landed, the name did not
+  ([no-invented-specifics](practices/no-invented-specifics.md)).
+  **Blocked on / out of scope:** his answer. One field and one sentence of
+  the practice, once it is known.
+  **Disposition:** ask (2026-09-12, Morgan) — he was asked in the thread and
+  the question went unanswered while the rest was approved, so it is his to
+  close and not a session's to guess.
+
+- **`register` is a live field in one identity.json and absent from the
+  skeleton every other one is built from.** Noticed 2026-09-12 while adding
+  `pronouns` to
+  [templates/practice-set-individual/identity.json.template](templates/practice-set-individual/identity.json.template).
+  `register` was added to the live individual set on 2026-09-10 and makes
+  exactly the argument `pronouns` now makes — a fact about a person, which a
+  shared repo cannot know — but it never reached the template, so a set
+  bootstrapped today has no slot for it, and the team-level
+  `default-register`'s non-technical fallback applies to its owner forever
+  without anyone being asked. The fix
+  is the same shape as this change: a `{{PERSON_REGISTER}}` placeholder, a
+  `verify()` finding naming the absent key, and a line in the bootstrap
+  procedure. It was left out here deliberately rather than missed — the
+  approval covered pronouns.
+  **Blocked on / out of scope:** nothing but the work and a decision that
+  the parallel is wanted; it was out of scope of the approved change.
+  **Disposition:** wait
