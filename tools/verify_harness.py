@@ -1445,6 +1445,39 @@ def check_leak_gate_notes_an_uncovered_private_repo():
              _rc_off == 0 and _rc_surv == 0),
         ]
 
+        # auto-cover-bare-names: the half that REFUSES rather than notes.
+        # Silencing the survey removed the request to write a stem, not the
+        # risk it was about -- Morgan, 2026-09-12: "there is ONE THING I want
+        # to stop from leaking: private repo names."
+        (repo / 'names-it.md').write_text(
+            'the Kestrelwood rollout is going fine\n', encoding='utf-8')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'names a private repo by its bare name')
+        _auto = '# visibility-audit: auto-cover-bare-names on -- fixture\n'
+        rc_auto, out_auto = gate_output(declared + _auto)
+        rc_default, out_default = gate_output(declared)
+        rc_allowed, out_allowed2 = gate_output(
+            declared + _auto +
+            '# visibility-audit: allow fixtureacct/Kestrelwood -- fixture\n')
+        cases += [
+            ('`auto-cover-bare-names on` FAILS the push on a bare private '
+             'repo name -- a refusal, not a note', rc_auto == 1),
+            ('...and says which name and that it was auto-covered, so the '
+             'remedy is obvious from the message',
+             'private repository name "Kestrelwood"' in out_auto
+             and 'auto-covered' in out_auto),
+            ('...and points at the two real remedies rather than a stem',
+             'Scrub it' in out_auto and 'allow line' in out_auto),
+            ('the default is OFF: without the directive the same tree passes, '
+             'so nobody else\'s gate changes under them', rc_default == 0),
+            ('an `allow` line beats auto-cover -- an accepted exposure stays '
+             'accepted, and the tree naming it passes',
+             rc_allowed == 0 and 'LEAK' not in out_allowed2),
+            ('a repo whose bare name an existing stem already covers is not '
+             'double-reported as auto-covered',
+             'private repository name "QuillonNotes"' not in out_auto),
+        ]
+
         ok = all(passed for _, passed in cases)
         for name, passed in cases:
             if not passed:

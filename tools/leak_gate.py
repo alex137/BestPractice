@@ -86,6 +86,15 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   regardless, and very_deep_check.py's visibility pass asks for it there, so
   the recommendation arrives inside a review somebody asked for rather than
   beside every push. A HIT is never silenceable by any of this.
+
+  AND THE OTHER ANSWER TO THE SAME GAP, which refuses instead of reporting:
+  `# visibility-audit: auto-cover-bare-names on -- why` makes every clone on
+  this disk under a private-by-default owner, with no `allow` line, a
+  whole-word pattern of its own. The bare name is then a hit, nobody has to
+  write a stem, and nobody has to be asked to. Whole name only -- truncating
+  to a stem is a judgment call that has to be measured against the tree, and
+  no mechanism can make it. OFF by default, because unlike the note it can
+  fail a push that passed yesterday.
   very_deep_check.py answers the same question from the other side, for the
   repositories this tree already NAMES, by asking GitHub which are private.
 
@@ -456,6 +465,32 @@ ALLOW_REF_RE = re.compile(
 STEM_NOTES_RE = re.compile(
     r'#\s*visibility-audit:\s*stem-notes\s+(on|off)\s*--\s*(.+)$')
 
+# A fourth directive, and the one that does the work the notes only asked
+# for. With the survey silenced, a private repository's BARE name had
+# nothing covering it until somebody wrote a stem by hand -- which is the
+# request the notes existed to make, and the request Morgan does not want to
+# receive. Turning this on covers those names automatically: every clone on
+# this disk under a private-by-default owner, with no `allow` line, becomes a
+# whole-word pattern of its own, and naming one in the tree is a HIT.
+#
+# Morgan, 2026-09-12, after asking for the notes to stop: "there is ONE THING
+# I want to stop from leaking: private repo names." So the name is refused
+# rather than reported -- a refusal needs no decision from him, which is the
+# whole point.
+#
+# WHOLE NAME, NEVER A TRUNCATION. A hand-written stem is truncated to a
+# distinctive head so it also catches derived spellings, and choosing where
+# to cut is a judgment call that has to be measured against the tree -- an
+# over-short stem fires on ordinary English and a gate that cries wolf gets
+# switched off. Nothing automatic can make that call, so it does not try: the
+# exact repository name, on word boundaries. That covers the form somebody
+# actually types and leaves the truncation to a person who wants one.
+#
+# OPT-IN, because it can fail a push that used to pass. Default off leaves
+# every other person's gate exactly as it was.
+AUTO_COVER_RE = re.compile(
+    r'#\s*visibility-audit:\s*auto-cover-bare-names\s+(on|off)\s*--\s*(.+)$')
+
 VIS_AUDIT_ANNOUNCE_RE = re.compile(r'#\s*visibility-audit:')
 
 
@@ -478,7 +513,7 @@ def repo_policy_errors(path):
             n_owner += 1
         elif ALLOW_REF_RE.match(line):
             n_allow += 1
-        elif STEM_NOTES_RE.match(line):
+        elif STEM_NOTES_RE.match(line) or AUTO_COVER_RE.match(line):
             pass
         elif re.search(r'--\s*$', line):
             out.append((i, line, 'the reason is empty. A reason must sit on '
@@ -492,8 +527,9 @@ def repo_policy_errors(path):
         else:
             out.append((i, line, 'not a recognized directive. Expected '
                                  '`private-owner <account> -- reason`, '
-                                 '`allow <owner>/<name> -- reason` or '
-                                 '`stem-notes on|off -- reason`'))
+                                 '`allow <owner>/<name> -- reason`, '
+                                 '`stem-notes on|off -- reason` or '
+                                 '`auto-cover-bare-names on|off -- reason`'))
     # Allow lines with nothing switched on are not a weaker configuration --
     # they are somebody having authorized disclosures under a rule that is not
     # running. Every one of them reads as deliberate and enforces nothing.
@@ -541,6 +577,41 @@ def stem_notes_enabled(path):
         if m:
             return m.group(1).lower() == 'on'
     return True
+
+
+def auto_cover_enabled(path):
+    """-> True only if the blocklist says `auto-cover-bare-names on`.
+
+    Default OFF, the opposite of stem_notes_enabled: this one can fail a push
+    that passed yesterday, so it is never switched on under anybody without
+    them writing the line."""
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, AttributeError):
+        return False
+    for line in text.splitlines():
+        m = AUTO_COVER_RE.match(line.strip())
+        if m:
+            return m.group(1).lower() == 'on'
+    return False
+
+
+def auto_private_name_patterns(refs, owners, allowed):
+    """-> [(compiled pattern, name)] for private clones' bare names.
+
+    Same scope as the survey it replaces -- the checkouts on this disk, which
+    is the only inventory available offline -- and the same two exclusions: a
+    repository under an owner nobody declared private, and one carrying an
+    `allow` line, which is somebody having accepted that the name may appear.
+    """
+    out = []
+    for owner, name in sorted(refs):
+        if owner.lower() not in owners:
+            continue
+        if f'{owner}/{name}'.lower() in allowed:
+            continue
+        out.append((re.compile(r'\b' + re.escape(name) + r'\b', re.I), name))
+    return out
 
 
 def repo_ref_hits(text, owners, allowed):
@@ -897,7 +968,7 @@ def load_blocklist():
             True)
 
 
-def scan(units, blocklist, repo_policy=(None, None)):
+def scan(units, blocklist, repo_policy=(None, None), auto_names=()):
     owners, allowed = repo_policy
     hits = []
     for display, rel, text in units:
@@ -915,6 +986,19 @@ def scan(units, blocklist, repo_policy=(None, None)):
             for m in pat.finditer(text):
                 line_no = text.count('\n', 0, m.start()) + 1
                 hits.append((display, line_no, f'blocklist /{pat.pattern}/',
+                             m.group(0).strip()[:70]))
+        # Auto-covered bare names are reported apart from blocklist
+        # patterns on purpose: the remedy differs. A blocklist hit is a term
+        # somebody chose to ban; this one is a private repository's own name,
+        # and the two answers are "scrub the name" or "say it may appear".
+        for pat, name in auto_names:
+            for m in pat.finditer(text):
+                line_no = text.count('\n', 0, m.start()) + 1
+                hits.append((display, line_no,
+                             f'private repository name "{name}" (auto-covered: '
+                             f'a clone under a private-by-default owner, with '
+                             f'no `# visibility-audit: allow` line). Scrub it, '
+                             f'or add an allow line saying why it may appear',
                              m.group(0).strip()[:70]))
         for line_no, ref in repo_ref_hits(text, owners or {}, allowed or {}):
             hits.append((display, line_no,
@@ -1100,7 +1184,15 @@ def main():
               f'where the export actually happens.')
         return 0
 
-    hits = scan(units, blocklist, _policy)
+    # The bare-name half, and the one that actually stops a private name
+    # reaching a public tree. It is derived from the clones on this disk
+    # rather than from anything anybody wrote down, which is the point:
+    # nobody has to predict the name of a repository they created today.
+    _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
+                                        _policy[1])
+             if (_policy[0] and _bl_path is not None
+                 and auto_cover_enabled(_bl_path)) else [])
+    hits = scan(units, blocklist, _policy, _auto)
     # SAY WHEN THE ALLOWLIST IS OFF. It only does anything once somebody
     # declares an owner private-by-default, and a clone that never did would
     # otherwise get a clean "OK" covering a rule that inspected nothing --
