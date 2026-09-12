@@ -900,6 +900,15 @@
         "reply"
       ],
       "gates_why": "The reply is the moment a session decides between committing a finding and merely saying it, and saying it is the failure -- so the obligation lands exactly where the temptation does."
+    },
+    "seeded-prompt-names-its-origin": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus, and for a sharper reason than most: what triggers it is a harness call, not a file. The obligation lands entirely inside an argument to create_session or create_trigger, and nothing about it is ever written to the tree -- so there is no path whose editing means 'you should have declared where this prompt came from'. Reached through the occasion index alone.",
+      "decided": "2026-09-12, when the practice landed",
+      "gates": [],
+      "gates_why": "No gate. The moment is the harness call, which is not one of merge, review, push or reply -- a session can seed a prompt in the middle of any of them, and pinning it to the reply gate would miss every spawn that happens mid-turn."
     }
   },
   "gates": {

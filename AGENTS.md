@@ -221,7 +221,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 106 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 107 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -423,6 +423,8 @@ When renaming, moving, or deleting a file other files may link to:
   rename-updates-links — renaming a file means repointing every link to it, in the same commit
 When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
+When seeding a prompt into another session -- spawning one, or scheduling a message into one:
+  seeded-prompt-names-its-origin — a seeded or scheduled prompt opens by naming the session that sent it
 When setting up a new repo's session start:
   session-bootstrap — setup lives in a session-start hook, not in memory
 When starting an outward-facing deliverable:
