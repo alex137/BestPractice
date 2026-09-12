@@ -221,7 +221,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 102 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 103 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -303,6 +303,8 @@ When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a convention is violated for the first time:
   convention-to-audit — promote a costly broken convention to a script that exits non-zero
+When a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself:
+  mistakes-become-rules — root-cause the miss, then encode the prevention
 When a document presents a script-derived figure:
   docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
@@ -329,8 +331,6 @@ When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
 When a practice lands or a candidate is raised, at any level:
   disclose-landing — state plainly what happened and where — individual, named team, or universal
-When a review finds a defect:
-  mistakes-become-rules — root-cause the miss, then encode the prevention
 When a tool warns about already-published git history:
   no-rewrite-for-warnings — fix the setting forward; never rewrite published history
 When adding a file to a directory that already holds files of the same kind:
@@ -379,6 +379,8 @@ When exporting a tool across a repo boundary:
   engine-plus-host-shims — one vendored engine, thin host shims, never a fork
 When finishing a substantial work-product, before the merge-time capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
+When fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy:
+  fix-the-original — fix the origin first, then every copy -- name them all in the reply
 When handing the person work to do, or starting work that may touch a repository this session cannot reach:
   spawn-session — cross-repo check first; hand over a clickable seeded session, not a description
 When importing, creating, or declaring a repository that holds practices:

@@ -4,7 +4,7 @@ title:       "Mistakes become rules: root-cause the miss, then encode the preven
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a review finds a defect"
+occasion:    "a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself"
 gates:       ["review"]
 index_clause: "root-cause the miss, then encode the prevention"
 checked_by:  null
@@ -18,9 +18,11 @@ approved_by: "BestPractice (pre-fork)"
 source_practice_number: 20
 ---
 ## Rule
-When a mistake is caught — by the owner, by an audit, or by a later
-pass discovering an earlier session's error — fixing the instance is half the
-job. Before the session ends, root-cause it *five-whys style*: ask why
+When a mistake is caught — by the owner, by an audit, by the person simply
+reporting it, or by a later pass discovering an earlier session's error —
+fixing the instance is half the job. **The trigger is the fix, not the
+review**: most defects here are never reviewed, they are just mentioned and
+repaired, and a rule that waits for a review never fires on them. Before the session ends, root-cause it *five-whys style*: ask why
 iteratively, past the surface slip, until the answer is a **process
 property** — a missing rule, a missing check, a judgment recorded at the
 wrong granularity, a stale document trusted, a default that invites the

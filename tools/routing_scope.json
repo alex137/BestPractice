@@ -89,6 +89,18 @@
       ],
       "gates_why": "A review that produces a rule produces it here; it also has a glob for where the rule is written."
     },
+    "fix-the-original": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. The occasion is a property of the file's HISTORY -- was it copied from somewhere -- which no glob can express: the instantiated copy of a template looks exactly like a file written in place. Routed by the `review` and `reply` gates and by the occasion index instead.",
+      "decided": "2026-09-12, when the practice landed",
+      "gates": [
+        "review",
+        "reply"
+      ],
+      "gates_why": "`review` catches it while the fix is being made, which is the only moment the origin is cheap to fix. `reply` catches the disclosure half -- every copy has to be named in the reply, and that obligation exists even when the origin turned out to be unreachable."
+    },
     "spawn-session": {
       "globs": [
         "**"
