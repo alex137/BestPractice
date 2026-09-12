@@ -114,7 +114,7 @@ being checked by it.
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-46 of 102 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+46 of 104 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
@@ -171,6 +171,53 @@ Three checks skip in this repository as a permanent and correct condition:
 the boundary between a vendored upstream and its host, and this repo **is**
 the upstream. Their firing tests build the vendored tree in a fixture, so the
 checks are verified even though this tree cannot exercise them.
+
+## A check can bind the repo that PUBLISHES a practice
+
+Every practice-backed check is gated on `practices/<slug>.md` being present in
+the repo it runs in. That is right for a **consuming** repo: a finding whose
+Rule the reader cannot even print is a finding nobody can act on, and before
+the gate existed a fresh install reported a violation for this repo's own
+repo-local branch rule.
+
+**A practice SOURCE set is the case that gate gets wrong.** Its `practices/`
+holds its own practices only; it resolves no sources and materializes nothing
+into itself, so every other level's check skipped there — permanently, not
+pending configuration. Measured 2026-09-12 in a team source: **12 passed, 42
+skipped, and all 42 skips that one cause.** The repositories that publish the
+catalogue were the least-checked repositories in the system.
+
+It had already cost something. A practice file in that set shipped a relative
+link to a test driver that materialization deliberately does not copy — live in
+the publishing set, dead in every repository that received the catalogue. The
+rule that catches exactly that, `practice-links-travel`, was one of the 42, so
+a **consuming** repo found it a sync late.
+
+`binds_publishers=True` on a check's registration is the answer: the check runs
+in a repo that publishes a `practices/` tree even where that practice's own
+text is not vendored in. Two things make it safe:
+
+- **Publisher-ness is declared, not detected.** It reads `kind: source` from
+  `tools/ENGINE_MANIFEST.json`, which `precedent_vendor_engine.py` writes and
+  reads back for its own verbs. An authored `practices/` tree and a
+  materialized one look identical on disk, which is why the kind is declared.
+- **The failure message is still the rule.** It cannot print a Rule that is not
+  there, so it prints where the Rule *is* — the `blob` URL on the branch the
+  manifest records the engine was vendored from. Printing
+  `(no practice file for ...)` instead would be this module's whole design
+  quietly failing at the one moment it is load-bearing.
+
+Three checks carry the flag, each with its own incident recorded beside it:
+`practice-links-travel`, `catalogue-carries-stories` and
+`generated-artifact-provenance`. **Widening it is per-check judgment, not a
+sweep** — the flag removes the gate, it does not make a check that needs
+resolved sources work without them — and the remaining skips in a source set
+are what [`coverage-report-for-registered-checks`](../TODO.md#coverage-report-for-registered-checks)
+is for. `verify_harness.py`'s
+`check_publisher_bound_checks_run_in_a_source_set` asserts both directions
+against a fixture that plants the link which really shipped: a publisher fails
+on it and names where the Rule lives, and a consumer with the same planted link
+still skips.
 
 ## Scopes, because a practice is not always a property of a file
 

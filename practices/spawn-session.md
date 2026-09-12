@@ -14,7 +14,12 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-11"
-approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same message"
+approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same message;
+  extended 2026-09-12, Morgan F, relayed through a scheduled instruction to land five
+  fleet rules at universal -- the cross-owner wall with its who-merges half, and waking
+  a live session before creating a new one. Placing them at universal is his; that these
+  two belong in this practice rather than in new ones was the session's judgment, named
+  as a judgement call in that same instruction."
 strength:    decided
 source_practice_number: null
 ---
@@ -26,6 +31,29 @@ against the ones this session actually holds. Everything else that might
 argue for a fresh session — a poisoned context, a different branch, a long
 run you do not want to block on — comes after that, because a missing
 repository is the one this session cannot fix from the inside.
+
+**Compare OWNERS, not just repository names.** A session already holding one
+owner's repositories is refused another owner's outright — `add_repo` answers
+*"cross-tier adds are not supported in v1"* — and the session's initial source
+itself counts as "already has repos", so no ordering of calls inside that
+session helps. Plan for the refusal; do not plan *on* it, because this
+repository's own gotchas record measurements that do not all agree. **Call it
+and read what it says, never a remembered result.**
+
+**Settle who merges before the work starts.** This is the half that bites
+late. A session that cannot attach across owners cannot gain push access
+there either, so it can open nothing and land nothing in that repository —
+and a finished pull request with nobody able to merge it is a discovery made
+at the end, when the work is already spent. Name whoever will land it at the
+same moment you name the repositories.
+
+**Where a different session is needed, wake a live one before creating a new
+one.** A message into an existing session reuses the context it already
+holds; a new session re-reads its repository from scratch, which is most of
+what a session costs
+([session-spend-follows-the-task](session-spend-follows-the-task.md)). Create
+a fresh one when no live session holds the right repository, or when the
+context in the live one is itself the problem.
 
 **If a different session is needed, do not start the work and do not
 describe the handoff. Create the session** — rooted in the right repository,
@@ -59,6 +87,15 @@ page. **Where no such tool is available, say so and fall back to
 [handoff-is-pasteable](handoff-is-pasteable.md)'s paste block** — one or the
 other, never silence and never a prose description of what the person should
 go type.
+
+**Finding the live session to wake is by TITLE, not by tag.** `list_sessions`
+accepts a `tags` filter and it does not work from inside a session — it
+answers *"tags filter is not currently available"* (checked 2026-09-12, in
+Claude Code's cloud sessions). So a session's **title** is the only lineage a
+later session can actually search on, which makes naming a session for its
+subject at creation worth the one extra call: an untitled session is one
+nobody will find to wake, and the cost of not finding it is a fresh session
+re-reading the repository from scratch.
 
 **The seeded prompt is a handoff, and
 [handoff-is-pasteable](handoff-is-pasteable.md) governs its contents
@@ -130,6 +167,22 @@ session's files did not exist.
 Every one of those is downstream of the same moment — the moment a session
 starts work whose repository it does not have. **Nothing before this checked
 that moment**; the catalogue's rules all began after it had already passed.
+
+**The owner wall and the wake-first step were added 2026-09-12**, each from
+its own failure. The cross-owner refusal was hit again that day, in the
+direction opposite to the one already recorded here — and hit first-hand by
+the session that wrote this paragraph, whose `add_repo` for another owner's
+repository was refused with exactly the message quoted above. What that
+session could *not* do is the point: it had to verify a private source's
+behaviour through a clone it already had on disk, because the attach it
+wanted was never going to be granted. **Who merges is the same wall one step
+later**, and reported from a team source the same day: work finished in a
+session that could never land it.
+
+The wake-first step comes from the opposite waste — reported, not measured
+here: three sessions created against one repository for work one session
+could have done in sequence, each paying to read that repository from
+scratch.
 
 **It was called `clean-session` for its first day.** Morgan renamed it on
 2026-09-12 — *"Let's rename 'clean session' to 'spawn session'"* — and asked

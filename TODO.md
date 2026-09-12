@@ -3515,9 +3515,54 @@ which is the failure this repointing exists to end — write
    accident. Today it reads as neither — the line says the practice belongs
    to a source this repo does not resolve, which is true and sounds benign.
 
-   **blocked-on:** nothing mechanical. It needs the count first — which
-   universal checks skip in a source set, and which of those matter — and
-   then a design call on the three shapes above.
+   **The count came in, and the design call is made — 2026-09-12.** The count
+   is on
+   [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos):
+   in a team source, 12 checks passed and **42 skipped, all 42 that one
+   cause**. Not one rule going unenforced in a source set — most of the
+   catalogue, in the repositories that publish it.
+
+   **Shape 2 was chosen, narrowed**: a check declares `binds_publishers=True`
+   and then runs in a repo that publishes a `practices/` tree, whether or not
+   that practice's own text is vendored in. Not shape 1 (vendor the practice
+   FILES a source set needs), which adds a second copy of rule text to every
+   set and so recreates the drift this item is about — the one re-declared
+   copy that exists has never agreed with universal's. Not shape 3 (accept it
+   and reword the output), which makes the gap legible and leaves the
+   publishing repos unchecked.
+
+   Two properties make it safe, and both are asserted:
+   **publisher-ness is declared, not detected** — `kind: source` in
+   `tools/ENGINE_MANIFEST.json`, which
+   [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+   already writes and reads back, because an authored `practices/` tree and a
+   materialized one are identical on disk; and **the failure message is still
+   the rule** — it cannot print a Rule that is not there, so it prints the
+   upstream URL on the branch the manifest records, rather than
+   `(no practice file for ...)`.
+
+   Three checks carry the flag, each with its incident beside it:
+   `practice-links-travel`, `catalogue-carries-stories`,
+   `generated-artifact-provenance`. Measured on a real team source, one engine
+   version either side of the change: **12 passed / 43 skipped → 14 passed /
+   41 skipped**, and a diff of the per-check statuses confirms those two
+   stopped skipping and nothing else changed state. A planted copy of the link
+   that really shipped is caught, with the repair named.
+   The mechanism is at
+   [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md)'s "A check can bind the repo that
+   PUBLISHES a practice"; the control is `verify_harness.py`'s
+   `check_publisher_bound_checks_run_in_a_source_set`, which fails if the gate
+   exception is removed.
+
+   **What is left, and why it is not blocked-on:** the other 41. Widening the
+   flag is per-check judgment — it removes the gate, it does not make a check
+   that needs resolved sources work without them — and the enumeration belongs
+   to [`coverage-report-for-registered-checks`](TODO.md#coverage-report-for-registered-checks),
+   which is the count taken across every repo in force rather than one at a
+   time. **Also outstanding:** the one re-declared copy of
+   `catalogue-carries-stories` in a team source is now redundant, and its
+   `checked_by: null` actively misstates its own coverage. Retiring it is a
+   change in that set, not here.
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
@@ -4223,44 +4268,3 @@ which is the failure this repointing exists to end — write
   raised it, which was the pass 2 question alone (itself pending review).
   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md))
 
-- <a id="leak-gate-directive-newer-than-the-engine"></a>**A private blocklist
-  gained a directive this engine cannot parse, so the leak gate's vocabulary
-  layer hard-fails for every session working here.** Found 2026-09-12 running
-  the deep check. An individual practice set's `leak-blocklist.txt` acquired a
-  `# visibility-audit: stem-notes off` line, and
-  [tools/leak_gate.py](tools/leak_gate.py) has no support for `stem-notes`
-  (`grep -c` returns 0). The gate refuses rather than enforcing less than the
-  file says, which is the right behaviour and is stated in its own failure
-  text — a directive it cannot parse is indistinguishable from a comment, so
-  the alternative is printing OK while silently enforcing less.
-
-  **It is not a stale clone, which is the failure this resembles.** The
-  blocklist clone is current with its own `main`, and the base branch's own
-  `leak_gate.py`, run against the same file, exits 1 identically — so the
-  input is NEWER than the engine rather than older. That is the inverse of the
-  shape [AGENTS.md](AGENTS.md)'s gotchas warn about, and it reads the same
-  from inside: a correct gate, correct output, and a finding that belongs to
-  neither the branch under test nor the gate.
-
-  **What it costs while it stands:** the structural half still runs and
-  passes, so a push is not blocked, but **the private vocabulary half does not
-  run at all** — a session pushing to this public repository has no automated
-  check that a private term is absent, and has to do that pass by hand and say
-  so. Two of this session's pull requests say exactly that rather than
-  claiming the gate passed.
-
-  **Two fixes, and the choice is not this repo's alone:** teach
-  `leak_gate.py` the `stem-notes` directive here, or revert the directive in
-  the set that added it. The set's own line points at a practice file
-  (`leak-gate-is-background.md`) that explains the intent, so the directive is
-  deliberate and the engine is simply behind it — which makes teaching the
-  engine the likelier answer.
-
-  **Blocked on / out of scope:** the directive was added in a private set this
-  session cannot push to (`add_repo` refuses cross-owner, re-measured
-  2026-09-12), and teaching the engine a new directive is a change to the leak
-  gate rather than to anything the work that found it was touching.
-  **Disposition:** ask (2026-09-12, this session) — it silently removes a
-  publication-safety check from every session working here, and the fix needs a
-  decision in a repository this one cannot push to
-  ([open-item-disposition](practices/open-item-disposition.md)).

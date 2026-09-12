@@ -33,6 +33,17 @@
       "why": "Its own applies_to. The occasion is writing any document meant to be read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the path glob is a second reminder rather than the only one.",
       "decided": "promoted to universal 2026-09-07"
     },
+    "branch-is-the-record": {
+      "globs": [
+        "**"
+      ],
+      "why": "What the rule governs is a READ -- fetching the base branch and looking at it -- which happens before any file is opened and touches nothing. There is no path whose editing means the read was skipped; by the time a file is edited the duplicate work has already been done. Reached through the occasion index and the push gate.",
+      "decided": "2026-09-12, when the practice landed",
+      "gates": [
+        "push"
+      ],
+      "gates_why": "The second of the two reads is owed immediately before a pull request is opened, which is the push moment. The first read -- before starting -- has no gate, because no moment fires at 'about to begin'; the occasion index carries that half."
+    },
     "build-buy-decompose": {
       "globs": [
         "**"
@@ -620,6 +631,15 @@
       ],
       "why": "Its own applies_to, and a tight locus for once: what a session loads before its first turn is a short, known list of files, and the registry declaring their ceilings is the other file a change here touches.",
       "decided": "2026-09-11, when the practice landed"
+    },
+    "session-spend-follows-the-task": {
+      "globs": [
+        "**"
+      ],
+      "why": "Both halves are choices about a session's own running -- which model it is created with, and when it is compacted -- and neither touches the tree at all. There is no path whose editing means the choice was made badly, because the choice is made before or between edits rather than in one. Reached through the occasion index alone.",
+      "decided": "2026-09-12, when the practice landed",
+      "gates": [],
+      "gates_why": "No gate either. The two moments -- creating a session, compacting one -- are not among the four named moments a gate fires at, and neither leaves an artifact a later gate could inspect."
     },
     "source-naming": {
       "globs": [
