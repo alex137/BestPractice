@@ -3994,7 +3994,11 @@ which is the failure this repointing exists to end — write
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
 
-- **What to call Morgan in prose, when it is not what git records.**
+- <a id="morgan-prose-name"></a>~~**What to call Morgan in prose, when it is
+  not what git records.**~~ **Answered 2026-09-12, by him: the name in
+  that quotation was a dictation artifact, there is no second name, and
+  nothing gets added.**
+
   Raised 2026-09-12, in the thread that landed
   [declared-pronouns](practices/declared-pronouns.md). Asking for the
   pronoun rule he described the standing practice as *"always refer to me as
@@ -4007,11 +4011,19 @@ which is the failure this repointing exists to end — write
   `check_commit_author.py`'s comparison). Nothing was invented either way —
   the pronouns landed, the name did not
   ([no-invented-specifics](practices/no-invented-specifics.md)).
-  **Blocked on / out of scope:** his answer. One field and one sentence of
-  the practice, once it is known.
-  **Disposition:** ask (2026-09-12, Morgan) — he was asked in the thread and
-  the question went unanswered while the rest was approved, so it is his to
-  close and not a session's to guess.
+
+  **The answer, 2026-09-12.** Asked directly whether the name in that
+  quotation was the prose name he wanted declared, he said: *"That was
+  diction. So option #2: I'm a male, him/me, and my name is Morgan."* So the
+  first branch of the guess was the right one, and the repository was already
+  in the correct state:
+  `identity.json`'s `name` (`Morgan F`) stays what commits are authored as,
+  and prose uses "Morgan" — exactly what the clause that came out of
+  `commit-author` said. **No second field is added** to `identity.json`, to
+  [templates/practice-set-individual/identity.json.template](templates/practice-set-individual/identity.json.template),
+  or anywhere else, and
+  [declared-pronouns](practices/declared-pronouns.md) needs no change: the
+  pronoun half landed correctly and this answer does not touch it.
 
 - **`register` is a live field in one identity.json and absent from the
   skeleton every other one is built from.** Noticed 2026-09-12 while adding
