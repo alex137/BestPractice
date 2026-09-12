@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 102 practice files (10 resident, 92 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 103 practice files (10 resident, 93 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -86,6 +86,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reply-links-files](practices/reply-links-files.md) | resident | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether the practices that should have fired for recent work actually fired |
+| [rule-level-by-reach](practices/rule-level-by-reach.md) | on-demand | deciding which practice set a new rule belongs in -- repo-local, team, individual or universal |
 | [scripts-assert-properties](practices/scripts-assert-properties.md) | on-demand | writing a script whose numbers a document will cite |
 | [scrub-gate](practices/scrub-gate.md) | on-demand | committing anything that touches the vendored/public tree |
 | [search-by-purpose](practices/search-by-purpose.md) | on-demand | starting work the repository may already cover |
