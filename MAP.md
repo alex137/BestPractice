@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 100 practice files (10 resident, 90 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 102 practice files (10 resident, 92 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -14,6 +14,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
 | [bold-key-phrases](practices/bold-key-phrases.md) | resident | writing any document meant to be read |
 | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) | resident | a conversation is exploratory, or a person calls it a brainstorm |
+| [branch-is-the-record](practices/branch-is-the-record.md) | on-demand | starting work another session may already have done, or opening a pull request |
 | [build-buy-decompose](practices/build-buy-decompose.md) | on-demand | deciding whether to build or buy a component |
 | [capture-gate](practices/capture-gate.md) | on-demand | merging a branch |
 | [catalogue-carries-stories](practices/catalogue-carries-stories.md) | on-demand | landing practices in bulk -- a migration, an import, or a move between sources |
@@ -92,6 +93,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [section-order-by-frequency](practices/section-order-by-frequency.md) | on-demand | ordering sections in a document |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
 | [session-load-budget](practices/session-load-budget.md) | on-demand | adding to a file every session loads, or asking what a session pays before it starts work |
+| [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating a session, or deciding when to compact one |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |
 | [source-naming](practices/source-naming.md) | on-demand | importing, creating, or declaring a repository that holds practices |
 | [spawn-session](practices/spawn-session.md) | on-demand | handing the person work to do, or starting work that may touch a repository this session cannot reach |
