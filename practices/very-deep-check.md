@@ -53,7 +53,14 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   reads them against the runs before it -- \"the check now has many
   different components and when you run it, I want you to track the
   results of each part and compare at the end to ... find any aspects of
-  the very deep check that weren't useful\""
+  the very deep check that weren't useful\"; extended 2026-09-12, Morgan F
+  (strength: decided), so a run against a repo whose work is pinned to an
+  integration branch also reads the BASE branch for changes the branch has
+  never taken, and puts them to the person rather than applying them --
+  \"it should check main to see if there were any changes that we should
+  update our version with so they don't get too out of sync; but those
+  changes, don't implement automatically, but ask the session user if they
+  want to implement them\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -159,6 +166,23 @@ fires may be exactly why nothing is broken, and several of these sections
 were written after one expensive incident they exist to prevent. Quiet is
 also not the same as unmeasurable — a section that could not produce a count
 is reported separately and is never graded as clean.
+
+**When the branch this repo works on is not its base branch, the run reads
+the base branch too — and reports it, never applies it.** Work pinned to a
+long-lived integration branch stops looking at the base, and the base does
+not stop moving: somebody fixes a bug there, or lands a document, and that
+change is invisible to every session on the branch until the two are far
+enough apart that reconciling them is its own project rather than a few
+commits. [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)
+lists every commit on the base with no patch-equivalent on the branch — date,
+subject, and the files it touched. **The session puts that list to the person
+and asks, row by row, what should come across; it implements nothing on its
+own** — not the whole list, and not the one row that looks obviously right.
+Taking a change is ordinary work, authorized the ordinary way, and a run that
+quietly merged the base would be doing the one thing pinning the work to a
+branch was meant to prevent. **Some rows are deliberately not-carried**, and
+the scan has no memory of that: a row declined last run is listed again next
+run, so the decision belongs in the run record rather than in the tool.
 
 Fix what a pass turns up in the same pass — most findings are small — then
 re-run the mechanical audits, since the fixes themselves break links.
@@ -760,6 +784,41 @@ Last because none of it strands an adopter, and none of it is cheap.
   Where a recommendation cannot be made honestly, say which of the four
   is missing and what would settle it.
 
+- **What landed on the base branch and never came across.** The cheap half
+  of the same relationship the rehearsal below tests, asked much earlier.
+  Runs only where the branch this repo works on is not its base branch —
+  where they are the same branch there is nothing to drift from, and the
+  section is recorded as skipped for that reason rather than as clean.
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) lists every commit on
+  the base branch with no patch-equivalent on the integration branch, each
+  with its date, its subject and the files it touched.
+
+  **`git cherry`, not the ancestor test**, for the reason the unmerged-branch
+  half uses it: work reaches a long-lived integration branch by being
+  *carried* — rewritten into that branch's own shape on the way — at least as
+  often as by being merged, and commit identity reports "never arrived" about
+  changes whose content landed weeks ago. A list padded with work that is
+  already here trains the reader to wave the whole thing through, which is
+  the failure this bullet exists to prevent rather than cause.
+
+  **The output is a question for the person, and the run stops there.**
+  Nothing is merged, cherry-picked or edited — not by the tool, and not by
+  the session reading it. Go row by row: say what the change is and whether
+  it belongs on this branch, and take only what they say to take. A row they
+  decline is declined for that row, not for the list, and **the scan will
+  show it again next run** — it compares two branches and knows nothing about
+  any decision, so a deliberate not-carried lives in
+  [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)'s
+  run record, with its reason.
+
+  **A repo that also keeps a carry watermark reads both.** This one does:
+  [tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_upstream_check.py)
+  answers "has the base moved since somebody last carried from it", which is
+  the session-start notice; this answers "what, specifically, has never come
+  across", which is the thing a person can decide about. The first can read
+  *current* while the second has rows, because a carry records the point it
+  reached, not that everything behind it was taken.
+
 - **The endgame merge, rehearsed against the whole tree.** A repo whose work
   is pinned to an integration branch is aimed at one merge it has never
   performed — this repo's phase-7 fold-in of `precedent-beta-v01` into
@@ -827,6 +886,29 @@ building a fixture and running the checks on it produces evidence, not a
 judgment, so its findings do not depend on this caveat.
 
 ## Story
+**The base-branch read was Morgan's, 2026-09-12**, and what makes it worth
+recording is that this repo already had the drift and nobody had counted it.
+The check has rehearsed the endgame merge since 2026-09-07 — it asks what
+happens to *our* files when `precedent-beta-v01` finally lands on `main` —
+and it has never once asked the opposite direction. The session-start notice
+from [tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_upstream_check.py)
+read *"origin/main is unchanged since the last carry"* the morning this
+landed, which is true and is a different question: **the watermark records
+the point a carry reached, never that everything behind it was taken.** The
+new section, run against this repository the same day, found two commits on
+`main` with no patch-equivalent on the branch — a 2026-09-03 revert touching
+634 files, and a 2026-09-08 practices-and-lint commit touching four. Neither
+is a surprise to anyone who knows the history; **neither was on any list.**
+
+He fixed the shape in the same sentence he asked for the check: *"those
+changes, don't implement automatically, but ask the session user if they want
+to implement them."* It is the same limit
+[precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_upstream_check.py)
+was built to on 2026-09-08 — *"I don't want it to merge invisibly, I'd like
+to do it in a session when I'm there"* — and stating it twice, about two
+different mechanisms, is what makes it a property of this repo rather than a
+detail of one tool.
+
 **The component ledger was Morgan's, 2026-09-11**, and it was asked for in
 the shape of a suspicion rather than a complaint: *"maybe the simulation
 doesn't find anything so it's not worth it to do."* The check had grown to
@@ -1162,7 +1244,7 @@ already-built sibling this one deliberately does not replace, and
 [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) for the decision
 record this practice's own build closes out.
 
-Six parts of the check *are* mechanical, as far as a mechanical check can
+Seven parts of the check *are* mechanical, as far as a mechanical check can
 reach (`checkable-gets-checked`): every repo in force is fetched and
 compared against its origin before the tool reads a line, and anything but
 provably-current exits non-zero (`--allow-stale` for a deliberately offline
@@ -1195,6 +1277,16 @@ Its negative control is
 class and asserts *which path lands in which set by name* — a count would
 have passed while reproducing the original miss
 ([control-asserts-which-failure](control-asserts-which-failure.md)).
+Seventh, and only where the branch this repo works on is not its base
+branch, the base branch is read for commits with no patch-equivalent on the
+branch — `git cherry` again, so work carried across in another shape is not
+reported as missing — and the result is printed for a person to decide
+about. It merges nothing and writes nothing, by design, and
+`--skip-base-drift` skips it. Its negative control is that same harness's
+`check_base_branch_drift_ignores_carried_work`, which plants one carried and
+one stranded commit and asserts *which subject comes back by name*: a count
+would pass on an implementation that listed both, and a list that is mostly
+work already here is one a reader waves through whole.
 
 What stays a session step, deliberately: the branch sweep's other half —
 turning a mechanically-merged branch into a *reported* one requires knowing

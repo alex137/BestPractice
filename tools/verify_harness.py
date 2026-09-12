@@ -15486,6 +15486,96 @@ def check_endgame_merge_finds_the_silent_drop():
                f"conflicts={sorted(conflicts)}") if failed else '')
 
 
+def check_base_branch_drift_ignores_carried_work():
+    """The base-branch drift scan (practice: very-deep-check, pass 4).
+
+    THE CASE THAT CARRIES THIS CHECK is the change that was CARRIED rather
+    than merged. Work reaches a long-lived integration branch by being
+    rewritten into that branch's own shape at least as often as by being
+    merged, so commit identity says "never arrived" about content that
+    landed weeks ago. A scan that listed those would hand the person a list
+    mostly made of work already here, and a list that is mostly noise is
+    waved through whole -- which is the failure this section exists to
+    prevent, not to cause.
+
+    So a non-zero count is not what is asserted. The fixture plants one
+    commit of each class on the base branch -- one whose patch also exists
+    on the integration branch, one that does not -- and this check asserts
+    WHICH subject comes back by name. It also asserts the two shapes that
+    must never render as clean: a base branch with nothing new (clean), and
+    a repo whose branch IS its base (None -- nothing can drift from
+    itself, which is a skip, not a pass)."""
+    import tempfile
+    import very_deep_check as vdc
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+
+        # A fix lands on main, and the same patch is carried onto the branch
+        # as its own commit -- different sha, identical content.
+        (up / 'fix.txt').write_text('fixed\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'carried fix')
+        _git(up, 'checkout', '-q', '-b', 'beta', 'HEAD~1')
+        (up / 'fix.txt').write_text('fixed\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'the same fix, carried')
+
+        # And one that nobody ever brought across.
+        _git(up, 'checkout', '-q', 'main')
+        (up / 'stranded.txt').write_text('never carried\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'never carried across')
+
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        _git(work, 'fetch', '-q', 'origin', 'beta:refs/remotes/origin/beta')
+        r = vdc.base_branch_drift(work, target='beta', base='main') or {}
+        subjects = [c['subject'] for c in (r.get('commits') or [])]
+
+        # Same fixture, with the stranded commit carried across too: the
+        # scan must be able to come back clean, or it will be ignored.
+        _git(up, 'checkout', '-q', 'beta')
+        (up / 'stranded.txt').write_text('never carried\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'carried that one too')
+        _git(up, 'checkout', '-q', 'main')
+        _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
+        clean = vdc.base_branch_drift(work, target='beta', base='main') or {}
+
+        same = vdc.base_branch_drift(work, target='main', base='main')
+
+        results = [
+            ('the commit nobody carried is listed by subject',
+             'never carried across' in subjects),
+            ('the commit whose patch was CARRIED across is not listed',
+             'carried fix' not in subjects),
+            ('the run is reported as carrying findings',
+             r.get('status') == 'findings'),
+            ('the listed row carries the file it touched',
+             any('stranded.txt' in (c.get('files') or [])
+                 for c in (r.get('commits') or []))),
+            ('carrying the last one across makes the scan come back clean',
+             clean.get('status') == 'clean' and not clean.get('commits')),
+            ('a repo whose branch IS its base is a skip, not a clean pass',
+             same is None),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the base-branch drift scan lists unlanded work and ignores '
+              f'carried work ({len(results)} stated cases; the carried/'
+              f'stranded split is the controlling one)',
+              not failed,
+              (f"{'; '.join(failed)} -- subjects={subjects}, "
+               f"status={r.get('status')}") if failed else '')
+
+
 def check_branch_scan_sees_every_branch():
     """The branch sweep must enumerate what ORIGIN has, not what this clone
     happened to fetch (practice: very-deep-check).
@@ -17662,6 +17752,7 @@ def main():
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
+    check_base_branch_drift_ignores_carried_work()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
     check_very_deep_check_authenticates_its_own_fetches()
     check_very_deep_check_bootstrap_drift()

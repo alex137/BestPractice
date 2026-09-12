@@ -90,6 +90,14 @@ History surgery on the base branch (a reverted merge, a cherry-pick, a
 force-push) is what fills it. `--skip-endgame-merge` skips it; `--json`
 gives the full list.
 
+Asks the cheap half of that same question too, and asks it first: when the
+branch this repo works on is NOT its base branch, what has landed on the
+base that the branch never took? Reported per commit -- date, subject,
+files -- using git cherry, so work CARRIED across in another shape is not
+listed as missing. It reports and stops: nothing is merged or cherry-picked
+by this tool, and the session reading it asks the person row by row before
+implementing any of it. `--skip-base-drift` skips it.
+
 FIRST, before it reads anything: every repo in force must be provably
 current against its origin -- this checkout and every declared team or
 individual source -- and each one is asked, over the API, whether it still
@@ -128,6 +136,9 @@ Run:
       -- proceed even if a declared team/individual source isn't present.
   python3 tools/very_deep_check.py --skip-branch-scan
       -- enumerate and check sources only; skip the git merge scan.
+  python3 tools/very_deep_check.py --skip-base-drift
+      -- skip the scan for work that landed on the base branch and never
+      came across to the integration branch.
   python3 tools/very_deep_check.py --skip-liveness
       -- skip the one-API-call-per-repo check that each repo in force still
       exists and is not archived. For an offline run.
@@ -1948,6 +1959,111 @@ def endgame_merge(repo_dir, target=None, base=None, keep=False):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+# --- what landed on the base branch and never came across ---------------
+# (practice: very-deep-check, pass 4)
+#
+# The rehearsal above asks what happens to OUR files when the integration
+# branch finally lands. This asks the opposite question, and asks it much
+# earlier: what has landed on the BASE branch that this branch has never
+# taken? Work pinned to a long-lived integration branch stops looking at the
+# base, and the base does not stop moving -- somebody fixes a bug on it, or
+# lands a document -- and that change is invisible to every session working
+# on the branch until the two are far enough apart that reconciling them is
+# its own project. Morgan asked for it on 2026-09-12, with the limit stated
+# in the same breath: report it, and ASK; never implement it automatically.
+
+def base_branch_drift(repo_dir, target=None, base=None, limit=25):
+    """-> None when this checkout's integration branch IS its base branch
+    (nothing can drift from itself), else a dict:
+
+        {'target', 'base', 'status', 'commits': [...], 'files': [...],
+         'shallow': bool, 'note': str|None}
+
+    status: findings | clean | cannot-tell | error. Each commit row is
+    {'sha', 'date', 'subject', 'files'} -- enough to decide from, which a
+    bare count never is.
+
+    `git cherry` rather than `merge-base --is-ancestor`, for the same reason
+    _unmerged_row uses it: work often reaches an integration branch by being
+    CARRIED -- rewritten into that branch's own shape on the way -- rather
+    than merged, so commit identity reports "never arrived" about changes
+    whose content landed weeks ago. A patch-equivalent commit is not drift,
+    and listing it as drift would train the reader to wave the whole list
+    through.
+
+    REPORTS ONLY. Nothing here merges, cherry-picks, fetches into a working
+    branch or edits a file. The practice is explicit that the session hands
+    this list to the person and asks before implementing any of it, which is
+    the same shape precedent_upstream_check.py was given for this repo's own
+    carry notice: *"I don't want it to merge invisibly, I'd like to do it in
+    a session when I'm there."*
+    """
+    repo_dir = pathlib.Path(repo_dir)
+    if not (repo_dir / '.git').exists():
+        return None
+    target = target or _declared_base_branch(repo_dir)
+    base = base or _default_remote_branch(repo_dir)
+    if not target or not base or target == base:
+        return None
+    out = {'target': target, 'base': base, 'status': 'cannot-tell',
+           'commits': [], 'files': [], 'shallow': False, 'note': None}
+    target_ref, base_ref = f'origin/{target}', f'origin/{base}'
+    # --verify --quiet, never the bare form: `git rev-parse <missing-ref>`
+    # exits non-zero but PRINTS the ref name back (AGENTS.md, gotchas).
+    for ref in (base_ref, target_ref):
+        rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)
+        if rc != 0:
+            _run_git(repo_dir, 'fetch', '--depth=5000', 'origin',
+                     ref.split('/', 1)[1])
+        rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet', ref)
+        if rc != 0:
+            out['note'] = (f'{ref} does not exist in this clone, and fetching '
+                           f'it failed -- run `git fetch origin '
+                           f'{ref.split("/", 1)[1]}` and re-run.')
+            return out
+    rc, shallow, _ = _run_git(repo_dir, 'rev-parse', '--is-shallow-repository')
+    out['shallow'] = (rc == 0 and shallow.strip() == 'true')
+    # The precondition for trusting `git cherry` at all: on a clone whose
+    # history does not reach the merge base, cherry exits 0 and marks EVERY
+    # commit `+`, which here would invent a base branch's whole history as
+    # undelivered drift. Deepen once, then refuse rather than guess.
+    if not _merge_base_resolves(repo_dir, target_ref, base_ref):
+        _run_git(repo_dir, 'fetch', '--depth=5000', 'origin')
+    if not _merge_base_resolves(repo_dir, target_ref, base_ref):
+        out['note'] = (f'no merge base between {target_ref} and {base_ref} '
+                       f'resolves in this clone, so the patch comparison '
+                       f'cannot run and its result would be fiction. Deepen '
+                       f'(`git fetch --unshallow origin`, or --depth=5000) '
+                       f'and re-run. Reported as unknown, never as clean.')
+        return out
+    rc, cherry, err = _run_git(repo_dir, 'cherry', target_ref, base_ref)
+    if rc != 0:
+        out['status'] = 'error'
+        out['note'] = f'git cherry {target_ref} {base_ref} failed: {err}'
+        return out
+    shas = [ln.split()[1] for ln in cherry.splitlines()
+            if ln.startswith('+') and len(ln.split()) > 1]
+    touched = set()
+    for sha in shas[:limit]:
+        rc, meta, _ = _run_git(repo_dir, 'show', '-s', '--format=%cs%x1f%s', sha)
+        date, _, subject = (meta.partition('\x1f') if rc == 0
+                            else ('', '', ''))
+        # `git show <commit>:<path>` exits 128 with EMPTY stdout for two
+        # unrelated reasons, so the return code is consulted rather than the
+        # output read alone (AGENTS.md, gotchas).
+        rc_f, names, _ = _run_git(repo_dir, 'show', '--name-only',
+                                  '--format=', sha)
+        files = sorted({ln for ln in names.splitlines() if ln}) if rc_f == 0 else []
+        touched.update(files)
+        out['commits'].append({'sha': sha[:12], 'date': date or None,
+                               'subject': subject or None, 'files': files})
+    out['truncated'] = max(0, len(shas) - limit)
+    out['total'] = len(shas)
+    out['files'] = sorted(touched)
+    out['status'] = 'findings' if shas else 'clean'
+    return out
+
+
 def enumerate_scope(repo=None, user_config=None):
     """-> {'checkout': {...}, 'sources': [...], 'missing': [...]}"""
     repo_root = pathlib.Path(repo or ROOT).resolve()
@@ -2988,6 +3104,7 @@ def _main(box):
     skip_visibility = '--skip-visibility' in args
     skip_liveness = '--skip-liveness' in args
     skip_endgame = '--skip-endgame-merge' in args
+    skip_base_drift = '--skip-base-drift' in args
     allow_stale = '--allow-stale' in args
     do_freshen = '--freshen' in args
 
@@ -3197,10 +3314,15 @@ def _main(box):
     _endgame_t0 = time.monotonic()
     endgame = None if skip_endgame else endgame_merge(repo_root, checkout_target)
     _endgame_secs = round(time.monotonic() - _endgame_t0, 2)
+    _drift_t0 = time.monotonic()
+    drift = None if skip_base_drift else base_branch_drift(repo_root,
+                                                           checkout_target)
+    _drift_secs = round(time.monotonic() - _drift_t0, 2)
 
     if as_json:
         data['branches'] = branch_scans
         data['endgame_merge'] = endgame
+        data['base_branch_drift'] = drift
         print(json.dumps(data, indent=2, sort_keys=True))
         return 0
 
@@ -3791,6 +3913,67 @@ def _main(box):
                     extra_seconds=_scan_secs)
     elif led:
         led.skipped('BRANCHES -- verdicts owed', '--skip-branch-scan')
+
+    # WHAT LANDED ON THE BASE BRANCH AND NEVER CAME ACROSS (practice:
+    # very-deep-check, pass 4). Printed before the endgame rehearsal
+    # because it is the cheap half of the same relationship: this is what
+    # the two branches have already drifted by, while reconciling it is
+    # still a few commits rather than a project. It reports and stops --
+    # the session asks before implementing any of it.
+    if drift is not None:
+        if led:
+            led.start('BASE BRANCH DRIFT')
+        print(f"BASE BRANCH DRIFT -- what is on origin/{drift['base']} that "
+              f"origin/{drift['target']} has never taken\n")
+        if drift['status'] in ('cannot-tell', 'error'):
+            print(f"  CANNOT TELL: {drift['note']}")
+            print(f"  Reported as unknown, never as clean -- a comparison "
+                  f"that could not run returns an\n  empty list, which reads "
+                  f"exactly like an up-to-date branch.\n")
+        elif drift['status'] == 'clean':
+            print(f"  Nothing. Every commit on origin/{drift['base']} has a "
+                  f"patch-equivalent on the branch.\n")
+        else:
+            n, shown = drift['total'], len(drift['commits'])
+            print(f"  {n} commit(s) on origin/{drift['base']} have no "
+                  f"patch-equivalent here, touching "
+                  f"{len(drift['files'])} file(s).")
+            print(f"  Carried work counts as landed: this is `git cherry`, "
+                  f"so a change rewritten into\n  this branch's own shape is "
+                  f"NOT listed.\n")
+            for c in drift['commits']:
+                head = f"      {c['sha']}  {c['date'] or '(no date)'}  {c['subject'] or ''}"
+                print(head.rstrip())
+                if c['files']:
+                    print(f"          {', '.join(c['files'][:6])}"
+                          + (f", +{len(c['files']) - 6} more"
+                             if len(c['files']) > 6 else ''))
+            if drift.get('truncated'):
+                print(f"      ... and {drift['truncated']} older commit(s) "
+                      f"not detailed (--json for the full list)")
+            print(f"\n  ASK, DO NOT IMPLEMENT. None of this is applied "
+                  f"automatically, by this tool or by\n  the session reading "
+                  f"it: put the list to the person, say for each row whether "
+                  f"it\n  belongs on this branch, and take only what they "
+                  f"say to take (practice: very-deep-check).")
+            print(f"  Some rows will be deliberately not-carried. A row "
+                  f"declined once is still listed the\n  next run -- this "
+                  f"scan has no memory of a decision; the run record is "
+                  f"where that lives.\n")
+        if drift['shallow']:
+            print(f"  CAVEAT: this clone is shallow, so the merge base may "
+                  f"not be the real one. Deepen\n  "
+                  f"(`git fetch --unshallow origin`) and re-run before "
+                  f"trusting an empty result.\n")
+        if led:
+            led.end(findings=(None if drift['status'] in
+                              ('cannot-tell', 'error') else drift['total']),
+                    extra_seconds=_drift_secs)
+    elif led:
+        led.skipped('BASE BRANCH DRIFT',
+                    '--skip-base-drift' if skip_base_drift
+                    else 'this checkout has no base branch separate from the '
+                         'branch it works on')
 
     # THE ENDGAME MERGE (practice: very-deep-check, pass 4). Printed with
     # the branch material because it is the same question one level up: the
