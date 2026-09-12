@@ -50,6 +50,13 @@ assume a session has:
   2026-09-06 and was reachable only from
   [`tools/verify_harness.py`](../tools/verify_harness.py), while three
   documents already told operators to run a flag that did not exist.
+  **This is also the route by which an EXISTING set gets a field the
+  skeleton gained after that set was built**, and `pronouns` (2026-09-12) is
+  the first: a migrated set holds no `pronouns` key at all rather than an
+  unfilled `{{PERSON_PRONOUNS}}`, so the placeholder sweep cannot see it and
+  `--verify` names the absent key directly. Its remedy is not a file edit
+  you can make alone — **ask the person whose set it is and write their
+  answer in** ([practices/declared-pronouns.md](../practices/declared-pronouns.md)).
 - **Installs the generated-views drift gate** —
   [`templates/github-actions/views-drift.yml.template`](../templates/github-actions/views-drift.yml.template)
   as the new set's `.github/workflows/views-drift.yml`, new 2026-09-11. A set
@@ -310,6 +317,16 @@ case documented above.
    installed its own hook and baked in the one individual set that exists
    here — correct for its owner, wrong for the second maintainer, and
    nothing was going to say so.)
+5d. **Fill in `identity.json`, and ask the person for every value it needs
+   rather than inferring one.** `name`, `email` and `timezone` a session can
+   often read off the account or the container; **`pronouns` it cannot, and
+   must not try to** — a name does not carry them
+   ([practices/declared-pronouns.md](../practices/declared-pronouns.md)).
+   Ask, in the same breath as the rest of the fill-in, and write the pair the
+   person gives you (`he/him`, `she/her`, `they/them`). An unfilled
+   `timezone` silently downgrades the commit-identity check to a guess; an
+   unfilled `pronouns` silently falls back to they/them for someone who may
+   have wanted otherwise and was never asked. `--verify` reports both.
 6. Fill in `leak-blocklist.txt` with the person's own private terms, then
    `export PRECEDENT_LEAK_BLOCKLIST=<path>` and
    `git config precedent.requireVocabulary true` in every shared project

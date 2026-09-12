@@ -524,6 +524,30 @@ def _malformed(level, path):
                                    f'to address, not just a name')
 
     if level == 'individual':
+        # A MIGRATED set does not hold a `{{PLACEHOLDER}}` for a field the
+        # skeleton gained after it was assembled -- it holds no key at all,
+        # which the placeholder sweep above cannot see. `pronouns` is the
+        # live case: every individual set created before 2026-09-12 predates
+        # the field, so an absent key is the normal state of an existing set
+        # and the only thing that will ever report it is a check that names
+        # the key. Report it, and say what to do about it: the value is the
+        # person's to give, so an install or a migration asks them for it
+        # rather than guessing one.
+        # practice: declared-pronouns
+        f = path / 'identity.json'
+        if f.is_file():
+            try:
+                data = json.loads(f.read_text(encoding='utf-8'))
+            except (OSError, json.JSONDecodeError) as e:
+                out.append(f'identity.json is not valid JSON -- {e}')
+            else:
+                if not (data.get('pronouns') or '').strip():
+                    out.append('identity.json declares no "pronouns" -- ask '
+                               'the person whose set this is and write their '
+                               'answer in (`he/him`, `she/her`, `they/them`); '
+                               'until then `declared-pronouns` falls back to '
+                               'they/them for them')
+
         f = path / 'config.json.sample'
         if f.is_file():
             try:

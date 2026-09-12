@@ -36,6 +36,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
+| pronouns | [declared-pronouns](practices/declared-pronouns.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
