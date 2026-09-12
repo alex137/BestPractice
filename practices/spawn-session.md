@@ -36,9 +36,16 @@ repository is the one this session cannot fix from the inside.
 owner's repositories is refused another owner's outright — `add_repo` answers
 *"cross-tier adds are not supported in v1"* — and the session's initial source
 itself counts as "already has repos", so no ordering of calls inside that
-session helps. Plan for the refusal; do not plan *on* it, because this
-repository's own gotchas record measurements that do not all agree. **Call it
-and read what it says, never a remembered result.**
+session helps. The full message names both sides, which is what makes it
+recognisable: *"cross-tier adds are not supported in v1: requested
+`<other>/<repo>` but session already has repos from owner(s) [`<this>`]"*.
+
+**Plan for the refusal; do not plan *on* it.** Upstream's own record has it
+refused three times, including as a session's very first tool call, alongside
+two sessions that held both owners at once — with no explanation fitting both
+([the gotchas section](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these), in full in
+[the archive](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS_ARCHIVE.md)). **Call it and read what it says, never a
+remembered result.**
 
 **Settle who merges before the work starts.** This is the half that bites
 late. A session that cannot attach across owners cannot gain push access
@@ -74,9 +81,9 @@ late.** A session learns it cannot reach a repository at the moment it tries
 to write there, which is after the reading, the reasoning and the context
 that would have made the work cheap — and none of that moves to the session
 that *can* write. Worse, some of it cannot be repaired mid-flight at all:
-this repository's own gotchas record `add_repo` refusing a cross-owner
-attach, so a session rooted under one owner may simply never reach the
-other's repositories for its whole life.
+`add_repo` has refused a cross-owner attach
+([recorded upstream](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these)), so a session rooted under one owner
+may simply never reach the other's repositories for its whole life.
 
 **What "create the session" means concretely, as of 2026-09-11.** Where the
 harness offers a session-creating tool — in Claude Code's cloud sessions
@@ -153,7 +160,8 @@ message — the standing behaviour and the phrase: *"You should do this always,
 whenever a new repo might be needed, but also have the explicit command for
 when you don't."*
 
-**The failures it is built on are all already in this repository's record.**
+**The failures it is built on are all already in upstream's own record**
+([its gotchas section](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these)).
 `add_repo` has refused a cross-owner attach repeatedly, including as a
 session's very first tool call, which is what forces work spanning two owners
 to be split across sessions at all. A session ran most of a working day here
