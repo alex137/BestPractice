@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a message carries the standing merge-authorization phrase"
 gates:       ["merge"]
-index_clause: "\"Go merge\" anywhere in the message: sync, name the branch, commit, push, PR, merge"
+index_clause: "\"Go merge\" anywhere in the message: sync, name branch, commit, push, PR, merge"
 checked_by:  null
 defines:     ["Go merge"]
 status:      active
