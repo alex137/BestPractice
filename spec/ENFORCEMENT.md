@@ -84,7 +84,7 @@ being checked by it.
 | `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix |
 | `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
-| `generated-edit-goes-upstream` | tree | every `do not hand-edit` header also names a Source -- where the file's content actually comes from -- and every path that Source names exists |
+| `generated-edit-goes-upstream` | tree | every `do not hand-edit` header also names a Source -- where the file's content actually comes from -- and every path an unqualified `Source:` names exists here. A `Source (in <place>):` names somewhere this repo is not, so its paths are reported COULD NOT VERIFY rather than resolved |
 | `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named in GETTING_STARTED.md's administrator section -- the document a dependent repo's own people read -- or in a repo's own root GITHUB_ACTIONS.md |
 | `heading-outline` | change | a changed document never jumps a heading level -- no heading is more than one level deeper than the one before it |
 | `headline-capitalization` | change | a changed outward-facing document has every heading in New York Times headline capitalization |
@@ -125,7 +125,7 @@ Every graceful-failure path here ends in `SKIPPED` with a reason, and the
 summary line says so in those words:
 
 ```
-precedent_check: N passed, 0 violated, 0 advisory, 0 errored, M skipped (a skip is not a pass; advisory findings do not fail the run).
+precedent_check: N passed, 0 violated, 0 advisory, 0 errored, M skipped, 0 exempted, K could not be verified (a skip is not a pass, and neither is a could-not-verify; advisory findings do not fail the run; an exemption is this repo declaring the rule does not bind it, with a reason, in precedent.json).
 ```
 
 (0 violated is what matters here — the passed/skipped counts grow as
@@ -143,7 +143,16 @@ specific, dated, documented incident, currently only
 `parallel-artifact-ledger` (see its own comment in
 [tools/precedent_check.py](../tools/precedent_check.py) and
 [TODO.md](../TODO.md)'s tracking item). An advisory finding still prints
-in full; it just doesn't fail the run.)
+in full; it just doesn't fail the run. `could not be verified`, added
+2026-09-12, is the only one of these that is not a whole-check status:
+a check that PASSED can still have looked at something it could not
+resolve, and the two are reported side by side. It exists because a
+check's subject can live outside the repository it runs in — a generated
+file mirrored in from the repo that builds it names a source no clone
+here contains, and calling that a violation blames a correct header while
+calling it a pass claims a verification that never happened. It prints
+per item, every run, under `COULD NOT VERIFY`, and does not fail the run;
+`--strict` fails on it, alongside a skipped check.)
 
 This is not fastidiousness. Three of the four inherited scripts were failing
 in one of the two ways a check can fail without failing. Two exited non-zero

@@ -4512,6 +4512,7 @@ def check_precedent_check_fires():
             if setup:
                 setup(clean)
             rc2, out2 = run(clean, slug, *extra)
+            planted[slug + '-clean'] = (rc2, out2)
             cases.append((f'{slug}: the same tree unplanted does not',
                           rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2))
 
@@ -4575,6 +4576,38 @@ def check_precedent_check_fires():
              'Source: spec/LOADER.md -- the loader spec.'),
         )
 
+        # A MIRRORED artifact: built in another repo, copied in here, so its
+        # source is a path this repo does not have and never will. Three
+        # wordings were tried from a consuming repo on 2026-09-12 and all
+        # three were refused -- no clause, the source's own in-repo paths
+        # (reported as a Source that had MOVED), and a URL (reported as
+        # naming no path). This is the fourth.
+        #
+        # Its own category, NOT a member of _SOURCE_OK above, and the
+        # distinction is the whole design: those two are correct AND fully
+        # resolvable here, so the check says nothing about them at all. This
+        # one is correct and NOT resolvable here, so the check has to say so
+        # -- reported, and not as a violation. Filing it with the silent ones
+        # asserted exactly the silence this change exists to prevent.
+        _SOURCE_MIRRORED = (
+            ('fixture-qualified-source.md',
+             'Source (in the Voice pack): voice/, examples/ and prompt/ -- '
+             'built there and mirrored here.'),
+        )
+
+        # The shapes a qualified Source must NOT let through. Each is a way
+        # of saying "somewhere else" that leaves the reader with nothing to
+        # open, which is the failure the whole clause exists to prevent --
+        # and the escape hatch the parenthetical would otherwise be.
+        _SOURCE_BAD = (
+            ('fixture-bare-url-source.md',
+             'Source: https://example.invalid/acct/Pack -- built there.'),
+            ('fixture-empty-place-source.md',
+             'Source (): voice/ -- mirrored here.'),
+            ('fixture-placeless-source.md',
+             'Source (in the Voice pack): the pack itself -- mirrored here.'),
+        )
+
         def _plant_generated_source(repo):
             m = repo / 'MAP.md'
             head, rest = m.read_text(encoding='utf-8').split('\n', 1)
@@ -4585,7 +4618,7 @@ def check_precedent_check_fires():
                          .replace('Source: practices/ --',
                                   'Source: catalogue/entries/ --', 1),
                          encoding='utf-8')
-            for rel, clause in _SOURCE_OK:
+            for rel, clause in _SOURCE_BAD + _SOURCE_OK + _SOURCE_MIRRORED:
                 # Assembled rather than written literally, for the reason the
                 # leak-gate fixture above is: spelled out, the marker makes
                 # THIS file match `_DONT_EDIT_RE`, and since the header here
@@ -4623,6 +4656,53 @@ def check_precedent_check_fires():
                       'truncated at its file extension',
                       '`spec/LOADER`' not in _ges))
 
+        # The mirrored case, both halves. It must not be a violation -- the
+        # header is right and nobody holding the mirror can act on a finding
+        # about it -- and it must not be silent either, which is the state a
+        # plain exemption for mirrored files would have produced.
+        cases.append(('generated-edit-goes-upstream: a Source qualified by '
+                      'the place it lives in is not reported as a violation',
+                      'fixture-qualified-source.md' not in
+                      _ges.split('COULD NOT VERIFY')[0]))
+        cases.append(('generated-edit-goes-upstream: ...and is reported as '
+                      'COULD NOT VERIFY rather than passing silently',
+                      'COULD NOT VERIFY' in _ges and
+                      'fixture-qualified-source.md' in
+                      _ges.split('COULD NOT VERIFY', 1)[1]))
+        # Every token, not just the ones that fail to resolve. `examples/` is
+        # a real directory in this repo and in plenty of others, so resolving
+        # the tokens that happen to exist locally let a coincidence render
+        # identically to a verification (practice: fail-gracefully, clause 1).
+        cases.append(('generated-edit-goes-upstream: a qualified Source does '
+                      'not silently verify a token against a same-named '
+                      'local directory',
+                      '`examples/` under `Source (in the Voice pack):`'
+                      in _ges))
+        # A could-not-verify is not a violation, so it must not turn the run
+        # red on its own -- and `--strict` is where a caller says otherwise.
+        _rc_uv, _out_uv = planted['generated-edit-goes-upstream-clean']
+        cases.append(('generated-edit-goes-upstream: the unplanted tree has '
+                      'nothing it could not verify, so the case above is '
+                      'about the planted header and not about this repo',
+                      _rc_uv == 0 and 'COULD NOT VERIFY' not in _out_uv))
+
+        # The three ways of saying "somewhere else" that still leave a reader
+        # with nothing to open. Named one at a time: the parenthetical is free
+        # text, and a check that accepted any of these would have turned it
+        # into a way of switching the rule off.
+        cases.append(('generated-edit-goes-upstream: an unqualified `Source:` '
+                      'naming a URL is told which form it wanted, not that it '
+                      'named no path',
+                      'naming a URL' in _ges and
+                      'Source (in <place>): <path>' in _ges))
+        cases.append(('generated-edit-goes-upstream: an empty parenthetical '
+                      'names no place and is refused',
+                      'has a `Source ():` clause with nothing in the '
+                      'parentheses' in _ges))
+        cases.append(('generated-edit-goes-upstream: a place with no address '
+                      'inside it is refused',
+                      'and then no address within it' in _ges))
+
         # And the terminator itself, per fault, so a regression is reported as
         # the regex being wrong rather than as a fixture file the check could
         # not read.
@@ -4637,7 +4717,7 @@ def check_precedent_check_fires():
             _m = _pcsrc._SOURCE_CLAUSE_RE.search(_clause)
             cases.append((f'generated-edit-goes-upstream: {_shape} survives '
                           f'the Source-clause terminator whole',
-                          _m is not None and _m.group(1) == _want))
+                          _m is not None and _m.group('clause') == _want))
         # ...and the terminator still has to STOP. Widening it is what makes
         # the clause swallow the comment's prose, and every path-shaped word
         # in that prose is then checked as if the header had named it.
@@ -4646,7 +4726,27 @@ def check_precedent_check_fires():
         cases.append(('generated-edit-goes-upstream: the Source clause still '
                       'stops at the prose dash instead of swallowing the rest '
                       'of the comment',
-                      _m is not None and _m.group(1) == 'practices/'))
+                      _m is not None and _m.group('clause') == 'practices/'))
+        # The parenthetical is optional, and adding it must not have changed
+        # what an UNQUALIFIED clause means -- a regression here reads as every
+        # correct header in every repo suddenly naming a place.
+        _m = _pcsrc._SOURCE_CLAUSE_RE.search('Source: practices/ -- x')
+        cases.append(('generated-edit-goes-upstream: an unqualified Source '
+                      'still parses as having no place',
+                      _m is not None and _m.group('place') is None))
+        # A URL's own slashes are path-shaped. Read without stripping it
+        # first, one URL becomes several imaginary directories, and the
+        # message names paths nobody wrote -- the 2026-09-11 failure mode
+        # exactly, one layer along.
+        _c = 'Source (in the pack): https://example.invalid/a/b -- x'
+        _m = _pcsrc._SOURCE_CLAUSE_RE.search(_c)
+        _cl = _m.group('clause') if _m else ''
+        cases.append(('generated-edit-goes-upstream: a URL in the clause is '
+                      'read as one address, not as several paths',
+                      _pcsrc._SOURCE_URL_RE.findall(_cl) == [
+                          'https://example.invalid/a/b'] and
+                      _pcsrc._SOURCE_PATH_RE.findall(
+                          _pcsrc._SOURCE_URL_RE.sub(' ', _cl)) == []))
 
         # practice-links-travel -- all three shapes at once, in one existing
         # practice file: a relative link into a directory that does not
