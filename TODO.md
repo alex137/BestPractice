@@ -3951,6 +3951,48 @@ which is the failure this repointing exists to end — write
     **Blocked on / out of scope:** Morgan's decision, explicitly deferred.
     **Disposition:** wait (2026-09-12 — deferred by him; nobody has set it
     to `ask`)
+71. <a id="universal-adapters-undeclared"></a>**Decide whether THIS repository
+    declares its own harness adapters.** Since 2026-09-12 a practice source
+    can declare its `bootstrap/*.sh` in its own `precedent.json` and have
+    [tools/precedent_materialize.py](tools/precedent_materialize.py) install
+    them into every consuming repo on each sync — see
+    [spec/SOURCES.md](spec/SOURCES.md)'s "Harness adapters travel with the
+    source". The universal source, this repository, declares none: the six
+    templates under
+    [templates/harness/claude-code/hooks/](templates/harness/claude-code/hooks/)
+    are still installed by hand. Switching them on would start writing into
+    every consuming repo's `.claude/hooks/` — including repos that installed
+    an older copy deliberately, and every one of them needs its
+    `.claude/settings.json` wiring to match, which does not travel and cannot.
+    The mechanism landing is not the same decision as pointing it at every
+    install.
+    **Blocked on / out of scope:** a deliberate call about a behavioural
+    change to every consuming repo, which the session that built the
+    mechanism should not make by convenience on the way past.
+    **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
+    it to `ask`)
+72. <a id="source-sets-declare-adapters"></a>**Have the private source sets
+    declare their harness adapters.** Each of the four attached sets ships
+    `bootstrap/*.sh` that its own practices tell a consuming repo to copy into
+    `.claude/hooks/` by hand — the individual set's `freshness-guard.sh`,
+    `commit-identity.sh` and `session-start.sh` most of all, which are the
+    scripts whose silent staleness this mechanism was built for. Declaring
+    them is a three-line `adapters` block in each set's own `precedent.json`
+    (see [spec/SOURCES.md](spec/SOURCES.md)'s "Harness adapters travel with the
+    source"). This is the
+    [cross-source-rollout](practices/cross-source-rollout.md) half of the
+    change, deliberately not taken in the session that built the mechanism.
+    **Blocked on / out of scope:** two things, in order. Each set's vendored
+    engine has to carry the new
+    [tools/precedent_materialize.py](tools/precedent_materialize.py) before a
+    declaration does anything at all — all four were behind
+    `precedent-beta-v01` at the time of writing, and their own refresh is what
+    moves them. And then it is the same deliberate call as
+    [`universal-adapters-undeclared`](TODO.md#universal-adapters-undeclared):
+    the first sync after a declaration starts writing into consuming repos
+    that may hold an older copy on purpose.
+    **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
+    it to `ask`)
 
 - **What to call Morgan in prose, when it is not what git records.**
   Raised 2026-09-12, in the thread that landed

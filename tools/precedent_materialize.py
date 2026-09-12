@@ -13,11 +13,16 @@ each winning practice's file into one local practices/-shaped directory,
 then points build_views.py/precedent_paths.py/precedent_gate.py/
 precedent_check.py at that directory unchanged."
 
-THIS TOOL DOES THE CONTENT HALF ONLY: it writes the resolved practices/
-tree plus each source's own tools/checks/ (a checked_by claim has nothing
-behind it if only practices/ is copied — engine-plus-host-shims: the engine
-travels with what it enforces). It does NOT vendor the engine scripts
-themselves (build_views.py, precedent_paths.py, etc.) — that half is
+THIS TOOL WRITES WHAT A SOURCE PUBLISHES, NOT THE ENGINE: the resolved
+practices/ tree, each source's own tools/checks/ (a checked_by claim has
+nothing behind it if only practices/ is copied — engine-plus-host-shims: the
+engine travels with what it enforces), and since 2026-09-12 each source's
+declared HARNESS ADAPTERS — the `bootstrap/*.sh` scripts its own practices
+tell every consuming repo to wire into `.claude/hooks/`, which until then
+travelled by hand-copy and so went silently stale (see the "Harness adapters"
+section below for the two measured incidents and for what deliberately does
+NOT travel). It does NOT vendor the engine scripts themselves
+(build_views.py, precedent_paths.py, etc.) — that half is
 already a solved, existing concern (INSTALL.md's vendoring model, or
 cloning/copying this repo's tools/ into a consumer repo), unrelated to the
 content-merging gap this tool closes.
@@ -36,7 +41,8 @@ claim one slug" refusal is the same discipline applied here.
 Usage:
   precedent_materialize.py --out DIR [--repo REPO] [--user-config PATH]
 Exit: 0 on a clean materialization, 1 on a resolve conflict, an over-budget
-resident set, or a checks/ filename collision.
+resident set, a checks/ filename collision, or a harness adapter declaration
+that is malformed or collides on its destination.
 """
 import datetime
 import hashlib
@@ -466,6 +472,220 @@ def _plan_checks(sources, res=None):
     return plan
 
 
+# --------------------------------------------------------------------------
+# Harness adapters
+# --------------------------------------------------------------------------
+#
+# practice: engine-plus-host-shims -- the engine travels with what it
+# enforces, and a harness adapter is the host shim half of exactly that.
+# practice: registry-source-of-truth -- the declaration lives in the ONE
+# machine-readable registry a source already has, and drift() is the audit
+# that detects the disagreement.
+# practice: checkable-gets-checked -- "the settings wiring does not travel"
+# is a refusal below, not a paragraph anyone has to remember.
+#
+# A practice source publishes three kinds of thing, and until 2026-09-12 only
+# two of them travelled mechanically: the engine, by
+# precedent_vendor_engine.py with a sha256 per file, so a hand-edit is refused
+# as drift; and practices plus their checks, by this tool. The third is the
+# HARNESS ADAPTERS a source's own practices tell every consuming repo to
+# install -- `bootstrap/freshness-guard.sh` copied into
+# `.claude/hooks/freshness-guard.sh`, and the same for the commit-identity and
+# session-start hooks. Those travelled by somebody remembering, per each
+# practice's own Install section. So a repo carrying a copy went silently
+# behind the moment the source's script changed: nothing announced the change,
+# and nothing could report which repos were stale.
+#
+# Twice in two days, measured rather than imagined. A consuming repo's check
+# produced two findings against its freshness guard; both had already been
+# fixed in the source set, so they were true statements about that repo's own
+# stale copy and were briefed as open defects in the source, and a session
+# spent its first hour disproving them. Separately, the same repo's
+# `commit-identity.sh` sat about five kilobytes behind its source -- a hundred
+# lines present canonically and absent there, no local adaptation, just old --
+# with its own check passing, because every check it had was reading the stale
+# copy.
+#
+# WHY THIS TOOL. The argument is the one already in this file's docstring, one
+# step further out: a checked_by claim has nothing behind it if only
+# practices/ is copied. An adapter is the same shape. `fresh-before-write`'s
+# Rule IS an adapter -- "every project I work in gets both halves of
+# bootstrap/freshness-guard.sh wired into its own .claude/settings.json" -- and
+# a materialized practices/fresh-before-write.md sitting beside a months-old
+# .claude/hooks/freshness-guard.sh is exactly the failure that sentence already
+# rejects for checks. This tool is also the only one that runs on every
+# consumer's sync, already resolves the sources, and already writes the
+# MANIFEST.json that makes a derived file a declared artifact rather than an
+# untracked hand-copy that a consumer's own orphan detection reads as
+# hand-dropped. A sibling tool would have had to duplicate all three.
+#
+# WHAT DOES NOT TRAVEL, AND IS REFUSED RATHER THAN DOCUMENTED: the settings
+# wiring. A source's `bootstrap/*.snippet.json` carries `main` as the base
+# branch and each consuming repo substitutes its own, so the install step
+# stays "copy the script; merge the snippet by hand, replacing the base
+# branch". Copying a consumer's `.claude/settings.json` would silently repoint
+# its base branch -- the one inference the freshness guard refuses to make for
+# itself, since a wrong base branch is how a guard reports everything fine
+# about a checkout cut from a stale base. A declared destination whose
+# basename is settings.json or settings.local.json is refused below, because a
+# rule that only the prose enforces is a rule somebody eventually types past
+# (checkable-gets-checked).
+#
+# HOW A SOURCE DECLARES THEM -- in its own precedent.json, which is the
+# registry it already has (registry-source-of-truth: state lives in ONE
+# machine-readable registry). A second bootstrap/ADAPTERS.json would be a
+# second place to look and a second format to keep in step, for a list that is
+# three lines long:
+#
+#   "adapters": [
+#     {"from": "bootstrap/freshness-guard.sh",
+#      "to":   ".claude/hooks/freshness-guard.sh"}
+#   ]
+#
+# A CONSUMER THAT EDITED ITS COPY is overwritten, deliberately, and told. The
+# adaptation point for an adapter is the settings wiring, which does not
+# travel; the script itself is a derived artifact like every other file this
+# tool writes, and a consumer holding a private edit of it is the state this
+# whole mechanism exists to end. What is NOT acceptable is doing that
+# silently, so the first replacement of content this tree never recorded as
+# materialized -- a hand-copy being adopted, or a local edit being reverted --
+# prints a notice naming the file, while an ordinary update from a source that
+# moved stays quiet. Afterwards the manifest hash makes a later hand-edit a
+# drift() finding, which is the audit half the same change would otherwise
+# still be owed.
+ADAPTER_DECL_KEY = 'adapters'
+# Refused as an adapter destination: see "WHAT DOES NOT TRAVEL" above.
+_RESERVED_ADAPTER_BASENAMES = ('settings.json', 'settings.local.json')
+# Refused for the plainer reason that another mechanism owns the file and
+# would overwrite it right back, or has already deleted it this run.
+_RESERVED_ADAPTER_PATHS = ('MANIFEST.json', 'AGENTS.md', 'precedent.json')
+
+
+def _adapter_dest(to, cfg, i):
+    """-> the validated destination as a relative POSIX string, or raises.
+
+    Every refusal here is about a path that would reach outside what a source
+    may write in a consumer, or into a file some other mechanism owns."""
+    def bad(why):
+        return MaterializeError(
+            f"{cfg}: adapters[{i}]'s \"to\" ({to!r}) {why}. An adapter "
+            f"destination is a relative path inside the consuming repo, "
+            f"naming the file the source's own Install step would have had "
+            f"someone copy by hand.")
+    if not to or to != to.strip():
+        raise bad('is empty or carries surrounding whitespace')
+    p = pathlib.PurePosixPath(to)
+    if to.startswith('/') or p.is_absolute():
+        raise bad('is an absolute path')
+    if '..' in p.parts:
+        raise bad('walks above the consuming repo with ".."')
+    if p.name in _RESERVED_ADAPTER_BASENAMES:
+        raise bad("is the harness settings file, which deliberately does not "
+                  "travel -- each consuming repo substitutes its own base "
+                  "branch there, and copying it would silently repoint that")
+    norm = p.as_posix()
+    if norm in _RESERVED_ADAPTER_PATHS:
+        raise bad('is a file this tool or build_views.py writes itself')
+    if norm.startswith(_MANAGED_DIRS):
+        raise bad('lands in a directory materialize() deletes and rewrites on '
+                  'every run, so the file would not survive its own sync')
+    return norm
+
+
+def _plan_adapters(sources):
+    """Read every source's declared harness adapters INTO MEMORY, refusing a
+    destination collision across sources rather than letting the last one
+    silently win. Returns a write plan (dest, source_name, bytes, executable)
+    and touches nothing -- same contract as _plan_checks, and for the same
+    reason materialize() spells out: reading has to finish before anything is
+    deleted or written.
+
+    A declared adapter whose file is not in the source tree WARNS and is
+    skipped rather than raising. The file is in another repository, and the
+    ordinary cause is a stale source clone -- refusing there would break
+    every consumer's sync over a state a `git pull` in a directory the
+    consumer does not own would fix. A malformed DECLARATION does raise: that
+    is somebody's edit to a config file, made just now, and the whole point
+    of the refusal is that they hear about it before a consumer does."""
+    owner_of = {}
+    plan, missing = [], []
+    for s in sources:
+        root = pathlib.Path(s['path'])
+        cfg = root / 'precedent.json'
+        if not cfg.is_file():
+            continue
+        try:
+            data = json.loads(cfg.read_text(encoding='utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise MaterializeError(
+                f"{cfg} is not readable JSON ({e}), so this run cannot tell "
+                f"whether the source {s['name']!r} publishes harness adapters "
+                f"or not. Fix that file in that source before syncing.")
+        if not isinstance(data, dict):
+            raise MaterializeError(f"{cfg} is not a JSON object.")
+        decl = data.get(ADAPTER_DECL_KEY)
+        if decl is None:
+            continue
+        if not isinstance(decl, list):
+            raise MaterializeError(
+                f"{cfg}: \"{ADAPTER_DECL_KEY}\" must be a list of "
+                f"{{\"from\": ..., \"to\": ...}} objects.")
+        for i, entry in enumerate(decl):
+            if (not isinstance(entry, dict)
+                    or not isinstance(entry.get('from'), str)
+                    or not isinstance(entry.get('to'), str)):
+                raise MaterializeError(
+                    f"{cfg}: adapters[{i}] must be an object with a string "
+                    f"\"from\" (the file in this source) and a string "
+                    f"\"to\" (where it is installed in a consuming repo).")
+            dest = _adapter_dest(entry['to'], cfg, i)
+            src_file = root / entry['from']
+            try:
+                src_file.resolve().relative_to(root.resolve())
+            except ValueError:
+                raise MaterializeError(
+                    f"{cfg}: adapters[{i}]'s \"from\" ({entry['from']!r}) "
+                    f"resolves outside the source tree at {root} -- a source "
+                    f"publishes its own files.")
+            prior = owner_of.get(dest)
+            if prior is not None:
+                raise MaterializeError(
+                    f"{dest} is declared as a harness adapter destination by "
+                    f"both {prior!r} and {s['name']!r} -- a destination "
+                    f"collision. Pick one, or change one of their declared "
+                    f"\"to\" paths before materializing.")
+            owner_of[dest] = s['name']
+            if not src_file.is_file():
+                missing.append(f'{entry["from"]} -> {dest} ({s["name"]})')
+                continue
+            plan.append((dest, s['name'], src_file.read_bytes(),
+                         os.access(src_file, os.X_OK)))
+    if missing:
+        print("precedent_materialize: declared harness adapter(s) whose file "
+              "is not in the source tree, NOT installed -- the source names a "
+              "file it does not ship, or its clone here is stale: "
+              + ', '.join(missing), file=sys.stderr)
+    return plan
+
+
+def _prior_adapter_hashes(out_dir):
+    """{destination: sha256_16} from the manifest this tree ALREADY carries --
+    what the last sync says it installed, which is what separates an ordinary
+    update from replacing something nobody recorded. An unreadable or absent
+    manifest answers `{}`, which errs toward printing the notice."""
+    mf = pathlib.Path(out_dir) / 'MANIFEST.json'
+    if not mf.is_file():
+        return {}
+    try:
+        data = json.loads(mf.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {a['path']: a.get('sha256_16') for a in data.get('adapters', [])
+            if isinstance(a, dict) and isinstance(a.get('path'), str)}
+
+
 def materialize(sources, res, out_dir, dry_run=False, withheld=None):
     """Reads every resolved practice file and every source's check/test
     file INTO MEMORY before deleting or writing anything in out_dir.
@@ -514,6 +734,7 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
     practice_plan = {slug: (practice, pathlib.Path(practice['file']).read_bytes())
                       for slug, practice in res['practices'].items()}
     checks_plan = _plan_checks(sources, res)   # raises MaterializeError before any write
+    adapters_plan = _plan_adapters(sources)    # same -- reads, never writes
 
     if not dry_run:
         if practices_dir.exists():
@@ -557,6 +778,57 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
                                 'source': source_name,
                                 'sha256_16': hashlib.sha256(data).hexdigest()[:16]})
 
+    # Adapters are written FILE BY FILE, never by emptying their directory
+    # first the way practices/ and tools/checks/ are. `.claude/hooks/` is not
+    # this tool's to own: a consuming repo's own hooks live there beside the
+    # ones a source publishes, and a repo can install more than one harness
+    # adapter family side by side (templates/harness/README.md). Deleting the
+    # directory would take a consumer's own work with it.
+    adapters_written = []
+    prior_adapters = _prior_adapter_hashes(out_dir)
+    adopted = []
+    for dest_rel, source_name, data, executable in adapters_plan:
+        dest = out_dir / dest_rel
+        want = hashlib.sha256(data).hexdigest()[:16]
+        if dest.is_file():
+            have = hashlib.sha256(dest.read_bytes()).hexdigest()[:16]
+            if have != want and prior_adapters.get(dest_rel) != have:
+                adopted.append(f'{dest_rel} ({source_name})')
+        if not dry_run:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+            # The executable bit is content here: a hook that is not
+            # executable is a hook the harness silently never runs, which is
+            # the failure this repo's own declared-hooks-exist check exists
+            # for. Set explicitly in both directions so the result does not
+            # depend on the umask of whoever ran the sync.
+            os.chmod(dest, 0o755 if executable else 0o644)
+        adapters_written.append({'path': dest_rel, 'source': source_name,
+                                  'sha256_16': want, 'executable': executable})
+    # An adapter this tree installed and no source declares any more is
+    # REPORTED, never deleted. The equivalent sweep for practices/ and
+    # tools/checks/ can delete, because materialize() owns those directories
+    # outright; `.claude/hooks/` it does not, and by the time a declaration
+    # goes away the file may have been wired into a settings.json this tool
+    # deliberately never reads. Reporting is also all the prior manifest can
+    # honestly support: it says this tree installed the file, not that
+    # nothing else has come to depend on it (decommission-deletes-files wants
+    # an audit before a delete, and that audit is not this tool's to run).
+    stale_adapters = sorted(set(prior_adapters) -
+                            {a['path'] for a in adapters_written})
+    if stale_adapters and not dry_run:
+        print("precedent_materialize: harness adapter(s) this tree installed "
+              "that no declared source publishes any more -- left in place, "
+              "not deleted. Remove each by hand once you have checked nothing "
+              "still wires it: " + ', '.join(stale_adapters), file=sys.stderr)
+
+    if adopted and not dry_run:
+        print("precedent_materialize: harness adapter(s) whose previous "
+              "content this tree had not recorded as materialized were "
+              "REPLACED -- a hand-copy being adopted, or a local edit being "
+              "reverted. `git diff` shows exactly what went, before you "
+              "commit: " + ', '.join(adopted), file=sys.stderr)
+
     rstats = pr.resident_stats(res)
     if rstats['over_budget']:
         raise MaterializeError(
@@ -566,14 +838,15 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
             f"resident practice in one of the sources first.")
 
     manifest = _build_manifest(sources, written, checks_written, rstats,
-                               withheld=withheld)
+                               adapters_written, withheld=withheld)
     if not dry_run:
         (out_dir / 'MANIFEST.json').write_text(
             json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-    return written, checks_written, rstats
+    return written, checks_written, adapters_written, rstats
 
 
-def _build_manifest(sources, written, checks_written, rstats, withheld=None):
+def _build_manifest(sources, written, checks_written, rstats,
+                    adapters_written=(), withheld=None):
     """`withheld` names the slugs a PUBLIC repo's visibility keeps out of this
     tree -- recorded because "absent" and "never existed" look identical on
     disk, and several checks turn that difference into a finding.
@@ -597,6 +870,7 @@ def _build_manifest(sources, written, checks_written, rstats, withheld=None):
         'resident': rstats,
         'practices': written,
         'checks': checks_written,
+        'adapters': list(adapters_written),
         'withheld': sorted(withheld or []),
     }
 
@@ -635,9 +909,8 @@ def drift(sources, res, out_dir, withheld=None):
     every run -- so --check could never come back clean in the one kind of
     repo the exclusion exists for. Caught the day the exclusion landed."""
     out_dir = pathlib.Path(out_dir)
-    written, checks_written, rstats = materialize(sources, res, out_dir,
-                                                  withheld=withheld,
-                                                  dry_run=True)
+    written, checks_written, adapters_written, rstats = materialize(
+        sources, res, out_dir, withheld=withheld, dry_run=True)
     found = []
 
     def _compare(rel_dir, planned, label):
@@ -662,11 +935,36 @@ def drift(sources, res, out_dir, withheld=None):
     for rel_dir, planned in sorted(planned_checks.items()):
         _compare(rel_dir, planned, 'check script')
 
+    # Adapters get the content comparison but NOT _compare's sweep for files
+    # the plan does not name: that sweep says "a sync would delete it", which
+    # is true of practices/ and tools/checks/ and false of `.claude/hooks/`,
+    # where a consumer's own hooks legitimately sit beside a source's. See
+    # materialize() for why that directory is written file by file.
+    for a in adapters_written:
+        dest = out_dir / a['path']
+        if not dest.is_file():
+            found.append(f"{a['path']} is missing -- a fresh sync installs it "
+                          f"(harness adapter, {a['source']})")
+        elif hashlib.sha256(dest.read_bytes()).hexdigest()[:16] != a['sha256_16']:
+            found.append(f"{a['path']} differs from what a fresh sync installs "
+                          f"(harness adapter, {a['source']})")
+        elif os.access(dest, os.X_OK) != a['executable']:
+            want = 'executable' if a['executable'] else 'not executable'
+            found.append(f"{a['path']} is {'not ' if a['executable'] else ''}"
+                          f"executable and a fresh sync installs it {want} "
+                          f"(harness adapter, {a['source']})")
+
+    for path in sorted(set(_prior_adapter_hashes(out_dir)) -
+                       {a['path'] for a in adapters_written}):
+        found.append(f"{path} was installed as a harness adapter and no "
+                      f"declared source publishes it any more -- a sync "
+                      f"leaves it in place and reports it")
+
     # generated_at_utc is a timestamp, not state -- comparing it would make
     # every run report drift against itself.
     mf = out_dir / 'MANIFEST.json'
     want = _build_manifest(sources, written, checks_written, rstats,
-                           withheld=withheld)
+                           adapters_written, withheld=withheld)
     if not mf.is_file():
         found.append('MANIFEST.json is missing -- a fresh sync writes it')
     else:
@@ -729,12 +1027,14 @@ def main():
               file=sys.stderr)
 
     try:
-        written, checks_written, rstats = materialize(sources, res, pathlib.Path(out))
+        written, checks_written, adapters_written, rstats = materialize(
+            sources, res, pathlib.Path(out))
     except MaterializeError as e:
         sys.exit(f"precedent_materialize FAIL: {e}")
 
-    print(f"materialized {len(written)} practice(s) and {len(checks_written)} "
-          f"check script(s)/test(s) from {len(sources)} source(s) into {out}")
+    print(f"materialized {len(written)} practice(s), {len(checks_written)} "
+          f"check script(s)/test(s) and {len(adapters_written)} harness "
+          f"adapter(s) from {len(sources)} source(s) into {out}")
     print(f"resident block: ~{rstats['tokens']} of {rstats['budget']} token budget")
     print(f"manifest: {pathlib.Path(out) / 'MANIFEST.json'}")
     return 0
