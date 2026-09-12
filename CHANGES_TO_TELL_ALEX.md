@@ -43,9 +43,9 @@ Before the list: **how much of this catalogue enforces itself.**
 <!--gen:merge-back-->
 | | |
 |---|---|
-| Practices in force | 101 |
-| **Enforced by a check** | **46 of 101 practices carry a `checked_by`** |
-| Advisory only | 55 of 101 practices |
+| Practices in force | 103 |
+| **Enforced by a check** | **46 of 103 practices carry a `checked_by`** |
+| Advisory only | 57 of 103 practices |
 <!--/gen:merge-back-->
 
 **Advisory means a session is told the rule and may still not follow it**, and

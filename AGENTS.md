@@ -221,7 +221,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 103 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 105 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -365,6 +365,8 @@ When committing anything that touches the vendored/public tree:
   scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
+When creating a session, or deciding when to compact one:
+  session-spend-follows-the-task — pick the model from the task; compact at a task boundary, never at a size
 When creating, migrating, closing or superseding a document under spec/ or record/:
   document-status-header — kind and status in frontmatter; a reader must not have to infer either
 When deciding where a new rule belongs:
@@ -423,6 +425,8 @@ When setting up a new repo's session start:
   session-bootstrap — setup lives in a session-start hook, not in memory
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
+When starting work another session may already have done, or opening a pull request:
+  branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
