@@ -6512,6 +6512,186 @@ def check_source_sets_can_learn_they_are_stale():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+# The engine files precedent_vendor_engine.py vendors into a SOURCE set.
+# Named here so the fixture below is a faithful source set rather than a
+# hand-picked subset that happens to import.
+_SOURCE_KIND_ENGINE_FILES = (
+    'build_codeowners.py', 'build_views.py', 'glossary_terms.json',
+    'precedent_check.py', 'precedent_decommission.py', 'precedent_gate.py',
+    'precedent_identity.py', 'precedent_migrate_status.py',
+    'precedent_paths.py', 'precedent_show.py',
+    'precedent_source_credentials.py', 'precedent_time.py',
+    'precedent_vendor_engine.py', 'routing_scope.json', 'split_practices.py',
+)
+
+
+def check_publisher_bound_checks_run_in_a_source_set():
+    """A check about published practice content must fire in the repo that
+    PUBLISHES it, and must still skip in a repo that merely consumes it.
+
+    precedent_check.py gates every practice-backed check on
+    `practices/<slug>.md` being present, which is right for a consumer -- a
+    finding whose Rule the reader cannot print is one nobody can act on. A
+    practice SOURCE set is the case that gate got wrong: its practices/
+    holds its own practices only, it resolves no sources and materializes
+    nothing into itself, so every other level's check skipped there
+    permanently. Measured 2026-09-12 in a team source: 12 passed, 42
+    SKIPPED, all 42 that one cause.
+
+    It had already cost something. A practice file in that set shipped a
+    relative link to `tools/checks/tests/run_all.sh`, which materialization
+    deliberately does not copy -- live in the publishing set, dead in every
+    repository that received the catalogue. `practice-links-travel` is
+    exactly the rule that catches it, and it was one of the 42. A CONSUMING
+    repo found it, a sync late.
+
+    `binds_publishers=True` on the registration is the fix. These cases
+    assert it in both directions against a real fixture, planting that same
+    link, so that a regression here fails rather than going quiet -- and
+    they assert the MESSAGE, not merely a non-zero exit
+    (practice: control-asserts-which-failure).
+    """
+    import tempfile
+    cases = []
+
+    src = ROOT / 'tools' / 'precedent_check.py'
+    # 1. The flags are still set. Three checks earned this the hard way, each
+    #    with its own incident in a comment beside it; dropping one silently
+    #    puts the publishing repos back to unchecked.
+    text = src.read_text(encoding='utf-8')
+    for slug in ('practice-links-travel', 'catalogue-carries-stories',
+                 'generated-artifact-provenance'):
+        i = text.find(f"@check('{slug}'")
+        nxt = text.find('@check(', i + 1) if i >= 0 else -1
+        body = text[i:nxt] if i >= 0 and nxt > i else (text[i:] if i >= 0 else '')
+        cases.append((f'{slug} is still registered binds_publishers=True',
+                      'binds_publishers=True' in body, ''))
+
+    # 2. THIS repo is not a publisher by this test and so is unaffected. It
+    #    has no vendored-engine manifest at all -- it is the origin -- and a
+    #    behaviour change here would be a change nobody asked for.
+    r = subprocess.run([sys.executable, '-c',
+                        'import sys; sys.path.insert(0, "tools"); '
+                        'import precedent_check as pc; '
+                        'print(pc._publishes_practices())'],
+                       cwd=ROOT, capture_output=True, text=True)
+    cases.append(('this repo does not read as a publisher (it is the origin, '
+                  'and carries every practice file anyway)',
+                  r.stdout.strip() == 'False', r.stdout.strip() + r.stderr[-200:]))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='publisher-bound-'))
+    try:
+        # A fixture that OWNS its state: its own git repo, its own declared
+        # kind, its own practices/ tree. Nothing here is inherited from the
+        # container or from any real source set on disk
+        # (practice: fixture-owns-its-state).
+        fx = tmp / 'set'
+        (fx / 'tools').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        # The whole source-kind engine, not just the checker: the check under
+        # test asks precedent_vendor_engine what travels, and a fixture
+        # missing that module makes it report NotApplicable -- which reads as
+        # a SKIPPED and would have been misread here as the gate still
+        # blocking it. Found building this control.
+        for name in _SOURCE_KIND_ENGINE_FILES:
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        shutil.copy(src, fx / 'tools' / 'precedent_check.py')
+        (fx / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main'}), encoding='utf-8')
+        # The link that really shipped broken, in a practice this fixture owns.
+        (fx / 'practices' / 'fixture-rule.md').write_text(
+            '---\n'
+            'slug:        fixture-rule\n'
+            'title:       A fixture practice this set publishes\n'
+            'tier:        on-demand\n'
+            'severity:    default\n'
+            'applies_to:  ["practices/*.md"]\n'
+            'occasion:    "the fixture runs"\n'
+            'gates:       []\n'
+            'index_clause: "the fixture runs"\n'
+            'checked_by:  null\n'
+            'defines:     []\n'
+            'status:      active\n'
+            'supersedes:  []\n'
+            'overrides:   null\n'
+            'added:       2026-09-12\n'
+            'approved_by: "fixture"\n'
+            '---\n'
+            '## Rule\nThe fixture practice says nothing in particular.\n\n'
+            '## Story\nWritten for this control; no incident is claimed.\n',
+            encoding='utf-8')
+
+        def run_in_fixture(kind):
+            (fx / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': kind,
+                'source_repo': 'https://github.com/example/upstream',
+                'source_branch': 'main',
+                'files': ['precedent_check.py'],
+            }), encoding='utf-8')
+            env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', '--only',
+                 'practice-links-travel'],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+
+        # Clean first: a publisher whose links all travel must PASS, so a
+        # green result here is not just the check failing to find the file.
+        (fx / 'practices' / 'fixture-rule.md').write_text(
+            (fx / 'practices' / 'fixture-rule.md').read_text(encoding='utf-8')
+            + '\nA sibling link that does travel: [fixture-rule](fixture-rule.md).\n',
+            encoding='utf-8')
+        ok = run_in_fixture('source')
+        cases.append(('a publisher with only travelling links PASSES (so the '
+                      'firing case below is the planted link, not a no-op)',
+                      'VIOLATION' not in ok.stdout and ok.returncode == 0,
+                      ok.stdout[-300:] + ok.stderr[-200:]))
+
+        # Now plant the shape that shipped: a relative link out of practices/
+        # to a file materialization does not copy.
+        (fx / 'practices' / 'fixture-rule.md').write_text(
+            (fx / 'practices' / 'fixture-rule.md').read_text(encoding='utf-8')
+            + '\nA driver link that does not: '
+              '[`run_all.sh`](../tools/checks/tests/run_all.sh).\n',
+            encoding='utf-8')
+
+        pub = run_in_fixture('source')
+        cases.append(('a PUBLISHER runs the check and fails on the planted link',
+                      pub.returncode != 0 and 'VIOLATION' in pub.stdout,
+                      f'rc={pub.returncode} ' + pub.stdout[-300:]))
+        cases.append(('the finding names the file that does not travel',
+                      'run_all.sh' in pub.stdout and 'does not travel' in pub.stdout,
+                      pub.stdout[-300:]))
+        # The Rule cannot be printed here, so it must say where the Rule IS.
+        # Printing "(no practice file for ...)" instead would be the whole
+        # design of the module -- the failure message is the rule -- quietly
+        # failing at the one moment it is load-bearing.
+        cases.append(('and says where the Rule lives, since this repo cannot '
+                      'print it',
+                      'practices/practice-links-travel.md' in pub.stdout
+                      and 'no practice file for' not in pub.stdout,
+                      pub.stdout[-400:]))
+
+        con = run_in_fixture('consumer')
+        cases.append(('a CONSUMER still skips it, planted link and all',
+                      con.returncode == 0 and 'SKIPPED' in con.stdout,
+                      f'rc={con.returncode} ' + con.stdout[-300:]))
+        cases.append(('and says why it skipped, naming the absent practice file',
+                      'not in force here' in con.stdout, con.stdout[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a check about published practices binds the publisher and still '
+          f'skips a consumer ({len(cases)} stated cases, each asserting the '
+          f'printed text)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_gate_channel():
     """The gate channel, as stated cases against the real registry.
 
@@ -17997,6 +18177,7 @@ def main():
     check_routing_scope(files)
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
+    check_publisher_bound_checks_run_in_a_source_set()
     check_gate_channel()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
