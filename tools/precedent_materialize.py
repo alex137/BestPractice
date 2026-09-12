@@ -305,6 +305,11 @@ def _git_toplevel(start):
 # source this repo does not carry", so the reason is given in prose instead.
 RUN_ALL_NAME = 'run_all.sh'
 GENERATED_SOURCE = '(generated)'
+# What a source's OWN run_all.sh must carry to show its author knows this tool
+# replaces it. Checked, never written: this tool has no business editing a
+# source's tree, and a marker inserted for an author would prove nothing about
+# whether anyone understood the replacement. See _plan_checks' docstring.
+LOCAL_DRIVER_MARKER = 'LOCAL DRIVER -- not shipped to consumers'
 RUN_ALL_SCRIPT = """#!/bin/bash
 # GENERATED FILE -- do not hand-edit. Written by tools/precedent_materialize.py
 # on every sync; any edit here is overwritten without warning.
@@ -352,7 +357,31 @@ def _plan_checks(sources, res=None):
     real run of this tool, both private sets carry one) is a per-repo test
     DRIVER, not a per-check test a `checked_by` claim could ever name --
     merging it would be a false collision over a file nothing actually
-    needs merged. Skipped explicitly and reported, never silently.
+    needs merged. It is not REPORTED as a skip, though, because it is
+    not dropped -- it is REPLACED by the generated driver below. A routine
+    line saying a source's copy "was not vendored", printed on every sync
+    for every source that ships one, forever, stated the true half and
+    invited a false second half: "so this repo has no driver." Two written
+    records ended up contradicting each other on that plain fact, and
+    settling it took a cross-repo investigation against this file. The
+    line also named no action anyone could take, since the skip is correct
+    and permanent. Provenance is recorded where a reader can consult it
+    instead -- the generated file's own `GENERATED FILE -- do not
+    hand-edit` header, and its `(generated)` entry in MANIFEST.json -- so
+    silence about the driver now correctly means nothing was dropped, and
+    the "not a per-check file, not vendored" line keeps its honest
+    meaning: those files really were dropped, and really are gone.
+
+    What IS reported about the driver is actionable, and goes silent once
+    acted on: a source whose own run_all.sh does not DECLARE itself local
+    -- by carrying LOCAL_DRIVER_MARKER somewhere in the file -- gets a
+    stderr warning naming that source and the line to add. Here is the
+    right home for that check because this function reads every source's
+    driver on every sync, so one place covers every source of every
+    consumer, present and future; a per-source check script would reach
+    only its own set. It warns rather than raising: a MaterializeError
+    here would break every consumer's sync the moment the engine was
+    upgraded, over a defect in a comment.
 
     The driver is GENERATED instead, at the end of this function. Skipping
     the sources' copies is right; leaving the consumer without one was not.
@@ -372,7 +401,7 @@ def _plan_checks(sources, res=None):
     source. That is also why the collision disappears: a generated file is
     claimed by nobody, so there is no winner to pick."""
     owner_of = {}   # 'rel_label/filename' -> source name that already claimed it
-    plan, skipped, orphaned = [], [], []
+    plan, skipped, orphaned, undeclared = [], [], [], []
     claimed_names = None
     if res is not None:
         claimed_names = set()
@@ -408,7 +437,13 @@ def _plan_checks(sources, res=None):
         src_tests = src_checks / 'tests'
         if src_tests.is_dir():
             for f in sorted(src_tests.glob('*.sh')):
-                if not f.name.startswith('test_'):
+                if f.name == RUN_ALL_NAME:
+                    # Replaced, not dropped -- so not a `skipped` entry. The
+                    # generated driver is appended to the plan below.
+                    if LOCAL_DRIVER_MARKER not in f.read_bytes().decode(
+                            'utf-8', 'replace'):
+                        undeclared.append(f'{s["name"]} ({f})')
+                elif not f.name.startswith('test_'):
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
                 elif claimed_names is not None and f.name not in claimed_names:
                     orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
@@ -420,6 +455,12 @@ def _plan_checks(sources, res=None):
     if orphaned:
         print(f"precedent_materialize: no practice in force here claims these, "
               f"not vendored: " + ', '.join(orphaned), file=sys.stderr)
+    if undeclared:
+        print(f"precedent_materialize: replaced here by the generated "
+              f"driver, and the source's own tools/checks/tests/"
+              f"{RUN_ALL_NAME} does not say so -- add a header line "
+              f"containing \"{LOCAL_DRIVER_MARKER}\" to each of: "
+              + ', '.join(undeclared), file=sys.stderr)
     plan.append(('checks/tests', RUN_ALL_NAME, GENERATED_SOURCE,
                  RUN_ALL_SCRIPT.encode('utf-8')))
     return plan
