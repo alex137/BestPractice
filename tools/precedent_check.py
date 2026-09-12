@@ -174,6 +174,29 @@ class Finding:
         return f'{self.where}: {self.detail}' if self.where else self.detail
 
 
+class Unverified(Finding):
+    """Something a check LOOKED AT and could not resolve -- not a violation,
+    and emphatically not a pass.
+
+    A check answers a question about this repository, and some of what it is
+    pointed at lives outside it: a generated file mirrored in from the repo
+    that builds it names a source no clone here contains. Reporting that as a
+    violation blames a header that is correct, and reporting it as a pass
+    claims a verification that never happened -- the two failures the
+    2026-09-12 report of generated-edit-goes-upstream caught between them,
+    one per attempted wording.
+
+    Printed as COULD NOT VERIFY, by file, on every run, and counted
+    separately in the summary. It does not fail the run: nobody in the repo
+    holding the mirror can act on it, and a finding nobody can act on is how
+    a gate becomes wallpaper (practice: checkable-gets-checked). `--strict`
+    does fail on it, alongside a skipped check, for a caller that has decided
+    could-not-verify is not good enough here.
+
+    practice: fail-gracefully -- clause 1, "never let a degraded result look
+    complete"."""
+
+
 CHECKS = {}
 
 
@@ -1075,8 +1098,47 @@ _DONT_EDIT_RE = re.compile(r'<!--(?:(?!-->).)*?do not hand-edit(?:(?!-->).)*?-->
 #   end of text  a clause with no terminator at all captures to the end rather
 #                than failing to match, because "no `Source:` clause" is the
 #                one message that must mean what it says.
+#
+# WHAT THE CLAUSE MAY NAME is the second question, and it was got wrong for
+# a different reason (found 2026-09-12, from a consuming repo, on a file
+# MIRRORED in from the repo that builds it). The grammar assumed the source
+# is a path in the repo the header is sitting in. For a mirrored artifact
+# that is never true, and the three wordings tried were wrong three
+# different ways: no clause at all (correctly refused); the source's own
+# in-repo paths, which do not exist in the mirror, so the check reported
+# them as a Source that had MOVED -- by the practice's own reasoning a worse
+# state than none; and a URL to the building repo, which reads correctly to
+# a human and matches no path, so it was refused as naming nothing.
+#
+# So the clause takes an optional parenthetical naming the PLACE the source
+# lives in, and that is the whole grammar addition:
+#
+#   Source: practices/                  -- in this repo. Every path must exist.
+#   Source (in the Voice pack): voice/  -- somewhere else. Not resolvable here.
+#
+# The parenthetical is free text on purpose. Demanding a fixed phrase would
+# reproduce the exact failure PR #246 fixed -- a near-miss reported as "no
+# clause", sending a reader to hunt for something sitting in front of them --
+# and the author is the one who knows what to call the place. What the check
+# takes from it is one bit: this repository is not where the answer is.
+#
+# WHY NOT JUST ACCEPT A URL, which is the obvious move. Because the repo that
+# builds a mirrored artifact is often PRIVATE, and both private-repo-scrub and
+# precedent_materialize.py's _rewrite_links already refuse to mint a URL
+# naming a private repo into content that ships -- "a relative link that does
+# not resolve is a smaller failure than a disclosure that cannot be taken
+# back". A check that made a URL the only way to comply would be pulling
+# against that rule from the other side. The parenthetical takes a URL where
+# naming it is fine and a plain label where it is not, so the leak gate stays
+# the only thing deciding which -- this check never has an opinion about it.
 _SOURCE_CLAUSE_RE = re.compile(
-    r'\bSource:\s*(.+?)\s*(?:-->|(?<=\s)--|—|\.(?=\s|$)|$)', re.S)
+    r'\bSource(?:\s*\((?P<place>[^)]*)\))?\s*:\s*(?P<clause>.+?)\s*'
+    r'(?:-->|(?<=\s)--|—|\.(?=\s|$)|$)', re.S)
+# A URL is an address, never a path in this repo -- told apart so that a bare
+# `Source:` naming one gets a message about the form it should have used,
+# rather than the "naming no path at all" it drew before 2026-09-12, which is
+# true and useless.
+_SOURCE_URL_RE = re.compile(r'\b(?:https?|git|ssh)://\S+')
 # A path-shaped token inside the Source clause: something with a slash or a
 # known extension. Prose around it ("every resolved source's practice files")
 # is deliberately not parsed -- naming a directory is a legitimate Source, and
@@ -1117,15 +1179,20 @@ def _generated_header_files():
 
 @check('generated-edit-goes-upstream', 'tree',
        'every `do not hand-edit` header also names a Source -- where the '
-       "file's content actually comes from -- and every path that Source "
-       'names exists',
+       "file's content actually comes from -- and every path an unqualified "
+       '`Source:` names exists here. A `Source (in <place>):` names somewhere '
+       'this repo is not, so its paths are reported COULD NOT VERIFY rather '
+       'than resolved',
        'whether the Source named is the RIGHT one, and whether a request to '
        'change a generated file was actually routed there. No check can read '
        'the conversation a request arrived in, which is why the routing half '
        'of this practice is written as a rule and not as a gate. It is also '
        'blind to whether the file is currently in sync with that source -- '
        'that is generated-artifact-provenance, which asserts a fresh '
-       'regeneration changes nothing.')
+       'regeneration changes nothing -- and, for a qualified Source, to '
+       'everything except that an address was given: it cannot open the '
+       'place named, so it cannot tell a live path there from one that moved '
+       'a year ago, and says so per file instead of implying either.')
 def _generated_edit_goes_upstream(ctx):
     out = []
     files = _generated_header_files()
@@ -1141,22 +1208,77 @@ def _generated_edit_goes_upstream(ctx):
                                     'their edit will be destroyed without '
                                     'telling them where to put the change '
                                     'instead, which is the header that '
-                                    'produces the hand edit'))
+                                    'produces the hand edit. `Source: <path>` '
+                                    'for a source in this repo, `Source (in '
+                                    '<place>): <path>` for one that is not'))
             continue
-        clause = m.group(1)
-        named = _SOURCE_PATH_RE.findall(clause)
-        if not named:
-            out.append(Finding(rel, f'has a `Source:` clause naming no path at '
-                                    f'all ({clause.strip()!r}) -- a reader '
-                                    f'cannot open a description'))
+        place = m.group('place')
+        clause = m.group('clause')
+        urls = _SOURCE_URL_RE.findall(clause)
+        # A URL's own slashes are path-shaped to _SOURCE_PATH_RE, so they come
+        # out of the clause before the paths are read. Without this a single
+        # URL reads as several imaginary directories.
+        named = _SOURCE_PATH_RE.findall(_SOURCE_URL_RE.sub(' ', clause))
+        if place is None:
+            if urls:
+                out.append(Finding(rel, f'has a `Source:` clause naming a URL '
+                                        f'({urls[0]}) -- an unqualified '
+                                        f'`Source:` names a path in THIS '
+                                        f'repo, which a URL is not. If the '
+                                        f'source is built somewhere else and '
+                                        f'mirrored here, say where: `Source '
+                                        f'(in <place>): <path>`'))
+                continue
+            if not named:
+                out.append(Finding(rel, f'has a `Source:` clause naming no '
+                                        f'path at all ({clause.strip()!r}) -- '
+                                        f'a reader cannot open a description'))
+                continue
+            for token in named:
+                if not (ROOT / token.rstrip('/')).exists():
+                    out.append(Finding(rel, f'names `{token}` as its Source '
+                                            f'and that path does not exist -- '
+                                            f'a Source that has moved reads '
+                                            f'as an answer, which is worse '
+                                            f'than none. If it never was in '
+                                            f'this repo, name the place it '
+                                            f'is in: `Source (in <place>): '
+                                            f'{token}`'))
             continue
-        for token in named:
-            target = ROOT / token.rstrip('/')
-            if not target.exists():
-                out.append(Finding(rel, f'names `{token}` as its Source and '
-                                        f'that path does not exist -- a '
-                                        f'Source that has moved reads as an '
-                                        f'answer, which is worse than none'))
+        # Qualified: the source is in `place`, which this repo is not.
+        place = place.strip()
+        if not place:
+            out.append(Finding(rel, 'has a `Source ():` clause with nothing '
+                                    'in the parentheses -- the parenthetical '
+                                    'is there to name the place the source '
+                                    'lives in, and an empty one names nothing'))
+            continue
+        if not named and not urls:
+            out.append(Finding(rel, f'names the place its source lives in '
+                                    f'({place!r}) and then no address within '
+                                    f'it ({clause.strip()!r}) -- a reader who '
+                                    f'gets to that repo still has nothing to '
+                                    f'open. Name the path there, or the URL'))
+            continue
+        # EVERY token, including one that happens to resolve here. Resolving
+        # the ones that do was the first cut and it is wrong: `examples/` is a
+        # directory in half these repos, so a mirror carrying
+        # `Source (in the Voice pack): voice/, examples/, prompt/` had two
+        # paths reported and the third silently verified against a local
+        # directory that is not the one the header means. A coincidence
+        # rendering identically to a verification is the one thing
+        # fail-gracefully does not let a check do, and the cost of the strict
+        # rule is small and paid in the right place: the repo that BUILDS the
+        # file, if its generator writes the qualified form into its own tree
+        # as well as into the mirrors, gets one could-not-verify line at
+        # home. Emitting the unqualified `Source:` locally is that
+        # generator's to do, and it is the accurate header there anyway.
+        for token in named + urls:
+            out.append(Unverified(rel, f'names `{token}` under `Source '
+                                       f'({place}):` -- a place this '
+                                       f'repository is not, so the routing is '
+                                       f'there for a reader and nothing here '
+                                       f'can confirm the path is still live'))
     return out
 
 
@@ -4597,7 +4719,7 @@ def run(slugs, ctx, scopes, exempt=None):
         # and would still be reading a verdict this repo has said is not
         # about it. See load_exemptions() for the whole story.
         if slug in exempt:
-            results.append((slug, 'EXEMPT', [], exempt[slug]))
+            results.append((slug, 'EXEMPT', [], exempt[slug], []))
             continue
         # A check whose practice is not in force here has nothing to
         # enforce. This file is vendored verbatim into consuming repos
@@ -4614,14 +4736,22 @@ def run(slugs, ctx, scopes, exempt=None):
             results.append((slug, 'SKIPPED', [],
                             f'no practices/{slug}.md in this repo, so the '
                             f'practice is not in force here -- this check '
-                            f'belongs to a source this repo does not resolve'))
+                            f'belongs to a source this repo does not resolve',
+                            []))
             continue
         try:
-            findings = c['fn'](ctx) or []
+            returned = c['fn'](ctx) or []
+            # Partitioned here rather than by each check, so a check reports
+            # what it could not resolve by returning an Unverified in the
+            # same list and nothing else changes. A PASS means the findings
+            # list is empty -- an Unverified is not a finding, and must not
+            # make the check red.
+            unverified = [f for f in returned if isinstance(f, Unverified)]
+            findings = [f for f in returned if not isinstance(f, Unverified)]
             results.append((slug, 'VIOLATION' if findings else 'PASS',
-                            findings, None))
+                            findings, None, unverified))
         except NotApplicable as e:
-            results.append((slug, 'SKIPPED', [], str(e)))
+            results.append((slug, 'SKIPPED', [], str(e), []))
         except Exception as e:
             # A check's own bug (a malformed config it didn't validate, an
             # unhandled edge case) must not take the other checks down with
@@ -4637,7 +4767,7 @@ def run(slugs, ctx, scopes, exempt=None):
             # found no evidence either way) or SKIPPED (that means the
             # check legitimately does not apply here, not that it broke).
             results.append((slug, 'ERROR', [],
-                            f'{type(e).__name__}: {e}'))
+                            f'{type(e).__name__}: {e}', []))
     return results
 
 
@@ -4691,6 +4821,9 @@ def main():
     errored = [r for r in results if r[1] == 'ERROR']
     passed = [r for r in results if r[1] == 'PASS']
     exempted = [r for r in results if r[1] == 'EXEMPT']
+    # Orthogonal to the status above -- a check that PASSED can still have
+    # looked at something it could not resolve, and that is the common case.
+    unverified = [r for r in results if r[4]]
 
     # advisory=True (see check()'s own docstring) is a per-check, incident-
     # justified exception, not a general severity dial -- as of 2026-09-05
@@ -4700,7 +4833,7 @@ def main():
     violated = [r for r in all_violated if not CHECKS[r[0]].get('advisory')]
     advisory = [r for r in all_violated if CHECKS[r[0]].get('advisory')]
 
-    for slug, _st, findings, _why in violated:
+    for slug, _st, findings, _why, _uv in violated:
         print(f'\nVIOLATION  {slug}')
         for f in findings:
             print(f'    {f}')
@@ -4708,7 +4841,7 @@ def main():
         for line in rule_of(slug).splitlines():
             print(f'    {line}')
 
-    for slug, _st, findings, _why in advisory:
+    for slug, _st, findings, _why, _uv in advisory:
         print(f'\nADVISORY   {slug} — findings below do not fail this run '
               f'(see this check\'s own registration for why)')
         for f in findings:
@@ -4717,16 +4850,26 @@ def main():
         for line in rule_of(slug).splitlines():
             print(f'    {line}')
 
-    for slug, _st, _f, why in errored:
+    for slug, _st, _f, why, _uv in errored:
         print(f'\nERROR      {slug} — the check itself failed to run: {why}')
 
-    for slug, _st, _f, why in skipped:
+    for slug, _st, _f, why, _uv in skipped:
         print(f'SKIPPED    {slug} — {why}')
+
+    # Every run, whether the check passed or not: this is the half of the
+    # answer that is missing, and a run that prints it only on failure lets
+    # a green summary stand for a verification that did not happen
+    # (practice: fail-gracefully, clause 1).
+    for slug, _st, _f, _why, uv in unverified:
+        print(f'\nCOULD NOT VERIFY  {slug} — checked, and this much could not '
+              f'be resolved from this repository:')
+        for f in uv:
+            print(f'    {f}')
 
     # Named, with the recorded reason, every run. An exemption that leaves
     # no trace in the output is how a rule gets switched off and forgotten,
     # which is worse than the problem this fixed.
-    for slug, _st, _f, why in exempted:
+    for slug, _st, _f, why, _uv in exempted:
         print(f'EXEMPT     {slug} — declared not-binding in this repo\'s '
               f'precedent.json: {why}')
     for slug, why in sorted(refused_exemptions.items()):
@@ -4737,15 +4880,19 @@ def main():
     if ctx.scope_reason and any(CHECKS[s]['scope'] == 'change' for s in slugs):
         print(f'note: {ctx.scope_reason}')
 
+    n_uv = sum(len(r[4]) for r in unverified)
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
           f'{len(advisory)} advisory, {len(errored)} errored, {len(skipped)} '
-          f'skipped, {len(exempted)} exempted (a skip is not a pass; advisory '
-          f'findings do not fail the run; an exemption is this repo declaring '
-          f'the rule does not bind it, with a reason, in precedent.json).')
+          f'skipped, {len(exempted)} exempted, {n_uv} could not be verified '
+          f'(a skip is not a pass, and neither is a could-not-verify; '
+          f'advisory findings do not fail the run; an exemption is this repo '
+          f'declaring the rule does not bind it, with a reason, in '
+          f'precedent.json).')
     if violated or errored:
         return 1
-    if skipped and '--strict' in flags:
-        print('--strict: a check that could not run is a failure here.')
+    if (skipped or unverified) and '--strict' in flags:
+        print('--strict: a check that could not run, and a thing a check '
+              'could not resolve, are both failures here.')
         return 1
     return 0
 

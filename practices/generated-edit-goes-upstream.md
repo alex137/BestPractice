@@ -137,6 +137,42 @@ the gate. The consuming repo left its clause in place on the grounds that it
 was correct and a human could read it, which was the right call: nothing on
 that side needed editing.
 
+**Then the same consuming repo came back, 2026-09-12, with the case the
+grammar could not express at all: a file built in one repo and MIRRORED into
+another.** Its source is not a path in the repo the header sits in, and never
+will be. Three wordings were tried on the same two files and all three were
+refused, each differently:
+
+| What the header said | What the check said |
+|---|---|
+| No `Source:` clause | *"carries a `do not hand-edit` header with no `Source:` clause"* — correct |
+| The building repo's own paths, `voice/` and two more | *"names `voice/` as its Source and that path does not exist"* |
+| A URL to the building repo | *"has a `Source:` clause naming no path at all"* |
+
+**The middle row is the one that decided the design.** By this practice's own
+reasoning a `Source:` that has moved is *worse* than none — it reads as an
+answer — so the honest attempt to comply produced a state the rule itself
+calls worse than the one it started in. And the third row is a header a human
+reads correctly: the reader knows exactly where to go, and the check says it
+names nothing.
+
+**Naming the repo in a URL was the obvious fix and it pulls against a rule
+already in force.** `private-repo-scrub` and
+[tools/precedent_materialize.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_materialize.py)'s
+`_rewrite_links` both refuse to mint a URL naming a private repository into
+content that ships — *"a relative link that does not resolve is a smaller
+failure than a disclosure that cannot be taken back"* — and the building repo
+in this instance is private. A check whose only route to compliance was a URL
+would have been pushing authors straight at that refusal. **So the clause
+names a PLACE instead, in free text the author chooses**: a repository where
+naming it is fine, a plain label where it is not. The leak gate stays the one
+thing deciding which, and this check has no opinion at all.
+
+**What was ruled out, and why it is worth recording:** exempting mirrored
+files from the header requirement. It is the shortest fix and it removes the
+routing from the file that most needs it — a reader holding a mirror is
+further from the source than anyone, not closer.
+
 ## Install
 `python3 tools/precedent_check.py --only generated-edit-goes-upstream`
 enforces the half of this rule a machine can see: **every file carrying a
@@ -145,6 +181,38 @@ comment, and every path that clause names exists.** A header that says only
 which script rebuilds the file tells a session how to destroy its edit, not
 where to put it; a `Source:` naming a path that has since moved is worse,
 because it reads as an answer.
+
+**Two forms, and the difference is whether this repository is where the
+answer is:**
+
+| Form | Means | What the check does |
+|---|---|---|
+| `Source: <path>` | The source is in this repo | Every path named must exist. A path that has moved is a violation |
+| `Source (<place>): <path>` | The source is in `<place>`, which this repo is not | Nothing is resolved. Every address named is reported `COULD NOT VERIFY`, by file, on every run |
+
+**The parenthetical is free text on purpose** — `(in the Voice pack)`,
+`(in acme/toolkit)`, a URL, whatever names the place to the person reading.
+Demanding a fixed phrase would rebuild the trap the row above this one
+describes: a near-miss reported as *"no clause"*, sending a reader to hunt for
+something sitting in front of them. What the check takes from it is one bit —
+*not here* — plus the requirement that an address follow it, because a reader
+who reaches the right repo and has no path is no better off.
+
+**A qualified `Source:` resolves nothing, including a path that happens to
+exist here.** `examples/` is a directory in half these repos; verifying the
+tokens that resolve locally made a coincidence render identically to a
+verification, which is the one thing
+[fail-gracefully](fail-gracefully.md)'s first clause does not allow. The cost
+lands where it should: a repo that BUILDS a mirrored file and emits the
+qualified header into its own tree too gets one could-not-verify line at
+home, and the fix is for its generator to emit the plain `Source:` locally —
+the accurate header there anyway.
+
+**`COULD NOT VERIFY` is its own outcome**, printed per file every run,
+counted separately in the summary, and it does not fail the run: nobody
+holding a mirror can act on it, and a finding nobody can act on is how a gate
+becomes wallpaper ([checkable-gets-checked](checkable-gets-checked.md)).
+`--strict` fails on it, for a caller that has decided otherwise.
 
 **Where the clause ends, since the check has to decide somehow:** it runs from
 `Source:` to the first of ` -- ` (this project's prose dash, spaced), an em
