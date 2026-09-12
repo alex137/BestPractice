@@ -93,10 +93,19 @@ moved twice underneath it.
 **Reported from a team practice source the same day, and not verified
 here** — that repository is private and this session could not reach it. A
 session read another session's status summary saying *"no branch, task
-moot"*, wrote the same change, pushed it, and opened a pull request. Only
-then did it find the other session's merge, twenty minutes old. The
-duplicate was closed unmerged. The summary was not wrong when it was
+moot"*, wrote the same change, ran the gates, pushed it, and opened a pull
+request. Only then did it find the other session's merge, twenty minutes old.
+The duplicate was closed unmerged. The summary was not wrong when it was
 written; it was written before the merge it failed to mention.
+
+**The merge was not even the summarising session's.** A third session, spawned
+by one of the first two, had landed it — and a spawned session is invisible to
+the sibling it was spawned beside, which cannot list it, message it, or read
+what it did ([spawn-session](spawn-session.md)'s return path is the same fact
+from the other end: a spawned session reports back through its repository or
+not at all). So the summary was not merely stale. **It was written by a session
+that had no way to know**, which is why the remedy cannot be a better summary
+or a more careful reader of one, and has to be a read of the branch.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so every
