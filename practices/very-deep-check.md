@@ -54,13 +54,19 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   different components and when you run it, I want you to track the
   results of each part and compare at the end to ... find any aspects of
   the very deep check that weren't useful\"; extended 2026-09-12, Morgan F
-  (strength: decided), so a run against a repo whose work is pinned to an
-  integration branch also reads the BASE branch for changes the branch has
-  never taken, and puts them to the person rather than applying them --
-  \"it should check main to see if there were any changes that we should
-  update our version with so they don't get too out of sync; but those
-  changes, don't implement automatically, but ask the session user if they
-  want to implement them\""
+  (strength: decided), with the live-session sweep -- \"do a sweep of live
+  sessions against the repo to see if there's anything recent being
+  missed\" -- and with the branch sweep widened to every author and to work
+  that landed on the base branch rather than the integration branch --
+  \"find stale branches, even if worked on by someone else or in a
+  different branch\"; extended again 2026-09-12, Morgan F (strength:
+  decided), so a run against a repo whose work is pinned to an integration
+  branch also reads the BASE branch for changes the branch has never taken,
+  and puts them to the person rather than applying them -- \"it should
+  check main to see if there were any changes that we should update our
+  version with so they don't get too out of sync; but those changes, don't
+  implement automatically, but ask the session user if they want to
+  implement them\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -236,20 +242,32 @@ cannot tell a drift this run introduced from one that was there before. So:
    that skips this rediscovers it from scratch, writes it up as a finding,
    and files it as open — three costs, all avoidable by reading one list
    first.
-5. **Ask for a real consumer repository, before starting pass 1.** Pass 1's
+5. **Read the live-session sweep, before any pass begins**, for the same
+   reason as step 4 and one step further out. The tool's LIVE SESSIONS
+   section prints the repo half — what was pushed in the window, by whom,
+   and what is sitting uncommitted in each clone. The other half is not
+   mechanical and the section is not read until you have fetched it: ask
+   the harness for this account's own sessions (its session-listing tool,
+   then the per-session one for anything recent or still running) and hold
+   each against those rows. **A session still RUNNING against a repo in
+   force is the finding that changes what this run does next** — what you
+   fix here it may overwrite, and what it is mid-way through reads here as
+   half-done work — so it is worth knowing before the passes rather than
+   during them. The rest of the reading is pass 4's.
+6. **Ask for a real consumer repository, before starting pass 1.** Pass 1's
    highest-yield item needs one attached, and attaching is the person's act,
    not the session's — so the ask goes here, at the top, where an unanswered
    question still leaves time to work around it. Asked at the end it is not
    a question, it is a postponement. One sentence: name what it is for
    (updating its vendored tree to current and running its own gates), and
    carry on with everything else while it is outstanding.
-6. **Then the passes, 1 through 4**, each ending with the suite from step 2
+7. **Then the passes, 1 through 4**, each ending with the suite from step 2
    re-run — the fixes a pass makes break links of their own. Whenever a
    pass turns up a gap, check it against step 4's inventory **before**
    writing it up: if a branch already fixes it, the finding is "this is
    written and unlanded", which is a different problem with a different
    remedy.
-7. **Record each pass as you finish it, and read the component ledger
+8. **Record each pass as you finish it, and read the component ledger
    last.** `--record-pass '<pass>=<status>,findings=N,tokens=N,note=…'`
    puts the expensive half's outcome and cost beside the tool's own
    sections; the cross-run read printed at the end of every run is then
@@ -716,15 +734,37 @@ Last because none of it strands an adopter, and none of it is cheap.
   branch-cleanup method an individual practice set may already define (one
   real individual set names this in its own `next-steps-after-commit`
   practice; the repo is private, so this names the practice rather than
-  linking a page most readers cannot open): identify by who opened or drove
-  the PR — the invoking person's own GitHub login, never someone else's
-  branch — skip the repo's default branch and its protected integration
-  branch, and report each remaining one with a direct link to its most
-  recent PR's page, which is the one-click **Delete branch** control GitHub
-  already shows there. A personal practice may decline to do this
-  retroactive sweep on its own ("a separate, one-off task, done only when
-  asked for directly") — a very deep check is exactly that direct ask, so
-  this is the one place the sweep is a standing step.
+  linking a page most readers cannot open): skip the repo's default branch
+  and its protected integration branch, and report each remaining one with
+  a direct link to its most recent PR's page, which is the one-click
+  **Delete branch** control GitHub already shows there. A personal practice
+  may decline to do this retroactive sweep on its own ("a separate, one-off
+  task, done only when asked for directly") — a very deep check is exactly
+  that direct ask, so this is the one place the sweep is a standing step.
+
+  **Every branch, whoever wrote it**, and the author named on every row.
+  The sweep used to be scoped to the invoking person's own GitHub login,
+  on the sound reasoning that you do not delete somebody else's branch.
+  That kept the deletion safe and made the list wrong: **the branches that
+  accumulate longest are exactly the ones nobody in the room opened**, so
+  the sweep reported a short clean list while the branch page grew every
+  month (Morgan, 2026-09-12: *"find stale branches, even if worked on by
+  someone else"*). Listing is not deleting — someone else's branch gets a
+  verdict routed to them by name, never a silent skip and never a deletion
+  on their behalf.
+
+  *Merged into the base branch, not the integration branch* — the third
+  list, and the one a single-target sweep turns into permanent noise. A
+  repo pinned to an integration branch has **two** branches work can land
+  on, and a branch merged into the base one and never into the integration
+  one is finished work whose commits are simply not in this line of
+  development. Tested against the integration branch alone it reports as
+  *carrying unlanded commits*, with a verdict demanding somebody merge or
+  close it, forever — and since nothing about it will ever change, those
+  false rows accumulate until the list stops being read and the genuinely
+  unlanded branch beside them goes unread too. Same ancestor test, other
+  branch: equally safe to delete, and the row says which branch already
+  carries it.
 
   **Every row carries the date it last moved, and the list is split at a
   declared staleness threshold** — `branch_stale_days` in the repo's own
@@ -783,6 +823,39 @@ Last because none of it strands an adopter, and none of it is cheap.
 
   Where a recommendation cannot be made honestly, say which of the four
   is missing and what would settle it.
+
+- **Live sessions against the repo — what ran, and what it left behind.**
+  The inventory was read at step 5 of the order of operations, to know what
+  is running now. What is left here is the verdict half: **a session that
+  ran inside the window and left no commit, no branch and no open PR.** Its
+  conclusion exists only in a chat thread, which
+  [repo-is-memory](repo-is-memory.md) says is already lost — so recover what
+  it decided and commit it, or record that there was nothing to keep.
+  Neither answer is automatic, and "it probably wrote nothing" is not one of
+  them.
+
+  Read it in both directions. A commit or a branch in the window that
+  matches no session anybody can account for is the same question from the
+  other side, and it is asked **before** that branch gets a verdict above.
+  Uncommitted work in any clone in force is the same loss one step earlier:
+  a fresh container takes it with it.
+
+  **The tool can only do the repo half, and says so rather than implying
+  coverage it does not have.** Which sessions ran, which are still running
+  and what each was asked for lives in the harness and in no git history, so
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)
+  prints what landed — commits, branches, authors, dirty trees, per repo in
+  force — and the session fetches the other half. The window is a declared
+  input, never a number in the engine
+  ([constants-are-risk-inputs](constants-are-risk-inputs.md)):
+  `session_window_days` in the repo's own
+  [precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json),
+  `--session-days N` for one run, and a conservative default where a repo
+  has declared nothing. *(Asked by Morgan, 2026-09-12: "do a sweep of live
+  sessions against the repo to see if there's anything recent being
+  missed." Nothing else in this check can see it — every other part reads
+  the repository against itself, and this is the failure where the
+  repository is internally perfect and the work never arrived in it.)*
 
 - **What landed on the base branch and never came across.** The cheap half
   of the same relationship the rehearsal below tests, asked much earlier.
@@ -886,6 +959,23 @@ building a fixture and running the checks on it produces evidence, not a
 judgment, so its findings do not depend on this caveat.
 
 ## Story
+**The live-session sweep and the wider branch sweep were Morgan's,
+2026-09-12, in one sentence each.** The first — *"do a sweep of live
+sessions against the repo to see if there's anything recent being
+missed"* — names a gap every other part of this check is structurally
+blind to: they all read the repository against itself, and none of them can
+see work that never arrived in it. The second — *"find stale branches, even
+if worked on by someone else ... Alex likely has branches on main from
+bestpractice from weeks ago, and the list of branches is getting longer and
+longer"* — is a correction to a sweep that was working exactly as written
+and reporting the wrong thing twice over: it filtered to the invoking
+person's own branches, which are the ones most likely to be dealt with
+anyway, and it tested merged-ness against the integration branch alone, so
+every branch finished on `main` read as unlanded work forever. **Both
+halves of that made the list shorter and less true.** The first run after
+the change reclassified one branch here out of the unlanded list, and named
+authors on rows that had carried none.
+
 **The base-branch read was Morgan's, 2026-09-12**, and what makes it worth
 recording is that this repo already had the drift and nobody had counted it.
 The check has rehearsed the endgame merge since 2026-09-07 — it asks what

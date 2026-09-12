@@ -139,6 +139,17 @@ Run:
   python3 tools/very_deep_check.py --skip-base-drift
       -- skip the scan for work that landed on the base branch and never
       came across to the integration branch.
+  python3 tools/very_deep_check.py --stale-days N
+      -- override the repo's declared `branch_stale_days` for one run. The
+      branch sweep covers EVERY branch on origin, whoever wrote it, and
+      names its author rather than filtering by one.
+  python3 tools/very_deep_check.py --session-days N
+      -- how far back the live-session sweep looks (default: the repo's
+      `session_window_days`, else 14). That sweep prints the repo half --
+      what was pushed, by whom, and what is sitting uncommitted -- for a
+      session to hold the harness's own session list against.
+  python3 tools/very_deep_check.py --skip-session-sweep
+      -- skip that sweep entirely.
   python3 tools/very_deep_check.py --skip-liveness
       -- skip the one-API-call-per-repo check that each repo in force still
       exists and is not archived. For an offline run.
@@ -181,6 +192,18 @@ FATAL_MISSING_LEVELS = ('team', 'individual')
 # past any review cycle: a branch merged last month may still be open in
 # somebody's editor, one merged last quarter is not.
 STALE_DAYS_DEFAULT = 90
+
+# How far back the session sweep looks when it asks what has happened here
+# recently. Same reasoning as the threshold above -- a number nobody decided
+# is doctrine (practice: constants-are-risk-inputs) -- so a repo overrides it
+# with `session_window_days` in its own precedent.json, and `--session-days N`
+# overrides that for one run.
+#
+# 14 days is a STARTING VALUE, not a measured one. It is chosen to be longer
+# than any single session and longer than a weekend either side of one, so a
+# piece of work begun on a Friday and abandoned on the Monday is still inside
+# the window when somebody runs this on the Wednesday after.
+SESSION_WINDOW_DAYS_DEFAULT = 14
 
 # Top-level documents worth reading for coherence, if a given scope has them.
 # Not every source will carry every name; only files that actually exist are
@@ -548,6 +571,22 @@ def _declared_stale_days(repo_dir):
         import json as _json, pathlib as _pathlib
         v = _json.loads((_pathlib.Path(repo_dir) / 'precedent.json')
                         .read_text(encoding='utf-8')).get('branch_stale_days')
+        return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+    except Exception:
+        return None
+
+
+def _declared_session_window_days(repo_dir):
+    """-> a repo's own `session_window_days` from its precedent.json, or None.
+
+    Same shape and same reasoning as _declared_stale_days above: how far back
+    "recently" reaches is a property of how fast a repo works, so it is
+    declared where a person can argue with it rather than compiled into the
+    engine every repo vendors (practice: constants-are-risk-inputs)."""
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(repo_dir) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('session_window_days')
         return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
     except Exception:
         return None
@@ -1618,10 +1657,19 @@ def _bootstrap_drift(sources):
     return out
 
 
-def _merged_row(repo_dir, name, ref, stale_days):
+def _merged_row(repo_dir, name, ref, stale_days, into=None):
     """-> the evidence a session needs to DELETE one branch that is already
-    an ancestor of the integration branch: {'name', 'last', 'age_days',
-    'stale'}.
+    an ancestor of a protected branch: {'name', 'into', 'last', 'age_days',
+    'stale', 'author'}.
+
+    `into` names WHICH protected branch already carries it. That is not
+    decoration: a branch merged into the integration branch is finished
+    here, while one merged into the base branch and not the integration
+    branch is finished somewhere else -- equally safe to delete, and its
+    work is not in this line of development. Reporting the second as
+    "not merged" (which is what a single-target sweep does) turns every
+    long-finished branch on the base branch into a false unlanded-work
+    finding.
 
     THE GAP THIS CLOSES (asked 2026-09-10, by Morgan, reading a real sweep
     of this repo). The merged half used to be a bare list of names. That is
@@ -1641,21 +1689,48 @@ def _merged_row(repo_dir, name, ref, stale_days):
     never False, since "no date" and "recent" are the same output otherwise
     and the first is the one that needs saying (practice: fail-gracefully).
     """
-    row = {'name': name, 'last': None, 'age_days': None, 'stale': None}
-    rc, out, _ = _run_git(repo_dir, 'log', '-1', '--format=%ct', ref)
-    if rc == 0 and out.strip().isdigit():
-        ts = int(out.strip())
-        row['last'] = _stamp(ts)
-        # Both sides aware and in one zone -- precedent_time owns every
-        # moment this project writes down (practice: timestamps-carry-offset,
-        # one-formatter-per-quantity).
-        row['age_days'] = max(
-            0, (precedent_time.now() - precedent_time.from_unix(ts)).days)
-        row['stale'] = row['age_days'] >= stale_days
+    row = {'name': name, 'into': into}
+    row.update(_branch_meta(repo_dir, ref, stale_days))
     return row
 
 
-def _unmerged_row(repo_dir, name, ref, target_ref, target):
+def _branch_meta(repo_dir, ref, stale_days):
+    """-> {'last', 'age_days', 'stale', 'author'} for one branch tip.
+
+    Shared by both halves of the sweep, because both halves need the same two
+    facts and used to carry only one of them each. The merged half had the
+    date and no author; the unmerged half had the date and no age. Neither
+    could answer the question the sweep is actually for -- "whose branch is
+    this, and has anybody touched it since" -- so the fact-gathering is one
+    function and the two rows differ only in the verdict they carry.
+
+    AUTHOR IS NOT A FILTER. The sweep used to be scoped to the invoking
+    person's own login, on the sound reasoning that you do not delete
+    somebody else's branch. That kept the deletion safe and made the LIST
+    wrong: the branches that accumulate longest are exactly the ones nobody
+    in the room opened, so the sweep reported a short clean list while the
+    repo's branch page grew every month (asked 2026-09-12, by Morgan:
+    "find stale branches, even if worked on by someone else"). Every branch
+    is listed, and the author is printed so a verdict can be routed to
+    whoever owns it rather than silently skipped."""
+    meta = {'last': None, 'age_days': None, 'stale': None, 'author': None}
+    rc, out, _ = _run_git(repo_dir, 'log', '-1', '--format=%ct%x00%an', ref)
+    if rc == 0 and '\x00' in out:
+        ts_s, author = out.strip().split('\x00', 1)
+        meta['author'] = author.strip() or None
+        if ts_s.strip().isdigit():
+            ts = int(ts_s.strip())
+            meta['last'] = _stamp(ts)
+            # Both sides aware and in one zone -- precedent_time owns every
+            # moment this project writes down (practice:
+            # timestamps-carry-offset, one-formatter-per-quantity).
+            meta['age_days'] = max(
+                0, (precedent_time.now() - precedent_time.from_unix(ts)).days)
+            meta['stale'] = meta['age_days'] >= stale_days
+    return meta
+
+
+def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
     """-> the evidence a session needs to say MERGE or CLOSE about one
     branch that is not an ancestor of the integration branch.
 
@@ -1672,14 +1747,17 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target):
     `-` is content-identical to work already on the target, which is a
     deletion candidate the ancestor test structurally cannot see. Only a `+`
     commit is genuinely unlanded work."""
-    row = {'name': name, 'ahead': None, 'unique': None, 'last': None,
-           'verdict': None}
+    row = {'name': name, 'ahead': None, 'unique': None, 'verdict': None}
+    # Date, age against the declared threshold, and author -- the same three
+    # facts the merged half carries. An unmerged branch that nobody has
+    # touched in a year is the one most likely to be lost work AND the one
+    # least likely to belong to whoever is running the sweep, so both facts
+    # belong on the row rather than on the half of the sweep that ends in a
+    # deletion.
+    row.update(_branch_meta(repo_dir, ref, stale_days))
     rc, out, _ = _run_git(repo_dir, 'rev-list', '--count', f'{target_ref}..{ref}')
     if rc == 0 and out.isdigit():
         row['ahead'] = int(out)
-    rc, out, _ = _run_git(repo_dir, 'log', '-1', '--format=%cs', ref)
-    if rc == 0 and out:
-        row['last'] = out
     # `git cherry` is only meaningful if a merge base between the two refs
     # actually resolves in THIS clone, so ask for one first.
     #
@@ -1722,7 +1800,16 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target):
                           f'in), so there is nothing to merge. Deletion '
                           f'candidate that the ancestor test cannot see')
     else:
-        row['verdict'] = (f'CARRIES {row["unique"]} unlanded commit(s) -- '
+        _age = ''
+        if row.get('stale'):
+            # Age changes what the verdict means, so it is said in the
+            # verdict rather than left in a column. A branch carrying
+            # unlanded work that nothing has touched in months is not
+            # "in progress"; it is the thing this sweep exists to surface.
+            _age = (f', and nothing has touched it in {row["age_days"]} '
+                    f'day(s) -- long past the point where it can be assumed '
+                    f'to be in progress')
+        row['verdict'] = (f'CARRIES {row["unique"]} unlanded commit(s){_age} -- '
                           f'decide, do not skip: merge it, or close it with '
                           f'the reason recorded')
     return row
@@ -1777,13 +1864,20 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     """-> None if repo_dir isn't its own git checkout (a repo-local source
     living inside the parent checkout shares the parent's branches and has
     none of its own to scan) or its integration branch can't be resolved.
-    Otherwise {'target': str, 'merged': [...], 'unmerged': [...]}: 'merged'
-    branches are mechanically PROVEN safe to delete (every commit on them is
-    already an ancestor of target); 'unmerged' is everything else remaining
-    (default branch and target itself excluded) -- some of those may still
-    be safe (closed because a later PR superseded them) but that call needs
+    Otherwise {'target': str, 'merged': [...], 'merged_elsewhere': [...],
+    'unmerged': [...]}: 'merged' branches are mechanically PROVEN safe to
+    delete (every commit on them is already an ancestor of target);
+    'merged_elsewhere' are proven the same way against another PROTECTED
+    branch -- the base branch this repo's integration branch will eventually
+    fold into -- so they are equally safe to delete and their work is not on
+    the integration branch; 'unmerged' is everything else remaining (the
+    protected branches themselves excluded) -- some of those may still be
+    safe (closed because a later PR superseded them) but that call needs
     the branch's PR history, which this offline check cannot see. See
     practices/very-deep-check.md's Install section.
+
+    Nothing here is scoped to one author. Every branch on origin is swept
+    and every row names who last touched it -- see _branch_meta.
 
     `exclude` names branches never to report either way regardless of merge
     status -- the branch the invoking session is itself working on, which
@@ -1826,7 +1920,17 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
                            'refs/remotes/origin')
     if rc != 0:
         return None
-    merged, unmerged = [], []
+    # Every OTHER protected branch is a second place a branch's work can
+    # already have landed -- on this repo, `main`, while the integration
+    # branch is `precedent-beta-v01`. A branch merged into main and never
+    # into the integration branch is finished work, and a sweep that tests
+    # only the integration branch reports it as carrying unlanded commits
+    # forever. That is not a cosmetic mislabel: it is the class that
+    # accumulates (asked 2026-09-12, by Morgan -- "Alex likely has branches
+    # on main from bestpractice from weeks ago"), so the false readings
+    # outnumber the true ones and the list stops being read.
+    others = [b for b in sorted(protected) if b != target]
+    merged, elsewhere, unmerged = [], [], []
     for ref in out.splitlines():
         if '/' not in ref:
             continue
@@ -1835,15 +1939,117 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
             continue
         rc, _, _ = _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, target_ref)
         if rc == 0:
-            merged.append(_merged_row(repo_dir, name, ref, stale_days))
+            merged.append(_merged_row(repo_dir, name, ref, stale_days,
+                                      into=target))
+            continue
+        landed_in = None
+        for other in others:
+            other_ref = f'origin/{other}'
+            rc, _, _ = _run_git(repo_dir, 'rev-parse', '--verify', '--quiet',
+                                other_ref)
+            if rc != 0:
+                continue
+            rc, _, _ = _run_git(repo_dir, 'merge-base', '--is-ancestor', ref,
+                                other_ref)
+            if rc == 0:
+                landed_in = other
+                break
+        if landed_in:
+            elsewhere.append(_merged_row(repo_dir, name, ref, stale_days,
+                                         into=landed_in))
         else:
-            unmerged.append(_unmerged_row(repo_dir, name, ref, target_ref, target))
+            unmerged.append(_unmerged_row(repo_dir, name, ref, target_ref,
+                                          target, stale_days=stale_days))
     return {'target': target,
             'merged': sorted(merged, key=lambda r: r['name']),
+            'merged_elsewhere': sorted(elsewhere, key=lambda r: r['name']),
             'unmerged': sorted(unmerged, key=lambda r: r['name']),
+            'protected': sorted(protected),
             'stale_days': stale_days,
             'unfetched': missing_heads or [], 'unreachable': reach_note,
             'path': str(repo_dir)}
+
+
+def recent_activity(repo_dir, days):
+    """-> what landed in one repo inside the last `days`, as the repo half of
+    the live-session sweep:
+
+        {'days', 'shallow', 'commits': [{'sha','date','author','ref','subject'}],
+         'branches': [{'name','last','author'}], 'note': str|None}
+
+    None when repo_dir is not its own git checkout.
+
+    WHY THIS EXISTS (asked 2026-09-12, by Morgan: "do a sweep of live
+    sessions against the repo to see if there's anything recent being
+    missed"). Every other part of this check reads the repository against
+    itself. None of them can see the failure where the repository is
+    internally perfect and a piece of work simply never arrived in it -- a
+    session that ran, decided something, fixed something, and ended with its
+    conclusion in a chat thread and nothing on a branch. `repo-is-memory`
+    names that as the loss; nothing looks for it afterwards.
+
+    THIS HALF IS THE REPO SIDE ONLY, and says so rather than implying
+    coverage it does not have. The session side -- which sessions ran, which
+    are still running, what each was asked to do -- lives in the harness, not
+    in git, and no tool in this repository can read it. So this function
+    builds the inventory a session can hold the harness's own session list
+    against, and the practice tells the session to go and fetch that list.
+    A mechanical half that pretended to the whole thing would be the
+    "sample reads as clean" failure pass 2 question 14 is about."""
+    repo_dir = pathlib.Path(repo_dir)
+    if not (repo_dir / '.git').is_dir():
+        return None
+    out = {'days': days, 'shallow': False, 'commits': [], 'branches': [],
+           'note': None}
+    rc, shallow, _ = _run_git(repo_dir, 'rev-parse', '--is-shallow-repository')
+    if rc == 0 and shallow.strip() == 'true':
+        out['shallow'] = True
+        out['note'] = ('this clone is shallow, so commits older than its '
+                       'grafted boundary are invisible here -- read the list '
+                       'below as partial, never as everything that happened')
+    since = f'{days}.days.ago'
+    # --remotes, not --all: a local branch nobody pushed is not evidence that
+    # work LANDED, which is the question this section asks. It is also the
+    # answer to a different one worth keeping in view -- see the printed
+    # section, which names unpushed local work as its own finding.
+    rc, log, _ = _run_git(repo_dir, 'log', '--remotes=origin',
+                          f'--since={since}', '--date-order',
+                          '--format=%h%x00%cs%x00%an%x00%s')
+    if rc == 0:
+        for line in log.splitlines():
+            parts = line.split('\x00')
+            if len(parts) == 4:
+                out['commits'].append({'sha': parts[0], 'date': parts[1],
+                                       'author': parts[2], 'subject': parts[3]})
+    rc, refs, _ = _run_git(repo_dir, 'for-each-ref', 'refs/remotes/origin',
+                           '--format=%(refname:short)%00%(committerdate:short)'
+                           '%00%(authorname)%00%(committerdate:unix)')
+    if rc == 0:
+        cutoff = time.time() - days * 86400
+        for line in refs.splitlines():
+            parts = line.split('\x00')
+            if len(parts) != 4 or not parts[3].strip().isdigit():
+                continue
+            if int(parts[3]) < cutoff:
+                continue
+            # `refs/remotes/origin/HEAD` shortens to the bare remote name
+            # ("origin"), not to "origin/HEAD" -- so a name with no slash in
+            # it is the remote's symbolic HEAD and not a branch at all. It
+            # printed as a branch called "origin" in every repo on the first
+            # run of this section.
+            if '/' not in parts[0]:
+                continue
+            name = parts[0].split('/', 1)[1]
+            if name == 'HEAD':
+                continue
+            out['branches'].append({'name': name, 'last': parts[1],
+                                    'author': parts[2]})
+    out['branches'].sort(key=lambda r: (r['last'], r['name']), reverse=True)
+    # Uncommitted and unpushed work in THIS checkout is the same failure one
+    # step earlier, and it is the cheapest thing here to check.
+    rc, dirty, _ = _run_git(repo_dir, 'status', '--porcelain')
+    out['dirty'] = len([l for l in dirty.splitlines() if l.strip()]) if rc == 0 else None
+    return out
 
 
 # --- the endgame merge, rehearsed (practice: very-deep-check, pass 4) ----
@@ -3057,9 +3263,11 @@ def main():
 def _main(box):
     args = sys.argv[1:]
     repo, user_config, checkout_target, stale_days = None, None, None, None
+    session_days = None
     for flag, dest in (('--repo', 'repo'), ('--user-config', 'user_config'),
                        ('--target', 'checkout_target'),
-                       ('--stale-days', 'stale_days')):
+                       ('--stale-days', 'stale_days'),
+                       ('--session-days', 'session_days')):
         if flag in args:
             i = args.index(flag)
             if i + 1 >= len(args):
@@ -3078,6 +3286,14 @@ def _main(box):
                     sys.exit(f"very deep check FAIL: --stale-days needs a "
                              f"positive whole number of days, not {value!r}.")
                 stale_days = int(value)
+            elif dest == 'session_days':
+                # Same refusal as --stale-days, same reason: a window asked
+                # for and quietly replaced reports about a period nobody
+                # asked about.
+                if not value.isdigit() or int(value) <= 0:
+                    sys.exit(f"very deep check FAIL: --session-days needs a "
+                             f"positive whole number of days, not {value!r}.")
+                session_days = int(value)
             else:
                 checkout_target = value
     record_pass = None
@@ -3105,6 +3321,7 @@ def _main(box):
     skip_liveness = '--skip-liveness' in args
     skip_endgame = '--skip-endgame-merge' in args
     skip_base_drift = '--skip-base-drift' in args
+    skip_session_sweep = '--skip-session-sweep' in args
     allow_stale = '--allow-stale' in args
     do_freshen = '--freshen' in args
 
@@ -3311,6 +3528,27 @@ def _main(box):
                 stale_days=stale_days)
         _scan_secs = round(time.monotonic() - _scan_t0, 2)
 
+    # THE REPO SIDE of the live-session sweep, gathered here beside the
+    # branch scan because it reads the same clones and asks the neighbouring
+    # question: the branch sweep asks what was written and never landed,
+    # this asks what a session did and left nowhere at all.
+    activity = {}
+    if not skip_session_sweep:
+        _win = (session_days or _declared_session_window_days(repo_root)
+                or SESSION_WINDOW_DAYS_DEFAULT)
+        activity['checkout'] = recent_activity(repo_root, _win)
+        _seen_a = {repo_root.resolve()}
+        for s_ in data['sources']:
+            try:
+                _p = pathlib.Path(s_['path']).resolve()
+            except OSError:
+                continue
+            if _p in _seen_a:
+                continue
+            _seen_a.add(_p)
+            activity[f"{s_['level']} source {s_['name']}"] = recent_activity(
+                s_['path'], _win)
+
     _endgame_t0 = time.monotonic()
     endgame = None if skip_endgame else endgame_merge(repo_root, checkout_target)
     _endgame_secs = round(time.monotonic() - _endgame_t0, 2)
@@ -3321,6 +3559,7 @@ def _main(box):
 
     if as_json:
         data['branches'] = branch_scans
+        data['recent_activity'] = activity
         data['endgame_merge'] = endgame
         data['base_branch_drift'] = drift
         print(json.dumps(data, indent=2, sort_keys=True))
@@ -3801,6 +4040,86 @@ def _main(box):
     elif led:
         led.skipped('UNLANDED WORK', '--skip-branch-scan')
 
+    # LIVE SESSIONS AGAINST THE REPO (practice: very-deep-check). Printed
+    # beside UNLANDED WORK, for the same reason and one step further out:
+    # unlanded work is a decision written down on a branch nobody merged,
+    # and this is a decision never written down at all.
+    #
+    # The tool can only do the repo half. Which sessions ran, which are
+    # still running and what each was asked for lives in the harness, and
+    # nothing in this repository can read it -- so the inventory is printed
+    # here and the session is told, in the same breath, to go and fetch the
+    # other half rather than being left with a list that looks complete.
+    if not skip_session_sweep:
+        if led:
+            led.start('LIVE SESSIONS -- recent work against the repo',
+                      kind='read')
+        _win = (session_days or _declared_session_window_days(repo_root)
+                or SESSION_WINDOW_DAYS_DEFAULT)
+        print(f"\nLIVE SESSIONS -- what ran recently, against what actually "
+              f"landed\n")
+        print(f"  The repo half, mechanical: everything pushed in the last "
+              f"{_win} day(s).\n")
+        _dirty_total = 0
+        for _name, _act in activity.items():
+            if _act is None:
+                print(f"  {_name}: not its own git checkout -- skipped.\n")
+                continue
+            print(f"  {_name}: {len(_act['commits'])} commit(s), "
+                  f"{len(_act['branches'])} branch(es) touched")
+            for _b in _act['branches'][:12]:
+                print(f"      {_b['last']}  {_b['name']}  "
+                      f"({_b['author'] or 'author unreadable'})")
+            if len(_act['branches']) > 12:
+                print(f"      ... and {len(_act['branches']) - 12} more "
+                      f"(--json for all)")
+            if _act.get('dirty'):
+                _dirty_total += _act['dirty']
+                print(f"      UNCOMMITTED: {_act['dirty']} path(s) in the "
+                      f"working tree of this clone -- work that exists in no "
+                      f"commit at all")
+            if _act.get('note'):
+                print(f"      note: {_act['note']}")
+            print()
+        print("  The session half is NOT mechanical from here, and this "
+              "section is not\n  read until you have fetched it. Ask the "
+              "harness for this account's own\n  sessions -- its session "
+              "listing tool (claude-code-remote's list_sessions,\n  then "
+              "get_session for anything recent or still running) -- and hold "
+              "each\n  one against the rows above:\n")
+        print("    * a session that ran inside the window and left no commit, "
+              "no branch\n      and no open pull request is the finding. Its "
+              "conclusion exists only in\n      a chat thread, which "
+              "repo-is-memory says is already lost. Recover what\n      it "
+              "decided and commit it, or record that there was nothing to "
+              "keep.\n"
+              "    * a session still RUNNING against a repo in force is a "
+              "different risk:\n      anything this check fixes may be "
+              "overwritten by it, and anything it is\n      mid-way through "
+              "will read here as half-done work. Name those before\n"
+              "      starting the passes rather than discovering them in a "
+              "conflict.\n"
+              "    * a commit or branch above that matches no session anybody "
+              "can account\n      for is the same question from the other "
+              "side -- ask who did it before\n      giving its branch a "
+              "verdict in pass 4.\n")
+        if _dirty_total:
+            print(f"  FINDING: {_dirty_total} uncommitted path(s) across the "
+                  f"repos in force.\n  Some session's work is sitting in a "
+                  f"working tree, where a fresh container\n  will take it "
+                  f"with it.\n")
+        if led:
+            # Never a findings COUNT: the count this section is about is on
+            # the other side of a tool this engine cannot call, so reporting
+            # the repo half's zero would be a clean result from a check that
+            # ran half way (practice: very-deep-check, pass 2 question 14).
+            led.end(status='partial',
+                    items=sum(len((a or {}).get('commits', []))
+                              for a in activity.values()))
+    elif led:
+        led.skipped('LIVE SESSIONS -- recent work against the repo',
+                    '--skip-session-sweep')
+
     if not skip_visibility:
         if led:
             led.start('REPOSITORY VISIBILITY')
@@ -3853,12 +4172,18 @@ def _main(box):
             _stale = [r for r in scan['merged'] if r.get('stale')]
             _recent = [r for r in scan['merged'] if not r.get('stale')]
 
-            def _print_merged(rows):
+            def _print_merged(rows, show_into=False):
                 for r in rows:
                     _age = (f"last commit {r['last']}, {r['age_days']} day(s) "
                             f"old" if r['last']
                             else "last commit date unreadable in this clone")
-                    print(f"    {r['name']} ({_age})")
+                    # The author is printed on every row, never used to
+                    # filter one out: a branch nobody in this session owns
+                    # is the one most likely to have been sitting there
+                    # longest (practice: very-deep-check, pass 4).
+                    _who = f", last touched by {r['author']}" if r.get('author') else ""
+                    _into = f", merged into {r['into']}" if show_into and r.get('into') else ""
+                    print(f"    {r['name']} ({_age}{_who}{_into})")
                     _u = _branch_url(scan.get('path'), r['name'])
                     if _u:
                         print(f"      {_u}")
@@ -3875,12 +4200,34 @@ def _main(box):
                 _print_merged(_recent)
             else:
                 print(f"    {'(none)' if not incomplete else empty}")
-            print(f"  NOT merged -- merge it or close it, one verdict each:")
+            _elsewhere = scan.get('merged_elsewhere') or []
+            _others = [b for b in scan.get('protected', [])
+                       if b != scan['target']]
+            # Only where a second protected branch exists. A repo whose
+            # integration branch IS its default has nowhere else for work to
+            # have landed, and a heading offering an empty third list there
+            # reads as a check that found nothing rather than one with
+            # nothing to ask.
+            if _others:
+                print("  merged into %s but NOT into %s -- equally proven safe "
+                      "to delete;\n  their work is finished elsewhere and is "
+                      "not on the integration branch:"
+                      % (', '.join(_others), scan['target']))
+                if _elsewhere:
+                    # The "merged into X" suffix per row only earns its place
+                    # when the heading cannot say which X: with one other
+                    # protected branch it repeats the line above it.
+                    _print_merged(_elsewhere, show_into=len(_others) > 1)
+                else:
+                    print(f"    {'(none)' if not incomplete else empty}")
+            print(f"  NOT merged anywhere -- merge it or close it, one "
+                  f"verdict each:")
             if scan['unmerged']:
                 for r in scan['unmerged']:
                     age = f", last commit {r['last']}" if r['last'] else ""
+                    who = f", last touched by {r['author']}" if r.get('author') else ""
                     print(f"    {r['name']} ({r['ahead']} commit(s) ahead"
-                          f"{age})")
+                          f"{age}{who})")
                     print(f"      {r['verdict']}")
                     _u = _branch_url(scan.get('path'), r['name'])
                     if _u:
@@ -3904,7 +4251,9 @@ def _main(box):
         if led:
             # A verdict is owed on every branch listed, in both directions:
             # that is what this section asks for, so that is what it counts.
-            _owed = sum(len(s.get('merged', [])) + len(s.get('unmerged', []))
+            _owed = sum(len(s.get('merged', []))
+                        + len(s.get('merged_elsewhere', []))
+                        + len(s.get('unmerged', []))
                         for s in branch_scans.values() if s)
             _incomplete = any((s or {}).get('unreachable')
                               or (s or {}).get('unfetched')
