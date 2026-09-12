@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 99 practice files (10 resident, 89 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 100 practice files (10 resident, 90 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -43,6 +43,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [fail-gracefully](practices/fail-gracefully.md) | on-demand | writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one |
 | [filename-separator](practices/filename-separator.md) | on-demand | adding a file to a directory that already holds files of the same kind |
 | [findings-return-through-repo](practices/findings-return-through-repo.md) | on-demand | discovering something a session in another window will need |
+| [fix-the-original](practices/fix-the-original.md) | on-demand | fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy |
 | [fixture-owns-its-state](practices/fixture-owns-its-state.md) | on-demand | writing a test, fixture or control that reads or edits state it did not create |
 | [frame-from-audience-question](practices/frame-from-audience-question.md) | on-demand | starting an outward-facing deliverable |
 | [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue |
@@ -59,7 +60,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
 | [merge-runbook](practices/merge-runbook.md) | on-demand | merging a branch that touches shared files |
 | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) | on-demand | migrating a repo off an old practice system onto Precedent |
-| [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a review finds a defect |
+| [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself |
 | [my-options](practices/my-options.md) | on-demand | a person says "My options", or asks to have a decision's options laid out |
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
 | [no-invented-specifics](practices/no-invented-specifics.md) | resident | writing a sentence that would land better with a specific figure, date, name or source |

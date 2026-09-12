@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-11 by the session that landed generated-edit-goes-upstream and fixed acronyms-glossary's glossary clause -->
+<!-- Last updated: 2026-09-12 by the session that landed fix-the-original and widened mistakes-become-rules' occasion -->
 <!--record-doc--> This file quotes practice Rules verbatim to say what changed in them, so it names the apparatus doc_lint.py check 6 keeps out of deliverables. It is a record document, not a deliverable.
 
 # Changes to tell Alex
@@ -43,9 +43,9 @@ Before the list: **how much of this catalogue enforces itself.**
 <!--gen:merge-back-->
 | | |
 |---|---|
-| Practices in force | 100 |
-| **Enforced by a check** | **46 of 100 practices carry a `checked_by`** |
-| Advisory only | 54 of 100 practices |
+| Practices in force | 101 |
+| **Enforced by a check** | **46 of 101 practices carry a `checked_by`** |
+| Advisory only | 55 of 101 practices |
 <!--/gen:merge-back-->
 
 **Advisory means a session is told the rule and may still not follow it**, and
@@ -449,6 +449,33 @@ one more line in a reply, needs no tool, config or vendored file, and both
 [templates/AGENTS.md.template](templates/AGENTS.md.template) and
 [templates/AGENTS.md.loader.template](templates/AGENTS.md.loader.template)
 carry it for the classic and loader layouts.
+
+### `mistakes-become-rules` (BestPractice practice 20) — 2026-09-12
+
+**What changed.** When it fires. The occasion was `"a review finds a
+defect"`; it is now `"a defect is fixed -- whether a review found it, the
+person reported it, or the session hit it itself"`, with a matching clause
+added to the Rule's opening sentence.
+
+**Why.** Morgan's complaint, 2026-09-12: the root-cause step keeps not
+happening, and he has to ask for it by hand. The cause turned out to be the
+trigger rather than the rule — **most defects in this repository are never
+reviewed.** They are mentioned in a message and repaired in the next turn, so
+a practice keyed to reviews sat in the occasion index and never fired on the
+majority of the cases it was written for. The Rule's substance is untouched:
+same five-whys, same rung ladder (audit / dated rule / export), same
+proportionality guard.
+
+**What did not change.** The decision rule, the `checked_by`, the gates
+(still `review`), and every word about *what* to do once it fires. A pre-fork
+BestPractice repo reading this practice gets the same instruction it always
+did, on strictly more occasions.
+
+**Landed alongside** a new universal practice,
+[fix-the-original](practices/fix-the-original.md), which handles the other
+half of the same complaint — propagating a fix back to the template or
+upstream copy it came from. That one is new on this branch and additive, so
+it needs no entry here beyond this pointer.
 
 ## Content added to practices, not just re-linked
 

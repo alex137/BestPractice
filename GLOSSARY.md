@@ -43,6 +43,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | Spawn session | [spawn-session](practices/spawn-session.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
+| the origin artifact | [fix-the-original](practices/fix-the-original.md) |
 | Three Things | [three-things](practices/three-things.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
