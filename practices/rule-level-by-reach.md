@@ -24,26 +24,21 @@ strength:    decided
 source_practice_number: null
 ---
 ## Rule
-**A rule lands in one of four sets, and which one is a question about the
-rule's reach:** **repo-local** (true only of this repository's subject),
-**team** (true for this team and not another), **individual** (true of one
-person's way of working), **universal** (true of any repository, any team, any
-person).
+**A rule lands in one of four sets, and which one is a question about its
+reach:** **repo-local** (true only of this repository's subject), **team**
+(true for this team, not another), **individual** (one person's way of
+working), **universal** (any repository, any team, any person).
 
-**Three tests, in that order, each answering what the one before it cannot.**
-*Would this still be true for a different team?* — if yes, it is not the
-team's. *For a different person?* — if yes, not that person's. *For a
-repository whose subject is nothing like this one's?* — if yes, it is
-universal, and filing it lower strands it.
+**Three tests, in order**, each answering what the one before cannot.
+*Still true for a different team?* — not the team's. *For a different person?*
+— not that person's. *For a repository whose subject is nothing like this
+one's?* — universal, and filing it lower strands it.
 
-**Decide the set by subject and reach, never by which repository the session
-can currently write to.** **Say which set, and which test settled it, before
-writing the rule** — one line, in the reply or in the change that lands it.
-
-**A rule written as prose into an instructions file has no set at all.** It
-binds the one repository holding that file and materializes nowhere, which is
-not a fourth answer but a missing one — so the choice above is made *before*
-the rule is written, not discovered afterwards.
+**Decide by subject and reach, never by which repository the session can
+currently write to.** **Say which set, and which test settled it, before writing
+the rule** — one line, in the reply or in the change. A rule written as prose
+into an instructions file has no set at all: not a fourth answer, a missing
+one.
 
 ## Detail
 **This is a different axis from [layered-practice-packs](layered-practice-packs.md),
@@ -55,6 +50,14 @@ re-labelling of each other, and the middle terms show it: a domain rule can sit
 in a team set or in universal, and **individual has no counterpart on that axis
 at all**, because a person is not a kind of program. Answer both — content to
 know how to write it, reach to know where to put it.
+
+**Why the prose case is a missing answer rather than a fourth one.** An
+instructions file is not a practice file: it materializes nowhere, so the rule
+binds the one repository that holds it, whatever its subject was. That is not
+"repo-local" — repo-local is a *decision* that a rule's reach stops here, made
+by writing it where repo-local rules live. Prose in an instructions file is what
+a session produces when nobody asked the question, and the two are
+indistinguishable afterwards by reading the file.
 
 **Two wrong inputs are common enough to name.**
 
