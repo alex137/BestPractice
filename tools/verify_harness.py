@@ -15861,6 +15861,185 @@ def check_very_deep_check_authenticates_its_own_fetches():
         vdc._ORIGIN_URL.clear()
 
 
+def check_branch_sweep_sees_work_landed_on_the_base_branch():
+    """A branch merged into the BASE branch, and never into the integration
+    branch, is reported as finished work rather than as unlanded
+    (practice: very-deep-check, pass 4).
+
+    THE CASE THAT CARRIES THIS CHECK (asked 2026-09-12, by Morgan: "Alex
+    likely has branches on main from bestpractice from weeks ago"). A repo
+    whose work is pinned to an integration branch has TWO branches work can
+    land on, and the sweep tested one. Everything merged into the base
+    branch alone therefore reported as `CARRIES n unlanded commit(s)`, with
+    a verdict demanding somebody merge or close it -- forever, since nothing
+    about it will ever change. That is the failure that ends a list: the
+    false rows outnumber the true ones, so the reader stops reading, and the
+    genuinely unlanded branch beside them goes unread too.
+
+    Both directions are asserted, because a fix that swept everything into
+    the "already landed" bucket would pass a one-sided version of this."""
+    import tempfile
+    import very_deep_check as vdc
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        # The integration branch, forked from main and moved on, so that
+        # "merged into main" and "merged into the integration branch" are
+        # genuinely different questions here.
+        _git(up, 'checkout', '-q', '-b', 'beta')
+        (up / 'beta.txt').write_text('beta\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'beta work')
+
+        # Landed on main only -- the class this check is about.
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'checkout', '-q', '-b', 'landed-on-main')
+        (up / 'old.txt').write_text('old\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'old work')
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'merge', '-q', '--no-ff', '-m', 'merge old work',
+             'landed-on-main')
+
+        # Landed nowhere -- the row that must still demand a verdict.
+        _git(up, 'checkout', '-q', 'beta')
+        _git(up, 'checkout', '-q', '-b', 'really-unlanded')
+        (up / 'new.txt').write_text('new\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'genuinely unlanded')
+        # Leave the upstream on main before cloning. A clone takes its
+        # origin/HEAD from whatever the remote has checked out, and that is
+        # what tells the sweep which OTHER branch is protected -- with the
+        # upstream sitting on beta, main itself reads as an ordinary branch
+        # carrying unlanded work, which is both a wrong fixture and a real
+        # shape worth knowing about.
+        _git(up, 'checkout', '-q', 'main')
+
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        scan = vdc.scan_branches(work, 'beta') or {}
+        elsewhere = {r['name']: r for r in scan.get('merged_elsewhere') or []}
+        unmerged = {r['name'] for r in scan.get('unmerged') or []}
+        merged = {r['name'] for r in scan.get('merged') or []}
+
+        results = [
+            ('a branch merged into the base branch is reported as merged '
+             'there', 'landed-on-main' in elsewhere),
+            ('and names WHICH branch already carries it',
+             elsewhere.get('landed-on-main', {}).get('into') == 'main'),
+            ('and is no longer reported as carrying unlanded work',
+             'landed-on-main' not in unmerged),
+            ('a branch landed on neither still demands a verdict',
+             'really-unlanded' in unmerged),
+            ('and is not swept into the merged lists',
+             'really-unlanded' not in elsewhere
+             and 'really-unlanded' not in merged),
+            ('every branch row names who last touched it, so a verdict can '
+             'be routed rather than skipped',
+             all(r.get('author')
+                 for r in (list(elsewhere.values())
+                           + list(scan.get('unmerged') or [])))),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check tells work landed on the base branch from '
+              f'work landed nowhere ({len(results)} stated cases)',
+              not failed, '; '.join(failed) if failed else '')
+
+
+def check_session_sweep_reports_the_repo_half():
+    """The repo half of the live-session sweep reports what landed recently,
+    what is sitting uncommitted, and says plainly that it is a half
+    (practice: very-deep-check).
+
+    THE GAP (asked 2026-09-12, by Morgan: "do a sweep of live sessions
+    against the repo to see if there's anything recent being missed"). Every
+    other part of this check reads the repository against itself, so none of
+    them can see a session that ran, decided something and left nothing
+    behind -- the loss `repo-is-memory` names and nothing looks for.
+
+    THE CONTROLLING CASE is the window, not the listing. A sweep that
+    silently used its own default where a repo declared a window would
+    report about a period nobody asked about, and would look exactly like a
+    working feature -- the same failure the declared stale threshold has its
+    own check for."""
+    import tempfile, datetime
+    import very_deep_check as vdc
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        # One commit inside any plausible window, one far outside it. Dates
+        # forced through the commit environment: a fixture that reads the
+        # clock for the property it is asserting is testing the clock
+        # (practice: fixture-owns-its-state).
+        for branch, days in (('recent-work', 1), ('ancient-work', 400)):
+            when = (datetime.datetime.now(datetime.timezone.utc)
+                    - datetime.timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%S%z')
+            _git(up, 'checkout', '-q', 'main')
+            _git(up, 'checkout', '-q', '-b', branch)
+            (up / f'{branch}.txt').write_text(branch + '\n')
+            _git(up, 'add', '-A')
+            subprocess.run(['git', '-C', str(up), 'commit', '-qm', branch],
+                           capture_output=True, text=True,
+                           env={**os.environ,
+                                'GIT_AUTHOR_DATE': when,
+                                'GIT_COMMITTER_DATE': when,
+                                'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+        _git(up, 'checkout', '-q', 'main')
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+
+        act = vdc.recent_activity(work, 14) or {}
+        names = {b['name'] for b in act.get('branches', [])}
+        subjects = {c['subject'] for c in act.get('commits', [])}
+        # Uncommitted work is the same loss one step earlier, and the
+        # cheapest thing here to see.
+        (work / 'scratch.txt').write_text('never committed\n')
+        dirty = vdc.recent_activity(work, 14) or {}
+        wide = vdc.recent_activity(work, 500) or {}
+
+        results = [
+            ('a branch pushed inside the window is reported',
+             'recent-work' in names),
+            ('a branch last touched outside it is not',
+             'ancient-work' not in names),
+            ('the same window governs the commit list',
+             'recent-work' in subjects and 'ancient-work' not in subjects),
+            ('a wider window reaches further back, so the window is the '
+             'input and not a fixed horizon',
+             'ancient-work' in {b['name'] for b in wide.get('branches', [])}),
+            ('every row names who did it',
+             all(b.get('author') for b in act.get('branches', []))),
+            ('work sitting in the working tree is counted',
+             dirty.get('dirty') == 1),
+            ('and a clean tree is reported as clean, not as unknown',
+             act.get('dirty') == 0),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check reports the repo half of the session '
+              f'sweep ({len(results)} stated cases, the window being the '
+              f'controlling one)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def check_merged_branches_carry_a_date_and_a_staleness_verdict():
     """A merged, undeleted branch is reported with the date it last moved
     and whether it is past the declared stale threshold
@@ -16596,7 +16775,22 @@ def check_shallow_clone_never_fabricates_unlanded_work():
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
              '--repo', str(work)],
             capture_output=True, text=True, cwd=str(work), env=env)
-        return r, r.stdout.split('Pass 1 —')[0]
+        # THE UNLANDED WORK BLOCK ONLY, not everything printed before the
+        # checklist. This used to slice at 'Pass 1 --' and assert that a
+        # branch name did not appear anywhere above it, which was a proxy
+        # for "no fabricated count" that held only while nothing else
+        # printed branch names. The live-session sweep prints them a few
+        # lines below this block, so the proxy started failing on correct
+        # output (2026-09-12). Scope the assertion to the section that is
+        # actually under test.
+        out = r.stdout
+        if 'UNLANDED WORK' not in out:
+            return r, out.split('Pass 1 —')[0]
+        block = out.split('UNLANDED WORK', 1)[1]
+        for end in ('\nLIVE SESSIONS', '\nREPOSITORY VISIBILITY', 'Pass 1 —'):
+            if end in block:
+                block = block.split(end, 1)[0]
+        return r, block
 
     results = []
     diag = []
@@ -17663,6 +17857,8 @@ def main():
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
+    check_branch_sweep_sees_work_landed_on_the_base_branch()
+    check_session_sweep_reports_the_repo_half()
     check_very_deep_check_authenticates_its_own_fetches()
     check_very_deep_check_bootstrap_drift()
     check_public_tree_bakes_in_no_owner_account()

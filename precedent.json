@@ -56,6 +56,28 @@
     "`--stale-days N` overrides it for a single run; omitting the key falls",
     "back to very_deep_check.STALE_DAYS_DEFAULT."
   ],
+  "session_window_days": 14,
+  "_session_window_days_comment": [
+    "How far back the very deep check's live-session sweep looks when it",
+    "asks what has happened in this repository recently",
+    "(tools/very_deep_check.py's LIVE SESSIONS section). It bounds the repo",
+    "half -- commits, branches and dirty trees -- that a session holds the",
+    "harness's own session list against.",
+    "",
+    "Declared rather than compiled in, for the same reason as",
+    "branch_stale_days above: a number nobody decided is doctrine",
+    "(practice: constants-are-risk-inputs), and how far back 'recently'",
+    "reaches is a property of how fast a repo works.",
+    "",
+    "14 matches the engine default here, deliberately: it is longer than any",
+    "single session and longer than a weekend either side of one, so work",
+    "begun on a Friday and abandoned on the Monday is still in the window on",
+    "the Wednesday after. What is NOT claimed is that 14 is correct -- no",
+    "measurement here supports a number, and inventing one would be what",
+    "no-invented-specifics forbids. `--session-days N` overrides it for a",
+    "single run; omitting the key falls back to",
+    "very_deep_check.SESSION_WINDOW_DAYS_DEFAULT."
+  ],
   "fallback_timezone": "America/New_York",
   "_fallback_timezone_comment": [
     "The zone used to stamp commits and generated dates when NOBODY'S own",
