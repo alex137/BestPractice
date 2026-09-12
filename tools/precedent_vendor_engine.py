@@ -281,6 +281,13 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     'precedent_materialize.py',
     'precedent_resolve.py',
     'precedent_sync_views.py',
+    # Whether each declared source repository is still CALLED what this repo
+    # calls it (added 2026-09-11). CONSUMER-only for the same reason
+    # precedent_resolve.py is -- it reads a multi-source config, which a
+    # practice SET does not have -- and it is named by
+    # vendor-update-runbook's own Rule, so a consumer resolving that
+    # practice and lacking the file has a step it cannot run.
+    'precedent_source_names.py',
     # Named by a universal practice's own Install, so a consumer that
     # resolves that practice needs the file (added 2026-09-06, after
     # installing into a scratch repo exactly as INSTALL.md section 0

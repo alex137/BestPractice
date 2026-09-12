@@ -72,13 +72,30 @@ distinct things as one. They fail differently:
 
 | # | The name | Who reads it | If it varies | Answer |
 |---|---|---|---|---|
-| 1 | The GitHub repository name (`<account>/precedent-team-<subject>`) | people, browsing | nothing breaks immediately; a later rename breaks every vendored reference | **Recommended**, and disclosed before anyone picks one |
+| 1 | The GitHub repository name (`<account>/precedent-team-<subject>`) | people, browsing | nothing breaks immediately; a later rename breaks every vendored reference | **Recommended**, disclosed before anyone picks one, and a rename is **detected afterwards** — see below |
 | 2 | The local clone directory (the `path` in [precedent.json](../precedent.json)) | the resolver, per machine | the declared relative path is wrong on that machine | **Warned** about, never refused |
 | 3 | The `name` field in [precedent.json](../precedent.json) or the user config | the resolver, `MANIFEST.json` attribution, every error message | attribution stops matching; messages name a set nobody recognizes | **Refused** |
 | 4 | A team slug's meaning — purpose, not roster | people, over years | the name goes stale rather than wrong | Judgment; no check can see it |
 
 The engine cannot rename anyone's repository, so row 1 can never be more than
-a recommendation. Row 3 is a string in a tracked configuration file the engine
+a recommendation — but "nothing breaks immediately" turned out to be the whole
+problem rather than a mild consequence, and that half IS mechanical now.
+**A renamed repository redirects indefinitely**, so a consuming repo goes on
+declaring, cloning, attaching and materializing under the old name with every
+check green. The content is right; only the name is a ghost, and every
+vendored reference to it is one repository-settings change away from a 404
+nobody can date. It happened to a real team source and surfaced on 2026-09-11
+only because a person recognised a name he had retired.
+
+Git cannot answer it — every git operation follows the redirect and reports
+success. The GitHub API can: its response body carries the repository's
+current `full_name`, whatever name was asked for.
+[tools/precedent_source_names.py](../tools/precedent_source_names.py) compares
+that against what this repo declares and against the clone's own remote, and
+[practices/vendor-update-runbook.md](../practices/vendor-update-runbook.md)
+runs it at step 8 — the one moment a session is already online and already
+reconciling its sources. A name it could not check reports `UNVERIFIED`, never
+`OK`. Row 3 is a string in a tracked configuration file the engine
 already parses and validates for `level` and `path`, so refusing a malformed
 name there costs one branch in `load_config` and the message can teach the
 convention at the moment it is being broken. That asymmetry, not a general
@@ -96,6 +113,7 @@ put a conforming source in a differently-named directory.
 | Name and clone directory should agree | the same module's `warn_name_matches_path`, on standard error |
 | A new set is never created under a wrong name | [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py) refuses the `--name` before it writes anything |
 | Every `precedent.json` in the tree conforms, shipped templates included | [tools/precedent_check.py](../tools/precedent_check.py)'s `source-naming` check, with a planted case in [tools/verify_harness.py](../tools/verify_harness.py) |
+| A declared source repository is still called that | [tools/precedent_source_names.py](../tools/precedent_source_names.py), at [vendor-update-runbook](../practices/vendor-update-runbook.md)'s step 8 — not in [tools/precedent_check.py](../tools/precedent_check.py), which is offline by construction |
 | Say the convention before a name is picked | the occasion index — this practice's occasion names *importing and creating* a repository, not only declaring one |
 | The adopter-facing procedure states it | [spec/BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md) and [INSTALL.md](../INSTALL.md) |
 
