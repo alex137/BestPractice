@@ -3515,9 +3515,54 @@ which is the failure this repointing exists to end — write
    accident. Today it reads as neither — the line says the practice belongs
    to a source this repo does not resolve, which is true and sounds benign.
 
-   **blocked-on:** nothing mechanical. It needs the count first — which
-   universal checks skip in a source set, and which of those matter — and
-   then a design call on the three shapes above.
+   **The count came in, and the design call is made — 2026-09-12.** The count
+   is on
+   [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos):
+   in a team source, 12 checks passed and **42 skipped, all 42 that one
+   cause**. Not one rule going unenforced in a source set — most of the
+   catalogue, in the repositories that publish it.
+
+   **Shape 2 was chosen, narrowed**: a check declares `binds_publishers=True`
+   and then runs in a repo that publishes a `practices/` tree, whether or not
+   that practice's own text is vendored in. Not shape 1 (vendor the practice
+   FILES a source set needs), which adds a second copy of rule text to every
+   set and so recreates the drift this item is about — the one re-declared
+   copy that exists has never agreed with universal's. Not shape 3 (accept it
+   and reword the output), which makes the gap legible and leaves the
+   publishing repos unchecked.
+
+   Two properties make it safe, and both are asserted:
+   **publisher-ness is declared, not detected** — `kind: source` in
+   `tools/ENGINE_MANIFEST.json`, which
+   [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+   already writes and reads back, because an authored `practices/` tree and a
+   materialized one are identical on disk; and **the failure message is still
+   the rule** — it cannot print a Rule that is not there, so it prints the
+   upstream URL on the branch the manifest records, rather than
+   `(no practice file for ...)`.
+
+   Three checks carry the flag, each with its incident beside it:
+   `practice-links-travel`, `catalogue-carries-stories`,
+   `generated-artifact-provenance`. Measured on a real team source, one engine
+   version either side of the change: **12 passed / 43 skipped → 14 passed /
+   41 skipped**, and a diff of the per-check statuses confirms those two
+   stopped skipping and nothing else changed state. A planted copy of the link
+   that really shipped is caught, with the repair named.
+   The mechanism is at
+   [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md)'s "A check can bind the repo that
+   PUBLISHES a practice"; the control is `verify_harness.py`'s
+   `check_publisher_bound_checks_run_in_a_source_set`, which fails if the gate
+   exception is removed.
+
+   **What is left, and why it is not blocked-on:** the other 41. Widening the
+   flag is per-check judgment — it removes the gate, it does not make a check
+   that needs resolved sources work without them — and the enumeration belongs
+   to [`coverage-report-for-registered-checks`](TODO.md#coverage-report-for-registered-checks),
+   which is the count taken across every repo in force rather than one at a
+   time. **Also outstanding:** the one re-declared copy of
+   `catalogue-carries-stories` in a team source is now redundant, and its
+   `checked_by: null` actively misstates its own coverage. Retiring it is a
+   change in that set, not here.
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 

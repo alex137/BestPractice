@@ -156,6 +156,18 @@ def rule_of(slug):
             return (f'({slug} enforces a property of the engine itself, not a '
                     f'catalogue practice -- there is no practices/{slug}.md by '
                     f'design. The check\'s own description above is the rule.)')
+        # A check that binds a PUBLISHER runs in a source set, where the
+        # practice text is upstream BY DESIGN rather than missing -- see
+        # run()'s gate. The failure message is still the rule; it just has
+        # to name where the rule is, because this repo cannot print it.
+        if reg.get('binds_publishers') and _publishes_practices():
+            where = _upstream_practice_url(slug) or (
+                f'practices/{slug}.md in the repository this engine was '
+                f'vendored from')
+            return (f'(this repo PUBLISHES practices and does not vendor '
+                    f'{slug}\'s own text, so the Rule cannot be printed here. '
+                    f'It binds what this repo publishes all the same. Read it '
+                    f'at: {where})')
         return f'(no practice file for {slug})'
     try:
         _fm, sections = sp._read_practice_file(path)
@@ -202,7 +214,8 @@ class Unverified(Finding):
 CHECKS = {}
 
 
-def check(slug, scope, what, blind_to, advisory=False, practice_backed=True):
+def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
+          binds_publishers=False):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -213,6 +226,26 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True):
     its practice actually resolving in THIS repo (see `run()`): this file
     is vendored into consuming repos, and a check for a practice a
     consumer does not have is a finding it can never act on.
+
+    `binds_publishers=True` marks a check whose subject is the practice
+    FILES a repo publishes, so it binds any repo that publishes a
+    practices/ tree even where that practice's own text is not vendored
+    in. It exists because the gate below, correct for a consumer, is
+    exactly wrong for a practice SOURCE set: a source set's practices/
+    holds its own practices only, so every other level's check skips
+    there -- permanently, since it resolves no sources and materializes
+    nothing into itself. Measured 2026-09-12 in a team source: 12 checks
+    passed and 42 SKIPPED, all 42 for that one reason. The cost was
+    already paid once -- a practice file there shipped a relative link to
+    a file materialization does not copy, live in the publishing set and
+    dead in every repo that received the catalogue, and the rule that
+    catches exactly that was one of the 42. A consuming repo found it, a
+    sync late (practice: cite-the-incident).
+
+    Set it only where the check's subject really is the published
+    practice tree, and only where the check is known to FUNCTION in a
+    source set -- the flag removes the gate, it does not make a check
+    that needs resolved sources suddenly work without them.
 
     `advisory=True` is distinct from a practice's own frontmatter
     `severity:` field (precedent_resolve.py's `severity: blocking`, about
@@ -225,7 +258,8 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True):
     def deco(fn):
         CHECKS[slug] = dict(slug=slug, scope=scope, fn=fn, what=what,
                             blind_to=blind_to, advisory=advisory,
-                            practice_backed=practice_backed)
+                            practice_backed=practice_backed,
+                            binds_publishers=binds_publishers)
         return fn
     return deco
 
@@ -387,6 +421,55 @@ def _practice_file(slug):
         if p.exists():
             return p
     return None
+
+
+_ENGINE_MANIFEST = None
+
+
+def _engine_manifest():
+    """This repo's vendored-engine manifest, or {} where it has none.
+
+    Absent in BestPractice itself -- the engine's origin vendors nothing
+    into itself -- and present in every repo the engine was vendored INTO,
+    recording the `kind` it was vendored as and the repo and branch it came
+    from."""
+    global _ENGINE_MANIFEST
+    if _ENGINE_MANIFEST is None:
+        try:
+            _ENGINE_MANIFEST = json.loads(
+                (ROOT / 'tools' / 'ENGINE_MANIFEST.json')
+                .read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            _ENGINE_MANIFEST = {}
+    return _ENGINE_MANIFEST
+
+
+def _publishes_practices():
+    """True where this repo is a practice SOURCE set -- it authors the
+    practices/ tree it publishes, and materializes nothing into itself.
+
+    Read from the DECLARED `kind` in tools/ENGINE_MANIFEST.json, which
+    precedent_vendor_engine.py writes as 'source' or 'consumer' and reads
+    back for its own status and refresh verbs. Never inferred from the
+    directory layout: an authored practices/ tree and a materialized one
+    look identical on disk, which is the whole reason the kind is declared
+    rather than detected -- the same reasoning this module's own
+    `declared-base-branch` check enforces for a base branch, one level over."""
+    return (_engine_manifest().get('kind') == 'source'
+            and (ROOT / 'practices').is_dir())
+
+
+def _upstream_practice_url(slug):
+    """Where this slug's practice text lives upstream, or None.
+
+    Built from the manifest's own record of where this engine was vendored
+    from, so it names the branch the vendoring actually tracked instead of
+    guessing one."""
+    m = _engine_manifest()
+    repo, branch = m.get('source_repo'), m.get('source_branch')
+    if not repo or not branch:
+        return None
+    return f"{repo.rstrip('/')}/blob/{branch}/practices/{slug}.md"
 
 
 # --------------------------------------------------------------------------
@@ -638,7 +721,13 @@ def _foreign_practice(rel):
        'whether a Story records the RIGHT incident, or any incident at all -- '
        'an honest "no originating incident was recorded" passes, and should. '
        'It tests that the section says something, not that it says something '
-       'dramatic.')
+       'dramatic.',
+       # Binds a publisher: a catalogue is the thing a source set publishes,
+       # so this rule is about its output. One team set proved it wants to
+       # run there the hard way -- it re-declared this practice locally
+       # purely to defeat the gate, and that second copy has never agreed
+       # with universal's.
+       binds_publishers=True)
 def _catalogue_carries_stories(ctx):
     out = []
     pdir = ROOT / 'practices'
@@ -747,7 +836,14 @@ def _origin_slug():
        'here and never materialized, so its links travel nowhere and break '
        'nothing. It also cannot see a repo-local source in a CONSUMING repo, '
        'where materialization moves a practice up a directory and changes '
-       'what its relative paths mean.')
+       'what its relative paths mean.',
+       # Binds a publisher: this is the rule that protects everything a
+       # source set publishes, and it skipped in exactly those repos. A team
+       # source shipped practices/deep-check.md linking a test driver that
+       # materialization does not copy; a consuming repo caught it a sync
+       # late. Proven to function in a source set -- that set gates it today
+       # by calling this same function directly from its own workflow.
+       binds_publishers=True)
 def _practice_links_travel(ctx):
     pdir = ROOT / 'practices'
     if not pdir.is_dir():
@@ -997,7 +1093,14 @@ GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
        "different shape (a hand-authored file with one generated section, "
        "not a wholly generated file) and its byte-identical regeneration is "
        "covered by verify_harness.py's check_generated_views_regenerate "
-       "instead, not by this check.")
+       "instead, not by this check.",
+       # Binds a publisher: a source set generates MAP.md, GLOSSARY.md and
+       # its own loader block from the practices/ tree it authors. Measured
+       # 2026-09-11 in an individual set, `--only
+       # generated-artifact-provenance` reported 1 skipped -- the check that
+       # would have caught the stale MAP.md which started TODO.md's
+       # loader-comment-names-an-unvendored-check.
+       binds_publishers=True)
 def _generated_artifact_provenance(ctx):
     out = []
     builder = _tool_path('tools/build_views.py')
@@ -4746,7 +4849,14 @@ def run(slugs, ctx, scopes, exempt=None):
         # act on, satisfy, or even read the Rule of (`rule_of` prints
         # "(no practice file for ...)"). SKIPPED, never PASS: the check
         # did not run, and a skip is not a pass.
-        if c['practice_backed'] and _practice_file(slug) is None:
+        # The one exception: a check that binds a PUBLISHER (see check())
+        # runs in a repo that publishes practices, where the practice text
+        # is upstream by design rather than absent by accident. Without
+        # this, the repositories that PUBLISH the catalogue are the least
+        # checked repositories in the system.
+        if (c['practice_backed'] and _practice_file(slug) is None
+                and not (c.get('binds_publishers')
+                         and _publishes_practices())):
             results.append((slug, 'SKIPPED', [],
                             f'no practices/{slug}.md in this repo, so the '
                             f'practice is not in force here -- this check '
