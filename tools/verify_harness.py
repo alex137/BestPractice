@@ -3163,7 +3163,7 @@ def check_source_names_detects_a_rename():
         clone.mkdir()
         subprocess.run(['git', 'init', '-q', str(clone)], capture_output=True)
         subprocess.run(['git', '-C', str(clone), 'remote', 'add', 'origin',
-                        'https://github.com/anaccount/precedent-team-fixture'],
+                        'https://github.com/example/precedent-team-fixture'],
                        capture_output=True)
         (consumer / 'precedent.json').write_text(json.dumps({
             'visibility': 'private',
@@ -3186,16 +3186,16 @@ def check_source_names_detects_a_rename():
             return rows, buf.getvalue()
 
         rows, out = run_with(lambda o, n, env=None:
-                             ('anaccount/precedent-team-repo-maintenance', None))
+                             ('example/precedent-team-repo-maintenance', None))
         cases.append(('a renamed source is reported as RENAMED, naming both '
                       'the name this repo fetches and the one GitHub uses now',
                       [r['verdict'] for r in rows] == ['RENAMED']
-                      and 'anaccount/precedent-team-fixture' in out
-                      and 'anaccount/precedent-team-repo-maintenance' in out,
+                      and 'example/precedent-team-fixture' in out
+                      and 'example/precedent-team-repo-maintenance' in out,
                       out))
 
         rows, out = run_with(lambda o, n, env=None:
-                             ('anaccount/precedent-team-fixture', None))
+                             ('example/precedent-team-fixture', None))
         cases.append(('an unrenamed source is OK, and the summary counts zero '
                       'renamed and zero unchecked',
                       [r['verdict'] for r in rows] == ['OK']
@@ -3215,16 +3215,16 @@ def check_source_names_detects_a_rename():
         # A case difference is not a rename: git does not care, and reporting
         # it as one would cry wolf on every clone URL a tool lowercased.
         rows, out = run_with(lambda o, n, env=None:
-                             ('anaccount/Precedent-Team-Fixture', None))
+                             ('example/Precedent-Team-Fixture', None))
         cases.append(('a name differing only in case is SPELLING, not RENAMED',
                       [r['verdict'] for r in rows] == ['SPELLING'], out))
 
         # THE OFFLINE HALF, which costs no network and nothing else prints.
         subprocess.run(['git', '-C', str(clone), 'remote', 'set-url', 'origin',
-                        'https://github.com/anaccount/something-else'],
+                        'https://github.com/example/something-else'],
                        capture_output=True)
         rows, out = run_with(lambda o, n, env=None:
-                             ('anaccount/something-else', None))
+                             ('example/something-else', None))
         cases.append(('the declared name disagreeing with the clone\'s own '
                       'remote is reported as DRIFT even when the API says the '
                       'repository is current',
@@ -3233,7 +3233,7 @@ def check_source_names_detects_a_rename():
         # A remote this tool has no API for is UNVERIFIED, not OK -- guessing
         # an API for an unknown host answers from the wrong server.
         subprocess.run(['git', '-C', str(clone), 'remote', 'set-url', 'origin',
-                        'https://git.example.com/anaccount/precedent-team-fixture'],
+                        'https://git.example.com/example/precedent-team-fixture'],
                        capture_output=True)
         rows, out = run_with(lambda o, n, env=None: (None, 'should not be called'))
         cases.append(('a source on a non-github host is UNVERIFIED, not OK',
@@ -3246,11 +3246,11 @@ def check_source_names_detects_a_rename():
         # `<anything>@github.com` as an email address, correctly, and a
         # fixture is not worth a false hit on every run.
         tokenised = ('https://x-access-token:ghp_NOTAREALTOKEN' + '@'
-                     + 'github.com/anaccount/a-repo.git')
+                     + 'github.com/example/a-repo.git')
         owner, name = psn.parse_remote(tokenised)
         cases.append(('a remote carrying a credential is parsed, and the '
                       'credential is not in what comes back',
-                      (owner, name) == ('anaccount', 'a-repo')))
+                      (owner, name) == ('example', 'a-repo')))
     finally:
         psn.api_full_name = real_api
         shutil.rmtree(tmp, ignore_errors=True)
