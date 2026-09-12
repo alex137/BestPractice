@@ -2657,6 +2657,51 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None):
     return findings, notes
 
 
+def leak_stem_recommendations(repo_dir, blocklist_path=None):
+    """-> [str] recommendations: private-by-default clones with no stem.
+
+    THE SAME SURVEY leak_gate.py runs, deliberately moved rather than copied
+    (pass 2 asks whether two implementations of one rule have drifted -- so
+    this calls the gate's own functions and owns none of the logic).
+
+    WHY IT LIVES HERE NOW. The gate printed this on every run, and a note
+    printed beside every push is one a person stops reading: Morgan,
+    2026-09-12, asking for exactly this move -- "you look to see if anything
+    is being leaked that you think shouldn't be and you make the
+    recommendation to me ... but only when I ask for it as part of a very
+    thorough review I'm in the mindset of doing". Silencing it in the gate
+    without a home to move it to would have traded noise for a blind spot.
+
+    Offline by construction: it reads clones on this disk and the blocklist,
+    and asks GitHub nothing. repo_visibility_audit above is the networked
+    half, and answers the other question -- the repositories this tree
+    already NAMES.
+    """
+    path = pathlib.Path(blocklist_path).expanduser() if blocklist_path else None
+    if path is None:
+        path, _how = leak_gate.resolve_blocklist_path()
+    if path is None or not path.is_file():
+        return []
+    owners, allowed = leak_gate.parse_repo_policy(path)
+    if not owners:
+        return []
+    pats = leak_gate.load_default_blocklist() + leak_gate._parse_blocklist(path)
+    gaps = leak_gate.uncovered_repo_stems(
+        leak_gate.local_clone_refs(pathlib.Path(repo_dir).resolve()), owners, allowed, pats)
+    out = []
+    for owner, name in gaps:
+        out.append(
+            f'{owner}/{name} is a clone on this disk under a private-by-default '
+            f'owner, and no blocklist pattern matches its bare name "{name}". '
+            f'The qualified form is refused by the allowlist; the short form '
+            f'somebody actually types is not. RECOMMENDATION: add a stem -- '
+            f'truncate to a distinctive head and measure the hit count against '
+            f'the tree before committing to the cut -- or decide the name may '
+            f'be said and add an `allow` line. Nothing in this tree says the '
+            f'name today, so this is latent risk, not a hit.')
+    return out
+
+
 # --------------------------------------------------------------------------
 # Repos in force: does each one still exist, and can work still land in it?
 # --------------------------------------------------------------------------
@@ -4131,7 +4176,14 @@ def _main(box):
             print(f'  FINDING: {f}')
         for n in _vn:
             print(f'  note: {n}')
-        if not _vf and not _vn:
+        # The offline half: names nothing has typed YET. These are
+        # recommendations for the person, not findings against the tree --
+        # this is the one place they are raised (practice: very-deep-check;
+        # leak_gate.py's own copy is silenced by `stem-notes off`).
+        _recs = leak_stem_recommendations(repo_root, _bl)
+        for r in _recs:
+            print(f'  RECOMMENDATION: {r}')
+        if not _vf and not _vn and not _recs:
             print('  nothing referenced, nothing to check')
         print()
         if led:

@@ -4118,6 +4118,37 @@ which is the failure this repointing exists to end — write
     that may hold an older copy on purpose.
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
+73. <a id="leak-gate-is-background-level"></a>**Decide whether
+    `leak-gate-is-background` belongs at team or universal level rather than
+    individual.** It landed 2026-09-12 in the individual set — a session never
+    relays a leak-gate note, never proposes a blocklist term, and never asks
+    whether to add one; the recommendations arrive in
+    [very-deep-check](practices/very-deep-check.md)'s repository-visibility
+    pass instead. Morgan, the same day, asking for this item: *"I should
+    consider later (not now) if the new rule to not repeatedly ask me about
+    blocklist ideas ... should be on a team or universal level as opposed to
+    personal? I don't know but I don't want to decide now because I want to
+    finalize this set of changes."*
+
+    The test is [layered-practice-packs](practices/layered-practice-packs.md)'s
+    — *would this hold in an unrelated repo?* Two readings, and they disagree.
+    The nuisance it ends is not personal: any repository with a private
+    blocklist prints the same note on every run, and any session will relay
+    it, so the rule reads universal. Against that, what a person wants to be
+    interrupted about is exactly the kind of thing an individual set exists
+    for, and somebody who wants those notes is not wrong to want them. The
+    mechanism is already level-neutral — `stem-notes off` and
+    `auto-cover-bare-names on` are per-person directives in each blocklist,
+    so a universal rule would not force either switch on anyone; it would only
+    say what a session does with what the gate prints.
+    Moving it is [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md)'s
+    procedure, not a rewrite.
+    **Blocked on / out of scope:** Morgan's decision, explicitly deferred
+    while he finished the change itself.
+    **Disposition:** ask (2026-09-12, Morgan)
+
+    He asked to be reminded in about three days, and a Routine was set the
+    same day to fire on 2026-09-15 and open a session on this item.
 
 - <a id="morgan-prose-name"></a>~~**What to call Morgan in prose, when it is
   not what git records.**~~ **Answered 2026-09-12, by him: the name in
