@@ -373,6 +373,8 @@ When deciding where a new rule belongs:
   layered-practice-packs — generic, domain, repo-local — each rule to its own layer
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
+When deciding which practice set a new rule belongs in -- repo-local, team, individual or universal:
+  rule-level-by-reach — pick the set by reach -- not by the repo you can write to
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
 When discovering something a session in another window will need:

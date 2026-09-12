@@ -14,7 +14,11 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork)"
+approved_by: "BestPractice (pre-fork). Extended 2026-09-12, Morgan F, relayed
+  through a scheduled instruction to make \"prefer strengthening an existing rule\"
+  operational -- the catalogue lookup in the proportionality guard. That extension
+  was decided; the practice's original pre-fork approval stays unmarked,
+  permanently, per decision-strength's no-backfill line."
 source_practice_number: 20
 ---
 ## Rule
@@ -41,7 +45,49 @@ statement, lost work). Prefer strengthening an existing rule or audit over
 minting a new one — rule-bloat is itself a failure mode, and a silent rule
 nobody agreed to is how it starts.
 
+**Before minting a rule at any level, search the universal catalogue for its
+subject and say what the search returned.** "Prefer strengthening an existing
+rule" assumes the existing rule is visible, and it often is not: a practice
+source carries its own level's `practices/` only, so a set that resolves no
+sources never sees universal text at all, and the rule you are about to
+duplicate is invisible from inside the repository you are writing in. Search by
+subject *and* by mechanism ([search-by-purpose](search-by-purpose.md)) — a clone
+of the upstream catalogue on disk is enough, with nothing attached — and report
+the result either way: **the slug you are extending, or that the search found
+nothing.** Unsearchable is not the same as absent, and neither is silence.
+
+**This is a lookup, not a meditation** — one search, one line. A session that
+cannot reach a catalogue to search says that, in those words, and the rule it
+writes is marked as written blind.
+
 ## Detail
+**The lookup is aimed at one specific blindness, and it is structural rather
+than careless.** The rungs above assume a session can see what the catalogue
+already says. A repository that resolves no practice sources cannot: its own
+`practices/` directory holds its own level and nothing else, so every universal
+rule is absent from disk, absent from the loader's resident block, and absent
+from the occasion index — and *nothing says so*. The session is not ignoring a
+rule it read; it is writing into a gap it has no way to notice. **That is why
+the guard has to be a required search with a stated result, not a preference.**
+An unstated preference is discharged by feeling like you checked.
+
+**What the search is for is the subject, not the wording.** The duplicate that
+actually gets written never repeats an existing rule's phrasing — it arrives as
+prose about the day's own problem, in the day's own vocabulary. So search by
+what the rule is *about* and by the mechanism it names, and search the whole
+catalogue rather than the neighbours you would expect
+([search-by-purpose](search-by-purpose.md)).
+
+**Verifying a rule is a different act from verifying a fact, and a session that
+does the second will believe it did the first.** Checking every factual claim
+against upstream is what a careful session does all day; it leaves the
+catalogue's *rules* unread, because a rule is not a claim about the world that
+some document will contradict. Nothing failed in the incident below except
+that one step, and that session had been unusually careful.
+
+**Where the rule finally goes is a separate question**, answered by
+[layered-practice-packs](layered-practice-packs.md) — the lookup tells you
+whether a rule already exists, not which level should hold the one you write.
 
 ## Why
 Repos that only fix instances relive their mistakes with new
@@ -77,10 +123,41 @@ insists it be recorded rather than summarised away. It tells a future reader
 what the rule protects against, so the rule can be re-judged when the world
 changes, and it calibrates proportionality.
 
+**The lookup clause has a dated incident of its own: 2026-09-12.** A session
+working in a private team practice source fixed a real defect, then wrote eight
+operational rules about running a fleet of sessions into that set's own
+instructions file and merged them. Most of the material was **already at universal**, which is
+verifiable from here: [spawn-session](spawn-session.md) landed 2026-09-11 and
+already required naming the repositories the work must read, write or push to
+and comparing them against the ones the session holds — and its Detail already
+cited `add_repo` refusing a cross-owner attach, which was one of the eight.
+
+**The cause was not carelessness, and that is the whole reason this clause
+exists.** That source declares no sources and materializes nothing into itself,
+so universal practice text never reached it. Its own run of this engine's
+mechanical checks is reported at **12 passed and 42 skipped, every skip the same
+cause** — the repository carries no practice file of the slug each check is keyed
+to — a figure recorded in
+[very-deep-check](very-deep-check.md)'s Pass 2 as well. *(Reported, not
+verified here: cross-owner attaches are refused, so that source cannot be read
+from this repository at all.)* The session had a readable clone of the upstream
+catalogue in its scratchpad the whole time and never grepped `practices/`
+before writing rules. **It verified every factual claim it made against
+upstream that day and never verified a rule against upstream's catalogue.**
+
+By this practice's own rungs it stopped at (b) — a written rule, dated,
+carrying its incident — and skipped (c), *if the lesson is generic, export it*.
+That is the consumer-template-only shape one level up, landing on the same day
+as [fix-the-original](fix-the-original.md), which exists to prevent exactly
+that shape.
+
 ## Install
 A habit plus a review question. The habit: end any session in
 which a mistake was caught with an explicit root-cause note and its
 prevention, in the same change-set as the fix. The review question, for the
 owner: "does this guard's rung (audit / dated rule / export) match the
-failure's checkability?" Seed it retroactively: the next time an old mistake
+failure's checkability?" The habit has a second half since
+2026-09-12: **the note names the catalogue search and its result** — the slug
+being extended, or that the search found nothing — which is one `grep` over
+`practices/` and one line of prose. Seed it retroactively: the next time an old mistake
 class recurs, that is the origin incident for its rule.
