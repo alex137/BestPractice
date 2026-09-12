@@ -1151,21 +1151,33 @@ _SOURCE_PATH_RE = re.compile(r'(?<![\w/.])([A-Za-z0-9_.-]+/[A-Za-z0-9_./-]*|'
 
 def _generated_header_files():
     """[(rel, comment)] for every tracked file carrying a `do not hand-edit`
-    HTML comment, excluding evals/.
+    HTML comment, excluding any `evals/` directory at any depth.
 
     evals/ is excluded BY NAME, not by accident: those are recorded prompts
     from past measurement runs, which embed a frozen copy of an old loader
     block. They are inputs to a finished experiment, not live outputs -- 29
     of them as of 2026-09-11, every one carrying a header naming a check that
     has since been replaced. Regenerating them would destroy the record the
-    run is evidence for."""
+    run is evidence for.
+
+    The exclusion is a PATH SEGMENT test, not a `evals/` prefix, and the
+    reason is not visible from this file: this engine is vendored into
+    consuming repos, where this whole tree -- evals/ included -- sits under a
+    mirror prefix. A prefix test matches only when the engine is checking the
+    repo it was written in. In a consumer on 2026-09-12 it matched nothing,
+    and the check reported 26 violations against these same recorded prompts
+    at `<mirror>/evals/...` -- every one a false positive, and not one of them
+    fixable there, because a vendored tree has to stay byte-identical to the
+    commit it mirrors. A segment test still excludes `evals/x.md` at the root,
+    and still reports `my-evals/x.md` and `evals-notes/x.md`, which are
+    ordinary directories that merely begin or end with the word."""
     r = _git('ls-files', '-z')
     if r.returncode != 0:
         raise NotApplicable('git ls-files failed, so the tracked set of files '
                             'could not be read')
     out = []
     for rel in r.stdout.split('\0'):
-        if not rel or rel.startswith('evals/'):
+        if not rel or 'evals' in pathlib.PurePosixPath(rel).parts[:-1]:
             continue
         path = ROOT / rel
         if not path.is_file():
