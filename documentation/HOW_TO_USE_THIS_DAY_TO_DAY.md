@@ -101,7 +101,8 @@ each one saves you a paragraph of explaining:
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
-| **Clean session** | Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go. |
+| **Spawn session** | Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go. |
+| **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why. |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from. |
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |

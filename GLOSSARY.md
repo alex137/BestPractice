@@ -12,7 +12,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
-| Clean session | [clean-session](practices/clean-session.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | decided | [decision-strength](practices/decision-strength.md) |
@@ -29,6 +28,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
+| My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
 | Park it | [park-it](practices/park-it.md) |
@@ -40,6 +40,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
+| Spawn session | [spawn-session](practices/spawn-session.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | Three Things | [three-things](practices/three-things.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |

@@ -118,8 +118,8 @@ unmarked, permanently, because guessing which past "ok" was enthusiastic is
 the invention [no-invented-specifics](practices/no-invented-specifics.md)
 forbids. Coined by Morgan on 2026-09-09 and placed at universal the same day.
 
-**A seventh command, "Clean session"**, is defined universally in
-[practices/clean-session.md](practices/clean-session.md) and means: **before
+**A seventh command, "Spawn session"**, is defined universally in
+[practices/spawn-session.md](practices/spawn-session.md) and means: **before
 starting what I just asked for, check whether it belongs in a different
 session — repositories first — and if it does, hand me a link to that
 session, rooted in the right repository and already seeded with the prompt,
@@ -133,7 +133,21 @@ It is the step that comes *before*
 which was amended the same day: where the harness can create the session
 itself, the link replaces the paste block, and the block's three things
 become the seeded prompt rather than something anyone retypes. Coined by
-Morgan on 2026-09-11 and placed at universal from the start.
+Morgan on 2026-09-11 and placed at universal from the start, as
+`clean-session`; **renamed to `spawn-session` on 2026-09-12** on his
+instruction, with nothing else about it changed.
+
+**An eighth command, "My options"**, is defined universally in
+[practices/my-options.md](practices/my-options.md) and means: **lay out the
+real choices in plainer words, give me the good and the bad of each, and tell
+me which one you recommend and why.** Every option that is actually on the
+table, a short block each, the cost said as flatly as the benefit — and then
+**a named recommendation with its reason**, never a survey that leaves the
+choice sitting there. It governs **that one answer**, not the rest of the
+conversation, which is what separates it from `Plain words`; and his reply to
+the recommendation is an approval like any other, so
+[practices/decision-strength.md](practices/decision-strength.md) marks it.
+Coined by Morgan on 2026-09-12 and placed at universal the same day.
 
 **A third command, "Update Vendors"**, triggers
 [practices/vendor-update-runbook.md](practices/vendor-update-runbook.md) —
@@ -207,7 +221,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 100 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 101 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -303,6 +317,8 @@ When a person explicitly asks for a "very deep check" across the whole repo, or 
   very-deep-check — read every repo in force against itself, pass by pass; never a routine gate
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
+When a person says "My options", or asks to have a decision's options laid out:
+  my-options — "My options" -- every option, plainer, both sides, then your pick and why
 When a person says "Park it" about an open item or a question:
   park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
 When a person says "Plain words":
@@ -364,7 +380,7 @@ When exporting a tool across a repo boundary:
 When finishing a substantial work-product, before the merge-time capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
 When handing the person work to do, or starting work that may touch a repository this session cannot reach:
-  clean-session — cross-repo check first; hand over a clickable seeded session, not a description
+  spawn-session — cross-repo check first; hand over a clickable seeded session, not a description
 When importing, creating, or declaring a repository that holds practices:
   source-naming — names are fixed by level; say the convention before anyone picks a name
 When landing practices in bulk -- a migration, an import, or a move between sources:

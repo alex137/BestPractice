@@ -3936,3 +3936,18 @@ which is the failure this repointing exists to end — write
     which this repository does not control, and a decision between those three
     shapes. **Disposition:** wait (2026-09-11 — a session filed this; nobody
     has set it to `ask`)
+70. <a id="my-options-includes-doing-nothing"></a>**Decide whether "My
+    options" must always list the do-nothing option.** When
+    [my-options](practices/my-options.md) was coined on 2026-09-12, the
+    session proposed that a plain "none of these, don't do it" be a
+    legitimate answer and that the do-nothing case appear as an explicit
+    option every time. Morgan deferred it in the same message that
+    authorized the rest: *"Don't do the 'no' options yet, we can consider
+    that later."* The argument for it is that the do-nothing option is
+    frequently the right answer and is the one most often left out of a
+    list; the argument against it is a rule that pads every answer with an
+    option nobody is considering. Settling it is a one-clause edit to the
+    practice's Rule either way.
+    **Blocked on / out of scope:** Morgan's decision, explicitly deferred.
+    **Disposition:** wait (2026-09-12 — deferred by him; nobody has set it
+    to `ask`)

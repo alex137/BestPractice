@@ -1,5 +1,5 @@
 ---
-slug:        clean-session
+slug:        spawn-session
 title:       "Check whether the work belongs in another session before starting it, and hand over a seeded link"
 tier:        on-demand
 severity:    default
@@ -8,7 +8,7 @@ occasion:    "handing the person work to do, or starting work that may touch a r
 gates:       ["reply"]
 index_clause: "cross-repo check first; hand over a clickable seeded session, not a description"
 checked_by:  null
-defines:     ["Clean session"]
+defines:     ["Spawn session"]
 status:      active
 in_force_at: null
 supersedes:  []
@@ -34,7 +34,7 @@ near the top of the reply, on its own line, telling the person plainly to
 click it.**
 
 **The check is unconditional.** It runs whenever another repository might be
-involved, whether or not anyone says anything. **"Clean session" is the
+involved, whether or not anyone says anything. **"Spawn session" is the
 explicit command** for the times it did not: it means *run that check now,
 say what it found, and hand me the link* — including when the honest answer
 is "this session is the right one", which is said in one line and then the
@@ -130,6 +130,14 @@ session's files did not exist.
 Every one of those is downstream of the same moment — the moment a session
 starts work whose repository it does not have. **Nothing before this checked
 that moment**; the catalogue's rules all began after it had already passed.
+
+**It was called `clean-session` for its first day.** Morgan renamed it on
+2026-09-12 — *"Let's rename 'clean session' to 'spawn session'"* — and asked
+for nothing else about it changed. He gave no reason and none was needed: the
+new phrase names what the command does, where the old one named a property of
+the destination that the person saying it cannot check from where they are
+standing. The rule, the gate and the routing are untouched; only the words
+moved.
 
 ## Install
 Nothing to configure. The occasion index entry above is generated, so an
