@@ -17,7 +17,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | decided | [decision-strength](practices/decision-strength.md) |
 | declared fallback zone | [timestamps-carry-offset](practices/timestamps-carry-offset.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
-| decommissioned | [decommission-deletes-files](practices/decommission-deletes-files.md) |
 | deep check | [two-check-levels](practices/two-check-levels.md) |
 | document kind | [document-status-header](practices/document-status-header.md) |
 | document reference | [doc-references-are-links](practices/doc-references-are-links.md) |

@@ -8,7 +8,7 @@ occasion:    "decommissioning a mechanism — a workflow, a tool, a vendored tre
 gates:       []
 index_clause: "delete what the decommissioned mechanism owned; audit first, never on a hunch"
 checked_by:  "tools/precedent_check.py"
-defines:     ["decommission", "decommissioned"]
+defines:     ["decommission"]
 status:      active
 in_force_at: null
 supersedes:  []
