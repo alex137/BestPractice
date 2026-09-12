@@ -48,7 +48,7 @@ Run:
       # not the target repo's content, the same "sibling files travel with
       # the script, not with --repo" rule sibling-module imports follow.
 """
-import collections, json, pathlib, re, sys
+import collections, json, os, pathlib, re, sys
 
 # _ENGINE_DIR (where this file itself lives) is only ever used for the
 # sibling-module import and the MAP.md "## The engine" listing below --
@@ -523,7 +523,128 @@ def _gate_moment(vocab_description):
     return phrase.strip()
 
 
-def build_loader_block(practices, source_levels=None, omits_private=False):
+# ---- placing a resident Rule's relative links (practice: cite-the-incident)
+#
+# A resident practice's ## Rule is copied VERBATIM into the loader block, and
+# that block lands in AGENTS.md at the repository ROOT. The Rule was written
+# in practices/, one directory down, so a sibling citation legal there --
+# `[audience-register](audience-register.md)` -- resolves to nothing from the
+# root and lands in a consuming repo as a hard doc_lint BROKEN RELATIVE LINK,
+# inside a generated region no session in that repo is allowed to edit.
+#
+# Reported 2026-09-11 from a consuming repo taking a vendor update: an
+# individual set's new practice carried the only link in the whole resident
+# block and failed that repo's doc gate on an otherwise-clean update. It was
+# patched at the source by dropping the markup, which holds by convention
+# only -- the next resident practice to carry a link breaks every consuming
+# repo the same way.
+#
+# WHAT IS NOT DONE HERE, and it is the constraint that shapes the rest:
+# precedent_materialize.py's _rewrite_links may not mint an absolute URL
+# naming a private repository, because a consuming repo can be public and a
+# disclosure cannot be taken back. Neither may this. So every placement here
+# is a REPO-RELATIVE path or nothing: a link whose destination cannot be
+# reached from the block's own directory without escaping the repository is
+# left exactly as its author wrote it, and said out loud on stderr rather
+# than quietly mangled (practice: fail-gracefully).
+_RULE_LINK_RE = re.compile(r'(\]\()([^)\s]+?)((?:\s+"[^"]*")?\))')
+# A link written inside backticks or a fenced block is a VALUE being
+# documented, not a reference -- doc_lint skips both for the same reason, and
+# rewriting one would edit the prose of a rule this file is only supposed to
+# relay. A `## Rule` showing a reader what a link looks like is exactly the
+# kind of practice that would carry one.
+_CODE_SPAN_RE = re.compile(r'`[^`]*`')
+_FENCE_RE = re.compile(r'^\s*(?:```|~~~)', re.MULTILINE)
+
+
+def _literal_spans(text):
+    """[(start, end)] of every region of `text` that is code rather than
+    prose -- fenced blocks and inline code spans. A link inside one is a
+    value being shown, not a reference to repoint."""
+    spans, fences = [], [m.start() for m in _FENCE_RE.finditer(text)]
+    for i in range(0, len(fences) - 1, 2):
+        end = text.find('\n', fences[i + 1])
+        spans.append((fences[i], len(text) if end < 0 else end))
+    if len(fences) % 2:                   # an unclosed fence runs to the end
+        spans.append((fences[-1], len(text)))
+    for m in _CODE_SPAN_RE.finditer(text):
+        if not any(a <= m.start() < b for a, b in spans):
+            spans.append((m.start(), m.end()))
+    return spans
+
+
+def _within(path, root):
+    """Whether `path` is `root` or sits under it. Both already resolved."""
+    return path == root or root in path.parents
+
+
+def _place_rule_links(text, practice_file, block_dir, repo_root=None,
+                      planned=()):
+    """-> (rewritten Rule text, [unplaceable link targets]).
+
+    `block_dir` is the directory the rendered block will live in -- the repo
+    root for AGENTS.md, `.precedent/` for the session-practices file -- which
+    is what a relative link in the block is resolved against. It is NOT the
+    practice file's own directory, and that difference IS the bug.
+
+    `repo_root` is the tree a placed link may not leave, and it is a separate
+    argument BECAUSE the two differ: a block rendered into `.precedent/`
+    legitimately links `../practices/x.md`, so "the relative path starts with
+    .." is not the test. Leaving the repository is.
+
+    `planned` is every repo-relative path the surrounding run will have
+    written by the time anyone reads the block -- materialize() empties and
+    refills practices/ and tools/checks/, so asking the DISK mid-run answers
+    a question about the previous run. precedent_materialize._rewrite_links
+    carries the same argument for the same reason, and records what asking
+    the disk instead cost it.
+    """
+    unplaced = []
+    src_dir = pathlib.Path(practice_file).resolve().parent
+    block_dir = pathlib.Path(block_dir).resolve()
+    repo_root = (pathlib.Path(repo_root).resolve()
+                 if repo_root is not None else block_dir)
+    literal = _literal_spans(text)
+
+    def sub(m):
+        open_paren, target, close = m.groups()
+        if any(a <= m.start() < b for a, b in literal):
+            return m.group(0)
+        if target.startswith(('http://', 'https://', 'mailto:', '#')):
+            return m.group(0)
+        bare, sep, frag = target.partition('#')
+        if not bare:                      # a bare #fragment resolves against
+            return m.group(0)             # the rendered document, not a file
+        dest = (src_dir / bare).resolve()
+        # "Cannot place confidently" has exactly two shapes, and both are
+        # left alone rather than guessed at. The destination not existing
+        # means the rewrite would invent a path; the destination sitting
+        # outside the repository means the practice file lives in a source
+        # clone somewhere else on this disk (a team or individual set), where
+        # no relative link reaches it, an absolute one would name a private
+        # repository, and a machine-specific `../../../home/...` would be
+        # wrong for every other reader.
+        if not _within(dest, repo_root):
+            unplaced.append(target)
+            return m.group(0)
+        in_repo = os.path.relpath(dest, repo_root).replace(os.sep, '/')
+        if not (dest.exists() or in_repo in planned):
+            unplaced.append(target)
+            return m.group(0)
+        try:
+            rel = os.path.relpath(dest, block_dir).replace(os.sep, '/')
+        except ValueError:                # different drive, on Windows
+            unplaced.append(target)
+            return m.group(0)
+        if rel == bare:
+            return m.group(0)
+        return f'{open_paren}{rel}{sep}{frag}{close}'
+
+    return _RULE_LINK_RE.sub(sub, text), unplaced
+
+
+def build_loader_block(practices, source_levels=None, omits_private=False,
+                       block_dir=None, repo_root=None, planned=()):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -532,12 +653,50 @@ def build_loader_block(practices, source_levels=None, omits_private=False):
     practice count out by level, so the generated block discloses
     provenance at a glance rather than only in MANIFEST.json. Omitting it
     (the default) renders byte-identical to before this parameter existed,
-    which is what keeps this repo's own single-source generation unchanged."""
-    resident = [(fm, sections) for fm, sections, _f in practices if fm.get('tier') == 'resident']
+    which is what keeps this repo's own single-source generation unchanged.
+
+    block_dir: the directory the rendered block will be written into, which
+    is what a relative link inside it resolves against -- the repo root for
+    AGENTS.md (the default), `<repo>/.precedent` for the session-practices
+    file. repo_root: the tree those links may not leave, defaulting to
+    block_dir -- they differ only where the block is written below the repo
+    root. planned: repo-relative paths this run will have written by the
+    time the block is read. A resident Rule's relative links are repointed
+    for all three; see _place_rule_links."""
+    # Resolved, so the warning below names a path a reader can act on: a
+    # caller passing `--repo .` otherwise produced "cannot be placed
+    # relative to .", which says nothing.
+    block_dir = (pathlib.Path(block_dir) if block_dir is not None else ROOT).resolve()
+    repo_root = (pathlib.Path(repo_root).resolve()
+                 if repo_root is not None else block_dir)
+    resident = [(fm, sections, f) for fm, sections, f in practices
+                if fm.get('tier') == 'resident']
     resident.sort(key=lambda t: t[0]['slug'])
 
+    placed = []
+    for fm, sections, f in resident:
+        rule, unplaced = _place_rule_links(
+            sections.get('rule', '').strip(), f, block_dir, repo_root,
+            planned)
+        for target in unplaced:
+            # Loud, and never fatal: the session-practices file legitimately
+            # renders practices that live outside this repository, where no
+            # relative link can reach and an absolute one would name a
+            # private repository. A dead relative link is the smaller
+            # failure, and saying so is what keeps it from being silent.
+            print(f"build_views: {fm['slug']}'s Rule links {target!r}, which "
+                  f"cannot be placed relative to {block_dir} -- it is left as "
+                  f"written and will not resolve from the rendered block. "
+                  f"Make it an absolute upstream URL in the practice file, or "
+                  f"drop the markup.", file=sys.stderr)
+        placed.append((fm, sections, rule))
+
+    # Back to (fm, sections) pairs: everything below counts and groups the
+    # resident set and has no use for the file, while `placed` carries the
+    # text that actually goes in the block.
+    resident = [(fm, sections) for fm, sections, _f in resident]
     resident_text = '\n\n'.join(
-        f"**{fm['slug']}.** {sections.get('rule', '').strip()}" for fm, sections in resident
+        f"**{fm['slug']}.** {rule}" for fm, _sections, rule in placed
     )
     token_count = _approx_tokens(resident_text)
     if token_count > RESIDENT_BUDGET_TOKENS:
@@ -841,8 +1000,13 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
     only version of this that cannot drift again."""
     agents_md = agents_md if agents_md is not None else AGENTS_MD
     original = agents_md.read_text(encoding='utf-8')
+    # The block's links are relative to the file it lands IN, which is not
+    # always this engine's own ROOT: `--repo DIR` renders another repo's
+    # AGENTS.md, and a resident Rule's sibling citation has to be repointed
+    # for that repo's root, not this one's.
     block, tokens, n_resident = build_loader_block(
-        practices, source_levels=source_levels, omits_private=omits_private)
+        practices, source_levels=source_levels, omits_private=omits_private,
+        block_dir=agents_md.parent)
     if BEGIN_MARKER not in original or END_MARKER not in original:
         sys.exit(f"build_views FAIL: {agents_md} has no "
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")
