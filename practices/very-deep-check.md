@@ -66,7 +66,11 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   check main to see if there were any changes that we should update our
   version with so they don't get too out of sync; but those changes, don't
   implement automatically, but ask the session user if they want to
-  implement them\""
+  implement them\"; extended 2026-09-12, PENDING REVIEW -- not yet
+  approved by anyone -- with pass 2's does-it-ever-run question, after a
+  source set was measured running 12 of its 54 registered checks and
+  skipping the other 42 for one cause, with the rule governing what its
+  own published practice files may link among them"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -365,8 +369,9 @@ method"). Build the fixtures.
 
 ### Pass 2 — Do the mechanisms report what they claim to?
 Every mechanical check, gate, and tool, one at a time. Every question below
-found a real defect here — all but one in the 2026-09-06 pre-launch audit,
-and the duplicate-implementation question in this practice's own machinery —
+found a real defect in a repo in force — most in the 2026-09-06 pre-launch
+audit, the duplicate-implementation question in this practice's own
+machinery, and the does-it-ever-run question in an attached source set —
 and none of them is visible from a check's own output: a broken check reports
 confidently.
 
@@ -484,6 +489,45 @@ confidently.
     days before, which is exactly what put them in the surviving class. The
     set difference, run against the whole tree the next day, was 507
     files.)*
+15. **Does it ever run here?** Question 2 asks whether a check can ever go
+    green; this asks whether it fires at all, and the two look nothing alike.
+    A check that cannot pass is loudly red. A check that never runs prints
+    `SKIPPED` with an honest reason and is then aggregated by nothing — a
+    mechanism telling the exact truth to nobody, which is the one shape this
+    pass would otherwise let through. Enumerate rather than sample (question
+    14 is the same discipline): for **every registered check, in every repo in
+    force**, record what it actually did — passed, violated, skipped and why,
+    or never registered there at all — then read each practice's `checked_by`
+    against that result. A `checked_by` naming a check that never runs in the
+    repo holding it is a coverage claim nobody tested, which is the state
+    [tools/precedent_check.py](../tools/precedent_check.py)'s own header says
+    the module exists to end.
+
+    **What comes out is a coverage report, not a deletion list**, and the
+    distinction is the whole of it: *"this rule never fires"* bundles three
+    unlike states, and only one is evidence about the rule. **The check never
+    ran** says nothing at all — remove on that and you remove a rule *because*
+    nobody checked it. **The check runs and always passes** cannot separate an
+    obeyed rule from an unnecessary one; they are identical from the output.
+    **There is no check at all** is most of the catalogue by design, where
+    "firing" was never defined. Removal stays a person's judgment, now with
+    evidence under it. Three readings earn a line where you find them: a
+    `checked_by` naming a check that never runs there; a check that runs
+    everywhere, has never fired **and** forbids something no longer
+    structurally possible — the only retirement candidate of the three; and a
+    check firing repeatedly on one root cause, which asks for a fix to the
+    tooling rather than more enforcement of the rule. *(Found: a team source
+    at 12 passed and 42 skipped, every skip the same cause — each check is
+    keyed to a `practices/<slug>.md` the set does not carry, because a source
+    set's `practices/` holds its own level only and it resolves no source that
+    could supply the rest. Among the 42 was the rule governing what a practice
+    file may link relatively. That set had published a relative link to a file
+    materialization does not copy — live where it was written, dead in every
+    repository that received the catalogue — and a consuming repo caught it one
+    sync late, because the rule is in force there and skips in the set that
+    published the violation. The same skip hid
+    [generated-artifact-provenance](generated-artifact-provenance.md), whose
+    own file names a check for it.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
