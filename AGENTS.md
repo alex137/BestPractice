@@ -293,8 +293,8 @@ When a document presents a script-derived figure:
   docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
-When a message ends on the standing merge-authorization phrase:
-  go-merge — "Go merge" alone at the end: sync, name the branch, commit, push, PR, merge
+When a message carries the standing merge-authorization phrase:
+  go-merge — "Go merge" anywhere in the message: sync, name branch, commit, push, PR, merge
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- refresh the source clone first; both layers move separately
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:

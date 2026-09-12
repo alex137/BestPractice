@@ -49,7 +49,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [generated-artifact-provenance](practices/generated-artifact-provenance.md) | on-demand | building or committing a generated artifact |
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
-| [go-merge](practices/go-merge.md) | on-demand | a message ends on the standing merge-authorization phrase |
+| [go-merge](practices/go-merge.md) | on-demand | a message carries the standing merge-authorization phrase |
 | [handoff-is-pasteable](practices/handoff-is-pasteable.md) | on-demand | asking the person to do something in another session |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
