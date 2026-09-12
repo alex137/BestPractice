@@ -89,7 +89,7 @@
       ],
       "gates_why": "A review that produces a rule produces it here; it also has a glob for where the rule is written."
     },
-    "clean-session": {
+    "spawn-session": {
       "globs": [
         "**"
       ],
@@ -366,6 +366,17 @@
         "review"
       ],
       "gates_why": "Its occasion is 'a review finds a defect'. No path reaches a moment."
+    },
+    "my-options": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment (the person says the phrase, or asks for a decision's options laid out), not a place. Nothing is written to the tree, so no path exists whose editing means the command was ignored -- the same shape as plain-words and three-things beside it. Reached through the occasion index and the reply gate.",
+      "decided": "2026-09-12, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The reply is the whole artifact: the options, their costs and the recommendation either appear there or they do not."
     },
     "name-both-sides-of-ledger": {
       "globs": [

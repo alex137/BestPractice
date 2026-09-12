@@ -22,7 +22,7 @@ source_practice_number: null
 **First, before any of this: the question of whether the work belongs in
 another session is asked before the work starts, not after — and the
 repositories are checked first.** That is
-[clean-session](clean-session.md)'s, and this rule begins where it ends.
+[spawn-session](spawn-session.md)'s, and this rule begins where it ends.
 **Where the harness can create the session itself, do that instead of
 writing a paste block**: a link, rooted in the right repository and already
 carrying the prompt, put near the top of the reply with a plain instruction
