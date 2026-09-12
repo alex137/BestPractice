@@ -48,7 +48,12 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
 
     It is named by PRECEDENT_LEAK_BLOCKLIST (a path outside this repo, e.g.
     in the individual set), and is MERGED with the default, never a
-    replacement for it. When it is not set the gate still reports OK -- the
+    replacement for it. With the variable unset the gate looks for
+    `leak-blocklist.txt` in the individual source your user-level config
+    names -- the location INSTALL.md section 8 already puts it -- so the
+    layer runs without anyone exporting anything. The variable is an
+    override, not the only route; --structural-only is still how a caller
+    asks for the structural half by name. When it is not set the gate still reports OK -- the
     layer did run -- but says plainly that only the publishable half was
     checked. That sentence is not decoration: a clean scan against
     publishable terms is not evidence that no private word is present, and
@@ -76,6 +81,11 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   a missing stem is latent risk, not a hit, and the content scan already
   covers what this tree says today. It is silent with no owner declared,
   which is also what keeps a private name out of a public CI log.
+  `# visibility-audit: stem-notes off -- why` in the blocklist silences it
+  on ordinary runs for the person whose file that is; --survey prints it
+  regardless, and very_deep_check.py's visibility pass asks for it there, so
+  the recommendation arrives inside a review somebody asked for rather than
+  beside every push. A HIT is never silenceable by any of this.
   very_deep_check.py answers the same question from the other side, for the
   repositories this tree already NAMES, by asking GitHub which are private.
 
@@ -425,6 +435,27 @@ ALLOW_REF_RE = re.compile(
 # The announce pattern is what makes a typo detectable at all. Before it, a
 # misspelled directive was indistinguishable from an ordinary comment -- the
 # file said a rule was configured and the parser saw prose.
+# A third directive, and the only one that turns something OFF. The stem
+# survey below NOTES every private-by-default clone on this disk whose bare
+# name no pattern matches -- latent risk, reported on every run, because the
+# moment to add a stem is while the repository is in front of you. That is
+# right for a person who maintains their own blocklist and wrong for one who
+# does not: Morgan, 2026-09-12, on being offered a stem for the third time --
+# "I feel like I keep on getting errors and warnings and questions about it
+# ... I just want to ignore it, UNTIL I tell you explicitly to add something
+# to a blocklist." The notes do not go away, they MOVE: `--survey` prints
+# them regardless, and very_deep_check.py's visibility pass calls it, so the
+# recommendation arrives during a review somebody asked for instead of
+# beside every push.
+#
+# It lives in the private blocklist because that file is already the
+# per-person place where "which names matter" is decided. One person
+# switching their notes off leaves everybody else's exactly as they were --
+# which a git config could not promise, since a config is per container and
+# dies with it.
+STEM_NOTES_RE = re.compile(
+    r'#\s*visibility-audit:\s*stem-notes\s+(on|off)\s*--\s*(.+)$')
+
 VIS_AUDIT_ANNOUNCE_RE = re.compile(r'#\s*visibility-audit:')
 
 
@@ -447,6 +478,8 @@ def repo_policy_errors(path):
             n_owner += 1
         elif ALLOW_REF_RE.match(line):
             n_allow += 1
+        elif STEM_NOTES_RE.match(line):
+            pass
         elif re.search(r'--\s*$', line):
             out.append((i, line, 'the reason is empty. A reason must sit on '
                                  'the SAME line as the directive -- there is '
@@ -458,8 +491,9 @@ def repo_policy_errors(path):
                                  'mandatory on every directive'))
         else:
             out.append((i, line, 'not a recognized directive. Expected '
-                                 '`private-owner <account> -- reason` or '
-                                 '`allow <owner>/<name> -- reason`'))
+                                 '`private-owner <account> -- reason`, '
+                                 '`allow <owner>/<name> -- reason` or '
+                                 '`stem-notes on|off -- reason`'))
     # Allow lines with nothing switched on are not a weaker configuration --
     # they are somebody having authorized disclosures under a rule that is not
     # running. Every one of them reads as deliberate and enforces nothing.
@@ -490,6 +524,23 @@ def parse_repo_policy(path):
         if m:
             allowed[m.group(1).lower()] = m.group(2).strip()
     return owners, allowed
+
+
+def stem_notes_enabled(path):
+    """-> True unless the blocklist says `stem-notes off`.
+
+    Default ON: a person who has never heard of this directive keeps the
+    behaviour they had. Off is a thing you say on purpose, in your own file,
+    with a reason -- and it silences ONLY the routine notes, never a hit."""
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, AttributeError):
+        return True
+    for line in text.splitlines():
+        m = STEM_NOTES_RE.match(line.strip())
+        if m:
+            return m.group(1).lower() == 'on'
+    return True
 
 
 def repo_ref_hits(text, owners, allowed):
@@ -753,6 +804,56 @@ def _stale_blocklist_clone_note():
             f"as real.")
 
 
+INDIVIDUAL_BLOCKLIST_NAME = 'leak-blocklist.txt'
+
+
+def discovered_blocklist_path():
+    """-> the individual source's own leak-blocklist.txt, or None.
+
+    WHY THIS EXISTS. The private list has always been reachable only through
+    PRECEDENT_LEAK_BLOCKLIST, exported by hand -- so every fresh shell, every
+    fresh container and every new session started with the vocabulary layer
+    downgraded, and the remedy was a path somebody had to go find. The list
+    was on disk the whole time, at the location INSTALL.md section 8 already names.
+    Reading it there costs nothing and removes the whole class of "export
+    this variable first" friction that made the gate feel like noise.
+
+    It resolves the user-level config DIRECTLY rather than through
+    precedent_resolve.load_config(), which SELF-HEALS: on a hosted session
+    that helper re-clones the individual source into whatever HOME it is
+    handed, so a fixture built to hold "no private source" turns itself into
+    "a private source resolved" mid-run (AGENTS.md gotcha, 2026-09-08). A
+    gate must observe the environment, never repair it.
+    """
+    cfg = pathlib.Path(os.environ.get('HOME', '~')).expanduser() / '.config' / 'precedent' / 'config.json'
+    if not cfg.is_file():
+        return None
+    import json as _json
+    try:
+        data = _json.loads(cfg.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    raw = ((data.get('individual') or {}).get('path') or '').strip()
+    if not raw:
+        return None
+    path = pathlib.Path(raw).expanduser() / INDIVIDUAL_BLOCKLIST_NAME
+    return path if path.is_file() else None
+
+
+def resolve_blocklist_path():
+    """-> (path, how) where how is 'env', 'individual source' or None.
+
+    The environment variable still wins, so a caller can point the gate at a
+    different list, and --structural-only still opts out by name."""
+    raw = os.environ.get(BLOCKLIST_ENV, '').strip()
+    if raw:
+        return pathlib.Path(raw).expanduser(), 'env'
+    found = discovered_blocklist_path()
+    if found:
+        return found, 'individual source'
+    return None, None
+
+
 def load_blocklist():
     """-> (patterns, source_description, private_configured).
 
@@ -761,10 +862,9 @@ def load_blocklist():
     the PRIVATE half was configured, which is what --require-vocabulary and
     the reporting below key off -- the default half is never in question."""
     default_pats = load_default_blocklist()
-    raw = os.environ.get(BLOCKLIST_ENV, '').strip()
-    if not raw:
+    path, how = resolve_blocklist_path()
+    if path is None:
         return default_pats, f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)} pattern(s))', False
-    path = pathlib.Path(raw).expanduser()
     if not path.exists():
         sys.exit(f"leak gate FAIL: {BLOCKLIST_ENV} points at {path}, which does not "
                  f"exist. A configured-but-missing blocklist is a check that did not "
@@ -826,7 +926,7 @@ def scan(units, blocklist, repo_policy=(None, None)):
 
 
 KNOWN_FLAGS = {'--explain', '--staged', '--range', '--require-vocabulary',
-               '--structural-only'}
+               '--structural-only', '--survey'}
 
 
 def _require_vocabulary_configured():
@@ -973,9 +1073,8 @@ def main():
     # vocabulary patterns, so a clone with no private blocklist configured
     # gets no owner policy either -- and says so through the existing
     # PARTIAL reporting, rather than silently enforcing nothing.
-    _raw_bl = os.environ.get(BLOCKLIST_ENV, '').strip()
-    if _raw_bl:
-        _bl_path = pathlib.Path(_raw_bl).expanduser()
+    _bl_path, _bl_how = resolve_blocklist_path()
+    if _bl_path is not None and _bl_path.is_file():
         _errs = repo_policy_errors(_bl_path)
         if _errs:
             for _ln, _txt, _why in _errs:
@@ -1043,8 +1142,15 @@ def main():
         # whose BARE name nothing covers, which is the form that actually
         # leaked. Reported every run, because the moment to add a stem is
         # while the repository is in front of you.
-        _gaps = uncovered_repo_stems(local_clone_refs(ROOT), _policy[0],
-                                     _policy[1], blocklist)
+        # ROUTINE NOTES ARE OPT-OUT-ABLE, HITS ARE NOT. `stem-notes off` in
+        # the blocklist silences the survey on ordinary runs; --survey asks
+        # for it by name, which is how very_deep_check.py's visibility pass
+        # gets it. Nothing here touches whether a real hit fails the push.
+        _survey = '--survey' in args
+        _notes_on = _survey or _bl_path is None or stem_notes_enabled(_bl_path)
+        _gaps = (uncovered_repo_stems(local_clone_refs(ROOT), _policy[0],
+                                      _policy[1], blocklist)
+                 if _notes_on else [])
         for _owner, _name in _gaps:
             print(f'leak gate NOTE: {_owner}/{_name} is a clone on this disk '
                   f'under a private-by-default owner, and NO blocklist pattern '
