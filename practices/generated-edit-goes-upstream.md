@@ -117,6 +117,26 @@ to ignore the gate ([checkable-gets-checked](checkable-gets-checked.md)), so
 it was dropped in favour of the header check below, and
 `acronyms-glossary`'s wording was fixed by hand as the one real instance.
 
+**And the clause the check demands was close to unsatisfiable for its first
+day.** Found 2026-09-11 from a consuming repo, by a session adding a `Source:`
+clause to a generator's emitted header and watching the check refuse it. The
+terminator could not cross a hyphen, so a clause naming
+`business-modeling/doc-recipes/OUTPUT_HTML.recipe.md` did not match at all and
+the file was reported as carrying **no clause** — sending a reader to hunt for
+something sitting in the header they were already looking at. Hyphenated paths
+are the common case in these repos, not the edge case. A second fault sat
+underneath: the terminator stopped at any `.`, so even the hyphen-free
+`Source: docs/plain.md` was read as `docs/plain` and reported as a path that
+does not exist.
+
+**Both messages named the wrong problem**, and that is the part worth keeping.
+A rule whose check is wrong costs more than a rule with no check at all,
+because the session it defeats is the one trying hardest to comply — and a
+session told its clause is missing will write a second one rather than doubt
+the gate. The consuming repo left its clause in place on the grounds that it
+was correct and a human could read it, which was the right call: nothing on
+that side needed editing.
+
 ## Install
 `python3 tools/precedent_check.py --only generated-edit-goes-upstream`
 enforces the half of this rule a machine can see: **every file carrying a
@@ -125,6 +145,26 @@ comment, and every path that clause names exists.** A header that says only
 which script rebuilds the file tells a session how to destroy its edit, not
 where to put it; a `Source:` naming a path that has since moved is worse,
 because it reads as an answer.
+
+**Where the clause ends, since the check has to decide somehow:** it runs from
+`Source:` to the first of ` -- ` (this project's prose dash, spaced), an em
+dash, a period followed by whitespace, or the end of the comment. A path
+therefore keeps its hyphens and its extension —
+`doc-recipes/OUTPUT_HTML.recipe.md` is one token to the check — and the
+sentence explaining the source belongs *after* a ` -- `, where it is not
+scanned for paths. Written the other way round, that prose is checked as
+though the header had named every path-shaped word in it.
+
+**Writing ABOUT this check makes the file a generated view.** The marker is an
+ordinary phrase, so quoting a header — in a fixture, a backlog item, a
+document explaining the rule — puts a real one in a file that has no source,
+and the check correctly reports the file that describes it. Both happened on
+2026-09-11, in [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py)
+and in [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md),
+within an hour. **Assemble the marker from pieces rather than spelling it**
+(`'do not ' + 'hand-edit'`), or describe it without quoting a whole comment.
+The check is right in both cases: it cannot tell a header from a sentence
+shaped like one, and should not try.
 
 `evals/` is excluded by name. The files there are recorded prompts from past
 measurement runs — frozen inputs that happen to contain a copy of an old

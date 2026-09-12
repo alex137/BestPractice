@@ -3828,3 +3828,46 @@ which is the failure this repointing exists to end — write
     **Approval:** Morgan, 2026-09-11, `strength: assented` — he asked for the
     item and said in the same breath that it is a weak one.
     **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
+
+66. <a id="source-clause-check-reads-only-html-comments"></a>**The `Source:`
+    clause check reads only HTML comments, so a generated file whose header is
+    a `#` comment is never asked for one.**
+    [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md)'s
+    check looks for its marker only inside an HTML comment
+    (`<!-- ... -->`), which covers every markdown view and the loader block.
+    It does not cover the two generated files here whose headers are shell or
+    Python comments:
+    [tools/precedent_materialize.py](tools/precedent_materialize.py)'s emitted
+    `run_all.sh`, whose header is a `# GENERATED FILE` line carrying the same
+    marker, and [tools/build_codeowners.py](tools/build_codeowners.py)'s
+    `CODEOWNERS`.
+    Both name the script that rebuilds them; neither names where a change
+    belongs, which is the half the rule is about. Found 2026-09-11 while
+    sweeping every header in the tree after fixing the clause matcher — the
+    sweep is what made the gap visible, since these files never appear in the
+    check's own output at all.
+    **Out of scope for that fix rather than blocked:** widening the matcher to
+    `#` headers is a scope decision with its own sweep to run first, and a
+    check that starts firing on files nobody has written a clause for yet is
+    exactly what [checkable-gets-checked](practices/checkable-gets-checked.md)
+    forbids landing unmeasured. The work is: extend `_DONT_EDIT_RE` to the
+    `#`-comment form, run it against the whole tree, add the clause to
+    whatever it names, and plant a case per header shape.
+    **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
+
+67. <a id="consuming-repo-clause-clears-on-vendor-update"></a>**Confirm the
+    consuming repo's `Source:` clause actually clears, rather than assuming
+    it.** The clause-matcher faults in item 66's sibling fix were found from a
+    consuming repo, whose generator emits a hyphenated `Source:` path. That
+    repo kept the clause in place while it still failed, on the grounds that
+    it was correct and a reader could use it, so its
+    `generated-edit-goes-upstream` violation should clear on its next vendor
+    update with no edit on its side. The regex accepts that clause shape now —
+    asserted as a harness case — but whether the path it names resolves in
+    that repo's own tree is a fact about that tree.
+    **Blocked on a session rooted in that repository:** it is under a
+    different owner, and `add_repo` refuses cross-owner, so nothing here can
+    read it. One command there answers it:
+    `python3 tools/precedent_check.py --only generated-edit-goes-upstream`
+    after the vendor update.
+    **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
