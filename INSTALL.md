@@ -1287,9 +1287,10 @@ which a set may hold for the first time. **A set created before that date
 has neither the hook nor the wiring**, and this cannot be repaired for you:
 an existing `.claude/settings.json` is never rewritten, so
 [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
-reports the hook as unwired at every session start and the one `SessionStart`
-command is yours to add, ahead of `commit-identity.sh` — which reads that set
-for the author and the timezone.
+reports the hook as unwired at every session start. The hook file and the one
+`SessionStart` command are both yours to add there — `--apply` writes neither
+for a set whose settings do not already declare the hook — ahead of
+`commit-identity.sh`, which reads that set for the author and the timezone.
 
 **Verified end to end, 2026-09-10.** A real read-scoped token set on the
 environment, and a brand-new container came up with all four private sources
