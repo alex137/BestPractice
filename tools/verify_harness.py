@@ -13807,6 +13807,86 @@ def check_source_supplied_checks_run():
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_settled_marker_scan_is_scoped_and_follows_the_split():
+    """The SESSION LOAD pass's settled-trap signal reads gotcha entries, and
+    only gotcha entries (practice: control-asserts-which-failure).
+
+    THE INCIDENT (2026-09-13), and it failed in both directions in one commit.
+    The scan walked every markdown bullet in the instructions file, which was
+    harmless only while the gotchas were the file's one bulleted list. A
+    reduction pass turned the standing commands into bullets, so the last of
+    them swallowed 8,582 tokens of unrelated sections and reported it as one
+    entry whose trap was settled. The SAME pass then split the gotchas into an
+    index plus a record, and the bodies this signal reads left the file -- so
+    it dropped from two real findings to zero. **Zero findings is what a clean
+    section looks like**, which is why this needs a control rather than a
+    reading: nothing about the output said it had stopped working.
+
+    The fixture owns its own tree (fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+
+    STORY = ('It failed on 2026-09-13 and cost an hour. That is fixed now in '
+             'the tree, so the entry may be archivable.\n')
+    LIVE = ('It failed on 2026-09-13 and cost an hour. Nothing has changed '
+            'since, and it still bites every session.\n')
+
+    def run(agents, record=None):
+        d = pathlib.Path(tempfile.mkdtemp())
+        try:
+            (d / 'AGENTS.md').write_text(agents, encoding='utf-8')
+            if record is not None:
+                (d / 'record').mkdir()
+                (d / 'record' / 'GOTCHAS.md').write_text(record, encoding='utf-8')
+            _rows, msgs = vdc._session_load(d)
+            return '\n'.join(m for m in msgs if m.startswith('note'))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    PREAMBLE = ('# fixture\n\n- **"Update Vendors"** a standing command, not a '
+                'gotcha. It is fixed now.\n\n')
+    SPLIT = (PREAMBLE + '## Build-environment gotchas -- do NOT rediscover '
+             'these\n\n'
+             '- **A settled trap.** [story](record/GOTCHAS.md#g1)\n\n'
+             '- **A live trap.** [story](record/GOTCHAS.md#g2)\n\n'
+             '## Working in this repo\n\n- **A convention.** It is fixed now.\n')
+    RECORD = ('# Gotchas\n\n## 1. <a id="g1"></a>Settled\n\n' + STORY +
+              '\n## 2. <a id="g2"></a>Live\n\n' + LIVE)
+
+    cases = []
+    out = run(SPLIT, RECORD)
+    cases.append(('THE REGRESSION CASE: a settled marker in the RECORD is '
+                  'found, not lost with the bodies',
+                  'Settled' not in out and 'A settled trap' in out, out))
+    cases.append(('and the live entry beside it is not reported',
+                  'A live trap' not in out, out))
+    cases.append(('a bullet OUTSIDE the gotchas section is not parsed as an '
+                  'entry -- the 8,582-token false positive',
+                  'Update Vendors' not in out and 'A convention' not in out,
+                  out))
+
+    unsplit = (PREAMBLE + '## Build-environment gotchas -- do NOT rediscover '
+               'these\n\n- **A settled trap.** ' + STORY +
+               '\n- **A live trap.** ' + LIVE +
+               '\n## Working in this repo\n\n- **A convention.** It is fixed now.\n')
+    out = run(unsplit)
+    cases.append(('an UNSPLIT section still reports its own settled entry',
+                  'A settled trap' in out and 'A live trap' not in out
+                  and 'Update Vendors' not in out, out))
+
+    no_section = ('# fixture\n\n- **A bullet.** It is fixed now.\n\n## Other\n')
+    out = run(no_section)
+    cases.append(('THE DISCRIMINATING CASE: a file with no gotchas section '
+                  'raises nothing at all', out == '', out))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the settled-trap signal is scoped to gotcha entries and follows a '
+          f'split ({len(cases)} stated cases, both directions of the '
+          f'2026-09-13 regression covered)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_environment_gotchas_follows_a_split_index():
     """A split gotchas section is still held to the story rule
     (practice: control-asserts-which-failure).
@@ -18963,6 +19043,7 @@ def main():
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()
     check_fixtures_own_the_credential_environment()
+    check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_environment_gotchas_follows_a_split_index()
     check_gotcha_currency_signals_fire()
     check_pretooluse_hook_fires()
