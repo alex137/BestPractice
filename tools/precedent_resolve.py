@@ -401,7 +401,22 @@ def load_config(repo, user_config=None):
             check_source_name(level, entry.get('name'), str(repo_cfg_path))
             warn_name_matches_path(level, entry.get('name'), entry['path'],
                                    str(repo_cfg_path))
-            entry_path = (repo_root / entry['path']).resolve()
+            # Expand `~` and `$HOME` before joining. A source set declaring
+            # the universal source cannot write a relative path that is
+            # correct everywhere: an individual set is cloned to
+            # $HOME/precedent-individual, and $HOME is /root on some
+            # containers and /home/user on others, while the team sets and
+            # the consuming repo sit side by side. So "../BestPractice"
+            # resolves from a team set and names nothing from an individual
+            # one. Same reasoning, and the same remedy, as
+            # PRECEDENT_FRESHNESS_ALSO's "write the path as ~/name, never
+            # spelled out". An already-relative path is unaffected: expansion
+            # is a no-op on it, and the join still happens against repo_root.
+            # practice: durable-fix
+            entry_path = pathlib.Path(
+                os.path.expandvars(str(entry['path']))).expanduser()
+            entry_path = (entry_path if entry_path.is_absolute()
+                          else repo_root / entry_path).resolve()
             sources.append({'level': level, 'name': entry.get('name', level),
                             'path': str(entry_path)})
 

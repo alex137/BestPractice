@@ -18,11 +18,10 @@ Two KINDS, sharing one mechanism:
 
   'consumer' — a real four-source CONSUMER repo (universal + team +
                individual + repo-local, a vendored process/upstream/, the
-               full precedent_materialize.py/precedent_resolve.py/
-               precedent_sync_views.py toolchain that resolves all of them
-               into one materialized tree). Needs CONSUMER_ENGINE_FILES:
-               everything 'source' needs, PLUS those three multi-source
-               tools — see TODO.md item 18 and this repo's own
+               full precedent_materialize.py/precedent_sync_views.py
+               toolchain that resolves all of them into one materialized
+               tree). Needs CONSUMER_ENGINE_FILES: everything 'source'
+               needs, PLUS those materializing tools — see TODO.md item 18 and this repo's own
                engine-plus-host-shims practice ("domain-neutral mechanism
                lives in the vendored tree"). Piloted 2026-09-05 against
                a private consumer repo — INSTALL.md §1 step 12 and §2
@@ -69,12 +68,23 @@ ENGINE_FILES / CONSUMER_ENGINE_FILES both name this script itself last, on
 purpose: it travels WITH the engine it defines, so a future improvement to
 the vendoring mechanism itself reaches every already-vendored repo the same
 way an improvement to build_views.py does — not a second, undocumented gap
-one layer up from the one this tool closes. precedent_materialize.py/
-precedent_resolve.py/precedent_sync_views.py are never in ENGINE_FILES
-(source) — a source set has no process/upstream/ and nothing to resolve
-against more than one tree — but they ARE in CONSUMER_ENGINE_FILES
-(consumer), where resolving four sources into one materialized tree is the
-entire point.
+one layer up from the one this tool closes. precedent_materialize.py and
+precedent_sync_views.py are never in ENGINE_FILES (source) — a source set
+has no process/upstream/ and materializes nothing — but they ARE in
+CONSUMER_ENGINE_FILES, where resolving four sources into one materialized
+tree is the entire point.
+
+precedent_resolve.py WAS in that consumer-only group until 2026-09-13, on
+the reasoning that a source set has "nothing to resolve against more than
+one tree". That half was wrong, and it cost a measured failure: a set
+resolves nothing, so its generated occasion index carried its own entries
+and not one of universal's 94, and a session rooted there worked with every
+universal rule silently absent. A set has exactly one other tree to resolve
+against — universal's — and resolving it is how those rules reach the
+session. So precedent_resolve.py and precedent_session_practices.py are now
+in ENGINE_FILES, and the set reads universal out of an UNTRACKED
+.precedent/SESSION_PRACTICES.md rather than a committed copy
+(spec/SOURCE_SET_PROSE_GAP.md, shape 3, approved 2026-09-13).
 
 WHAT IS DELIBERATELY IN NEITHER LIST, said out loud because its absence is
 what makes a whole class of follow-up work unnecessary. verify_harness.py
@@ -296,6 +306,28 @@ ENGINE_FILES = [
     # about a catalogue, and only the second reason keeps a file out of a
     # set.
     'precedent_identity.py',
+    # The resolver and the untracked-block writer, added 2026-09-13 so a
+    # session rooted in a practice SET reads the universal catalogue instead
+    # of that set's own practices alone. Until then a set resolved nothing:
+    # its generated occasion index carried its own entries and not one of
+    # universal's 94, so a session there worked with the universal rules
+    # silently absent -- measured, and the incident is in
+    # practices/seeded-prompt-names-its-origin.md's Story.
+    #
+    # THE DOCSTRING ABOVE SAYS THESE ARE NEVER IN ENGINE_FILES, on the
+    # reasoning that "a source set has no process/upstream/ and nothing to
+    # resolve against more than one tree". The first half is still true --
+    # precedent_materialize.py and precedent_sync_views.py stay consumer-only,
+    # because a set materializes nothing. The second half was the mistake: a
+    # set has exactly one other tree to resolve against, universal's, and
+    # resolving it is how the rules reach the session. Costed in
+    # spec/SOURCE_SET_PROSE_GAP.md, approved 2026-09-13 as shape 3.
+    #
+    # These two are a pair: precedent_session_practices.py imports the
+    # resolver at module scope, so a set with one and not the other raises
+    # ModuleNotFoundError from its own session-start hook.
+    'precedent_resolve.py',
+    'precedent_session_practices.py',
     # The command vocabulary, read off the `command:` field of every
     # practice a repo resolves (added 2026-09-13 with practices/vocabulary.md).
     # In ENGINE_FILES rather than the consumer half for the same reason
@@ -315,8 +347,11 @@ ENGINE_FILES = [
 # future addition to the shared engine (a new file every kind needs) only
 # has to be added in one place.
 CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
+    # precedent_resolve.py and precedent_session_practices.py were listed
+    # here until 2026-09-13 and are now in ENGINE_FILES, so a practice set
+    # gets them too -- see their entry there. Repeating them here is refused
+    # by the duplicate guard below, which is how this was caught.
     'precedent_materialize.py',
-    'precedent_resolve.py',
     'precedent_sync_views.py',
     # Whether each declared source repository is still CALLED what this repo
     # calls it (added 2026-09-11). CONSUMER-only for the same reason
@@ -377,7 +412,11 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # 2026-09-07 repairing a real public consumer's install: half a
     # mechanism shipped, and the missing half was the half that keeps the
     # rules in force.
-    'precedent_session_practices.py',
+    #
+    # Promoted into ENGINE_FILES on 2026-09-13 -- a practice set needs the
+    # same tool for the mirror-image reason -- so it is no longer re-listed
+    # here. Same shape as precedent_check.py's note below, and the duplicate
+    # guard is what caught both.
     # precedent_check.py is NOT re-listed here. It was consumer-only when
     # this list was written, and was later promoted into ENGINE_FILES
     # (a source set runs the enforced channel too) without being removed

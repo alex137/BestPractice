@@ -402,6 +402,19 @@ def _run(cmd, cwd):
     return r.returncode == 0, (r.stdout + r.stderr).strip()
 
 
+def _bootstrap_source_module():
+    """This repo's own precedent_bootstrap_source, imported lazily.
+
+    Lazily, and from THIS repo rather than the set's vendored copy, unlike
+    apply_to()'s `refresh` subprocess: the ignore line is one constant, not
+    something resolved against the engine directory it sits in, and a set
+    whose vendored copy predates the helper is exactly the set that needs
+    it."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_bootstrap_source as _bs
+    return _bs
+
+
 def apply_to(entry, commit=False, branch=None):
     """Refresh one source set, using ITS OWN vendored engine as a subprocess.
 
@@ -417,6 +430,32 @@ def apply_to(entry, commit=False, branch=None):
     steps.append(('refresh', ok, out))
     if not ok:
         return steps
+    # An EXISTING set gets the .precedent/ ignore line here, because
+    # precedent_bootstrap_source.py only ever runs when a set is created and
+    # every set that exists today was created before shape 3
+    # (spec/SOURCE_SET_PROSE_GAP.md). Without it the untracked file the
+    # refreshed engine starts writing is offered to the next `git add -A` in
+    # that set -- which would commit universal's text into it, the one thing
+    # shape 3 exists to avoid. Idempotent, so it is a no-op on every later
+    # run. Same reasoning as repair_hooks(): there was an install path and no
+    # repair path, and the sets that need it most are the ones the install
+    # path can no longer reach.
+    try:
+        _bs = _bootstrap_source_module()
+        _gi, changed = _bs.ensure_precedent_gitignore(pathlib.Path(repo))
+        if changed:
+            steps.append(('gitignore', True,
+                          f'added `.precedent/` to {_gi.name} -- the '
+                          f'session-start practices file must never be '
+                          f'committed into a set'))
+    except Exception as e:                                   # noqa: BLE001
+        # Never fatal: a set whose .gitignore could not be written is still
+        # correctly refreshed, and saying so beats taking the refresh down
+        # (practice: fail-gracefully).
+        steps.append(('gitignore', False,
+                      f'could not add `.precedent/` to this set\'s '
+                      f'.gitignore ({e}) -- add it by hand before the next '
+                      f'commit there'))
     # Regenerate the views: a refreshed generator that has not been re-run
     # leaves the repo's committed AGENTS.md/MAP.md describing the OLD
     # engine's output, which its own --check would then fail on. The
