@@ -199,6 +199,58 @@ def resolved_gate_practices(root, gate):
     return entries, notes
 
 
+def _print_hard_requirements(root):
+    """The reply requirements a source DECLARES, printed verbatim at the
+    start of the turn.
+
+    WHY, measured 2026-09-13, the day the blocking half landed. A Stop hook
+    fires after the reply has already been rendered to the person, so
+    refusing the stop cannot un-render it: every refusal costs them the same
+    reply twice, once wrong and once rewritten. Morgan saw that repeatedly
+    within hours of the check going in -- "you posted your message to me
+    twice ... many times. That never happened before."
+
+    The refusals were not the check being wrong. They were the requirement
+    arriving after the only moment it could have been applied. This channel
+    fires BEFORE the reply, and it carried one-line practice clauses only --
+    summaries, written by hand, which is exactly how one of them came to say
+    "in bold" about a rule whose whole point is that bold is not enough. A
+    summary cannot be what a mechanical check is read from; the check's own
+    input can. So the literal heading pattern and the literal sentences go
+    here, from the same reply_check.json the hook reads, and the block
+    stays a backstop instead of the primary channel.
+
+    Silent when no source declares any, which is most repos -- and never
+    fatal: a reminder that cannot be built must not take the gate down with
+    it (practice: fail-gracefully).
+    """
+    try:
+        import precedent_reply_check as prc
+        reqs, notes = prc.declared_requirements(root)
+    except Exception as e:                                   # noqa: BLE001
+        print(f"\nNOTE: the declared reply requirements could not be read "
+              f"({e}), so they are not below. Treat that as unknown, not as "
+              f"'there are none'.")
+        return
+    if not reqs and not notes:
+        return
+    print("\n## Hard requirements — the stop hook REFUSES the turn without "
+          "these\n")
+    for r in reqs:
+        src = r.get('_source', 'a source')
+        pat = r.get('require_heading_matching')
+        if pat:
+            print(f"- [{src}] the reply carries a real markdown heading "
+                  f"(`## `) matching /{pat}/i. Bold text is not a heading.")
+        one_of = r.get('require_one_of') or []
+        if one_of:
+            quoted = ' or '.join(f'"{s}"' for s in one_of)
+            print(f"- [{src}] the reply contains one of these, verbatim: "
+                  f"{quoted}")
+    for n in notes:
+        print(f"- NOTE: {n}")
+
+
 def main():
     argv = sys.argv[1:]
     repo = None
@@ -314,6 +366,8 @@ def main():
             if note:
                 block += f"\n{note}"
         print(f"{block}\n")
+    if gate == 'reply':
+        _print_hard_requirements(root)
     if '--brief' in flags:
         print(f"\nFull text: `python3 tools/precedent_gate.py {gate}`.")
     return 0

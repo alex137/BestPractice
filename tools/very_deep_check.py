@@ -819,6 +819,20 @@ _SETTLED_MARKERS = ('fixed ', 'no longer true', 'applies itself now',
                     'resolved for this machine', 'now automated')
 
 
+def _gotchas_section(text):
+    """-> the gotchas section of an instructions file, or None if it has none.
+
+    One extractor, so the two passes that read that section cannot disagree
+    about where it starts and stops.
+    """
+    head = re.search(r'(?m)^#{2,4}\s*.*' + re.escape(_GOTCHA_HEADING) + r'.*$',
+                     text, re.I)
+    if not head:
+        return None
+    after = re.search(r'(?m)^#{1,4}\s', text[head.end():])
+    return text[head.start():head.end() + (after.start() if after else len(text))]
+
+
 def _session_load(repo_dir):
     """-> (rows, findings) for everything a session loads before it works.
 
@@ -889,8 +903,24 @@ def _session_load(repo_dir):
 
     # A live entry that says its own trap is settled is the strongest
     # mechanical signal available here, and it is the entry's own words.
+    #
+    # SCOPED TO THE GOTCHAS SECTION, and both halves of that are lessons paid
+    # for. This used to scan every bullet in the whole instructions file, which
+    # was harmless only while the gotchas were the only bulleted list in it.
+    # The 2026-09-13 reduction pass turned the standing commands into bullets
+    # too, and the last of them swallowed everything up to the next bullet --
+    # 8,582 tokens of resident block, occasion index and quick index reported
+    # as one "entry" whose trap was settled. Then the same pass split the
+    # gotchas into an index plus record/GOTCHAS.md, and the bodies this reads
+    # left the file entirely: the signal went to ZERO findings, which reads
+    # exactly like a clean bill of health. Both directions of the same
+    # mistake, in one commit -- scanning text this pass does not understand,
+    # and not following text it does.
     for fname, text in loaded:
-        for _line, _title, entry in _md_bullet_entries(text):
+        sec = _gotchas_section(text)
+        if sec is None:
+            continue
+        for _line, _title, entry in _follow_gotcha_index(root, _md_bullet_entries(sec)):
             low = entry.lower()
             if any(k in low for k in _SETTLED_MARKERS):
                 findings.append(
