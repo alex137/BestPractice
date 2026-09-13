@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "handing the person work to do, or starting work that may touch a repository this session cannot reach"
 gates:       ["reply"]
-index_clause: "cross-repo check first; hand over a clickable seeded session, not a description"
+index_clause: "cross-repo check first; wake a live session before spawning one, then the link"
 checked_by:  null
 defines:     ["Spawn session"]
 status:      active
@@ -19,7 +19,9 @@ approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same m
   fleet rules at universal -- the cross-owner wall with its who-merges half, and waking
   a live session before creating a new one. Placing them at universal is his; that these
   two belong in this practice rather than in new ones was the session's judgment, named
-  as a judgement call in that same instruction."
+  as a judgement call in that same instruction. Amended 2026-09-13, Morgan -- he raised
+  the ordering himself and approved the three changes that carry it: the index clause,
+  the deferral, and the mechanism."
 strength:    decided
 source_practice_number: null
 ---
@@ -62,8 +64,15 @@ what a session costs
 a fresh one when no live session holds the right repository, or when the
 context in the live one is itself the problem.
 
-**If a different session is needed, do not start the work and do not
-describe the handoff. Create the session** — rooted in the right repository,
+**A woken session can answer; a spawned one cannot.** That is the second
+reason to prefer waking, and it is not a token argument. A live peer
+receives your message and its reply is delivered back into this
+conversation, so the loop closes without the person carrying anything. A
+session created from scratch has no route back at all, which is why the
+return path below is a repository and a line the person relays by hand.
+
+**Where no live session fits, and only then: do not start the work and do
+not describe the handoff. Create the session** — rooted in the right repository,
 already carrying the prompt you would have given it — **and put its link
 near the top of the reply, on its own line, telling the person plainly to
 click it.**
@@ -94,6 +103,17 @@ page. **Where no such tool is available, say so and fall back to
 [handoff-is-pasteable](handoff-is-pasteable.md)'s paste block** — one or the
 other, never silence and never a prose description of what the person should
 go type.
+
+**How to wake one, in Claude Code's cloud sessions as of 2026-09-13.**
+`ListAgents` lists what is reachable — subagents, other local sessions,
+sessions in the cloud where this one has cloud access — and **the name in
+that listing is the address**, passed straight to `SendMessage` as `to`. The
+message arrives in that session's conversation at its next tool round. For a
+session `ListAgents` cannot see — one spawned with `create_session` has been
+recorded as unreachable that way — go by session id instead: `create_trigger`
+with `persistent_session_id`, then `fire_trigger` to deliver it now rather
+than on a schedule. **Permission boundaries are per-session**, so work
+refused here is never work to ask a peer for; that routes back to the person.
 
 **Finding the live session to wake is by TITLE, not by tag.** `list_sessions`
 accepts a `tags` filter and it does not work from inside a session — it
@@ -191,6 +211,27 @@ The wake-first step comes from the opposite waste — reported, not measured
 here: three sessions created against one repository for work one session
 could have done in sequence, each paying to read that repository from
 scratch.
+
+**The wake-first step was written down on 2026-09-12 and could not be read.**
+Morgan raised it himself on 2026-09-13, unprompted and without having seen
+the paragraph: *"maybe (DESPITE THE NAME) we have that command FIRST see if
+it makes more sense (token & context-wise) to instead add that message to an
+existing session."* The rule already said exactly that. What it did not do
+was carry it anywhere a session looks: the generated index clause named only
+the cross-repository check and the link, so a session that never opened this
+file never learned the step existed — **the same failure
+[go-merge](go-merge.md) records, an answer sitting in a file nobody fetched.**
+Two further gaps came out with it. The rule said *wake a live one* and named
+no tool to do it with, so the instruction had no mechanism; and the paragraph
+after it opened flat with *"If a different session is needed ... Create the
+session"*, so a reader who did get that far was left on the word "create".
+Fixed together: the clause now names waking, the create paragraph defers to
+the wake-first one in its first clause, and the Detail names the calls.
+
+**Renaming it again was considered and rejected.** The name undersells the
+rule — the check's first answer is now "wake something", not "spawn
+something" — but it had been renamed once already the day before, and the
+index clause, not the name, is what a session actually reads.
 
 **It was called `clean-session` for its first day.** Morgan renamed it on
 2026-09-12 — *"Let's rename 'clean session' to 'spawn session'"* — and asked
