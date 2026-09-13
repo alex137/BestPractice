@@ -4118,9 +4118,25 @@ which is the failure this repointing exists to end — write
     that may hold an older copy on purpose.
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
-73. <a id="leak-gate-is-background-level"></a>**Decide whether
+73. <a id="leak-gate-is-background-level"></a>~~**Decide whether
     `leak-gate-is-background` belongs at team or universal level rather than
-    individual.** It landed 2026-09-12 in the individual set — a session never
+    individual.**~~ **Answered 2026-09-13, by him: universal** — *"Yes, make
+    this one universal."* Asked to choose between the two readings below, he
+    took the one that says the rule is about what the gate prints rather than
+    about what he personally wants to be interrupted by, so `strength: decided`
+    ([decision-strength](practices/decision-strength.md)).
+
+    **Step 1 of the move is done**: the practice is landed at universal as
+    [practices/leak-gate-is-background.md](practices/leak-gate-is-background.md),
+    rewritten person-neutral (no first person, no link into a private set) with
+    the per-person half kept out of the Rule — a universal rule must not force
+    the quiet directive on anyone, which is the constraint this item itself
+    identified. **Step 2, deduplicating the individual copy, is not done and is
+    tracked as item 74** below; `MOVING_PRACTICES.md`'s land-first ordering
+    means the interim state is a deliberate duplicate, never a gap.
+
+    Original reasoning, kept because it is what the decision was made against.
+    It landed 2026-09-12 in the individual set — a session never
     relays a leak-gate note, never proposes a blocklist term, and never asks
     whether to add one; the recommendations arrive in
     [very-deep-check](practices/very-deep-check.md)'s repository-visibility
@@ -4152,12 +4168,47 @@ which is the failure this repointing exists to end — write
     the disposition below stands -- but it says which question to put to him:
     whether the rule is about what the gate prints (reach: anyone) or about
     what he wants to be interrupted by (reach: him).
-    **Blocked on / out of scope:** Morgan's decision, explicitly deferred
-    while he finished the change itself.
-    **Disposition:** ask (2026-09-12, Morgan)
+    **No disposition line, because the item is no longer open** — it carried
+    `ask` from 2026-09-12, blocked on his decision while he finished the change
+    itself, and that decision is the answer above.
 
-    He asked to be reminded in about three days, and a Routine was set the
-    same day to fire on 2026-09-15 and open a session on this item.
+    He had asked to be reminded in about three days, and a Routine was set to
+    fire on 2026-09-15 and open a session on this item. **That Routine is now
+    pointless and nothing here can cancel it** — it lives in the scheduler, not
+    in this repository. A session it opens should read this item, find it
+    answered, and stop; the one thing left to do is item 74, which that session
+    can do if it is rooted in the individual set.
+
+74. <a id="leak-gate-is-background-dedup"></a>**Deduplicate
+    `leak-gate-is-background` in the individual set, now that it is in force at
+    universal.** Step 2 of the 2026-09-13 move
+    ([spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md)): in that set's own
+    copy set `status: deduplicated` and `in_force_at: leak-gate-is-background`,
+    and add one `## Story` line saying it moved to universal on 2026-09-13 and
+    why. **Never a plain delete, and never `retired`** — the rule is fully in
+    force, only the redundant copy goes.
+
+    **Two things for whoever does it to decide rather than assume.** That copy
+    carries a `checked_by` naming a per-set script that reads the set's own
+    blocklist for the quiet directive. The universal practice deliberately has
+    no check, because a universal rule must not require that directive of
+    anyone — so the question is whether the script survives as a
+    mechanism-only check in that set (and if so, keyed to what, now that the
+    practice file beside it is `deduplicated`) or goes with the copy. **Check
+    what a `deduplicated` practice does to its own `checked_by` before
+    choosing**; a check keyed to a practice no longer in force is the
+    silent-skip shape [very-deep-check](practices/very-deep-check.md)'s pass 2
+    asks about. The second thing is the copy's link to another practice in that
+    same set, which the universal version had to drop and which the surviving
+    stub may still want.
+
+    **Blocked on / out of scope:** the individual set is not writable from a
+    session rooted here. Its clone is readable on disk and `git ls-remote`
+    works, but `git push` is refused by the git proxy — *"not in this session's
+    authorized repository set"* — and `add_repo` refuses cross-owner attaches,
+    so there is no route to write it from this repository at all. A session
+    rooted in that set does it in one commit.
+    **Disposition:** wait
 
 - <a id="morgan-prose-name"></a>~~**What to call Morgan in prose, when it is
   not what git records.**~~ **Answered 2026-09-12, by him: the name in
