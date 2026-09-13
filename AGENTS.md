@@ -539,6 +539,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Populating the two private sets (done 2026-09-01, closing phase 3 — brief kept for how it was done) | [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md) |
 | Bootstrapping a brand-new individual or team set from zero — the generalized procedure any adopter follows, plus the tool and skeletons it uses | [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md), tool at [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py), skeletons at [templates/practice-set-individual/](templates/practice-set-individual/) and [templates/practice-set-team/](templates/practice-set-team/) |
 | Bringing mechanical checks to the two private sets' practices (open; cannot run from here) | [spec/PRIVATE_ENFORCEMENT_BRIEF.md](spec/PRIVATE_ENFORCEMENT_BRIEF.md) |
+| Why a session rooted in an individual or team set sees none of the universal practices, and what the three ways out cost | [spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md) — costed 2026-09-13, nothing approved to build |
 | How a repo that already had BestPractice installed migrates to Precedent's three-source model (the recommended pattern, from the first real dependent-repo test) | [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md) |
 | Deleting a file or directory a decommissioned mechanism left behind — the audit that has to pass first, and the record of what went | [practices/decommission-deletes-files.md](practices/decommission-deletes-files.md), audit at [tools/precedent_decommission.py](tools/precedent_decommission.py) |
 | Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team) — distinct from creating one or retiring one outright | [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) |
@@ -943,24 +944,17 @@ gotcha every session reads is a gotcha every session pays for.
   and leave the commit alone.
 
 - **The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are
-  missing. Resolve the paths its settings.json actually declares — a
-  directory listing cannot answer the question.** 2026-09-09: a session read
-  "a `.claude/settings.json` and no `.claude/hooks/` directory" as a set whose
-  freshness guard and commit-identity backstop had been declared and silently
-  off for its whole life. **They had not been.** That set wires four hooks to
-  its own tracked `bootstrap/` directory, on purpose, so that one copy exists
-  and nothing can drift from it; all four resolve, exist, and are executable.
-  The wrong reading was easy because it names a real failure — a hook whose
-  path does not exist really is silent, per the two entries above — and the
-  two states look identical from a listing.
-  **Both halves are mechanical now.**
-  `python3 tools/precedent_check.py --only declared-hooks-exist` resolves
-  every `$CLAUDE_PROJECT_DIR` hook path a settings.json declares and fails on
-  one that is missing or not executable, in any repository the engine is
-  vendored into, and
-  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
-  does the same per attached source and **refuses to "repair" a hook declared
-  outside `.claude/hooks/`**. Entry 37.
+  missing — resolve the paths its settings.json actually declares.** A set can
+  wire its hooks to a tracked `bootstrap/` directory on purpose, and from a
+  directory listing that looks identical to a set whose hooks were never
+  installed. 2026-09-09: a session called four working hooks silently dead on
+  exactly that reading. **Both halves are mechanical now** —
+  `python3 tools/precedent_check.py --only declared-hooks-exist` resolves every
+  declared `$CLAUDE_PROJECT_DIR` hook path and fails on one that is missing or
+  not executable, and
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) does
+  the same per attached source. Full story:
+  [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) entry 37.
 
 - **A source set's hooks drift after installation and nothing has ever
   refreshed them — there was an install path and no repair path.** Measured

@@ -4683,13 +4683,23 @@ which is the failure this repointing exists to end — write
     title, id or link. That is
     [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md),
     landed the day before, and the spawning session could not have read it:
-    the individual set's generated occasion index is **empty**, so `spawn-session`
-    and `handoff-is-pasteable` were absent too. **Prose not reaching a source
+    the individual set's generated occasion index carries its own 14 entries
+    and **none of universal's 94**, so `spawn-session` and
+    `handoff-is-pasteable` were absent too. **Prose not reaching a source
     set is not only a duplication wart; it is universal rules silently not
     binding the sessions that do the most cross-repository work.**
     `spawn-session`'s own miss is fixed in this repository, so a session
     reading it here now reaches the header rule; a session rooted in a source
     set still will not.
+
+    **Costed 2026-09-13**, on Morgan's approval of this session's
+    recommendation (`assented`), in
+    [spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md): three
+    shapes, measured, recommending the untracked
+    `.precedent/SESSION_PRACTICES.md` route inverted — the whole delta is two
+    already-written engine files added to the source vendoring list, one
+    generalized constant, and a path expansion. **Nothing is approved to
+    build.**
 
     **Blocked on / out of scope:** raised 2026-09-13 while correcting the
     "unaddressed" claim above; nothing here is a defect to fix, and the
