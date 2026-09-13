@@ -81,8 +81,10 @@ retag sessions after the fact, `interrupt_session`, `archive_session`, and
   anywhere. Peer messaging exists but reaches only sessions on the *same
   machine*, and each cloud session is its own container — measured
   2026-09-13 from this session, which found no reachable peer while seven of
-  Morgan's sessions were live. So the fleet channel is **polling**, and the
-  clock that drives it has to come from somewhere else.
+  Morgan's sessions were live. **The missing piece is a clock, not a
+  signal**: a blocked session is already fully described in the listing, so
+  anything that reads the listing on a schedule closes the gap. See
+  [What wakes it](#what-wakes-it).
 
 ## The command
 
@@ -177,6 +179,52 @@ Ad-hoc single-word tags already in use (`item-74`, `todo-closeout`, a practice
 slug on its own) are the same idea without the namespace, and would be
 retagged as `subject:` values rather than thrown away.
 
+## What wakes it
+
+**The failure this has to solve is a session that went idle holding a
+question, touched no repository, and is therefore waiting on a person who
+does not know it exists.** Left to the phrase alone, Chief of Staff answers
+only when Morgan already suspected something — which is the wrong half of
+the problem.
+
+**It is solvable, and the reason is that the session is not actually
+invisible.** A session that stops to ask writes its own state before it
+stops: `status_bucket: BLOCKED`, and a `needs_action` line naming what it
+needs. Four of Morgan's sessions read exactly that way on 2026-09-13, with
+their asks already spelled out — *merge these three pull requests*, *decide
+bootstrap hook or provisioned environment*. Nothing had read them. **The
+information was complete and unattended**, which is a scheduling problem
+rather than a platform limit.
+
+**So: a scheduled Routine, firing a fresh session, with notifications on.**
+Every few hours it lists the fleet, keeps the rows blocked on Morgan, and
+sends him the links. Routines can deliver push to a phone and email to an
+inbox when a run finishes with something worth saying — which reaches him
+where he is, rather than in a tab he would have to think to open. **He
+currently has none: the account holds no Routine at all** (checked
+2026-09-13), so nothing anywhere is reading anything on a clock.
+
+**One constraint decides the shape, and it is worth stating plainly:
+notifications are available only to a Routine that starts a FRESH session on
+each firing** — the server refuses them for a Routine bound to an existing
+session. Chief of Staff, as a standing session Morgan talks to, is bound by
+definition. **So the sweep and the desk are two things:**
+
+| | The sweeper | The desk |
+|---|---|---|
+| What it is | A Routine firing a fresh session on a schedule | The standing Chief of Staff session |
+| What it does | Lists the fleet, keeps what is blocked, notifies | Answers "Chief of Staff", routes, spawns |
+| Why separate | Only a fresh-session Routine can notify | Only a standing session holds context |
+| What it costs | One short session per firing, most returning nothing | Nothing until spoken to |
+
+The sweeper is deliberately dumb and cheap: no memory between firings, no
+judgment beyond *is this row blocked on him*. Everything that needs
+judgement happens at the desk, when he clicks through.
+
+**What this still will not catch**: a session that is genuinely mid-work and
+will need him in an hour. It reads as `WORKING` and should — there is
+nothing to report yet.
+
 ## What Chief of Staff does not do
 
 **It does not do the work.** It holds no branch, opens no pull request, and
@@ -201,14 +249,9 @@ them.
    name repositories it cannot attach to — cross-owner attachment is refused
    — so it is a reader of the fleet more than of any tree. Rooting it here is
    the obvious default and may be wrong.
-2. **What wakes it?** Three candidates, and the third is the interesting one.
-   Morgan says the phrase; or it holds a scheduled self-check-in, which costs
-   tokens on every firing whether or not anything changed; or **it subscribes
-   to the repositories instead of the sessions.** Pull-request activity —
-   a merge, a failing check, a review — genuinely does push into a session,
-   and most of what Chief of Staff would want to react to surfaces there
-   anyway. That turns the poll into something event-driven without inventing
-   a fleet notification that does not exist.
+2. **How often does the sweeper fire, and does it notify by push, by email or
+   both?** The mechanism is settled; the cadence and the channel are a matter
+   of how interrupted Morgan wants to be, which is his alone to say.
 3. **What happens to the sessions already open?** Retagging the live fleet by
    hand is a one-off cost, and skipping it means the collision detector is
    blind to exactly the sessions most likely to collide.
@@ -221,5 +264,7 @@ them.
 Not done, and in this order: a universal practice file defining the command;
 the tag namespaces written down where a spawning session reads them; the
 link-every-session rule, which is the part most likely to be quietly dropped;
-and the Chief of Staff session itself, created with `role:cos` and seeded
-with a prompt naming what it may not do.
+the Chief of Staff session itself, created with `role:cos` and seeded with a
+prompt naming what it may not do; and the sweeper Routine, which is the
+smallest piece and the one that would pay for itself first — it is useful
+even if nothing else on this list is ever built.
