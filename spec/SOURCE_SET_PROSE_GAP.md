@@ -1,13 +1,13 @@
 ---
 title:         Getting universal practice text into a practice-source set
 kind:          brief
-status:        open
+status:        closed
 opened:        2026-09-13
-closed:        null
+closed:        2026-09-13
 superseded_by: null
 supersedes:    []
 audience:      session
-summary:       What it costs to close the gap where universal guidance text never reaches a session rooted in an individual or team practice set — three shapes, measured, with a recommendation.
+summary:       What it costs to close the gap where universal guidance text never reaches a session rooted in an individual or team practice set — three shapes, measured; shape 3 approved and built 2026-09-13.
 ---
 # Getting universal practice text into a practice-source set
 
@@ -129,12 +129,39 @@ and the loader is taught to expand it.** This is the same class as
 `PRECEDENT_FRESHNESS_ALSO`'s "write the path as `~/name`, never spelled out",
 and the same fix.
 
-## Recommendation
+## Recommendation, and what was built
 
-**Shape 3.** It reuses machinery that is already written, already shipped and
-already load-bearing in the other direction; it commits no copy of anything,
-so there is nothing to drift; and the whole delta is two files added to a
-vendoring list, one generalized constant, and a path expansion. Shapes 1 and 2
-both cost more and buy the same 4,011 tokens.
+**Shape 3**, approved by Morgan on 2026-09-13 (`decided` — he chose it from
+the three laid out here) and built the same day. It reuses machinery that is
+already written and already load-bearing in the other direction; it commits no
+copy of anything, so there is nothing to drift.
 
-**Not started.** Nobody has approved building it.
+**What the build actually took, against what this brief predicted.** Two of
+the four predictions held; two were wrong, and both in the same direction —
+the brief looked at levels where the real rule is about trees.
+
+| Predicted | What it took |
+|---|---|
+| Two engine files join `ENGINE_FILES` | Held. `precedent_resolve.py` and `precedent_session_practices.py`, both removed from the consumer-only list rather than duplicated — the vendor tool's own duplicate guard caught the first attempt. |
+| One hardcoded `PRIVATE_LEVELS` generalizes | **Wrong shape.** The line is now drawn once, in `build_views.sources_for_tracked_block()`, and it is not a level filter at all: a practice set defers any source whose text lives in *another tree*, whatever its level. A level filter cannot express that, because the deferred level in a set is `universal`. |
+| A `sources` entry per set | Held, and it needed a path expansion (`~`, `$HOME`) that the brief did name. |
+| One hook line per set | Held. |
+| — | **Missed entirely: nothing put universal's tree on disk beside a set.** `~/BestPractice` is wrong wherever `$HOME` and the sibling clones diverge, which is this container. `precedent_source_bootstrap.py`'s team-cloning loop now covers `universal` too, taking the URL and the pinned branch from `ENGINE_MANIFEST.json`'s own `source_repo`/`source_branch` — no credential, since this repo is public, and nothing new declared. |
+| — | **Missed entirely: `.precedent/` is not gitignored in a set.** Measured against a real set: `git check-ignore` said not ignored, so the generated file was offered to the next `git add -A` — which would commit universal's text into the set, the one thing shape 3 exists to prevent. Written by `precedent_bootstrap_source.py` for new sets and repaired by `precedent_refresh_sources.py --apply` for existing ones. |
+
+**Measured working end to end, 2026-09-13**, against the real
+`precedent-individual` set: universal cloned beside it on the pinned branch,
+**106 practices and 92 occasion entries** written to its untracked
+`.precedent/SESSION_PRACTICES.md`, and `seeded-prompt-names-its-origin`,
+`spawn-session`, `handoff-is-pasteable` and `go-merge` all present — the four
+that were absent when the session that produced this brief spawned one
+without an origin header. Its committed `AGENTS.md` did not grow: with the
+resolver importable, `sources_for_tracked_block` returned the set's own
+source as tracked and universal as deferred, which is the difference between
+shape 3 and shape 2. The test mutations were reverted; the rollout is its
+own step.
+
+**What shape 3 does NOT do**, and it is now an open item rather than a
+footnote: a set reads the universal rules and still runs none of universal's
+mechanical checks —
+[TODO.md's `source-set-runs-no-universal-checks`](../TODO.md#source-set-runs-no-universal-checks).

@@ -86,39 +86,87 @@ def collect(repo):
             f"({m.get('reason', 'no reason given')}) -- its practices are not "
             f"below. Treat that as unknown, not as 'that source has no rules'.")
 
-    # In a repo that is NOT public, the tracked block already carries every
-    # level, so there is nothing left for this file to add and writing one
-    # would duplicate the whole catalogue into every session.
-    if not bv.repo_is_public(repo):
+    # WHAT THIS FILE CARRIES is whatever the TRACKED block could not, and
+    # that line is drawn in exactly one place --
+    # build_views.sources_for_tracked_block() -- so the two renderers cannot
+    # disagree about it. This used to restate the line as
+    # `level in bv.PRIVATE_LEVELS`, and the restatement was already wrong
+    # twice: once when repo-local began rendering into the tracked block, and
+    # again for a practice SET, whose tracked block carries only its own
+    # practices however private the repo is. Nothing is left over -> no file
+    # content, which is the honest condition and replaces the old
+    # `not repo_is_public()` early-out.
+    _tracked, deferred, split_notes = bv.sources_for_tracked_block(
+        pathlib.Path(repo), sources)
+    notes += split_notes
+    deferred_paths = {str(pathlib.Path(s['path']).resolve()) for s in deferred}
+    if not deferred:
         notes.append(
-            'this repo does not declare `visibility: public`, so its tracked '
-            'loader block already carries every declared source and there is '
-            'nothing for this file to add.')
+            'every source this repo declares is already carried by its '
+            'tracked loader block, so there is nothing for this file to add.')
         return [], {}, notes
 
     extra, levels = [], {}
     for slug, p in sorted(res['practices'].items()):
-        if p['level'] not in bv.PRIVATE_LEVELS:
+        if not _from_deferred_source(p, deferred_paths):
             continue
         extra.append((p['fm'], p['sections'], pathlib.Path(p['file'])))
         levels[slug] = p['level']
     return extra, levels, notes
 
 
+def _from_deferred_source(practice, deferred_paths):
+    """Whether a resolved practice came out of one of the deferred sources.
+
+    Matched by the practice FILE's location rather than by its level: in a
+    practice set the deferred source is universal, and 'universal' is not a
+    level the old PRIVATE_LEVELS test would ever have caught. A file sits
+    under its source's declared path, so containment answers it for every
+    level at once.
+    """
+    f = pathlib.Path(practice['file']).resolve()
+    return any(str(f).startswith(d.rstrip('/') + '/') for d in deferred_paths)
+
+
 def render(extra, levels, notes, repo=None):
+    # WHY THIS FILE IS UNTRACKED differs by repo kind, and saying the wrong
+    # reason is worse than saying none: a practice set reading "this
+    # repository is public" about itself learns something false about a
+    # private repo. Both reasons end in the same instruction, so only the
+    # clause explaining it changes.
+    source_set = bool(repo) and bv.repo_is_practice_source(pathlib.Path(repo))
+    if source_set:
+        why_untracked = (
+            'it carries practice text belonging to another repository, and '
+            'committing a copy of it here is a copy that goes stale')
+        intro = (
+            "These are **in addition to** this set's own practices in "
+            "[AGENTS.md](../AGENTS.md)'s generated block. They bind work in "
+            "this repository exactly as those do; they are here rather than "
+            "there because their text belongs to the source it came from, "
+            "and a committed copy of it here would be a second copy to keep "
+            "in step.")
+        title = '# Practices in force here from the sources this set declares'
+    else:
+        why_untracked = (
+            'it carries practice text from private team and individual '
+            'sources, and this repository is public')
+        intro = (
+            "These are **in addition to** the universal catalogue already in "
+            "[AGENTS.md](../AGENTS.md)'s generated block. They bind work in "
+            "this repository exactly as those do; they are here rather than "
+            "there because this repository is public and their text is not.")
+        title = ('# Practices in force here from the team, individual and '
+                 'repo-local sources')
     head = [
         '<!-- GENERATED at session start by '
         'tools/precedent_session_practices.py. UNTRACKED and gitignored, on '
-        'purpose: it carries practice text from private team and individual '
-        'sources, and this repository is public. Never commit it, never paste '
+        f'purpose: {why_untracked}. Never commit it, never paste '
         'its contents into a commit message, a pull request or an issue. -->',
         '',
-        '# Practices in force here from the team, individual and repo-local sources',
+        title,
         '',
-        "These are **in addition to** the universal catalogue already in "
-        "[AGENTS.md](../AGENTS.md)'s generated block. They bind work in this "
-        "repository exactly as those do; they are here rather than there "
-        "because this repository is public and their text is not.",
+        intro,
         '',
     ]
     if notes:
