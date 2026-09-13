@@ -182,7 +182,10 @@ it applies.
      `harness/claude-code/hooks/freshness-guard.sh` and
      `harness/claude-code/hooks/commit-identity.sh` → `.claude/hooks/`, which
      keep a session off a stale checkout and keep a commit's author a person
-     rather than the container's own agent account. **Replace the base-branch
+     rather than the container's own agent account — and, since 2026-09-13,
+     `harness/claude-code/hooks/reply-gate.sh` → `.claude/hooks/`, which puts
+     the reply gate's practices in front of the session at the START of a
+     turn rather than after its reply is already written. **Replace the base-branch
      argument in the two `freshness-guard.sh` commands** with this repo's real
      base branch; it is passed explicitly because detecting it gets this repo
      itself wrong. Codex reads `AGENTS.md` natively.
@@ -200,6 +203,7 @@ it applies.
      | `freshness-guard.sh` | **Always**, unless this repo's own bootstrap already fetches and fast-forwards — then it is duplicated work, not a conflict. |
      | `stop-git-check.sh` | **Judgment.** It blocks ending a turn on uncommitted or unpushed work. Good discipline for a repo you own; intrusive in one shared with someone who did not choose it. |
      | `precedent-paths.sh` | **Only with the Precedent loader.** It surfaces path-triggered practice Rules; without a resolved catalogue it has nothing to read. |
+     | `reply-gate.sh` | **Only with the Precedent loader**, same reason. One line per reply-gate practice, on every prompt; it never blocks (a `UserPromptSubmit` hook that exits non-zero eats the person's message). |
 
      **`commit-identity.sh` names no person, and that is the whole point.**
      The install that declined it did so because it looked like it would pin
