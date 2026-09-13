@@ -258,6 +258,45 @@ IGNORE_BLOCK = """
 """
 
 
+UNIVERSAL_SOURCE_NAME = 'precedent'
+UNIVERSAL_SOURCE_PATH = '../BestPractice'
+
+
+def ensure_universal_source(dest):
+    """Declare the universal source in a NEW set's own precedent.json.
+
+    -> (path, changed). Without this a set resolves nothing, and a session
+    rooted in it reads that set's practices and not one of universal's 94
+    occasion entries -- measured 2026-09-13, with a real failure attached
+    (practices/seeded-prompt-names-its-origin.md's Story). Shape 3 of
+    https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/SOURCE_SET_PROSE_GAP.md.
+
+    A SIBLING PATH, not a `~` one, and that is the measured answer rather
+    than the tidy-looking one. `$HOME` is /root on some containers and
+    /home/user on others, and an individual set is cloned under $HOME while
+    the team sets and the consuming repo sit side by side -- so `~/BestPractice`
+    names nothing on the very container where the sets actually live. The
+    relative sibling is correct everywhere because the clone step creates it
+    there: precedent_source_bootstrap.sources_from_repo() clones a declared
+    universal source to exactly this path, from the URL the set's own
+    ENGINE_MANIFEST.json already records.
+
+    NOT `visibility`, and nothing else about the file is touched. A set is
+    private and says so (or says nothing, which reads as private); this adds
+    one entry to `sources` and leaves every other key alone, so re-running
+    against a set that has other sources is safe.
+    """
+    cfg = pathlib.Path(dest) / 'precedent.json'
+    data = _load_json(cfg) or {'format_version': 1}
+    sources = data.setdefault('sources', [])
+    if any(s.get('level') == 'universal' for s in sources):
+        return cfg, False
+    sources.append({'level': 'universal', 'name': UNIVERSAL_SOURCE_NAME,
+                    'path': UNIVERSAL_SOURCE_PATH})
+    cfg.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return cfg, True
+
+
 def ensure_precedent_gitignore(dest):
     """-> (path, changed). Idempotent: appends the block only if the exact
     ignore line is not already present, so re-running against a set that has
@@ -355,6 +394,17 @@ def _install_session_hooks(dest, base_branch='main'):
                     'hooks': [
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/' + INDIVIDUAL_SOURCE_HOOK},
+                        # The universal catalogue, in two ordered steps: put
+                        # its tree on disk beside this set, then render what
+                        # this set's TRACKED block cannot carry into an
+                        # untracked .precedent/SESSION_PRACTICES.md. Order
+                        # matters -- the second reads what the first clones --
+                        # and both exit 0 on failure, so a set with no network
+                        # still starts (practice: fail-gracefully).
+                        {'type': 'command',
+                         'command': 'python3 $CLAUDE_PROJECT_DIR/tools/precedent_source_bootstrap.py --sources-from $CLAUDE_PROJECT_DIR || true'},
+                        {'type': 'command',
+                         'command': 'python3 $CLAUDE_PROJECT_DIR/tools/precedent_session_practices.py --repo $CLAUDE_PROJECT_DIR || true'},
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh session-start ' + base_branch},
                         {'type': 'command',
@@ -464,6 +514,30 @@ def verify(level, path):
         missing.append(f"{pathlib.Path('.claude') / 'hooks' / name} "
                        f"(from {HARNESS_HOOKS_REL}, and unwired: no command "
                        f"in .claude/settings.json points at a copy of it)")
+
+    # Does this set read the universal catalogue at all? Two separate
+    # things, reported separately because they fail separately: the
+    # DECLARATION (a universal entry in its own precedent.json) and the
+    # WIRING (the session-start step that renders it). A set with the
+    # declaration and no wiring resolves universal and shows a session
+    # nothing; a set with the wiring and no declaration runs a step that
+    # finds nothing to do. Every set that existed on 2026-09-13 has neither,
+    # because bootstrap() only ever runs when a set is created -- the same
+    # shape as the hook findings above, and the reason verify() exists.
+    cfg = _load_json(path / 'precedent.json') or {}
+    if not any(s.get('level') == 'universal'
+               for s in (cfg.get('sources') or [])):
+        missing.append(
+            "precedent.json declares no universal source, so this set "
+            "resolves nothing and a session rooted in it reads none of the "
+            "universal practices (spec/SOURCE_SET_PROSE_GAP.md)")
+    wired_cmds = ' '.join(_wired_commands(path))
+    if 'precedent_session_practices.py' not in wired_cmds:
+        missing.append(
+            ".claude/settings.json wires no session-start step running "
+            "tools/precedent_session_practices.py, so nothing writes the "
+            "universal practices this set declares into "
+            ".precedent/SESSION_PRACTICES.md")
 
     # The individual-source hook is checked on its own, and on a stricter
     # test than the two above: PRESENT IS NOT ENOUGH, it has to be WIRED.
@@ -634,6 +708,39 @@ def _wired_hook_paths(path):
                 word = word.replace('${CLAUDE_PROJECT_DIR}/', '')
                 if word:
                     out.append(pathlib.Path(word))
+            for v in node.values():
+                _walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                _walk(v)
+    _walk(data)
+    return out
+
+
+def _wired_commands(path):
+    """-> [str] every command string a source's .claude/settings.json runs.
+
+    _wired_hook_paths() above answers "which FILE does this wire", by taking
+    the first word. That cannot see a step invoked as `python3 <tool>`, where
+    the first word is the interpreter -- which is exactly how the
+    universal-catalogue steps are wired, since they call vendored tools
+    rather than hook scripts. So this returns the whole command and lets the
+    caller look for what it cares about.
+    """
+    settings = path / '.claude' / 'settings.json'
+    if not settings.is_file():
+        return []
+    try:
+        data = json.loads(settings.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return []
+    out = []
+
+    def _walk(node):
+        if isinstance(node, dict):
+            cmd = node.get('command')
+            if isinstance(cmd, str):
+                out.append(cmd)
             for v in node.values():
                 _walk(v)
         elif isinstance(node, list):
@@ -819,6 +926,9 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     _gi, _changed = ensure_precedent_gitignore(dest)
     if _changed:
         written.append(_gi)
+    _cfg, _changed = ensure_universal_source(dest)
+    if _changed:
+        written.append(_cfg)
     written += precedent_vendor_engine.seed(dest)
 
     return {'dest': dest, 'written': written}

@@ -89,6 +89,36 @@ assume a session has:
   for. So [`tools/precedent_refresh_sources.py`](../tools/precedent_refresh_sources.py)
   reports the hook as unwired at every session start and a person adds both
   the file and the one command.
+- **Points the set at the universal catalogue, since 2026-09-13** — a
+  `{"level": "universal", "name": "precedent", "path": "../BestPractice"}`
+  entry in the set's own `precedent.json`, two `SessionStart` steps (clone
+  the declared sources, then render), and `.precedent/` in its `.gitignore`.
+  Until that date **a set resolved nothing**: its generated occasion index
+  carried its own entries and not one of universal's 94, so a session rooted
+  in a set worked with every universal rule silently absent — measured, with
+  a real failure attached in
+  [`practices/seeded-prompt-names-its-origin.md`](../practices/seeded-prompt-names-its-origin.md)'s
+  `## Story`. The rules arrive in an **untracked**
+  `.precedent/SESSION_PRACTICES.md`, rebuilt each session, so no copy of
+  universal's text is ever committed into a set
+  ([spec/SOURCE_SET_PROSE_GAP.md](SOURCE_SET_PROSE_GAP.md) costs the
+  committed alternatives and rejects them).
+  **The path is a relative sibling and not `~/BestPractice`**, which is the
+  measured answer rather than the tidy one: `$HOME` is `/root` on some
+  containers and `/home/user` on others, and an individual set is cloned
+  under `$HOME` while the team sets sit beside the consuming repo — so a `~`
+  path names nothing on the container where the sets actually live. The
+  sibling is correct everywhere because the clone step creates it there,
+  from the URL and branch the set's own `tools/ENGINE_MANIFEST.json` already
+  records. No credential: this repository is public.
+  **Neither half reaches a set that already exists**, for the same reason as
+  the hooks above — `bootstrap()` runs only when a set is created. What
+  covers those is `--verify`, which names both the missing declaration and
+  the missing wiring as separate findings, because they fail separately: a
+  set with the declaration and no wiring resolves universal and shows a
+  session nothing, and a set with the wiring and no declaration runs a step
+  that finds nothing to do. All four sets that existed on 2026-09-13 have
+  neither.
 - **Installs the generated-views drift gate** —
   [`templates/github-actions/views-drift.yml.template`](../templates/github-actions/views-drift.yml.template)
   as the new set's `.github/workflows/views-drift.yml`, new 2026-09-11. A set

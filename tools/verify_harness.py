@@ -12359,6 +12359,18 @@ def check_source_shape_is_verified():
             # FINISHED source has them (a set that does not is reported,
             # which check_views_drift_gate_reaches_a_source_set asserts).
             bss._install_workflows(d)
+            # And the universal-catalogue wiring, added 2026-09-13: the
+            # declaration in the set's own precedent.json plus the
+            # .gitignore line, both written by bootstrap(). A fixture
+            # standing in for a FINISHED source has them, or the two
+            # verify() rows that report a set which reads none of the
+            # universal practices fire here and the "complete set is
+            # well-formed" cases below stop meaning anything.
+            # _install_session_hooks() above already wired the two
+            # SessionStart steps, since they are in the settings payload it
+            # writes.
+            bss.ensure_universal_source(d)
+            bss.ensure_precedent_gitignore(d)
             for rel, text in edits.items():
                 if text is None:
                     (d / rel).unlink(missing_ok=True)

@@ -587,7 +587,14 @@ def main(argv=None):
     p.add_argument('--config',
                    help='where to record the resolution (individual only -- a '
                         'team source resolves by path and records nothing)')
-    p.add_argument('--teams-from', metavar='REPO',
+    # --teams-from is kept as an alias, not retired: it is baked into
+    # session-start hooks already vendored into other repositories, and
+    # renaming it out from under them would break the clone step silently at
+    # their next session start. The new name is the one that describes what
+    # the flag does now that universal joined it (practice:
+    # label-describes-content).
+    p.add_argument('--sources-from', '--teams-from', dest='teams_from',
+                   metavar='REPO',
                    help="clone every team source REPO's precedent.json "
                         f'declares, from ${BASE_URL_ENV}/<name>. Mutually '
                         'exclusive with the single-source arguments above')
