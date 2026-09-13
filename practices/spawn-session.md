@@ -4,9 +4,9 @@ title:       "Check whether the work belongs in another session before starting 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "handing the person work to do, or starting work that may touch a repository this session cannot reach"
+occasion:    "handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach"
 gates:       ["reply"]
-index_clause: "cross-repo check first; wake a live session, then a link seeded to merge"
+index_clause: "cross-repo check; list_sessions before spawning; wake, never spawn beside"
 checked_by:  null
 defines:     ["Spawn session"]
 command:     {"Spawn session": "Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go."}
@@ -24,7 +24,10 @@ approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same m
   the ordering himself and approved the three changes that carry it: the index clause,
   the deferral, and the mechanism. Amended again 2026-09-13, Morgan -- a spawned
   session carries the merge authorization: \"If I ask for that spawned session, I'd
-  want it merged.\""
+  want it merged.\" Amended 2026-09-13 again, on a duplicate spawn reported from an
+  individual set that had just closed the same gap in its own catalogue -- the
+  enumeration is the session's judgement, the level follows rule-level-by-reach, and
+  neither was put to him."
 strength:    decided
 source_practice_number: null
 ---
@@ -67,6 +70,26 @@ what a session costs
 ([session-spend-follows-the-task](session-spend-follows-the-task.md)). Create
 a fresh one when no live session holds the right repository, or when the
 context in the live one is itself the problem.
+
+**Enumerate before you create, every time: `list_sessions`, matched on the
+target repository.** "Wake a live one first" is not a preference to weigh --
+it is a call to make, and a session that never looked satisfies the sentence
+above exactly while still spawning a duplicate. **Having established that
+this session cannot do the work is necessary and not sufficient**; the second
+question is whether the work is already being done, and only the two answers
+together license a new session.
+
+**A session already on the work that is BLOCKED is the case to look for, not
+the case to route around.** It is stuck waiting for something -- a decision,
+an answer, a permission -- and what it needs is that answer delivered, not a
+sibling starting the same job from nothing. Send it the thing it is waiting
+on. A second session there does not unblock the first; it pays the whole
+read-in again and then collides.
+
+**The check can only happen here, at spawn time.** A session spawned into a
+repository this one could not attach cannot enumerate that repository's
+sessions either, so the burden does not pass downstream -- there is no later
+moment at which it can be done. The spawner is the only party that can look.
 
 **A spawned session CAN report back, and this rule said for a day that it
 could not.** Corrected 2026-09-13, by a spawned session doing it: it reached
@@ -297,6 +320,50 @@ exists to police -- so the bounds are what that rule would ask for anyway,
 named work, a named branch and a named check, rather than a bare "he said
 merge it". Unbounded, it would be a session spawning a session that merges
 whatever it likes into whatever branch it finds.
+
+**The enumeration clause came from a duplicate spawn on 2026-09-13**, and
+what makes it worth a rule is that **both rules that should have caught it
+were fully satisfied at the moment of the mistake.** A session rooted in an
+individual practice set was asked to roll a change out to several
+repositories, was refused `add_repo` with `access: "push"` for them, and
+spawned a session for one of those repositories -- which is exactly what this
+practice and that set's own handoff rule both tell it to do. Three sessions
+were already live against that repository. One of them held the pull request
+for the very mechanism being spawned for, and was BLOCKED waiting on a
+decision the person had given in the spawning window minutes earlier. The
+right action was one message naming that session; a fourth was created
+instead.
+
+**A rule you can obey exactly and still cause the failure is missing a
+clause, not being ignored.** The handoff rule gated on what the spawning
+session had established it could not do -- true, and checked. This practice
+gated on waking being *preferable* -- agreed with, and never acted on,
+because nothing said to look. Neither asked whether the work was already
+being done, so neither could have fired.
+
+The duplicate was caught minutes in and cost little; the session it
+duplicated had already spent an order of magnitude more, and several sessions
+were running against that one repository concurrently under an account-level
+rate limit already warning. **The waste is not the duplicate's own spend --
+it is the read-in a blocked session had already paid for and a new one pays
+again**, which is the same argument the wake-first clause above was always
+making, left to the session's discretion until it wasn't.
+
+**Prior art, and deliberately not copied:** the individual set
+`themorgan/precedent-individual` closed the same gap in its own catalogue
+first, amending its handoff and no-racing rules. Its wording is first-person
+and describes one person's way of working, so lifting it would bind every
+adopter to that workflow ([rule-level-by-reach](rule-level-by-reach.md) cuts
+against the lift even where it argues for the level). **The MECHANISM is what
+generalises** -- enumerate the target repository's sessions before creating
+one, and route to a blocked session rather than spawning beside it -- and
+that is what is written above, in this catalogue's own register.
+
+**The routing was the real failure the first time round**, and this amendment
+assumes the same. A clause about spawning that no session reads unless it has
+already opened this file has not landed, so the `occasion` and the
+`index_clause` both name creating a session and the check by name -- not just
+the cross-repository question that used to be the only way in.
 
 **Renaming it again was considered and rejected.** The name undersells the
 rule — the check's first answer is now "wake something", not "spawn
