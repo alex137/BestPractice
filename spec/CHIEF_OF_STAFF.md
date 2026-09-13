@@ -76,6 +76,13 @@ retag sessions after the fact, `interrupt_session`, `archive_session`, and
   nothing at the current fleet size and would need revisiting at hundreds.
 - **The listing is paged and partial.** It returned 25 with more behind a
   cursor. A status sweep must page, or say it only read the most recent page.
+- **Nothing notifies it when another session changes.** There is no push from
+  the fleet: a session that finishes, blocks or goes idle sends no signal
+  anywhere. Peer messaging exists but reaches only sessions on the *same
+  machine*, and each cloud session is its own container — measured
+  2026-09-13 from this session, which found no reachable peer while seven of
+  Morgan's sessions were live. So the fleet channel is **polling**, and the
+  clock that drives it has to come from somewhere else.
 
 ## The command
 
@@ -194,9 +201,14 @@ them.
    name repositories it cannot attach to — cross-owner attachment is refused
    — so it is a reader of the fleet more than of any tree. Rooting it here is
    the obvious default and may be wrong.
-2. **How does it learn about idle sessions?** Nothing wakes it. Either
-   Morgan says the phrase, or it holds a scheduled self-check-in, which costs
-   tokens on every firing whether or not anything changed.
+2. **What wakes it?** Three candidates, and the third is the interesting one.
+   Morgan says the phrase; or it holds a scheduled self-check-in, which costs
+   tokens on every firing whether or not anything changed; or **it subscribes
+   to the repositories instead of the sessions.** Pull-request activity —
+   a merge, a failing check, a review — genuinely does push into a session,
+   and most of what Chief of Staff would want to react to surfaces there
+   anyway. That turns the poll into something event-driven without inventing
+   a fleet notification that does not exist.
 3. **What happens to the sessions already open?** Retagging the live fleet by
    hand is a one-off cost, and skipping it means the collision detector is
    blind to exactly the sessions most likely to collide.
