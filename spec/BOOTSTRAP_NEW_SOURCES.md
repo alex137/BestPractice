@@ -82,11 +82,13 @@ assume a session has:
   branch pin puts a clean clone back on `main` before pulling. A second
   checkout keeps the resolved source and the tree being edited apart, and it
   is the path `PRECEDENT_FRESHNESS_ALSO` already names.
-  **The wiring half does not reach a set that already exists**: an existing
-  `.claude/settings.json` is never rewritten, so
-  [`tools/precedent_refresh_sources.py`](../tools/precedent_refresh_sources.py)
-  reports the hook as unwired at every session start and a person adds the
-  one command.
+  **Neither half reaches a set that already exists**: an existing
+  `.claude/settings.json` is never rewritten, and `--apply` writes no hook
+  file there either — a hook nothing declares is reported rather than
+  repaired, since writing one that still never runs is a diff nobody asked
+  for. So [`tools/precedent_refresh_sources.py`](../tools/precedent_refresh_sources.py)
+  reports the hook as unwired at every session start and a person adds both
+  the file and the one command.
 - **Installs the generated-views drift gate** —
   [`templates/github-actions/views-drift.yml.template`](../templates/github-actions/views-drift.yml.template)
   as the new set's `.github/workflows/views-drift.yml`, new 2026-09-11. A set
