@@ -226,6 +226,17 @@ def _print_hard_requirements(root):
     """
     try:
         import precedent_reply_check as prc
+    except ImportError:
+        # A PARTIAL VENDOR, named as one. This module ships beside this file
+        # as one unit; absent, the requirements cannot be read AND the stop
+        # hook that enforces them is not running either, so the reply is
+        # unchecked in both directions. Say which, and how to fix it.
+        print("\nNOTE: precedent_reply_check.py is not vendored beside this "
+              "script, so no declared reply requirement is below AND none is "
+              "being enforced. Re-vendor the engine (python3 "
+              "tools/precedent_vendor_engine.py refresh <bestpractice-clone>).")
+        return
+    try:
         reqs, notes = prc.declared_requirements(root)
     except Exception as e:                                   # noqa: BLE001
         print(f"\nNOTE: the declared reply requirements could not be read "
