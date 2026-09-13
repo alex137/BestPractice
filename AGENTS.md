@@ -221,7 +221,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 107 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 108 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -309,6 +309,8 @@ When a document presents a script-derived figure:
   docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
+When a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person:
+  leak-gate-is-background — never relay a blocklist note or ask for a term; the deep review is its place
 When a message carries the standing merge-authorization phrase:
   go-merge — "Go merge" anywhere in the message: sync, name branch, commit, push, PR, merge
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
