@@ -3962,6 +3962,46 @@ def check_session_practices_load_without_publishing():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    # A SET THAT IS NOT STALE STILL GETS REPAIRED, and all three repairs
+    # happen together. Both halves were wrong for one afternoon: the wiring
+    # and ignore repairs sat inside apply_to(), which runs over the STALE sets
+    # only, so a set already current got neither -- and _repairable() did not
+    # look for either, so such a set appeared on no list at all. Separately,
+    # hook-INSTALL and WIRING were reached by different paths, so one --apply
+    # wired a hook into SessionStart and left the file absent: a
+    # declared-but-missing hook, which the harness reports as nothing.
+    # Reported by the set it happened in.
+    rtmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-repair-'))
+    try:
+        import json as _j
+        import precedent_refresh_sources as _rs
+        import precedent_bootstrap_source as _bs3
+        st = rtmp / 'set'
+        (st / '.claude' / 'hooks').mkdir(parents=True)
+        (st / '.claude' / 'settings.json').write_text(_j.dumps({'hooks': {
+            'SessionStart': [{'hooks': [{'type': 'command', 'command':
+                '$CLAUDE_PROJECT_DIR/.claude/hooks/'
+                + _bs3.INDIVIDUAL_SOURCE_HOOK}]}]}}, indent=2), encoding='utf-8')
+        entry = {'repo': str(st), 'hooks': {'missing': []}, 'stale': False}
+        found = _rs._repairable(entry)
+        cases.append(('a set that is NOT stale but is missing the wiring reads '
+                      'as repairable -- apply_to() only walks the stale ones, '
+                      'so this list is the only way such a set is reached',
+                      any(_bs3.UNIVERSAL_CATALOGUE_HOOK in m for m in found)))
+        cases.append(('...and a missing `.precedent/` ignore line does too',
+                      any('.precedent/' in m for m in found)))
+        ok, _msg = _rs.repair_hooks(st)
+        wired = _bs3.UNIVERSAL_CATALOGUE_HOOK in ' '.join(_bs3._wired_commands(st))
+        present = (st / '.claude' / 'hooks'
+                   / _bs3.UNIVERSAL_CATALOGUE_HOOK).is_file()
+        cases.append(('one repair pass installs the hook FILE and wires it and '
+                      'writes the ignore line -- a hook wired but absent is one '
+                      'the harness reports as nothing at all',
+                      ok and wired and present
+                      and '.precedent/' in (st / '.gitignore').read_text()))
+    finally:
+        shutil.rmtree(rtmp, ignore_errors=True)
+
     # THE WIRING IS REPAIRABLE BY A TOOL, which is the whole reason nobody
     # has to edit .claude/settings.json by hand. The harness refuses a SESSION
     # hand-editing that file; it does not refuse a vendored tool writing a
