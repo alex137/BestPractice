@@ -14,17 +14,20 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-12"
-approved_by: "Morgan, 2026-09-12, relayed through a scheduled instruction to land five
-  fleet rules at universal -- \"facts about the platform and about running Claude
-  sessions at all\", which \"do not vary by team or by person\". The placement is his;
-  pairing the model choice with the compaction point in one practice was the session's
-  judgment, named as a judgement call in that same instruction. AMENDED
-  2026-09-13 with the paragraph on which boundary to take under pressure:
-  Morgan raised the question -- whether the rule should also recommend
-  compacting at a token size -- and approved the narrower clause the session
-  proposed in answer, \"sure, these are good changes\" (strength: assented; the
-  subject is his, the clause is the session's)."
-strength:    decided
+approved_by: "Morgan, 2026-09-13 -- \"it's good if it's universal BUT the practice
+  should recommend to the user to recommend at those points, not compact by itself\".
+  Universal is confirmed by him directly; the compact clause is rewritten to that
+  correction. Its ORIGINAL landing, 2026-09-12, rested on a scheduled instruction
+  asserting his authorization which he does not recall giving (\"I don't remember if I
+  did\"), so the rule stands on the 2026-09-13 answer and not on that instruction.
+  Pairing model choice with the compaction point in one practice was a session's
+  judgment either way. AMENDED 2026-09-13, later the same day: Morgan asked
+  whether the rule should also recommend compacting at a token size, and
+  approved the narrower clause this session proposed in answer -- which boundary
+  to speak at when room is running out, no threshold -- \"sure, these are good
+  changes\" (strength: assented; the question is his, the clause is the
+  session's)."
+strength:    assented
 source_practice_number: null
 ---
 ## Rule
@@ -37,21 +40,30 @@ is true"* do not need the largest model available; judgment and writing do.
 The work that is mostly retrieval and comparison is the work that runs fine
 smaller, and it is also the bulk of what gets spawned.
 
-**Compact at a task boundary, not at a size.** The moment to compact is when
-a deliverable has landed and the next thing is independent of how it was
+**Say when a compact is cheap; do not decide it.** The moment worth naming is
+when a deliverable has landed and the next thing is independent of how it was
 reached — there, the summary carries the conclusion and nothing is lost.
-Compacting in the middle of an investigation costs a re-read of everything
-the investigation had established.
+Compacting in the middle of an investigation costs a re-read of everything the
+investigation had established.
 
-**How full the context is decides WHICH boundary, never whether to break
-one.** Boundaries are not evenly spaced — a long session passes several, and
-everything above says each of them is fine. Far from the limit, take whichever
-one comes naturally. Close to it, take the next one rather than coasting past
-it toward a tidier stopping point; and where none is coming because the work
-in front of you is genuinely long, write down what has been established so far
-and compact against that. **The alternative is not "no compaction"** — it is
-the harness compacting at the limit, mid-investigation, keeping whatever it
-guesses matters.
+**Whose call it is: the person's, always.** A session that reaches a boundary
+says so in one line — *"this is a cheap point to compact if you want to"* — and
+then carries on without it. The context is the person's working memory of the
+thread as much as the session's, they may want the detail kept for reasons the
+session cannot see, and a session that compacts on its own initiative has
+discarded something it was not asked to discard. **Offer the moment, never take
+it.**
+
+**How full the context is decides WHICH boundary you say it at, never whether
+the offer is yours to act on.** Boundaries are not evenly spaced — a long
+session passes several, and everything above makes each of them worth naming.
+Far from the limit, name whichever comes naturally. Close to it, say so at the
+next boundary rather than letting it go by for a tidier one, and say that it is
+close: the person is deciding against a number they cannot see, and the
+alternative to their choosing is the harness compacting at the limit,
+mid-investigation, keeping whatever it guesses matters. Where the work in front
+of you is long enough that no boundary is coming, make the offer anyway and say
+what would have to be written down first for the compact to be cheap.
 
 **The one principle under both: what is expensive is re-deriving, not
 length.** A long context that already holds the answer is cheap to continue;
@@ -66,13 +78,14 @@ number to react to; asking *"is the thing I am about to do independent of how
 I got here?"* gives no number at all. The number is the one that does not
 correlate with cost.
 
-**The pressure clause is not that threshold coming back in**, because the
-trigger has not moved: a boundary is still the only thing that licenses a
-compaction, and size never causes one by itself. What size does is break the
-tie between boundaries that are all already legitimate. The case that
-separates the two is a session most of the way full and mid-investigation —
-under a threshold it compacts there and pays for the re-read; under this rule
-it keeps going, which is the right answer and the one a threshold gets wrong.
+**The clause above is not that threshold coming back in**, because the trigger
+has not moved: a boundary is still the only thing that produces the offer, and
+size never produces one by itself. What size decides is which boundary is worth
+interrupting for, and how plainly to say that room is running out. The case
+that separates the two is a session most of the way full and mid-investigation
+— under a threshold it compacts there, or nags to; under this rule it says
+nothing and keeps working, which is the right answer and the one a threshold
+gets wrong.
 
 **A fresh session is the largest re-read there is**, which puts this beside
 [spawn-session](spawn-session.md) rather than under it: that rule governs
@@ -85,6 +98,11 @@ compact mid-investigation" — both are paying twice to learn the same thing.
 step earlier again: it caps what *every* session pays before its first turn.
 The three are the same economy at three moments — what loading costs, what
 starting a session costs, and what re-deriving inside one costs.
+
+**The two halves differ in who decides.** Model choice is settled when a
+session is created, by whoever creates it, and a session creating another one
+makes that call itself. Compacting happens inside a running conversation the
+person is reading, so it is theirs. Same economy, different owner.
 
 **Model choice is a floor, not a ceiling.** The rule is against reaching for
 the largest model by reflex; it is not a case for running judgment work
@@ -113,12 +131,12 @@ relayed here rather than measured, and nothing in this repository can check
 it ([no-invented-specifics](no-invented-specifics.md) — the range is
 attributed rather than asserted).
 
-**The pressure clause came from the question the rule invites**, 2026-09-13:
-if a threshold is wrong, what happens to a session that runs out of room
-before its next boundary? Nothing in the rule answered that, and the answer
-that survives the objection above is not a threshold — it is which boundary
-you take once several are available. No incident behind it; it is a gap found
-by reading the rule rather than by paying for it.
+**The clause about which boundary to name came from the question the rule
+invites**, 2026-09-13: if a threshold is wrong, what happens to a session that
+runs out of room before its next boundary? Nothing answered that, and the
+answer that survives the objection above is not a threshold — it is which
+boundary you speak at, once several are available. No incident behind it; a
+gap found by reading the rule rather than by paying for it.
 
 **What makes the three-session case the useful example** is that none of the
 three did anything wrong. Each was created for a reasonable-looking piece of
