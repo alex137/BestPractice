@@ -43,6 +43,16 @@ set's own ENGINE_MANIFEST saying whether it is an older vendoring to refresh
 or a hand-edit to move upstream. Nothing resolved is reported as a SKIP, not
 as clean.
 
+Then compares the SETS AGAINST EACH OTHER, which none of the three above
+does: each of them measures one set against one template, so a change every
+set made identically reads as healthy in all of them. `CONVERGENT DRIFT`
+reports a file two or more sets of a level changed the same way -- the
+skeleton-owned ones included, which `BOOTSTRAP DRIFT` downgrades to notes per
+set for good reasons that stop applying the moment two sets agree. It names
+the files and quotes the shared lines; it does not claim which side is wrong,
+since the sets sharing an older build and the template missing a change look
+identical from here.
+
 A missing declared team or individual source FAILS this tool by default
 (practice: very-deep-check) -- the ordinary loader degrades gracefully when
 one is absent, which is right for routine loading but wrong here: a very
@@ -1378,6 +1388,20 @@ def _template_freshness(sources):
         'AGENTS.md', 'MAP.md', 'GLOSSARY.md', 'CODEOWNERS',
         'MANIFEST.json', 'ENGINE_MANIFEST.json',
     }
+    # bootstrap() writes these itself, from the harness adapter rather than
+    # from the skeleton, so a skeleton correctly ships none of them and
+    # reporting them as gaps would be a false positive in every set at once.
+    # Read from the module rather than retyped: a hook added to SESSION_HOOKS
+    # upstream would otherwise start reading as a template gap here.
+    NOT_SKELETON |= set(bss.SESSION_HOOKS) | {'settings.json'}
+    # WHICH DIRECTORIES COUNT. Root files plus the two directories bootstrap
+    # itself writes into -- those are the set's SHAPE. `practices/` and
+    # anything else is the set's own content, where a name every set happens
+    # to share says nothing about the template. Until 2026-09-13 this was
+    # root files only, which made a missing hook or a missing settings file
+    # invisible to the one check whose whole job is spotting what the
+    # skeleton fails to ship.
+    SHAPE_DIRS = ('.claude', 'bootstrap')
     by_level = {}
     for s in sources:
         lvl, path = s.get('level'), s.get('path')
@@ -1406,12 +1430,20 @@ def _template_freshness(sources):
                 if n.endswith(suffix):
                     n = n[: -len(suffix)]
             ships.add(n)
-        # Root files only: a directory's contents are the source's own
-        # content, not its shape.
         common = None
         for _name, p in repos:
+            tracked = _tracked_files(p)
+            def _keep(f, _p=p, _tracked=tracked):
+                return _tracked is None or str(
+                    f.relative_to(_p)) in _tracked
             here = {f.name for f in p.iterdir()
-                    if f.is_file() and f.name not in NOT_SKELETON}
+                    if f.is_file() and _keep(f)}
+            for sub_dir in SHAPE_DIRS:
+                d = p / sub_dir
+                if d.is_dir():
+                    here |= {f.name for f in d.rglob('*')
+                             if f.is_file() and _keep(f)}
+            here -= NOT_SKELETON
             common = here if common is None else (common & here)
         gaps = sorted((common or set()) - ships)
         if not gaps:
@@ -1470,7 +1502,151 @@ def _same_bytes(gen_path, real_path, gen_root, real_root):
     return normalized.encode('utf-8') == real
 
 
-def _bootstrap_drift_one(level, name, path):
+def _tracked_files(repo_dir):
+    """-> {str} every path git TRACKS in a set, relative, or None when the
+    question could not be answered.
+
+    UNTRACKED IS NOT DRIFT, and this exists because the first run of the
+    extended checks reported that all three team sets carry a
+    `.claude/settings.local.json` the skeleton does not ship. True, and not a
+    template gap: the file is untracked in all three, written by the harness
+    into whatever container the set happens to be cloned in. A check that
+    reads container state as a shape the template is missing would have every
+    adopter adding harness scratch files to the skeleton.
+
+    None rather than an empty set when git cannot answer, so a caller can
+    tell "nothing is tracked" from "tracking could not be read" and decline to
+    filter on the second (practice: fail-gracefully)."""
+    code, out, _err = _run_git(repo_dir, 'ls-files', '-z')
+    if code != 0:
+        return None
+    return {n for n in out.split('\0') if n}
+
+
+def _extra_lines(gen_path, real_path, gen_root, real_root):
+    """-> frozenset of lines the real file has and the generated one does not.
+
+    Line-level rather than whole-file, because the question _convergent_drift
+    asks is which CHANGE several sets share, and two sets that each added the
+    same line to a file they otherwise edited differently are exactly the case
+    a whole-file comparison cannot see.
+
+    Normalized the same way _same_bytes() normalizes, for the same reason:
+    bootstrap() substitutes {{DEST_PATH}}, so every line quoting the set's own
+    location differs in every set and would otherwise never converge.
+
+    Lines of three non-whitespace characters or fewer are dropped. They are
+    structural -- a fence, a rule, a closing brace -- and shared by every file
+    of a kind regardless of what anybody changed, so counting them reports
+    agreement that carries no information.
+    """
+    try:
+        gen = gen_path.read_text(encoding='utf-8')
+        real = real_path.read_text(encoding='utf-8')
+    except (UnicodeDecodeError, OSError):
+        # A binary or unreadable file has no lines to compare. Recorded as no
+        # difference rather than skipped, so the set still appears in the
+        # denominator (see the empty-frozenset note in _bootstrap_drift_one).
+        return frozenset()
+    gen_lines = set(gen.replace(str(gen_root), str(real_root)).splitlines())
+    return frozenset(
+        line for line in real.splitlines()
+        if line not in gen_lines and len(line.strip()) > 3)
+
+
+def _convergent_drift(collect):
+    """-> [str] changes that SEVERAL sets of a level made the same way, which
+    is the template being wrong rather than several people living in their
+    sets.
+
+    THE DIRECTION THE OTHER TWO CANNOT SEE, and the reason this exists.
+    _bootstrap_drift() compares each set against the generator and never
+    compares the sets against each other, so it reports one shared change as
+    N separate per-set lines and never says the sentence that matters. Worse,
+    it deliberately downgrades a difference in a SKELETON-OWNED file to a note
+    -- correct per set, since those files are the person's to edit, and wrong
+    across sets, because four sets that edited the same file the same way is
+    not four people living in their sets. _template_freshness() asks the same
+    source-to-template question but about filenames only, so a file that every
+    set has and every set changed identically reads as present and healthy.
+
+    Raised by Morgan on 2026-09-13: "I think the level files like
+    precedent-individual and precedent-team-* get out of sync with the
+    original templates in important ways very quickly." Measured the same day
+    before it was built: across the three resolved team sets there was no
+    shared line-level change in any skeleton-owned file -- zero -- so this
+    lands against a clean baseline and its first real finding will be a real
+    one. What the measurement DID show is the shape being right: all three
+    team sets carry a `freshness-guard.sh` byte-identical to each other and
+    different from the generator, reported until now as three unrelated
+    findings.
+
+    TWO SETS IS THE THRESHOLD, and it is evidence rather than proof. One set
+    is a person; two sets that did the same thing independently is a habit the
+    template is missing. A level with fewer than two resolved sources says so
+    rather than reporting nothing, since a section that prints nothing when it
+    compared nothing reads exactly like a clean result (practice:
+    fail-gracefully, and the same n=1 reasoning _template_freshness() gives).
+    """
+    if collect is None:
+        return ['nothing was collected, so no set was compared against any '
+                'other -- this is a skip, not a clean result']
+    by_level = {}
+    for (level, rel), per_source in collect.items():
+        by_level.setdefault(level, set()).update(per_source)
+    out = []
+    for level in sorted(by_level):
+        if len(by_level[level]) < 2:
+            only = ', '.join(sorted(by_level[level])) or 'none'
+            out.append(
+                f'note {level}: only {len(by_level[level])} source of this '
+                f'level resolved ({only}), so nothing at this level can '
+                f'converge with anything. A second source is what would make '
+                f'this level checkable at all.')
+    for (level, rel), per_source in sorted(collect.items()):
+        if len(by_level.get(level, ())) < 2:
+            continue
+        total = len(per_source)
+        absent = sorted(n for n, v in per_source.items() if v is None)
+        if len(absent) >= 2:
+            out.append(
+                f'FINDING {level}: the generator writes {rel!r} and '
+                f'{len(absent)} of {total} sets do not have it '
+                f'({", ".join(absent)}) -- either the generator should stop '
+                f'writing it, or those sets are missing something they need')
+        counts = {}
+        for name, lines in per_source.items():
+            for line in (lines or ()):
+                counts.setdefault(line, []).append(name)
+        # Widest agreement first, so the cap below drops the WEAKEST
+        # evidence rather than whatever sorted first by set name. A cap that
+        # hides the line every set shares would defeat the section.
+        shared = sorted(((names, line) for line, names in counts.items()
+                         if len(names) >= 2),
+                        key=lambda pair: (-len(pair[0]), pair[1]))
+        if not shared:
+            continue
+        widest = max(len(names) for names, _ in shared)
+        sets = sorted({n for names, _ in shared for n in names})
+        out.append(
+            f'FINDING {level}: {len(shared)} line(s) in {rel!r} appear in up '
+            f'to {widest} of {total} sets ({", ".join(sets)}) and in nothing '
+            f'the generator writes. Two readings, and this check cannot tell '
+            f'them apart: the sets share a change the template should carry, '
+            f'or they share an OLDER build the generator has since moved past. '
+            f'Which one it is, is one diff between a set and this checkout:')
+        # Capped, and the cap is stated. A finding that prints two hundred
+        # lines is a finding nobody reads; the file is named, so the rest is
+        # one diff away (practice: deliverables-look-like-output).
+        for names, line in shared[:8]:
+            out.append(f'    [{len(names)}/{total}] {line[:120]}')
+        if len(shared) > 8:
+            out.append(f'    ... and {len(shared) - 8} more line(s); '
+                       f'diff {rel!r} across those sets for the rest')
+    return out
+
+
+def _bootstrap_drift_one(level, name, path, collect=None):
     """-> [str] what today's generator would write for a set that already
     exists, where that differs from the set itself.
 
@@ -1503,7 +1679,13 @@ def _bootstrap_drift_one(level, name, path):
 
     Runs the real generator into a throwaway directory rather than reading
     the skeleton, because the skeleton is only half of what bootstrap()
-    writes -- the half this check was asked about is the other half."""
+    writes -- the half this check was asked about is the other half.
+
+    `collect`, when given a dict, also records what this run already knows
+    per file, for _convergent_drift() to read afterwards. It is a parameter
+    rather than a second pass because the generator run is the expensive
+    part of this section, and running it twice to ask two questions of the
+    same bytes would double the cost of the whole check for nothing."""
     import contextlib, io, shutil, tempfile
 
     real_root = pathlib.Path(path)
@@ -1535,6 +1717,11 @@ def _bootstrap_drift_one(level, name, path):
                     f'{type(exc).__name__}: {exc}']
 
         owned = _skeleton_rel_paths(level)
+        # Untracked files are the container's, not the set's -- see
+        # _tracked_files. Collected-for-convergence only; the per-set findings
+        # below are unchanged, since a wrong-content file is worth reporting
+        # whether or not the set commits it.
+        tracked = _tracked_files(real_root)
         wired = {w.name: w for w in bootstrap_source._wired_hook_paths(real_root)}
         manifest = {}
         try:
@@ -1566,11 +1753,26 @@ def _bootstrap_drift_one(level, name, path):
                 alt = wired.get(pathlib.Path(rel).name)
                 real_path = (real_root / alt) if alt and (real_root / alt).is_file() else None
             if real_path is None:
+                if collect is not None:
+                    collect.setdefault((level, rel), {})[name] = None
                 if rel not in owned:
                     absent.append(rel)
                 continue
             if _same_bytes(gen_path, real_path, gen_root, real_root):
+                if collect is not None:
+                    # Recorded as an EMPTY difference rather than skipped: a
+                    # file two sets changed the same way is only evidence
+                    # against the template if the third set is known to have
+                    # left it alone, and a set that never appears in the
+                    # record is indistinguishable from one that was never
+                    # compared (practice: fail-gracefully).
+                    collect.setdefault((level, rel), {})[name] = frozenset()
                 continue
+            if collect is not None and (
+                    tracked is None
+                    or str(real_path.relative_to(real_root)) in tracked):
+                collect.setdefault((level, rel), {})[name] = _extra_lines(
+                    gen_path, real_path, gen_root, real_root)
             # settings.json is the set's OWN wiring, not a file with one
             # right content: verify() already allows a source to point it at
             # hooks kept somewhere else, and precedent-individual does
@@ -1608,6 +1810,15 @@ def _bootstrap_drift_one(level, name, path):
         else:
             folded = []
 
+        if collect is not None:
+            # An engine file that is a faithful vendoring of an older commit
+            # differs in EVERY set at once, identically, which is textbook
+            # convergence and is not news: it is the one fact the stale-
+            # vendoring finding below already states, and letting it through
+            # would bury every real finding under a dozen engine files.
+            for rel in behind:
+                collect.get((level, rel), {}).pop(name, None)
+
         out = []
         commit = manifest.get('source_commit')
         head = bootstrap_source.precedent_vendor_engine._head_commit(ROOT)
@@ -1635,7 +1846,7 @@ def _bootstrap_drift_one(level, name, path):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def _bootstrap_drift(sources):
+def _bootstrap_drift(sources, collect=None):
     """-> [str] _bootstrap_drift_one across every resolved team/individual
     source, or one line saying why nothing was compared. A section that
     prints nothing when no source resolved reads exactly like a section
@@ -1649,7 +1860,8 @@ def _bootstrap_drift(sources):
         if not pathlib.Path(path).is_dir():
             continue
         seen = True
-        out.extend(_bootstrap_drift_one(level, s.get('name'), path))
+        out.extend(_bootstrap_drift_one(level, s.get('name'), path,
+                                        collect=collect))
     if not seen:
         return ['no team or individual source resolved here, so the generator '
                 'was NOT compared against anything -- this is a skip, not a '
@@ -3766,7 +3978,8 @@ def _main(box):
     # exist (practice: very-deep-check, pass 1).
     print("BOOTSTRAP DRIFT -- what the generator would write today, against "
           "the real sets\n")
-    _bd = _bootstrap_drift(data['sources'])
+    _collect = {}
+    _bd = _bootstrap_drift(data['sources'], collect=_collect)
     if _bd:
         for _m in _bd:
             print(f"  {_m}")
@@ -3777,6 +3990,24 @@ def _main(box):
     print()
     if led:
         led.end(findings=len(_bd))
+        led.start('CONVERGENT DRIFT')
+
+    # The fourth direction, and the only one that compares the sets against
+    # EACH OTHER: the three above all measure one set against one template,
+    # so a change every set made identically reads as healthy in all of them
+    # (practice: very-deep-check, pass 1).
+    print("CONVERGENT DRIFT -- changes several sets made the same way, which "
+          "the generator does not\n")
+    _cd = _convergent_drift(_collect)
+    if _cd:
+        for _m in _cd:
+            print(f"  {_m}")
+    else:
+        print("  none -- no file differs from the generator in the same way "
+              "in two or\n  more sets of a level.")
+    print()
+    if led:
+        led.end(findings=sum(1 for _m in _cd if _m.startswith('FINDING')))
         led.start('EXPIRING PRACTICES')
 
     # A condition-shaped `expires:` field cannot be evaluated by any script, so
