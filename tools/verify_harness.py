@@ -13815,6 +13815,79 @@ def check_source_supplied_checks_run():
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_duplicated_resident_text_detector():
+    """Text an always-loaded file repeats from the catalogue is found, and the
+    generated block is not mistaken for it
+    (practice: control-asserts-which-failure).
+
+    WHY IT EXISTS. "Delete what is duplicated" is the first and cheapest of
+    session-load-budget's three reduction moves -- the text is provably
+    reachable on demand, so cutting it costs a session nothing -- and it is the
+    one nobody can find without reading everything. Two hand passes over this
+    repo's instructions file found 903 tokens of it; nothing mechanical was
+    looking.
+
+    THE CASE THAT MAKES IT A CONTROL rather than a demo is the generated
+    block: it is a copy of practice text ON PURPOSE. A detector that reported
+    it would be reporting the loader working, would fire on every repo that
+    ever ran build_views.py, and would be switched off within a week -- and
+    then nothing would be looking again. The fixture owns its own tree
+    (fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    SENTENCE = ('A session that hits this trap pays for it twice over, once '
+                'in the hour it loses and once in the confident wrong answer '
+                'it carries forward into everything after it.')
+    PRACTICE = ('---\nslug: fixture-rule\n---\n## Rule\n' + SENTENCE +
+                '\n\n## Story\nIt happened on a Tuesday.\n')
+
+    def run(agents_body):
+        d = pathlib.Path(tempfile.mkdtemp())
+        try:
+            (d / 'practices').mkdir()
+            (d / 'practices' / 'fixture-rule.md').write_text(
+                PRACTICE, encoding='utf-8')
+            return pc.duplicated_resident_text(d, agents_body)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    cases = []
+
+    hits = run('# notes\n\nSome preamble.\n\n' + SENTENCE + '\n')
+    cases.append(('text repeated from a practice file is reported, naming that '
+                  'file',
+                  len(hits) == 1 and hits[0][0] == 'practices/fixture-rule.md',
+                  repr(hits)))
+
+    hits = run('# notes\n\n' + SENTENCE.replace('trap', '`trap`').replace(
+        'hour', '**hour**') + '\n')
+    cases.append(('markup does not hide it -- backticks and bolding are '
+                  'normalized away', len(hits) == 1, repr(hits)))
+
+    generated = ('# notes\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                 + SENTENCE + '\n<!-- END GENERATED -->\n')
+    hits = run(generated)
+    cases.append(('THE DISCRIMINATING CASE: the same sentence inside the '
+                  'GENERATED block raises nothing -- that copy is the loader '
+                  'working', hits == [], repr(hits)))
+
+    hits = run('# notes\n\nA session that hits this trap pays for it twice '
+               'over, and then we did something else entirely.\n')
+    cases.append(('a short coincidental overlap is below the run threshold and '
+                  'is not reported', hits == [], repr(hits)))
+
+    hits = run('# notes\n\nNothing here resembles the practice at all.\n')
+    cases.append(('unrelated prose raises nothing', hits == [], repr(hits)))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'duplicated always-loaded text is detected, and the generated block '
+          f'is not ({len(cases)} stated cases, the generated block being the '
+          f'discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_settled_marker_scan_is_scoped_and_follows_the_split():
     """The SESSION LOAD pass's settled-trap signal reads gotcha entries, and
     only gotcha entries (practice: control-asserts-which-failure).
@@ -19068,6 +19141,7 @@ def main():
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()
     check_fixtures_own_the_credential_environment()
+    check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_environment_gotchas_follows_a_split_index()
     check_gotcha_currency_signals_fire()
