@@ -157,8 +157,21 @@ HARNESS_SETTINGS_REL = 'templates/harness/claude-code/settings.json'
 
 
 WORKFLOW_TEMPLATES = (
-    # (template under templates/github-actions/, path in the new set)
-    ('views-drift.yml.template', '.github/workflows/views-drift.yml'),
+    # (template under templates/github-actions/, path in the new set, why a
+    # set without it is under-gated -- the reason is per-workflow because
+    # they cover different things, and a shared sentence went stale the
+    # moment one of them changed. It did: this tuple's reason used to be a
+    # single hardcoded string in verify() still claiming that
+    # precedent_check.py's provenance check "skips itself in a source set",
+    # which binds_publishers (#261) made false on 2026-09-12.)
+    ('views-drift.yml.template', '.github/workflows/views-drift.yml',
+     'nothing checks this set\'s generated views for drift on a pull '
+     'request -- the vendored provenance check covers the same three views '
+     'since binds_publishers, but only when somebody runs it by hand'),
+    ('precedent-check.yml.template', '.github/workflows/precedent-check.yml',
+     'nothing runs the CHECK SUITE here at all -- a set gated only on the '
+     'one or two rules it hand-wired a workflow for is silent on the rest '
+     'of its own catalogue'),
 )
 WORKFLOWS_REL = 'templates/github-actions/'
 
@@ -192,7 +205,7 @@ def _install_workflows(dest):
     cannot reach them on its own.
     """
     written = []
-    for template, rel in WORKFLOW_TEMPLATES:
+    for template, rel, _why in WORKFLOW_TEMPLATES:
         out = dest / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(
@@ -372,13 +385,48 @@ def verify(level, path):
     # Like the hooks, the workflows are not in either skeleton -- they come
     # from templates/github-actions/, one copy, shared with dependent repos.
     # A set bootstrapped before 2026-09-11 has none of them.
-    for _template, rel in WORKFLOW_TEMPLATES:
+    for _template, rel, why in WORKFLOW_TEMPLATES:
         if not (path / rel).exists():
             missing.append(f"{rel} (from {WORKFLOWS_REL}{_template}; without "
-                           f"it nothing checks this set's generated views for "
-                           f"drift -- verify_harness.py is not vendored here "
-                           f"and precedent_check.py's provenance check skips "
-                           f"itself in a source set)")
+                           f"it {why})")
+
+    # A vendored engine older than binds_publishers (#261, 2026-09-12) turns
+    # the workflow above into a decoration rather than a gate, and nothing
+    # else here would say so. In a source set that engine skips the checks
+    # whose practice lives upstream -- the set's practices/ holds only its own
+    # files, so a universal check's practice is never "in force" -- and
+    # precedent_check.py exits 0 on a run that skipped. Measured 2026-09-13
+    # in a freshly bootstrapped set, same tree both ways: 5 passed/44 skipped
+    # on a pre-flag engine, 8 passed/41 skipped on the current one. So the
+    # workflow is installed, green, and missing exactly the checks that bind
+    # what this repo publishes -- worse than having no workflow, because it
+    # looks like coverage. precedent-check.yml refuses on exactly this,
+    # by the same grep; saying it HERE is what lets somebody fix it before a
+    # pull request rather than after a confusing red.
+    #
+    # Grepped rather than imported: verify() reports on a set on disk that
+    # this process must not import code from, and the flag is a registration
+    # keyword that appears nowhere else.
+    engine = path / 'tools' / 'precedent_check.py'
+    if engine.is_file():
+        try:
+            if 'binds_publishers' not in engine.read_text(
+                    encoding='utf-8', errors='ignore'):
+                missing.append(
+                    "tools/precedent_check.py predates binds_publishers "
+                    "(BestPractice PR #261, 2026-09-12), so in this set it "
+                    "skips the checks whose practice lives upstream and "
+                    "still exits 0 -- measured 5 passed/44 skipped against "
+                    "8 passed/41 skipped on the same tree, so a check "
+                    "workflow here is quietly green while missing exactly "
+                    "the checks that bind what this repo publishes. Refresh "
+                    "it: python3 tools/precedent_vendor_engine.py refresh")
+        except OSError as e:
+            # fail-gracefully: an unreadable engine is a finding, not a
+            # crash that takes the other findings down with it.
+            missing.append(f"tools/precedent_check.py could not be read "
+                           f"({e}), so whether it carries binds_publishers "
+                           f"is unknown -- not the same as current")
 
     if not (path / '.claude' / 'settings.json').exists():
         missing.append(f"{pathlib.Path('.claude') / 'settings.json'} "
