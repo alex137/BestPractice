@@ -82,6 +82,17 @@ that has grown a row per file rather than a row per question, a preamble
 that has become a changelog. Read the per-section table SESSION LOAD prints
 and work the largest one; the total is an outcome, never the target.
 
+**Three moves, in the order worth trying.** **Delete** only what is duplicated
+somewhere the session already reads — and check that it really is, word for
+word, rather than assuming. **Retire** what can no longer happen, to a linked
+record with the verdict that retired it. **Split** what is still live and still
+long: the section keeps one line per item and the text moves out whole, which
+is [environment-gotchas](environment-gotchas.md)'s index-plus-record shape and
+the only one of the three that scales. A split is the largest reduction
+available and the easiest to do dishonestly, so the rule is the same every
+time: **nothing is shortened on its way out**, and whatever checked the text
+where it was has to follow it.
+
 **This does not license trimming a source you do not own.** A team or
 individual source over its ceiling is a finding to report to whoever owns it
 ([cross-source-rollout](cross-source-rollout.md)), not an edit to make from

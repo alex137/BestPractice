@@ -32,12 +32,18 @@ entry had grown into a self-contradiction; **read its verdict before any
 paragraph of it.**
 
 **If you are here because a symptom matched:** for a `compressed` entry, the
-live half in AGENTS.md is the authority on what to do now, and this is
-background. For an `archived` one, check the dates against the tree before
-acting on anything.
+live half is the authority on what to do now, and this is background. For an
+`archived` one, check the dates against the tree before acting on anything.
 
-**Four entries are not here at all** — they were short and wholly live, so
-they stand in AGENTS.md unchanged.
+**Where the live half now lives: [record/GOTCHAS.md](GOTCHAS.md), not
+AGENTS.md.** Since 2026-09-13 the instructions file carries one line per trap —
+the symptom and a link — and every live entry sits in full in that record.
+Wherever an entry below says "the live entry in AGENTS.md", read
+[record/GOTCHAS.md](GOTCHAS.md); the text it refers to moved there word for
+word, and AGENTS.md is where you find *which* entry you want.
+
+**Four entries are not here at all** — they were short and wholly live, so they
+stand in [record/GOTCHAS.md](GOTCHAS.md) unchanged.
 
 
 ## 2. A git helper that returns stdout and drops the exit code will hand you a

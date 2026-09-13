@@ -48,7 +48,8 @@ recognisable: *"cross-tier adds are not supported in v1: requested
 **Plan for the refusal; do not plan *on* it.** Upstream's own record has it
 refused three times, including as a session's very first tool call, alongside
 two sessions that held both owners at once — with no explanation fitting both
-([the gotchas section](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these), in full in
+([the gotchas index](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these), in full in
+[record/GOTCHAS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md), with the contradictory sequence itself in
 [the archive](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS_ARCHIVE.md)). **Call it and read what it says, never a
 remembered result.**
 

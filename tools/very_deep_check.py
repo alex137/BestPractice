@@ -181,7 +181,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import datetime, io, json, os, pathlib, re, subprocess, sys, time, urllib.parse
+import collections, datetime, io, json, os, pathlib, re, subprocess, sys, time, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -993,6 +993,57 @@ def _gotcha_check_slugs(repo_dir):
     return slugs
 
 
+_GOTCHA_INDEX_LINK = re.compile(r'\]\(([^)#]*GOTCHAS[^)#]*\.md)#([A-Za-z0-9_-]+)\)')
+
+
+def _follow_gotcha_index(root, entries):
+    """-> entries with each split index line's body replaced by the record's.
+
+    Returns `entries` unchanged for an unsplit section, for a record that is
+    missing, and for any single line whose anchor does not resolve -- this is
+    a reading list, not a gate, and precedent_check.py's environment-gotchas
+    is what refuses a broken link.
+    """
+    targets = [m.group(1) for _l, _t, b in entries
+               for m in [_GOTCHA_INDEX_LINK.search(b)] if m]
+    if len(targets) * 2 <= len(entries):
+        return entries
+    rel = collections.Counter(targets).most_common(1)[0][0]
+    f = root / rel
+    if not f.is_file():
+        return entries
+    try:
+        text = f.read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return entries
+    heads = list(re.finditer(r'(?m)^#{2,3}\s+.*?<a id="([A-Za-z0-9_-]+)">', text))
+    bodies = {}
+    for i, h in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        bodies[h.group(1)] = text[h.end():end]
+    # The record sits in a subdirectory, so its links are written relative to
+    # ITSELF (`../tools/x.py`). Every signal downstream resolves a named path
+    # against the repo root, so hand them root-relative text or the pass
+    # reports fifteen live tools as deleted -- which it did, once, before this
+    # normalization was here.
+    import posixpath
+    base = posixpath.dirname(rel)
+
+    def reroot(body):
+        return re.sub(
+            r'\]\((?!https?://|mailto:|#)([^)]+)\)',
+            lambda m: '](' + posixpath.normpath(posixpath.join(base, m.group(1)))
+                      + ')',
+            body)
+
+    out = []
+    for line, title, body in entries:
+        m = _GOTCHA_INDEX_LINK.search(body)
+        got = bodies.get(m.group(2)) if m else None
+        out.append((line, title, reroot(got) if got is not None else body))
+    return out
+
+
 def _gotchas_currency(repo_dir):
     """-> (rows, findings) -- a reading list for the gotchas section.
 
@@ -1013,6 +1064,15 @@ def _gotchas_currency(repo_dir):
     entries = _md_bullet_entries(sec, text[:head.start()].count('\n'))
     if not entries:
         return [], []
+
+    # A SPLIT section is an index: one line per trap in AGENTS.md, the entry
+    # itself in a linked record (practice: environment-gotchas). Every signal
+    # below reads the entry's BODY -- the dates, the remedy paths, the check
+    # slugs, the fixture names -- so on a split section the bodies here are
+    # one sentence of symptom and the pass would go quietly blind, reporting
+    # a clean bill of health for a section it never actually read. Follow the
+    # link. Unsplit repos are untouched: nothing matches, nothing is swapped.
+    entries = _follow_gotcha_index(root, entries)
 
     slugs = _gotcha_check_slugs(repo_dir)
     tools_text = ''
