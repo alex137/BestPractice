@@ -4303,6 +4303,13 @@ which is the failure this repointing exists to end — write
     **Blocked on / out of scope:** Morgan asked for the proposal and explicitly
     held implementation. Four open questions in the document are his to settle,
     the phrase itself among them.
+
+    **A reminder is scheduled for 2026-09-16**, on his ask — a one-shot Routine
+    firing a fresh session that puts the four questions to him, with push and
+    email notification, and stands down if it finds the question already
+    settled. It is recorded here because a Routine is invisible from inside
+    the repository: if this item is still open well after that date, the
+    Routine did not reach him and the question is still owed.
     **Disposition:** wait
 
 - <a id="morgan-prose-name"></a>~~**What to call Morgan in prose, when it is
