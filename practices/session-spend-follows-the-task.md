@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "creating a session, or deciding when to compact one"
 gates:       []
-index_clause: "pick the model from the task; compact at a task boundary, never at a size"
+index_clause: "pick the model from the task; suggest a compact at a boundary, never take one"
 checked_by:  null
 defines:     []
 status:      active
@@ -26,7 +26,11 @@ approved_by: "Morgan, 2026-09-13 -- \"it's good if it's universal BUT the practi
   approved the narrower clause this session proposed in answer -- which boundary
   to speak at when room is running out, no threshold -- \"sure, these are good
   changes\" (strength: assented; the question is his, the clause is the
-  session's)."
+  session's). The INDEX CLAUSE was corrected 2026-09-13 in his own words --
+  \"it should suggest it, never compact on its own\" (strength: decided) -- having
+  still read \"compact at a task boundary, never at a size\", which predated the
+  same day's rewrite of the Rule and was the one line every session sees in the
+  occasion index."
 strength:    assented
 source_practice_number: null
 ---
