@@ -652,8 +652,10 @@
       ],
       "why": "Both halves are choices about a session's own running -- which model it is created with, and when it is compacted -- and neither touches the tree at all. There is no path whose editing means the choice was made badly, because the choice is made before or between edits rather than in one. Reached through the occasion index alone.",
       "decided": "2026-09-12, when the practice landed",
-      "gates": [],
-      "gates_why": "No gate either. The two moments -- creating a session, compacting one -- are not among the four named moments a gate fires at, and neither leaves an artifact a later gate could inspect."
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The reply gate, added 2026-09-13 after the practice went hours without firing once (its Story). The original reasoning -- that neither moment is among the four a gate fires at -- was true of the model half and wrong about the compaction half: deciding whether to OFFER a compact happens when the reply is written, which is exactly the reply gate\u0027s moment, and it needs no artifact to inspect because the question a session asks itself there (\"is the next thing independent of how I got here?\") is answerable from the thread alone. The occasion index could not carry it: its occasion is \"deciding when to compact one\", so the prompt reached only a session that had already decided to think about compacting."
     },
     "source-naming": {
       "globs": [
