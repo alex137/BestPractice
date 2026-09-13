@@ -18,7 +18,12 @@ approved_by: "Morgan, 2026-09-12, relayed through a scheduled instruction to lan
   fleet rules at universal -- \"facts about the platform and about running Claude
   sessions at all\", which \"do not vary by team or by person\". The placement is his;
   pairing the model choice with the compaction point in one practice was the session's
-  judgment, named as a judgement call in that same instruction."
+  judgment, named as a judgement call in that same instruction. AMENDED
+  2026-09-13 with the paragraph on which boundary to take under pressure:
+  Morgan raised the question -- whether the rule should also recommend
+  compacting at a token size -- and approved the narrower clause the session
+  proposed in answer, \"sure, these are good changes\" (strength: assented; the
+  subject is his, the clause is the session's)."
 strength:    decided
 source_practice_number: null
 ---
@@ -38,6 +43,16 @@ reached — there, the summary carries the conclusion and nothing is lost.
 Compacting in the middle of an investigation costs a re-read of everything
 the investigation had established.
 
+**How full the context is decides WHICH boundary, never whether to break
+one.** Boundaries are not evenly spaced — a long session passes several, and
+everything above says each of them is fine. Far from the limit, take whichever
+one comes naturally. Close to it, take the next one rather than coasting past
+it toward a tidier stopping point; and where none is coming because the work
+in front of you is genuinely long, write down what has been established so far
+and compact against that. **The alternative is not "no compaction"** — it is
+the harness compacting at the limit, mid-investigation, keeping whatever it
+guesses matters.
+
 **The one principle under both: what is expensive is re-deriving, not
 length.** A long context that already holds the answer is cheap to continue;
 a short one that has to rebuild the answer is not. Both defaults — the
@@ -50,6 +65,14 @@ is visible and task structure is not. Watching the context fill up gives a
 number to react to; asking *"is the thing I am about to do independent of how
 I got here?"* gives no number at all. The number is the one that does not
 correlate with cost.
+
+**The pressure clause is not that threshold coming back in**, because the
+trigger has not moved: a boundary is still the only thing that licenses a
+compaction, and size never causes one by itself. What size does is break the
+tie between boundaries that are all already legitimate. The case that
+separates the two is a session most of the way full and mid-investigation —
+under a threshold it compacts there and pays for the re-read; under this rule
+it keeps going, which is the right answer and the one a threshold gets wrong.
 
 **A fresh session is the largest re-read there is**, which puts this beside
 [spawn-session](spawn-session.md) rather than under it: that rule governs
@@ -89,6 +112,13 @@ per-session cost was reported in single-digit US dollars; that figure is
 relayed here rather than measured, and nothing in this repository can check
 it ([no-invented-specifics](no-invented-specifics.md) — the range is
 attributed rather than asserted).
+
+**The pressure clause came from the question the rule invites**, 2026-09-13:
+if a threshold is wrong, what happens to a session that runs out of room
+before its next boundary? Nothing in the rule answered that, and the answer
+that survives the objection above is not a threshold — it is which boundary
+you take once several are available. No incident behind it; it is a gap found
+by reading the rule rather than by paying for it.
 
 **What makes the three-session case the useful example** is that none of the
 three did anything wrong. Each was created for a reasonable-looking piece of
