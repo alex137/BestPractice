@@ -9,6 +9,7 @@ gates:       []
 index_clause: "read every repo in force against itself, pass by pass; never a routine gate"
 checked_by:  null
 defines:     ["very deep check"]
+command:     {"Very deep check": "Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new."}
 status:      active
 in_force_at: null
 supersedes:  []

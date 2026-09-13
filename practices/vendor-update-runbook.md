@@ -9,6 +9,7 @@ gates:       ["merge"]
 index_clause: "\"Update Vendors\" -- refresh the source clone first; both layers move separately"
 checked_by:  null
 defines:     ["Update Vendors"]
+command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from."}
 status:      active
 in_force_at: null
 supersedes:  []

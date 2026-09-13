@@ -9,6 +9,7 @@ gates:       ["reply"]
 index_clause: "\"Plain words\" -- say it as you would out loud; same substance"
 checked_by:  null
 defines:     ["Plain words"]
+command:     {"Plain words": "Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling."}
 status:      active
 in_force_at: null
 supersedes:  []

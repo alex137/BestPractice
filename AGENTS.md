@@ -29,31 +29,23 @@ retirement condition:
 **"Go merge" is a Precedent command, defined universally in
 [practices/go-merge.md](practices/go-merge.md), and it means: sync, say
 which branch out loud, commit, push, open the pull request, merge — without
-asking again.** It moved up from Morgan's private individual set to the
-universal catalogue on 2026-09-08, on his decision: *"we should have our own
-commands we use for people who live in our universe."* **That reverses the
-2026-09-07 retirement of `merge-authorization-keyword`**, and the two are
-not the same rule — the retired one told every adopting repository to go
-invent a keyword of its own, which is a preference dressed as a practice;
-this one names the phrase and ships it. `merge-authorization-keyword` is now
-`deduplicated` with `in_force_at: go-merge` rather than retired.
-
-**Why the move matters beyond tidiness:** while the definition lived in a
-private set, a session that had not attached it could not read it. One did
-exactly that — followed an instruction to go ask what the phrase meant,
-generating the precise interruption the phrase exists to prevent, while the
-answer sat in a repository nobody had fetched. It is in the generated
-occasion index now, so every session reads it whether or not any private
-source resolved.
+asking again.** **"Approved" is the same command**, added 2026-09-13 on
+Morgan's instruction — one rule with two triggers. The care it needs is that
+`approved` is also an ordinary adjective: *"the approved plan of record"* is
+not the command, and that file's Detail says how to tell. Its Story carries
+the rest in full — why the phrase is universal, what
+`merge-authorization-keyword` was and why it is `deduplicated` with
+`in_force_at: go-merge`, and the session that went off to ask what "Go merge"
+meant while the answer sat in a repository nobody had fetched.
 
 **What the phrase's ABSENCE means is a separate question**, and its interim
 answer is: **use judgment, and do not ask him.** Morgan, 2026-09-07, asked
 to choose between holding, pushing, and a line between them: *"The session
 should use its judgment. Todo in the future to make a hard rule, not that."*
 He wants a hard rule eventually and ruled out "use judgment" as its content,
-so this is the interim state and not the destination — [TODO.md](TODO.md)'s
+so this is the interim state — [TODO.md](TODO.md)'s
 `push-without-the-keyword` item stays open for it, and must not be closed by
-pointing at this paragraph. What the repository itself contributes is only
+pointing at this paragraph. What the repository contributes is only
 the destination: an authorization to merge, in whatever words it arrives,
 means `precedent-beta-v01` per the paragraph above, and is not done until a
 fetch confirms the pushed content is actually there
@@ -68,10 +60,9 @@ this one, and not a later one that decides it has become urgent. Nobody owes
 an explanation for parking something, so **the response is to do it and say
 which item was marked, never to ask a follow-up question about it.**
 
-Coined by Morgan on 2026-09-08 and moved to universal the same day,
-alongside `go-merge`, for the same reason. It spent one day as a repo-local
-practice here; that copy is now `deduplicated` and points at the universal
-one. What `parked` then means — and the two other dispositions an open item
+Coined by Morgan on 2026-09-08 and moved to universal the same day; the
+repo-local copy it spent a day as is `deduplicated` now. What `parked` then
+means — and the two other dispositions an open item
 can carry — is
 [practices/open-item-disposition.md](practices/open-item-disposition.md),
 whose one line is: **an item with no disposition is `wait`, and a session
@@ -82,9 +73,8 @@ raises an item with him only if the item says `ask`.**
 most important things the person needs to know now — each a bolded phrase and
 at most two sentences, and nothing around them: no preamble, no fourth item,
 no closing offer. It is the one command here that asks for **attention rather
-than action**, so a session that has not actually read the repository cannot
-answer it, and an answer assembled from whatever is already in context is the
-failure it exists to prevent. Coined by Morgan on 2026-09-08 and placed at
+than action**, so an answer assembled from whatever is already in context is
+the failure it exists to prevent. Coined by Morgan on 2026-09-08, at
 universal from the start.
 
 **A fifth command, "Plain words"**, is defined universally in
@@ -94,8 +84,7 @@ case before the general principle, no hedging and no survey of positions you
 are not taking. **It governs the rest of the conversation, not just the next
 reply.** Nothing about the substance changes — same conclusions, same figures,
 same "Files touched" list — so a plainer reply that quietly says less has
-failed it. Coined by Morgan on 2026-09-08, in the thread that also unfolded
-the cross-team practice-drift item, and placed at universal the same day.
+failed it. Coined by Morgan on 2026-09-08, at universal the same day.
 
 **A sixth command, "Weak yes"**, is defined universally in
 [practices/weak-yes.md](practices/weak-yes.md) and means: **go ahead, and
@@ -110,13 +99,10 @@ half of it. **The other half is
 [practices/decision-strength.md](practices/decision-strength.md), and its one
 line is: an approval records `decided` or `assented`, and an unmarked one
 means UNKNOWN — never "you decided this."** A session may write `decided`
-only if it can quote the person choosing it; a bare "ok" to the session's own
-proposal is `assented`, written that way without asking. Agreement framed as
-a test or a "let's see how it goes" is `assented`; enthusiasm is `decided`.
-**Nothing was backfilled** — the approvals already in the catalogue stay
-unmarked, permanently, because guessing which past "ok" was enthusiastic is
-the invention [no-invented-specifics](practices/no-invented-specifics.md)
-forbids. Coined by Morgan on 2026-09-09 and placed at universal the same day.
+only if it can quote the person choosing it; a bare "ok" to its own proposal
+is `assented`, written that way without asking. **Nothing was backfilled**,
+and that file says why. Coined by Morgan on 2026-09-09, at universal the same
+day.
 
 **A seventh command, "Spawn session"**, is defined universally in
 [practices/spawn-session.md](practices/spawn-session.md) and means: **before
@@ -130,18 +116,23 @@ times it did not, and an honest "this session is the right one" is a
 complete answer to it.
 
 **Waking beats spawning**: a live session reuses the context it holds and
-**can answer back**, where a spawned one re-reads its repository from
-nothing and has no return path. True since 2026-09-12 and in no line any
-session read until 2026-09-13.
+**can answer back**, where a spawned one re-reads its repository from nothing
+and has no return path.
+
+**The prompt you seed carries the merge authorization** — added 2026-09-13,
+because spawned sessions were finishing the work and then waiting to be told
+to merge it: *"If I ask for that spawned session, I'd want it merged."*
+Bounded three ways, which is what makes relaying it safe: the seeded work
+only, the branch that repository's own rules say routine work lands on, and
+its own checks passing. Where you did not get the authorization, seed the
+work without one rather than claiming he gave it.
 
 It is the step that comes *before*
-[practices/handoff-is-pasteable.md](practices/handoff-is-pasteable.md),
-which was amended the same day: where the harness can create the session
-itself, the link replaces the paste block, and the block's three things
-become the seeded prompt rather than something anyone retypes. Coined by
-Morgan on 2026-09-11 and placed at universal from the start, as
-`clean-session`; **renamed to `spawn-session` on 2026-09-12** on his
-instruction, with nothing else about it changed.
+[practices/handoff-is-pasteable.md](practices/handoff-is-pasteable.md):
+where the harness can create the session itself, the link replaces the paste
+block, and that block's three things become the seeded prompt. Coined by
+Morgan on 2026-09-11, at universal from the start, and **renamed from
+`clean-session` on 2026-09-12**.
 
 **An eighth command, "My options"**, is defined universally in
 [practices/my-options.md](practices/my-options.md) and means: **lay out the
@@ -155,12 +146,22 @@ the recommendation is an approval like any other, so
 [practices/decision-strength.md](practices/decision-strength.md) marks it.
 Coined by Morgan on 2026-09-12 and placed at universal the same day.
 
+**A ninth command, "Vocabulary"**, is defined universally in
+[practices/vocabulary.md](practices/vocabulary.md) and means: **list every
+standing command in force, each with one plain sentence, and nothing else.**
+**Read the list, never recall it** — `python3 tools/precedent_vocabulary.py`
+collects it from the `command:` field of every practice in every resolved
+source, and names any source that did not. The phrases live in the practice
+files and nowhere else; the reader-facing table in
+[documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md)
+is generated from them. Coined by Morgan on 2026-09-13, out of a list he
+wrote naming three commands and an "etc." — there were eleven.
+
 **A third command, "Update Vendors"**, triggers
 [practices/vendor-update-runbook.md](practices/vendor-update-runbook.md) —
 the fixed sequence for taking an upstream update, starting with making the
-SOURCE clone current against the pinned branch. It authorizes the update,
-not the merge of what the update produces; that is still `Go merge`'s to
-give.
+SOURCE clone current against the pinned branch. It authorizes the update, not
+the merge of what it produces; that is still `Go merge`'s to give.
 
 **FIRST, and normally already done for you.** The private sources are
 cloned by the SessionStart hook when the environment carries
@@ -227,7 +228,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 108 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 109 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -317,8 +318,8 @@ When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person:
   leak-gate-is-background — never relay a blocklist note or ask for a term; the deep review is its place
-When a message carries the standing merge-authorization phrase:
-  go-merge — "Go merge": sync, name branch, commit, push, PR, merge; a blocked step hands off
+When a message carries a standing merge-authorization phrase:
+  go-merge — "Go merge"/"Approved": sync, branch, commit, push, PR, merge; blocked hands off
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- refresh the source clone first; both layers move separately
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
@@ -335,6 +336,8 @@ When a person says "Plain words":
   plain-words — "Plain words" -- say it as you would out loud; same substance
 When a person says "Three Things":
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
+When a person says "Vocabulary", or asks what the standing commands are:
+  vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
 When a practice lands or a candidate is raised, at any level:
@@ -394,7 +397,7 @@ When finishing a substantial work-product, before the merge-time capture gate:
 When fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy:
   fix-the-original — fix the origin first, then every copy -- name them all in the reply
 When handing the person work to do, or starting work that may touch a repository this session cannot reach:
-  spawn-session — cross-repo check first; wake a live session before spawning one, then the link
+  spawn-session — cross-repo check first; wake a live session, then a link seeded to merge
 When importing, creating, or declaring a repository that holds practices:
   source-naming — names are fixed by level; say the convention before anyone picks a name
 When landing practices in bulk -- a migration, an import, or a move between sources:
@@ -519,6 +522,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
+| Every standing command, and what each does | `python3 tools/precedent_vocabulary.py` — never from memory; rule at [practices/vocabulary.md](practices/vocabulary.md) |
 | Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [local/practices/park-it.md](local/practices/park-it.md) |
 | Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces | [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — **drafted, not decided**; open item at [TODO.md's `chief-of-staff-session`](TODO.md#chief-of-staff-session) |
 | Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) |

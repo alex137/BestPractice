@@ -7,6 +7,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Term | Defined in |
 |---|---|
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
+| Approved | [go-merge](practices/go-merge.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
@@ -46,6 +47,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Three Things | [three-things](practices/three-things.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
+| Vocabulary | [vocabulary](practices/vocabulary.md) |
 | Weak yes | [weak-yes](practices/weak-yes.md) |
 
 ## Engine vocabulary

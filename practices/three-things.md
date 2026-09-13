@@ -9,6 +9,7 @@ gates:       ["reply"]
 index_clause: "\"Three Things\" -- the three that matter now, one bold phrase and two lines each"
 checked_by:  null
 defines:     ["Three Things"]
+command:     {"Three Things": "Tell you the three most important things you need to know right now, in three short lines."}
 status:      active
 in_force_at: null
 supersedes:  []
