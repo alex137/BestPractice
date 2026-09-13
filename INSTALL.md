@@ -1343,6 +1343,16 @@ which means the token is not the problem and the clone itself is. The same
 line is printed by the session check, by the source-freshness report at
 session start, and by a vendor update.
 
+A fourth verdict, **`UNCONFIGURED`**, says the one thing the other three
+cannot: the only source missing is your **individual** set, and the reason
+is the user-level config rather than anything a credential reaches — the
+file is absent, or will not parse, or parses and names no individual
+source. Those are three different states with three different remedies, and
+none of them is a token. It exits 0, because nothing is in the wrong state;
+on a hosted session an absent or empty config still reads as `MISSING` or
+`SET`, since the bootstrap writes that file only after a clone succeeds, so
+a clone that failed leaves exactly the same fingerprint.
+
 ### Setting These on the Environment, With an Example for Each
 
 **Recommended, not required.** Precedent installs and runs with none of this
