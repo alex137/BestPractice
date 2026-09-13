@@ -318,7 +318,7 @@ When a document replaces or is replaced by an earlier one:
 When a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person:
   leak-gate-is-background — never relay a blocklist note or ask for a term; the deep review is its place
 When a message carries the standing merge-authorization phrase:
-  go-merge — "Go merge" anywhere in the message: sync, name branch, commit, push, PR, merge
+  go-merge — "Go merge": sync, name branch, commit, push, PR, merge; a blocked step hands off
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- refresh the source clone first; both layers move separately
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:

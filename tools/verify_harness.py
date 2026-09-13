@@ -6692,17 +6692,22 @@ def check_source_sets_can_learn_they_are_stale():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
-# The engine files precedent_vendor_engine.py vendors into a SOURCE set.
-# Named here so the fixture below is a faithful source set rather than a
-# hand-picked subset that happens to import.
-_SOURCE_KIND_ENGINE_FILES = (
-    'build_codeowners.py', 'build_views.py', 'glossary_terms.json',
-    'precedent_check.py', 'precedent_decommission.py', 'precedent_gate.py',
-    'precedent_identity.py', 'precedent_migrate_status.py',
-    'precedent_paths.py', 'precedent_show.py',
-    'precedent_source_credentials.py', 'precedent_time.py',
-    'precedent_vendor_engine.py', 'routing_scope.json', 'split_practices.py',
-)
+def _source_kind_engine_files():
+    """-> (str, ...) the engine files precedent_vendor_engine.py vendors into
+    a SOURCE set, plus routing_scope.json, which travels trimmed rather than
+    by name in that list.
+
+    READ FROM THE ENGINE, NOT RESTATED (practice: fixture-owns-its-state --
+    the state a fixture owns includes which files a real source set gets;
+    same reasoning as _consumer_engine_into above, which reads
+    CONSUMER_ENGINE_FILES for exactly this reason). This was a hand-typed
+    tuple until 2026-09-13, when precedent_source_bootstrap.py was promoted
+    into ENGINE_FILES and the tuple went stale in the same commit -- the
+    drift the comment ten lines above _consumer_engine_into warns about,
+    repeated in the file that carries the warning."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as _pve
+    return tuple(_pve.ENGINE_FILES) + ('routing_scope.json',)
 
 
 def check_publisher_bound_checks_run_in_a_source_set():
@@ -6773,7 +6778,7 @@ def check_publisher_bound_checks_run_in_a_source_set():
         # missing that module makes it report NotApplicable -- which reads as
         # a SKIPPED and would have been misread here as the gate still
         # blocking it. Found building this control.
-        for name in _SOURCE_KIND_ENGINE_FILES:
+        for name in _source_kind_engine_files():
             e = ROOT / 'tools' / name
             if e.is_file():
                 shutil.copy(e, fx / 'tools' / name)

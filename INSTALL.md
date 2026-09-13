@@ -1273,6 +1273,24 @@ Ask for it by name, or set a real token.
 **Use a read-only token, scoped to the practice-set repositories.** Nothing
 here pushes with it.
 
+**A practice set is a repository you work in, and since 2026-09-13 it gets
+the same hook a consuming repo does.** Before that, a session rooted in
+`precedent-individual` or any `precedent-team-*` resolved **no individual
+practice source at all** — nothing there ever wrote
+`~/.config/precedent/config.json` — so every personal rule was silently
+absent while the session applied the ones it could see. The hook that writes
+it now ships into a set as well
+([tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)),
+execing the same vendored
+[tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py),
+which a set may hold for the first time. **A set created before that date
+has neither the hook nor the wiring**, and this cannot be repaired for you:
+an existing `.claude/settings.json` is never rewritten, so
+[tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+reports the hook as unwired at every session start and the one `SessionStart`
+command is yours to add, ahead of `commit-identity.sh` — which reads that set
+for the author and the timezone.
+
 **Verified end to end, 2026-09-10.** A real read-scoped token set on the
 environment, and a brand-new container came up with all four private sources
 already cloned, before the first turn:

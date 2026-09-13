@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a message carries the standing merge-authorization phrase"
 gates:       ["merge"]
-index_clause: "\"Go merge\" anywhere in the message: sync, name branch, commit, push, PR, merge"
+index_clause: "\"Go merge\": sync, name branch, commit, push, PR, merge; a blocked step hands off"
 checked_by:  null
 defines:     ["Go merge"]
 status:      active
@@ -16,7 +16,8 @@ overrides:   null
 added:       "2026-09-08"
 approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   universal; loosened 2026-09-12, Morgan, after sessions began refusing the
-  phrase he had just typed"
+  phrase he had just typed; extended 2026-09-13, Morgan, who raised the
+  blocked-step handoff himself out of a refusal he had just hit"
 strength:    decided
 ---
 ## Rule
@@ -38,6 +39,18 @@ here rather than left inside "usual conventions" because that is the step
 whose silent failure is expensive: a merge into the wrong branch looks
 identical to a correct one until somebody goes looking.
 
+**A step you cannot perform hands off; it does not come back as a
+question.** If the push, the pull request or the merge is refused because
+this session cannot reach the repository -- a cross-owner `add_repo`
+refusal, no push access, a repository nobody attached -- **the
+authorization is still good and it travels with the work.** Run
+[spawn-session](spawn-session.md) on the spot: wake a live session that
+already holds that repository, or, where none does, create one seeded with
+the steps that are left, and put the link in the reply. **Finish everything
+this session can do first** -- sync, commit, push where the push works --
+so only the residue moves. Reporting the refusal and stopping there is the
+one wrong answer.
+
 ## Detail
 "That was perfect. Go merge", "Go merge.", a lone line reading `GO MERGE`,
 "go merge it and tell me what broke", and "when the check passes, go merge"
@@ -45,6 +58,14 @@ all count. What does not is the words being used about something else --
 "let's go merge those two lists", "go check the logs, then merge the
 report" -- where `merge` has its own object and is plainly not an
 instruction about the work in front of you.
+
+**"Blocked" means a call came back refused, not that you expect one to.**
+`Go merge` is not an invitation to go looking for reasons the merge might
+not be allowed; try the step, and hand off on what the tool actually said,
+quoting it. A restriction the repository itself declares on a branch is a
+different thing and is handed off nowhere -- the phrase authorizes a merge,
+it does not lift a branch rule, so a merge that waits for review goes on
+waiting for review.
 
 **Ask about the object, never about the phrasing.** The one question worth
 stopping for is *which* pending work is meant, and only when several
@@ -84,6 +105,13 @@ our own commands we use for people who live in our universe."* An adopter
 gets a working vocabulary out of the box instead of a homework assignment,
 and a session moving between repositories reads the same word everywhere.
 
+**A refusal that ends the turn spends the authorization and delivers
+nothing.** The person said two words to avoid being asked a question, and
+"I could not, permissions" hands them back the whole job plus a new one:
+working out which session could have done it. The session that hit the wall
+is holding the branch, the diff and the reason it stopped -- it is better
+placed than anyone to write that handoff, and writing it costs one call.
+
 ## Story
 It began as one person's shorthand, from typing `go` / `merge` /
 `PR & merge` session after session. Revised 2026-09-04 after two confusions
@@ -112,6 +140,16 @@ came out: the message-final position, the requirement that the session have
 already said it was ready to commit, and the invitation to ask when the
 phrasing read ambiguously. The branch-naming step, which is the part
 actually protecting anything, was left exactly as it was.
+
+**Extended 2026-09-13, on Morgan raising it**, out of a `Go merge` he had
+just run that came back as a repository-permissions problem: *"if you don't
+have permission to do the go merge (or a part of it) because of cross repo
+issues, then you can spawn a new session to do so."* The chain in the Rule
+had always assumed every step of it was reachable from wherever the phrase
+was read, and [spawn-session](spawn-session.md) -- written about work that
+has not started yet -- did not obviously govern a chain that stopped
+halfway. So the session that hit it reported the refusal and stopped, which
+is what he was looking at when he asked.
 
 **Moved to universal 2026-09-08, on Morgan's decision**, from his private
 individual set. The move is also what makes the phrase readable at all by a
