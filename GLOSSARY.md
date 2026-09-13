@@ -45,6 +45,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | the origin artifact | [fix-the-original](practices/fix-the-original.md) |
 | Three Things | [three-things](practices/three-things.md) |
+| Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |

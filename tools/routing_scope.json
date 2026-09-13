@@ -44,7 +44,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place \u2014 routed by the `merge` gate instead.",
+      "why": "A moment, not a place — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -144,7 +144,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `review` gate instead.",
+      "why": "A moment — routed by the `review` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -193,7 +193,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `reply` gate instead.",
+      "why": "A moment — routed by the `reply` gate instead.",
       "decided": "follow-up session, 2026-09-03",
       "gates": [
         "reply"
@@ -281,7 +281,7 @@
         ".github/workflows/**",
         "templates/github-actions/**"
       ],
-      "why": "The narrowest possible locus: a workflow file is the only place this can be got wrong. Deliberately NOT the whole of .github/** -- an issue template or a CODEOWNERS edit commits nothing, and firing there would teach a session to skip the rule on the files that matter. templates/github-actions/ is included because a workflow template published from here becomes somebody else\u2019s workflow, and the rule has to reach it before it is copied rather than after.",
+      "why": "The narrowest possible locus: a workflow file is the only place this can be got wrong. Deliberately NOT the whole of .github/** -- an issue template or a CODEOWNERS edit commits nothing, and firing there would teach a session to skip the rule on the files that matter. templates/github-actions/ is included because a workflow template published from here becomes somebody else’s workflow, and the rule has to reach it before it is copied rather than after.",
       "decided": "2026-09-10, on the incident that created the practice"
     },
     "github-setup-disclosed": {
@@ -376,7 +376,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -394,7 +394,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
+      "why": "A moment — routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -423,7 +423,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `push` gate, and enforced by a turn-end check.",
+      "why": "A moment — routed by the `push` gate, and enforced by a turn-end check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "push"
@@ -524,7 +524,7 @@
       "globs": [
         "**"
       ],
-      "why": "Genuinely unroutable \u2014 see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
+      "why": "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
       "decided": "phase 4 routing pass"
     },
     "rule-level-by-reach": {
@@ -610,7 +610,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -655,7 +655,7 @@
       "gates": [
         "reply"
       ],
-      "gates_why": "The reply gate, added 2026-09-13 after the practice went hours without firing once (its Story). The original reasoning -- that neither moment is among the four a gate fires at -- was true of the model half and wrong about the compaction half: deciding whether to OFFER a compact happens when the reply is written, which is exactly the reply gate\u0027s moment, and it needs no artifact to inspect because the question a session asks itself there (\"is the next thing independent of how I got here?\") is answerable from the thread alone. The occasion index could not carry it: its occasion is \"deciding when to compact one\", so the prompt reached only a session that had already decided to think about compacting."
+      "gates_why": "The reply gate, added 2026-09-13 after the practice went hours without firing once (its Story). The original reasoning -- that neither moment is among the four a gate fires at -- was true of the model half and wrong about the compaction half: deciding whether to OFFER a compact happens when the reply is written, which is exactly the reply gate's moment, and it needs no artifact to inspect because the question a session asks itself there (\"is the next thing independent of how I got here?\") is answerable from the thread alone. The occasion index could not carry it: its occasion is \"deciding when to compact one\", so the prompt reached only a session that had already decided to think about compacting."
     },
     "source-naming": {
       "globs": [
@@ -683,7 +683,7 @@
       "globs": [
         "TODO.md"
       ],
-      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself \u2014 the only place the practice's rule is ever violated.",
+      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated.",
       "decided": "post-phase-4, converting Alex's practice 53",
       "gates": [
         "merge"
@@ -764,19 +764,19 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a file class \u2014 it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
+      "why": "A moment, not a file class — it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "review",
         "reply"
       ],
-      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED \u2014 a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
+      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED — a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
     },
     "vendor-update-runbook": {
       "globs": [
         "**"
       ],
-      "why": "A moment, not a file class \u2014 it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
+      "why": "A moment, not a file class — it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "merge"
@@ -933,6 +933,22 @@
         "push"
       ],
       "gates_why": "The second of the two reads is owed immediately before a pull request is opened, which is the push moment. The first read -- before starting -- has no gate, because no moment fires at 'about to begin'; the occasion index carries that half."
+    },
+    "item-closes-on-its-condition": {
+      "globs": [
+        "TODO.md",
+        "**/TODO.md"
+      ],
+      "why": "The item is the artifact edited, so the open-items file is the locus. Deliberately NOT '**': the rule fires on work that bears on an item, and no glob can see that -- the merge gate is what reaches it, which is why the practice registers there.",
+      "decided": "2026-09-13"
+    },
+    "todo-reminder": {
+      "globs": [
+        "TODO.md",
+        "**/TODO.md"
+      ],
+      "why": "The command writes into the open-items file and nowhere else. Its real trigger is a phrase in a message, which the reply gate carries; the glob covers a session already editing the file.",
+      "decided": "2026-09-13"
     }
   },
   "gates": {
@@ -941,7 +957,7 @@
     ],
     "merge": "merging a branch",
     "review": "reviewing work, or a review finding a defect",
-    "push": "before pushing \u2014 the pre-push hook",
-    "reply": "ending a turn and writing the reply \u2014 the stop hook"
+    "push": "before pushing — the pre-push hook",
+    "reply": "ending a turn and writing the reply — the stop hook"
   }
 }
