@@ -3501,8 +3501,13 @@ which is the failure this repointing exists to end — write
    session that refreshes their engines.
 
 59. <a id="provenance-check-skips-in-a-source-set"></a>**A universal
-   practice's mechanical check cannot bind a source set, and three sets are
-   relying on checks that silently skip there.**
+   practice's mechanical check could not bind a source set, so sets relied on
+   checks that silently skipped there.** **Largely resolved**: the mechanism
+   below shipped as `binds_publishers` (#261, 2026-09-12) and reached all four
+   sets on 2026-09-13. What keeps this item open is only the last paragraph —
+   the other 41 checks that still skip, which is per-check judgment rather
+   than a sweep. The diagnosis is written in the present tense of 2026-09-11;
+   read it as the state that motivated the fix.
    [tools/precedent_check.py](tools/precedent_check.py) skips any check whose
    practice is not in force in the repo it runs in — correct for a consuming
    repo, where a check belonging to an unresolved source has nothing to say.
