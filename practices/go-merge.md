@@ -1,14 +1,15 @@
 ---
 slug:        go-merge
-title:       "\"Go merge\" authorizes sync, confirm branch, commit, push, PR, and merge"
+title:       "\"Go merge\" -- and \"Approved\" -- authorize sync, confirm branch, commit, push, PR, and merge"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message carries the standing merge-authorization phrase"
+occasion:    "a message carries a standing merge-authorization phrase"
 gates:       ["merge"]
-index_clause: "\"Go merge\": sync, name branch, commit, push, PR, merge; a blocked step hands off"
+index_clause: "\"Go merge\"/\"Approved\": sync, branch, commit, push, PR, merge; blocked hands off"
 checked_by:  null
-defines:     ["Go merge"]
+defines:     ["Go merge", "Approved"]
+command:     {"Go merge": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go merge**: save the work, publish it, and tell you where it went."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -17,7 +18,9 @@ added:       "2026-09-08"
 approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   universal; loosened 2026-09-12, Morgan, after sessions began refusing the
   phrase he had just typed; extended 2026-09-13, Morgan, who raised the
-  blocked-step handoff himself out of a refusal he had just hit"
+  blocked-step handoff himself out of a refusal he had just hit; second phrase
+  added 2026-09-13, Morgan -- \"if I say 'approved', that also means the same as
+  go merge\""
 strength:    decided
 ---
 ## Rule
@@ -33,6 +36,13 @@ repo's usual conventions, without asking again first.
 punctuation around it, or what was said before it changes the answer, and
 you do not have to have announced that you are ready to commit first. Said
 before you have mentioned committing at all, it means get ready and go.
+
+**`Approved` means the same thing.** Said of the work in front of you --
+as its own line, as a whole sentence, or as a clause accepting what you just
+proposed or showed -- it carries the identical authorization, the identical
+chain, and the identical branch-naming step. There is no weaker reading of
+it: it is not "noted", it is not "go ahead and I will merge it later", and it
+does not become a question about whether he meant the command.
 
 **Say the target branch before merging, every time.** It is spelled out
 here rather than left inside "usual conventions" because that is the step
@@ -58,6 +68,18 @@ all count. What does not is the words being used about something else --
 "let's go merge those two lists", "go check the logs, then merge the
 report" -- where `merge` has its own object and is plainly not an
 instruction about the work in front of you.
+
+**`Approved` has the same shape and one more way to be about something
+else, because it is an ordinary adjective as well as a verb.** "Approved.",
+"Approved -- ship it", "that's approved, go" all count. What does not is the
+word modifying a noun that is not the work in front of you -- "the approved
+plan of record", "Alex has not approved that yet", "an approved practice
+source" -- or a question about approval rather than a grant of it, "has this
+been approved?". **The test is the same one the rest of this file uses: if
+you can tell what would be merged and the word is being said about it,
+merge it.** A message that says `approved` about work you have not yet shown
+him, where nothing is pending, is the one case worth a question -- and the
+question is *which* work, never whether the word meant what it said.
 
 **"Blocked" means a call came back refused, not that you expect one to.**
 `Go merge` is not an invitation to go looking for reasons the merge might
@@ -140,6 +162,17 @@ came out: the message-final position, the requirement that the session have
 already said it was ready to commit, and the invitation to ask when the
 phrasing read ambiguously. The branch-naming step, which is the part
 actually protecting anything, was left exactly as it was.
+
+**A second phrase, `Approved`, added 2026-09-13 on Morgan's instruction:**
+*"To the 'go merge' command, also add: if I say 'approved', that also means
+the same as gold merge."* It is one command with two triggers rather than two
+practices, because everything after the trigger -- the chain, the spoken
+branch, the blocked-step handoff, the fact that it authorizes this merge and
+not the next one -- is identical, and a second file would be the same rule
+maintained twice. The word is riskier than `Go merge` in exactly one way:
+`merge` needs an object to be about something else, where `approved` is
+already an adjective this repository uses about plans and sources in ordinary
+prose, so the Detail above names that case explicitly.
 
 **Extended 2026-09-13, on Morgan raising it**, out of a `Go merge` he had
 just run that came back as a repository-permissions problem: *"if you don't

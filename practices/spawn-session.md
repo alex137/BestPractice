@@ -6,9 +6,10 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "handing the person work to do, or starting work that may touch a repository this session cannot reach"
 gates:       ["reply"]
-index_clause: "cross-repo check first; wake a live session before spawning one, then the link"
+index_clause: "cross-repo check first; wake a live session, then a link seeded to merge"
 checked_by:  null
 defines:     ["Spawn session"]
+command:     {"Spawn session": "Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -21,7 +22,9 @@ approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same m
   two belong in this practice rather than in new ones was the session's judgment, named
   as a judgement call in that same instruction. Amended 2026-09-13, Morgan -- he raised
   the ordering himself and approved the three changes that carry it: the index clause,
-  the deferral, and the mechanism."
+  the deferral, and the mechanism. Amended again 2026-09-13, Morgan -- a spawned
+  session carries the merge authorization: \"If I ask for that spawned session, I'd
+  want it merged.\""
 strength:    decided
 source_practice_number: null
 ---
@@ -89,6 +92,32 @@ already carrying the prompt you would have given it — **and put its link
 near the top of the reply, on its own line, telling the person plainly to
 click it.**
 
+**The seeded prompt carries the merge authorization, and says so in those
+words.** Work the person asked for is work they want landed; a session
+spawned to do it that stops at a finished branch and waits to be told to
+merge hands them back the decision they already made, in a window they have
+to go find. So the prompt you seed ends with an explicit `Go merge` for the
+work it describes, naming who authorized it and when, and quoting them if
+you have their words ([seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+governs that header either way).
+
+**Three bounds on it, and they are what make it safe to relay.** The
+authorization covers **the seeded work only** -- not whatever the spawned
+session decides to do next, and not a second merge after it. It names **the
+branch that repository's own rules say routine work lands on**, never a
+branch behind review or a release branch: a restriction the destination
+repository declares is not something a relayed phrase can lift, exactly as
+[go-merge](go-merge.md) already says. And it is **conditional on that
+repository's own checks passing** -- the seeded prompt says which ones, so
+the receiving session does not have to guess.
+
+**Where you did NOT get the authorization, say that instead of inventing
+it.** A seeded prompt claiming a person approved something they did not is
+the failure
+[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md) was
+written out of. If the work was your idea rather than theirs, seed it as
+work to do and stop before the merge.
+
 **The check is unconditional.** It runs whenever another repository might be
 involved, whether or not anyone says anything. **"Spawn session" is the
 explicit command** for the times it did not: it means *run that check now,
@@ -135,6 +164,13 @@ later session can actually search on, which makes naming a session for its
 subject at creation worth the one extra call: an untitled session is one
 nobody will find to wake, and the cost of not finding it is a fresh session
 re-reading the repository from scratch.
+
+**What the relayed authorization looks like in the prompt.** One line, at
+the end, after the outcome expected: *"<Person> authorized this on <date>:
+'<their words>'. When <the repo's check> passes, Go merge into <branch> --
+do not ask again."* The named check and the named branch are what stop it
+being a blank cheque, and both are knowable before you seed: the destination
+repository declares them.
 
 **The seeded prompt is a handoff, and
 [handoff-is-pasteable](handoff-is-pasteable.md) governs its contents
@@ -247,6 +283,19 @@ after it opened flat with *"If a different session is needed ... Create the
 session"*, so a reader who did get that far was left on the word "create".
 Fixed together: the clause now names waking, the create paragraph defers to
 the wake-first one in its first clause, and the Detail names the calls.
+
+**The seeded merge authorization was added 2026-09-13, on Morgan noticing
+the symptom rather than the rule**: *"to spawned sessions - they all seem to
+manually require my approval to merge, can we add in a go merge there? If I
+ask for that spawned session, I'd want it merged (or is there a reason not to
+do that?)."* The reason not to, asked for and answered: none that survives
+the three bounds in the Rule. The one real objection is that a relayed
+authorization is software asserting what a person said, which is the exact
+thing [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+exists to police -- so the bounds are what that rule would ask for anyway,
+named work, a named branch and a named check, rather than a bare "he said
+merge it". Unbounded, it would be a session spawning a session that merges
+whatever it likes into whatever branch it finds.
 
 **Renaming it again was considered and rejected.** The name undersells the
 rule — the check's first answer is now "wake something", not "spawn
