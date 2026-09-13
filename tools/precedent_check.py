@@ -104,7 +104,7 @@ Run:
                                                     # check COULD NOT VERIFY,
                                                     # is a failure
 """
-import ast, difflib, functools, io, json, os, pathlib, re, subprocess, sys
+import ast, collections, difflib, functools, io, json, os, pathlib, re, subprocess, sys
 
 # `git rev-parse --show-toplevel`, not `Path(__file__).resolve().parents[1]`:
 # this module runs two ways -- self-hosted at THIS repo's own tools/
@@ -1799,13 +1799,50 @@ STORY_MIN_WORDS = 25
 STORY_MIN_SENTENCES = 2
 
 
+# A split section is an INDEX: one line per trap, each linking into a record
+# that holds the entry in full (practice: environment-gotchas). The story test
+# below then has to follow the link, or a repo could pass this check by moving
+# every story somewhere and leaving bare symptoms behind -- which is the exact
+# failure the rule exists to stop, wearing the shape of a reduction.
+GOTCHA_INDEX_LINK_RE = re.compile(r'\]\(([^)#]*GOTCHAS[^)#]*\.md)#([A-Za-z0-9_-]+)\)')
+
+
+def _gotcha_record_entries(rel):
+    """-> {anchor: entry text} for a split record, or None if unreadable.
+
+    Entries are `## N. <a id="gN"></a>Title` headings; the entry is everything
+    up to the next such heading. Anchors are read from the file rather than
+    computed, so a record that numbers its entries differently still resolves.
+    """
+    f = ROOT / rel
+    if not f.is_file():
+        return None
+    try:
+        text = f.read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return None
+    heads = list(re.finditer(r'(?m)^#{2,3}\s+.*?<a id="([A-Za-z0-9_-]+)">', text))
+    if not heads:
+        return None
+    out = {}
+    for i, h in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        out[h.group(1)] = text[h.end():end]
+    return out
+
+
 @check('environment-gotchas', 'tree',
        'the session instructions carry a "do NOT rediscover these" section, '
-       'and every entry in it carries what failed, not only the fix',
+       'and every entry in it carries what failed, not only the fix — '
+       'following the link into the record when the section is a split index',
        'whether the story is a good story, whether it is true, or whether the '
        'section is complete. It tells a one-line command from an entry that '
        'took the trouble to say what happened, and no more — padding defeats '
-       'it, and it says so rather than implying otherwise.')
+       'it, and it says so rather than implying otherwise. On a split section '
+       'it checks that every line resolves to a real entry and that the entry '
+       'carries the story; it cannot tell whether the LINE names the symptom '
+       'a session would recognise, which is the half that makes an index '
+       'usable and the half only a person can read.')
 def _environment_gotchas(ctx):
     name, text = _instructions_file()
     m = GOTCHA_HEADING_RE.search(text)
@@ -1841,7 +1878,48 @@ def _environment_gotchas(ctx):
     entries = [e for e in entries if not e.strip().startswith('<!--')]
     if not entries:
         return [Finding(name, 'the gotchas section has no entries')]
+
+    # Split or not? A majority of entries pointing into one GOTCHAS record
+    # means this section is an index and the stories live there. Majority,
+    # not all: a section mid-split, or one keeping a couple of entries
+    # inline, is still an index and is still checkable.
+    linked = [(e, GOTCHA_INDEX_LINK_RE.search(e)) for e in entries]
+    targets = [mm.group(1) for _e, mm in linked if mm]
+    record = collections.Counter(targets).most_common(1)[0][0] \
+        if len(targets) * 2 > len(entries) else None
+
     out = []
+    if record:
+        by_anchor = _gotcha_record_entries(record)
+        if by_anchor is None:
+            return [Finding(name, f'the gotchas section is an index into '
+                                  f'{record!r}, which is missing or holds no '
+                                  f'anchored entries — every line in it leads '
+                                  f'nowhere')]
+        for e, mm in linked:
+            first = re.sub(r'^\s*[-*]\s+', '', e.strip()).splitlines()[0]
+            if not mm:
+                out.append(Finding(name, f'gotcha index line links to no entry '
+                                         f'in {record}, so its story is '
+                                         f'unreachable: {first[:70]!r}'))
+                continue
+            entry = by_anchor.get(mm.group(2))
+            if entry is None:
+                out.append(Finding(name, f'gotcha index line points at '
+                                         f'{record}#{mm.group(2)}, which does '
+                                         f'not exist: {first[:70]!r}'))
+                continue
+            words = len(entry.split())
+            sentences = len([s for s in re.split(r'(?<=[.!?])\s', entry)
+                             if s.strip()])
+            if words < STORY_MIN_WORDS or sentences < STORY_MIN_SENTENCES:
+                out.append(Finding(record, f'gotcha entry is a bare fix '
+                                           f'({words} words, {sentences} '
+                                           f'{"sentence" if sentences == 1 else "sentences"}) '
+                                           f'with no account of what failed: '
+                                           f'{first[:70]!r}'))
+        return out
+
     for e in entries:
         first = re.sub(r'^\s*[-*]\s+', '', e.strip()).splitlines()[0]
         words = len(e.split())

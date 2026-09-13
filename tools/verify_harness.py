@@ -13807,6 +13807,97 @@ def check_source_supplied_checks_run():
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_environment_gotchas_follows_a_split_index():
+    """A split gotchas section is still held to the story rule
+    (practice: control-asserts-which-failure).
+
+    WHY THIS CONTROL EXISTS. Splitting the section -- one line per trap in
+    AGENTS.md, the stories in record/GOTCHAS.md -- is a reduction that looks
+    exactly like the failure the rule forbids: an instructions file full of
+    bare symptoms with no account of what failed. The difference is entirely
+    in whether the links resolve to real, whole entries, so the check has to
+    FOLLOW them. A check that stopped at the section would pass a repo that
+    deleted the record outright, and would do it silently.
+
+    Each case asserts the SPECIFIC message, not merely that something was
+    reported: a broken link and a gutted entry are different repairs, and a
+    control that cannot tell them apart lets one masquerade as the other.
+    The fixture owns its own tree (fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    SECTION = ('# fixture\n\n## Build-environment gotchas -- do NOT rediscover '
+               'these\n\n'
+               '- **A trap with its story elsewhere.** [story](record/GOTCHAS.md#g1)\n\n'
+               '- **A second trap.** [story](record/GOTCHAS.md#g2)\n\n'
+               '- **A third trap.** [story](record/GOTCHAS.md#g3)\n\n'
+               '## Next\n')
+    STORY = ('It failed on 2026-09-13 in a way that read as something else '
+             'entirely, and the session spent an hour on the wrong '
+             'hypothesis. The remedy is to check the exit code rather than '
+             'the printed output.\n')
+
+    def record(entries):
+        out = ['# Gotchas\n']
+        for n, body in entries:
+            out.append(f'\n## {n}. <a id="g{n}"></a>Entry {n}\n\n{body}\n')
+        return ''.join(out)
+
+    def run(agents, rec):
+        d = pathlib.Path(tempfile.mkdtemp())
+        try:
+            (d / 'record').mkdir()
+            (d / 'AGENTS.md').write_text(agents, encoding='utf-8')
+            if rec is not None:
+                (d / 'record' / 'GOTCHAS.md').write_text(rec, encoding='utf-8')
+            old = pc.ROOT
+            pc.ROOT = d
+            try:
+                findings = pc._environment_gotchas(None)
+            finally:
+                pc.ROOT = old
+            return '; '.join(str(f) for f in findings)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    whole = record([(1, STORY), (2, STORY), (3, STORY)])
+    cases = []
+
+    out = run(SECTION, whole)
+    cases.append(('THE DISCRIMINATING CASE: a split section whose links all '
+                  'resolve to whole entries raises nothing', out == '', out))
+
+    gutted = record([(1, STORY), (2, 'Use `git cat-file -e`.\n'), (3, STORY)])
+    out = run(SECTION, gutted)
+    cases.append(('an entry gutted to a bare fix is reported against the '
+                  'RECORD, not the instructions file',
+                  'record/GOTCHAS.md:' in out and 'bare fix' in out, out))
+
+    out = run(SECTION, record([(1, STORY), (2, STORY)]))
+    cases.append(('an index line pointing at an anchor the record does not '
+                  'have names that anchor',
+                  'record/GOTCHAS.md#g3' in out and 'does not exist' in out,
+                  out))
+
+    out = run(SECTION, None)
+    cases.append(('a section indexing a record that is not there says every '
+                  'line leads nowhere, rather than passing',
+                  'leads nowhere' in out, out))
+
+    unsplit = ('# fixture\n\n## Build-environment gotchas -- do NOT rediscover '
+               'these\n\n- **A trap.** ' + STORY + '\n## Next\n')
+    out = run(unsplit, None)
+    cases.append(('an UNSPLIT section is still judged on its own entries, so '
+                  'a repo that never split is unaffected', out == '', out))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'environment-gotchas follows a split index into the record '
+          f'({len(cases)} stated cases, the all-resolving split being the '
+          f'discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_gotcha_currency_signals_fire():
     """tools/very_deep_check.py's gotcha-currency pass actually fires, and
     fires on the right entry (practice: control-asserts-which-failure).
@@ -18872,6 +18963,7 @@ def main():
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()
     check_fixtures_own_the_credential_environment()
+    check_environment_gotchas_follows_a_split_index()
     check_gotcha_currency_signals_fire()
     check_pretooluse_hook_fires()
     check_not_binding_actually_exempts_a_check()
