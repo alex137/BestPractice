@@ -20,14 +20,28 @@
 # fixed too (it names `build_views.py --check` now, which exists wherever
 # the block does); this workflow is the half that makes something look.
 #
-# The vendored engine already carries a drift check and it cannot fire here:
-# precedent_check.py's `generated-artifact-provenance` runs
-# `build_views.py --check` as a subprocess, but precedent_check.py skips any
-# check whose practice is not in force in the repo it runs in -- and a
-# source set's practices/ holds its OWN practices, never the universal one
-# that check belongs to. Measured in a real individual set on 2026-09-11:
-# `--only generated-artifact-provenance` reports `1 skipped`, and a skip is
-# not a pass. So this workflow calls build_views.py directly.
+# THE VENDORED ENGINE'S OWN DRIFT CHECK NOW FIRES HERE TOO, and this comment
+# used to say it could not. precedent_check.py's
+# `generated-artifact-provenance` runs `build_views.py --check` as a
+# subprocess, and it used to skip itself in a source set: precedent_check.py
+# skips any check whose practice is not in force in the repo it runs in, and
+# a source set's practices/ holds its OWN practices, never the universal one
+# that check belongs to. Measured in a real individual set on 2026-09-11,
+# `--only generated-artifact-provenance` reported `1 skipped`. binds_publishers
+# (BestPractice PR #261, 2026-09-12) ended that -- a check whose subject is
+# the practice a repo PUBLISHES now runs in the repo publishing it. Measured
+# again 2026-09-13 in a freshly bootstrapped set: `1 passed`, and planted
+# drift in MAP.md, in GLOSSARY.md and inside AGENTS.md's loader block each
+# turned it red.
+#
+# So this workflow is NOT here for coverage the engine lacks; it looks at the
+# same three views through the same subprocess. It is here because it is
+# attached to `pull_request`. A vendored check runs when somebody types the
+# command, and nothing else in a source set runs precedent_check.py in CI at
+# all -- "the check runs natively" and "the rule is gated" are different
+# claims. Calling build_views.py directly, rather than going through
+# precedent_check.py, keeps this workflow's own failure message about the
+# drifted view instead of about a check registry.
 #
 # IT GATES, IT DOES NOT FIX. Regenerating in CI would leave the branch's own
 # diff wrong and put a runner bot in the authorship path that
