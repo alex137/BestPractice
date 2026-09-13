@@ -99,7 +99,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating a session, or deciding when to compact one |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |
 | [source-naming](practices/source-naming.md) | on-demand | importing, creating, or declaring a repository that holds practices |
-| [spawn-session](practices/spawn-session.md) | on-demand | handing the person work to do, or starting work that may touch a repository this session cannot reach |
+| [spawn-session](practices/spawn-session.md) | on-demand | handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach |
 | [speculation-is-marked](practices/speculation-is-marked.md) | on-demand | recording exploratory thinking -- an idea nobody has committed to -- as a document |
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | publishing a document with a multi-column sortable table |
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
