@@ -4472,3 +4472,38 @@ which is the failure this repointing exists to end — write
   can reach the repository
   ([open-item-disposition](practices/open-item-disposition.md)).
 
+76. <a id="reply-check-rollout"></a>**Roll the blocking reply check out to the
+    sources that want one, and land the individual set's half.** Built
+    2026-09-13 in this repo: `tools/precedent_reply_check.py` enforces whatever
+    a source declares in a `reply_check.json` at its root, and the `reply` gate
+    now serves every source rather than this repo's own `practices/` alone.
+
+    **The individual set's half is written and cannot be pushed from here.**
+    Its `next-steps-after-commit` gained the session-disposition clause, its
+    `## Install` was corrected (it asserted a mechanical check was impossible,
+    which was the premise that stopped anyone building one), and a
+    `reply_check.json` declares the heading pattern and the two closing
+    sentences. All three are edits in a clone this session can read and not
+    write: `git push --dry-run` returns *"access denied by the git proxy ... not
+    in this session's authorized repository set"* and HTTP 403, measured
+    2026-09-13, and `add_repo` refuses cross-owner. The route is a session
+    rooted under that owner, seeded with the text — the same route
+    [`attach-private-sources`](TODO.md#attach-private-sources) names.
+
+    **The engine half reaches a source only when its vendored copy refreshes**
+    (`python3 tools/precedent_refresh_sources.py --apply`). Until then an
+    attached source's own `precedent_gate.py` still reads one directory and its
+    hooks have no reply check to call — and all four attached sources were
+    already behind at this session's start, so nothing about this change made
+    them stale.
+
+    **What each other source has to decide, and nobody should decide for it:**
+    whether it wants a `reply_check.json` of its own. A team set declaring one
+    imposes a closing convention on everyone in that team, which is a real
+    decision and not a default; the engine's behaviour with none declared is to
+    check nothing at all.
+
+    **blocked-on:** the individual set not being pushable from a session rooted
+    here. **Disposition:** ask (2026-09-13, this session) — the written half
+    dies with this container otherwise.
+

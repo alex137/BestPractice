@@ -1240,6 +1240,7 @@ TOOLS_DESCRIPTIONS = {
     'practice_simulation.py': "Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark",
     'precedent_check.py': "The ENFORCED loading channel — runs every practice's `checked_by` script",
     'precedent_gate.py': "The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply)",
+    'precedent_reply_check.py': "The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires",
     'precedent_bootstrap_source.py': "Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet",
     'precedent_source_bootstrap.py': "Clone-or-pull for a privately-scoped individual or team source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal",
     'precedent_source_credentials.py': "Whether this environment can reach its private practice sources, and the git credential helper that lets a SessionStart hook clone them without add_repo",
