@@ -94,18 +94,28 @@ costs an afternoon.
 recognize. You never have to use any of them — plain English works — but
 each one saves you a paragraph of explaining:
 
+<!--gen:vocabulary-->
 | Say this | And it will |
 |---|---|
-| **Go merge** | Save the work, publish it, and tell you where it went — without asking anything further. |
-| **Park it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
-| **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
-| **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
-| **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
-| **Spawn session** | Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go. |
-| **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why. |
+| **Approved** | The same as **Go merge**: save the work, publish it, and tell you where it went. |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
+| **Go merge** | Save the work, publish it, and tell you where it went — without asking anything further. |
+| **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why. |
+| **Park it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
+| **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
+| **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
+| **Spawn session** | Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go. |
+| **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from. |
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
+| **Vocabulary** | List every standing phrase this project recognizes, and what each one does. |
+| **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
+<!--/gen:vocabulary-->
+
+*That table is built from the rules themselves every time this page is
+rebuilt, so it cannot fall behind the assistant. Numbers by:
+precedent_vocabulary.py — or just say **"Vocabulary"** and your assistant
+will read you the current list.*
 
 **"Park it", "Three Things" and "Plain words" are the three worth learning first.** "Park
 it" is how you stop being asked about something you've decided not to

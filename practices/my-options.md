@@ -9,6 +9,7 @@ gates:       ["reply"]
 index_clause: "\"My options\" -- every option, plainer, both sides, then your pick and why"
 checked_by:  null
 defines:     ["My options"]
+command:     {"My options": "Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why."}
 status:      active
 in_force_at: null
 supersedes:  []

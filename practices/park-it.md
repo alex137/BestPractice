@@ -9,6 +9,7 @@ gates:       ["reply"]
 index_clause: "\"Park it\" -- mark the item `parked` now; never raise it unprompted again"
 checked_by:  null
 defines:     ["Park it"]
+command:     {"Park it": "Mark the open question as parked and drop the subject. It won't be raised again unless you raise it."}
 status:      active
 in_force_at: null
 supersedes:  []

@@ -702,6 +702,17 @@
       "why": "Fires on the relationship between a thing and its variant.",
       "decided": "phase 4 routing pass"
     },
+    "vocabulary": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate.",
+      "decided": "2026-09-13, when the practice landed at universal",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The whole obligation is the shape of one reply: the commands in force, read off the catalogue, and nothing around them."
+    },
     "verify-decomposition": {
       "globs": [
         "**"

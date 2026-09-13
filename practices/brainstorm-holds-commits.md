@@ -9,6 +9,7 @@ gates:       ["push", "merge"]
 index_clause: "in a brainstorm, write nothing to the repo and commit nothing until he says so"
 checked_by:  null
 defines:     ["Brainstorm"]
+command:     {"Brainstorm": "Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to."}
 status:      active
 in_force_at: null
 supersedes:  []

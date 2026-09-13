@@ -36,6 +36,7 @@ gates:       []                  # named moments -- see below
 index_clause: "the one line the occasion index shows"   # see below
 checked_by:  tools/x.py or null
 defines:     []
+command:     null             # OPTIONAL -- the standing phrases this practice defines; see below
 status:      active           # active | deduplicated | retired -- see below
 in_force_at: null             # where the rule lives now; required unless active
 expires:     null             # OPTIONAL, and almost always null -- see below
@@ -650,6 +651,37 @@ the mistake.
 |---|---|---|
 | `verify-decomposition` | trusting a model's total without checking its parts | reporting a computed total or a negative feasibility result |
 | `search-by-purpose` | concluding that no prior work exists on a question | starting work the repository may already cover |
+
+## `command:` — The Standing Phrases A Practice Defines
+
+**Optional, and empty for all but a dozen practices.** A practice that
+defines a standing command — a phrase a person types and every session is
+guaranteed to recognize — declares its own trigger phrases here:
+
+```
+command:     {"Go merge": "Save the work, publish it, and tell you where it went."}
+```
+
+An object mapping **each trigger phrase** to **the plain sentence a person
+who is not a developer reads**. Two phrases for one command are two entries
+in one object, never two practices: `Go merge` and `Approved` are one rule
+with two triggers, and splitting them would be the same rule maintained
+twice.
+
+It is a registry, not decoration.
+[`tools/precedent_vocabulary.py`](../tools/precedent_vocabulary.py) collects
+every `command:` field across every resolved source and is what answers the
+`Vocabulary` command; the reader-facing table in
+[`documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md`](../documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md)
+is a generated block built from the same read. Added 2026-09-13, when the
+list of commands lived in two hand-maintained copies and neither was
+complete ([`practices/vocabulary.md`](../practices/vocabulary.md)).
+
+**The gloss is reader-facing prose**, so
+[readers-vocabulary](../practices/readers-vocabulary.md) governs it — not
+`index_clause`'s register, which is written for a session deciding whether
+to open the file. The two say the same thing to different people, and the
+duplication is deliberate.
 
 ## `strength:` — How Firmly The Approval Was Given
 

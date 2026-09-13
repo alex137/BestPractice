@@ -4757,10 +4757,12 @@ which is the failure this repointing exists to end — write
     | `precedent-team-repo-maintenance` | `session_0185SF928m3c1dgtAj2uyFR8` |
     | `precedent-team-working-style` | `session_019Tas6QAJHUXwXwUv7ksDYf` |
 
-    **A spawned session has no route back**, so none of them can report here:
-    each ends on a one-line status in its own transcript, and this item closes
-    when `precedent_refresh_sources.py` stops naming the set at session start
-    — which is the check to run rather than a summary to trust.
+    **A spawned session CAN report back** — `create_trigger` with
+    `persistent_session_id` fires into a named session, established 2026-09-13
+    — but these four were not seeded with a return address, so none of them
+    will: each ends on a one-line status in its own transcript. This item
+    closes when `precedent_refresh_sources.py` stops naming the set at session
+    start, which is the check to run rather than a summary to trust.
 
     **Blocked on / out of scope:** four repositories this session was not
     scoped to, under a different owner, each with its own merge rules — which

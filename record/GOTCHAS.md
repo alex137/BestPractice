@@ -724,12 +724,14 @@ successfully as its first tool call, and when sent a follow-up minutes later
 answered that the tool was gone — *"the MCP server that provided it was
 removed from the configuration mid-session"* — with a `ToolSearch` for it
 returning nothing. Nobody reconfigured anything. The follow-up measurement was
-simply lost. The second half compounds it: `ListAgents` does not reach a cloud
-session started this way, so `SendMessage` to it fails and **its answers
-arrive only by a person opening its transcript and pasting them back**. Write
-the whole measurement into the spawning prompt; treat any follow-up as a
-bonus.
-
+simply lost. The second half was wrong until 2026-09-13: `ListAgents` does not
+reach a cloud session, so `SendMessage` fails — but **that is peer messaging,
+not every route.** `create_trigger` with `persistent_session_id` fires into a
+named session; one did that to correct this entry. It needs the spawner's
+session id, so the seeded prompt must name it
+([seeded-prompt-names-its-origin](../practices/seeded-prompt-names-its-origin.md)).
+Still write the measurement into the prompt: the tools can vanish mid-run,
+which is this entry's actual subject.
 
 ## 35. <a id="g35"></a>A private repo name reaches a public tree by nobody having predicted it, so repo ...
 
