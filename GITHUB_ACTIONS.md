@@ -77,7 +77,67 @@ process/upstream/tools/doc_lint.py
 
 If the dependent repository instead copies or adapts the linter into its own tools directory, update the workflow command to use that local path and record the adaptation in `process/manifest.json`.
 
-## Install in a Practice-Set Repository (the Views Drift Gate)
+## Install in a Practice-Set Repository
+
+A practice set gets **two** workflows, and they answer different questions:
+`precedent-check.yml` runs the whole check suite over the set's catalogue,
+and `views-drift.yml` checks that its generated views still match a fresh
+regeneration. Sets created by
+[tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+get both installed automatically; older sets need the copies below, and
+`python3 tools/precedent_bootstrap_source.py --verify <path>` names either
+one as missing until it is there.
+
+### The Check Suite
+
+Copy:
+
+```text
+templates/github-actions/precedent-check.yml.template
+```
+
+to:
+
+```text
+.github/workflows/precedent-check.yml
+```
+
+**Why this exists.** Every source set had the same hole: the only workflows
+any of them carried called a *single* check's function directly — written
+that way precisely because `precedent_check.py` skipped that check in a
+source set — and nothing ran the suite. A set was gated on one or two rules
+it had hand-wired and silent on the rest of its own catalogue.
+`binds_publishers` (#261) removed the reason those hand-wired workflows
+existed, which is what makes running the suite here worth doing.
+
+**It is deliberately not `--strict`.** Most registered checks belong to
+practices a source set does not resolve and skip by design — measured in a
+freshly bootstrapped set on 2026-09-13, 41 of them. `--strict` turns every
+one into a failure, leaving the gate permanently red and teaching everyone
+to ignore it. Violations and errors fail the run on their own.
+
+**Two things in it are load-bearing and easy to drop.** `fetch-depth: 0`,
+because several checks are scope `tree` and walk `git log`: on the default
+shallow checkout they report SKIPPED rather than running, and a skip does
+not fail the run, so a shallow checkout silently shrinks coverage while the
+job stays green — the same bug [deep-check.yml](.github/workflows/deep-check.yml)
+carries its own `fetch-depth: 0` for. And the PyYAML install, because a
+check script a practice names in `checked_by:` may import it: those scripts
+run as subprocesses under an exit contract where an uncaught
+`ModuleNotFoundError` exits 1, so a missing dependency is reported as a
+**violation with a traceback**, not a skip.
+
+**It refuses rather than passing blind**, in three situations. No
+`tools/precedent_check.py` (distinguishing the `process/upstream/` consumer
+layout, which this workflow is not for); a vendored engine predating
+`binds_publishers`, which in a source set skips the checks whose practice
+lives upstream and still exits 0 — measured `5 passed, 44 skipped` against
+`8 passed, 41 skipped` on the same tree, so it is *quietly* green rather
+than obviously broken, and `--verify` now reports it too; and a run that
+reports `0 passed`, which is the backstop against any other route to zero
+coverage.
+
+### The Views Drift Gate
 
 An individual or team practice set generates its own views — `AGENTS.md`'s
 loader block, [MAP.md](MAP.md) and [GLOSSARY.md](GLOSSARY.md) — from its
@@ -94,13 +154,9 @@ to:
 ```
 
 It runs `python3 tools/build_views.py --repo . --check`, which exits
-non-zero when any of the three has drifted from a fresh regeneration. Sets
-created by
-[tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
-get it installed automatically; every set created before 2026-09-11 needs
-the copy above, and
-`python3 tools/precedent_bootstrap_source.py --verify <path>` names it as
-missing until it is there.
+non-zero when any of the three has drifted from a fresh regeneration.
+Every set created before 2026-09-11 needs the copy above; see this
+section's opening for how both workflows are installed and verified.
 
 **Why a source set needs its own gate.** Until 2026-09-11 nothing checked a
 generated view anywhere but in this repo, where
@@ -130,15 +186,16 @@ by [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
 and given a loader block: `--only generated-artifact-provenance` reports
 `1 passed` where it reported `1 skipped` before, and planted drift turns it
 red in each of the three views separately — [MAP.md](MAP.md),
-[GLOSSARY.md](GLOSSARY.md), and inside `AGENTS.md`'s loader block. In a source set the two now look at the
-same three files, by the same `build_views.py --check` subprocess. The
+[GLOSSARY.md](GLOSSARY.md), and inside `AGENTS.md`'s loader block. In a
+source set the two now look at the same three files, by the same
+`build_views.py --check` subprocess. The
 coverage argument for keeping this workflow is gone.
 
 **What it still does is fire without being asked.** A vendored check runs
 when somebody types the command; this workflow is attached to
 `pull_request`. Nothing else in a source set runs
-[precedent_check.py](tools/precedent_check.py) in
-continuous integration at all, so "the check runs natively now" and "the
+[precedent_check.py](tools/precedent_check.py) in continuous integration
+at all, so "the check runs natively now" and "the
 rule is gated" remain different claims, and only the second one is what a
 generated view drifting silently needs. Whether a set that gains a workflow
 running the whole suite should then drop this one is an open question, not a
