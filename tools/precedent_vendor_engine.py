@@ -296,6 +296,15 @@ ENGINE_FILES = [
     # about a catalogue, and only the second reason keeps a file out of a
     # set.
     'precedent_identity.py',
+    # The command vocabulary, read off the `command:` field of every
+    # practice a repo resolves (added 2026-09-13 with practices/vocabulary.md).
+    # In ENGINE_FILES rather than the consumer half for the same reason
+    # precedent_show.py is: the phrases are answered from wherever the
+    # session is rooted, and a session working in a practice SET is exactly
+    # where somebody types "Vocabulary" at a catalogue. It degrades by
+    # design without precedent_resolve.py -- which a source set does not get
+    # -- reading that repo's own practices/ and saying so.
+    'precedent_vocabulary.py',
     'precedent_vendor_engine.py',
 ]
 

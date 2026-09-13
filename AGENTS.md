@@ -31,22 +31,23 @@ fixed thing, and each is a universal practice: the trigger and the meaning are
 here, and the rule, the argument and the story of its coining are in the
 practice file — `python3 tools/precedent_show.py SLUG` for any of them.
 
-- **"Go merge"** ([go-merge](practices/go-merge.md)) — sync, say which branch
-  out loud, commit, push, open the pull request, merge, **without asking
-  again.** A step this session cannot perform hands off rather than coming
-  back as a question: the authorization travels with the work.
+- **"Go merge"**, and **"Approved"** ([go-merge](practices/go-merge.md)) —
+  sync, say which branch out loud, commit, push, open the pull request, merge,
+  **without asking again.** A step this session cannot perform hands off
+  rather than coming back as a question: the authorization travels with the
+  work. One rule, two triggers — and `Approved` is also an ordinary
+  adjective, so *"the approved plan of record"* is not the command.
 - **"Park it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted
   again** — not this session, and not a later one that decides it has become
-  urgent. Nobody owes an explanation for parking something, so the response is
-  to do it, never to ask a follow-up question about it.
+  urgent. Nobody owes an explanation for parking something: do it, and never
+  ask a follow-up about it.
 - **"Three Things"** ([three-things](practices/three-things.md)) — the three
   most important things he needs to know now, each a bolded phrase and at most
   two sentences, and nothing around them: no preamble, no fourth item, no
-  closing offer. It asks for **attention rather than action**, so a session
-  that has not actually read the repository cannot answer it, and an answer
-  assembled from whatever is already in context is the failure it prevents.
+  closing offer. It asks for **attention rather than action**: an answer
+  assembled from what is already in context is the failure it prevents.
 - **"Plain words"** ([plain-words](practices/plain-words.md)) — the same
   answer said the way you would say it out loud: short sentences, the concrete
   case before the general principle, no hedging. **It governs the rest of the
@@ -59,17 +60,23 @@ practice file — `python3 tools/precedent_show.py SLUG` for any of them.
 - **"Spawn session"** ([spawn-session](practices/spawn-session.md)) — before
   starting what he just asked for, check whether it belongs in a different
   session, repositories first; then **wake a live session** that already holds
-  the context and can answer back, or, where none fits, hand him a link to a
-  new one, rooted in the right repository and already seeded with the prompt.
-  **Waking beats spawning**: a spawned session re-reads its repository from
-  nothing and has no return path. The check itself runs whenever another
-  repository might be needed, phrase or no phrase; the phrase is for the times
-  it did not, and an honest "this session is the right one" answers it.
+  the context, or, where none fits, hand him a link to a new one, rooted in
+  the right repository and already seeded with the prompt. **Waking beats
+  spawning**: a spawned session re-reads its repository from nothing. The
+  check runs whether or not he says the phrase, and an
+  honest "this session is the right one" answers it. **The
+  prompt you seed carries the merge authorization**, bounded to the seeded
+  work, that repository's routine branch and its own checks passing.
 - **"My options"** ([my-options](practices/my-options.md)) — every real choice
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
   survey that leaves the choice sitting there. It governs that one answer, not
-  the rest of the conversation, which is what separates it from `Plain words`.
+  the conversation, which is what separates it from `Plain words`.
+- **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — every standing
+  command in force, one plain sentence each, nothing else. **Read the list,
+  never recall it**: `python3 tools/precedent_vocabulary.py` collects it from
+  the `command:` field of every practice in every resolved source, and names
+  any source that did not. This list derives from those fields.
 - **"Update Vendors"**
   ([vendor-update-runbook](practices/vendor-update-runbook.md)) — the fixed
   sequence for taking an upstream update, starting with making the SOURCE
@@ -159,7 +166,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~876 of 2000 token budget, 10 of 108 practices (10 universal))
+## Resident block (~876 of 2000 token budget, 10 of 109 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -249,8 +256,8 @@ When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person:
   leak-gate-is-background — never relay a blocklist note or ask for a term; the deep review is its place
-When a message carries the standing merge-authorization phrase:
-  go-merge — "Go merge": sync, name branch, commit, push, PR, merge; a blocked step hands off
+When a message carries a standing merge-authorization phrase:
+  go-merge — "Go merge"/"Approved": sync, branch, commit, push, PR, merge; blocked hands off
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- refresh the source clone first; both layers move separately
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
@@ -267,6 +274,8 @@ When a person says "Plain words":
   plain-words — "Plain words" -- say it as you would out loud; same substance
 When a person says "Three Things":
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
+When a person says "Vocabulary", or asks what the standing commands are:
+  vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
 When a practice lands or a candidate is raised, at any level:
@@ -326,7 +335,7 @@ When finishing a substantial work-product, before the merge-time capture gate:
 When fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy:
   fix-the-original — fix the origin first, then every copy -- name them all in the reply
 When handing the person work to do, or starting work that may touch a repository this session cannot reach:
-  spawn-session — cross-repo check first; wake a live session before spawning one, then the link
+  spawn-session — cross-repo check first; wake a live session, then a link seeded to merge
 When importing, creating, or declaring a repository that holds practices:
   source-naming — names are fixed by level; say the convention before anyone picks a name
 When landing practices in bulk -- a migration, an import, or a move between sources:

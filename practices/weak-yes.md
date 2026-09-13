@@ -9,6 +9,7 @@ gates:       ["reply"]
 index_clause: "\"Weak yes\" -- do it, and record the approval as `assented`"
 checked_by:  null
 defines:     ["Weak yes"]
+command:     {"Weak yes": "Go ahead with it, and record that you were not convinced. Nobody will ask you why."}
 status:      active
 in_force_at: null
 supersedes:  []
