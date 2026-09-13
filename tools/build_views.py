@@ -48,7 +48,7 @@ Run:
       # not the target repo's content, the same "sibling files travel with
       # the script, not with --repo" rule sibling-module imports follow.
 """
-import collections, json, os, pathlib, re, sys
+import collections, json, os, pathlib, re, subprocess, sys
 
 # _ENGINE_DIR (where this file itself lives) is only ever used for the
 # sibling-module import and the MAP.md "## The engine" listing below --
@@ -914,6 +914,59 @@ def repo_is_practice_source(root):
         return False
 
 
+def _same_repository(path, root):
+    """Whether `path` and `root` are the same REPOSITORY, not merely the same
+    directory.
+
+    Path equality was the test until 2026-09-13 and it is not enough, for a
+    reason this project already had written down: an individual source
+    resolves through ~/.config/precedent/config.json, which names an absolute
+    path, and that is routinely a SECOND clone rather than the checkout being
+    edited (record/GOTCHAS.md's entry on it). So a session working IN an
+    individual set, whose config named another clone of that same set, saw its
+    own practices treated as somebody else's tree: deferred out of the tracked
+    block and duplicated into .precedent/SESSION_PRACTICES.md, where they were
+    already present from the block. Reported by that set on 2026-09-13 and
+    reproduced here against two clones of one repository.
+
+    Compares origin URLs, falling back to the resolved path when either side
+    has no remote -- a fixture, a worktree, a directory that is not a git
+    repository at all. Normalized for the differences that are not
+    differences: a trailing .git, a trailing slash, and case, since a clone
+    URL is routinely lowercased by the harness while the canonical spelling
+    is not (record/GOTCHAS.md's entry on the lowercased clone URL).
+    """
+    path, root = pathlib.Path(path), pathlib.Path(root)
+    if path.resolve() == root.resolve():
+        return True
+
+    def _origin(d):
+        try:
+            r = subprocess.run(['git', '-C', str(d), 'remote', 'get-url', 'origin'],
+                               capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            return ''
+        if r.returncode != 0:
+            return ''
+        u = r.stdout.strip().rstrip('/').lower()
+        return u[:-4] if u.endswith('.git') else u
+
+    a, b = _origin(path), _origin(root)
+    if a and a == b:
+        return True
+    # ONE CLONED FROM THE OTHER, which is what `git clone <local path>` makes
+    # and what a person reproducing this by hand will produce. Its origin is a
+    # filesystem path rather than a URL, so the comparison above cannot see it.
+    for origin, other in ((a, root), (b, path)):
+        if origin and not origin.startswith(('http', 'git@', 'ssh://')):
+            try:
+                if pathlib.Path(origin).resolve() == other.resolve():
+                    return True
+            except (OSError, ValueError):
+                pass
+    return False
+
+
 def sources_for_tracked_block(root, declared):
     """Split declared sources into (tracked, deferred, notes).
 
@@ -953,7 +1006,7 @@ def sources_for_tracked_block(root, declared):
     notes = []
     if repo_is_practice_source(root):
         deferred = [s for s in declared if s['level'] != 'repo-local'
-                    and pathlib.Path(s['path']).resolve() != root.resolve()]
+                    and not _same_repository(s['path'], root)]
         tracked = [s for s in declared if s not in deferred]
         if deferred:
             notes.append(

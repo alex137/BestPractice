@@ -3960,6 +3960,45 @@ def check_session_practices_load_without_publishing():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    # A SET'S OWN PRACTICES ARE NEVER DEFERRED INTO ITS OWN SESSION FILE,
+    # however the source that names them was resolved. Two clones of one
+    # repository is the real case -- an individual source resolves through an
+    # absolute path in ~/.config/precedent/config.json, which routinely names
+    # a SECOND clone -- and until 2026-09-13 the own-tree test compared paths,
+    # so a set saw its own practices as somebody else's tree and rendered them
+    # twice: once from the tracked block, once from the session file. Reported
+    # by the set it happened in.
+    dup = pathlib.Path(tempfile.mkdtemp(prefix='precedent-samerepo-'))
+    try:
+        a, b = dup / 'a', dup / 'b'
+        for d in (a, b):
+            d.mkdir()
+            subprocess.run(['git', 'init', '-q', str(d)], check=False)
+        for d, url in ((a, 'https://github.com/acct/precedent-individual.git'),
+                       (b, 'HTTPS://github.com/acct/precedent-individual/')):
+            subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin', url],
+                           check=False)
+        cases.append(('two clones of one repository read as the SAME repository '
+                      '-- a .git suffix, a trailing slash and case are not '
+                      'differences',
+                      bv._same_repository(a, b)))
+        c = dup / 'c'
+        c.mkdir()
+        subprocess.run(['git', 'init', '-q', str(c)], check=False)
+        subprocess.run(['git', '-C', str(c), 'remote', 'add', 'origin',
+                        'https://github.com/acct/something-else.git'], check=False)
+        cases.append(('...and two clones of DIFFERENT repositories do not -- the '
+                      'test must still separate a real other tree',
+                      not bv._same_repository(a, c)))
+        d_no_remote = dup / 'd'
+        d_no_remote.mkdir()
+        cases.append(('a directory with no remote falls back to the path test '
+                      'rather than matching everything',
+                      bv._same_repository(d_no_remote, d_no_remote)
+                      and not bv._same_repository(d_no_remote, a)))
+    finally:
+        shutil.rmtree(dup, ignore_errors=True)
+
     # THE SAFETY PROPERTY. Asserted against this repo's real .gitignore and
     # real git, not against a fixture: the whole design rests on this file
     # being uncommittable, and a fixture could pass while the real repo leaks.
