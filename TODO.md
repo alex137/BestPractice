@@ -4503,6 +4503,17 @@ which is the failure this repointing exists to end — write
     decision and not a default; the engine's behaviour with none declared is to
     check nothing at all.
 
+    **A session is already seeded with the individual set's half**, rooted in
+    that repository, created 2026-09-13:
+    [session_01GuoULzeTym1XFPyTxird4T](https://claude.ai/code/session_01GuoULzeTym1XFPyTxird4T).
+    Its prompt carries the full text of all four edits and the JSON, because
+    nothing else can carry them — the text is private and cannot be staged in
+    this public repository, and a cloud session cannot be messaged after it
+    starts (the gotcha about a spawned session losing its tools mid-run is the
+    same constraint from the other side). If that session is gone before
+    anyone opens it, the text has to be rebuilt from this item plus the
+    practice's own history.
+
     **blocked-on:** the individual set not being pushable from a session rooted
     here. **Disposition:** ask (2026-09-13, this session) — the written half
     dies with this container otherwise.
