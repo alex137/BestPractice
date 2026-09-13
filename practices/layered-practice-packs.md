@@ -47,7 +47,7 @@ practice — Universal or Team — whose `applies_to` / `occasion` / `gates`
 scope it to that domain's work, routed by the same occasion index and
 path-triggered channel as every other on-demand practice. The decision rule
 above still holds; only the *implementation* of the middle tier changed.
-Recorded in [CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/CHANGES_TO_TELL_ALEX.md).
+Recorded in [CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHANGES_TO_TELL_ALEX.md).
 
 **Still open, not solved by the loader: a domain bundle shared across more
 than one team.** The loader routes a single source's own practices; it does

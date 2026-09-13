@@ -264,7 +264,7 @@ AMENDED_POST_CONVERSION = {
     'name-both-sides-of-ledger',
 }
 
-CHANGES_DOC = ROOT / 'CHANGES_TO_TELL_ALEX.md'
+CHANGES_DOC = ROOT / 'spec' / 'CHANGES_TO_TELL_ALEX.md'
 
 
 def _amended_and_logged(slug):
@@ -2719,7 +2719,7 @@ AMENDMENT_ENTRY_RE = re.compile(
 # record, exempted as if it were one. Requires an actual file reference.
 DECISIONS_LINK_RE = re.compile(r'decisions/[\w.-]+\.md')
 DECISION_LENGTH_WORDS = 120
-PLAN_MD = ROOT / 'PRACTICE_ENGINE_PLAN.md'
+PLAN_MD = ROOT / 'spec' / 'PRACTICE_ENGINE_PLAN.md'
 
 
 def _decision_records_violations(root):
@@ -2747,7 +2747,7 @@ def _decision_records_violations(root):
     earlier commit in a multi-commit push. Falls back to HEAD when there is
     no configured upstream (a fresh checkout with no remote, a detached
     HEAD) -- narrower, but still covers the case the original check did."""
-    plan_md = root / 'PRACTICE_ENGINE_PLAN.md'
+    plan_md = root / 'spec' / 'PRACTICE_ENGINE_PLAN.md'
     if not plan_md.exists():
         return 'na', True, 'PRACTICE_ENGINE_PLAN.md does not exist here'
 
@@ -2763,7 +2763,7 @@ def _decision_records_violations(root):
 
     new_text = plan_md.read_text(encoding='utf-8', errors='ignore')
     old_result = subprocess.run(
-        ['git', 'show', f'{base_ref}:PRACTICE_ENGINE_PLAN.md'],
+        ['git', 'show', f'{base_ref}:spec/PRACTICE_ENGINE_PLAN.md'],
         cwd=str(root), capture_output=True, text=True)
     old_text = old_result.stdout if old_result.returncode == 0 else ''
 
@@ -2884,7 +2884,9 @@ def check_decision_records_not_inline_fires():
             git(repo, 'init', '-q')
             git(repo, 'config', 'user.email', 'harness@example.com')
             git(repo, 'config', 'user.name', 'harness')
-            (repo / 'PRACTICE_ENGINE_PLAN.md').write_text(text, encoding='utf-8')
+            (repo / 'spec').mkdir()
+            (repo / 'spec' / 'PRACTICE_ENGINE_PLAN.md').write_text(
+                text, encoding='utf-8')
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'base')
             bare = tmp / (name + '.git')
@@ -2908,7 +2910,7 @@ def check_decision_records_not_inline_fires():
         # is fully committed, which used to report "not changed" and never
         # inspect the content at all.
         r2 = scratch('committed-violation', base_text)
-        (r2 / 'PRACTICE_ENGINE_PLAN.md').write_text(
+        (r2 / 'spec' / 'PRACTICE_ENGINE_PLAN.md').write_text(
             base_text + f"\n**2026-09-02 — v2, a long one.** {long_entry}\n",
             encoding='utf-8')
         git(r2, 'add', '-A'); git(r2, 'commit', '-qm', 'inline amendment')
@@ -2922,7 +2924,7 @@ def check_decision_records_not_inline_fires():
         # convention -- the shape in which the old regex made a
         # non-matching entry invisible entirely, not merely miscounted.
         r3 = scratch('colon-variant', base_text)
-        (r3 / 'PRACTICE_ENGINE_PLAN.md').write_text(
+        (r3 / 'spec' / 'PRACTICE_ENGINE_PLAN.md').write_text(
             f"# Plan\n\n## Amendments Since Approval\n\n"
             f"**2026-09-02:** {long_entry}\n\n"
             f"**2026-09-01 — v1, first.** Short.\n", encoding='utf-8')
@@ -2935,7 +2937,7 @@ def check_decision_records_not_inline_fires():
         # A bare mention of the word "decisions/" in prose, with no actual
         # file reference, must not exempt an otherwise-violating entry.
         r4 = scratch('bare-mention', base_text)
-        (r4 / 'PRACTICE_ENGINE_PLAN.md').write_text(
+        (r4 / 'spec' / 'PRACTICE_ENGINE_PLAN.md').write_text(
             base_text + f"\n**2026-09-02 — v2, not migrated.** {long_entry} "
             f"not yet migrated to decisions/, still keeping every word "
             f"inline.\n", encoding='utf-8')
@@ -2948,7 +2950,7 @@ def check_decision_records_not_inline_fires():
         # A REAL decisions/*.md reference does exempt it -- the check must
         # not simply fail on every long entry regardless of content.
         r5 = scratch('real-link', base_text)
-        (r5 / 'PRACTICE_ENGINE_PLAN.md').write_text(
+        (r5 / 'spec' / 'PRACTICE_ENGINE_PLAN.md').write_text(
             base_text + f"\n**2026-09-02 — v2, migrated.** {long_entry} see "
             f"decisions/2026-09-02-migrated.md for the reasoning.\n",
             encoding='utf-8')
@@ -3959,6 +3961,46 @@ def check_session_practices_load_without_publishing():
                                     [('deferred', 'precedent deferred to it')])))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+    # A SET THAT IS NOT STALE STILL GETS REPAIRED, and all three repairs
+    # happen together. Both halves were wrong for one afternoon: the wiring
+    # and ignore repairs sat inside apply_to(), which runs over the STALE sets
+    # only, so a set already current got neither -- and _repairable() did not
+    # look for either, so such a set appeared on no list at all. Separately,
+    # hook-INSTALL and WIRING were reached by different paths, so one --apply
+    # wired a hook into SessionStart and left the file absent: a
+    # declared-but-missing hook, which the harness reports as nothing.
+    # Reported by the set it happened in.
+    rtmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-repair-'))
+    try:
+        import json as _j
+        import precedent_refresh_sources as _rs
+        import precedent_bootstrap_source as _bs3
+        st = rtmp / 'set'
+        (st / '.claude' / 'hooks').mkdir(parents=True)
+        (st / '.claude' / 'settings.json').write_text(_j.dumps({'hooks': {
+            'SessionStart': [{'hooks': [{'type': 'command', 'command':
+                '$CLAUDE_PROJECT_DIR/.claude/hooks/'
+                + _bs3.INDIVIDUAL_SOURCE_HOOK}]}]}}, indent=2), encoding='utf-8')
+        entry = {'repo': str(st), 'hooks': {'missing': []}, 'stale': False}
+        found = _rs._repairable(entry)
+        cases.append(('a set that is NOT stale but is missing the wiring reads '
+                      'as repairable -- apply_to() only walks the stale ones, '
+                      'so this list is the only way such a set is reached',
+                      any(_bs3.UNIVERSAL_CATALOGUE_HOOK in m for m in found)))
+        cases.append(('...and a missing `.precedent/` ignore line does too',
+                      any('.precedent/' in m for m in found)))
+        ok, _msg = _rs.repair_hooks(st)
+        wired = _bs3.UNIVERSAL_CATALOGUE_HOOK in ' '.join(_bs3._wired_commands(st))
+        present = (st / '.claude' / 'hooks'
+                   / _bs3.UNIVERSAL_CATALOGUE_HOOK).is_file()
+        cases.append(('one repair pass installs the hook FILE and wires it and '
+                      'writes the ignore line -- a hook wired but absent is one '
+                      'the harness reports as nothing at all',
+                      ok and wired and present
+                      and '.precedent/' in (st / '.gitignore').read_text()))
+    finally:
+        shutil.rmtree(rtmp, ignore_errors=True)
 
     # THE WIRING IS REPAIRABLE BY A TOOL, which is the whole reason nobody
     # has to edit .claude/settings.json by hand. The harness refuses a SESSION
@@ -5324,7 +5366,7 @@ def check_precedent_check_fires():
         # heading every documentation/ file ends with, so this stays valid
         # however the pages themselves are reorganized.
         def _plant_headline(repo):
-            rewrite(repo, 'documentation/WHAT_IS_THIS_AND_BENEFITS.md',
+            rewrite(repo, 'documentation/WHY_PRECEDENT.md',
                     lambda t: t.replace('## Learn More', '## Learn more', 1))
         case('headline-capitalization', _plant_headline)
 
@@ -13284,7 +13326,7 @@ def check_tools_answer_help_without_writing():
       sweep -- a hard `FAIL: unknown option '--help'`, a silent fall-through
       that ran the whole audit as though nothing had been asked, or the
       docstring printed with a non-zero exit. `--help` is the first thing any
-      reader types, and documentation/HOW_TO_USE_THIS_DEVELOPERS.md points a
+      reader types, and documentation/FOR_DEVELOPERS.md points a
       public audience straight at these commands.
 
     * **It writes nothing.** tools/resplit_sections.py defaulted to WRITING:
@@ -18743,7 +18785,7 @@ def check_title_case_knows_the_files_it_ships():
 
     # The other half, or "classify everything internal" would pass: files
     # that genuinely ARE published must still be in scope.
-    for name in ('README.md', 'SETUP.md', 'ADOPTING.md'):
+    for name in ('README.md', 'SETUP.md', 'documentation/ADOPTING.md'):
         cases.append((f'{name} is still OUTWARD, so the fix did not just '
                       f'silence the check', tc.is_outward(name) is True, ''))
 
@@ -19460,7 +19502,7 @@ if __name__ == '__main__':
     # split three ways on it: a hard "unknown option" FAIL, a silent
     # fall-through that ran the whole audit as if nothing had been asked, or
     # the docstring printed with a non-zero exit. All three are wrong, and
-    # documentation/HOW_TO_USE_THIS_DEVELOPERS.md points readers straight at
+    # documentation/FOR_DEVELOPERS.md points readers straight at
     # these commands. The module docstring is the usage text.
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())

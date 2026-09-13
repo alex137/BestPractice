@@ -6,20 +6,20 @@
   session on your project with an AI assistant and paste it
   [SETUP.md](SETUP.md): it runs the whole install as a conversation, asks
   you three questions, and does the technical work itself.
-  [ADOPTING.md](ADOPTING.md) explains what you are agreeing to before you
+  [documentation/ADOPTING.md](documentation/ADOPTING.md) explains what you are agreeing to before you
   start, and
-  [documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md](documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md)
+  [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md)
   is how you work once it is running.
 - **Yes — I want the files, the steps and the commands.** They are on this
   page, below.
-  [documentation/HOW_TO_USE_THIS_DEVELOPERS.md](documentation/HOW_TO_USE_THIS_DEVELOPERS.md)
+  [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md)
   is its companion: the short form of the install, plus how to actually
   work in a Precedent project once it is installed.
 
 Still deciding whether to adopt it at all?
-[documentation/WHAT_IS_THIS_AND_BENEFITS.md](documentation/WHAT_IS_THIS_AND_BENEFITS.md).
+[documentation/WHY_PRECEDENT.md](documentation/WHY_PRECEDENT.md).
 Already set up and just want the daily habits?
-[documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md).
+[documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md).
 
 Everything below is the technical reference: wiring Precedent into a
 *dependent repo*, keeping it current, and flowing improvements back. For
@@ -546,7 +546,7 @@ it applies.
      step 4d.
    - See [examples/practice-set/](examples/practice-set) for what an
      individual set's files actually look like, and
-     [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
+     [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
      for **universal source**, **team source**, and **individual source**
      as terms.
    - This step isn't only for a fresh install — see §2 step 3 for asking it

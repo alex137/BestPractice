@@ -690,7 +690,7 @@ materialized output physically apart regardless. **2026-09-04 addendum:**
 `tools/precedent_resolve.py`'s `load_config` refuses anything but
 `path: "local"` outright, closing the gap this paragraph originally left
 open (a recommendation a repo could still ignore). See
-[CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md)'s 2026-09-04 entry.
+[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md)'s 2026-09-04 entry.
 
 Tested against a real four-source fixture, not just reasoned about
 (`check_sync_views_cross_source` in

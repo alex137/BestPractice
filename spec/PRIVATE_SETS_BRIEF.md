@@ -12,7 +12,7 @@ summary:       What populating the two private practice sets was handed, kept fo
 # Brief — Populating the Two Private Sets
 
 Reported by Morgan, from a session opened directly against the two private
-repos (see [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s Sequence
+repos (see [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Sequence
 table and "What Phase 3 Built, and What It Could Not"). Kept below,
 unaltered, as the record of what that session was handed and why it had to
 run from outside Precedent.
@@ -64,7 +64,7 @@ it sidesteps the question either way.
 
 Split RepoPersonalPreferences' 46 rules into the two private sets, in the
 practice-file format, per the plan's
-[Where Today's Practices Go](../PRACTICE_ENGINE_PLAN.md#where-todays-practices-go).
+[Where Today's Practices Go](PRACTICE_ENGINE_PLAN.md#where-todays-practices-go).
 
 **1. Default every RepoPersonalPreferences (RPP) rule to team.** Not because they are all team-shaped —
 several are plainly generic — but because of an asymmetry: promoting a team

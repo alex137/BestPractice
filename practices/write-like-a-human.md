@@ -99,7 +99,7 @@ regex is the obvious mechanical check, so it was written and run against
 this repository's whole tree before being rejected. It produced three
 findings, and **all three were legitimate prose**: "the direction is not
 an artifact of the key, but the exact gap could be"
-([PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/PRACTICE_ENGINE_PLAN.md)), "A universal
+([PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRACTICE_ENGINE_PLAN.md)), "A universal
 candidate is not private, but the gate bans…"
 ([spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/SOURCES.md)), and "worth noting that the
 failure mode here was *inventing* work, not missing it"

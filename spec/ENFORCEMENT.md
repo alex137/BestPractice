@@ -11,8 +11,8 @@ summary:       "Phase 4's enforced channel: which practices carry a mechanical c
 ---
 # The Enforced Channel (Phase 4)
 
-What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
-"[How an Agent Knows Which Practices to Load](../PRACTICE_ENGINE_PLAN.md#how-an-agent-knows-which-practices-to-load)"
+What [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
+"[How an Agent Knows Which Practices to Load](PRACTICE_ENGINE_PLAN.md#how-an-agent-knows-which-practices-to-load)"
 calls the fourth loading channel:
 
 > **Enforced.** Practices with `checked_by` are never loaded at all. The
@@ -358,7 +358,7 @@ this repository generic practices live in [PRACTICES.md](../PRACTICES.md),
 [practices/](../practices), [templates/](../templates) and
 [tools/](../tools). The glob now names those. That is a correction to a scope
 statement, not a tuning of the index — the plan's
-[What NOT to do with this result](../PRACTICE_ENGINE_PLAN.md#what-not-to-do-with-this-result)
+[What NOT to do with this result](PRACTICE_ENGINE_PLAN.md#what-not-to-do-with-this-result)
 forbids the second, and names "a narrower glob" as exactly what a
 repeatedly-unrouted practice should get.
 

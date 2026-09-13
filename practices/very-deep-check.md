@@ -1136,7 +1136,7 @@ looking for a credential that was fine. Both are what a repository that has
 quietly stopped being reachable looks like from this side, and in both the
 expensive part was the misdiagnosis, not the outage.
 
-Named in [PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/PRACTICE_ENGINE_PLAN.md)'s v28 amendment
+Named in [PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRACTICE_ENGINE_PLAN.md)'s v28 amendment
 (2026-09-01) as "the inherited RepoPersonalPreferences (RPP) audit list ...
 heavier than any of [light check, deep check, routing audit] ... not yet
 inventoried here (RPP is a separate private repo); enumerate and wire it as

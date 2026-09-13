@@ -37,7 +37,7 @@ session alike.
 
 ## Why this exists, and the failure it prevents
 
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "Why Trimming Is Not
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "Why Trimming Is Not
 the Answer" section settles the strategy question before this document opens
 it. A decisions log was condensed on 2026-08-28 (`02a24a7`) and **had fully
 regrown within a day**, because the pressure that produced the text had not
@@ -363,15 +363,16 @@ All 24 files. `→ spec/` means it stays.
 | [MAP.md](../MAP.md) | root, pinned | [orientation-map](../practices/orientation-map.md) specifies *a top-level [MAP.md](../MAP.md)*. Moving it violates a resident practice. |
 | [GLOSSARY.md](../GLOSSARY.md) | root, pinned | Generated to root by [tools/build_views.py](../tools/build_views.py). |
 | [precedent.json](../precedent.json) | root, pinned | Resolved by path. |
-| [ADOPTING.md](../ADOPTING.md), [INSTALL.md](../INSTALL.md), [SETUP.md](../SETUP.md) | root | The install path, linked from outside the repository. |
+| [INSTALL.md](../INSTALL.md), [SETUP.md](../SETUP.md) | root | The install path, linked from outside the repository. |
+| [documentation/ADOPTING.md](../documentation/ADOPTING.md) | **moved 2026-09-13**, → [documentation/](../documentation/) | It is a reader-facing guide, so it belongs with the other reader-facing guides rather than beside the machinery. Morgan asked for the move; the install path still links it from the root. |
 | [TODO.md](../TODO.md) | root | Live, and referenced by tooling and by resident practices. |
-| [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) | root **until phase 7** | The approved plan of record, still being worked. `kind: reference`, `status: current`. When phase 7 folds the branch into `main`, it becomes `kind: record`, `status: closed`, and moves to `record/`. |
+| [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) | **moved 2026-09-13**, → spec/ **until phase 7** | The approved plan of record, still being worked, and internal planning rather than front-door material — which is why Morgan moved it off the root ahead of this plan's own sequencing. `kind: reference`, `status: current`. When phase 7 folds the branch into `main`, it becomes `kind: record`, `status: closed`, and moves to `record/`. |
 | [METHOD.md](../METHOD.md) | → [documentation/](../documentation/) | The working method, for adopters. |
 | [MOBILE.md](../MOBILE.md) | → [documentation/](../documentation/) | Per-assistant setup, for adopters. |
 | [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) | → [documentation/](../documentation/) | Operational how-to, for adopters. |
 | [GIT.md](../GIT.md) | → [documentation/](../documentation/) | **The debatable one.** It is reader-facing and adopter-shaped, but [README.md](../README.md) leans on it as a first-visit explainer. Move it, or leave it at root and say why — do not leave the question open. |
 | [PRACTICES.md](../PRACTICES.md) | → `record/`, `status: superseded`, `superseded_by: practices/` | 134 KB, described by [README.md](../README.md) as the pre-split catalogue. **Highest-churn move in this plan** — 181 tracked files mention the name. Sequenced last. |
-| [CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md) | → `record/` | A live internal handoff note, not front-door material. `kind: record`, `status: live`. |
+| [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) | **moved 2026-09-13**, → spec/, then `record/` | A live internal handoff note, not front-door material. Off the root as of 2026-09-13, stamped `kind: record`, `status: live`; it lands in `record/` when this plan's directory change executes. |
 
 ## Change 3 — the exhibit page
 
@@ -503,7 +504,7 @@ the deep check is green.
 Move [METHOD.md](../METHOD.md), [MOBILE.md](../MOBILE.md),
 [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) and — if the judgment goes that
 way — [GIT.md](../GIT.md) into [documentation/](../documentation/), and
-[CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md) into `record/`. Same
+[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) into `record/`. Same
 same-commit link discipline.
 
 **Check the external surface before moving anything in this phase.**

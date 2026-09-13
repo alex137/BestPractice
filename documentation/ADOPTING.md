@@ -5,7 +5,7 @@
 *This is written for someone who has not seen Precedent before and wants to
 use it. It assumes no programming, and "assistant" below means whatever
 tool you talk to about your work. If you are working on the rewrite itself,
-[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) is the document for you,
+[PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) is the document for you,
 not this one.*
 
 ## What It Is
@@ -53,7 +53,7 @@ This is the common case and it should be the shortest.
 2. Add a small file at the top of the project — `precedent.json` — naming the
    libraries that apply there. To begin with, that is one: the general one
    you just copied. There is an example in
-   [precedent.json](precedent.json) here, which is the one Precedent uses on
+   [precedent.json](../precedent.json) here, which is the one Precedent uses on
    itself.
 3. Tell your assistant about it once, in whatever file it already reads when
    it starts.
@@ -79,7 +79,7 @@ You make one, you name it in your own settings (not in any shared project),
 and it follows you into every project you work in. You write a personal
 practice once; you never copy it, re-approve it, or remember it in three
 places. There is a worked example to copy in
-[examples/practice-set/](examples/practice-set).
+[examples/practice-set/](../examples/practice-set).
 
 **You don't need this to already exist before you start.** If you don't
 have one yet, just say so — your assistant sets it up in the same
@@ -223,8 +223,8 @@ you have already decided. It has no opinion about whether you decided well.
 
 | | |
 |---|---|
-| The full design, and why each part is the way it is | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
-| What a practice file looks like | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
-| How the right practices get picked out, and what was measured | [spec/LOADER.md](spec/LOADER.md) |
-| How the three libraries combine, and which wins | [spec/SOURCES.md](spec/SOURCES.md) |
-| An example of a personal set | [examples/practice-set/](examples/practice-set) |
+| The full design, and why each part is the way it is | [PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) |
+| What a practice file looks like | [spec/PRACTICE_FORMAT.md](../spec/PRACTICE_FORMAT.md) |
+| How the right practices get picked out, and what was measured | [spec/LOADER.md](../spec/LOADER.md) |
+| How the three libraries combine, and which wins | [spec/SOURCES.md](../spec/SOURCES.md) |
+| An example of a personal set | [examples/practice-set/](../examples/practice-set) |

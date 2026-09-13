@@ -14,7 +14,7 @@ summary:       The per-practice file format phase 1 converted the catalogue into
 This is the format [`tools/split_practices.py`](../tools/split_practices.py) converts BestPractice's
 [`PRACTICES.md`](../PRACTICES.md) into, and the format any future practice (universal, team, or
 individual) is authored in. It implements
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "The Practice File"
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "The Practice File"
 section. Read that first; this document only covers where this
 implementation had to make a call the plan's own illustrative example didn't
 settle, and says so plainly rather than presenting those calls as if they
@@ -198,7 +198,7 @@ now expected output showing the re-split, not a defect report.
 ## The Rule/Detail Split (Phase 3)
 
 `## Detail` is the fifth body section, added by
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) v20 and applied here.
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) v20 and applied here.
 It holds **normative operational specifics** — numbered policy rules, worked
 procedures, sub-rules with their own tests: text that is binding but is not
 needed to decide *whether* the practice applies. Same machinery as the
@@ -325,7 +325,7 @@ worth saying plainly rather than implying the harness now covers this.
 ### One tension worth recording rather than smoothing over
 
 `verify-postcondition` is the catalogue's most-missed resident practice
-([What Phase 2 Measured](../PRACTICE_ENGINE_PLAN.md#what-phase-2-measured):
+([What Phase 2 Measured](PRACTICE_ENGINE_PLAN.md#what-phase-2-measured):
 judged applicable twice, named by the full-catalogue control **zero** times),
 and this pass moved its two most concrete parts — the pipeline-exit-status
 trap and the explicit-target trap — out of the resident Rule and into Detail.
@@ -672,7 +672,7 @@ It is a registry, not decoration.
 [`tools/precedent_vocabulary.py`](../tools/precedent_vocabulary.py) collects
 every `command:` field across every resolved source and is what answers the
 `Vocabulary` command; the reader-facing table in
-[`documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md`](../documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md)
+[`documentation/DAILY_HABITS.md`](../documentation/DAILY_HABITS.md)
 is a generated block built from the same read. Added 2026-09-13, when the
 list of commands lived in two hand-maintained copies and neither was
 complete ([`practices/vocabulary.md`](../practices/vocabulary.md)).
@@ -756,13 +756,13 @@ old way, as bare `practice N` / `practices N and M` text, carried forward
 verbatim by the phase-1 converter's own "move, never invent" rule. A
 catalogue built to let practices be reordered, split, and retired
 independently (this fork's whole reason for moving off fixed numbers — see
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), "Practices cited by
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md), "Practices cited by
 position … making insertion a cross-repo sweep") cannot leave its own
 cross-references pointing at position. A pre-phase-5 session (2026-09-01)
 swept every `practices/*.md` file and replaced each cross-reference with a
 slug link, resolved against the practice's actual content rather than just
 its printed number — see
-[CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md) for the full list,
+[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) for the full list,
 including four pre-existing miscitations the sweep found and fixed.
 [`tools/verify_harness.py`](../tools/verify_harness.py) holds this going
 forward with two checks: `check_no_bare_numeric_citations` fails if a bare

@@ -1,8 +1,8 @@
 # Decisions
 
 One file per decision, `decisions/<date>-<slug>.md`, append-only, never
-pruned. This is [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
-["Where Decisions and History Live"](../PRACTICE_ENGINE_PLAN.md#where-decisions-and-history-live)
+pruned. This is [PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md)'s
+["Where Decisions and History Live"](../spec/PRACTICE_ENGINE_PLAN.md#where-decisions-and-history-live)
 table's second row, made real: **a decision that is not about a practice**
 ("the sync merges unattended", "we chose X over Y") — as opposed to a
 practice's own originating incident, which lives in that practice's
@@ -12,7 +12,7 @@ practice's own originating incident, which lives in that practice's
 **Never loaded into context.** A decision record is read when someone asks
 "why did we do it this way," not carried by every session the way a
 resident practice is. That is the whole point of separating it from
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), which every session
+[PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md), which every session
 *is* told to read in full — a document that keeps every decision's full
 reasoning inline grows exactly the way this project's own founding case
 study did (RepoPersonalPreferences (RPP)'s `AGENTS.md`: 29,443 → 71,059 bytes in three days) and
@@ -59,7 +59,7 @@ merely allowed.
 
 ## Going forward
 
-A new [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) amendment that
+A new [PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) amendment that
 is actually recording a decision (not a change to what the plan itself
 says the architecture does) belongs here, with only a one- or two-sentence
 pointer left in the plan's "Amendments Since Approval" section — the same

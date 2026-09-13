@@ -376,11 +376,39 @@ def hook_state(repo):
 
 def _repairable(entry):
     """Only findings this tool can honestly act on: a hook the set declares
-    at the canonical path, or a set with no wiring at all. A hook declared
-    somewhere else is the set's own arrangement and is reported, not
-    overwritten."""
-    return [m for m in (entry.get('hooks') or {}).get('missing', [])
-            if 'will not guess' not in m]
+    at the canonical path, a set with no wiring at all, or a set missing the
+    universal-catalogue wiring or its ignore line. A hook declared somewhere
+    else is the set's own arrangement and is reported, not overwritten.
+
+    THE LAST TWO WERE MISSING UNTIL 2026-09-13 and that is why a set already
+    current got no repair: this list is what puts a set in front of
+    repair_hooks() at all, and a set whose only problem was the missing
+    wiring appeared in neither this list nor the stale one. It was invisible
+    to the tool while being exactly what the tool had just been taught to
+    fix.
+    """
+    found = [m for m in (entry.get('hooks') or {}).get('missing', [])
+             if 'will not guess' not in m]
+    repo = pathlib.Path(entry['repo'])
+    if _bootstrap is not None:
+        try:
+            cmds = ' '.join(_bootstrap._wired_commands(repo))
+            if (_bootstrap.UNIVERSAL_CATALOGUE_HOOK not in cmds
+                    and 'precedent_session_practices.py' not in cmds):
+                found.append(
+                    f'{_bootstrap.UNIVERSAL_CATALOGUE_HOOK} is not wired into '
+                    f'SessionStart, so none of the universal catalogue reaches '
+                    f'a session rooted here')
+            gi = repo / '.gitignore'
+            body = gi.read_text(encoding='utf-8') if gi.is_file() else ''
+            if not any(ln.strip() == '.precedent/' for ln in body.splitlines()):
+                found.append(
+                    '.gitignore does not ignore `.precedent/`, so the '
+                    'session-start practices file is offered to the next '
+                    '`git add -A`')
+        except Exception:                                    # noqa: BLE001
+            pass          # a set this cannot read is reported by the rows above
+    return found
 
 
 def repair_hooks(repo):
@@ -393,6 +421,36 @@ def repair_hooks(repo):
         written = _bootstrap._install_session_hooks(repo, _default_branch(repo))
     except Exception as exc:        # a repair that fails must say so and
         return False, f'{type(exc).__name__}: {exc}'      # leave the rest
+    # THE WIRING AND THE IGNORE LINE BELONG HERE, not in apply_to(). They were
+    # in apply_to() for one afternoon and apply_to() runs over the STALE sets
+    # only -- so a set that was already current got neither, silently, and a
+    # session had to notice and call the engine functions by hand. Reported by
+    # the set it happened in, 2026-09-13, along with the second half: wiring
+    # and hook-INSTALL were on two different lists, so one --apply wired a
+    # hook into SessionStart while leaving the file absent from
+    # .claude/hooks/. That is a declared-but-missing hook, which the harness
+    # reports as nothing at all (record/GOTCHAS.md's own entry on it) -- the
+    # exact failure this tool exists to catch, shipped by the tool itself.
+    #
+    # Doing all three in one function is what makes them impossible to get
+    # out of step: whatever set reaches this line gets the hook file, the
+    # wiring that names it, and the ignore line, in that order.
+    try:
+        _bs = _bootstrap_source_module()
+        gi, gi_changed = _bs.ensure_precedent_gitignore(pathlib.Path(repo))
+        if gi_changed:
+            written.append(gi)
+        st, wired = _bs.ensure_hook_wired(pathlib.Path(repo),
+                                          _bs.UNIVERSAL_CATALOGUE_HOOK)
+        if wired:
+            written.append(st)
+    except Exception as exc:                                 # noqa: BLE001
+        # Never fatal: the hooks above are written, and saying which half
+        # could not be done beats losing both (practice: fail-gracefully).
+        return True, (', '.join(str(pathlib.Path(w).relative_to(repo))
+                                for w in written)
+                      + f' -- but the wiring/ignore repair failed '
+                        f'({type(exc).__name__}: {exc})')
     return True, ', '.join(str(pathlib.Path(w).relative_to(repo))
                            for w in written)
 
@@ -440,34 +498,6 @@ def apply_to(entry, commit=False, branch=None):
     # run. Same reasoning as repair_hooks(): there was an install path and no
     # repair path, and the sets that need it most are the ones the install
     # path can no longer reach.
-    try:
-        _bs = _bootstrap_source_module()
-        _gi, changed = _bs.ensure_precedent_gitignore(pathlib.Path(repo))
-        if changed:
-            steps.append(('gitignore', True,
-                          f'added `.precedent/` to {_gi.name} -- the '
-                          f'session-start practices file must never be '
-                          f'committed into a set'))
-        # AND THE WIRING, which is the step a person was doing by hand until
-        # 2026-09-13. The harness refuses a SESSION editing settings.json; it
-        # does not refuse a vendored tool writing a hook the engine ships, and
-        # that distinction is what makes this repairable at all. See
-        # precedent_bootstrap_source.ensure_hook_wired()'s docstring.
-        _st, wired = _bs.ensure_hook_wired(
-            pathlib.Path(repo), _bs.UNIVERSAL_CATALOGUE_HOOK)
-        if wired:
-            steps.append(('wiring', True,
-                          f'wired {_bs.UNIVERSAL_CATALOGUE_HOOK} into '
-                          f'SessionStart -- without it none of the universal '
-                          f'catalogue reaches a session rooted here'))
-    except Exception as e:                                   # noqa: BLE001
-        # Never fatal: a set whose .gitignore could not be written is still
-        # correctly refreshed, and saying so beats taking the refresh down
-        # (practice: fail-gracefully).
-        steps.append(('gitignore', False,
-                      f'could not add `.precedent/` to this set\'s '
-                      f'.gitignore ({e}) -- add it by hand before the next '
-                      f'commit there'))
     # Regenerate the views: a refreshed generator that has not been re-run
     # leaves the repo's committed AGENTS.md/MAP.md describing the OLD
     # engine's output, which its own --check would then fail on. The

@@ -11,10 +11,10 @@ summary:       "Phase 3's three sources: the resolver, the precedence order, and
 ---
 # The Three Sources (Phase 3)
 
-What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
-"[Source — Who a Practice Belongs To](../PRACTICE_ENGINE_PLAN.md#source--who-a-practice-belongs-to)"
+What [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
+"[Source — Who a Practice Belongs To](PRACTICE_ENGINE_PLAN.md#source--who-a-practice-belongs-to)"
 and
-"[Precedence, and the One Case Precedence Alone Does Not Decide](../PRACTICE_ENGINE_PLAN.md#precedence-and-the-one-case-precedence-alone-does-not-decide)"
+"[Precedence, and the One Case Precedence Alone Does Not Decide](PRACTICE_ENGINE_PLAN.md#precedence-and-the-one-case-precedence-alone-does-not-decide)"
 build to in this repo, and — as importantly — what phase 3 could **not** build
 from here and why. Read the plan sections first; this is the implementation
 note.
@@ -218,7 +218,7 @@ current fact:
   against Precedent.
 - **The plan forbids it anyway.** *"Nothing from an individual or team set may
   be staged on this branch at any point, even transiently"*
-  ([Risks](../PRACTICE_ENGINE_PLAN.md#risks)). Every push here is publication
+  ([Risks](PRACTICE_ENGINE_PLAN.md#risks)). Every push here is publication
   into a public repository owned by someone else. Doing the split "from here"
   would mean holding private content in this working tree, which is the
   exposure the whole arrangement exists to prevent.
@@ -336,7 +336,7 @@ lists and creates individual/team candidates by reading the filesystem, but
 for universal it can only draft the Issue body — it does not open the Issue
 itself. Automated Issue creation needs a GitHub credential this tool does
 not carry, which is exactly the gap
-[Per-repo credentials](../PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
+[Per-repo credentials](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
 already names as deferred, not day one: "failing gracefully and reporting
 the gap" is the documented behavior, not an oversight here. A person (or a
 session with its own GitHub access, as this one has) files the drafted Issue

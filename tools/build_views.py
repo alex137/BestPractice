@@ -1212,8 +1212,9 @@ def _upstream_doc_pointer():
     tail = []
     if (ROOT / 'spec' / 'PRACTICE_FORMAT.md').is_file():
         tail.append("[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format")
-    if (ROOT / 'PRACTICE_ENGINE_PLAN.md').is_file():
-        tail.append("[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) for the design")
+    if (ROOT / 'spec' / 'PRACTICE_ENGINE_PLAN.md').is_file():
+        tail.append("[PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md)"
+                    " for the design")
     return (" See " + " and ".join(tail) + ".") if tail else ""
 
 
@@ -1680,7 +1681,7 @@ if __name__ == '__main__':
     # split three ways on it: a hard "unknown option" FAIL, a silent
     # fall-through that ran the whole audit as if nothing had been asked, or
     # the docstring printed with a non-zero exit. All three are wrong, and
-    # documentation/HOW_TO_USE_THIS_DEVELOPERS.md points readers straight at
+    # documentation/FOR_DEVELOPERS.md points readers straight at
     # these commands. The module docstring is the usage text.
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())

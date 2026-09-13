@@ -462,7 +462,7 @@ per person), and it needs at least one approver at creation time.
    ```
    (Comma-separate multiple `name:handle` pairs to seed more than one
    approver at creation — still fine per
-   [PRACTICE_ENGINE_PLAN.md's Stage 4](../PRACTICE_ENGINE_PLAN.md#stage-4--approval-by-level):
+   [PRACTICE_ENGINE_PLAN.md's Stage 4](PRACTICE_ENGINE_PLAN.md#stage-4--approval-by-level):
    "whoever creates a team set is its first approver. No ceremony.")
 4. `cd` into the destination, `git init`/commit/push, same as the
    individual case.

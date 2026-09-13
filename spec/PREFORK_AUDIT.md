@@ -16,7 +16,7 @@ numbered `PRACTICES.md` catalogue, plus Alex's practice 53 added on `main`
 after the fork point), verdict against this plan's architecture: does it
 still mean and do the same thing, or did something about how it works
 change under Precedent. Named as required before phase 6 starts migrating a
-consumer repo by [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+consumer repo by [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
 and restated as still not done by [spec/PHASE5_DEEPCHECK.md](PHASE5_DEEPCHECK.md);
 built here, closing that gap.
 
@@ -92,7 +92,7 @@ nothing pre-fork to compare them against.
 
 Neither is a single-practice miss — both are a whole *mechanism* that
 landed across many inherited practices at once without ever being logged
-as its own event in [CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md),
+as its own event in [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md),
 whose own scope statement says plainly: "changes what its `checked_by`
 actually enforces goes here." Both are now logged there
 (2026-09-03), in full, rather than only summarized here.

@@ -17,21 +17,21 @@ behind both live in your own GitHub repository.
 
 > **This branch is the Precedent restructuring of BestPractice.** If you have arrived
 > here wanting to *use* the practice engine on your own project, read
-> [ADOPTING.md](ADOPTING.md) — it is written for that, and assumes no
+> [documentation/ADOPTING.md](documentation/ADOPTING.md) — it is written for that, and assumes no
 > programming. The design and its evidence are in
-> [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md). Everything below is
+> [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md). Everything below is
 > the pre-fork BestPractice documentation, still accurate for the parts the rewrite
 > has not reached; it is rewritten in place as later phases land rather than
 > kept as a second, drifting copy.
 
 **New here?** Start with [What This Is (and Why Explore Using
-Precedent)](documentation/WHAT_IS_THIS_AND_BENEFITS.md) for
+Precedent)](documentation/WHY_PRECEDENT.md) for
 the pitch, then jump to the how-to guide for your situation:
-[if you write code](documentation/HOW_TO_USE_THIS_DEVELOPERS.md), or
-[if you don't](documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md).
+[if you write code](documentation/FOR_DEVELOPERS.md), or
+[if you don't](documentation/FOR_EVERYONE_ELSE.md).
 
 **Already set up and just want the daily habits?** [How to Use This Day to
-Day](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md) — four habits and the
+Day](documentation/DAILY_HABITS.md) — four habits and the
 handful of phrases the assistant is guaranteed to recognize.
 
 ## The Philosophy Behind This Project

@@ -237,7 +237,7 @@ without asking again
 command vocabulary is exactly what a voice interface needs** — short, fixed,
 unambiguous phrases that survive transcription — and this repository has one
 already, written up for a person who is not a developer in
-[documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](../documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md).
+[documentation/DAILY_HABITS.md](../documentation/DAILY_HABITS.md).
 That is a genuine piece of luck and worth noticing rather than
 re-inventing.
 

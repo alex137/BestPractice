@@ -11,7 +11,7 @@ summary:       What phase 5 was handed for the creation pipeline, what it built 
 ---
 # Phase 5 Brief — The Creation Pipeline
 
-Read [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "How a Practice
+Read [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "How a Practice
 Comes Into Existence" section first — this brief is the implementation note,
 in the same relationship [spec/ENFORCEMENT.md](ENFORCEMENT.md) has to phase
 4. The done-when this phase actually delivers: **a candidate can be raised,
@@ -45,7 +45,7 @@ Recorded in full in
 with the substantive reasoning living in the artifact each one governs:
 
 1. **Retirement is approval-gated, exactly like creation** —
-   [PRACTICE_ENGINE_PLAN.md, Stage 6](../PRACTICE_ENGINE_PLAN.md#stage-6--the-loop-closes).
+   [PRACTICE_ENGINE_PLAN.md, Stage 6](PRACTICE_ENGINE_PLAN.md#stage-6--the-loop-closes).
 2. **The attention-ceiling connection does not transfer to Stage 1/3**, reasoned
    rather than re-measured —
    [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md#does-the-ceiling-reach-stage-1-and-stage-3-2026-09-02-reasoned-not-measured).
@@ -80,7 +80,7 @@ new code:
 
 ## What is deferred, not missing
 
-Both traceable to the plan's own [Per-repo credentials](../PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
+Both traceable to the plan's own [Per-repo credentials](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
 entry ("failing gracefully and reporting the gap. Real, but not day one"):
 
 - `precedent_candidate.py create --level universal` drafts a GitHub Issue
@@ -119,13 +119,13 @@ rather than let it be read as more than it measured.
   ones. Revisit both if the first several real candidates feel wrong.
 - **The `for_team:`/`in_repos:` individual-practice scoping field is
   designed, not built** —
-  [PRACTICE_ENGINE_PLAN.md's Deferred section](../PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
+  [PRACTICE_ENGINE_PLAN.md's Deferred section](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
   carries the frontmatter shape and the resolver's conflict rule. Build it
   when a second team makes `for_team:` testable against a real conflicting
   pair, per that entry's own reasoning.
 - **The pre-fork catalogue audit table** (verdict per inherited practice
   against this plan's architecture) that
-  [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+  [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
   named is still not done. It is not phase-5-blocking (the plan only
   requires it before phase 6), but phase 6 should not start migrating a
   consumer repo without it — this phase ran out of scope to do both the
@@ -163,7 +163,7 @@ directly, not by reasoning about the code in the abstract:
 Written for the session Morgan opens next, whose job is to test this phase
 against real work rather than fixtures, and close whatever it finds before
 Phase 6 (consumer-repo migration) starts on top of it. **Read
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) in full before
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) in full before
 touching anything** — "How a Practice Comes Into Existence" (Stages 1–6),
 the Sequence table's phase-5 row, and v30 of "Amendments Since Approval" —
 and this whole brief, not just this section. Confirm your local checkouts
@@ -266,7 +266,7 @@ afterward) in [tools/verify_harness.py](../tools/verify_harness.py)'s
 
 - **The pre-fork catalogue audit table** (verdict per inherited practice
   against this plan's architecture, one row each) that
-  [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+  [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
   named — not done. The plan only requires it before Phase 6, which makes
   this the session to do it, not a future one.
 - **`for_team:`/`in_repos:` is designed, not built** — see the plan's own

@@ -26,7 +26,7 @@
     "feature reached a human at all."
   ],
   "documents": {
-    "documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md": {
+    "documentation/DAILY_HABITS.md": {
       "describes": [
         "practices/go-merge.md",
         "practices/park-it.md",
@@ -37,7 +37,7 @@
       "why": "It teaches the standing command vocabulary. A command whose meaning changes, or a new one landing, changes what this page has to say.",
       "must_mention": "spoken-commands"
     },
-    "documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md": {
+    "documentation/FOR_EVERYONE_ELSE.md": {
       "describes": [
         "practices/disclose-landing.md",
         "practices/layered-practice-packs.md",
@@ -46,7 +46,7 @@
       ],
       "why": "It walks a non-developer through how an idea becomes a rule, who approves it, and how a rule moves between levels."
     },
-    "documentation/HOW_TO_USE_THIS_DEVELOPERS.md": {
+    "documentation/FOR_DEVELOPERS.md": {
       "describes": [
         "spec/LOADER.md",
         "spec/ENFORCEMENT.md",
@@ -57,10 +57,10 @@
       ],
       "why": "It is the developer-facing account of the four loader channels and the enforced channel, plus the commands that read them."
     },
-    "documentation/WHAT_IS_THIS_AND_BENEFITS.md": {
+    "documentation/WHY_PRECEDENT.md": {
       "describes": [
         "README.md",
-        "PRACTICE_ENGINE_PLAN.md"
+        "spec/PRACTICE_ENGINE_PLAN.md"
       ],
       "why": "It is the pitch. It goes stale when the project's own account of what it is changes."
     },
@@ -81,20 +81,20 @@
       ],
       "why": "It is the conversational front door to the same install, so it drifts from INSTALL.md's mechanics rather than from the code directly."
     },
-    "ADOPTING.md": {
-      "describes": [
-        "spec/SOURCES.md",
-        "spec/BOOTSTRAP_NEW_SOURCES.md",
-        "spec/SOURCE_NAMING.md"
-      ],
-      "why": "It explains the three-source model to someone deciding whether to adopt it; the source model changing is what dates it."
-    },
     "documentation/INSTALL.md": {
       "describes": [
         "INSTALL.md",
         "SETUP.md"
       ],
       "why": "It is a one-paragraph signpost: it tells a reader arriving in documentation/ that the install steps live at the repository root and that SETUP.md drives the same steps conversationally. It carries no instructions of its own, so it goes stale only when one of those two moves or is renamed -- which is exactly what nothing else would catch."
+    },
+    "documentation/ADOPTING.md": {
+      "describes": [
+        "spec/SOURCES.md",
+        "spec/BOOTSTRAP_NEW_SOURCES.md",
+        "spec/SOURCE_NAMING.md"
+      ],
+      "why": "It explains the three-source model to someone deciding whether to adopt it; the source model changing is what dates it."
     }
   },
   "must_mention": {

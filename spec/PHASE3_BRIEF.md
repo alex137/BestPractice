@@ -14,7 +14,7 @@ summary:       What phase 3 was handed — splitting the one practice set into u
 This is the record of what phase 3 was handed, not a live work list. What phase 3
 actually built and what it deliberately left for a different session are in
 [spec/SOURCES.md](SOURCES.md) and in the plan's
-[What Phase 3 Built, and What It Could Not](../PRACTICE_ENGINE_PLAN.md#what-phase-3-built-and-what-it-could-not).
+[What Phase 3 Built, and What It Could Not](PRACTICE_ENGINE_PLAN.md#what-phase-3-built-and-what-it-could-not).
 The short version: items 2–6 below were done here; **item 1 — populating the
 two private sets from RepoPersonalPreferences' 46 rules — could not be done
 by a session working in Precedent** (a session cannot hold repositories from
@@ -34,7 +34,7 @@ session) is accurate as written and unchanged; a session reading this brief
 today may hold and edit the private repos directly.
 
 Written for the session that does phase 3, by the session that closed phase
-2. Read [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) first — this
+2. Read [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) first — this
 brief is what phase 2 learned that the plan could not have known, plus the
 state of the tree you are inheriting. It is not a substitute for the plan.
 
@@ -58,7 +58,7 @@ until the whole rewrite is complete (phase 7).
 1. **The private sets exist but are empty.** `themorgan/precedent-individual`
    and `themorgan/precedent-team-repo-maintenance` are created. Populate them from
    RepoPersonalPreferences' 46 rules, per the plan's
-   [Where Today's Practices Go](../PRACTICE_ENGINE_PLAN.md#where-todays-practices-go):
+   [Where Today's Practices Go](PRACTICE_ENGINE_PLAN.md#where-todays-practices-go):
    default everything to **team**, promote to universal only individually,
    and move the Morgan-specific handful to individual. Two RepoPersonalPreferences (RPP) rules
    (`morgan-scope`, `bestpractice-wins`) **die rather than move** — the
@@ -106,7 +106,7 @@ the same `precedent show` command**, not a second one.
 **4. The loader is a cost optimisation, not a compliance mechanism.** Phase 2
 measured it: 62% less context for 19 points *worse* recall than carrying
 everything, and both arrangements miss the same practices. Read
-[What Phase 2 Measured](../PRACTICE_ENGINE_PLAN.md#what-phase-2-measured)
+[What Phase 2 Measured](PRACTICE_ENGINE_PLAN.md#what-phase-2-measured)
 in full before you make any claim about what the loader buys. In particular,
 **do not tune the occasion index to chase the recall number** — the ceiling
 is not in the routing layer.
@@ -115,7 +115,7 @@ is not in the routing layer.
 one.** It is the first thing anyone outside this project will judge, and the
 honest pitch is stronger than the original: *your team's habits get captured
 and then enforced*, with the loading layer as what keeps the cost flat. The
-plan's own [constraints on how it is written](../PRACTICE_ENGINE_PLAN.md#precedent-needs-a-readme-for-people-adopting-it)
+plan's own [constraints on how it is written](PRACTICE_ENGINE_PLAN.md#precedent-needs-a-readme-for-people-adopting-it)
 still hold: no internal vocabulary, and assume the reader is not a developer.
 
 ## How to work in this tree

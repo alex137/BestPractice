@@ -12,7 +12,7 @@ summary:       The running gap between what the restructuring plan approved and 
 # Unbuilt Plan Items — What Else the Plan Approved and the Tree Doesn't Show
 
 This document exists because of one concrete miss, found by accident rather
-than by process: [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)
+than by process: [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)
 approved the **routing audit** for phase 5 in its 2026-09-01 preflight
 review ("v28... the unbuilt one is renamed *routing audit*"; see also "The
 Routing Audit Checks Coverage, Not Content"), and nothing built it. Not
@@ -89,14 +89,14 @@ a process gap bigger than any one missing tool.
 
 **Root cause: a genuine drop, not a deliberate scoping-out — and it
 happened one specific way, not by carelessness.**
-[`PRACTICE_ENGINE_PLAN.md`'s v28 amendment](../PRACTICE_ENGINE_PLAN.md#amendments-since-approval)
+[`PRACTICE_ENGINE_PLAN.md`'s v28 amendment](PRACTICE_ENGINE_PLAN.md#amendments-since-approval)
 (2026-09-01) named routing audit "still to build in phase 5" in the prose
 of ["The Routing Audit Checks Coverage, Not
-Content"](../PRACTICE_ENGINE_PLAN.md#the-routing-audit-checks-coverage-not-content)
+Content"](PRACTICE_ENGINE_PLAN.md#the-routing-audit-checks-coverage-not-content)
 — but the *same pass's* own
-["What phase 5 should carry forward"](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+["What phase 5 should carry forward"](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
 section, written immediately after, never mentions it, and neither does the
-top-level [Sequence table](../PRACTICE_ENGINE_PLAN.md#sequence)'s phase-5
+top-level [Sequence table](PRACTICE_ENGINE_PLAN.md#sequence)'s phase-5
 row ("Done when": candidates, detection, promotion, approval routing, the
 retirement report — no routing audit). Those two sections are the
 checklists a downstream session actually works from — confirmed by reading
@@ -129,7 +129,7 @@ shape, and two adjacent cases worth recording rather than re-deriving later:
 
 - **The gate-triggered channel** ("still unbuilt" at the time of the
   routing-eval-recall section, [PRACTICE_ENGINE_PLAN.md line
-  1136](../PRACTICE_ENGINE_PLAN.md)) was never logged in any carry-forward
+  1136](PRACTICE_ENGINE_PLAN.md)) was never logged in any carry-forward
   section either — but it got built anyway
   ([tools/precedent_gate.py](../tools/precedent_gate.py), 10 gate-only
   practices as of [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md)'s
@@ -137,7 +137,7 @@ shape, and two adjacent cases worth recording rather than re-deriving later:
   happened not to cost anything. Not actioned further; recorded so the next
   audit of this kind does not re-discover it from zero.
 - **The RepoPersonalPreferences (RPP) "very deep check" audit list**
-  ([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), the same v28
+  ([PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md), the same v28
   naming-fix callout: "Not yet inventoried here (RPP is a separate private
   repo); enumerate and wire it as an on-demand tool when phase 5 or later
   actually needs it") is genuinely still not inventoried or wired —

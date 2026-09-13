@@ -711,7 +711,7 @@ rather than by preference. The first of these fired:
 
 ## Does the ceiling reach Stage 1 and Stage 3? (2026-09-02, reasoned not measured)
 
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) flags, right before
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) flags, right before
 Stage 1, that this document's finding might undercut two pieces of the
 creation pipeline: Stage 1's "session judgment at a gate" and Stage 3's
 promotion criteria (recurrence, non-duplication) both ask a session to judge
