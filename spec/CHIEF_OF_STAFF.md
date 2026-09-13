@@ -136,12 +136,19 @@ Three facts worth having (verified 2026-09-13):
 - The harness sets some itself: every session on the account currently
   carries `config:auto-create-pr:off`, which is configuration riding in the
   same field.
-- They come back on every `list_sessions` row. **Whether the claude.ai
-  interface displays or filters on them is not verified here** — the
-  measurement was made through the session tools, not the web interface.
+- **Any session reads every session's tags**, not only the ones it created.
+  They come back on every `list_sessions` row, alongside the status bucket and
+  the rest — measured from a session that had created none of the 25 it read.
+  What is refused in-session is the *filter*, not the values, so a reader
+  filters them itself.
+- **No interface shows them.** The Claude Code on the web documentation
+  describes the session sidebar down to diffs, sharing, archiving and
+  filtering for archived sessions, and does not mention tags anywhere.
 
-So a tag today is **machine-readable furniture for Chief of Staff**, and any
-benefit in the interface is a bonus rather than the reason.
+So a tag is **readable by sessions and invisible to the person**, which makes
+the convention worth nothing on its own: the tags already sitting on this
+account's sessions have never been read by anything. Chief of Staff is what
+turns them back into something Morgan can see.
 
 ### The recommended namespaces
 
