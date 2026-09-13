@@ -29,7 +29,13 @@ approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same m
   too\" Amended 2026-09-13 again, on a duplicate spawn reported from an
   individual set that had just closed the same gap in its own catalogue -- the
   enumeration is the session's judgement, the level follows rule-level-by-reach, and
-  neither was put to him."
+  neither was put to him. AMENDED 2026-09-13, later the same day, after the
+  harness refused to let a session relay a merge into a spawned one and Morgan
+  was asked whether it should be able to: he set the DEFAULT the other way --
+  \"by default you don't; only if I explicitly tell you to spawn a session and
+  go merge. If I only saw 'spawn session' then assume I need to manually
+  approve the merge.\" (strength: decided). The both-phrases case is unchanged;
+  what changed is what silence means."
 strength:    decided
 source_practice_number: null
 ---
@@ -118,14 +124,21 @@ already carrying the prompt you would have given it — **and put its link
 near the top of the reply, on its own line, telling the person plainly to
 click it.**
 
-**The seeded prompt carries the merge authorization, and says so in those
-words.** Work the person asked for is work they want landed; a session
-spawned to do it that stops at a finished branch and waits to be told to
-merge hands them back the decision they already made, in a window they have
-to go find. So the prompt you seed ends with an explicit `Go merge` for the
-work it describes, naming who authorized it and when, and quoting them if
-you have their words ([seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
-governs that header either way).
+**The seeded prompt carries a merge authorization only when the person gave
+one for the spawn.** The default is the other way round: a session spawned
+off `Spawn session` alone, or off an ordinary request, stops at the pull
+request and says whose call the merge is. Morgan, 2026-09-13, setting this
+default in his own words -- *"by default you don't; only if I explicitly
+tell you to spawn a session and go merge. If I only saw 'spawn session' then
+assume I need to manually approve the merge."*
+
+**Why the opposite reading is tempting and wrong.** Work somebody asked for
+is usually work they want landed, so a stop at a finished branch looks like
+handing them back a decision they already made. But asking for a session is
+not the same act as authorizing a merge in it, and a relayed authorization
+is the one thing the person cannot take back once it has left the window
+they typed in. **When they meant both, they say both** -- which is the next
+paragraph, and it is the only shape that carries.
 
 **`Spawn session` and `Go merge` in the same message is the unambiguous
 case, and the phrase travels.** When the person says both -- or `Approved`,
