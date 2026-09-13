@@ -13874,8 +13874,11 @@ def check_todo_progress_discriminates():
         '   **Disposition:** ask (2026-09-13, Morgan)\n\n'
         '3. <a id="gamma"></a>**~~A finished item.~~** **DONE 2026-09-13.** It\n'
         '   names [tools/widget.py](tools/widget.py) too.\n\n'
-        '4. <a id="delta"></a>**An item naming only the common file.** Just\n'
-        '   [AGENTS.md](AGENTS.md).\n'
+        '4. <a id="delta"></a>**An item naming the common file and the\n'
+        '   widget.** [AGENTS.md](AGENTS.md) and\n'
+        '   [tools/widget.py](tools/widget.py) -- so widget.py is cited by TWO\n'
+        '   live items and gadget.py by one, which is the only reason the\n'
+        '   ordering case below has anything to order.\n'
         '   **Disposition:** wait\n')
 
     ignore = tp.common_paths(TODO)
@@ -13887,8 +13890,9 @@ def check_todo_progress_discriminates():
                   'tools/widget.py' not in ignore, repr(ignore)))
 
     got = tp.candidates(TODO, {'tools/widget.py'}, ignore)
-    cases.append(('a change touching a file one item names reports that item',
-                  [c[1] for c in got] == ['alpha'], repr(got)))
+    cases.append(('a change touching a named file reports every LIVE item '
+                  'naming it',
+                  sorted(c[1] for c in got) == ['alpha', 'delta'], repr(got)))
     cases.append(('and a DONE item naming the same file is not reported',
                   'gamma' not in [c[1] for c in got], repr(got)))
 
@@ -13908,6 +13912,19 @@ def check_todo_progress_discriminates():
     cases.append(('a **Remind:** item is surfaced with what to remind about',
                   len(rem) == 1 and rem[0][1] == 'beta'
                   and 'survives' in rem[0][2], repr(rem)))
+
+    # ORDERING. A hit on a file few items cite says more about that item than
+    # a hit on one half the queue mentions in passing. Measured: the broad
+    # merge that landed this tool produced 13 candidates across eight files
+    # with none dominating -- not wrong, and still more than anybody reads.
+    # `gadget.py` is cited once here, `widget.py` twice, so the gadget item
+    # must sort first whatever order the file lists them in.
+    got = tp.candidates(TODO, {'tools/widget.py', 'tools/gadget.py'}, ignore)
+    cases.append(('THE ORDERING CASE: the item matched on the rarer path '
+                  'sorts first, so a truncated list keeps the strongest hits',
+                  [c[1] for c in got][0] == 'beta'
+                  and sorted(c[1] for c in got) == ['alpha', 'beta', 'delta'],
+                  repr(got)))
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'the open-item pass matches what an item names and stays quiet '

@@ -95,8 +95,24 @@ def common_paths(text, share=COMMON_PATH_SHARE):
     for body in live:
         for p in named_paths(body):
             counts[p] = counts.get(p, 0) + 1
-    floor = max(2, int(len(live) * share))
+    # max(3, ...), not max(2, ...). A path cited by two items is not "common"
+    # in any repo, and the 2 floor meant a small adopter -- ten open items,
+    # say -- suppressed almost every path it had. Found by a fixture too small
+    # to have a specific path left after suppression, which is exactly the
+    # shape of the repo this would have hurt.
+    floor = max(3, int(len(live) * share))
     return {p for p, c in counts.items() if c >= floor} | {'TODO.md'}
+
+
+# How many candidates are worth printing at one merge. Not a limit on what
+# matches -- a limit on what is SHOWN, with the remainder counted out loud.
+# Measured on this repository: a narrow change produced 5 candidates and a
+# broad one (two new practices, three tools, every generated view) produced
+# 13, spread across eight files with none dominating. Thirteen is not wrong,
+# and it is still more than anybody reads at a merge. The ones kept are the
+# most SPECIFIC -- an item matched on a file few items cite is saying more
+# about itself than one matched on a file half the queue mentions in passing.
+REPORT_LIMIT = 6
 
 
 def candidates(text, changed, ignore=None):
@@ -106,8 +122,19 @@ def candidates(text, changed, ignore=None):
     and only for paths that are not cited across the whole file (see
     common_paths). Both exclusions exist for the same reason: a candidate list
     that includes everything says nothing.
+
+    Ordered most-specific first: by how many live items cite the rarest path
+    the item matched on. `tools/verify_harness.py` is named by five open items
+    and touched by most changes to this repo, so an item matching only on it
+    is the weakest kind of hit -- and sorting is honest where suppressing
+    would not be, because the hit is real.
     """
     ignore = common_paths(text) if ignore is None else ignore
+    live = [b for _n, _s, b in items(text) if not DONE_RE.search(b)]
+    cites = {}
+    for body in live:
+        for pth in named_paths(body):
+            cites[pth] = cites.get(pth, 0) + 1
     out = []
     for num, slug, body in items(text):
         if DONE_RE.search(body):
@@ -115,6 +142,7 @@ def candidates(text, changed, ignore=None):
         hits = sorted((named_paths(body) & changed) - ignore)
         if hits:
             out.append((num, slug, hits))
+    out.sort(key=lambda c: min(cites.get(h, 1) for h in c[2]))
     return out
 
 
@@ -153,6 +181,8 @@ def main(argv=None):
     ap.add_argument('--changed', metavar='BASE..HEAD',
                     help='report items this change may have moved')
     ap.add_argument('--todo', default='TODO.md')
+    ap.add_argument('--all', action='store_true',
+                    help='show every candidate, not just the most specific')
     args = ap.parse_args(argv)
 
     f = ROOT / args.todo
@@ -172,11 +202,17 @@ def main(argv=None):
             # Silence is the point. A gate that says something at every merge
             # is a gate nobody reads by the third week.
             return 0
+        shown = cands[:REPORT_LIMIT]
         print(f'todo_progress: {len(cands)} open item(s) name a file this '
               f'change touched. A resemblance, not a verdict --')
         print('  record what you established in the item; close it only if '
-              'its own stated\n  condition is now met.\n')
-        for num, slug, hits in cands:
+              'its own stated\n  condition is now met.')
+        if len(cands) > len(shown):
+            print(f'  Showing the {len(shown)} most specific; '
+                  f'{len(cands) - len(shown)} more matched only on files much '
+                  f'of the\n  queue mentions. `--all` for those.')
+        print()
+        for num, slug, hits in (cands if args.all else shown):
             print(f'  TODO {num} ({slug}) — {title_of(by_slug[slug])}')
             for h in hits[:4]:
                 print(f'      touched: {h}')
