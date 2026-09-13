@@ -28,9 +28,9 @@ equivalents on other hosts such as Gitea can be added later — see
 ## The Eight Ideas
 
 You don't need to know git deeply to use [Precedent](README.md); you
-need eight ideas. (Throughout: a "repo" is short for repository — the
-project's shared folder on GitHub; a "session" is one AI conversation; a
-"commit" is one saved change with a note about what and why.)
+need eight ideas. (Throughout, a "session" is one AI conversation. Every
+git and GitHub word used below is defined in
+[The Words, Defined](#the-words-defined), further down.)
 
 - **The default branch (`main`) is the shared truth.** It is what every new
   session reads for orientation. Nothing is "real" until it lands there.
@@ -92,6 +92,104 @@ project's shared folder on GitHub; a "session" is one AI conversation; a
   [INSTALL.md](INSTALL.md) §4, for example),
   **select both repos when you create the session** — you generally can't
   add write access mid-session.
+
+## The Words, Defined
+
+The eight ideas above are the concepts. This is the vocabulary — the words
+that appear in a session's replies, in GitHub's own screens, and in error
+messages, where nobody stops to explain them. **Skim it once; come back to
+it when a word goes past that you nodded at.**
+
+A separate [GLOSSARY.md](GLOSSARY.md) covers terms this project coined. This
+section covers git's and GitHub's own.
+
+### Where the Work Lives
+
+- **Repository ("repo")** — one project's folder, with its full history. It
+  exists in two kinds of place at once: on GitHub's servers, and as a copy on
+  each machine or session working on it.
+- **Clone** — a full copy of a repository, downloaded to a machine. Not a
+  snapshot: it carries the history and stays connected to where it came from.
+- **Remote** — a copy of the repository that lives somewhere else, usually on
+  GitHub, that your clone knows how to talk to. A clone can know several.
+- **`origin`** — **the name of the remote you cloned from.** It is a
+  nickname, not a place, and it means "the copy on GitHub this one came
+  from". Nothing about it says which *branch*: `origin/main` and
+  `origin/precedent-beta-v01` are both on `origin`.
+- **Fork** — your own copy of somebody else's repository on GitHub, which you
+  can push to. Used when you cannot write to theirs.
+
+### Names That Point at a Version
+
+- **Commit** — one saved change, with a note saying what and why. The unit
+  everything else is built from.
+- **Hash (or SHA)** — a commit's permanent name, like `6aebfa6`. Usually
+  written short. Two commits never share one.
+- **Branch** — a moving name for "the latest commit on this line of work".
+  Making a branch costs nothing; it is a label, not a copy.
+- **`main`** — the branch a repository treats as its shared truth, by
+  convention. Also called the **default branch**, because it is what GitHub
+  shows first and what a fresh clone lands on. **In this repository the real
+  work happens on `precedent-beta-v01` instead**, which is why "the default
+  branch" and "the branch we merge into" are not the same sentence here.
+- **`HEAD`** — where your clone is standing right now: the commit you would
+  build the next one on top of.
+- **Tag** — a permanent name pinned to one commit, usually a release. Unlike
+  a branch, it does not move.
+
+### Moving Work Around
+
+- **Fetch** — download what the remote has, and change nothing in your
+  working files. Safe, always.
+- **Pull** — fetch, then merge what arrived into the branch you are on. This
+  one does change your files.
+- **Push** — send your commits up to the remote. Until you push, your work
+  exists on one machine only.
+- **Merge** — combine another branch's work into yours, keeping both. The
+  normal way work comes together.
+- **Fast-forward** — the easy kind of merge: you had made no commits of your
+  own, so your branch just slides up to match. Nothing to reconcile.
+- **Conflict** — the same lines changed on both sides, so git stops and asks
+  a person which to keep. Loud and visible; the dangerous merges are the
+  quiet ones.
+- **Rebase** — replay your commits on top of someone else's, rewriting them
+  as it goes. Tidier history, at the cost of changing commits that already
+  exist. **Never on a branch anyone else has.**
+- **Force push** — overwrite what the remote has with what you have,
+  discarding the difference. The one command here that destroys other
+  people's work.
+- **Pull request (PR)** — a proposal on GitHub: "here is everything my branch
+  wants to add to that one," with the before-and-after shown side by side,
+  plus somewhere to discuss it and a button to merge it.
+
+### Words That Describe a State
+
+- **Ahead / behind** — how many commits your branch has that the remote does
+  not, and the other way round. Behind is normal and harmless; fix it by
+  pulling.
+- **Diverged** — **both** ahead and behind: each side has commits the other
+  lacks. Needs a real merge.
+- **Ancestor** — an earlier commit that a later one was built on top of. "Your branch
+  is an ancestor of theirs" means you have nothing they do not.
+- **Merge base** — the last commit two branches had in common, which is what
+  git compares against to work out what each side changed.
+- **Stale** — your clone's picture of the remote is out of date, because
+  nobody has fetched recently. **Git will not tell you**; it reports
+  confidently against whatever it last saw.
+- **Shallow clone** — a clone that downloaded only the most recent commits to
+  save time, which is what hosted sessions normally get. **It is the source
+  of the most confusing error in this list**: with the shared history not
+  downloaded, git cannot find the merge base and says the two branches have
+  *unrelated histories*, or reports the clone's own depth as if those were
+  your own unpushed commits. Neither is true. The fix is to fetch more
+  history (`git fetch --depth=1000`), never to reconcile a divergence that
+  is not there.
+- **Tracked / untracked** — whether git is watching a file at all. An
+  untracked file is invisible to every commit until someone adds it.
+- **Staged** — marked as going into the next commit, but not committed yet.
+- **Upstream** — two meanings, and they are unrelated. For a *branch*, the
+  remote branch it is paired with. For a *project*, the original repository
+  yours takes updates from — which is what this project means by it.
 
 ## Knowing Your Work Actually Landed
 

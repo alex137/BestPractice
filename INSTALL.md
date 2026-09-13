@@ -513,6 +513,37 @@ it applies.
      [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
      step 4 for the worked pattern, including the access gate and exactly
      how it's closed now.
+   - **Whichever branch above ran, finish the person before moving on:
+     an individual set is not wired until its `identity.json` says who
+     they are.** The file ships with placeholders and
+     [`tools/precedent_bootstrap_source.py`](tools/precedent_bootstrap_source.py)'s
+     `--verify` reports it unfinished
+     until its placeholders — `name`, `email`, `pronouns` and `timezone` — are replaced. **The timezone is
+     the one that fails quietly.** Name and address can be resolved from
+     the GitHub account the session is authenticated as, so a session with
+     no `identity.json` still commits under a plausible person; nothing
+     anywhere can resolve a zone — a GitHub profile does not carry one and
+     the container's clock is UTC — so the author-date check silently
+     drops from enforced to guessed and wrong-offset commits reach the
+     remote before anyone notices. An Internet Assigned Numbers Authority (IANA) zone name
+     (`America/New_York`), never a bare offset.
+
+     Then confirm it by effect rather than by reading the config back:
+     `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
+     must name the person and the declared offset. `commit-identity.sh`
+     from step 2's hook table is what puts it there, which is why that
+     table says **always**.
+
+     `identity.json`'s `grandfathered_commit_shas` is the exemption list
+     for the identity and timezone checks. **A fresh install leaves it
+     empty and should** — it is for commits that were already published
+     when a violation surfaced, where rewriting history costs more than
+     the wrong value does
+     ([no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)).
+     An unpushed commit gets fixed, not listed. A repo with history that
+     predates the check is the migration case, not this one:
+     [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
+     step 4d.
    - See [examples/practice-set/](examples/practice-set) for what an
      individual set's files actually look like, and
      [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
@@ -856,6 +887,20 @@ practices while upstream carried 98, with nothing said.
    update") is enough to
    propagate a newly introduced template like this to every repo that
    already installed Precedent before it existed.
+
+   **And check the person, not only the repo — an update is the second
+   chance the install may not have taken.** A set created before
+   `identity.json` shipped does not have one, and a set that has one may
+   still carry the placeholders, which nothing reports at commit time
+   because the checks it feeds simply degrade to guesses. Run
+   `python3 tools/precedent_bootstrap_source.py --verify <the set's path>`,
+   fill in anything it names, and confirm the
+   result by effect:
+   `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
+   must name a person and the declared offset, not the assistant's bot
+   account and not UTC-by-default. §1 step 9's last bullet has the full
+   reasoning; this is the same check, run on a repo that already
+   installed.
 4. **Fix legacy layout.** Older installs sometimes scattered
    upstream-internal docs (INSTALL.md, GITHUB_ACTIONS.md, …) at the repo
    root; the audit's LAYOUT check now fails on them. Delete the strays —
@@ -1224,6 +1269,7 @@ and then had nowhere to say so.
 | `individual.name`, `individual.path`, `individual.repo_url` | `~/.config/precedent/config.json` (or wherever `PRECEDENT_USER_CONFIG` points) | Your individual practices do not resolve. The session says so on stderr and runs with team and universal only — easy to miss in a long startup. `repo_url` specifically is what the session-start hook clones from; without it the hook cannot fetch your set. |
 | `PRECEDENT_LEAK_BLOCKLIST` **and** `git config precedent.requireVocabulary true` | shell profile, and git config per checkout | The leak gate's vocabulary layer **fails open**: it prints `PARTIAL`, exits 0, and the push goes through with only the structural rules applied. Both are needed — the variable alone is not enough. **Since 2026-09-12 the variable is an override rather than the only route**: with it unset, the gate reads `leak-blocklist.txt` from the individual set your config names — the path this same section tells you to put it at — so a fresh shell no longer silently drops to the structural half. Set it anyway when your list lives somewhere else. |
 | `# visibility-audit: private-owner <your GitHub account> -- reason`, inside that blocklist file | the private blocklist itself | Switches the **repo-reference allowlist** on. Without it, every `<account>/<name>` mention passes: a blocklist blocks only the names someone remembered, and a private repository you create tomorrow is not one of them. With it, each mention is refused until an `allow` line gives a reason. The gate prints `INERT` on every run until you declare it, rather than passing quietly. **Do not pre-allow your individual source** — a shared repo naming one is refused by [tools/precedent_resolve.py](tools/precedent_resolve.py) as a privacy boundary, so an allow line for it grants exactly what the architecture withholds. Two further directives live in the same file, both off by default and both dated 2026-09-12: `stem-notes off -- reason` moves the routine missing-stem note out of every push run and into the very deep check, and `auto-cover-bare-names on -- reason` makes each private clone's **bare** name a pattern in its own right, so the short form is refused without anybody writing a stem. |
+| `name`, `email`, `timezone` in your individual set's `identity.json` | the individual set itself | Your commits carry the wrong person or the wrong clock. Name and address can still be resolved from the GitHub account the session is authenticated as, so this half often *looks* fine; **the timezone cannot be resolved from anywhere** — nothing in a GitHub profile says where a person is and a container's clock is UTC — so an unfilled zone silently downgrades the author-date check from enforced to guessed, and wrong-offset commits reach the remote before anyone notices. Use an IANA zone name (`America/New_York`), never a bare offset. The same file's `grandfathered_commit_shas` is the exemption list for commits that were **already published** when a violation surfaced; it starts empty and stays empty until you genuinely need one — an unpushed commit gets fixed, not listed. |
 | `pip install cmarkgfm markdown` | the machine | `doc_lint.py`'s strikethrough check stops running and says so in one line, and `doc_html.py` cannot import. A session-start hook installs these where one runs; a repo attached mid-session never runs its own hook, so do it by hand there. |
 
 `tools/precedent_bootstrap_source.py` writes all three `individual` fields
