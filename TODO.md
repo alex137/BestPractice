@@ -4770,9 +4770,9 @@ which is the failure this repointing exists to end — write
     **Disposition:** wait
 
 80. <a id="session-load-under-20k"></a>**Get what every session loads under
-    20,000 tokens.** **DONE 2026-09-13 — 14,291.** Measured with
+    20,000 tokens.** **DONE 2026-09-13 — 14,386.** Measured with
     [tools/build_views.py](tools/build_views.py)'s own `_approx_tokens`:
-    [AGENTS.md](AGENTS.md) 11,373, `.precedent/SESSION_PRACTICES.md` 2,863,
+    [AGENTS.md](AGENTS.md) 11,468, `.precedent/SESSION_PRACTICES.md` 2,863,
     [CLAUDE.md](CLAUDE.md) 55. It started the day at 22,904.
 
     **Two passes, and the second is the one that did it.** The first removed
