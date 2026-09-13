@@ -130,6 +130,75 @@ def practices_by_gate(practices_dir=None):
     return out
 
 
+# Levels whose practice TEXT is private -- their sources are private
+# repositories, and this repo is public. Imported from build_views where it
+# is declared, with a literal fallback for a partial vendor: the two
+# answering differently is the failure this whole split exists to prevent.
+PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('team', 'individual'))
+
+
+def resolved_gate_practices(root, gate):
+    """-> (entries, notes). Every IN-FORCE practice registered to `gate` in
+    any source this repo resolves -- team, individual and repo-local as well
+    as universal -- as (slug, level, source_name, path) tuples.
+
+    WHY THIS EXISTS, and what it cost to leave out. Until 2026-09-13 this
+    file read exactly one directory: `<root>/practices/`. In a consuming
+    repo that is the materialized union of every source, so nothing was
+    missing. In THIS repo -- and in any repo whose sources resolve as
+    sibling clones rather than through precedent_materialize.py -- it is the
+    universal catalogue alone, so a team or individual practice declaring
+    `gates: ["reply"]` had no invocation point anywhere: the stop hook ran
+    the gate, the gate read a directory those practices are not in, and
+    printed the universal three. Measured here that day: three individual
+    practices about how a reply is written (`next-steps-after-commit`,
+    `closing-items-are-this-thread`, `handoff-only-when-blocked`) were
+    registered to the reply gate and reached a session only through the
+    one-line occasion clause in `.precedent/SESSION_PRACTICES.md` -- which
+    fires only if the session recognises the occasion, which is exactly the
+    "sometimes it does, sometimes it does not" Morgan reported.
+
+    A gate is the channel whose whole promise is that reach does not depend
+    on session judgment (see this module's header). A gate that serves one
+    source silently keeps that promise for one level and breaks it for the
+    other three.
+
+    Failure here is never fatal: a repo with no resolvable source still gets
+    its own practices/ -- the caller unions the two -- and the reason is
+    NAMED rather than swallowed (practice: fail-gracefully).
+    """
+    notes = []
+    try:
+        import precedent_resolve as pr
+    except ImportError:
+        return [], ['precedent_resolve.py is not vendored beside this script, '
+                    'so only this repo\'s own practices/ is below.']
+    try:
+        sources = pr.load_config(root)
+        res = pr.resolve(sources)
+    except Exception as e:                                   # noqa: BLE001
+        return [], [f'the declared sources could not be resolved ({e}), so '
+                    f'only this repo\'s own practices/ is below.']
+
+    for m in res.get('missing', []):
+        notes.append(
+            f"{m['level']}/{m['name']} did NOT resolve this session "
+            f"({m.get('reason', 'no reason given')}) -- any {gate}-gate "
+            f"practice of its own is NOT below. Treat that as unknown, not "
+            f"as 'that source has nothing for this gate'.")
+
+    entries = []
+    for slug, practice in sorted(res['practices'].items()):
+        try:
+            gates = json.loads(practice['fm'].get('gates', '[]') or '[]')
+        except json.JSONDecodeError:
+            continue
+        if gate in gates:
+            entries.append((slug, practice['level'], practice.get('source', ''),
+                            pathlib.Path(practice['file'])))
+    return entries, notes
+
+
 def main():
     argv = sys.argv[1:]
     repo = None
@@ -147,10 +216,10 @@ def main():
     vocab = gate_vocabulary()
     by_gate = practices_by_gate(practices_dir)
 
-    unknown = flags - {'--list'}
+    unknown = flags - {'--list', '--brief'}
     if unknown:
         sys.exit(f"precedent gate FAIL: unknown option(s) {', '.join(sorted(unknown))} "
-                 f"-- the only option is --list.")
+                 f"-- the options are --list and --brief.")
     if '--list' in flags:
         if args:
             sys.exit(f"precedent gate FAIL: --list takes no arguments, got "
@@ -173,7 +242,18 @@ def main():
                  f"{', '.join(sorted(vocab))}. A gate is a MOMENT, declared in "
                  f"tools/routing_scope.json and named in each practice's "
                  f"`gates:` field.")
-    slugs = by_gate.get(gate, [])
+    # Own tree first, then every other source this repo resolves. The union
+    # is what "the practices in force at this moment" means; reading the
+    # directory alone answered it for one level only (see
+    # resolved_gate_practices). Resolution WINS on a slug both carry, since
+    # it has applied precedence across the sources and the directory has
+    # not.
+    registered = {s: ('universal', '', practices_dir / f'{s}.md')
+                  for s in by_gate.get(gate, [])}
+    entries, source_notes = resolved_gate_practices(root, gate)
+    for slug, level, name, path in entries:
+        registered[slug] = (level, name, path)
+    slugs = sorted(registered)
     if not slugs:
         sys.exit(f"precedent gate FAIL: gate {gate!r} ({vocab[gate]}) has no "
                  f"practices registered to it. An empty gate is a step that "
@@ -193,15 +273,49 @@ def main():
                 print(f"{line}\n")
         except ImportError:
             pass
+    for n in source_notes:
+        print(f"NOTE: {n}\n")
+    if any(registered[s][0] in PRIVATE_LEVELS for s in slugs):
+        # Same standing rule as .precedent/SESSION_PRACTICES.md's header,
+        # said at the other place this text now surfaces: a private source's
+        # practice text has never been published, and this repo is public.
+        print("NOTE: some rules below come from PRIVATE sources (team, "
+              "individual). They bind this work exactly as the universal "
+              "ones do; never quote their text into a commit message, a "
+              "pull request or an issue.\n")
+
     print(f"# Practices for the {gate} gate — {vocab[gate]}\n")
     for slug in slugs:
-        fm, sections = sp._read_practice_file(practices_dir / f'{slug}.md')
-        block = f"### {slug}\n{sections.get('rule', '').strip()}"
+        level, name, path = registered[slug]
+        fm, sections = sp._read_practice_file(path)
+        where = level if level in ('universal', 'repo-local') else f'{level}/{name}'
+        if '--brief' in flags:
+            # One line per practice, for the per-turn channel: the full Rules
+            # of a busy gate are thousands of tokens, and a reminder a session
+            # pays for on every prompt has to be cheap enough to keep
+            # (practice: session-load-budget).
+            #
+            # A RESIDENT practice is skipped here rather than abbreviated: it
+            # is in the session's loader block already, in full, from the
+            # first turn. Repeating it per prompt buys nothing and is exactly
+            # the drift that makes a per-turn reminder too expensive to keep.
+            # It is also why three of them rendered as an empty clause -- a
+            # resident practice has no index_clause, because the index is the
+            # channel it does not use.
+            if bv._json_str(fm.get('tier', '')).strip() == 'resident':
+                continue
+            clause = (bv._json_str(fm.get('index_clause', '')).strip()
+                      or bv._json_str(fm.get('title', '')).strip())
+            print(f"- **{slug}** ({where}) — {clause}")
+            continue
+        block = f"### {slug} ({where})\n{sections.get('rule', '').strip()}"
         if manifest is not None:
             note = ps._source_unreachable_note(manifest, slug)
             if note:
                 block += f"\n{note}"
         print(f"{block}\n")
+    if '--brief' in flags:
+        print(f"\nFull text: `python3 tools/precedent_gate.py {gate}`.")
     return 0
 
 

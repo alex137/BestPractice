@@ -22,15 +22,21 @@ skipped convention still fails loudly when the audit runs at commit/merge
 time. This is why practice `convention-to-audit` (conventions become scripts) is the load-bearing
 practice in a multi-agent repo.
 
-Using a harness not listed here? The recipe is four questions: (1) what
+Using a harness not listed here? The recipe is six questions: (1) what
 filename does it auto-load — add a pointer file to `AGENTS.md`; (2) does it
 have a session-start hook — wire `tools/bootstrap.sh` into it, else rely on
 the instructions-file directive; (3) does it have a stop/teardown hook that
-can block ending a turn — port the git-hygiene check and the `reply`-gate
-print
+can block ending a turn — port the git-hygiene check, the `reply`-gate print
+and the blocking reply check
 ([claude-code/hooks/stop-git-check.sh](claude-code/hooks/stop-git-check.sh))
-if so; (4) can commands be pre-approved — port the allowlist idea if so;
-(5) can it run something before a tool call — port the freshness gate
+if so, and note that the blocking half needs the hook to be handed the
+session's own transcript: `tools/precedent_reply_check.py` reads the path
+Claude Code passes it, and a harness that hands its stop hook nothing has
+the print and not the enforcement; (4) can commands be pre-approved — port the allowlist idea if so;
+(5) does it run something when the person submits a prompt — port
+[claude-code/hooks/reply-gate.sh](claude-code/hooks/reply-gate.sh), which is
+the only moment the `reply` gate reaches the reply it is about; (6) can it
+run something before a tool call — port the freshness gate
 ([claude-code/hooks/freshness-guard.sh](claude-code/hooks/freshness-guard.sh)),
 and wire its session-start half plus
 [claude-code/hooks/commit-identity.sh](claude-code/hooks/commit-identity.sh)

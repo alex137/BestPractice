@@ -6947,12 +6947,200 @@ def check_gate_channel():
         cases.append((f'the reply gate is wired into {stop_hook.relative_to(ROOT)}',
                       stop_hook.exists() and 'precedent_gate' in stop_hook.read_text(errors='ignore')))
 
+    # 2026-09-13: the reply gate gained a second invocation point and a
+    # blocking half, and both are wiring claims that can drift back to
+    # cited-only exactly as the first one did.
+    #
+    # UserPromptSubmit is where the gate reaches the reply it is ABOUT. Stop
+    # fires after the reply is composed and its output is not fed back to the
+    # model on a clean exit, so the advisory print had never once reached the
+    # turn it was meant to govern.
+    for settings in (ROOT / 'templates' / 'harness' / 'claude-code' / 'settings.json',
+                     ROOT / '.claude' / 'settings.json'):
+        data = json.loads(settings.read_text(encoding='utf-8'))
+        wired = [h.get('command', '') for blk in data.get('hooks', {}).get('UserPromptSubmit', [])
+                 for h in blk.get('hooks', [])]
+        cases.append((f'the reply gate is wired at UserPromptSubmit in '
+                      f'{settings.relative_to(ROOT)}',
+                      any('reply-gate.sh' in c for c in wired),
+                      f'UserPromptSubmit wires {wired}'))
+    for hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'reply-gate.sh',
+                 ROOT / '.claude' / 'hooks' / 'reply-gate.sh'):
+        cases.append((f'{hook.relative_to(ROOT)} exists and is executable -- a '
+                      f'hook a settings.json declares and disk does not have is '
+                      f'the failure the harness reports as nothing at all',
+                      hook.is_file() and os.access(hook, os.X_OK)))
+    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+                      ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'):
+        cases.append((f'the BLOCKING reply check is called from '
+                      f'{stop_hook.relative_to(ROOT)}',
+                      'precedent_reply_check' in stop_hook.read_text(errors='ignore')))
+
+    # --brief is the per-turn form, and its promise is that it is CHEAP. A
+    # regression that printed full Rules there would not fail any case above.
+    r_full = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'reply'],
+                            capture_output=True, text=True, cwd=str(ROOT))
+    r_brief = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
+                              'reply', '--brief'], capture_output=True, text=True, cwd=str(ROOT))
+    cases.append(('`precedent_gate.py reply --brief` is much smaller than the '
+                  'full gate -- it fires on every prompt',
+                  r_brief.returncode == 0
+                  and 0 < len(r_brief.stdout.split()) < len(r_full.stdout.split()) / 2,
+                  f'{len(r_brief.stdout.split())} words vs {len(r_full.stdout.split())}'))
+
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'gate-triggered channel ({len(cases)} stated cases: closed vocabulary, '
           f'no empty gate, every gate resolves, unknown gates fail loudly, '
           f'push and reply actually wired)',
           not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_reply_gate_sees_every_source():
+    """The gate channel must serve EVERY source, not just the repo's own tree.
+
+    Until 2026-09-13 precedent_gate.py read exactly one directory --
+    `<root>/practices/` -- so in any repo whose sources resolve as clones
+    rather than through precedent_materialize.py, a team, individual or
+    repo-local practice declaring `gates: ["reply"]` had no invocation point
+    at all. Measured here that day: three individual practices about how a
+    reply is written were registered to the reply gate and reached a session
+    only through the occasion index, which fires only if the session
+    recognises the occasion. A gate whose whole promise is reach-without-
+    judgment kept that promise for one level and broke it for three.
+
+    Every case is run against a fixture repo built here, owning all of its
+    own state (practice: fixture-owns-its-state) -- no user config, no
+    sibling clone, nothing inherited from the container -- and each is
+    verified by its negative control: remove the second source and the same
+    command must stop naming its practice."""
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-gate-sources-'))
+    try:
+        def practice(path, slug, clause):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                f'---\nslug: {slug}\ntitle: {slug}\ntier: on-demand\n'
+                f'severity: default\napplies_to: ["**"]\n'
+                f'occasion: "a fixture"\ngates: ["reply"]\n'
+                f'index_clause: "{clause}"\nchecked_by: null\ndefines: []\n'
+                f'status: active\nsupersedes: []\noverrides: null\n'
+                f'added: 2026-09-13\napproved_by: "harness, 2026-09-13"\n---\n'
+                f'## Rule\nThe {slug} rule text.\n\n## Why\nx\n\n'
+                f'## Story\nx\n\n## Install\nx\n', encoding='utf-8')
+
+        fx = tmp / 'fixture'
+        practice(fx / 'practices' / 'fixture-universal-reply.md',
+                 'fixture-universal-reply', 'the universal one')
+        practice(fx / 'local' / 'practices' / 'fixture-local-reply.md',
+                 'fixture-local-reply', 'the repo-local one')
+        (fx / 'tools').mkdir(parents=True, exist_ok=True)
+        (fx / 'tools' / 'routing_scope.json').write_text(json.dumps(
+            {'_note': [], 'practices': {},
+             'gates': {'reply': 'ending a turn and writing the reply'}}),
+            encoding='utf-8')
+
+        def declare(*extra):
+            (fx / 'precedent.json').write_text(json.dumps({
+                'format_version': 1, 'base_branch': 'main', 'visibility': 'private',
+                'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'}] + list(extra),
+            }), encoding='utf-8')
+
+        def gate(*args):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
+                 '--repo', str(fx), 'reply', *args],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        declare({'level': 'repo-local', 'name': 'local', 'path': 'local'})
+        r = gate()
+        cases.append(('the reply gate names a practice from a NON-universal '
+                      'source', 'fixture-local-reply' in r.stdout, r.stderr[:120]))
+        cases.append(("...and still names the repo's own", 
+                      'fixture-universal-reply' in r.stdout, r.stdout[:120]))
+        cases.append(('a non-universal practice is labelled with its level, so '
+                      'a session can see which source binds it',
+                      'repo-local' in r.stdout))
+
+        # the control: the same command, one source fewer
+        declare()
+        r2 = gate()
+        cases.append(('the negative control: with the second source undeclared '
+                      'the same command no longer names its practice',
+                      'fixture-local-reply' not in r2.stdout
+                      and 'fixture-universal-reply' in r2.stdout))
+
+        # --- the BLOCKING half, against the same fixture ---
+        bad = tmp / 'bad.md'
+        bad.write_text('Some work.\n\n**What you need to do:** merge it.\n', encoding='utf-8')
+        good = tmp / 'good.md'
+        good.write_text('Some work.\n\n## Next Steps\n\n- **Merge it**\n\n'
+                        'You can close this session.\n', encoding='utf-8')
+
+        def replycheck(text):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(text)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        # No source declares a reply_check.json yet: the engine must have NO
+        # opinion of its own about how a reply ends. A universal engine that
+        # shipped one person's closing convention would bind every adopter to
+        # it (practice: rule-level-by-reach).
+        declare({'level': 'repo-local', 'name': 'local', 'path': 'local'})
+        r3 = replycheck(bad)
+        cases.append(('with no reply_check.json declared, a reply breaking every '
+                      'rule is NOT blocked -- the engine ships the mechanism, not '
+                      'the requirement', r3.returncode == 0, r3.stderr[:160]))
+
+        (fx / 'local' / 'reply_check.json').write_text(json.dumps({
+            'practice': 'fixture-local-reply',
+            'require_heading_matching': 'next step',
+            'require_one_of': ['You can close this session',
+                               "Don't close this session"],
+        }), encoding='utf-8')
+
+        r4 = replycheck(bad)
+        # control-asserts-which-failure: a non-zero exit is not evidence. The
+        # message has to name WHICH requirement the reply missed.
+        cases.append(('a declared requirement blocks a reply that misses it',
+                      r4.returncode == 2, f'exit {r4.returncode}'))
+        cases.append(('...and names the missing HEADING specifically',
+                      'MARKDOWN HEADING' in r4.stderr, r4.stderr[:160]))
+        cases.append(('...and names the missing closing sentence specifically',
+                      'close this session' in r4.stderr, r4.stderr[:160]))
+        cases.append(('...and names the practice that required it',
+                      'fixture-local-reply' in r4.stderr, r4.stderr[:160]))
+
+        r5 = replycheck(good)
+        cases.append(('a reply that meets the requirement is not blocked',
+                      r5.returncode == 0, r5.stderr[:160]))
+
+        # A blocking gate may never refuse a reply that FOLLOWED the rule, so
+        # the apostrophe the terminal renders and the one a person types have
+        # to be the same sentence to it.
+        curly = tmp / 'curly.md'
+        curly.write_text('Work.\n\n## Next steps\n\n- **x**\n\n'
+                         'Don\u2019t close this session until you answer.\n', encoding='utf-8')
+        r6 = replycheck(curly)
+        cases.append(('a curly apostrophe is the same sentence as a typed one',
+                      r6.returncode == 0, r6.stderr[:160]))
+
+        # A turn with no prose (tool use only) has no closing line to check.
+        empty = tmp / 'empty.md'
+        empty.write_text('', encoding='utf-8')
+        cases.append(('an empty reply is not blocked', replycheck(empty).returncode == 0))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the reply gate serves every source and its declared requirements '
+          f'block ({len(cases)} stated cases, each with its control)',
+          not bad_cases,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
 def check_loader_tools_are_repo_relocatable():
@@ -18359,6 +18547,7 @@ def main():
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
     check_gate_channel()
+    check_reply_gate_sees_every_source()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
