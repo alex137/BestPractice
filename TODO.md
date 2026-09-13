@@ -4683,13 +4683,23 @@ which is the failure this repointing exists to end — write
     title, id or link. That is
     [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md),
     landed the day before, and the spawning session could not have read it:
-    the individual set's generated occasion index is **empty**, so `spawn-session`
-    and `handoff-is-pasteable` were absent too. **Prose not reaching a source
+    the individual set's generated occasion index carries its own 14 entries
+    and **none of universal's 94**, so `spawn-session` and
+    `handoff-is-pasteable` were absent too. **Prose not reaching a source
     set is not only a duplication wart; it is universal rules silently not
     binding the sessions that do the most cross-repository work.**
     `spawn-session`'s own miss is fixed in this repository, so a session
     reading it here now reaches the header rule; a session rooted in a source
     set still will not.
+
+    **Costed 2026-09-13**, on Morgan's approval of this session's
+    recommendation (`assented`), in
+    [spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md): three
+    shapes, measured, recommending the untracked
+    `.precedent/SESSION_PRACTICES.md` route inverted — the whole delta is two
+    already-written engine files added to the source vendoring list, one
+    generalized constant, and a path expansion. **Nothing is approved to
+    build.**
 
     **Blocked on / out of scope:** raised 2026-09-13 while correcting the
     "unaddressed" claim above; nothing here is a defect to fix, and the
@@ -4728,18 +4738,18 @@ which is the failure this repointing exists to end — write
     scoped to, under a different owner, each with its own merge rules.
     **Disposition:** wait
 
-80. <a id="session-load-under-20k"></a>**The always-loaded total is 21,847
-    tokens against Morgan's hard target of 20,000, and closing the last 1,847
+80. <a id="session-load-under-20k"></a>**The always-loaded total is 21,786
+    tokens against Morgan's hard target of 20,000, and closing the last 1,786
     is a taste call about the gotchas section.** Measured 2026-09-13 with
     [tools/build_views.py](tools/build_views.py)'s own `_approx_tokens`, the
     counter [tools/session_load_budgets.json](tools/session_load_budgets.json)
-    is written in: [AGENTS.md](AGENTS.md) 18,929, `.precedent/SESSION_PRACTICES.md`
+    is written in: [AGENTS.md](AGENTS.md) 18,868, `.precedent/SESSION_PRACTICES.md`
     2,863, [CLAUDE.md](CLAUDE.md) 55. The verified-duplicate pass that got it
-    from 22,904 to 21,847 is done and merged; what is left has no duplicate to
+    from 22,904 to 21,786 is done and merged; what is left has no duplicate to
     remove.
 
-    **Where the 18,929 sits:** gotchas 8,963 (36 entries), occasion index
-    3,116 (generated — cutting it breaks routing), quick index 2,862, preamble
+    **Where the 18,868 sits:** gotchas 8,858 (36 entries), occasion index
+    3,116 (generated — cutting it breaks routing), quick index 2,906, preamble
     1,983, resident block 894, standing instruction 322, working-in-this-repo
     429, conventions 171.
 
@@ -4758,11 +4768,11 @@ which is the failure this repointing exists to end — write
 
     | Keep in AGENTS.md | Section costs | Saves | Total load after |
     |---|---|---|---|
-    | Bolded lead only, bodies moved in full to a linked record | 1,211 | 7,752 | 14,095 |
-    | Lead + 1 sentence | 2,593 | 6,370 | 15,477 |
-    | Lead + 2 sentences | 3,872 | 5,091 | 16,756 |
-    | Lead + 3 sentences | 5,242 | 3,721 | 18,126 |
-    | Nothing — raise the target instead | 8,963 | 0 | 21,847 |
+    | Bolded lead only, bodies moved in full to a linked record | 1,202 | 7,656 | 14,130 |
+    | Lead + 1 sentence | 2,584 | 6,274 | 15,512 |
+    | Lead + 2 sentences | 3,834 | 5,024 | 16,762 |
+    | Lead + 3 sentences | 5,201 | 3,657 | 18,129 |
+    | Nothing — raise the target instead | 8,858 | 0 | 21,786 |
 
     **What is lost, said plainly.** The bolded lead states the symptom; the
     body carries the story, which

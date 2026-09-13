@@ -135,8 +135,9 @@ that nothing draws the eye to the gap.
 
 **Two causes, and the bigger one is not this practice's to fix.** A session
 rooted in a practice-SOURCE set resolves no universal catalogue: that set's
-generated occasion index is empty, so this rule, `spawn-session` and
-`handoff-is-pasteable` were none of them in front of the session that spawned.
+generated occasion index carries its own practices and not one of universal's,
+so this rule, `spawn-session` and `handoff-is-pasteable` were none of them in
+front of the session that spawned.
 That is the observed cost of
 [TODO.md's `universal-prose-does-not-reach-a-source-set`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md#universal-prose-does-not-reach-a-source-set),
 which had until then been argued from a hand-copied practice rather than from
