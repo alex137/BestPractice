@@ -1392,6 +1392,19 @@ session into every repository it touches.
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
 | `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |
 
+**Give your environments distinct names, and set a throwaway
+`PRECEDENT_PING=1` beside the token.** Verified 2026-09-08: an account can hold
+two environments with the SAME NAME — the selector gives you no way to tell
+them apart — and three sessions across two fresh containers reported
+`env | grep -c PRECEDENT` as **0**, with not one user-defined variable of any
+kind. That reads exactly like "the runner does not pass variables through",
+and was not that: `list_environments` showed two environments both named
+`Default`, created 100 ms apart, with the variables set on one and the sessions
+running in the other. The ping separates "the variables do not arrive" from
+"the token is wrong", which print identically otherwise. An environment change
+never reaches a session already running, so test in a NEW one. Full sequence:
+[record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) entry 29.
+
 ### Optional, and Each One an Escape Hatch
 
 | Setting | Where | Effect |
