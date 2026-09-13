@@ -21,7 +21,12 @@ approved_by: "Morgan, 2026-09-13 -- \"it's good if it's universal BUT the practi
   asserting his authorization which he does not recall giving (\"I don't remember if I
   did\"), so the rule stands on the 2026-09-13 answer and not on that instruction.
   Pairing model choice with the compaction point in one practice was a session's
-  judgment either way."
+  judgment either way. AMENDED 2026-09-13, later the same day: Morgan asked
+  whether the rule should also recommend compacting at a token size, and
+  approved the narrower clause this session proposed in answer -- which boundary
+  to speak at when room is running out, no threshold -- \"sure, these are good
+  changes\" (strength: assented; the question is his, the clause is the
+  session's)."
 strength:    assented
 source_practice_number: null
 ---
@@ -49,6 +54,17 @@ session cannot see, and a session that compacts on its own initiative has
 discarded something it was not asked to discard. **Offer the moment, never take
 it.**
 
+**How full the context is decides WHICH boundary you say it at, never whether
+the offer is yours to act on.** Boundaries are not evenly spaced — a long
+session passes several, and everything above makes each of them worth naming.
+Far from the limit, name whichever comes naturally. Close to it, say so at the
+next boundary rather than letting it go by for a tidier one, and say that it is
+close: the person is deciding against a number they cannot see, and the
+alternative to their choosing is the harness compacting at the limit,
+mid-investigation, keeping whatever it guesses matters. Where the work in front
+of you is long enough that no boundary is coming, make the offer anyway and say
+what would have to be written down first for the compact to be cheap.
+
 **The one principle under both: what is expensive is re-deriving, not
 length.** A long context that already holds the answer is cheap to continue;
 a short one that has to rebuild the answer is not. Both defaults — the
@@ -61,6 +77,15 @@ is visible and task structure is not. Watching the context fill up gives a
 number to react to; asking *"is the thing I am about to do independent of how
 I got here?"* gives no number at all. The number is the one that does not
 correlate with cost.
+
+**The clause above is not that threshold coming back in**, because the trigger
+has not moved: a boundary is still the only thing that produces the offer, and
+size never produces one by itself. What size decides is which boundary is worth
+interrupting for, and how plainly to say that room is running out. The case
+that separates the two is a session most of the way full and mid-investigation
+— under a threshold it compacts there, or nags to; under this rule it says
+nothing and keeps working, which is the right answer and the one a threshold
+gets wrong.
 
 **A fresh session is the largest re-read there is**, which puts this beside
 [spawn-session](spawn-session.md) rather than under it: that rule governs
@@ -105,6 +130,13 @@ per-session cost was reported in single-digit US dollars; that figure is
 relayed here rather than measured, and nothing in this repository can check
 it ([no-invented-specifics](no-invented-specifics.md) — the range is
 attributed rather than asserted).
+
+**The clause about which boundary to name came from the question the rule
+invites**, 2026-09-13: if a threshold is wrong, what happens to a session that
+runs out of room before its next boundary? Nothing answered that, and the
+answer that survives the objection above is not a threshold — it is which
+boundary you speak at, once several are available. No incident behind it; a
+gap found by reading the rule rather than by paying for it.
 
 **What makes the three-session case the useful example** is that none of the
 three did anything wrong. Each was created for a reasonable-looking piece of
