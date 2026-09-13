@@ -57,6 +57,36 @@ assume a session has:
   `--verify` names the absent key directly. Its remedy is not a file edit
   you can make alone — **ask the person whose set it is and write their
   answer in** ([practices/declared-pronouns.md](../practices/declared-pronouns.md)).
+- **Installs the session hooks, including the one that makes the person's
+  own practices resolve here** — `freshness-guard.sh` and
+  `commit-identity.sh` from
+  [`templates/harness/claude-code/hooks/`](../templates/harness/claude-code/hooks/),
+  and since 2026-09-13
+  [`individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
+  as the set's own `.claude/hooks/precedent-individual-bootstrap.sh`, wired
+  **first** in `SessionStart` because `commit-identity.sh` reads the
+  individual set for the author and the timezone. **A practice set is a
+  repository somebody works in**, and until that date a session rooted in
+  one resolved no individual practice source at all — nothing there ever
+  wrote `~/.config/precedent/config.json`, so every personal rule was
+  silently absent while the session applied the ones it could see. The hook
+  that writes it existed and could not be installed:
+  [`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py),
+  which it execs, was in `CONSUMER_ENGINE_FILES` only, and hand-copying an
+  engine file in is correctly refused (`UNTRACKED ENGINE FILE`). It bakes in
+  no account — the set is derived from `$PRECEDENT_SOURCE_BASE_URL`, with
+  `~/.config/precedent/config.json` read ahead of that — and it clones to
+  `$HOME/precedent-individual` **even in `precedent-individual` itself**,
+  deliberately: pointing the config at the checkout in place would hand
+  `precedent_source_bootstrap.py` the session's own working tree, whose
+  branch pin puts a clean clone back on `main` before pulling. A second
+  checkout keeps the resolved source and the tree being edited apart, and it
+  is the path `PRECEDENT_FRESHNESS_ALSO` already names.
+  **The wiring half does not reach a set that already exists**: an existing
+  `.claude/settings.json` is never rewritten, so
+  [`tools/precedent_refresh_sources.py`](../tools/precedent_refresh_sources.py)
+  reports the hook as unwired at every session start and a person adds the
+  one command.
 - **Installs the generated-views drift gate** —
   [`templates/github-actions/views-drift.yml.template`](../templates/github-actions/views-drift.yml.template)
   as the new set's `.github/workflows/views-drift.yml`, new 2026-09-11. A set
@@ -109,8 +139,10 @@ consumer — it has no `process/upstream/` tree and no use for
 [`precedent_resolve.py`](../tools/precedent_resolve.py)/
 [`precedent_sync_views.py`](../tools/precedent_sync_views.py), which only
 a consumer resolving universal+team+individual+repo-local sources together
-needs. What it needs is just enough to run its own
-`AGENTS.md` loader block: the five files
+needs. What it needs is enough to run its own
+`AGENTS.md` loader block — **and, since 2026-09-13, enough to resolve the
+person's own individual source, because a practice set is a repository
+somebody works in like any other**: the files
 [`tools/precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s
 own docstring names as `ENGINE_FILES`, plus a routing-vocabulary fixture
 (`routing_scope.json`, trimmed to the closed gate vocabulary
@@ -301,7 +333,7 @@ case documented above.
    already-bootstrapped set" meant force-overwriting the set to get a hook,
    and BestPractice itself therefore had none.) This instantiates
    [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
-   into the *consuming* project's `.claude/hooks/precedent-individual-bootstrap.sh`,
+   into that project's `.claude/hooks/precedent-individual-bootstrap.sh`,
    delegating to
    [`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py) —
    see that file's own module docstring, and
@@ -319,6 +351,23 @@ case documented above.
    `tools/precedent_resolve.py`'s own lazy self-heal re-invoking this same
    hook later, from inside the agent's own turn, after that instruction has
    already run.
+   **Where the environment carries `PRECEDENT_GIT_TOKEN` and
+   `PRECEDENT_SOURCE_BASE_URL` ([INSTALL.md §8](../INSTALL.md)), none of that
+   ordering applies**: git has the credential before the first turn, so the
+   hook's own single attempt succeeds at `SessionStart` and no `add_repo`
+   is involved. That is the durable route; the `add_repo` dance is the
+   per-session fallback (practice: `durable-fix`).
+   **A PRACTICE SET is one of the projects this is written into**, since
+   2026-09-13 — `bootstrap()` calls it for every new set with no
+   `--repo-url` at all, so the set derives its account from
+   `$PRECEDENT_SOURCE_BASE_URL` and names nobody in a tracked file. This
+   document said "*not* the individual set's own repo" until then; the
+   exclusion was a dependency (the hook execs an engine file a set could not
+   vendor) described as a decision, and it cost every session rooted in a
+   set its individual practices. A set has no second route to this hook the
+   way a consumer does — `precedent_resolve.py`'s lazy self-heal is
+   `CONSUMER_ENGINE_FILES`-only — so in a set the `SessionStart` wiring is
+   the only thing that ever runs it.
 5c. **If the project already carries someone else's hook, do not add a
    second one — set `PRECEDENT_INDIVIDUAL_REPO` to your own set's URL.**
    The hook is committed to a *shared* project, but an individual set

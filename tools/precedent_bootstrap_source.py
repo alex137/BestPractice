@@ -149,7 +149,31 @@ HARNESS_HOOKS = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
 # because _copy_skeleton() writes text files with default permissions,
 # while a hook that is not executable is a hook that silently never runs.
 SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh')
+# The third hook a set gets, kept out of SESSION_HOOKS because it is the one
+# that is NOT a verbatim copy: it is instantiated from a .template with two
+# placeholders substituted, which is write_session_hook()'s job below.
+#
+# WHY A PRACTICE SET GETS IT AT ALL (added 2026-09-13). A set is a repository
+# somebody works in, and a session rooted in one resolved NO individual
+# practice source -- every session, in all four real sets -- because nothing
+# there ever wrote ~/.config/precedent/config.json. The hook that writes it
+# already existed and had two separate reasons it could not be installed
+# here: it execs tools/precedent_source_bootstrap.py, which was
+# CONSUMER_ENGINE_FILES-only until the same day (a hand-copy is correctly
+# refused by precedent_vendor_engine.py's UNTRACKED ENGINE FILE check), and
+# write_session_hook() documented itself as writing into a consuming project
+# and not into a set.
+#
+# A CONSUMER has a second route to the same hook and a set does not, which
+# is why the wiring below matters more here: precedent_resolve.py's lazy
+# self-heal execs this hook by path, and precedent_resolve.py is
+# CONSUMER_ENGINE_FILES-only. In a set, SessionStart is the only thing that
+# ever runs it.
+INDIVIDUAL_SOURCE_HOOK = 'precedent-individual-bootstrap.sh'
+ALL_SESSION_HOOKS = SESSION_HOOKS + (INDIVIDUAL_SOURCE_HOOK,)
 HARNESS_HOOKS_REL = 'templates/harness/claude-code/hooks/'
+INDIVIDUAL_SOURCE_HOOK_REL = (HARNESS_HOOKS_REL
+                              + 'individual-source-bootstrap.sh.template')
 # Named separately rather than derived as HARNESS_HOOKS_REL + '../settings.json':
 # a path a person has to mentally normalise before they can go open it is a
 # worse instruction than the path itself (practice: label-describes-content).
@@ -216,15 +240,26 @@ def _install_workflows(dest):
 
 
 def _install_session_hooks(dest, base_branch='main'):
-    """Give a new source the two hooks that keep its own sessions honest:
-    freshness-guard.sh (never work on, or write to, a stale checkout) and
+    """Give a new source the three hooks that keep its own sessions honest:
+    freshness-guard.sh (never work on, or write to, a stale checkout),
     commit-identity.sh (commits are authored by the person running the
-    session, not the container's own bot account).
+    session, not the container's own bot account), and
+    precedent-individual-bootstrap.sh (the person's own individual practice
+    set resolves here, instead of silently binding nothing -- see
+    INDIVIDUAL_SOURCE_HOOK above for the measurement and the two reasons it
+    could not be installed before 2026-09-13).
 
-    Neither hook names a person. commit-identity.sh resolves whoever is
+    No hook names a person, and the individual-source one bakes in no
+    account either: it is called with no --repo-url, so it derives the set
+    from $PRECEDENT_SOURCE_BASE_URL and reads
+    ~/.config/precedent/config.json ahead of that. A set may be private and
+    the hook is still tracked, so the same reasoning that keeps the account
+    out of a public consumer's tree applies unchanged
+    (practice: affordance-is-shared). commit-identity.sh resolves whoever is
     actually running the session -- see its own header for the order it
     tries, and why the timezone is the only thing it is ever willing to
-    guess at.
+    guess at. It reads the individual set, which is why the bootstrap hook
+    is wired AHEAD of it below rather than after.
 
     WHERE A CHANGE TO THE WIRING BELOW DOES AND DOES NOT REACH. The hook
     FILES are rewritten on every call, so a set this runs against picks up
@@ -242,6 +277,12 @@ def _install_session_hooks(dest, base_branch='main'):
                        encoding='utf-8')
         out.chmod(0o755)
         written.append(out)
+    # force=True for the same reason the loop above rewrites unconditionally:
+    # a set this is re-run against picks up the current hook. The refusal
+    # write_session_hook() defends by default is about a CONSUMING project's
+    # hand-tuned copy, which is not what this call is writing.
+    written.append(write_session_hook(dest, 'precedent-individual', None,
+                                      force=True))
 
     settings = dest / '.claude' / 'settings.json'
     if not settings.exists():
@@ -269,10 +310,19 @@ def _install_session_hooks(dest, base_branch='main'):
                 "No env identity is set here: a source repo may have more than one",
                 "person committing to it, and commit-identity.sh resolves each of them",
                 "at session start instead of anybody being named in a tracked file.",
+                "",
+                "precedent-individual-bootstrap.sh runs FIRST, ahead of the other two:",
+                "it is what makes the person's own individual practice set resolve in",
+                "THIS repo, and commit-identity.sh reads that set for the author and the",
+                "timezone. It names no account -- it derives the set from",
+                "PRECEDENT_SOURCE_BASE_URL, and reads ~/.config/precedent/config.json",
+                "ahead of that. Without a credential it prints why and exits 0.",
             ],
             'hooks': {
                 'SessionStart': [{
                     'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/' + INDIVIDUAL_SOURCE_HOOK},
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh session-start ' + base_branch},
                         {'type': 'command',
@@ -382,6 +432,31 @@ def verify(level, path):
         missing.append(f"{pathlib.Path('.claude') / 'hooks' / name} "
                        f"(from {HARNESS_HOOKS_REL}, and unwired: no command "
                        f"in .claude/settings.json points at a copy of it)")
+
+    # The individual-source hook is checked on its own, and on a stricter
+    # test than the two above: PRESENT IS NOT ENOUGH, it has to be WIRED.
+    # In a consuming repo a hook sitting unwired at the canonical path still
+    # runs, because precedent_resolve.py's lazy self-heal execs it by path;
+    # a set vendors no precedent_resolve.py, so SessionStart is the only
+    # thing that ever runs it there and an unwired copy is inert.
+    #
+    # Every set created before 2026-09-13 has neither the file nor the
+    # wiring, and this tool cannot reach them -- same position as the
+    # workflows below. The report is what closes that.
+    hook_wired = any(w.name == INDIVIDUAL_SOURCE_HOOK and (path / w).exists()
+                     for w in wired)
+    if not hook_wired:
+        here = pathlib.Path('.claude') / 'hooks' / INDIVIDUAL_SOURCE_HOOK
+        have = (path / here).exists()
+        missing.append(
+            f"{here} "
+            + ("is present but NOT WIRED in .claude/settings.json"
+               if have else f"(from {INDIVIDUAL_SOURCE_HOOK_REL})")
+            + " -- without it a session rooted in this set resolves no "
+              "individual practice source at all, silently, and every "
+              "personal rule in force is absent while the session applies "
+              "the ones it can see")
+
     # Like the hooks, the workflows are not in either skeleton -- they come
     # from templates/github-actions/, one copy, shared with dependent repos.
     # A set bootstrapped before 2026-09-11 has none of them.
@@ -755,9 +830,33 @@ SESSION_HOOK_DEST_REL = pathlib.Path('.claude') / 'hooks' / 'precedent-individua
 def write_session_hook(consuming_project, name, repo_url, force=False):
     """Instantiate the canonical SessionStart hook
     (templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
-    into a CONSUMING project -- not the individual set's own repo -- at
+    into any repository somebody works in, at
     .claude/hooks/precedent-individual-bootstrap.sh, so an ephemeral session
     there can resolve this person's individual set with zero manual steps.
+
+    A PRACTICE SET IS SUCH A REPOSITORY, and this said otherwise until
+    2026-09-13: "into a CONSUMING project -- not the individual set's own
+    repo". That exclusion is withdrawn, and _install_session_hooks() now
+    calls this for every new set. It was never argued for -- the hook execs
+    tools/precedent_source_bootstrap.py, which a set was not allowed to
+    vendor, so the exclusion described a dependency rather than a decision.
+    With that fixed the exclusion costs a real thing: a session rooted in
+    precedent-individual or any precedent-team-* had no individual practices
+    in force, and nothing said so.
+
+    WHAT THE SET'S OWN REPO GETS, AND WHY IT IS A SECOND CHECKOUT. The hook
+    clones to $HOME/precedent-individual and points the config there --
+    including when the repo it is installed in IS precedent-individual. That
+    is deliberate, not a rough edge. Pointing the config at the checkout in
+    place would hand precedent_source_bootstrap.py the session's own working
+    tree, and its branch pin (SOURCE_BRANCH_DEFAULT, written after a source
+    was read off the wrong branch) puts a clean clone back on `main` before
+    pulling -- so a session working on a feature branch in its own set would
+    find itself moved to main at the next sync, which is the silent
+    branch-switch this repo's own gotchas already cost a session's work to.
+    The second checkout keeps the resolved source and the tree being edited
+    apart, and it is the path PRECEDENT_FRESHNESS_ALSO already names, so the
+    freshness guard covers the set for the first time.
     See tools/precedent_source_bootstrap.py's module docstring for why this
     hook retries rather than cloning once, and INSTALL.md step 9's
     individual-source branch for where this fits in the install
