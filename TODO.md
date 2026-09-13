@@ -4176,13 +4176,21 @@ which is the failure this repointing exists to end — write
     itself, and that decision is the answer above.
 
     He had asked to be reminded in about three days, and a Routine was set to
-    fire on 2026-09-15 and open a session on this item. **That Routine is now
-    pointless and nothing here can cancel it** — it lives in the scheduler, not
-    in this repository. **Both halves of the move are done as of 2026-09-13**
-    — step 1 here, step 2 in the individual set, per
-    [TODO.md's `leak-gate-is-background-dedup` item](TODO.md#leak-gate-is-background-dedup)
-    — so a session the Routine opens should read this item, find nothing left
-    to do, and stop.
+    fire on 2026-09-15 and open a session on this item. **It was deleted on
+    2026-09-13, once the decision made it pointless**, and the Routine list came
+    back empty afterwards.
+
+    **A session first wrote here that nothing in this repository could cancel
+    it.** That was wrong, and wrong in the way
+    [verify-decomposition](practices/verify-decomposition.md) already forbids —
+    *never encode an impossibility as an assertion until you have varied the
+    inputs that would relieve it*. A Routine is not repository state, which is
+    true and was the whole of the reasoning; what went unchecked is that the
+    session had tools addressing the scheduler directly, and one call listed the
+    Routine. **The rule existed and covered it**, so nothing new was written
+    ([mistakes-become-rules](practices/mistakes-become-rules.md)'s
+    proportionality guard). Recorded here because the shape recurs: a limit on
+    what a *repository* can reach, stated as a limit on what the session can do.
 
 74. <a id="leak-gate-is-background-dedup"></a>~~**Deduplicate
     `leak-gate-is-background` in the individual set, now that it is in force at
