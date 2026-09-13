@@ -4279,6 +4279,26 @@ which is the failure this repointing exists to end — write
     a status test would have to agree with rather than duplicate; and every
     consuming repo's check run changes shape the day it lands.
 
+    **A second, independent instance, 2026-09-13**, which is the first evidence
+    that this can make a verification read backwards rather than merely print a
+    confusing message. An individual set's `practice-links-travel` was passing
+    before that set's engine refresh, and it looked like `binds_publishers`
+    already working. It was not: the set carries
+    `practices/practice-links-travel.md` at `status: deduplicated` (withdrawn
+    2026-09-11), and the leftover file alone was switching the check on. Two
+    team sets with no such file reported `1 skipped` for the same check on the
+    same engine — the control that separates the two explanations.
+
+    **What that costs is a verification technique, not just a message.** A
+    session confirming that a practice has been withdrawn from a set cannot use
+    "its check still runs" as evidence of anything, in either direction:
+    deduplicating the local copy and watching the check stay green proves
+    nothing, because file presence alone produces that result. The decisive
+    test is removing the file outright, which is how the flag was confirmed to
+    genuinely carry the rule. Worth writing into whatever this decision becomes:
+    **"the check ran" does not imply "the practice is in force"**, and the two
+    are currently documented as the same thing.
+
     **Blocked on / out of scope:** this is a decision about the engine's own
     behaviour, not a defect to fix, and the session that found it deliberately
     changed nothing. Alex and Morgan own it.
@@ -4431,12 +4451,29 @@ which is the failure this repointing exists to end — write
   **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md))
 
 
-- <a id="roll-binds-publishers-out-to-the-source-sets"></a>**Roll `binds_publishers`
+- <a id="roll-binds-publishers-out-to-the-source-sets"></a>~~**Roll `binds_publishers`
   out to the four practice sets — it finds a real broken link in one of them the
-  moment it arrives.** The engine change landed here 2026-09-12 (PR #261), and a
-  source set only gets it by refreshing its vendored engine. Until each does,
-  the three flagged checks go on skipping in exactly the repositories that
+  moment it arrives.**~~ **Done (2026-09-13)**, and the prediction below held
+  exactly. The engine change landed here 2026-09-12 (PR #261), and a
+  source set only gets it by refreshing its vendored engine. Until each did,
+  the three flagged checks went on skipping in exactly the repositories that
   publish practices.
+
+  **What the rollout reported.** Three sets refreshed their vendored engine to
+  a commit carrying the flag and merged; the fourth was already on a later
+  engine and needed no change. Each of the three went from more skips to more
+  checks actually running, with **0 violations** in all three — the measured
+  prediction in the table below, held. The `blocked-on` paragraph resolved the
+  way it predicted: sessions rooted under that owner did the work, since
+  `add_repo` refuses cross-owner.
+
+  **This closure rests on a report, not on a check run from here, and that is
+  the honest limit of it.** Those four repositories are private and
+  cross-owner, so no session rooted in this repo can read their merged state
+  to confirm it — including this one, which did not try
+  ([no-invented-specifics](practices/no-invented-specifics.md)). Anyone who
+  can reach them and wants the closure verified rather than reported should
+  check the four merges directly.
 
   **Measured 2026-09-12**, by copying this repo's `precedent_check.py` into a
   throwaway copy of each set and running it — so this is what the refresh will
@@ -4445,21 +4482,27 @@ which is the failure this repointing exists to end — write
   | Set | Result |
   |---|---|
   | `precedent-team-repo-maintenance` | 0 violations |
-  | `precedent-team-writing` | **1 violation** |
+  | `precedent-team-writing` | **1 violation** — fixed before the rollout, see below |
   | `precedent-team-working-style` | 0 violations |
   | `precedent-individual` | 0 violations |
 
-  **The live one, and it is the exact bug class the flag exists to catch:**
-  `practices/deliverables-carry-no-process.md:26` in `precedent-team-writing`
-  links `file-header.md`, which does not travel with the practice file — live in
-  that set and dead in every repository that receives its catalogue. Either
+  **The live one, and it is the exact bug class the flag exists to catch
+  — since repaired.** `practices/deliverables-carry-no-process.md:26` in
+  `precedent-team-writing` linked `file-header.md`, which does not travel with
+  the practice file — live in that set and dead in every repository that
+  received its catalogue. It was found and fixed in that set's own pull
+  request *before* the 2026-09-13 rollout, which is why that set needed no
+  engine change on the day: it was already on a later engine. The repair is
+  reported, not verified from here, for the same cross-owner reason as above. Either
   repair the rule itself names works: drop the link markup and keep the
   backticked path, or make it an absolute URL on that set's own base branch.
   **Prefer dropping the markup** — the set is private, and an absolute URL into
   it ships into every consumer, which `private-repo-scrub` exists to stop.
 
-  **Two workarounds become removable once a set refreshes**, and both should go
-  rather than sit as dead machinery: `precedent-team-repo-maintenance` carries
+  **Two workarounds became removable once a set refreshed**, and both were
+  retired in `precedent-team-repo-maintenance` in a separate commit from the
+  engine refresh, as this item asked — reported, not verified from here. They
+  were: `precedent-team-repo-maintenance` carries
   `.github/workflows/practice-links-travel.yml`, written to call the check
   directly precisely because the engine skipped it, and a re-declared
   same-slug copy of `catalogue-carries-stories` that exists only to defeat the
@@ -4468,16 +4511,15 @@ which is the failure this repointing exists to end — write
   it either way. Its own header says a workflow per rule does not scale, so
   retiring it is the point rather than a tidy-up.
 
-  **Blocked on / out of scope:** every one of these is a change in a repository
-  this session cannot push to. Measured rather than assumed —
-  `git push --dry-run` from the clone on disk returns *"access denied by the
-  git proxy: ... not in this session's authorized repository set"* and HTTP 403,
-  and `add_repo` refuses cross-owner. The route is a session rooted under that
-  owner, per [`attach-private-sources`](TODO.md#attach-private-sources).
-  **Disposition:** ask (2026-09-12, this session) — one set is shipping a broken
-  link into every consumer today, and the person who can fix it is the one who
-  can reach the repository
-  ([open-item-disposition](practices/open-item-disposition.md)).
+  **Blocked on / out of scope (resolved):** every one of these was a change in
+  a repository the filing session could not push to. Measured rather than
+  assumed — `git push --dry-run` from the clone on disk returned *"access
+  denied by the git proxy: ... not in this session's authorized repository
+  set"* and HTTP 403, and `add_repo` refuses cross-owner. The route named here
+  is the route that worked: sessions rooted under that owner, per
+  [`attach-private-sources`](TODO.md#attach-private-sources). The item carries
+  no disposition because it is no longer an open item — the broken link is
+  repaired and all four sets carry the flag.
 
 76. <a id="reply-check-rollout"></a>**Roll the blocking reply check out to the
     sources that want one, and land the individual set's half.** Built
