@@ -579,6 +579,37 @@ the resident block, the occasion index and the path channel; a gate fires at a
 moment a commit does not record. No recall figure is attributable to this
 channel, and none is claimed.
 
+## `checked_by` — What The Script It Names Must Do
+
+The field takes a path to a script (`tools/checks/check_x.py`) or `null`.
+What the format never said, and a session went looking for on 2026-09-13
+before concluding nothing documented it, is **what that script owes its
+caller**. It does — in
+[tools/precedent_check.py](../tools/precedent_check.py)'s `_external_checks`
+docstring, which is the code that runs it and therefore the authority. It is
+restated here because this is where somebody writing one looks first:
+
+| Exit | Means | Reported as |
+|---|---|---|
+| `0`, printing nothing | clean | PASS |
+| `1`, printing the finding | violated | VIOLATION |
+| `2` | **could not run** | SKIPPED, never PASS |
+| anything else | the script's own bug | ERROR — neither pass nor violation |
+
+Plus: **no arguments**, and **`ROOT` derived from the script's own location**
+(`<repo>/tools/checks/check_x.py` → `<repo>`), so it audits the repo it was
+materialized *into* rather than the source that published it.
+
+**Exit 2 is the one worth being deliberate about.** A script with nothing to
+check — no files in scope, a config the repo has not declared — must exit 2
+and say why, not exit 0. Exit 0 on an empty input set is the single failure
+this whole module is built against: a scan that checked nothing, reporting
+OK. Real sets do both today, and the inconsistency has a cost beyond
+tidiness: a plain `for f in check_*.py; do ...; done` loop reads that 2 as a
+failure, which cost a session time on 2026-09-13 confirming a pre-existing
+skip was not something it had broken. If you wrap these scripts in a loop of
+your own, treat 2 as "skipped", not "failed".
+
 ## `index_clause`
 
 Not in the plan's frontmatter example, and load-bearing anyway: the occasion
