@@ -14,13 +14,16 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-12"
-approved_by: "UNVERIFIED. Landed 2026-09-12 by a session acting on a scheduled
-  instruction that asserted Morgan had authorized it; that instruction was created
-  through the same tool a session uses and cannot be traced to him. Asked directly on
-  2026-09-13 he answered \"I don't remember if I did\", so nobody can say whether the
-  promotion to universal was ever approved. He has NOT rejected the rule -- his one
-  substantive objection was to the old name, fixed by this rename."
-strength:    null
+approved_by: "Morgan, 2026-09-13 -- \"yes, go merge, let's keep base branch is
+  universal.\" Reached after he twice challenged the rule's NAME (\"if the branch is the
+  record, when I delete merged branches, does that delete the record?\") and the answer
+  was demonstrated rather than asserted -- a merged branch deleted in a throwaway repo,
+  and one of this repo's own branches already auto-deleted on merge with its work still
+  on the base branch. He chose the level in his own words after that, which is why this
+  reads `decided` and not `assented`. Its ORIGINAL landing, 2026-09-12, rested on a
+  scheduled instruction asserting his authorization that he does not recall giving
+  (\"I don't remember if I did\"); the rule stands on the 2026-09-13 answer instead."
+strength:    decided
 source_practice_number: null
 ---
 ## Rule
