@@ -122,6 +122,28 @@ existing session, which his wording would not have caught. The rule therefore
 covers both, since the mechanism and the failure are identical and only the
 delivery differs.
 
+**It was missed the next day, 2026-09-13, in the first spawn after it
+landed.** A session rooted in a private individual practice source found a
+defect it could not push to the upstream repository, and spawned one there
+whose prompt opened: *"You are rooted in `<upstream repo>` on branch
+`<branch>`. <Person> (<address>) asked for this work on 2026-09-13, from a
+session rooted in `<the individual source>` that found the defect but could
+not push here."* It names the sending **repository** and no session title, id or link,
+so the one thing Morgan asked for -- being able to see for himself what
+happened -- is exactly what is absent, and the sentence reads complete enough
+that nothing draws the eye to the gap.
+
+**Two causes, and the bigger one is not this practice's to fix.** A session
+rooted in a practice-SOURCE set resolves no universal catalogue: that set's
+generated occasion index is empty, so this rule, `spawn-session` and
+`handoff-is-pasteable` were none of them in front of the session that spawned.
+That is the observed cost of
+[TODO.md's `universal-prose-does-not-reach-a-source-set`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md#universal-prose-does-not-reach-a-source-set),
+which had until then been argued from a hand-copied practice rather than from
+a miss. The smaller cause is fixed here: `spawn-session` told a session what
+the seeded prompt contains and never pointed at this rule, so even a session
+reading it from this repository would have written the same prompt.
+
 **The widening and the universal level were both this session's calls, put to
 him and assented to rather than asked for** -- *"I assent to your
 recommendations"*, 2026-09-12. The behaviour he asked for himself; where the

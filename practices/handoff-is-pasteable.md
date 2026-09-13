@@ -32,7 +32,9 @@ paste block is the fallback for when no such tool exists** — and falling
 back is said out loud, never done silently.
 
 When work has to happen in a session other than this one, the reply hands
-over **three things, always, in this order**:
+over **three things, always, in this order** -- and a *seeded* prompt carries
+[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)'s header
+above all three, because nobody typed it:
 
 1. **Which repository to open the session in**, by name. Not "the other
    repo", not "your practice set" — the name the person types or clicks.
