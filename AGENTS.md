@@ -432,7 +432,7 @@ When setting up a new repo's session start:
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
 When starting work another session may already have done, or opening a pull request:
-  branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
+  base-branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:

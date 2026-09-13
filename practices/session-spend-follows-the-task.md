@@ -14,12 +14,15 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-12"
-approved_by: "Morgan, 2026-09-12, relayed through a scheduled instruction to land five
-  fleet rules at universal -- \"facts about the platform and about running Claude
-  sessions at all\", which \"do not vary by team or by person\". The placement is his;
-  pairing the model choice with the compaction point in one practice was the session's
-  judgment, named as a judgement call in that same instruction."
-strength:    decided
+approved_by: "Morgan, 2026-09-13 -- \"it's good if it's universal BUT the practice
+  should recommend to the user to recommend at those points, not compact by itself\".
+  Universal is confirmed by him directly; the compact clause is rewritten to that
+  correction. Its ORIGINAL landing, 2026-09-12, rested on a scheduled instruction
+  asserting his authorization which he does not recall giving (\"I don't remember if I
+  did\"), so the rule stands on the 2026-09-13 answer and not on that instruction.
+  Pairing model choice with the compaction point in one practice was a session's
+  judgment either way."
+strength:    assented
 source_practice_number: null
 ---
 ## Rule
@@ -32,11 +35,19 @@ is true"* do not need the largest model available; judgment and writing do.
 The work that is mostly retrieval and comparison is the work that runs fine
 smaller, and it is also the bulk of what gets spawned.
 
-**Compact at a task boundary, not at a size.** The moment to compact is when
-a deliverable has landed and the next thing is independent of how it was
+**Say when a compact is cheap; do not decide it.** The moment worth naming is
+when a deliverable has landed and the next thing is independent of how it was
 reached — there, the summary carries the conclusion and nothing is lost.
-Compacting in the middle of an investigation costs a re-read of everything
-the investigation had established.
+Compacting in the middle of an investigation costs a re-read of everything the
+investigation had established.
+
+**Whose call it is: the person's, always.** A session that reaches a boundary
+says so in one line — *"this is a cheap point to compact if you want to"* — and
+then carries on without it. The context is the person's working memory of the
+thread as much as the session's, they may want the detail kept for reasons the
+session cannot see, and a session that compacts on its own initiative has
+discarded something it was not asked to discard. **Offer the moment, never take
+it.**
 
 **The one principle under both: what is expensive is re-deriving, not
 length.** A long context that already holds the answer is cheap to continue;
@@ -62,6 +73,11 @@ compact mid-investigation" — both are paying twice to learn the same thing.
 step earlier again: it caps what *every* session pays before its first turn.
 The three are the same economy at three moments — what loading costs, what
 starting a session costs, and what re-deriving inside one costs.
+
+**The two halves differ in who decides.** Model choice is settled when a
+session is created, by whoever creates it, and a session creating another one
+makes that call itself. Compacting happens inside a running conversation the
+person is reading, so it is theirs. Same economy, different owner.
 
 **Model choice is a floor, not a ceiling.** The rule is against reaching for
 the largest model by reflex; it is not a case for running judgment work
