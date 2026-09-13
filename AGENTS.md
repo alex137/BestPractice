@@ -33,7 +33,8 @@ practice file — `python3 tools/precedent_show.py SLUG` for any of them.
 
 - **"Go merge"** ([go-merge](practices/go-merge.md)) — sync, say which branch
   out loud, commit, push, open the pull request, merge, **without asking
-  again.**
+  again.** A step this session cannot perform hands off rather than coming
+  back as a question: the authorization travels with the work.
 - **"Park it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted

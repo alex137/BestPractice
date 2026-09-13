@@ -4728,19 +4728,19 @@ which is the failure this repointing exists to end — write
     scoped to, under a different owner, each with its own merge rules.
     **Disposition:** wait
 
-80. <a id="session-load-under-20k"></a>**The always-loaded total is 21,818
-    tokens against Morgan's hard target of 20,000, and closing the last 1,818
+80. <a id="session-load-under-20k"></a>**The always-loaded total is 21,847
+    tokens against Morgan's hard target of 20,000, and closing the last 1,847
     is a taste call about the gotchas section.** Measured 2026-09-13 with
     [tools/build_views.py](tools/build_views.py)'s own `_approx_tokens`, the
     counter [tools/session_load_budgets.json](tools/session_load_budgets.json)
-    is written in: [AGENTS.md](AGENTS.md) 18,900, `.precedent/SESSION_PRACTICES.md`
+    is written in: [AGENTS.md](AGENTS.md) 18,929, `.precedent/SESSION_PRACTICES.md`
     2,863, [CLAUDE.md](CLAUDE.md) 55. The verified-duplicate pass that got it
-    from 22,904 to 21,818 is done and merged; what is left has no duplicate to
+    from 22,904 to 21,847 is done and merged; what is left has no duplicate to
     remove.
 
-    **Where the 18,900 sits:** gotchas 8,963 (36 entries), occasion index
-    3,114 (generated — cutting it breaks routing), quick index 2,862, preamble
-    1,956, resident block 894, standing instruction 322, working-in-this-repo
+    **Where the 18,929 sits:** gotchas 8,963 (36 entries), occasion index
+    3,116 (generated — cutting it breaks routing), quick index 2,862, preamble
+    1,983, resident block 894, standing instruction 322, working-in-this-repo
     429, conventions 171.
 
     **Why the gotchas were not cut here.**
@@ -4758,11 +4758,11 @@ which is the failure this repointing exists to end — write
 
     | Keep in AGENTS.md | Section costs | Saves | Total load after |
     |---|---|---|---|
-    | Bolded lead only, bodies moved in full to a linked record | 1,211 | 7,752 | 14,066 |
-    | Lead + 1 sentence | 2,593 | 6,370 | 15,448 |
-    | Lead + 2 sentences | 3,872 | 5,091 | 16,727 |
-    | Lead + 3 sentences | 5,242 | 3,721 | 18,097 |
-    | Nothing — raise the target instead | 8,963 | 0 | 21,818 |
+    | Bolded lead only, bodies moved in full to a linked record | 1,211 | 7,752 | 14,095 |
+    | Lead + 1 sentence | 2,593 | 6,370 | 15,477 |
+    | Lead + 2 sentences | 3,872 | 5,091 | 16,756 |
+    | Lead + 3 sentences | 5,242 | 3,721 | 18,126 |
+    | Nothing — raise the target instead | 8,963 | 0 | 21,847 |
 
     **What is lost, said plainly.** The bolded lead states the symptom; the
     body carries the story, which
