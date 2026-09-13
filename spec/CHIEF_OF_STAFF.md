@@ -1,0 +1,206 @@
+---
+title:         "Chief of Staff: one session that routes the fleet"
+kind:          proposal
+status:        drafted
+opened:        2026-09-13
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       A standing session that reads every other session, says what is blocked and what collides, and spawns work rather than doing it — proposed, with the tagging convention it needs and the platform limits measured.
+---
+# Chief of Staff: one session that routes the fleet
+
+**Nothing here is built.** This is a design written up for a decision, on
+Morgan's ask of 2026-09-13, after the platform capability it rests on was
+measured rather than assumed. The measurements are dated; the design is not
+approved.
+
+## The problem it addresses
+
+Work is spread across many open sessions, and **no session can see any other
+one from the inside.** The costs are three, and only the first is obvious:
+
+1. **Duplication.** Two sessions take the same subject and produce two
+   divergent results, which is worse than producing it twice.
+2. **Silent blocking.** A session finishes, writes *"needs: approve and merge
+   this pull request"*, and then nothing happens, because the person has no
+   reason to reopen that particular tab.
+3. **Unattended spend.** A session with 630,000 tokens of its million-token
+   context consumed is a compaction candidate nobody inside it will raise.
+
+`dont-race-another-window` — the rule in Morgan's own practice set — already
+says *decline work another window is doing*. It has never had the information it needs to fire. **Chief
+of Staff is that information.**
+
+## What the platform actually gives us
+
+Measured 2026-09-13 from a session in this repository, not read from
+documentation.
+
+### What a session can already see
+
+`list_sessions` returns, for every session on the account: title, running or
+idle, a **status bucket** (`WORKING` / `BLOCKED` / `REVIEW_READY` /
+`COMPLETED`), the checked-out branch, the repositories the session was rooted
+in, tags, context tokens used against the limit, dollars spent, the parent
+session that spawned it, and a **`post_turn_summary`** the sessions are
+already writing — with `status_detail` and, crucially, a **`needs_action`**
+field naming what the person owes it.
+
+That is a dashboard with nothing left to build. The 25 most recent sessions
+on the account, at the moment of measurement, were **3 working, 4 blocked on
+a decision, 4 sitting at review-ready, 14 completed** — and the four blocked
+ones had their asks already written out: merge these three pull requests,
+decide bootstrap-hook versus environment provisioning, delete a merged
+branch, settle whether four repositories share one continuous-integration
+workflow.
+
+### What it can do
+
+`create_session` (rooted in a named repository, seeded with a prompt, tagged
+at creation), `send_message` into an existing session, `set_session_tags` to
+retag sessions after the fact, `interrupt_session`, `archive_session`, and
+`create_trigger` to wake a named session on a schedule.
+
+### What it cannot do, and this shapes the design
+
+- **Messaging is one-way.** A message goes into a session; the session cannot
+  answer back to the sender. So Chief of Staff is a **dispatcher, not a
+  conversation hub** — it reads state through `post_turn_summary`, which
+  every session updates on every turn, and that is the whole return channel.
+- **The tag filter is refused in-session.** `list_sessions` accepts a `tags`
+  argument, and calling it from a session returns
+  `tags filter is not currently available`. Tags are therefore **read and
+  filtered by Chief of Staff itself**, over the full listing. This costs
+  nothing at the current fleet size and would need revisiting at hundreds.
+- **The listing is paged and partial.** It returned 25 with more behind a
+  cursor. A status sweep must page, or say it only read the most recent page.
+
+## The command
+
+**"Chief of Staff"**, said in any session, means: *stop, and route this.*
+The session answers with the fleet's state and what it recommends, and does
+not start the work itself.
+
+Said in the Chief of Staff session it is a status request. Said anywhere
+else it is a redirect — *this belongs in Chief of Staff, here is the link* —
+which is the same shape as
+[spawn-session](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/spawn-session.md)'s
+honest "this session is the right one" answer.
+
+The phrase is Morgan's, proposed 2026-09-13: *"Maybe the phrase is just
+'Chief of Staff'."* It would join
+[go-merge](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/go-merge.md),
+[park-it](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/park-it.md),
+[three-things](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/three-things.md),
+[plain-words](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/plain-words.md),
+[weak-yes](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/weak-yes.md),
+[spawn-session](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/spawn-session.md)
+and [my-options](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/my-options.md)
+in the universal command vocabulary.
+
+## Every session it names is a clickable link
+
+**This is a hard requirement, not a nicety.** A status report that names a
+session by title or by identifier has moved the routing chore back onto the
+person — the exact complaint that produced `handoff-only-when-blocked` in Morgan's own
+practice set.
+The point of a report is that the next action is one click away, in the
+window that can actually take it.
+
+The form is `https://claude.ai/code/<session id>`, the same address the
+`Claude-Session` trailer already writes into every commit. So:
+
+```markdown
+- [Roll the refreshed engine out](https://claude.ai/code/session_XXXX) —
+  **blocked on you:** approve the body edit, then merge three pull requests.
+```
+
+Never a bare identifier, never a title with the link somewhere else, and
+**never a summary that mentions a session without linking it** — including in
+passing, including when the same session was linked three lines above.
+
+## The tagging convention
+
+### How tags work, since they are not a Git thing
+
+A tag is **a free-form string on the session record itself**, held by the
+Claude Code session service — not in the repository, not in a file, not
+related to Git tags. Nothing is committed and nothing appears in a diff.
+
+Three facts worth having (verified 2026-09-13):
+
+- Tags are set **when a session is created**, and edited afterwards on any
+  session by identifier. A session can retag sessions it did not create.
+- The harness sets some itself: every session on the account currently
+  carries `config:auto-create-pr:off`, which is configuration riding in the
+  same field.
+- They come back on every `list_sessions` row. **Whether the claude.ai
+  interface displays or filters on them is not verified here** — the
+  measurement was made through the session tools, not the web interface.
+
+So a tag today is **machine-readable furniture for Chief of Staff**, and any
+benefit in the interface is a bonus rather than the reason.
+
+### The recommended namespaces
+
+Every tag is `namespace:value`, matching the shape the harness already uses.
+Four namespaces, and a session carries as many as apply:
+
+| Namespace | Value | What it answers |
+|---|---|---|
+| `subject:` | a practice slug, an open-item anchor, a pull-request number | **What is this about?** The collision detector — two live sessions sharing a `subject:` is the signal Chief of Staff exists to catch. |
+| `repo:` | the short repository name | **Where can it write?** Cross-owner attachment is refused, so this decides what may be routed where before the work starts. |
+| `role:` | `cos`, `worker`, `watch` | **What kind of session is this?** Exactly one carries `role:cos`. |
+| `wants:` | `merge`, `decision`, `review`, `nothing` | **What does it need from Morgan?** A coarser, more reliable companion to the free-text `needs_action`. |
+
+**`subject:` is the one that earns its keep**, and it is the one that must be
+applied at creation rather than retrofitted: a collision is only worth
+catching before both sessions have run.
+
+Ad-hoc single-word tags already in use (`item-74`, `todo-closeout`, a practice
+slug on its own) are the same idea without the namespace, and would be
+retagged as `subject:` values rather than thrown away.
+
+## What Chief of Staff does not do
+
+**It does not do the work.** It holds no branch, opens no pull request, and
+edits nothing outside its own notes. The moment it starts fixing things it is
+another window with a stale view of the same repository, and it has become
+the problem it was created for.
+
+It also **does not merge anything on Morgan's behalf.** A merge
+authorization is his to give in the session that holds the work
+([go-merge](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/go-merge.md)),
+and routing him to the right window to say it is the whole job.
+
+One asymmetry is deliberate: **only Chief of Staff spawns sessions.** A tree
+where any session may spawn any other is how the current fleet got a
+five-deep parent chain nobody can read. Making spawning a single session's
+privilege is what keeps the tag namespaces honest, since one session applies
+them.
+
+## Open questions
+
+1. **Does Chief of Staff live in one repository or above them all?** It must
+   name repositories it cannot attach to — cross-owner attachment is refused
+   — so it is a reader of the fleet more than of any tree. Rooting it here is
+   the obvious default and may be wrong.
+2. **How does it learn about idle sessions?** Nothing wakes it. Either
+   Morgan says the phrase, or it holds a scheduled self-check-in, which costs
+   tokens on every firing whether or not anything changed.
+3. **What happens to the sessions already open?** Retagging the live fleet by
+   hand is a one-off cost, and skipping it means the collision detector is
+   blind to exactly the sessions most likely to collide.
+4. **Is `Chief of Staff` the phrase?** It is longer than the other commands
+   and it names a role rather than an action, which is either the point or
+   the objection.
+
+## What landing it would take
+
+Not done, and in this order: a universal practice file defining the command;
+the tag namespaces written down where a spawning session reads them; the
+link-every-session rule, which is the part most likely to be quietly dropped;
+and the Chief of Staff session itself, created with `role:cos` and seeded
+with a prompt naming what it may not do.

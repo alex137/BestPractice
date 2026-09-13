@@ -4220,6 +4220,27 @@ which is the failure this repointing exists to end — write
     rooted in that set does it in one commit.
     **Disposition:** wait
 
+75. <a id="chief-of-staff-session"></a>**Decide whether to build the Chief of
+    Staff session.** Proposal drafted 2026-09-13 at
+    [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md): one standing session that
+    reads the whole fleet through `list_sessions`, reports what is blocked and
+    what collides, spawns work rather than doing it, and links every session it
+    names so the next action is one click away. The platform capability is
+    measured, not assumed — the status buckets, the `needs_action` field and the
+    one-way messaging limit are all recorded there with the date.
+
+    **What a decision unblocks, in order:** a universal practice defining the
+    command; the `subject:`/`repo:`/`role:`/`wants:` tag namespaces written
+    where a spawning session reads them; and the session itself. The tag
+    convention is the half that decays if it waits — a `subject:` tag is only
+    useful applied at creation, so every session opened before the decision is
+    invisible to the collision check unless somebody retags it by hand.
+
+    **Blocked on / out of scope:** Morgan asked for the proposal and explicitly
+    held implementation. Four open questions in the document are his to settle,
+    the phrase itself among them.
+    **Disposition:** wait
+
 - <a id="morgan-prose-name"></a>~~**What to call Morgan in prose, when it is
   not what git records.**~~ **Answered 2026-09-12, by him: the name in
   that quotation was a dictation artifact, there is no second name, and
