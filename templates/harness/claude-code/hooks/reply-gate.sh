@@ -14,6 +14,12 @@
 # closest moment that is still BEFORE the reply, and its stdout does reach
 # the session.
 #
+# IT ALSO CARRIES THE HARD REQUIREMENTS (2026-09-13). The blocking half of
+# the reply gate reads each source's reply_check.json; the same file is
+# printed here, verbatim, because a Stop hook fires after the reply has
+# already been shown to the person -- so a refusal costs them the reply
+# twice. The requirement has to arrive before the reply, not after it.
+#
 # BRIEF, not the full Rules, and that is a budget decision rather than a
 # taste one: the reply gate's full text is thousands of tokens and this
 # fires on every single prompt (practice: session-load-budget). One line per

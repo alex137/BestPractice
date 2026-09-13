@@ -337,6 +337,15 @@ ENGINE_FILES = [
     # design without precedent_resolve.py -- which a source set does not get
     # -- reading that repo's own practices/ and saying so.
     'precedent_vocabulary.py',
+    # The reply gate's BLOCKING half. Left out when it landed 2026-09-13,
+    # which had two costs the same day: the stop-hook check never reached a
+    # consuming repo at all (its hook guards on the file existing, so it
+    # skipped silently), and precedent_gate.py -- which DOES travel -- began
+    # importing it hours later to print the declared requirements before the
+    # reply. A vendored repo then printed "could not be read (No module
+    # named 'precedent_reply_check')" on every single turn. Reproduced in a
+    # stripped vendor tree before this line was added.
+    'precedent_reply_check.py',
     'precedent_vendor_engine.py',
 ]
 
