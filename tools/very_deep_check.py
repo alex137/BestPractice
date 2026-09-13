@@ -161,6 +161,9 @@ Run:
   python3 tools/very_deep_check.py --skip-session-sweep
       -- skip that sweep entirely.
   python3 tools/very_deep_check.py --skip-liveness
+  python3 tools/very_deep_check.py --landable-only  # only repos this
+                                  # session can push to; findings in the seam
+                                  # with a dropped source go unreachable
       -- skip the one-API-call-per-repo check that each repo in force still
       exists and is not archived. For an offline run.
   python3 tools/very_deep_check.py --freshen
@@ -3163,6 +3166,100 @@ def _repos_in_force(repo_root, sources=(), missing=(), base_url=None):
     return rows
 
 
+def can_land_here(repo_dir):
+    """-> (verdict, detail). Can THIS session put work into this repo?
+
+    verdict is 'land', 'handoff' or 'unknown'.
+
+    A DIFFERENT QUESTION from the liveness audit below, and the difference is
+    the whole point. That one asks whether the REPOSITORY accepts work -- is
+    it archived, disabled, renamed. This asks whether this SESSION can put
+    work into it, which is a fact about the credentials in this container and
+    not about the repository at all. A repo can be perfectly live, writable by
+    its owner, and unreachable from here.
+
+    MEASURED, not inferred, because a guess here is the expensive kind.
+    `git push --dry-run` to a ref name nothing uses asks the server and
+    changes nothing: the server answers before any object is written, so a
+    'land' verdict is a real permission answer and a 403 is quotable. The
+    alternative -- reasoning from the owner in the URL -- is exactly the
+    inference spawn-session says to stop making
+    (https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/spawn-session.md).
+
+    WHY THE CHECK NEEDS THIS AT ALL. On 2026-09-13 a very deep check read 200
+    practice files across six sources; 89 of them were in four repos this
+    session got 403 on, and nothing in the output said so. Every finding in
+    those 89 files was a finding the reading session could not act on without
+    a handoff it would only discover at the moment of trying to fix it -- the
+    cost paid after the reading, the reasoning and the context, which is the
+    failure spawn-session already names. Morgan, that day: "There's no point
+    in including in the very deep check a repo that you don't have access to
+    suggest changes to nor to make changes to."
+
+    NOT USED TO DROP A REPO FROM SCOPE, deliberately. A finding is as likely
+    to sit in the seam between two repos as inside one, and a set's practice
+    contradicting universal's is a finding about BOTH -- dropping the set
+    loses it. And a repo this session cannot push to is not unactionable, only
+    more expensive: it needs a woken session, which is a route that works.
+    So the verdict LABELS the repo and groups the findings; --landable-only
+    is there for the person who wants the narrow run, and is never the default.
+    """
+    if not repo_dir or not pathlib.Path(repo_dir).is_dir():
+        return 'unknown', 'no local clone to probe'
+    probe = 'refs/heads/precedent-access-probe-do-not-use'
+    # _run_git(repo_dir, *args) -- the repo is the FIRST positional and it
+    # inserts `-C` itself; passing '-C' again puts it in the arg list where
+    # git reads it as a refspec.
+    code, stdout, stderr = _run_git(repo_dir, 'push', '--dry-run',
+                                    '--porcelain', 'origin', f'HEAD:{probe}')
+    out = f'{stdout}\n{stderr}'.strip()
+    if code == 0:
+        return 'land', 'push --dry-run accepted'
+    low = out.lower()
+    if ('403' in low or 'permission' in low or 'denied' in low
+            or 'read-only' in low or 'not authorized' in low):
+        first = next((l.strip() for l in out.splitlines() if l.strip()),
+                     'no message')
+        return 'handoff', first[:160]
+    # Could not reach the server, or something else entirely. NOT 'handoff':
+    # reporting a network blip as "you have no access here" sends somebody to
+    # spawn a session they did not need (practice: fail-gracefully).
+    first = next((l.strip() for l in out.splitlines() if l.strip()),
+                 'git said nothing')
+    return 'unknown', first[:160]
+
+
+def access_audit(repo_root, sources=(), out=None):
+    """-> (rows, notes). One probe per repo in force, printed as a table.
+
+    Prints rather than fails: this is scope information for the session about
+    to read, not a gate.
+    """
+    out = out if out is not None else sys.stdout
+    rows, notes = [], []
+    targets = [('this checkout', repo_root)]
+    for s in sources or ():
+        targets.append((f"{s['level']} source {s['name']!r}", s['path']))
+    print('\nACCESS -- can THIS session land work in each repo in force', file=out)
+    for label, path in targets:
+        verdict, detail = can_land_here(path)
+        rows.append((label, path, verdict, detail))
+        mark = {'land': 'LAND    ', 'handoff': 'HANDOFF ',
+                'unknown': 'UNKNOWN '}[verdict]
+        print(f'  {mark} {label} ({path})'
+              + ('' if verdict == 'land' else f' -- {detail}'), file=out)
+    n_handoff = sum(1 for r in rows if r[2] == 'handoff')
+    n_unknown = sum(1 for r in rows if r[2] == 'unknown')
+    if n_handoff or n_unknown:
+        notes.append(
+            f'{n_handoff} repo(s) need a handoff and {n_unknown} could not be '
+            f'probed. A finding in one of those does not end in a commit from '
+            f'this session -- it ends in a woken session '
+            f'(practice: spawn-session). Group them that way when you report.')
+        print('  ' + notes[-1], file=out)
+    return rows, notes
+
+
 def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
                          out=None):
     """-> (findings, notes). One API call per repo in force."""
@@ -3746,6 +3843,10 @@ def _main(box):
     skip_branch_scan = '--skip-branch-scan' in args
     skip_visibility = '--skip-visibility' in args
     skip_liveness = '--skip-liveness' in args
+    # Narrow the read to repos this session can actually land work in. NOT the
+    # default: see can_land_here()'s docstring for why a repo needing a
+    # handoff is still worth reading.
+    landable_only = '--landable-only' in args
     skip_endgame = '--skip-endgame-merge' in args
     skip_base_drift = '--skip-base-drift' in args
     skip_session_sweep = '--skip-session-sweep' in args
@@ -3899,6 +4000,21 @@ def _main(box):
             print(f'  FINDING: {f}')
         for n in _ln:
             print(f'  note: {n}')
+        print()
+        # WHETHER THIS SESSION CAN LAND WORK IN EACH ONE, which the audit
+        # above does not answer: it asks whether the REPOSITORY accepts work,
+        # and this asks whether these credentials do. Printed right after it,
+        # before any reading, for the same reason -- knowing a finding will
+        # need a handoff is worth more before the read than after.
+        _ar, _an = access_audit(repo_root, data['sources'])
+        if landable_only:
+            _drop = {r[1] for r in _ar if r[2] != 'land'}
+            if _drop:
+                data['sources'] = [s for s in data['sources']
+                                   if s['path'] not in _drop]
+                print(f'  --landable-only: {len(_drop)} repo(s) dropped from '
+                      f'scope. Findings in the seam between a dropped source '
+                      f'and one still in scope are NOT reachable this run.')
         print()
         if led:
             led.end(findings=len(_lf))

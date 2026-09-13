@@ -3934,11 +3934,29 @@ def check_session_practices_load_without_publishing():
                         {'level': 'team', 'name': 'precedent-team-repo-maintenance',
                          'path': str(tmp / 'no-such-dir')}]}), encoding='utf-8')
         _extra, _levels, notes2 = psp.collect(str(repo))
+        # notes are (kind, text) since 2026-09-13 -- the tag is what keeps a
+        # DEFERRED source out of the "did not resolve" heading, so assert the
+        # tag as well as the name. `in n` on a bare tuple tests membership of
+        # an element, not substring, so the old form silently stopped
+        # asserting anything the moment the tag landed.
         cases.append(('an unresolved source is NAMED in the output -- "unreachable" '
                       'and "that source has no rules" must not look the same',
-                      any('precedent-team-repo-maintenance' in n for n in notes2)))
+                      any('precedent-team-repo-maintenance' in txt
+                          for _k, txt in notes2)))
+        cases.append(('...and it is TAGGED unresolved, so it renders under the '
+                      'failure heading rather than the deferral one',
+                      any(k == 'unresolved'
+                          and 'precedent-team-repo-maintenance' in txt
+                          for k, txt in notes2)))
+        _rendered = psp.render(_extra, _levels, notes2)
         cases.append(('...and the file still renders rather than failing',
-                      'did not resolve' in psp.render(_extra, _levels, notes2)))
+                      'did not resolve' in _rendered))
+        cases.append(('a DEFERRED source is not filed under "did not resolve" '
+                      '-- both kinds shared one heading until 2026-09-13, so a '
+                      'set was told its working sources had failed',
+                      'Why these are here rather than in the tracked block'
+                      in psp.render(_extra, _levels,
+                                    [('deferred', 'precedent deferred to it')])))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
