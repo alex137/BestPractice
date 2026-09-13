@@ -92,6 +92,19 @@ the loader.
      read access to that sibling repo — step 4 below covers this gap and
      its fix together with the individual source's identical one; don't
      stop at declaring the path here and assume access follows.
+
+     **If no team repo exists yet, create one here rather than defaulting
+     everything to repo-local.** `tools/precedent_bootstrap_source.py
+     --level team` builds it from the skeleton
+     ([BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)), and
+     [source-naming](../practices/source-naming.md) fixes the name by
+     level before anybody picks one — say the convention out loud first,
+     because a source repository that has to be renamed later redirects
+     silently and git never notices. **A repo may declare as many team
+     sets as it needs** (one individual set per person, however many teams
+     they are on — [spec/SOURCES.md](SOURCES.md)), so a rule shared with
+     one group and a rule shared with another do not have to be flattened
+     into a single set.
    - **Never** a `level: "individual"` entry — `tools/precedent_resolve.py`
      refuses this by name, with the privacy reason in the message, and for
      good reason: naming a person's individual set in a repo anyone else on
@@ -111,7 +124,57 @@ the loader.
      ends up with the *same* name for its own local practices, `local/`,
      rather than each one picking its own.
 
-4. **Wire the individual source's own bootstrap, if the person has one and
+4. **Wire the person, not only the repo — an individual source, a
+   declared identity, and a commit author that is a human being.** A
+   migrating repo differs from a fresh one in the way that matters here:
+   **people have already been committing to it**, so the identity machinery
+   arrives after the history it grades rather than before it. Do all four
+   parts; none of them is implied by the others.
+
+   **4a. Does the person have an individual set at all?** A migration is
+   the first moment anyone asks. If they do not, create one now —
+   [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md) is the procedure,
+   `tools/precedent_bootstrap_source.py --level individual` the tool. If
+   they decline, say plainly what that costs: their personal practices are
+   silently absent from every session, and the identity below has to come
+   from the environment instead.
+
+   **4b. Fill in `identity.json`.** The set ships it with placeholders — `name`, `email`, `pronouns`,
+   `timezone` — and `precedent_bootstrap_source.py --verify <the set's
+   path>` names each one still unfilled and exits non-zero. **The
+   timezone is the half people skip**, and skipping it does not fail
+   loudly — the hook only *enforces* an author-date offset somebody
+   declared, so an unfilled zone silently downgrades the check to a guess
+   and wrong-offset commits reach the remote before anyone notices. Use an
+   Internet Assigned Numbers Authority (IANA) zone name
+   (`America/New_York`), never a bare offset.
+
+   **4c. Wire `commit-identity.sh` into the migrating repo**, per
+   [INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)'s hook
+   table, which says **always** and explains why the install that declined
+   it was wrong to. It names no person: it resolves whoever is running the
+   session and then refuses commits authored by the assistant's bot
+   account. Verify by effect rather than by reading the config you just
+   wrote —
+   `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
+   must name a person and the declared offset.
+
+   **4d. Then look at the history that predates all of this, once.** If the
+   person's individual set carries a commit-author check, it scans commits
+   already in the repo, and a migrating repo may well hold some authored by
+   a bot or under a wrong offset. **An unpushed commit gets fixed, not
+   listed.** For commits already published, rewriting history costs more
+   than the wrong value does
+   ([no-rewrite-for-warnings](../practices/no-rewrite-for-warnings.md)),
+   so exempt them: each one an entry in `identity.json`'s
+   `grandfathered_commit_shas`, with a `sha` and a **note saying why**. Do
+   this deliberately at migration time and the list stays short and
+   explicable; leave it and every later session meets a check that has
+   never once been green, which is the state people learn to ignore.
+
+   Then, the harness wiring the rest of this step is about:
+
+   **Wire the individual source's own bootstrap, if the person has one and
    the harness needs it.** For a Claude Code Web session specifically, this
    is [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](../templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template) —
    instantiate it with
