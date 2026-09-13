@@ -24,7 +24,9 @@ approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same m
   the ordering himself and approved the three changes that carry it: the index clause,
   the deferral, and the mechanism. Amended again 2026-09-13, Morgan -- a spawned
   session carries the merge authorization: \"If I ask for that spawned session, I'd
-  want it merged.\" Amended 2026-09-13 again, on a duplicate spawn reported from an
+  want it merged.\" Clarified 2026-09-13, Morgan -- \"if session spawn is explicitly
+  asked with a go merge, then the go merge should be brought into the new session,
+  too\" Amended 2026-09-13 again, on a duplicate spawn reported from an
   individual set that had just closed the same gap in its own catalogue -- the
   enumeration is the session's judgement, the level follows rule-level-by-reach, and
   neither was put to him."
@@ -124,6 +126,16 @@ to go find. So the prompt you seed ends with an explicit `Go merge` for the
 work it describes, naming who authorized it and when, and quoting them if
 you have their words ([seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
 governs that header either way).
+
+**`Spawn session` and `Go merge` in the same message is the unambiguous
+case, and the phrase travels.** When the person says both -- or `Approved`,
+which is the same command ([go-merge](go-merge.md)) -- the authorization they
+just gave is for the work, and the work is about to move to a session they
+are not typing in. So it moves with it: the seeded prompt carries the
+`Go merge` verbatim, quoted and attributed, and the spawned session merges
+without coming back to ask. **Leaving it behind is the failure** -- it strands
+an authorization in the window where the work no longer is, and hands them
+back a decision they made in the same breath as asking for the session.
 
 **Three bounds on it, and they are what make it safe to relay.** The
 authorization covers **the seeded work only** -- not whatever the spawned
@@ -348,6 +360,16 @@ rate limit already warning. **The waste is not the duplicate's own spend --
 it is the read-in a blocked session had already paid for and a new one pays
 again**, which is the same argument the wake-first clause above was always
 making, left to the session's discretion until it wasn't.
+
+**The two-phrase case was clarified 2026-09-13, on Morgan's instruction**, a
+few hours after the clause above landed: *"if session spawn is explicitly
+asked with a go merge, then the go merge should be brought into the new
+session, too."* The general clause already implied it, and implying it was
+not enough -- the reading it has to beat is that `Go merge` applies to
+whatever this session is holding, and the spawned work is by definition not
+that. Said in one message with the spawn, the authorization is plainly about
+the work being spawned for, so it travels rather than expiring in the window
+where the work has just left.
 
 **Prior art, and deliberately not copied:** the individual set
 `themorgan/precedent-individual` closed the same gap in its own catalogue
