@@ -132,6 +132,14 @@ expected, and ends with the line to paste back here when it is done. One
 session per destination repository, keyed by the repository's name — never
 by an ordinal.
 
+**And it opens by naming THIS session —
+[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md): the
+sending session's title and id, a link to it, and that software rather than a
+person wrote the message.** Naming the sending *repository* is not this, and
+is what a session reaches for instead when the rule is not in front of it —
+*"from a session rooted in `<repo>`"* tells the reader nothing they can open.
+The id and the link are knowable: ask the harness for this session's own id.
+
 **Say what the new session will do before the link.** The person is
 authorizing it by clicking, and a link with no sentence attached asks them
 to authorize something they cannot see.

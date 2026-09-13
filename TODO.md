@@ -4670,6 +4670,22 @@ which is the failure this repointing exists to end — write
     set does not currently have. Neither is a small change, and nobody has
     established that the pain is worth either.
 
+    **First observed cost, same day, and it is a session's behaviour rather
+    than a hand copy.** A session rooted in `themorgan/precedent-individual`
+    spawned one into this repository and opened its seeded prompt *"You are
+    rooted in alex137/BestPractice ... from a session rooted in
+    themorgan/precedent-individual"* — the sending repository, with no session
+    title, id or link. That is
+    [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md),
+    landed the day before, and the spawning session could not have read it:
+    the individual set's generated occasion index is **empty**, so `spawn-session`
+    and `handoff-is-pasteable` were absent too. **Prose not reaching a source
+    set is not only a duplication wart; it is universal rules silently not
+    binding the sessions that do the most cross-repository work.**
+    `spawn-session`'s own miss is fixed in this repository, so a session
+    reading it here now reaches the header rule; a session rooted in a source
+    set still will not.
+
     **Blocked on / out of scope:** raised 2026-09-13 while correcting the
     "unaddressed" claim above; nothing here is a defect to fix, and the
     session that raised it changed no mechanism.
