@@ -61,7 +61,7 @@ INTERNAL_DIRS = (
 
 # A repository's root holds BOTH kinds, which is why directories alone cannot
 # settle this: README.md and SETUP.md are the first things an outsider reads,
-# while PRACTICES.md and PRACTICE_ENGINE_PLAN.md sit beside them and are pure
+# while PRACTICES.md sits beside them and is pure
 # internal machinery. Named individually, therefore. Three of these are also
 # GENERATED (AGENTS.md, MAP.md, GLOSSARY.md) — rewriting a heading in one
 # would be undone by the next tools/build_views.py run and fail its
@@ -84,8 +84,8 @@ INTERNAL_DIRS = (
 # is vendored, and it fails in the direction nobody checks -- upstream's own
 # gate stays green, because upstream does not have the file.
 INTERNAL_FILES = (
-    "AGENTS.md", "CLAUDE.md", "CHANGES_TO_TELL_ALEX.md", "GLOSSARY.md",
-    "MAP.md", "PRACTICES.md", "PRACTICE_ENGINE_PLAN.md", "TODO.md",
+    "AGENTS.md", "CLAUDE.md", "GLOSSARY.md",
+    "MAP.md", "PRACTICES.md", "TODO.md",
     "VOICE.md", "STYLEGUIDE.md",
 )
 

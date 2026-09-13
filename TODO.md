@@ -116,7 +116,7 @@ which is the failure this repointing exists to end — write
    plus whether Alex needs to hear about it:
    [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md).
 10. <a id="individual-practice-scoping"></a>**`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
-    in [PRACTICE_ENGINE_PLAN.md's Deferred section](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet),
+    in [PRACTICE_ENGINE_PLAN.md's Deferred section](spec/PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet),
     correctly not built yet. **No longer blocked** (noted 2026-09-06): the
     stated blocker was "a real second team's private set existing to test
     `for_team:`'s conflict rule against", and `precedent-team-tms` has
@@ -1182,7 +1182,7 @@ which is the failure this repointing exists to end — write
     question is filed at
     [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos)
     with a recommendation. Morgan, 2026-09-07, on
-    [documentation/WHAT_IS_THIS_AND_BENEFITS.md](documentation/WHAT_IS_THIS_AND_BENEFITS.md):
+    [documentation/WHY_PRECEDENT.md](documentation/WHY_PRECEDENT.md):
     "this page has a lot of headings and short lists, so that would make it too
     bold". He asked for the one-line lead-in under each `##` to carry no bold
     at all — done that day — and named the rule himself as **a suggestion,
@@ -1203,7 +1203,7 @@ which is the failure this repointing exists to end — write
     finding — a check here would re-flag the page Morgan just fixed.
 
     **Where it lives:** the TEAM set, `precedent-team-repo-maintenance`, at `tier:
-    resident` — [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
+    resident` — [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md)'s
     resolve run and [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md) both
     name it there alongside `nonblocking-questions` and `small-calls`. Being
     resident matters for the wording: it is carried in every session's context
@@ -3147,9 +3147,9 @@ which is the failure this repointing exists to end — write
      NONTECHNICAL PROJECTS/DOCUMENTS."* `NONTECHNICAL_TEAM_PRACTICE_CAPTURE`
      → [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md),
      `HOW_TO_USE_THIS_TECHNICAL` →
-     [documentation/HOW_TO_USE_THIS_DEVELOPERS.md](documentation/HOW_TO_USE_THIS_DEVELOPERS.md),
+     [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md),
      `HOW_TO_USE_THIS_NONTECHNICAL` →
-     [documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md](documentation/HOW_TO_USE_THIS_EVERYONE_ELSE.md).
+     [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md).
      [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)
      is correct as it stands — it names a contributor, who is a person, and
      the practice's own check exempts exactly that form.

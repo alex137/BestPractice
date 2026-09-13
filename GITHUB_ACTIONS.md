@@ -29,7 +29,7 @@ Three workflows run on this repo itself, in [.github/workflows/](.github/workflo
   layer on every push and every pull request, on every branch (this repo is
   the branch being published, not just its default). It is the unbypassable
   backstop for the private-source separation described in
-  [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "Source — Who a
+  [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md)'s "Source — Who a
   Practice Belongs To": a `git push --no-verify` can skip the local
   [pre-push hook](templates/hooks/pre-push), but not this. See
   [spec/SOURCES.md](spec/SOURCES.md) for what it checks and why it has two

@@ -11,7 +11,7 @@ summary:       What phase 2's loader built, how the resident set was curated, an
 ---
 # The Loader (Phase 2)
 
-What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "How an Agent
+What [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "How an Agent
 Knows Which Practices to Load" actually builds to, in this repo, and what
 phase 2 did and did not build. Read the plan section first; this is the
 implementation note, not a restatement.
@@ -683,7 +683,7 @@ Three changes from the v2 queue worth carrying into phase 4:
 
 ### Why this run happened at all, given the plan says not to
 
-[What Phase 2 Measured](../PRACTICE_ENGINE_PLAN.md#what-phase-2-measured) says
+[What Phase 2 Measured](PRACTICE_ENGINE_PLAN.md#what-phase-2-measured) says
 plainly: *"Do not re-run the eval before enforcement lands."* That instruction
 was written when the loader's inputs were fixed, and its reason was that a
 third run would only refine a direction already measured twice.

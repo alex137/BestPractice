@@ -11,7 +11,7 @@ summary:       Moving an existing, still-wanted practice from one level to anoth
 ---
 # Moving an existing practice between levels
 
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s Stage 3–5 describe
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Stage 3–5 describe
 how a **new** practice is created at a chosen level, and Stage 6 describes
 **removing** one that's stopped earning its place. Neither describes what to
 do with a practice that already exists, is still worth keeping, but belongs
@@ -33,7 +33,7 @@ audience). This is distinct from:
 - **Retiring** a practice outright (Stage 6) — nobody wants it anywhere
   anymore.
 - **Promoting a team practice to universal**, which
-  [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) and
+  [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) and
   [spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md) already name as "a
   designed path" — the pattern below is the general form of that same move,
   spelled out for the directions those documents don't cover (team ↔

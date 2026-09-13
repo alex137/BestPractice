@@ -91,7 +91,7 @@ here:
 
 - **A session cannot hold repositories from two owners with push access at
   once.** The two private sets belong to a different account than this one.
-- **The plan forbids it regardless** ([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md#risks)):
+- **The plan forbids it regardless** ([PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md#risks)):
   *"Nothing from an individual or team set may be staged on this branch at
   any point, even transiently."* Reading a private practice's content into a
   session that also holds this branch, even just to write its check, is the
@@ -235,5 +235,5 @@ same way it never saw the private set's practice content. If the *pattern*
 you land on turns out to be broadly useful — a shape of check other private
 sets would want, or a case for promoting the practice itself toward team or
 universal — that is a separate decision, made the normal way
-([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md#stage-4--approval-by-level)),
+([PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md#stage-4--approval-by-level)),
 not a side effect of writing this check.

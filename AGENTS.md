@@ -148,7 +148,7 @@ loop there was tried and proven inert — and
 in the turn only helps if the access exists by then.
 
 **This repo is becoming Precedent, a restructuring of BestPractice — read
-[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) first, in full, before
+[spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) first, in full, before
 touching anything else here.** It is the approved plan of record; its "For
 the Session Implementing This" section says how to work from it (phase by
 phase, in order — do not read the whole plan trying to hold it all in
@@ -467,16 +467,16 @@ that skips them in this repo of all places is the joke writing itself.
 
 | Looking for… | Go to |
 |---|---|
-| The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
+| The restructuring plan (read this first) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
 | Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces | [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — **drafted, not decided**; open item at [TODO.md's `chief-of-staff-session`](TODO.md#chief-of-staff-session) |
-| Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) |
+| Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | Why a practice file's references to `spec/`, `templates/` or a root document are full `https://github.com/...` URLs rather than relative links | [practices/practice-links-travel.md](practices/practice-links-travel.md) — the catalogue is copied into every adopting repo, and a relative link out of `practices/` dies there |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
 | The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
 | The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |
-| How many practice sets of each level a person or a repo can have — one individual set per person however many teams they are on, as many team sets as a repo declares | [spec/SOURCES.md](spec/SOURCES.md)'s "How many sources of each level" row, reasoning at [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md#one-individual-set-per-person-not-per-team) |
+| How many practice sets of each level a person or a repo can have — one individual set per person however many teams they are on, as many team sets as a repo declares | [spec/SOURCES.md](spec/SOURCES.md)'s "How many sources of each level" row, reasoning at [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md#one-individual-set-per-person-not-per-team) |
 | How a practice-set source is named — the convention, what refuses vs. warns, and what a session must say before anyone picks a name | [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md), rule at [practices/source-naming.md](practices/source-naming.md) |
 | The phase-4 enforced channel: what is checked, and what each check is blind to | [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md) |
 | The phase-5 creation pipeline: what got built stage by stage, what's deferred, what phase 6 inherits | [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md) |
@@ -517,9 +517,9 @@ that skips them in this repo of all places is the joke writing itself.
 | Why a team or individual practice registered to a gate used to load nothing | [tools/precedent_gate.py](tools/precedent_gate.py)'s `resolved_gate_practices` — the gate read one directory until 2026-09-13, so only universal practices ever reached it |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
-| Precedent explained for someone adopting it (not a developer) | [ADOPTING.md](ADOPTING.md) |
+| Precedent explained for someone adopting it (not a developer) | [documentation/ADOPTING.md](documentation/ADOPTING.md) |
 | Public-facing pitch and how-to guides, for people outside the project (marketing, a how-to for developers, a how-to for everyone else) | [documentation/](documentation/) |
-| What a normal working day looks like once Precedent is installed — the four habits and the standing command vocabulary, for someone who is not a developer | [documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md](documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md) |
+| What a normal working day looks like once Precedent is installed — the four habits and the standing command vocabulary, for someone who is not a developer | [documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md) |
 | The theory this project is built on — the essays, the brainstorm, the rules being tried in real work, and what is still unsettled. **The only copy; argument, not rules that bind anything here** | [philosophy/](philosophy/), start at [philosophy/README.md](philosophy/README.md) |
 | Why every item in a `philosophy/` essay carries a slug, why a citation is answered in the cited item's own prose rather than by a generated list, and what checks that both directions exist — **an experiment, merged 2026-09-11; reverting is a revert** | [philosophy/doc-recipes/backlinks.recipe.md](philosophy/doc-recipes/backlinks.recipe.md), engine at [tools/philosophy_backlinks.py](tools/philosophy_backlinks.py) |
 | Why `philosophy/` binds nothing outside itself, and the checks that hold that line | [local/practices/philosophy-is-not-repo-policy.md](local/practices/philosophy-is-not-repo-policy.md), [local/practices/philosophy-declares-its-source.md](local/practices/philosophy-declares-its-source.md) |

@@ -94,7 +94,7 @@ stale, forever, whichever ran last.
 Two team-level sources claiming one slug resolved to whichever
 `precedent.json` listed second, reported as an ordinary `overridden:`
 notice indistinguishable from a legitimate higher-level override.
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) says the resolver
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) says the resolver
 fails loudly there. It does now.
 
 ### A team's declared approvers enforced nothing
@@ -190,8 +190,8 @@ run prompted on every single run.
      already vendored BestPractice the old way", "its original
      BestPractice number").
    - The historical record: `spec/` briefs, `decisions/`,
-     [CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md),
-     [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md),
+     [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md),
+     [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md),
      [PRACTICES.md](../PRACTICES.md), `evals/`. These describe what
      happened, under the name it happened under.
 
@@ -428,7 +428,7 @@ against the code as it stood.
 ### The tool surface answered `--help` three different wrong ways, and one of them destroyed files
 
 Running `--help` across every script in [tools/](../tools/) — the first
-thing any reader of [documentation/HOW_TO_USE_THIS_DEVELOPERS.md](../documentation/HOW_TO_USE_THIS_DEVELOPERS.md)
+thing any reader of [documentation/FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md)
 types, since that guide points a public audience straight at these
 commands — produced three failure shapes and no successes:
 
@@ -834,7 +834,7 @@ remaining 32.
   before learning what it is; "what Precedent is" appeared only as a link,
   eleven lines down. It now opens with a plain-language paragraph saying what
   Precedent does, before any maintenance bookkeeping.
-- **`bold-key-phrases`** — [documentation/WHAT_IS_THIS_AND_BENEFITS.md](../documentation/WHAT_IS_THIS_AND_BENEFITS.md)
+- **`bold-key-phrases`** — [documentation/WHY_PRECEDENT.md](../documentation/WHY_PRECEDENT.md)
   carried **0.1 bold spans per 100 words** against 0.8–1.9 in every other
   outward-facing document, and it is the pitch page: the single most
   skim-driven thing here, aimed at people outside the project. Seventeen key
@@ -877,7 +877,7 @@ needs its blast radius asserted, not described.**
 | Practice | Verdict |
 |---|---|
 | `llm-neutral` | Not applicable. Nothing here calls a model API — no completion call in any tool or workflow. The consumers' sync workflows invoke Claude Code *as an agent*, which is a product invocation with no provider-neutral equivalent, not a swappable model endpoint. |
-| `frame-from-audience-question` | Satisfied, visibly: all three `documentation/` files open by stating the reader's question outright, and [ADOPTING.md](../ADOPTING.md) frames by audience in prose. |
+| `frame-from-audience-question` | Satisfied, visibly: all three `documentation/` files open by stating the reader's question outright, and [ADOPTING.md](../documentation/ADOPTING.md) frames by audience in prose. |
 | `one-formatter-per-quantity` | Clean. [tools/table_fmt.py](../tools/table_fmt.py) is the declared module, and every generated table in a document comes from exactly one emitter — which `doc_sync`'s `PAIRS` structurally enforces. |
 | `tabular-shared-renderer` | Clean. The one multi-column sortable table ([spec/PREFORK_AUDIT.md](PREFORK_AUDIT.md), 5×53) ships its render. `templates/harness/LEDGER.md` is an append-only record read in chronological order, not a comparison matrix. |
 | `sensitive-characterization-scrub` | Clean. Two lines name a person near a negative word; one credits Morgan's framing as the correction, the other describes a commit. Nothing anyone would wince at. |

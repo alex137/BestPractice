@@ -22,7 +22,7 @@ summary: The single-file, numbered catalogue that phase 1 converted into practic
 > **Why it is kept rather than deleted.** Every entry here carries prose the
 > per-practice files were split out of, and the numbering (`## 12.`) is cited
 > by `source_practice_number` in every converted file and by
-> [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md). It is a record, not a
+> [spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md). It is a record, not a
 > leftover — which is exactly the distinction
 > [decommission-deletes-files](practices/decommission-deletes-files.md) draws
 > between a file with no remaining job and one whose job is to be read later.

@@ -81,7 +81,7 @@ governs it, not duplicated here -- this record exists to be the thing
 the reasoning itself twice.
 
 1. **Retirement approval routing** — spelled out in
-   [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md#stage-6--the-loop-closes)'s
+   [PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md#stage-6--the-loop-closes)'s
    Stage 6 section directly, since it is an architecture clarification the
    plan's own body should state, not a decision to keep separate from it.
 2. **The attention-ceiling transfer argument** — the full case is in

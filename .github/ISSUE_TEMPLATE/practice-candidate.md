@@ -7,7 +7,7 @@ labels: precedent-candidate
 
 <!--
 This is Stage 2 of PRACTICE_ENGINE_PLAN.md's creation pipeline
-(https://github.com/alex137/BestPractice/blob/precedent-beta-v01/PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate),
+(https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate),
 for the UNIVERSAL level specifically. Individual and team candidates are
 files in their own private repos' candidates/ directories -- see
 spec/CANDIDATE_FORMAT.md

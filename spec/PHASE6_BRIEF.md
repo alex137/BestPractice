@@ -11,7 +11,7 @@ summary:       What phase 6 was handed for migrating consumer repositories, what
 ---
 # Phase 6 Brief — Migrating Consumer Repos
 
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
 Sequence row 6 already marks this "underway" from the project's own prior notes repository's
 2026-09-02 migration; this brief is the session that picked phase 6 up
 afterward, closed two of its named gaps for real, and is honest about what
@@ -38,7 +38,7 @@ inherits" section first — this brief does not restate them.
    model, not just a transcript) — see [TODO.md](../TODO.md) item 11.
 2. **The pre-fork catalogue audit table** —
    [spec/PREFORK_AUDIT.md](PREFORK_AUDIT.md), one row per inherited
-   practice. Named by [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+   practice. Named by [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
    as required before phase 6 starts migrating a consumer repo; never done
    until now.
 3. **The `WritingWithAI` naming discrepancy**, on this repo's side only —
@@ -62,7 +62,7 @@ inherits" section first — this brief does not restate them.
 ## What this session could not close, and why — needs Morgan
 
 **Two open decisions, explained in full and left for Morgan's judgment**,
-tracked in [PRACTICE_ENGINE_PLAN.md's Open Decisions](../PRACTICE_ENGINE_PLAN.md#open-decisions):
+tracked in [PRACTICE_ENGINE_PLAN.md's Open Decisions](PRACTICE_ENGINE_PLAN.md#open-decisions):
 whether the leak gate's vocabulary blocklist is miscalibrated or has simply
 never run clean, and whether `precedent-team-repo-maintenance`'
 `session-trailer` check should accept `Claude-Session:` or every session
@@ -114,7 +114,7 @@ check scripts' now-dead `GRANDFATHERED_SHAS` entries and updated both
 practices' Install text. The five old PR-source branches that still
 held the unrewritten commits were deleted from precedent-individual's
 remote. The two Open Decisions above are closed the same day — see
-[PRACTICE_ENGINE_PLAN.md's Open Decisions](../PRACTICE_ENGINE_PLAN.md#open-decisions).
+[PRACTICE_ENGINE_PLAN.md's Open Decisions](PRACTICE_ENGINE_PLAN.md#open-decisions).
 
 ## The real work still ahead
 

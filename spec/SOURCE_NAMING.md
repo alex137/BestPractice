@@ -30,7 +30,7 @@ the reference a session reads while working is
 ## Why this needed writing down at all
 
 The first three rows were already specified — in
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "What Morgan Needs to
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "What Morgan Needs to
 Do", with the three reasons attached. Being written in a phase checklist
 rather than the spec, the loader, or a check was enough for it to come apart.
 Four things were true when this work started, all of them on 2026-09-06:

@@ -11,8 +11,8 @@ summary:       The candidate file format phase 5 stage 2 defines, and why a univ
 ---
 # The Candidate File Format (Phase 5, Stage 2)
 
-What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
-[Stage 2 — The Candidate](../PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate)
+What [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
+[Stage 2 — The Candidate](PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate)
 builds to. Read that section first; this is the implementation note, in the
 same relationship [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md) has to the
 plan's "The Practice File" section.
@@ -79,7 +79,7 @@ pre-structured for a human filing it by hand can add its own
 One file per candidate, at `candidates/<slug>-<date>.md` (the date suffix
 because a candidate is explicitly allowed to be raised more than once before
 recurrence promotes it — two files, not one file mutated in place, so the
-recurrence count in [Stage 3](../PRACTICE_ENGINE_PLAN.md#stage-3--promotion-criteria)
+recurrence count in [Stage 3](PRACTICE_ENGINE_PLAN.md#stage-3--promotion-criteria)
 is a count of files, not a field a session has to remember to increment):
 
 ```
@@ -101,7 +101,7 @@ proposed_gates:        []
 
 ## Observed
 What happened, in plain prose -- the incident, not the rule. This is the
-evidence [Stage 3](../PRACTICE_ENGINE_PLAN.md#stage-3--promotion-criteria)'s
+evidence [Stage 3](PRACTICE_ENGINE_PLAN.md#stage-3--promotion-criteria)'s
 recurrence-or-cost criterion checks: a commit, a quote, a failing check, a
 review comment. Specific enough that a promotion decision doesn't have to
 re-derive the story from a one-line summary -- the same failure mode
@@ -116,7 +116,7 @@ drafted practice file's `## Rule` if all four criteria pass.
 
 ## Signals
 
-The value `signal:` takes, one per [Stage 1](../PRACTICE_ENGINE_PLAN.md#stage-1--detection)
+The value `signal:` takes, one per [Stage 1](PRACTICE_ENGINE_PLAN.md#stage-1--detection)
 source:
 
 - `session-judgment-at-a-gate` — the existing capture/export/review gates.

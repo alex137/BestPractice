@@ -95,7 +95,7 @@ incomplete. There were eleven phrases in force when he asked.
 
 Two hand-maintained copies existed at that moment and neither was complete:
 the reader-facing table in
-[the day-to-day document](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/HOW_TO_USE_THIS_DAY_TO_DAY.md)
+[the day-to-day document](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/DAILY_HABITS.md)
 had ten of the eleven, missing the practice check, and the prose in the
 project instructions ran to several paragraphs per command. The table is
 generated from the practice files now.

@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-06 (Buenos Aires) by the deduplication-vocabulary session, to version 33 -->
-
+---
+title:         Precedent — Rewrite Plan (Approved)
+kind:          reference
+status:        current
+opened:        2026-08-31
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       "The approved plan of record for restructuring BestPractice into Precedent: the design, the evidence behind each part, and the phase sequence to build it."
+---
 # Precedent — Rewrite Plan (Approved)
 
 **Status: APPROVED by Morgan, 2026-08-31. This is the plan of record — build
@@ -87,7 +96,7 @@ Measured on RPP over 2026-08-27 → 2026-08-29:
 | Figure | Value |
 |---|---|
 | Personal-pack rules | 21 → 29 → 46 in three days |
-| [AGENTS.md](AGENTS.md) size | 29,443 → 71,059 bytes |
+| [AGENTS.md](../AGENTS.md) size | 29,443 → 71,059 bytes |
 | Always-loaded context | ≈ 17,800 tokens, every session, before any work |
 | Full-text copies of each rule | 3, all hand-maintained |
 | Rules enforced by a script | 2 of 46 |
@@ -125,15 +134,15 @@ Each names where the plan addresses it.
 
 | Problem found | Addressed in |
 |---|---|
-| Decision history has no home; grew to 1,013 of [TODO.md](TODO.md)'s 1,187 lines, and regrew within a day of being condensed | [Where Decisions and History Live](#where-decisions-and-history-live) |
+| Decision history has no home; grew to 1,013 of [TODO.md](../TODO.md)'s 1,187 lines, and regrew within a day of being condensed | [Where Decisions and History Live](#where-decisions-and-history-live) |
 | A change in one place silently implies a change elsewhere, and nothing knows (the four drift commits; the dangling "step 5"; the uninstalled hook) | Generated views, phase 2 |
-| Navigation documents ([MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md)) hand-maintained and drifting — stale counts, missing files, missing terms | Generated views, phase 2 |
+| Navigation documents ([MAP.md](../MAP.md), [GLOSSARY.md](../GLOSSARY.md)) hand-maintained and drifting — stale counts, missing files, missing terms | Generated views, phase 2 |
 | No gate records that it ran; "considered and found nothing" is indistinguishable from "never asked" | [Gate Receipts](#gate-receipts) |
 | Nothing removes a practice; the catalogue cannot shrink | [Lifecycle](#lifecycle--practices-must-be-able-to-die) |
 | The anti-bloat guard is prose competing with fifty other prose rules | [The Resident Budget](#the-resident-budget) and [Promotion Criteria](#stage-3--promotion-criteria) |
 | No way to note something without promoting it to a resident rule, so everything worth noticing became one — 21 to 46 rules in three days | [The Candidate](#stage-2--the-candidate) |
 | Only 2 of 46 practices mechanically enforced; `fail-gracefully` asserted, never tested | Phase 5 |
-| [checkin.py](tools/checkin.py) `fresh` is silent on failure, so unreachable reads as "current" | Phase 1 |
+| [checkin.py](../tools/checkin.py) `fresh` is silent on failure, so unreachable reads as "current" | Phase 1 |
 | Practices cited by position (169 by-number references), making insertion a cross-repo sweep | Slugs, phase 1 |
 | An unresolved drift notice re-stamps its own date every session, so every session inherits a diff it did not create | Phase 1 tooling pass |
 | The export path is one-way in practice — RPP has essentially never checked anything in | Phase 7, and the branch's re-sync discipline |
@@ -157,7 +166,7 @@ hold hundreds of practices without the resident set moving.
 | **Rule** | The imperative section *inside* a practice — one to three sentences. Not a synonym for practice. |
 | **Source** | Where a practice comes from and who may see it: Precedent, a Team set, or an Individual set. |
 | **Universal source** | The Precedent catalogue itself, vendored into a consumer repo at `process/upstream/` and tracked in its `process/manifest.json`. Every consumer repo has one. |
-| **Team source** | A team's own shared conventions, kept in the team's own repo and declared in a consumer repo's `precedent.json` — resolved live from a sibling checkout, never vendored, because the team already maintains it independently. *(Added 2026-09-02, against a real gap found installing a team source for the first time in a dependent repo: this term and Individual source below weren't named on their own, only folded into Source's definition — see [INSTALL.md](INSTALL.md) §1 step 9.)* |
+| **Team source** | A team's own shared conventions, kept in the team's own repo and declared in a consumer repo's `precedent.json` — resolved live from a sibling checkout, never vendored, because the team already maintains it independently. *(Added 2026-09-02, against a real gap found installing a team source for the first time in a dependent repo: this term and Individual source below weren't named on their own, only folded into Source's definition — see [INSTALL.md](../INSTALL.md) §1 step 9.)* |
 | **Individual source** | One person's own facts — commit identity, a timezone, a personal shorthand — kept in their own private repo and declared only in their own user-level config (`~/.config/precedent/config.json`, or `PRECEDENT_USER_CONFIG`), never in any shared repo's tracked files. The one case a consumer repo's own `precedent.json` refuses by name. |
 | **Precedent** | The public repo: the engine, the checks, and the universal practice catalogue. BestPractice itself, restructured — the work lands on a branch and merges back. |
 | **Consumer repo** | Any project that uses practices. |
@@ -222,7 +231,7 @@ and gives the incident history a permanent home.
 
 **Amended 2026-08-31, against measurement.** The estimate above was wrong for
 this catalogue, and `## Detail` and `## Install` above are the correction.
-Phase 1.5's editorial pass ([spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md))
+Phase 1.5's editorial pass ([spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md))
 split all 52 practices four ways and `## Rule` came out at **40%** of the
 corpus, not a tenth — because a large share of each practice is genuinely
 *normative* text that is neither reasoning, nor an incident, nor wiring:
@@ -619,10 +628,10 @@ separate cleanly:
 |---|---|---|
 | Why a practice exists — its originating incident | That practice's `## Story` section | Never |
 | A decision that is not about a practice ("the sync merges unattended", "we chose X over Y") | `decisions/<date>-<slug>.md` — one file each, append-only, never pruned | Never |
-| Work that is still open | [TODO.md](TODO.md) | Never; it is read, not injected |
+| Work that is still open | [TODO.md](../TODO.md) | Never; it is read, not injected |
 
 **The rule that keeps it that way is mechanical, not aspirational:
-[TODO.md](TODO.md) may not contain a `- [x]` item at all.** Closing an item means
+[TODO.md](../TODO.md) may not contain a `- [x]` item at all.** Closing an item means
 moving it — into a practice's Story, into a decision record, or deleting it if
 it was trivial. A checked box there fails the check. This is the
 smallest rule that would have prevented 1,013 lines of completed decisions
@@ -682,7 +691,7 @@ The current system has no removal path at all. This one has:
   stayed fully in force from a different source; the rare one is that nobody
   wants the rule anywhere. Collapsing both into one word is what let a live
   rule be dropped on the strength of a resemblance
-  (2026-09-06 — [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md)).
+  (2026-09-06 — [decisions/2026-09-06-deduplication-not-retirement.md](../decisions/2026-09-06-deduplication-not-retirement.md)).
 - `status: active | deduplicated | retired`, with `supersedes: [slug…]` on
   the replacement and `in_force_at:` on the departing copy, so provenance
   survives in both directions. `deduplicated` requires a forwarding address
@@ -690,7 +699,7 @@ The current system has no removal path at all. This one has:
   successor is the mechanism rather than a practice; `retired` requires
   `in_force_at: none` and a `## Story` line. The bar is what stops
   "something similar exists" being an answer. Full format:
-  [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md#status).
+  [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md#status).
 - **Promotion**, the normal life of a good practice: individual → team →
   universal. A file move plus a scrub plus a PR to the higher source.
 - **A mechanical promotion signal.** *The same practice restated in a second
@@ -711,7 +720,7 @@ and a catalogue nobody vetted is a catalogue nobody trusts.
 
 **A connection worth reasoning about before building Stage 1, flagged by a
 2026-09-01 deep-check audit and not yet resolved either way.**
-[spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s sharpest result is
+[spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md)'s sharpest result is
 that a session asked to *retrospectively judge a finished thing against a
 set of practices* — not to plan work, to judge it after the fact — caps out
 around 50–54% recall no matter how much context or choice it is given
@@ -723,7 +732,7 @@ proposed thing against the existing catalogue, after the work is done. It
 is not established that this transfers: judging one candidate incident is
 not the same task as judging a whole diff against 52 practices, and the
 review arm's actual failure mode (per
-[the case-level diagnosis](spec/ATTENTION_CEILING.md#why-it-landed-below-the-loaders-own-working-session-recall-not-just-below-control))
+[the case-level diagnosis](ATTENTION_CEILING.md#why-it-landed-below-the-loaders-own-working-session-recall-not-just-below-control))
 was never getting more than a one-line clause on most candidates, which a
 detection gate showing the actual incident does not have to repeat. But
 nobody has reasoned about it in writing, and the plan's own discipline —
@@ -986,7 +995,7 @@ BestPractice-only, and BestPractice+RPP.
 
 ### The Converter
 
-Splitting [PRACTICES.md](PRACTICES.md) into per-practice files is mechanical. Splitting each
+Splitting [PRACTICES.md](../PRACTICES.md) into per-practice files is mechanical. Splitting each
 practice's prose into Rule / Why / Story is a judgment call, so it is
 **LLM-assisted and human-reviewed, once per practice**. Guard against content
 drift: **no sentence may appear in the output that does not appear in the
@@ -1020,11 +1029,11 @@ For any repo, before and after migration:
 |---|---|---|
 | 0 | **Decide and set up.** Take the pending BestPractice update (upstream `88ecf7f`; RPP vendors `c76f06f`). Open the Precedent branch. Agree this plan. | The branch exists on a current base and this document is approved or amended. |
 | 1 | **Format, converter, harness.** Write the spec and the verification harness; convert Precedent's catalogue; fix the small tooling debts (freshness escalation, drift re-stamp churn). | Practices are files; the catalogue regenerates byte-identically; harness passes. |
-| 2 ✅ | **Loader and generated views.** *(Closed 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Build the loading channels; make [AGENTS.md](AGENTS.md), [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
+| 2 ✅ | **Loader and generated views.** *(Closed 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Build the loading channels; make [AGENTS.md](../AGENTS.md), [MAP.md](../MAP.md), [GLOSSARY.md](../GLOSSARY.md) and the index generated. **Build the leak gate, pulled forward from phase 3** — see the note under the table. | Resident block within budget; hand-editing a generated view fails a check; the leak gate runs at push time and in CI; **and the premise is measured, not assumed** — see below. |
 | 3 ✅ | **Split the sources.** *(Closed 2026-09-01 — see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).)* Precedent is *already* public (it is BestPractice); Morgan's individual set private; the first team set; the frozen example set. Draft the adopter README. **Write the private-term blocklist into the individual set and point `PRECEDENT_LEAK_BLOCKLIST` at it**, which is what switches the leak gate's vocabulary layer on. **Also split `## Detail` out of `## Rule`** across the catalogue — see the note below the table. | The leak gate's **vocabulary** layer passes (its structural layer already gates every push from phase 2); a consumer repo resolves all three and precedence is tested; `## Rule` is short enough to be worth loading, with the operational specifics in `## Detail`; a README exists that someone outside the project can follow. **All five hold, the fifth (the two private sets populated from RPP's 46 rules) from a session opened directly against `themorgan/precedent-individual` and `themorgan/precedent-team-repo-maintenance` — reported done by Morgan, 2026-09-01, per this plan's own architecture that population can only happen from a session holding those repos, never from here — see the phase-3 section.** |
 | 4 ✅ | **Enforcement push.** *(Closed 2026-08-31 — see [What Phase 4 Built, and What It Found First](#what-phase-4-built-and-what-it-found-first).)* *(Swapped ahead of the creation pipeline, 2026-08-31 — see [What Phase 2 Measured](#what-phase-2-measured).)* Convert checkable practices to scripts, starting with the ones phase 2 measured as most-missed; drop their prose from the resident tier; test the graceful-failure paths. | `checked_by` coverage materially above the current 8-of-52; each converted practice has a test proving its check fires; the routing eval re-run shows the converted practices no longer missed. **The first two hold. The third does not, as written, and cannot: this plan's own design says an enforced practice is never routed, so the routing eval cannot show one 'no longer missed'. It is answered by a coverage report that states its own limit. The row's 'drop their prose from the resident tier' was also not followed, for two practices whose check is narrower than their rule. Both departures are argued in the phase-4 section rather than quietly taken.** |
-| 5 ✅ | **The creation pipeline.** *(Tooling built and harness-tested 2026-09-02 — see [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md).)* Candidates, detection signals, promotion criteria, approval routing, the periodic removal report. | **Met, mechanically: `check_creation_pipeline_fires()` in [tools/verify_harness.py](tools/verify_harness.py) proves a candidate promotes, lands and parses end to end, and that each of the four criteria refuses individually with a reason.** Not yet met in the sense that matters most: no real candidate has been raised against a real incident yet, so the criteria's thresholds are tested for mechanism, not calibration — see [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md#what-phase-6-inherits). |
-| 6 | **Migrate consumer repos**, one at a time, harness-gated. *(Underway, not closed — first real migration run 2026-09-02, see [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).)* | Each repo passes the harness before its migration lands. **One of them does: the project's own prior notes repository migrated 2026-09-02, deliberately first as the beta test for the pattern rather than in the order this plan's own text elsewhere suggested (RepoPersonalPreferences, "the one whose failure modes are understood"). That same migration is what drove building `tools/precedent_sync_views.py` (2026-09-03) — the one-command sync a consumer repo actually runs — after finding nothing connected the resolver's output to a generated `AGENTS.md` for a multi-source repo. Not yet met for the rest: no other consumer repo has migrated, so the pattern is proven once, not yet repeated.** |
+| 5 ✅ | **The creation pipeline.** *(Tooling built and harness-tested 2026-09-02 — see [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md).)* Candidates, detection signals, promotion criteria, approval routing, the periodic removal report. | **Met, mechanically: `check_creation_pipeline_fires()` in [tools/verify_harness.py](../tools/verify_harness.py) proves a candidate promotes, lands and parses end to end, and that each of the four criteria refuses individually with a reason.** Not yet met in the sense that matters most: no real candidate has been raised against a real incident yet, so the criteria's thresholds are tested for mechanism, not calibration — see [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md#what-phase-6-inherits). |
+| 6 | **Migrate consumer repos**, one at a time, harness-gated. *(Underway, not closed — first real migration run 2026-09-02, see [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md).)* | Each repo passes the harness before its migration lands. **One of them does: the project's own prior notes repository migrated 2026-09-02, deliberately first as the beta test for the pattern rather than in the order this plan's own text elsewhere suggested (RepoPersonalPreferences, "the one whose failure modes are understood"). That same migration is what drove building `tools/precedent_sync_views.py` (2026-09-03) — the one-command sync a consumer repo actually runs — after finding nothing connected the resolver's output to a generated `AGENTS.md` for a multi-source repo. Not yet met for the rest: no other consumer repo has migrated, so the pattern is proven once, not yet repeated.** |
 | 7 | **Merge back to BestPractice.** | A PR is open against `main`, or a deliberate decision to extract the work into a standalone fork instead. |
 
 **Why the leak gate moved from phase 3 to phase 2.** The plan put it at
@@ -1040,14 +1049,14 @@ here on. What phase 3 adds is the *vocabulary* half, described below.
 **The gate has two layers, and only one of them can live in this
 repository.**
 
-- **Structural**, in [tools/leak_gate.py](tools/leak_gate.py), on from
+- **Structural**, in [tools/leak_gate.py](../tools/leak_gate.py), on from
   phase 2. Precedent holds universal practices and nothing else, so
   anything *shaped* like private-source content fails: an individual- or
   team-level path, a practice claiming a non-universal source, a personal
   email address, an absolute path inside someone's home directory, a
   `candidates/` or `outbox/` directory. These patterns describe shapes
   rather than anyone's words, so they are safe to publish. This layer runs
-  in CI ([.github/workflows/leak-gate.yml](.github/workflows/leak-gate.yml)),
+  in CI ([.github/workflows/leak-gate.yml](../.github/workflows/leak-gate.yml)),
   on every branch, where `git push --no-verify` cannot bypass it.
 - **Vocabulary**, from phase 3. Catching private *words* — client names,
   code words, internal identifiers — needs a blocklist, and **that list
@@ -1061,7 +1070,7 @@ repository.**
 The consequence, stated plainly rather than left to be discovered: **CI can
 only ever run the structural layer**, because CI has no access to a private
 list. CI is the unbypassable backstop; the local
-[pre-push hook](templates/hooks/pre-push) is the complete check. Neither
+[pre-push hook](../templates/hooks/pre-push) is the complete check. Neither
 alone is the whole gate, and the gate says which layers actually ran rather
 than reporting a clean pass it did not earn.
 
@@ -1069,8 +1078,8 @@ than reporting a clean pass it did not earn.
 body sections — Rule, Detail, Why, Story, Install — and only the first is
 loaded to decide whether a practice applies. Doing the Rule/Detail split at
 phase 3 is close to free: the editorial machinery already exists
-([tools/resplit_sections.py](tools/resplit_sections.py) plus
-[tools/section_split.json](tools/section_split.json)), so the work is one more
+([tools/resplit_sections.py](../tools/resplit_sections.py) plus
+[tools/section_split.json](../tools/section_split.json)), so the work is one more
 pass over a reviewable JSON file rather than 52 hand-edits, and the
 content-preservation checks that guard it are already written and adversarially
 tested. Doing it *after* phase 6 vendors the format into consumer repos means
@@ -1094,7 +1103,7 @@ something applies — and `## Detail` must be reachable from the same
 > now held three times; the figures, the miss table and the phase-4 queue
 > below are superseded by
 > [What the Re-Baseline Changed](#what-the-re-baseline-changed) and by
-> [spec/LOADER.md](spec/LOADER.md)'s v3 section. This section is kept because
+> [spec/LOADER.md](LOADER.md)'s v3 section. This section is kept because
 > the reasoning in it is what the re-run was checked against.
 
 **Phase 2 is closed. Its done-when was "the premise is measured, not
@@ -1105,7 +1114,7 @@ loading that the measurement will not carry.
 
 ### The numbers
 
-[tools/routing_eval.py](tools/routing_eval.py), 20 real commits from this
+[tools/routing_eval.py](../tools/routing_eval.py), 20 real commits from this
 repo's own history. An **oracle** (all 52 Rules, asked only to classify, one
 case at a time — the answer key), a **control** (all 52 Rules, asked to do
 the work — the pre-migration arrangement), and a **treatment** (the real
@@ -1221,10 +1230,10 @@ a gap in how this one was run.
 | Condition | State |
 |---|---|
 | The leak gate's **vocabulary** layer passes | **Met.** Switched on, and three ways it passed on a leak were found and fixed first (see below). |
-| A consumer repo resolves all three sources, and precedence is tested | **Met.** [tools/precedent_resolve.py](tools/precedent_resolve.py); 17 stated cases in the harness, each verified by breaking the resolver. |
+| A consumer repo resolves all three sources, and precedence is tested | **Met.** [tools/precedent_resolve.py](../tools/precedent_resolve.py); 17 stated cases in the harness, each verified by breaking the resolver. |
 | `## Rule` is short enough to be worth loading, with the specifics in `## Detail` | **Met.** Rule is 28% of the catalogue (was 40%); the resident block halved, ≈621 → ≈312 tokens. |
-| A README someone outside the project can follow | **Met.** [ADOPTING.md](ADOPTING.md), written to the measured claim rather than the hoped-for one. |
-| The frozen example set | **Met** — and invented rather than copied; see [spec/SOURCES.md](spec/SOURCES.md) for why that is the better artifact and not merely the available one. |
+| A README someone outside the project can follow | **Met.** [ADOPTING.md](../documentation/ADOPTING.md), written to the measured claim rather than the hoped-for one. |
+| The frozen example set | **Met** — and invented rather than copied; see [spec/SOURCES.md](SOURCES.md) for why that is the better artifact and not merely the available one. |
 | The private sets **populated** from RPP's 46 rules | **Done, 2026-09-01** — from a session opened against the private sets themselves, reported by Morgan; not verifiable from a session working in Precedent, by the same reasoning that made it impossible to do from here. |
 
 ### Why the private sets could not be populated from here
@@ -1232,7 +1241,7 @@ a gap in how this one was run.
 Kept as an explanation of why the migration ran from a different session
 rather than this one, not as a description of a still-open gap — see the
 table above. **As of 2026-09-01, the rule below is relaxed for active
-development — [decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md)
+development — [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md)
 — so a session working on Precedent may now hold and edit these
 repositories directly; this section otherwise describes why the historical
 migration happened the way it did, unchanged.**
@@ -1313,7 +1322,7 @@ leave a seam. `permutation-frontier-column`, `verify-decomposition`,
 Rule must know what to *do*. Splitting the remaining eight means authoring
 new lead-in sentences, reviewed against the source; real work, and not
 something a move-only mechanism can do. Per-practice reasoning in
-[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md).
+[spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md).
 
 **Two of those five were found by reading, after the pass reported success.**
 The split was made in one pass and then each `## Rule` was read back on its
@@ -1350,8 +1359,8 @@ underneath it.
 Phase 3's Rule/Detail split changed what every arm of the routing eval reads,
 so the eval was re-run on the same 20 cases with the same method before phase
 4 begins. Full result and method note in
-[spec/LOADER.md](spec/LOADER.md)'s v3 section; answers in
-[evals/routing/answers/](evals/routing/answers), with the pre-split set kept
+[spec/LOADER.md](LOADER.md)'s v3 section; answers in
+[evals/routing/answers/](../evals/routing/answers), with the pre-split set kept
 beside them.
 
 | | v2 (Rule at 40%) | **v3 (Rule at 28%)** |
@@ -1420,8 +1429,8 @@ actually forbids.
 
 ## What Phase 4 Built, and What It Found First
 
-Implementation note: [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md). Numbers:
-[spec/LOADER.md](spec/LOADER.md)'s v4 section.
+Implementation note: [spec/ENFORCEMENT.md](ENFORCEMENT.md). Numbers:
+[spec/LOADER.md](LOADER.md)'s v4 section.
 
 ### The premise that moved this phase forward was half wrong
 
@@ -1448,7 +1457,7 @@ rather than adding to them.
 
 | Condition | Verdict |
 |---|---|
-| `checked_by` coverage materially above the current 8 of 52 | **Met.** See the generated table in [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md); two false claims were demoted to `null` in the same pass, so the number is smaller than it would have been and means something it did not before. |
+| `checked_by` coverage materially above the current 8 of 52 | **Met.** See the generated table in [spec/ENFORCEMENT.md](ENFORCEMENT.md); two false claims were demoted to `null` in the same pass, so the number is smaller than it would have been and means something it did not before. |
 | Each converted practice has a test proving its check fires | **Met.** `check_precedent_check_fires` plants a violation per practice in a throwaway repository, requires a non-zero exit, and requires the same tree unplanted to come back clean. The whole registry was then neutered and the harness re-run: it named every one. |
 | The routing eval re-run shows the converted practices no longer missed | **Not as written, and the reason is in this document.** See below. |
 
@@ -1487,7 +1496,7 @@ practice is about. For `verify-postcondition` the check asserts two named
 postconditions for one repository, while the Rule governs every state-changing
 operation. Dropping either would trade a preventive channel for a detective
 one that cannot detect the case in question. All six resident practices stay
-resident; the reasoning is in [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md).
+resident; the reasoning is in [spec/ENFORCEMENT.md](ENFORCEMENT.md).
 
 ### The routing pass, and the negative result that closes the reach question
 
@@ -1496,7 +1505,7 @@ are two problems. Asked to finish the job, it did three things and the third
 is the one that matters.
 
 **1. A glob pass over all 46 on-demand practices**, recorded with a reason per
-practice in [tools/routing_scope.json](tools/routing_scope.json) — including
+practice in [tools/routing_scope.json](../tools/routing_scope.json) — including
 for all 24 that deliberately keep `**`, because a practice left unrouted by
 omission and one left unrouted on purpose look identical in the practice file.
 Eight gained a narrower `applies_to`. The rule the pass settled on, after two
@@ -1504,12 +1513,12 @@ rounds of narrowing: **a glob is justified only where the path identifies the
 practice's distinguishing condition, not merely a necessary one.**
 
 **2. The gate-triggered channel**, which is the fourth channel this plan names
-and which nothing had built. [tools/precedent_gate.py](tools/precedent_gate.py)
+and which nothing had built. [tools/precedent_gate.py](../tools/precedent_gate.py)
 loads the practices registered to a named moment — `merge`, `review`, `push`,
 `reply` — via a `gates:` field on each practice. It exists because the most
 common reason a practice keeps `**` is that **it fires at a moment, not in a
 place**, and no glob reaches a moment. The `push` gate is wired into
-[templates/hooks/pre-push](templates/hooks/pre-push) so it fires without
+[templates/hooks/pre-push](../templates/hooks/pre-push) so it fires without
 anyone remembering; the other three are cited by runbook steps and the
 standing instruction, which is weaker, and phase 6 is where they get hooks.
 
@@ -1540,14 +1549,14 @@ fewer practices never shown — is the thing a correct glob is for. What is not
 claimed is any recall benefit.
 
 *(Full numbers, the prediction and how it held, and the residue no channel
-reaches: [spec/LOADER.md](spec/LOADER.md)'s v5 section.)*
+reaches: [spec/LOADER.md](LOADER.md)'s v5 section.)*
 
 ### What phase 5 should carry forward
 
 **The cross-source resident budget cap is built (2026-09-01) and has now
 been run against the real private sets (2026-09-02).** With all three
 repositories attached (per
-[decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md)),
+[decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md)),
 `python3 tools/precedent_resolve.py --repo <a consumer config naming
 universal + team> --user-config <a config naming the individual set>`
 resolved the real 54 universal + 40 team + 5 individual practices (97
@@ -1559,9 +1568,9 @@ from the team set; `buenos-aires-dates` from the individual set;
 `reply-links-files`, `repo-is-memory`, `verify-postcondition` from the
 universal set)**, exit 0 both plain and `--strict`. Comfortably under
 budget — neither private set marked more than a practice or two `tier:
-resident`, matching [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)'s
+resident`, matching [spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md)'s
 prediction of what would make it fire, and it didn't. This closes
-[spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md)'s "Done when" list
+[spec/PRIVATE_SETS_BRIEF.md](PRIVATE_SETS_BRIEF.md)'s "Done when" list
 in full. Phase 5's creation pipeline should assume this check exists, is
 live, and currently passes with real headroom (~1,341 tokens) — not plan
 around building or first-running it.
@@ -1606,11 +1615,11 @@ commits past the fork point by the time this was caught.
 Only these need a human; everything else a session can do. Phase 0 is
 done — both practice-set repos exist, and the license and fork-vs-branch
 questions are closed (see
-[decisions/2026-08-31-branch-not-fork.md](decisions/2026-08-31-branch-not-fork.md))
+[decisions/2026-08-31-branch-not-fork.md](../decisions/2026-08-31-branch-not-fork.md))
 — so that checklist is gone from here; what's left is what's still
 actually pending.
 
-**Naming convention for practice sets** — settled and enforced; it is no longer a pending human item. The rule lives in [practices/source-naming.md](practices/source-naming.md), the reasoning and the four distinct name layers in [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md), and the reference a session works from in [spec/SOURCES.md](spec/SOURCES.md)'s Naming section. The table below is the shape those carry.
+**Naming convention for practice sets** — settled and enforced; it is no longer a pending human item. The rule lives in [practices/source-naming.md](../practices/source-naming.md), the reasoning and the four distinct name layers in [spec/SOURCE_NAMING.md](SOURCE_NAMING.md), and the reference a session works from in [spec/SOURCES.md](SOURCES.md)'s Naming section. The table below is the shape those carry.
 
 ```
 Precedent                              the engine and universal catalogue
@@ -1714,7 +1723,7 @@ binding from now on rather than from phase 3:
 
   **Relaxed 2026-09-01, by Morgan's explicit direction, for the duration
   of active pre-Phase-5 development —
-  [decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md).**
+  [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md).**
   A session working on Precedent may now also hold
   `themorgan/precedent-individual` and `themorgan/precedent-team-repo-maintenance`,
   read and write across all three, and stage their content into this
@@ -1788,14 +1797,14 @@ it can be generated; the explanation cannot.
   before phase 0.
 
 Four decisions once tracked here are closed and moved to
-[decisions/](decisions/README.md), which is where a closed decision's full
+[decisions/](../decisions/README.md), which is where a closed decision's full
 reasoning belongs: license and attribution (2026-08-31, closed by the
-[branch-not-fork](decisions/2026-08-31-branch-not-fork.md) decision itself),
+[branch-not-fork](../decisions/2026-08-31-branch-not-fork.md) decision itself),
 when Precedent goes public (2026-08-31, same decision), the leak gate's
 vocabulary-blocklist recalibration
-([2026-09-03](decisions/2026-09-03-leak-gate-vocabulary-recalibration.md)),
+([2026-09-03](../decisions/2026-09-03-leak-gate-vocabulary-recalibration.md)),
 and the session-trailer key
-([2026-09-03](decisions/2026-09-03-session-trailer-key.md)).
+([2026-09-03](../decisions/2026-09-03-session-trailer-key.md)).
 
 ## Amendments Since Approval
 
@@ -1803,10 +1812,10 @@ The header instruction for this document is that changes after approval are
 amendments, stated with what changed and why. The body above is kept as
 current state; a change that is genuinely a standalone decision (not about
 a practice, not merely restating what a section above already says) gets
-its own record in [decisions/](decisions/README.md) — this section is now
+its own record in [decisions/](../decisions/README.md) — this section is now
 just a dated index of what moved and where its record actually lives,
 matching the rest of this document's own current-state discipline
-([docs-are-current-state](practices/docs-are-current-state.md)).
+([docs-are-current-state](../practices/docs-are-current-state.md)).
 
 - **2026-09-06 — v33.** `retired` was the wrong name for what actually
   happens, and the wrong name caused the one real rule loss in this system's
@@ -1819,36 +1828,36 @@ matching the rest of this document's own current-state discipline
   ignored it were the accidental safety net that kept a wrongly-dropped rule
   working. Full reasoning, the departures from the originating brief, and
   what this does not close:
-  [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md).
+  [decisions/2026-09-06-deduplication-not-retirement.md](../decisions/2026-09-06-deduplication-not-retirement.md).
 - **2026-09-04 — v32.** An adopter with no individual or team repo yet had
   nowhere to start — closed for the case that doesn't need the full
   creation pipeline. New skeletons
-  ([templates/practice-set-individual/](templates/practice-set-individual/),
-  [templates/practice-set-team/](templates/practice-set-team/)), a new
+  ([templates/practice-set-individual/](../templates/practice-set-individual/),
+  [templates/practice-set-team/](../templates/practice-set-team/)), a new
   bootstrap tool
-  ([tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),
+  ([tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py),
   harness-tested against a real resolve, precedence included), and a real
-  [SETUP.md](SETUP.md)/[INSTALL.md](INSTALL.md) branch replace what used to
+  [SETUP.md](../SETUP.md)/[INSTALL.md](../INSTALL.md) branch replace what used to
   be a dead end at "do you already have one?" — deliberately independent of
-  [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) item 2, which stays open.
+  [spec/PHASE6_BRIEF.md](PHASE6_BRIEF.md) item 2, which stays open.
   The procedure itself is
-  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md). Full
+  [spec/BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md). Full
   reasoning, alternatives considered, and what this does not close:
-  [decisions/2026-09-04-bootstrap-new-sources.md](decisions/2026-09-04-bootstrap-new-sources.md).
-- **2026-09-03 — v31.** [SETUP.md](SETUP.md) and
-  [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) now disclose
+  [decisions/2026-09-04-bootstrap-new-sources.md](../decisions/2026-09-04-bootstrap-new-sources.md).
+- **2026-09-03 — v31.** [SETUP.md](../SETUP.md) and
+  [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md) now disclose
   the capture-gate mechanism to newcomers, calibrated to what a clean
   install actually has today. Full reasoning:
-  [decisions/2026-09-03-setup-getting-started-disclosure-gap.md](decisions/2026-09-03-setup-getting-started-disclosure-gap.md).
+  [decisions/2026-09-03-setup-getting-started-disclosure-gap.md](../decisions/2026-09-03-setup-getting-started-disclosure-gap.md).
 - **2026-09-02 — v30.** Three pre-Stage-5 calls settled: retirement (Stage 6)
   is approval-gated like creation; the attention-ceiling connection is
-  reasoned through in [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md);
+  reasoned through in [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md);
   universal candidates are GitHub Issues, not a `candidates/` file. Full
   reasoning:
-  [decisions/2026-09-02-phase-5-preflight-calls.md](decisions/2026-09-02-phase-5-preflight-calls.md).
+  [decisions/2026-09-02-phase-5-preflight-calls.md](../decisions/2026-09-02-phase-5-preflight-calls.md).
 - **2026-09-01 — v29.** The private-repo isolation rule is relaxed for
   active development. Full reasoning, scope, and the reinstatement trigger:
-  [decisions/2026-09-01-relax-private-repo-isolation.md](decisions/2026-09-01-relax-private-repo-isolation.md).
+  [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md).
 - **2026-09-01 — v28.** Pre-phase-5 review: "deep check" (ambiguous between
   two things) renamed to *routing audit* and *very deep check*;
   `practice-export-loop`, `mistakes-become-rules` and
@@ -1859,7 +1868,7 @@ matching the rest of this document's own current-state discipline
 - **2026-09-01 — v27.** Phase 3 closed: the private sets are populated —
   see [What Phase 3 Built, and What It Could Not](#what-phase-3-built-and-what-it-could-not).
 - **2026-08-31 — v26.** The miss rate is mostly not a loading problem —
-  full analysis in [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md).
+  full analysis in [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md).
 - **2026-08-31 — v25.** The reach question closed with a negative result —
   see [The routing pass, and the negative result that closes the reach
   question](#the-routing-pass-and-the-negative-result-that-closes-the-reach-question).
@@ -1868,10 +1877,10 @@ matching the rest of this document's own current-state discipline
 - **2026-08-31.** Precedent is a branch of BestPractice, not a fork; the
   original fork-then-merge-back plan, the "private initially" leak-gate
   margin it assumed, and what this closed and cost: full record in
-  [decisions/2026-08-31-branch-not-fork.md](decisions/2026-08-31-branch-not-fork.md).
+  [decisions/2026-08-31-branch-not-fork.md](../decisions/2026-08-31-branch-not-fork.md).
 - **2026-08-31.** The practice file gains a fifth body section, `## Detail`
   — see "The Practice File" above and
-  [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md).
+  [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md).
 - **2026-08-31.** Phase 2 closed, premise measured against the plan, and it
   did not hold — see [What Phase 2 Measured](#what-phase-2-measured).
 - **2026-08-31.** The leak gate is built at phase 2, not phase 3, a direct
@@ -1879,7 +1888,7 @@ matching the rest of this document's own current-state discipline
   found a live instance of the exact anti-pattern it exists to prevent — a
   hardcoded personal email address inside this public repo, in the
   phase-1 leak-gate stand-in. Fixed forward, not by rewriting published
-  history ([no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md)).
+  history ([no-rewrite-for-warnings](../practices/no-rewrite-for-warnings.md)).
 - **2026-08-31.** The routing eval re-baselined after the Rule/Detail
   split — see [What the Re-Baseline Changed](#what-the-re-baseline-changed).
 
@@ -1970,9 +1979,9 @@ Open items from the 2026-08-29 review that this rewrite does not resolve:
 
 - **Header capitalization** in `VOICE.md`,
   `STYLEGUIDE.md` and
-  [.github/pull_request_template.md](.github/pull_request_template.md) still
+  [.github/pull_request_template.md](../.github/pull_request_template.md) still
   differs from the repo's stated convention. Needs a decision either way.
 - **An allowlist fix is pending export upstream** — the harness template
-  allowlists [practice_audit.py](tools/practice_audit.py) with and without arguments but
-  [doc_lint.py](tools/doc_lint.py) only with, so the merge runbook's own bare invocation prompts on every run
+  allowlists [practice_audit.py](../tools/practice_audit.py) with and without arguments but
+  [doc_lint.py](../tools/doc_lint.py) only with, so the merge runbook's own bare invocation prompts on every run
   in every repo installing the harness.
