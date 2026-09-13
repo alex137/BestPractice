@@ -4916,4 +4916,16 @@ which is the failure this repointing exists to end — write
     night was the session's, and he took it, so this is `strength: assented`
     on the timing — the item's substance is his question, not the session's
     proposal.
-    **Disposition:** wait
+
+    **What the reminder is for**, so a session months from now can raise it
+    usefully rather than reading the title aloud: the undecided part is
+    **whether a set gets the whole deep check or a named subset** (SESSION LOAD
+    and the gotcha passes, say). Vendoring the whole tool drags dependencies
+    that are meaningless in a set — the GitHub API call for the
+    repository-visibility pass, the harness session list for LIVE SESSIONS.
+    That is the question to put to him; the landing itself is four sessions'
+    work in four repositories, and cheap once the shape is decided.
+
+    **Remind:** the vendoring decision — whole deep check or a named subset —
+    raise it tonight (2026-09-13, Morgan)
+    **Disposition:** ask (2026-09-13, Morgan)
