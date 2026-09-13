@@ -69,22 +69,32 @@ def collect(repo):
     block is rendered by the SAME code that renders AGENTS.md -- a second
     renderer here would drift from that one, which is the whole reason
     build_loader_block takes a practice list rather than reading a directory."""
-    notes = []
+    # NOTES CARRY THEIR KIND, because two different things end up in this
+    # list and only one of them is a problem. A source that did not RESOLVE
+    # is a failure the reader must act on; a source DEFERRED to this file is
+    # the mechanism working as designed. Both printed under one
+    # "Sources that did not resolve this session" heading until 2026-09-13,
+    # so a set reading its own generated file was told its working sources
+    # had failed -- reported by a session doing the shape-3 rollout, which
+    # is exactly the reader this file is for.
+    notes = []   # [(kind, text)], kind in ('unresolved', 'deferred')
     try:
         sources = pr.load_config(repo)
     except Exception as e:                                   # noqa: BLE001
-        return [], {}, [f'no source set could be read: {e}']
+        return [], {}, [('unresolved', f'no source set could be read: {e}')]
 
     try:
         res = pr.resolve(sources)
     except Exception as e:                                   # noqa: BLE001
-        return [], {}, [f'the declared sources could not be resolved: {e}']
+        return [], {}, [('unresolved',
+                         f'the declared sources could not be resolved: {e}')]
 
     for m in res.get('missing', []):
-        notes.append(
+        notes.append((
+            'unresolved',
             f"{m['level']}/{m['name']} did NOT resolve this session "
             f"({m.get('reason', 'no reason given')}) -- its practices are not "
-            f"below. Treat that as unknown, not as 'that source has no rules'.")
+            f"below. Treat that as unknown, not as 'that source has no rules'."))
 
     # WHAT THIS FILE CARRIES is whatever the TRACKED block could not, and
     # that line is drawn in exactly one place --
@@ -98,12 +108,13 @@ def collect(repo):
     # `not repo_is_public()` early-out.
     _tracked, deferred, split_notes = bv.sources_for_tracked_block(
         pathlib.Path(repo), sources)
-    notes += split_notes
+    notes += [('deferred', n) for n in split_notes]
     deferred_paths = {str(pathlib.Path(s['path']).resolve()) for s in deferred}
     if not deferred:
-        notes.append(
+        notes.append((
+            'deferred',
             'every source this repo declares is already carried by its '
-            'tracked loader block, so there is nothing for this file to add.')
+            'tracked loader block, so there is nothing for this file to add.'))
         return [], {}, notes
 
     extra, levels = [], {}
@@ -169,15 +180,24 @@ def render(extra, levels, notes, repo=None):
         intro,
         '',
     ]
-    if notes:
-        head += ['## Sources that did not resolve this session', '']
-        head += [f'- {n}' for n in notes]
+    unresolved = [n for kind, n in notes if kind == 'unresolved']
+    deferred_notes = [n for kind, n in notes if kind == 'deferred']
+    if unresolved:
+        head += ['## Sources that did not resolve this session', '',
+                 'These are missing, and their practices are NOT below.', '']
+        head += [f'- {n}' for n in unresolved]
+        head += ['']
+    if deferred_notes:
+        head += ['## Why these are here rather than in the tracked block', '',
+                 'These sources resolved fine. This is where they belong.', '']
+        head += [f'- {n}' for n in deferred_notes]
         head += ['']
     if not extra:
         head += ['## Nothing to add', '',
-                 'No non-universal source resolved, so this session is bound by '
-                 'the universal catalogue alone. If you expected a team or '
-                 'individual set here, the note above says why it is missing.',
+                 'No source resolved that the tracked loader block does not '
+                 'already carry, so this session is bound by that block alone. '
+                 'If you expected a source here, a note above says why it is '
+                 'missing.',
                  '']
         return '\n'.join(head)
     # build_loader_block returns (text, resident_tokens, resident_count) --
@@ -190,9 +210,41 @@ def render(extra, levels, notes, repo=None):
     # relative path reaches and an absolute one would name a private repo --
     # and build_loader_block says so on stderr rather than inventing one.
     _repo = pathlib.Path(repo or _ENGINE_DIR.parent)
-    block, _tokens, _count = bv.build_loader_block(
-        extra, source_levels=levels,
-        block_dir=_repo / OUT_DIR, repo_root=_repo)
+    # THIS FILE'S OWN CEILING, not AGENTS.md's. Until 2026-09-13 this call
+    # inherited build_views.RESIDENT_BUDGET_TOKENS, which is the tracked
+    # block's allocation, and the mismatch made the untracked file
+    # unbuildable in two real practice sets the day shape 3 rolled out:
+    # universal's residents are ~1,396 tokens and the sets' tracked-block
+    # allocations are 425 and 550, numbers that were never about this file.
+    # Both sets got `build_views FAIL ... over the N-token hard cap` from a
+    # SessionStart hook and no practices at all. The registry already had the
+    # right row; nothing read it.
+    budget = bv.surface_budget(f'{OUT_DIR}/{OUT_NAME}', 4000)
+    try:
+        block, _tokens, _count = bv.build_loader_block(
+            extra, source_levels=levels,
+            block_dir=_repo / OUT_DIR, repo_root=_repo,
+            budget_tokens=budget)
+    except bv.ResidentBudgetExceeded as e:
+        # OVER BUDGET STILL WRITES, loudly. This runs from a session-start
+        # hook: refusing means the session is bound by practices it was never
+        # shown, which is the failure shape 3 exists to end, and it is
+        # strictly worse than a file that is longer than intended. The gate
+        # that refuses is build_views' own CLI, on the tracked block
+        # (practice: fail-gracefully -- keep going, never look complete).
+        block, _tokens, _count = bv.build_loader_block(
+            extra, source_levels=levels,
+            block_dir=_repo / OUT_DIR, repo_root=_repo,
+            budget_tokens=e.tokens)
+        head += [
+            f'> **Over budget: this block is ~{e.tokens} tokens against a '
+            f'declared ceiling of {e.budget}.** It is written anyway, because '
+            f'a session bound by practices it was never shown is worse than a '
+            f'long file. Raise the `{OUT_DIR}/{OUT_NAME}` ceiling in '
+            f'`tools/session_load_budgets.json` if this is the size it should '
+            f'be, or demote a resident practice in the source it came from --'
+            f' but do NOT raise `resident_block_tokens`, which is a different '
+            f'surface.', '']
     head += [block, '']
     return '\n'.join(head)
 
@@ -226,12 +278,16 @@ def main():
               file=sys.stderr)
         return 0
 
-    for n in notes:
+    for _kind, n in notes:
         print(f'precedent session practices: {n}', file=sys.stderr)
 
     if check_only:
+        # Count only the UNRESOLVED ones. Counting every note reported a
+        # working deferral as a failure -- the same conflation the two
+        # headings above had.
+        n_bad = sum(1 for kind, _n in notes if kind == 'unresolved')
         print(f'{len(extra)} practice(s) from non-universal sources would be '
-              f'written; {len(notes)} source(s) unresolved.')
+              f'written; {n_bad} source(s) unresolved.')
         return 0
 
     out_dir = pathlib.Path(repo) / OUT_DIR
