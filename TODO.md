@@ -4696,3 +4696,35 @@ which is the failure this repointing exists to end — write
     session that raised it changed no mechanism.
     **Disposition:** wait
 
+79. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
+    `precedent-individual-bootstrap.sh` into the four practice sets that
+    already exist.** As of 2026-09-13
+    [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+    installs and wires that hook in every set it creates, and
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    vendors the `precedent_source_bootstrap.py` it execs — so a **new** set
+    resolves the person's individual practices from its first session. The
+    four real sets (`precedent-individual`, `precedent-team-writing`,
+    `precedent-team-repo-maintenance`, `precedent-team-working-style`) predate
+    both and get neither.
+
+    **What they are missing is one `SessionStart` command each**, ahead of
+    `commit-identity.sh`, which reads the individual set for the author and
+    the timezone. The hook FILE
+    [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+    `--apply` writes for them; the wiring it deliberately will not, because
+    rewriting somebody's existing `.claude/settings.json` is guesswork about
+    a file they wrote. It reports the gap instead, per set, at every session
+    start — measured 2026-09-13, all four: *"hooks present but no
+    settings*.json wires precedent-individual-bootstrap.sh"*.
+
+    **Note the set's own layout differs.** `precedent-individual` wires its
+    hooks from `bootstrap/` rather than `.claude/hooks/`, which its own
+    `commit-author` practice documents, so the command added there names that
+    path — the check reads what `settings.json` invokes, not where the
+    generator would have put it.
+
+    **Blocked on / out of scope:** four repositories this session was not
+    scoped to, under a different owner, each with its own merge rules.
+    **Disposition:** wait
+

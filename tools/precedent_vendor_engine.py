@@ -4,13 +4,17 @@ consumes it, as real tracked files instead of an undocumented hand-copy.
 Two KINDS, sharing one mechanism:
 
   'source'   — an individual or team practice SET (precedent-individual,
-               precedent-team-repo-maintenance, precedent-team-tms). Needs only
+               precedent-team-repo-maintenance, precedent-team-tms). Needs
                ENGINE_FILES: enough to run its own AGENTS.md loader block
                (precedent_show.py's Rule/Detail/Why/Story/Install split,
                build_views.py's `--agents-only` regeneration,
                precedent_paths.py's path-trigger channel, precedent_gate.py's
-               closed gate vocabulary). This is the original, narrower case
-               this tool closed first — see spec/BOOTSTRAP_NEW_SOURCES.md.
+               closed gate vocabulary), AND enough to resolve the person's
+               own individual source, since a practice set is a repository
+               somebody works in like any other (precedent_source_
+               credentials.py, precedent_source_bootstrap.py). This is the
+               original, narrower case this tool closed first — see
+               spec/BOOTSTRAP_NEW_SOURCES.md.
 
   'consumer' — a real four-source CONSUMER repo (universal + team +
                individual + repo-local, a vendored process/upstream/, the
@@ -249,6 +253,30 @@ ENGINE_FILES = [
     # says so out loud when it is missing, so a tree vendored before this
     # date degrades visibly rather than ignoring a token that is set.
     'precedent_source_credentials.py',
+    # The other half of that same mechanism: the clone-or-pull that actually
+    # WRITES ~/.config/precedent/config.json, which is the only thing that
+    # makes an individual source resolve at all. Promoted out of the consumer
+    # half on 2026-09-13, and the sentence above -- "a session rooted in
+    # precedent-team-writing needs the person's individual set exactly as
+    # much as a consumer does" -- is the whole argument; the credential
+    # helper travelled on it and this file did not.
+    #
+    # THE INCIDENT. A session rooted in any of the four real practice sets
+    # (precedent-individual, precedent-team-writing,
+    # precedent-team-repo-maintenance, precedent-team-working-style) resolved
+    # NO individual source, every session, because nothing there ever wrote
+    # that config. The canonical remedy already existed and could not be
+    # installed: templates/harness/claude-code/hooks/
+    # individual-source-bootstrap.sh.template execs this file, and a set was
+    # not allowed to have it. Hand-copying it in is correctly refused --
+    # `precedent_vendor_engine.py status` reports UNTRACKED ENGINE FILE for a
+    # known name the manifest does not record -- so the hook a set needed
+    # called a tool a set could not hold, and the gap could only be closed
+    # here. Measured in a live container: running the hook by hand, with the
+    # token set, cloned the set and wrote the config with no add_repo and no
+    # manual step, after which precedent_source_credentials.py went from SET
+    # to OK. The mechanism was sound; only its distribution was wrong.
+    'precedent_source_bootstrap.py',
     # precedent_check.py imports it at module scope, so a vendored engine
     # without it does not degrade -- it raises ModuleNotFoundError and takes
     # the whole check run down. Found 2026-09-09 by verify_harness the moment
@@ -321,15 +349,15 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # above: a universal practice's own Install names a module, so every
     # repo that resolves that practice needs it vendored alongside.
     'title_case.py',
-    # The individual-source SessionStart hook this repo ships as a
-    # template (templates/harness/claude-code/hooks/
-    # individual-source-bootstrap.sh.template) execs this file, and
-    # precedent_resolve.py's own lazy self-heal re-invokes that hook. It
-    # was never vendored, so in a consuming repo the hook exec'd a path
-    # that did not exist -- and both callers swallow the failure by
-    # design, so the individual source simply never resolved and nothing
-    # said why.
-    'precedent_source_bootstrap.py',
+    # precedent_source_bootstrap.py is NOT re-listed here, for the same
+    # reason precedent_check.py is not (see the note below): it was
+    # consumer-only when this list was written -- the individual-source
+    # SessionStart hook this repo ships as a template execs it, and in a
+    # consuming repo the hook exec'd a path that did not exist -- and on
+    # 2026-09-13 it was promoted into ENGINE_FILES, which this list already
+    # inherits. Naming it in both halves would write it twice and record it
+    # twice in every consumer's tracked manifest; the duplicate assertion
+    # below now refuses that at import time rather than shipping it.
     # The REPLACEMENT channel for what a public repo's tracked files may not
     # carry. build_views.py excludes team- and individual-level sources from
     # a public repo's block and precedent_sync_views.py now keeps their text
