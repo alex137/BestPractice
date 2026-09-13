@@ -219,6 +219,37 @@ against a fixture that plants the link which really shipped: a publisher fails
 on it and names where the Rule lives, and a consumer with the same planted link
 still skips.
 
+### "The check ran" is not "the practice is in force"
+
+That gate reads **file presence, and nothing inside the file**. `run()`'s
+condition is `_practice_file(slug) is None`, so:
+
+| | what it actually means |
+|---|---|
+| **the check ran** | a `practices/<slug>.md` exists — **at any `status`** — or the check carries `binds_publishers` and this repo publishes practices |
+| **the practice is in force** | the file exists **and** its `status` is in force |
+
+A practice at `status: deduplicated` or `retired` is not in force and is
+excluded from every generated view, and **its check still runs.**
+
+**Left that way deliberately, decided 2026-09-13.** Enforcing a withdrawn
+practice is harmless: `deduplicated` means the rule is fully in force one
+level up, `retired` is rare and loud, and in neither case does running the
+check make something wrong happen. `binds_publishers` covers the cases that
+raised the question. Reading `status` instead would change behaviour in every
+consuming repo at once, and `rule_of()` needs the file present to print
+anything at all.
+
+**The consequence that costs something**, and the reason this is written down
+rather than shrugged at: **a session verifying that a local re-declaration is
+no longer load-bearing cannot do it by deduplicating the file and watching the
+check still pass.** File presence alone produces that result, so the weak test
+"confirms" the removal while proving nothing. **The decisive test is removing
+the file entirely.** That is how a team set's re-declared
+`catalogue-carries-stories` copy was verified on 2026-09-13, and the weaker
+test would have passed just as readily on a copy that was still the only thing
+switching the check on.
+
 ## Scopes, because a practice is not always a property of a file
 
 - **`tree`** — a property of the repository as it stands. An index exists; the

@@ -48,6 +48,39 @@ counted, and there was no way for a consuming repo to declare a practice
 non-binding and get a clean check. `severity: blocking` still cannot be
 exempted. See load_exemptions().
 
+"THE CHECK RAN" AND "THE PRACTICE IS IN FORCE" ARE TWO DIFFERENT THINGS,
+and this module treats them as one. Said plainly because the difference is
+invisible from the output, and a session has been misled by it:
+
+  the check ran         a practices/<slug>.md file EXISTS -- at any status
+                        -- or the check carries binds_publishers and this
+                        repo publishes practices. That is the whole of
+                        run()'s gate: `_practice_file(slug) is None`, which
+                        looks for the file and reads nothing inside it.
+  the practice is in    the file exists AND its frontmatter `status` is in
+  force                 force. A file at `deduplicated` or `retired` is not
+                        in force, is excluded from every generated view,
+                        and STILL SWITCHES ITS CHECK ON.
+
+LEFT THAT WAY DELIBERATELY, decided 2026-09-13. Enforcing a withdrawn
+practice is harmless -- the rule is either in force one level up
+(`deduplicated`) or nobody wants it anywhere (`retired`, rare and loud), and
+in neither case does running the check make something wrong happen.
+binds_publishers now covers the cases that motivated the question. Changing
+the gate to read `status` would be a behaviour change nobody asked for, in
+every consuming repo at once, and `rule_of()` needs the file to exist in
+order to print anything at all.
+
+THE CONSEQUENCE THAT COSTS SOMETHING, which is why this is written down
+rather than shrugged at: **a session verifying that a local re-declaration is
+no longer load-bearing cannot do it by deduplicating the file and seeing the
+check still pass.** File presence alone produces that result, so the weak
+test "confirms" the removal while proving nothing. The decisive test is
+removing the file entirely. That is how a team set's re-declared
+catalogue-carries-stories copy was actually verified on 2026-09-13; the
+weaker test would have passed just as readily on a copy that was still the
+only thing switching the check on.
+
 Scopes, because a practice is not always a property of a file:
 
   tree      a property of the repository as it stands (an index exists, the
@@ -723,10 +756,13 @@ def _foreign_practice(rel):
        'It tests that the section says something, not that it says something '
        'dramatic.',
        # Binds a publisher: a catalogue is the thing a source set publishes,
-       # so this rule is about its output. One team set proved it wants to
+       # so this rule is about its output. One team set proved it wanted to
        # run there the hard way -- it re-declared this practice locally
-       # purely to defeat the gate, and that second copy has never agreed
-       # with universal's.
+       # purely to defeat the gate, and that second copy never agreed with
+       # universal's for the whole week it existed. Retired 2026-09-13 once
+       # this flag reached that set, which is the outcome this comment was
+       # arguing for; the history is kept because it is the incident that
+       # justifies the flag.
        binds_publishers=True)
 def _catalogue_carries_stories(ctx):
     out = []
@@ -841,8 +877,10 @@ def _origin_slug():
        # source set publishes, and it skipped in exactly those repos. A team
        # source shipped practices/deep-check.md linking a test driver that
        # materialization does not copy; a consuming repo caught it a sync
-       # late. Proven to function in a source set -- that set gates it today
-       # by calling this same function directly from its own workflow.
+       # late. Proven to function in a source set by that set gating it
+       # through a workflow calling this same function directly -- a
+       # workaround this flag made unnecessary, deleted 2026-09-13 and
+       # replaced by one running the whole suite.
        binds_publishers=True)
 def _practice_links_travel(ctx):
     pdir = ROOT / 'practices'
