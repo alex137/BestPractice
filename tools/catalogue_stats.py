@@ -131,10 +131,12 @@ ANCHORS = [
     # doc-references-are-links gained one, recording the practice-file
     # exception to its own relative-link clause, then 19->20 on 2026-09-12 when
     # mistakes-become-rules gained one for the catalogue lookup its
-    # proportionality guard now requires. See phase3_snapshot_stats's
-    # docstring.
+    # proportionality guard now requires, then 20->21 on 2026-09-13 when
+    # environment-gotchas gained one saying when a gotchas section should split
+    # into an index plus a record, and what the index line has to carry.
+    # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     20, 20, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     21, 21, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as

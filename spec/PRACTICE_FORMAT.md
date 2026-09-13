@@ -224,7 +224,7 @@ Two constraints from the plan's phase-3 row governed every decision:
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
 | Practices with `## Rule` over 150 words | 16 | 20 | **7** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
-| Words in `## Detail` | — | — | **4,169** |
+| Words in `## Detail` | — | — | **4,347** |
 
 Twenty of the fifty-two practices carry a Detail. The resident block — the
 text every session pays for, whatever it is doing — **halved**, which is the
@@ -252,7 +252,10 @@ to 19 practices and 3,876 words, on 2026-09-11, when
 own relative-link clause — a practice file links what does not travel with it
 absolutely (`practice-links-travel`) — and to 20 practices and 4,169 words, on
 2026-09-12, when `mistakes-become-rules` gained a Detail explaining the
-catalogue lookup its proportionality guard now requires. (The table cell and the
+catalogue lookup its proportionality guard now requires. It moved again, to 21
+practices and 4,347 words, on 2026-09-13, when `environment-gotchas` gained a
+Detail saying when a gotchas section should split into an index plus a record,
+and what the index line has to carry to stay findable. (The table cell and the
 sentence above it were carried forward from the 2026-09-10 value at the
 2026-09-11 move and are corrected here.) Only the two figures
 `tools/catalogue_stats.py` prints an anchor for — the Rule-share-derived

@@ -4776,63 +4776,50 @@ which is the failure this repointing exists to end — write
     is why it was handed off rather than done here.
     **Disposition:** wait
 
-80. <a id="session-load-under-20k"></a>**The always-loaded total is 21,786
-    tokens against Morgan's hard target of 20,000, and closing the last 1,786
-    is a taste call about the gotchas section.** Measured 2026-09-13 with
-    [tools/build_views.py](tools/build_views.py)'s own `_approx_tokens`, the
-    counter [tools/session_load_budgets.json](tools/session_load_budgets.json)
-    is written in: [AGENTS.md](AGENTS.md) 18,868, `.precedent/SESSION_PRACTICES.md`
-    2,863, [CLAUDE.md](CLAUDE.md) 55. The verified-duplicate pass that got it
-    from 22,904 to 21,786 is done and merged; what is left has no duplicate to
-    remove.
+80. <a id="session-load-under-20k"></a>**Get what every session loads under
+    20,000 tokens.** **DONE 2026-09-13 — 14,386.** Measured with
+    [tools/build_views.py](tools/build_views.py)'s own `_approx_tokens`:
+    [AGENTS.md](AGENTS.md) 11,468, `.precedent/SESSION_PRACTICES.md` 2,863,
+    [CLAUDE.md](CLAUDE.md) 55. It started the day at 22,904.
 
-    **Where the 18,868 sits:** gotchas 8,858 (36 entries), occasion index
-    3,116 (generated — cutting it breaks routing), quick index 2,906, preamble
-    1,983, resident block 894, standing instruction 322, working-in-this-repo
-    429, conventions 171.
+    **Two passes, and the second is the one that did it.** The first removed
+    1,118 tokens of text that was already present in full somewhere a session
+    reads anyway — the eight Precedent commands' coining stories, three
+    convention bullets, and the doubled halves of the private-source block
+    (#287). That left 21,786, still over, and nothing else in the file was a
+    duplicate.
 
-    **Why the gotchas were not cut here.**
-    [tools/very_deep_check.py](tools/very_deep_check.py)'s currency pass flags
-    **none** of the 36 as stale — no dead remedy path, no unanswered check
-    slug, no missing fixture, nothing unmeasured past the threshold. And 26 of
-    the 36 already carry a `compressed` verdict in
-    [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md), meaning an earlier
-    pass decided what the live half should keep. Cutting further is
-    second-guessing that decision, not applying a rule.
+    **The rest was a judgment call and Morgan took it**, from a costed menu of
+    five: *"bolded lead only"*, `strength: decided` — he picked a row rather
+    than approving a proposal. The gotchas section became an **index**: one
+    line per trap, the symptom and a link, with all 36 entries moved to
+    [record/GOTCHAS.md](record/GOTCHAS.md) **in full**. 8,858 tokens of section
+    became 1,462 of index. **Verified word for word** — 6,778 words out of the
+    section, 6,778 into the record, identical — because the whole argument for
+    the split is that it changes the loading and not the text.
 
-    **The costed choices**, measured by mechanically truncating each entry
-    (a careful edit would keep the remedy line wherever it sits, so these
-    bound the saving rather than predict it):
+    **The story guarantee moved with the text rather than being dropped.**
+    [environment-gotchas](practices/environment-gotchas.md) now describes both
+    shapes and says when to split;
+    [tools/precedent_check.py](tools/precedent_check.py) follows the links and
+    applies the same "no bare fixes" test to the record, with five stated cases
+    in [tools/verify_harness.py](tools/verify_harness.py) including the
+    discriminating one; and
+    [tools/very_deep_check.py](tools/very_deep_check.py)'s currency pass reads
+    the record's bodies, so it still sees 36 entries and 9,473 tokens instead
+    of going quietly blind on one-line symptoms. Without that last piece the
+    split would have silently retired the only thing that tells a stale gotcha
+    from a live one.
 
-    | Keep in AGENTS.md | Section costs | Saves | Total load after |
-    |---|---|---|---|
-    | Bolded lead only, bodies moved in full to a linked record | 1,202 | 7,656 | 14,130 |
-    | Lead + 1 sentence | 2,584 | 6,274 | 15,512 |
-    | Lead + 2 sentences | 3,834 | 5,024 | 16,762 |
-    | Lead + 3 sentences | 5,201 | 3,657 | 18,129 |
-    | Nothing — raise the target instead | 8,858 | 0 | 21,786 |
+    **What is NOT claimed: that the index is as good as the section was.** A
+    session that recognises a symptom loses nothing; a session that has not hit
+    the trap yet now meets one line where it used to meet the story, and
+    nothing measures what that costs. The ceiling is ratcheted to 12,000 in
+    [tools/session_load_budgets.json](tools/session_load_budgets.json), so
+    growth back toward the old figure is a decision somebody takes on purpose.
+    **Disposition:** parked (2026-09-13, closed as done)
 
-    **What is lost, said plainly.** The bolded lead states the symptom; the
-    body carries the story, which
-    [environment-gotchas](practices/environment-gotchas.md) says is the
-    payload — a fix with no failure attached is one the next session undoes
-    the moment it looks wrong. A moved body is still one link away and nothing
-    is deleted, so a session that *recognises* a symptom loses nothing. What
-    it loses is the session that has not hit the symptom yet, which is the
-    case the section exists for.
 
-    **Recommendation: lead + 2 sentences**, bodies moved verbatim into
-    `record/GOTCHAS.md` beside the existing archive. It clears the target with
-    1,800 to spare, keeps every entry's symptom *and* its remedy resident, and
-    leaves the story one link away under the structure the section already
-    uses. Ten of the 36 have no archive counterpart yet, so that pass has to
-    write those out in full first.
-
-    **Blocked on / out of scope:** Morgan's call on how much of the story a
-    session should read before it starts, which is the whole question and not
-    one a script can answer. The menu above went to him with the pull request
-    that opened this item; nothing here moves until he picks a row.
-    **Disposition:** wait
 
 81. <a id="source-set-runs-no-universal-checks"></a>**A practice set now READS
     the universal rules and still RUNS none of universal's mechanical
@@ -4879,3 +4866,4 @@ which is the failure this repointing exists to end — write
     He asked for it to be noted as an issue to review, so raising it with him
     is what he asked for.
     **Disposition:** ask (2026-09-13, Morgan)
+
