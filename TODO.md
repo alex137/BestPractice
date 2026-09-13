@@ -4696,3 +4696,61 @@ which is the failure this repointing exists to end — write
     session that raised it changed no mechanism.
     **Disposition:** wait
 
+
+79. <a id="session-load-under-20k"></a>**The always-loaded total is 21,818
+    tokens against Morgan's hard target of 20,000, and closing the last 1,818
+    is a taste call about the gotchas section.** Measured 2026-09-13 with
+    [tools/build_views.py](tools/build_views.py)'s own `_approx_tokens`, the
+    counter [tools/session_load_budgets.json](tools/session_load_budgets.json)
+    is written in: [AGENTS.md](AGENTS.md) 18,900, `.precedent/SESSION_PRACTICES.md`
+    2,863, [CLAUDE.md](CLAUDE.md) 55. The verified-duplicate pass that got it
+    from 22,904 to 21,818 is done and merged; what is left has no duplicate to
+    remove.
+
+    **Where the 18,900 sits:** gotchas 8,963 (36 entries), occasion index
+    3,114 (generated — cutting it breaks routing), quick index 2,862, preamble
+    1,956, resident block 894, standing instruction 322, working-in-this-repo
+    429, conventions 171.
+
+    **Why the gotchas were not cut here.**
+    [tools/very_deep_check.py](tools/very_deep_check.py)'s currency pass flags
+    **none** of the 36 as stale — no dead remedy path, no unanswered check
+    slug, no missing fixture, nothing unmeasured past the threshold. And 26 of
+    the 36 already carry a `compressed` verdict in
+    [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md), meaning an earlier
+    pass decided what the live half should keep. Cutting further is
+    second-guessing that decision, not applying a rule.
+
+    **The costed choices**, measured by mechanically truncating each entry
+    (a careful edit would keep the remedy line wherever it sits, so these
+    bound the saving rather than predict it):
+
+    | Keep in AGENTS.md | Section costs | Saves | Total load after |
+    |---|---|---|---|
+    | Bolded lead only, bodies moved in full to a linked record | 1,211 | 7,752 | 14,066 |
+    | Lead + 1 sentence | 2,593 | 6,370 | 15,448 |
+    | Lead + 2 sentences | 3,872 | 5,091 | 16,727 |
+    | Lead + 3 sentences | 5,242 | 3,721 | 18,097 |
+    | Nothing — raise the target instead | 8,963 | 0 | 21,818 |
+
+    **What is lost, said plainly.** The bolded lead states the symptom; the
+    body carries the story, which
+    [environment-gotchas](practices/environment-gotchas.md) says is the
+    payload — a fix with no failure attached is one the next session undoes
+    the moment it looks wrong. A moved body is still one link away and nothing
+    is deleted, so a session that *recognises* a symptom loses nothing. What
+    it loses is the session that has not hit the symptom yet, which is the
+    case the section exists for.
+
+    **Recommendation: lead + 2 sentences**, bodies moved verbatim into
+    `record/GOTCHAS.md` beside the existing archive. It clears the target with
+    1,800 to spare, keeps every entry's symptom *and* its remedy resident, and
+    leaves the story one link away under the structure the section already
+    uses. Ten of the 36 have no archive counterpart yet, so that pass has to
+    write those out in full first.
+
+    **Blocked on / out of scope:** Morgan's call on how much of the story a
+    session should read before it starts, which is the whole question and not
+    one a script can answer. The menu above went to him with the pull request
+    that opened this item; nothing here moves until he picks a row.
+    **Disposition:** wait
