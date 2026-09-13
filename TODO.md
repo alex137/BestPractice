@@ -4718,15 +4718,22 @@ which is the failure this repointing exists to end — write
     `precedent-team-repo-maintenance`, `precedent-team-working-style`) predate
     both and get neither.
 
-    **What they are missing is one `SessionStart` command each**, ahead of
-    `commit-identity.sh`, which reads the individual set for the author and
-    the timezone. The hook FILE
+    **What they are missing is the hook FILE and one `SessionStart` command
+    each**, ahead of `commit-identity.sh`, which reads the individual set for
+    the author and the timezone. **Both halves are by hand**, and this item
+    said otherwise until it was measured against the four real sets:
     [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
-    `--apply` writes for them; the wiring it deliberately will not, because
-    rewriting somebody's existing `.claude/settings.json` is guesswork about
-    a file they wrote. It reports the gap instead, per set, at every session
-    start — measured 2026-09-13, all four: *"hooks present but no
-    settings*.json wires precedent-individual-bootstrap.sh"*.
+    `--apply` writes neither. A hook no `settings*.json` declares lands in
+    that tool's `unwired` bucket rather than its `missing` one, and
+    `_repairable()` excludes `unwired` deliberately — writing a file nothing
+    declares produces a hook that still never runs, plus a diff nobody asked
+    for, and rewriting somebody's existing `.claude/settings.json` is
+    guesswork about a file they wrote. It reports the gap instead, per set,
+    at every session start — measured 2026-09-13, all four: *"hooks present
+    but no settings*.json wires precedent-individual-bootstrap.sh"*. Read
+    that *"hooks present"* as the message's own stock wording for the wiring
+    case, not as a claim about this hook: in all four sets the file is absent
+    too.
 
     **Note the set's own layout differs.** `precedent-individual` wires its
     hooks from `bootstrap/` rather than `.claude/hooks/`, which its own
