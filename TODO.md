@@ -4724,7 +4724,29 @@ which is the failure this repointing exists to end — write
     path — the check reads what `settings.json` invokes, not where the
     generator would have put it.
 
+    **HANDED OFF 2026-09-13, one session per set**, on Morgan's instruction
+    to spawn them rather than carry the work cross-owner from here
+    (`strength: decided` — he asked for it in those words). Each is rooted in
+    its own set and seeded with the whole procedure: clone this public
+    repository, `precedent_vendor_engine.py refresh` to pick up
+    `precedent_source_bootstrap.py` (new to `ENGINE_FILES` in PR #284), then
+    `precedent_bootstrap_source.py --write-session-hook`, the wiring, the
+    end-to-end run under a fixture `HOME`, and the set's own checks.
+
+    | Set | Session |
+    |---|---|
+    | `precedent-individual` | `session_01X7JgfabNF6mSvR7dpqVeAV` |
+    | `precedent-team-writing` | `session_01BLrNAxdBkyD4QtMrg4Z57Q` |
+    | `precedent-team-repo-maintenance` | `session_0185SF928m3c1dgtAj2uyFR8` |
+    | `precedent-team-working-style` | `session_019Tas6QAJHUXwXwUv7ksDYf` |
+
+    **A spawned session has no route back**, so none of them can report here:
+    each ends on a one-line status in its own transcript, and this item closes
+    when `precedent_refresh_sources.py` stops naming the set at session start
+    — which is the check to run rather than a summary to trust.
+
     **Blocked on / out of scope:** four repositories this session was not
-    scoped to, under a different owner, each with its own merge rules.
+    scoped to, under a different owner, each with its own merge rules — which
+    is why it was handed off rather than done here.
     **Disposition:** wait
 
