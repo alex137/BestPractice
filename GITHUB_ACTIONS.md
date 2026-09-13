@@ -170,14 +170,37 @@ from its table from the day it landed, under that header. The header now
 names `build_views.py --check`, which exists wherever the view does; this
 workflow is the half that makes something actually look.
 
-The engine's own drift check cannot substitute.
-[tools/precedent_check.py](tools/precedent_check.py) *is* vendored and its
-`generated-artifact-provenance` check does run `build_views.py --check` —
-but `precedent_check.py` skips any check whose practice is not in force in
-the repo it runs in, and a source set's `practices/` holds only its own
-practices, never the universal one that check belongs to. Run against a real
-individual set on 2026-09-11 it reported `1 skipped`, and a skip is not a
-pass.
+**The reason this paragraph used to give expired on 2026-09-12.** It said
+the engine's own drift check could not substitute, because
+[tools/precedent_check.py](tools/precedent_check.py) skips any check whose
+practice is not in force in the repo it runs in — and a source set's
+`practices/` holds only its own practices, never the universal one
+`generated-artifact-provenance` belongs to. That was true, and measured: run
+against a real individual set on 2026-09-11 it reported `1 skipped`, and a
+skip is not a pass. `binds_publishers` (#261, merged 2026-09-12) ended it. A
+check whose subject is the practice a repo *publishes* now runs in the repo
+publishing it, and that check is one of the three carrying the flag.
+
+**What is true now, measured 2026-09-13** against a set freshly bootstrapped
+by [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+and given a loader block: `--only generated-artifact-provenance` reports
+`1 passed` where it reported `1 skipped` before, and planted drift turns it
+red in each of the three views separately — [MAP.md](MAP.md),
+[GLOSSARY.md](GLOSSARY.md), and inside `AGENTS.md`'s loader block. In a source set the two now look at the
+same three files, by the same `build_views.py --check` subprocess. The
+coverage argument for keeping this workflow is gone.
+
+**What it still does is fire without being asked.** A vendored check runs
+when somebody types the command; this workflow is attached to
+`pull_request`. Nothing else in a source set runs
+[precedent_check.py](tools/precedent_check.py) in
+continuous integration at all, so "the check runs natively now" and "the
+rule is gated" remain different claims, and only the second one is what a
+generated view drifting silently needs. Whether a set that gains a workflow
+running the whole suite should then drop this one is an open question, not a
+settled redundancy — [TODO.md](TODO.md)'s
+[`views-drift-vs-suite-workflow`](TODO.md#views-drift-vs-suite-workflow)
+holds it.
 
 The workflow **gates and does not fix**: regenerating in CI would leave the
 branch's own diff wrong and put a runner bot in the authorship path that

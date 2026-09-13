@@ -184,10 +184,19 @@ def _install_workflows(dest):
     outside this repo: verify_harness.py is deliberately not vendored
     (precedent_vendor_engine.py's own comment), and precedent_check.py's
     `generated-artifact-provenance` -- which does run `build_views.py
-    --check` -- skips itself in a source set, because that check's practice
+    --check` -- skipped itself in a source set, because that check's practice
     is universal and a source set's practices/ holds only its own. Measured:
     an individual set's MAP.md sat three practices stale under a generated
     header claiming a guard was failing the build on exactly that.
+
+    THAT SKIP IS OVER as of binds_publishers (PR #261, 2026-09-12): the check
+    runs in a source set now, and covers the same three views this workflow
+    does (measured 2026-09-13 in a freshly bootstrapped set -- `1 passed`,
+    and red on planted drift in each view). The workflow stays because it is
+    wired to `pull_request` and the vendored check is not, which is a
+    different property than coverage. Whether a set that also gains a
+    whole-suite workflow should keep both is TODO.md's
+    `views-drift-vs-suite-workflow`.
 
     Same reasoning as _install_session_hooks: the workflow FILES are
     rewritten on every call, so a set this is re-run against picks up the

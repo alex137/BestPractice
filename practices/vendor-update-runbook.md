@@ -57,14 +57,26 @@ every step's answer is wrong if the one before it was skipped.
    session is running on the universal catalogue alone and nothing else
    will say so.
 8. **Check that every source repository is still CALLED what this repo
-   calls it.** A renamed repository redirects indefinitely, so the clone,
-   the fetch and the materialize all keep succeeding under the old name and
-   nothing anywhere fails. This is the one moment a session is already
-   online and already reconciling its sources, so it is where the question
-   gets asked. Run
+   calls it** — *in a repo that declares sources.* A renamed repository
+   redirects indefinitely, so the clone, the fetch and the materialize all
+   keep succeeding under the old name and nothing anywhere fails. This is
+   the one moment a session is already online and already reconciling its
+   sources, so it is where the question gets asked. Run
    [tools/precedent_source_names.py](../tools/precedent_source_names.py);
    `UNVERIFIED` means the name was not checked, which is not the same as
    checked and current.
+
+   **In a practice SET this step is not applicable, and that is different
+   from skipped.** The tool reads a multi-source config a set does not
+   have, so it is in `CONSUMER_ENGINE_FILES` only and is deliberately not
+   vendored into a set at all — a session following this runbook there
+   finds no such file. Say "not applicable: this repo declares no sources"
+   and move on. Do not go looking for the file, and do not report a step
+   you could not run as one you skipped. Step 7 above is **not** in this
+   position and still applies everywhere: `precedent_source_credentials.py`
+   is in the shared `ENGINE_FILES`, because a session rooted in a practice
+   set needs the person's own individual set exactly as much as a consumer
+   does.
 9. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
 
@@ -131,6 +143,20 @@ indefinitely. It surfaced on 2026-09-11 only because a person recognised a
 name he had retired. The content was right the whole time; the name was a
 ghost, and every vendored reference to it was one repository-settings change
 away from a 404 nobody could date.
+
+**Step 8 then sent three sessions hunting for a file that was never there.**
+Written with no caveat, it named `tools/precedent_source_names.py` as
+something to run, and that file is in `CONSUMER_ENGINE_FILES` only -- by a
+deliberate decision recorded in `precedent_vendor_engine.py`'s own comment,
+because it reads a multi-source config a practice SET does not have. So in a
+set the step is unrunnable by design, and on 2026-09-13 three sessions
+following this runbook in one hit it: each was left choosing between
+reporting a step it had skipped and searching for a missing engine file,
+and a missing file reads like a broken vendoring, which is the expensive
+direction to guess. The scoping clause is the whole fix. **A runbook step
+that names a tool has to say where that tool exists**, because the session
+reading it has no other way to tell "not for this repo" from "your install
+is broken" -- the two look identical from a shell.
 
 **The phrase this began as is deliberately not here.** A keyword is one
 person's preference, and a universal rule telling every adopting repository
