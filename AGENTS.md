@@ -26,141 +26,78 @@ origin incident happened. Full story, the mechanical check, and the
 retirement condition:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
 
-**"Go merge" is a Precedent command, defined universally in
-[practices/go-merge.md](practices/go-merge.md), and it means: sync, say
-which branch out loud, commit, push, open the pull request, merge — without
-asking again.** It moved up from Morgan's private individual set to the
-universal catalogue on 2026-09-08, on his decision: *"we should have our own
-commands we use for people who live in our universe."* **That reverses the
-2026-09-07 retirement of `merge-authorization-keyword`**, and the two are
-not the same rule — the retired one told every adopting repository to go
-invent a keyword of its own, which is a preference dressed as a practice;
-this one names the phrase and ships it. `merge-authorization-keyword` is now
-`deduplicated` with `in_force_at: go-merge` rather than retired.
+**Precedent commands.** Each of these is a phrase in his message that means a
+fixed thing, and each is a universal practice: the trigger and the meaning are
+here, and the rule, the argument and the story of its coining are in the
+practice file — `python3 tools/precedent_show.py SLUG` for any of them.
 
-**Why the move matters beyond tidiness:** while the definition lived in a
-private set, a session that had not attached it could not read it. One did
-exactly that — followed an instruction to go ask what the phrase meant,
-generating the precise interruption the phrase exists to prevent, while the
-answer sat in a repository nobody had fetched. It is in the generated
-occasion index now, so every session reads it whether or not any private
-source resolved.
+- **"Go merge"** ([go-merge](practices/go-merge.md)) — sync, say which branch
+  out loud, commit, push, open the pull request, merge, **without asking
+  again.**
+- **"Park it"** ([park-it](practices/park-it.md)) — write
+  `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
+  that same turn, say which item was marked, and **never raise it unprompted
+  again** — not this session, and not a later one that decides it has become
+  urgent. Nobody owes an explanation for parking something, so the response is
+  to do it, never to ask a follow-up question about it.
+- **"Three Things"** ([three-things](practices/three-things.md)) — the three
+  most important things he needs to know now, each a bolded phrase and at most
+  two sentences, and nothing around them: no preamble, no fourth item, no
+  closing offer. It asks for **attention rather than action**, so a session
+  that has not actually read the repository cannot answer it, and an answer
+  assembled from whatever is already in context is the failure it prevents.
+- **"Plain words"** ([plain-words](practices/plain-words.md)) — the same
+  answer said the way you would say it out loud: short sentences, the concrete
+  case before the general principle, no hedging. **It governs the rest of the
+  conversation, not just the next reply**, and nothing about the substance
+  changes — a plainer reply that quietly says less has failed it.
+- **"Weak yes"** ([weak-yes](practices/weak-yes.md)) — go ahead, and record
+  that he was not convinced: `strength: assented`, written into whatever the
+  approval is being recorded in, that same turn. **Not an invitation to talk
+  him into it.**
+- **"Spawn session"** ([spawn-session](practices/spawn-session.md)) — before
+  starting what he just asked for, check whether it belongs in a different
+  session, repositories first; then **wake a live session** that already holds
+  the context and can answer back, or, where none fits, hand him a link to a
+  new one, rooted in the right repository and already seeded with the prompt.
+  **Waking beats spawning**: a spawned session re-reads its repository from
+  nothing and has no return path. The check itself runs whenever another
+  repository might be needed, phrase or no phrase; the phrase is for the times
+  it did not, and an honest "this session is the right one" answers it.
+- **"My options"** ([my-options](practices/my-options.md)) — every real choice
+  on the table in plainer words, a short block each, the cost said as flatly
+  as the benefit, then **a named recommendation with its reason** — never a
+  survey that leaves the choice sitting there. It governs that one answer, not
+  the rest of the conversation, which is what separates it from `Plain words`.
+- **"Update Vendors"**
+  ([vendor-update-runbook](practices/vendor-update-runbook.md)) — the fixed
+  sequence for taking an upstream update, starting with making the SOURCE
+  clone current against the pinned branch. It authorizes the update, not the
+  merge of what the update produces; that is still `Go merge`'s to give.
 
-**What the phrase's ABSENCE means is a separate question**, and its interim
-answer is: **use judgment, and do not ask him.** Morgan, 2026-09-07, asked
-to choose between holding, pushing, and a line between them: *"The session
-should use its judgment. Todo in the future to make a hard rule, not that."*
-He wants a hard rule eventually and ruled out "use judgment" as its content,
+What `parked` means, and the two other dispositions an open item can carry, is
+[open-item-disposition](practices/open-item-disposition.md), whose one line
+is: **an item with no disposition is `wait`, and a session raises an item with
+him only if the item says `ask`.**
+
+**Most weak agreement never uses the phrase**, which is why `Weak yes` is only
+half of it. The other half is
+[decision-strength](practices/decision-strength.md), and its one line is: **an
+approval records `decided` or `assented`, and an unmarked one means UNKNOWN —
+never "you decided this."** A session may write `decided` only if it can quote
+the person choosing it; a bare "ok" to the session's own proposal is
+`assented`, written that way without asking.
+
+**What a merge authorization's ABSENCE means is a separate question**, and its
+interim answer is: **use judgment, and do not ask him.** Morgan, 2026-09-07,
+ruled out "use judgment" as the content of the hard rule he wants eventually,
 so this is the interim state and not the destination — [TODO.md](TODO.md)'s
 `push-without-the-keyword` item stays open for it, and must not be closed by
-pointing at this paragraph. What the repository itself contributes is only
-the destination: an authorization to merge, in whatever words it arrives,
-means `precedent-beta-v01` per the paragraph above, and is not done until a
-fetch confirms the pushed content is actually there
+pointing at this paragraph. What the repository itself contributes is only the
+destination: an authorization to merge, in whatever words it arrives, means
+`precedent-beta-v01` per the paragraph above, and is not done until a fetch
+confirms the pushed content is actually there
 ([verify-postcondition](practices/verify-postcondition.md)).
-
-**"Park it" is a Precedent command too, defined universally in
-[practices/park-it.md](practices/park-it.md), and it means: mark the item
-`parked` and drop the subject.** The session writes
-`**Disposition:** parked (<date>, <who said it>)` into the item meant, in
-that same turn, and **no session raises that item unprompted again** — not
-this one, and not a later one that decides it has become urgent. Nobody owes
-an explanation for parking something, so **the response is to do it and say
-which item was marked, never to ask a follow-up question about it.**
-
-Coined by Morgan on 2026-09-08 and moved to universal the same day,
-alongside `go-merge`, for the same reason. It spent one day as a repo-local
-practice here; that copy is now `deduplicated` and points at the universal
-one. What `parked` then means — and the two other dispositions an open item
-can carry — is
-[practices/open-item-disposition.md](practices/open-item-disposition.md),
-whose one line is: **an item with no disposition is `wait`, and a session
-raises an item with him only if the item says `ask`.**
-
-**A fourth command, "Three Things"**, is defined universally in
-[practices/three-things.md](practices/three-things.md) and asks for the three
-most important things the person needs to know now — each a bolded phrase and
-at most two sentences, and nothing around them: no preamble, no fourth item,
-no closing offer. It is the one command here that asks for **attention rather
-than action**, so a session that has not actually read the repository cannot
-answer it, and an answer assembled from whatever is already in context is the
-failure it exists to prevent. Coined by Morgan on 2026-09-08 and placed at
-universal from the start.
-
-**A fifth command, "Plain words"**, is defined universally in
-[practices/plain-words.md](practices/plain-words.md) and asks for the same
-answer said the way you would say it out loud: short sentences, the concrete
-case before the general principle, no hedging and no survey of positions you
-are not taking. **It governs the rest of the conversation, not just the next
-reply.** Nothing about the substance changes — same conclusions, same figures,
-same "Files touched" list — so a plainer reply that quietly says less has
-failed it. Coined by Morgan on 2026-09-08, in the thread that also unfolded
-the cross-team practice-drift item, and placed at universal the same day.
-
-**A sixth command, "Weak yes"**, is defined universally in
-[practices/weak-yes.md](practices/weak-yes.md) and means: **go ahead, and
-record that I was not convinced.** It authorizes the work exactly as a plain
-yes would; what it adds is the mark — `strength: assented` written into
-whatever the approval is being recorded in, in that same turn. **It is not an
-invitation to talk him into it**: no follow-up asking what the reservation
-is.
-
-Most weak agreement never uses the phrase, which is why the phrase is only
-half of it. **The other half is
-[practices/decision-strength.md](practices/decision-strength.md), and its one
-line is: an approval records `decided` or `assented`, and an unmarked one
-means UNKNOWN — never "you decided this."** A session may write `decided`
-only if it can quote the person choosing it; a bare "ok" to the session's own
-proposal is `assented`, written that way without asking. Agreement framed as
-a test or a "let's see how it goes" is `assented`; enthusiasm is `decided`.
-**Nothing was backfilled** — the approvals already in the catalogue stay
-unmarked, permanently, because guessing which past "ok" was enthusiastic is
-the invention [no-invented-specifics](practices/no-invented-specifics.md)
-forbids. Coined by Morgan on 2026-09-09 and placed at universal the same day.
-
-**A seventh command, "Spawn session"**, is defined universally in
-[practices/spawn-session.md](practices/spawn-session.md) and means: **before
-starting what I just asked for, check whether it belongs in a different
-session — repositories first — and if it does, wake a live session that
-already holds the context, or, where none fits, hand me a link to a new one,
-rooted in the right repository and already seeded with the prompt, and tell
-me to click it.** The check itself is **not** waiting on the phrase: it runs
-whenever another repository might be needed, always. The phrase is for the
-times it did not, and an honest "this session is the right one" is a
-complete answer to it.
-
-**Waking beats spawning**: a live session reuses the context it holds and
-**can answer back**, where a spawned one re-reads its repository from
-nothing and has no return path. True since 2026-09-12 and in no line any
-session read until 2026-09-13.
-
-It is the step that comes *before*
-[practices/handoff-is-pasteable.md](practices/handoff-is-pasteable.md),
-which was amended the same day: where the harness can create the session
-itself, the link replaces the paste block, and the block's three things
-become the seeded prompt rather than something anyone retypes. Coined by
-Morgan on 2026-09-11 and placed at universal from the start, as
-`clean-session`; **renamed to `spawn-session` on 2026-09-12** on his
-instruction, with nothing else about it changed.
-
-**An eighth command, "My options"**, is defined universally in
-[practices/my-options.md](practices/my-options.md) and means: **lay out the
-real choices in plainer words, give me the good and the bad of each, and tell
-me which one you recommend and why.** Every option that is actually on the
-table, a short block each, the cost said as flatly as the benefit — and then
-**a named recommendation with its reason**, never a survey that leaves the
-choice sitting there. It governs **that one answer**, not the rest of the
-conversation, which is what separates it from `Plain words`; and his reply to
-the recommendation is an approval like any other, so
-[practices/decision-strength.md](practices/decision-strength.md) marks it.
-Coined by Morgan on 2026-09-12 and placed at universal the same day.
-
-**A third command, "Update Vendors"**, triggers
-[practices/vendor-update-runbook.md](practices/vendor-update-runbook.md) —
-the fixed sequence for taking an upstream update, starting with making the
-SOURCE clone current against the pinned branch. It authorizes the update,
-not the merge of what the update produces; that is still `Go merge`'s to
-give.
 
 **FIRST, and normally already done for you.** The private sources are
 cloned by the SessionStart hook when the environment carries
@@ -184,30 +121,24 @@ session sees.
 
 **Then, before trusting any of this file's "the session-start hook does
 this" claims: run
-[tools/precedent_session_check.py](tools/precedent_session_check.py).** It reports
-which SessionStart guarantees are actually in effect, and `--apply` repairs
-most of them — **read the failing row's own detail before running it**, because
-a guarantee whose remedy is something else says so there. The global commit
-backstop is the live case: it installs only for a DECLARED identity, so on a
-session that could not reach the individual practice source `--apply` re-runs
-the hook, the hook declines again, and the row stays red no matter how many
-times you try. A session rooted one directory ABOVE this repo — which is what
-happens whenever the sibling clones a team source needs are laid out
-alongside it — runs NONE of its hooks, silently, including the one that
-writes `.precedent/SESSION_PRACTICES.md`. See the gotcha "The session's
-PRIMARY repo does not run its SessionStart hooks either" below; it cost a
-whole session's replies on 2026-09-08.
+[tools/precedent_session_check.py](tools/precedent_session_check.py).** It
+reports which SessionStart guarantees are actually in effect, and `--apply`
+repairs most of them — **read the failing row's own detail before running
+it**, because a guarantee whose remedy is something else says so there. The
+live case is the global commit backstop: it installs only for a DECLARED
+identity, so on a session that could not reach the individual source `--apply`
+re-runs the hook, the hook declines again, and the row stays red however many
+times you try. A session rooted one directory ABOVE this repo runs NONE of its
+hooks, silently, including the one that writes
+`.precedent/SESSION_PRACTICES.md` — see the gotcha "The session's PRIMARY repo
+does not run its SessionStart hooks either" below.
 
-On the `add_repo` route, nothing else can do it for you.
-`.claude/hooks/precedent-individual-bootstrap.sh`
-runs to completion *before* the agent's first turn begins, so it cannot
-call `add_repo` — its own header explains why a retry loop there was tried
-and proven inert. The hook then succeeds on its own when
-[tools/precedent_resolve.py](tools/precedent_resolve.py) re-invokes it
-later in the turn, which only helps if the access exists by then. If
-`add_repo` genuinely fails, say so plainly and carry on: those practices
-are simply not in force that session, and a session that does not know
-that will confidently apply the wrong ones.
+On the `add_repo` route nothing else can do it for you:
+`.claude/hooks/precedent-individual-bootstrap.sh` runs to completion *before*
+the first turn, so it cannot call `add_repo` — its own header says why a retry
+loop there was tried and proven inert — and
+[tools/precedent_resolve.py](tools/precedent_resolve.py) re-invoking it later
+in the turn only helps if the access exists by then.
 
 **This repo is becoming Precedent, a restructuring of BestPractice — read
 [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) first, in full, before
@@ -1211,18 +1142,12 @@ gotcha every session reads is a gotcha every session pays for.
   is entry 34, and the cost of skipping it is the entry above: a session with
   `individual` and `team` unresolved applies the wrong rules all day and
   cannot tell.
-  **The live trap is one environment away: an account can hold TWO
-  environments with the SAME NAME, and the selector gives you no way to tell
-  them apart.** Three sessions across two fresh containers reported
-  `env | grep -c PRECEDENT` as **0**, with not one user-defined variable of
-  any kind — which reads exactly like "the runner does not pass them
-  through", and was not that: `list_environments` showed two environments both
-  named `Default`, created 100 ms apart, with the variables set on one and the
-  sessions running in the other. **So: give your environments distinct
-  names**, and put a throwaway `PRECEDENT_PING=1` beside the token — the ping
-  separates "the variables do not arrive" from "the token is wrong", which
-  print identically otherwise. An environment change never reaches a session
-  already running, so test in a NEW one. The three-day sequence is entry 29.
+  **If `env | grep -c PRECEDENT` says 0, that is not proof the runner drops
+  variables** — an account can hold two environments with the SAME NAME and the
+  selector cannot tell them apart, which is what it was three times. The
+  setting-up half of this now lives where someone setting the variables reads
+  it, [INSTALL.md](INSTALL.md) §8's environment table; the three-day sequence
+  is [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) entry 29.
 
 - **`add_repo` on a PUBLIC repository attaches nothing and never reaches the
   cross-owner check, so testing that wall with `access: "read"` measures
@@ -1348,24 +1273,10 @@ gotcha every session reads is a gotcha every session pays for.
 
 ## Conventions (every session, every reply)
 
-- **Reply convention** ([reply-links-files](practices/reply-links-files.md)):
-  every reply that created, modified or deleted
-  files ends with a **"Files touched"** list — for each file, the branch
-  link (readable now) plus the post-merge `main` link, with a one-line
-  description. The reader opens the work from the chat; they never go
-  hunting for it. **A deleted file is listed too** — its path, why it went,
-  and a link to the commit that removed it; a whole decommissioned directory is one
-  entry, not one line per file. A touched HTML render or picture also gets
-  its rendered-view (artifact) link when the harness offers one — a repo
-  link shows source, not the render.
-- **Doc references are links** ([doc-references-are-links](practices/doc-references-are-links.md)):
-  relative markdown links,
-  never bare backticked filenames. Use `≈`, not `~`, for "approximately".
-- **Volatile rules carry their dates** ([volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md)):
-  anything asserted
-  here about an external platform or tool carries *as of / verified
-  `<date>`* inline, in the contributor's local calendar date, not the
-  agent's system clock.
+The loader carries three more in full — `reply-links-files` in the resident
+block above, `doc-references-are-links` and `volatile-rules-carry-dates` in the
+occasion index — so they are not repeated here.
+
 - **Outward-facing documents use the reader's words** ([readers-vocabulary](practices/readers-vocabulary.md)): this
   repo's README, [SETUP.md](SETUP.md), and
   [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) are read by
