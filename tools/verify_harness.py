@@ -16417,6 +16417,141 @@ def check_very_deep_check_bootstrap_drift():
           '; '.join(f'{n} -- {d[:600]}' for n, d in bad))
 
 
+def check_very_deep_check_convergent_drift():
+    """very_deep_check's CONVERGENT DRIFT section compares the sets against
+    EACH OTHER, not each set against the template (practice:
+    very-deep-check, pass 1).
+
+    WHY THIS NEEDS A FIXTURE OF ITS OWN. The three checks either side of it
+    all measure one set against one template, so a change every set made
+    identically reads as healthy in all of them -- which is exactly the
+    failure this section exists to catch, and exactly the failure a broken
+    version of it would keep producing silently. Every case asserts the
+    MESSAGE rather than a count (practice: control-asserts-which-failure),
+    because "no set converged" and "nothing was compared" render as the same
+    empty list and mean opposite things.
+
+    THE THRESHOLD IS PINNED AT TWO, in both directions: one set changing a
+    file is a person living in their set and must NOT be a finding, and two
+    sets changing it the same way must be. A check that fired on one set
+    would report every set's own README forever.
+
+    THE DIRECTION IS PINNED AS UNKNOWN. Convergence says the sets and the
+    generator disagree systematically; it does not say which side is right,
+    and the first live run met exactly the ambiguous case (three team sets
+    sharing an OLDER freshness-guard.sh, not a change the template was
+    missing). A finding that asserted "the template is wrong" would send
+    somebody to copy a stale build upstream.
+
+    Untracked files are pinned as NOT drift -- the first live run reported a
+    harness-written `.claude/settings.local.json` in all three team sets,
+    which is container state, not a shape the skeleton is missing."""
+    import shutil, tempfile
+    import very_deep_check as vdc
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-converge-harness-'))
+    cases = []
+
+    def fresh(tag):
+        dest = tmp / tag
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                        '--level', 'team', '--name', 'precedent-team-' + tag,
+                        '--dest', str(dest), '--approver', 'Fixture:fixture'],
+                       capture_output=True, text=True)
+        subprocess.run(['git', 'init', '-q', str(dest)], capture_output=True)
+        subprocess.run(['git', '-C', str(dest), 'add', '-A'], capture_output=True)
+        return dest, {'level': 'team', 'name': 'precedent-team-' + tag,
+                      'path': str(dest)}
+
+    try:
+        a_dir, a = fresh('alpha')
+        b_dir, b = fresh('beta')
+
+        collect = {}
+        vdc._bootstrap_drift([a, b], collect=collect)
+        out = vdc._convergent_drift(collect)
+        cases.append(('two sets the generator just wrote converge on nothing',
+                      [m for m in out if m.startswith('FINDING')] == [],
+                      repr(out)))
+
+        cases.append(('an uncollected run reads as a SKIP, in those words',
+                      any('skip' in m.lower() for m in vdc._convergent_drift(None)),
+                      repr(vdc._convergent_drift(None))))
+
+        cases.append(('a level with ONE source says so rather than printing '
+                      'nothing',
+                      any(m.startswith('note') and 'converge' in m
+                          for m in vdc._convergent_drift(
+                              {('team', 'README.md'): {'solo': frozenset()}})),
+                      repr(vdc._convergent_drift(
+                          {('team', 'README.md'): {'solo': frozenset()}}))))
+
+        # ONE set changing a file is a person, not a template gap.
+        line = 'a distinctive line no skeleton ships anywhere at all'
+        with (a_dir / 'README.md').open('a', encoding='utf-8') as fh:
+            fh.write('\n' + line + '\n')
+        subprocess.run(['git', '-C', str(a_dir), 'add', '-A'], capture_output=True)
+        collect = {}
+        vdc._bootstrap_drift([a, b], collect=collect)
+        out = vdc._convergent_drift(collect)
+        cases.append(('ONE set changing a file is never a finding',
+                      not [m for m in out if m.startswith('FINDING')],
+                      repr(out)))
+
+        # The SECOND set making the same change is.
+        with (b_dir / 'README.md').open('a', encoding='utf-8') as fh:
+            fh.write('\n' + line + '\n')
+        subprocess.run(['git', '-C', str(b_dir), 'add', '-A'], capture_output=True)
+        collect = {}
+        vdc._bootstrap_drift([a, b], collect=collect)
+        out = vdc._convergent_drift(collect)
+        findings = [m for m in out if m.startswith('FINDING')]
+        cases.append(('TWO sets making the same change is one finding, naming '
+                      'the file, quoting the line, and both sets',
+                      len(findings) == 1 and 'README.md' in findings[0]
+                      and 'alpha' in findings[0] and 'beta' in findings[0]
+                      and any(line in m for m in out), repr(out)))
+        cases.append(('the finding does NOT assert which side is wrong',
+                      bool(findings) and 'readings' in findings[0]
+                      and 'OLDER' in findings[0], repr(findings)))
+
+        # A skeleton-owned file is where this had to work: BOOTSTRAP DRIFT
+        # downgrades it to a note per set, which is why convergence across
+        # sets is the only thing that can see it.
+        cases.append(('it fires on a SKELETON-OWNED file, which per-set drift '
+                      'reports only as a note',
+                      bool(findings) and 'README.md' in findings[0],
+                      repr(findings)))
+
+        # Untracked is container state, never drift. The file itself has to
+        # be untracked, not merely the edit: an earlier version of this case
+        # appended to an already-staged README and asserted the filter had
+        # failed, when what it had actually built was a tracked file with an
+        # uncommitted change -- which IS drift (practice: fixture-owns-its-
+        # state; the fixture inherited a staging state it did not set).
+        c_dir, c = fresh('gamma')
+        d_dir, d = fresh('delta')
+        for _d in (c_dir, d_dir):
+            subprocess.run(['git', '-C', str(_d), 'rm', '--cached', '-q',
+                            'README.md'], capture_output=True)
+            with (_d / 'README.md').open('a', encoding='utf-8') as fh:
+                fh.write('\nan untracked convergent line nobody committed\n')
+        collect = {}
+        vdc._bootstrap_drift([c, d], collect=collect)
+        out = vdc._convergent_drift(collect)
+        cases.append(('an UNTRACKED shared change is not drift',
+                      not any('untracked convergent line' in m for m in out),
+                      repr(out)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'very_deep_check reports convergent drift across sets '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f'{n} -- {d[:600]}' for n, d in bad))
+
+
 def check_very_deep_check_authenticates_its_own_fetches():
     """very_deep_check's network calls carry the credential the environment
     holds (practice: very-deep-check; durable-fix).
@@ -18500,6 +18635,7 @@ def main():
     check_session_sweep_reports_the_repo_half()
     check_very_deep_check_authenticates_its_own_fetches()
     check_very_deep_check_bootstrap_drift()
+    check_very_deep_check_convergent_drift()
     check_public_tree_bakes_in_no_owner_account()
     check_public_consumer_does_not_materialize_private_text()
     check_assumed_visibility_never_deletes_practices()

@@ -360,6 +360,22 @@ method"). Build the fixtures.
   **Without the sets attached this is a SKIP, not a pass** — the section
   says so in those words, and a run that leaves it skipped records pass 1
   as PARTIAL exactly as the real-consumer step above does.
+- **The sets, against each other.** The step above and the two scans it
+  names all measure *one set against one template*, so a change every set
+  made identically reads as healthy in all of them — and that is the shape
+  the drift actually takes, because a set is created from the template and
+  then everybody who lives in one hits the same missing thing. The tool's
+  `CONVERGENT DRIFT` section intersects the per-file differences the step
+  above already computed and reports anything **two or more sets of a level
+  changed the same way**, including in the skeleton-owned files that step
+  deliberately downgrades to notes. Two sets is the threshold: one set is a
+  person, two independent sets is a habit the template is missing.
+  **It says which files converged; it does not say which side is right.**
+  The sets may share a change the template should carry, or share an older
+  build the generator has moved past, and the diff between one set and this
+  checkout is what separates them — a finding that asserted the first would
+  send somebody to copy a stale build upstream. An untracked file is
+  container state, not a shape the skeleton is missing, and does not count.
 - **Cross-repo relationships and permissions.** Walk who must be able to read
   or write what, for a *new* repo and a *new* person: the vendored engine,
   each declared source, approvers and CODEOWNERS, and the protected paths
