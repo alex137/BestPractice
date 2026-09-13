@@ -57,6 +57,14 @@ jobs:
           # is not there, and those checks report SKIPPED with a reason
           # rather than running -- a skip does not fail the run, so a shallow
           # checkout quietly shrinks coverage while the job stays green.
+          #
+          # MEASURED, not argued, 2026-09-13 in a real practice set: same
+          # tree, same commit, a shallow checkout reported 13 passed/42
+          # skipped and a full one 14 passed/41 skipped. Exactly one check
+          # moved -- a scope 'tree' check that walks git log -- and it moved
+          # from SKIPPED to running, with the job green either way. One check
+          # is what this line is worth, and you cannot see it go.
+          #
           # BestPractice's own deep-check.yml carries this same line after
           # exactly that bug ran undetected on every push for days.
           fetch-depth: 0
@@ -79,16 +87,15 @@ jobs:
       - name: Install PyYAML
         run: python -m pip install pyyaml
 
-      - name: Run the Precedent checks
+      # FOUR NAMED STEPS, not one. GitHub Actions shows step NAMES on a run's
+      # summary page and log bodies only when you open them, so a single
+      # combined step renders every failure as one red X saying "Run the
+      # Precedent checks" -- which is least legible for the refusals, and a
+      # refusal fires on somebody who has not read this file.
+
+      - name: Refuse if this repo is not a source set carrying the engine
         run: |
           set -eu
-
-          # REFUSAL 1: no engine here at all. A source set vendors
-          # precedent_check.py into its own tools/ (precedent_vendor_engine.py
-          # does this at bootstrap). The process/upstream/ path is INSTALL.md
-          # section 1's CONSUMING-repo layout, and a consumer is not what this
-          # workflow is for -- its practices/ is materialized from sources
-          # that do not exist in a CI checkout.
           if [ ! -f tools/precedent_check.py ]; then
             if [ -f process/upstream/tools/precedent_check.py ]; then
               echo "This repo vendors the engine under process/upstream/, which is" \
@@ -104,54 +111,96 @@ jobs:
                  "Vendor it (tools/precedent_vendor_engine.py) or add the path here." >&2
             exit 1
           fi
-
-          # REFUSAL 2: the engine predates binds_publishers, and this is the
-          # one that would otherwise pass QUIETLY rather than blind. Before
-          # that flag, a check whose practice lives upstream skipped in a
-          # source set -- the set's practices/ holds only its own files, so a
-          # universal check's practice was never "in force" here -- and
-          # precedent_check.py exits 0 on a run that skipped. Measured
-          # 2026-09-13 in a freshly bootstrapped set, the same tree both
-          # ways: a pre-flag engine reports `5 passed, 44 skipped` and exits
-          # 0; the current one reports `8 passed, 41 skipped`. The three
-          # checks carrying the flag are exactly that difference, and they
-          # are the ones whose subject is what this repo publishes.
-          #
-          # Note it is 5 passed, not 0 -- so REFUSAL 3 below does NOT catch
-          # this. That is why this guard is separate: an old engine here is
-          # green, plausible, and quietly missing the checks that matter most
-          # in a repo that publishes practices.
-          if ! grep -q 'binds_publishers' tools/precedent_check.py; then
-            echo "The vendored engine in tools/precedent_check.py predates" \
-                 "binds_publishers (BestPractice PR #261, 2026-09-12). In a practice" \
-                 "set that engine skips the checks whose practice lives upstream --" \
-                 "measured, 5 passed/44 skipped against 8 passed/41 skipped on the same" \
-                 "tree -- and still exits 0, so this workflow would be quietly green" \
-                 "while missing exactly the checks that bind what this repo publishes." \
-                 "Refresh the engine first:" >&2
-            echo "    python3 tools/precedent_vendor_engine.py refresh" >&2
+          # A practices/ tree is what a publisher-bound check binds. Without it
+          # the suite still runs and still reports PASSES -- measured on this
+          # engine with practices/ removed: `3 passed, 0 violated`, from checks
+          # that test the engine rather than a catalogue. So the zero-coverage
+          # backstop below does NOT catch this: it is not zero, it is three, and
+          # a green tick would mean the publisher checks had nothing to look at.
+          if [ ! -d practices ]; then
+            echo "No practices/ directory -- this repo publishes no practice files," \
+                 "so the checks that bind a publisher have nothing to bind. The run" \
+                 "would still report passes from engine-level checks, which is why" \
+                 "this is refused here rather than left to the backstop. Remove this" \
+                 "workflow, or vendor the catalogue this repo is meant to publish." >&2
             exit 1
           fi
 
-          # NOT --strict -- see the header. Violations and errors fail on
-          # their own; the ~41 by-design skips must not.
-          set +e
-          out="$(python3 tools/precedent_check.py 2>&1)"
-          status=$?
-          set -e
-          printf '%s\n' "$out"
+      - name: Refuse if the vendored engine predates binds_publishers
+        run: |
+          set -eu
+          # INSPECT THE REGISTRY, NEVER GREP FOR THE NAME. An earlier version of
+          # this workflow ran `grep -q 'binds_publishers' tools/precedent_check.py`,
+          # and that passes on any engine that merely MENTIONS the string -- a
+          # comment, a docstring, or the text of a refusal about the flag it just
+          # dropped. Measured on this engine: with the flag stripped from all
+          # three registrations and only prose left behind, the grep still
+          # reported PASSES while the registry reported zero flagged checks. The
+          # engine's own module docstring discusses binds_publishers, so the grep
+          # form was already satisfied by prose alone.
+          #
+          # Importing also refuses an engine that cannot be imported, naming the
+          # exception here instead of failing confusingly at the run step.
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, 'tools')
+          try:
+              import precedent_check as pc
+          except Exception as e:
+              sys.exit(f'REFUSING: tools/precedent_check.py did not import ({e!r}), '
+                       f'so what it checks cannot be established.')
+          flagged = sorted(s for s, c in pc.CHECKS.items() if c.get('binds_publishers'))
+          if not flagged:
+              sys.exit(
+                  'REFUSING: no registered check carries binds_publishers, so this '
+                  'engine predates BestPractice PR #261 (2026-09-12) or has lost the '
+                  'flag. In a practice set such an engine skips the checks whose '
+                  'practice lives upstream and still exits 0 -- measured 5 passed/44 '
+                  'skipped against 8 passed/41 skipped on the same tree -- so this '
+                  'workflow would be quietly green while missing exactly the checks '
+                  'that bind what this repo publishes. Refresh the engine: '
+                  'python3 tools/precedent_vendor_engine.py refresh')
+          print(f'engine carries binds_publishers on {len(flagged)} check(s): '
+                + ', '.join(flagged))
+          PY
 
-          # REFUSAL 3: the run checked nothing. Distinct from refusal 2,
-          # which catches a KNOWN cause; this catches any other way of
-          # arriving at zero coverage -- a practices/ directory that did not
-          # get checked out, a catastrophically misread tree -- and it is the
-          # backstop that means this workflow can never be green on nothing.
-          if printf '%s' "$out" | grep -qE 'precedent_check: 0 passed'; then
+      - name: Run every check that binds this repo
+        run: |
+          set -euo pipefail
+          # NOT --strict -- see the header. Most registered checks belong to
+          # levels a source set does not resolve and skip by design; --strict
+          # makes each a failure and leaves the gate permanently red.
+          #
+          # tee, because the next step reads this output. A violation exits
+          # non-zero here and fails the job, which is correct and means the
+          # backstop below is skipped -- it exists for a run that exits 0.
+          python3 tools/precedent_check.py 2>&1 | tee check-output.txt
+
+      - name: Refuse a run that checked nothing
+        run: |
+          set -eu
+          # TWO questions, and the earlier version asked only the second. It ran
+          # `grep -qE 'precedent_check: 0 passed'`, which is silent when the
+          # summary line never appeared at all -- an engine that dies after its
+          # per-check lines but still exits 0, a truncated pipe, or a future
+          # rewording. Measured with a stub printing per-check lines and no
+          # summary: the workflow went green having verified nothing, through
+          # the very refusal meant to be its backstop.
+          #
+          # Anchored at ^ so a per-check line, or this message quoted in the
+          # output, cannot be mistaken for the summary.
+          summary="$(grep -E '^precedent_check: [0-9]+ passed' check-output.txt | tail -1 || true)"
+          if [ -z "$summary" ]; then
+            echo "No precedent_check summary line in the output. The run exited 0" \
+                 "without reporting what it checked, so nothing here can be called" \
+                 "verified. The captured output is above." >&2
+            exit 1
+          fi
+          passed="$(printf '%s' "$summary" | sed -E 's/^precedent_check: ([0-9]+) passed.*/\1/')"
+          if [ "$passed" -eq 0 ]; then
             echo "Refusing a run that passed ZERO checks. Every check either skipped" \
                  "or did not run, and a skip is not a pass -- a green result here" \
-                 "would mean nothing was verified. The summary line above says what" \
-                 "the run actually did." >&2
+                 "would mean nothing was verified. Summary line: $summary" >&2
             exit 1
           fi
-
-          exit "$status"
+          echo "$summary"
