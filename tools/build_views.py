@@ -87,6 +87,49 @@ def _budget(key, default):
 
 
 RESIDENT_BUDGET_TOKENS = _budget('resident_block_tokens', 2000)
+
+
+def surface_budget(name, default):
+    """The declared ceiling for ONE named surface in session_load_budgets.json.
+
+    RESIDENT_BUDGET_TOKENS above is the ceiling for the resident block of the
+    TRACKED loader block -- the one in AGENTS.md. It is not the ceiling for
+    every file this renderer is asked to build, and treating it as one is the
+    bug this exists to fix: .precedent/SESSION_PRACTICES.md carries a
+    different set of practices, is untracked, and has its own entry in the
+    same registry. Applying AGENTS.md's allocation to it made the untracked
+    file unbuildable in two real practice sets on 2026-09-13 -- 1,396 tokens
+    of universal residents against a 425- and a 550-token cap that were never
+    about them (practice: registry-source-of-truth -- one registry, read the
+    row you mean).
+    """
+    f = pathlib.Path(__file__).resolve().parent / 'session_load_budgets.json'
+    try:
+        row = (json.loads(f.read_text(encoding='utf-8'))
+               .get('surfaces', {}).get(name, {}))
+    except (OSError, ValueError, AttributeError):
+        return default
+    v = row.get('ceiling')
+    return v if isinstance(v, int) else default
+
+
+class ResidentBudgetExceeded(Exception):
+    """The resident block is over its surface's declared ceiling.
+
+    RAISED rather than sys.exit()ed, which is what it did until 2026-09-13.
+    Exiting is right for the tracked block -- build_views' own CLI is a gate,
+    and over budget means the commit does not happen -- and wrong for every
+    other caller: precedent_session_practices.py runs from a SessionStart
+    hook, so an exit there means the session gets no practices at all rather
+    than a file that is a bit long. The gate keeps exiting, at the one place
+    that is a gate; everyone else decides for themselves
+    (practice: fail-gracefully).
+    """
+
+    def __init__(self, tokens, budget):
+        self.tokens, self.budget = tokens, budget
+        super().__init__(f'resident block is ~{tokens} tokens, over the '
+                         f'{budget}-token hard cap')
 WORD_RE = re.compile(r"\S+")
 
 
@@ -644,7 +687,8 @@ def _place_rule_links(text, practice_file, block_dir, repo_root=None,
 
 
 def build_loader_block(practices, source_levels=None, omits_private=False,
-                       block_dir=None, repo_root=None, planned=()):
+                       block_dir=None, repo_root=None, planned=(),
+                       budget_tokens=None):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -698,11 +742,11 @@ def build_loader_block(practices, source_levels=None, omits_private=False,
     resident_text = '\n\n'.join(
         f"**{fm['slug']}.** {rule}" for fm, _sections, rule in placed
     )
+    budget = (RESIDENT_BUDGET_TOKENS if budget_tokens is None
+              else budget_tokens)
     token_count = _approx_tokens(resident_text)
-    if token_count > RESIDENT_BUDGET_TOKENS:
-        sys.exit(f"build_views FAIL: resident block is ~{token_count} tokens, "
-                 f"over the {RESIDENT_BUDGET_TOKENS}-token hard cap -- demote or "
-                 f"retire a resident practice before adding another.")
+    if token_count > budget:
+        raise ResidentBudgetExceeded(token_count, budget)
 
     on_demand = [(fm, sections) for fm, sections, _f in practices if fm.get('tier') == 'on-demand']
     by_occasion = collections.defaultdict(list)
@@ -765,7 +809,7 @@ def build_loader_block(practices, source_levels=None, omits_private=False,
     # fails, and the honest rendering of "this source has nothing here" is
     # silence, not an empty heading.
     if resident:
-        lines.append(f"## Resident block (~{token_count} of {RESIDENT_BUDGET_TOKENS} token budget, "
+        lines.append(f"## Resident block (~{token_count} of {budget} token budget, "
                      f"{count_detail})")
         lines.append('')
         lines.append(resident_text)
@@ -1079,9 +1123,18 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
     # always this engine's own ROOT: `--repo DIR` renders another repo's
     # AGENTS.md, and a resident Rule's sibling citation has to be repointed
     # for that repo's root, not this one's.
-    block, tokens, n_resident = build_loader_block(
-        practices, source_levels=source_levels, omits_private=omits_private,
-        block_dir=agents_md.parent)
+    # THIS caller is the gate, so over budget still exits here, with the
+    # identical message it printed before ResidentBudgetExceeded existed --
+    # the tracked block not being regenerated is exactly the outcome wanted.
+    # Every other caller catches the exception instead (see its docstring).
+    try:
+        block, tokens, n_resident = build_loader_block(
+            practices, source_levels=source_levels,
+            omits_private=omits_private, block_dir=agents_md.parent)
+    except ResidentBudgetExceeded as e:
+        sys.exit(f"build_views FAIL: resident block is ~{e.tokens} tokens, "
+                 f"over the {e.budget}-token hard cap -- demote or "
+                 f"retire a resident practice before adding another.")
     if BEGIN_MARKER not in original or END_MARKER not in original:
         sys.exit(f"build_views FAIL: {agents_md} has no "
                  f"{BEGIN_MARKER} / {END_MARKER} markers to regenerate between.")

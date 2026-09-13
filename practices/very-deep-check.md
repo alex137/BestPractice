@@ -102,6 +102,26 @@ the engine is vendored into. A finding is as likely to be in the seam
 between two of them as inside any one, which is the reason they are read
 together rather than one at a time.
 
+**Every repo in force is also probed for whether THIS session can land work
+in it, and every finding is grouped by the answer.** That is a different
+question from the liveness gate below, which asks whether the *repository*
+accepts work: a repo can be live, writable by its owner, and unreachable from
+this container. The probe is a real `git push --dry-run` to an unused ref —
+it changes nothing and the server answers before an object is written — so a
+`HANDOFF` verdict is a quotable refusal rather than an inference from the
+owner in the URL.
+
+**A repo that needs a handoff stays in scope, deliberately.** Dropping it
+would lose every finding in the seam between it and a repo still in scope,
+which is the class this check exists for — a set's practice contradicting
+universal's is a finding about both. What the verdict changes is the
+*reporting*: a finding in a `LAND` repo ends in a commit from this session,
+and one in a `HANDOFF` repo ends in a woken session
+([spawn-session](spawn-session.md)). Saying which is which before the reading
+starts is the point; discovering it at the moment of trying to fix something
+is the cost. `--landable-only` narrows scope for a deliberately cheap run and
+says out loud what it made unreachable.
+
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) fetches and compares
