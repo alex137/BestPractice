@@ -11515,7 +11515,7 @@ def check_session_start_refreshes_an_attached_team_clone():
     """A team source that is already on disk is PULLED at session start, not
     waved through.
 
-    THE INCIDENT (2026-09-11). teams_from_repo() returned
+    THE INCIDENT (2026-09-11). sources_from_repo() returned
     `(name, True, 'already on disk')` the moment a clone had a practices/
     directory, so a team clone was pulled exactly once -- when it was created
     -- and every session afterwards read whatever it held that day. Measured
@@ -11582,7 +11582,7 @@ def check_session_start_refreshes_an_attached_team_clone():
              'sources': [{'level': 'team', 'name': 'precedent-team-fixture',
                           'path': '../clone-of-it'}]}), encoding='utf-8')
 
-        name, ok, msg = psb.teams_from_repo(repo)[0]
+        name, ok, msg = psb.sources_from_repo(repo)[0]
         cases.append(('a team clone that is behind its own origin is '
                       'fast-forwarded at session start',
                       ok and (clone / 'practices' / 'x.md').read_text().strip()
@@ -11591,7 +11591,7 @@ def check_session_start_refreshes_an_attached_team_clone():
                       'clone exists',
                       'fast-forwarded' in msg, msg))
 
-        name, ok, msg = psb.teams_from_repo(repo)[0]
+        name, ok, msg = psb.sources_from_repo(repo)[0]
         cases.append(('a second run reports it current rather than claiming '
                       'to have moved it again',
                       ok and 'current' in msg and 'fast-forwarded' not in msg,
@@ -11602,7 +11602,7 @@ def check_session_start_refreshes_an_attached_team_clone():
                                                   encoding='utf-8')
         (upstream / 'practices' / 'x.md').write_text('v3\n', encoding='utf-8')
         git(upstream, 'commit', '-qam', 'three')
-        name, ok, msg = psb.teams_from_repo(repo)[0]
+        name, ok, msg = psb.sources_from_repo(repo)[0]
         cases.append(('a clone with uncommitted work is left alone',
                       'local work' in (clone / 'practices' / 'x.md').read_text(),
                       msg))
@@ -11848,12 +11848,20 @@ def check_precedent_check_degrades_in_a_source_set():
         # Negative control on the fixture itself: if any optional module HAD
         # come along, every assertion below would pass for the wrong reason,
         # because the imports would simply succeed.
-        optional = ('doc_lint.py', 'doc_sync.py', 'title_case.py',
-                    'precedent_resolve.py')
+        # precedent_resolve.py was in this tuple until 2026-09-13 and is now
+        # in ENGINE_FILES on purpose (shape 3 --
+        # spec/SOURCE_SET_PROSE_GAP.md), so a source set HAS it and it is no
+        # longer one of the modules whose absence this fixture is about.
+        # Leaving it here made the control assert the opposite of the
+        # shipped boundary, which is how the move was caught.
+        optional = ('doc_lint.py', 'doc_sync.py', 'title_case.py')
         absent = [m for m in optional if not (dest / 'tools' / m).is_file()]
-        cases.append(('the four optional modules are genuinely absent, so the '
-                      'skips below are real', len(absent) == len(optional),
+        cases.append(('the three optional modules are genuinely absent, so '
+                      'the skips below are real', len(absent) == len(optional),
                       f'absent: {absent}'))
+        cases.append(('and precedent_resolve.py IS present, which is what '
+                      'lets a source set read the universal catalogue at all',
+                      (dest / 'tools' / 'precedent_resolve.py').is_file(), ''))
 
         # Put the two practices whose checks import the previously-bare
         # modules IN FORCE here, or the runner skips them for "practice not
@@ -14632,7 +14640,7 @@ def check_source_credentials_reach_clones_nothing_syncs():
 
     The persist was real; the paths were wrong. run_sync called it, and:
 
-      * teams_from_repo's ALREADY-ON-DISK branch calls _try_sync directly and
+      * sources_from_repo's ALREADY-ON-DISK branch calls _try_sync directly and
         never enters run_sync -- so every team clone after its first session
         was synced and left credential-less.
       * the individual source is not synced at session start while it looks
@@ -14696,7 +14704,7 @@ def check_source_credentials_reach_clones_nothing_syncs():
         original = psb._persist_credential
         psb._persist_credential = lambda c, u: calls.append((str(c), u))
         try:
-            results = psb.teams_from_repo(consumer)
+            results = psb.sources_from_repo(consumer)
         finally:
             psb._persist_credential = original
         on_disk = str((consumer / 'sibling-team').resolve())
@@ -15666,10 +15674,27 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
                   'buenos-aires-dates checks can import it',
                   (seeded / 'precedent_identity.py').is_file(),
                   str(sorted(f.name for f in seeded.iterdir()))))
-    cases.append(('and still does NOT receive precedent_resolve.py -- the '
-                  'consumer-only boundary this move was careful not to '
-                  'erase',
-                  not (seeded / 'precedent_resolve.py').is_file(),
+    # This asserted `not (seeded / 'precedent_resolve.py').is_file()` until
+    # 2026-09-13, when the resolver deliberately moved INTO ENGINE_FILES so a
+    # practice set can read the universal catalogue (shape 3,
+    # spec/SOURCE_SET_PROSE_GAP.md). The invariant that mattered is NOT
+    # membership -- it is that precedent_identity.py stands alone, which the
+    # solo case above proves directly by running it with no resolver on the
+    # path at all. What is left of the consumer-only boundary is the
+    # materializing pair, so that is what this case now asserts: a set
+    # materializes nothing and must not be handed the tools that do.
+    cases.append(('a seeded practice set does NOT receive '
+                  'precedent_materialize.py or precedent_sync_views.py -- '
+                  'the consumer-only boundary that survives the resolver '
+                  'moving into ENGINE_FILES',
+                  not (seeded / 'precedent_materialize.py').is_file()
+                  and not (seeded / 'precedent_sync_views.py').is_file(),
+                  str(sorted(f.name for f in seeded.iterdir()))))
+    cases.append(('and DOES receive precedent_resolve.py and '
+                  'precedent_session_practices.py, the pair that puts '
+                  "universal's rules in front of a session rooted in a set",
+                  (seeded / 'precedent_resolve.py').is_file()
+                  and (seeded / 'precedent_session_practices.py').is_file(),
                   str(sorted(f.name for f in seeded.iterdir()))))
     # PRECEDENT_COMMIT_* is step 1 of the order, and this harness's own
     # process may carry it (verify_harness sets identity for its fixtures).

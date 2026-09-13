@@ -239,6 +239,38 @@ def _install_workflows(dest):
     return written
 
 
+# The untracked-file line, written into a set rather than assumed. A set that
+# does not ignore .precedent/ will offer SESSION_PRACTICES.md to the next
+# `git add -A`, and the whole point of shape 3
+# (https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/SOURCE_SET_PROSE_GAP.md)
+# is that universal's text is NEVER committed into a set. Measured
+# 2026-09-13 against a real set: `git check-ignore` said not ignored, and
+# the generated file showed up in `git status` as untracked-and-addable.
+# practice: durable-fix -- the ignore line travels with the set, so it
+# survives a fresh container and a fresh clone.
+IGNORE_LINE = '.precedent/'
+IGNORE_BLOCK = """
+# Written at session start by tools/precedent_session_practices.py: the
+# practices in force here from the sources this set declares. NEVER commit
+# it -- it is another repository's practice text, and a committed copy is a
+# copy that goes stale.
+.precedent/
+"""
+
+
+def ensure_precedent_gitignore(dest):
+    """-> (path, changed). Idempotent: appends the block only if the exact
+    ignore line is not already present, so re-running against a set that has
+    it leaves the file byte-identical."""
+    gi = pathlib.Path(dest) / '.gitignore'
+    existing = gi.read_text(encoding='utf-8') if gi.is_file() else ''
+    if any(ln.strip() == IGNORE_LINE for ln in existing.splitlines()):
+        return gi, False
+    sep = '' if (not existing or existing.endswith('\n')) else '\n'
+    gi.write_text(existing + sep + IGNORE_BLOCK.lstrip('\n'), encoding='utf-8')
+    return gi, True
+
+
 def _install_session_hooks(dest, base_branch='main'):
     """Give a new source the three hooks that keep its own sessions honest:
     freshness-guard.sh (never work on, or write to, a stale checkout),
@@ -784,6 +816,9 @@ def bootstrap(level, name, dest, approvers=None, force=False):
         _seed_approvers_json(dest, approvers)
     written += _install_session_hooks(dest)
     written += _install_workflows(dest)
+    _gi, _changed = ensure_precedent_gitignore(dest)
+    if _changed:
+        written.append(_gi)
     written += precedent_vendor_engine.seed(dest)
 
     return {'dest': dest, 'written': written}

@@ -259,7 +259,7 @@ def _try_sync(repo_url, clone_path, branch=None):
     there. Two do not, and between them they cover every clone a session
     actually meets at startup:
 
-      * teams_from_repo's ALREADY-ON-DISK branch calls this function
+      * sources_from_repo's ALREADY-ON-DISK branch calls this function
         directly, so a team clone that exists -- which is every team clone
         after the first session -- was synced and never given a helper.
       * the individual source is not synced at session start at all while it
@@ -410,10 +410,25 @@ TOKEN_ENV_NAME = 'PRECEDENT_GIT_TOKEN'  # named, not imported: this file
                                         # existed (see _credential_args)
 
 
-def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
-                    retry_delay=DEFAULT_RETRY_DELAY, branch=None):
-    """Clone every TEAM source a repo's precedent.json declares, to the
-    sibling path it declares, from `base_url`/<name>.
+def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
+                      retry_delay=DEFAULT_RETRY_DELAY, branch=None):
+    """Clone every TEAM and UNIVERSAL source a repo's precedent.json declares,
+    to the sibling path it declares.
+
+    Called sources_from_repo until 2026-09-13, when universal joined it so that
+    a practice SET can put the universal catalogue on disk beside itself and
+    read it (spec/SOURCE_SET_PROSE_GAP.md, shape 3). Renamed rather than
+    left with a name that had stopped describing it (practice:
+    label-describes-content).
+
+    THE TWO LEVELS DIFFER IN ONE THING ONLY -- where the clone URL comes
+    from -- and the difference is not arbitrary. A team set is private, so
+    its URL is built from $PRECEDENT_SOURCE_BASE_URL and never written down
+    (see the note below). Universal is PUBLIC, and every vendored engine
+    already records exactly where it came from, in
+    tools/ENGINE_MANIFEST.json's `source_repo` and `source_branch`. So
+    universal needs no base URL, no token, and nothing new declared: the set
+    is cloning the repository it already says it vendored its engine from.
 
     WHY THE URL IS BUILT FROM AN ENVIRONMENT VARIABLE rather than declared
     in precedent.json beside the name: the account that owns a set is the
@@ -435,7 +450,8 @@ def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     except Exception as e:
         return [(None, False, f'could not read {repo_path / "precedent.json"}: {e}')]
     for src in cfg.get('sources', []) or []:
-        if src.get('level') != 'team':
+        level = src.get('level')
+        if level not in ('team', 'universal'):
             continue
         name = str(src.get('name') or '').strip()
         rel = str(src.get('path') or '').strip()
@@ -466,8 +482,8 @@ def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                                     'get-url', 'origin'])
             ok_before, before = _run_git(['-C', str(clone_path), 'rev-parse',
                                           'HEAD'])
-            ok, out = _try_sync(url if ok_url else f'{base}/{name}' if base
-                                else '', clone_path)
+            ok, out = _try_sync(url if ok_url else _clone_url(
+                repo_path, level, name, base) or '', clone_path)
             if not ok:
                 # A source that is present but could not be refreshed is
                 # still IN FORCE -- it is on disk and resolvable -- so this
@@ -494,16 +510,49 @@ def teams_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             results.append((name, True, 'already on disk, fast-forwarded'
                             if moved else 'already on disk and current'))
             continue
-        if not base:
+        clone_url = _clone_url(repo_path, level, name, base)
+        if not clone_url:
             results.append((name, False,
                             f'{BASE_URL_ENV} is not set, so there is no URL to '
-                            f'clone {name} from'))
+                            f'clone {name} from' if level == 'team' else
+                            f'tools/ENGINE_MANIFEST.json records no '
+                            f'source_repo, so there is no URL to clone the '
+                            f'universal source {name} from'))
             continue
-        ok, out = ensure_source('team', name, f'{base}/{name}', clone_path,
+        ok, out = ensure_source(level, name, clone_url, clone_path,
                                 None, retries=retries, retry_delay=retry_delay,
-                                branch=branch)
+                                branch=branch or _clone_branch(repo_path, level))
         results.append((name, ok, out or 'cloned'))
     return results
+
+
+def _clone_url(repo_path, level, name, base):
+    """Where a declared source is cloned from -- see sources_from_repo's
+    docstring for why the two levels answer differently."""
+    if level == 'universal':
+        return _engine_manifest(repo_path).get('source_repo') or ''
+    return f'{base}/{name}' if base else ''
+
+
+def _clone_branch(repo_path, level):
+    """The branch a universal clone is pinned to, read off the manifest.
+
+    Never left to the server's default branch: `git clone` with no --branch
+    asks the REMOTE which branch to check out, and the answer is a setting on
+    a web page nothing here can see. Two practice-source repositories had it
+    pointed at a feature branch on 2026-09-09 and every session-start clone
+    silently landed on an older tree (AGENTS.md's gotchas section)."""
+    if level != 'universal':
+        return None
+    return _engine_manifest(repo_path).get('source_branch') or None
+
+
+def _engine_manifest(repo_path):
+    try:
+        return json.loads((pathlib.Path(repo_path) / 'tools' /
+                           'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+    except Exception:                                        # noqa: BLE001
+        return {}
 
 
 def _diagnose(output):
@@ -559,7 +608,7 @@ def main(argv=None):
         return 0
 
     if args.teams_from:
-        for name, ok, out in teams_from_repo(args.teams_from,
+        for name, ok, out in sources_from_repo(args.teams_from,
                                              retries=args.retries,
                                              retry_delay=args.retry_delay,
                                              branch=args.branch):

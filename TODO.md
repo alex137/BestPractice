@@ -4701,9 +4701,16 @@ which is the failure this repointing exists to end — write
     generalized constant, and a path expansion. **Nothing is approved to
     build.**
 
-    **Blocked on / out of scope:** raised 2026-09-13 while correcting the
-    "unaddressed" claim above; nothing here is a defect to fix, and the
-    session that raised it changed no mechanism.
+    **DONE 2026-09-13, reading half.** Shape 3 built and measured against the
+    real `precedent-individual` set: universal cloned beside it, 106
+    practices and 92 occasion entries in its untracked
+    `.precedent/SESSION_PRACTICES.md`, its committed `AGENTS.md` unchanged.
+    What the build took against what the brief predicted — including two
+    things the brief missed outright — is the table in
+    [spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md). **The
+    enforcement half is open as
+    [`source-set-runs-no-universal-checks`](TODO.md#source-set-runs-no-universal-checks)**,
+    and rolling the change out to the four sets is still to do.
     **Disposition:** wait
 
 79. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
@@ -4826,3 +4833,49 @@ which is the failure this repointing exists to end — write
     one a script can answer. The menu above went to him with the pull request
     that opened this item; nothing here moves until he picks a row.
     **Disposition:** wait
+
+81. <a id="source-set-runs-no-universal-checks"></a>**A practice set now READS
+    the universal rules and still RUNS none of universal's mechanical
+    checks.** Shape 3 landed 2026-09-13
+    ([spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md)): a session
+    rooted in an individual or team set resolves the universal source and
+    reads its 94 occasion entries out of an untracked
+    `.precedent/SESSION_PRACTICES.md`. **That is the reading half only.** The
+    checks those practices declare in `checked_by:` are not materialized into
+    the set, so a universal rule that is mechanically enforced everywhere else
+    is advisory there — the set can violate it and its own gate stays green.
+
+    **Morgan asked for this to be noted as an issue to review, 2026-09-13**,
+    off the sentence that closed the shape-3 explanation: *"a session in a
+    source set would read universal's rules but still not run universal's
+    mechanical checks there."*
+
+    **It is a known, deliberate boundary rather than an oversight**, and the
+    reason is on the record in
+    [tools/precedent_session_practices.py](tools/precedent_session_practices.py)'s
+    own header, written for the consumer case and true verbatim here: turning
+    the other sources' checks on before a repo's `not_binding` exemptions are
+    written *"would make the gate red for reasons nobody has judged yet"*.
+    The same audit found six source-supplied checks reporting things the
+    consuming repo could not act on because the practice was about a
+    different KIND of repository — and a practice SET is the most different
+    kind there is, so the count there is likely higher, not lower.
+
+    **What review means concretely**, in order: run the universal catalogue's
+    checks against one set and count how many are (a) real findings, (b) not
+    applicable to a set at all, (c) already covered by that set's own
+    re-declared copy. Only (a) is worth wiring; (b) is what `not_binding` is
+    for; (c) is the redeclaration `binds_publishers` was supposed to end, so
+    any survivor there is its own finding. `binds_publishers` (#261,
+    2026-09-12) already teaches a check to bind the repo that publishes the
+    practice, which is the nearest existing machinery and the place to start
+    reading.
+
+    **Not blocked on anything external** — it needs a session with a set
+    attached, which is the ordinary condition here. It is queued rather than
+    done because it is a measurement pass with an unknown answer, not a
+    change with a known shape, and shape 3's reading half is worth landing
+    without waiting on it.
+    He asked for it to be noted as an issue to review, so raising it with him
+    is what he asked for.
+    **Disposition:** ask (2026-09-13, Morgan)
