@@ -83,10 +83,9 @@ practice file — `python3 tools/precedent_show.py SLUG` for any of them.
   clone current against the pinned branch. It authorizes the update, not the
   merge of what the update produces; that is still `Go merge`'s to give.
 
-What `parked` means, and the two other dispositions an open item can carry, is
-[open-item-disposition](practices/open-item-disposition.md), whose one line
-is: **an item with no disposition is `wait`, and a session raises an item with
-him only if the item says `ask`.**
+The three dispositions an open item can carry are
+[open-item-disposition](practices/open-item-disposition.md)'s; its one line is
+in the occasion index below.
 
 **Most weak agreement never uses the phrase**, which is why `Weak yes` is only
 half of it. The other half is
@@ -465,7 +464,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) |
-| Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [local/practices/park-it.md](local/practices/park-it.md) |
+| Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces | [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — **drafted, not decided**; open item at [TODO.md's `chief-of-staff-session`](TODO.md#chief-of-staff-session) |
 | Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
