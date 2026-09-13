@@ -13815,6 +13815,135 @@ def check_source_supplied_checks_run():
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_split_projection_is_costed_and_ordered():
+    """A flagged section made of entries gets the costed split table
+    (practice: control-asserts-which-failure).
+
+    WHY. Told a section is 9,000 tokens and that splitting is an option, a
+    person still cannot choose -- the question is always "what would that
+    leave, and what would it cost me". On 2026-09-13 those figures existed
+    only because a session was asked to compute them; the deep read that
+    flagged the section could have handed them over and did not.
+
+    The discriminating case is a section with no entries to split: a
+    projection there would be inventing a saving nobody can take
+    (no-invented-specifics). The fixture owns its own tree."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+
+    entry = ('- **A trap that bites.** It failed on a Tuesday and cost an '
+             'hour. The remedy is to read the exit code. A third sentence '
+             'carries the reason. A fourth carries the caveat.\n')
+    section = ('## Gotchas\n\n' + entry * 12)
+    proj = vdc._split_projection(section)
+
+    cases = []
+    cases.append(('a section of 12 entries is costed at all', bool(proj), proj))
+    cases.append(('it names all four rows, cheapest first',
+                  'bolded lead only' in proj and 'lead + 1 sentence' in proj
+                  and 'lead + 2 sentences' in proj and 'lead + 3 sentences' in proj,
+                  proj))
+
+    import re as _re
+    saves = [int(x.replace(',', ''))
+             for x in _re.findall(r'saves\s+([\d,]+)', proj)]
+    cases.append(('THE ORDERING CASE: keeping more text saves less, strictly '
+                  '-- a table that did not would be arithmetic nobody can act on',
+                  len(saves) == 4 and all(saves[i] > saves[i + 1] for i in range(3)),
+                  repr(saves)))
+    cases.append(('it says the figures bound the saving rather than predicting it',
+                  'bounds the saving' in proj, proj))
+    cases.append(('and that the text moves out whole either way',
+                  'moves out whole' in proj, proj))
+
+    cases.append(('THE DISCRIMINATING CASE: a section with no entries to split '
+                  'is not costed at all',
+                  vdc._split_projection('## Prose\n\nJust paragraphs here.\n') == '',
+                  repr(vdc._split_projection('## Prose\n\nJust paragraphs.\n'))))
+    cases.append(('and neither is a section with too few entries to be worth it',
+                  vdc._split_projection('## Gotchas\n\n' + entry * 3) == '',
+                  repr(vdc._split_projection('## Gotchas\n\n' + entry * 3))))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the split projection is costed, ordered, and absent where there is '
+          f'nothing to split ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_duplicated_resident_text_detector():
+    """Text an always-loaded file repeats from the catalogue is found, and the
+    generated block is not mistaken for it
+    (practice: control-asserts-which-failure).
+
+    WHY IT EXISTS. "Delete what is duplicated" is the first and cheapest of
+    session-load-budget's three reduction moves -- the text is provably
+    reachable on demand, so cutting it costs a session nothing -- and it is the
+    one nobody can find without reading everything. Two hand passes over this
+    repo's instructions file found 903 tokens of it; nothing mechanical was
+    looking.
+
+    THE CASE THAT MAKES IT A CONTROL rather than a demo is the generated
+    block: it is a copy of practice text ON PURPOSE. A detector that reported
+    it would be reporting the loader working, would fire on every repo that
+    ever ran build_views.py, and would be switched off within a week -- and
+    then nothing would be looking again. The fixture owns its own tree
+    (fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    SENTENCE = ('A session that hits this trap pays for it twice over, once '
+                'in the hour it loses and once in the confident wrong answer '
+                'it carries forward into everything after it.')
+    PRACTICE = ('---\nslug: fixture-rule\n---\n## Rule\n' + SENTENCE +
+                '\n\n## Story\nIt happened on a Tuesday.\n')
+
+    def run(agents_body):
+        d = pathlib.Path(tempfile.mkdtemp())
+        try:
+            (d / 'practices').mkdir()
+            (d / 'practices' / 'fixture-rule.md').write_text(
+                PRACTICE, encoding='utf-8')
+            return pc.duplicated_resident_text(d, agents_body)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    cases = []
+
+    hits = run('# notes\n\nSome preamble.\n\n' + SENTENCE + '\n')
+    cases.append(('text repeated from a practice file is reported, naming that '
+                  'file',
+                  len(hits) == 1 and hits[0][0] == 'practices/fixture-rule.md',
+                  repr(hits)))
+
+    hits = run('# notes\n\n' + SENTENCE.replace('trap', '`trap`').replace(
+        'hour', '**hour**') + '\n')
+    cases.append(('markup does not hide it -- backticks and bolding are '
+                  'normalized away', len(hits) == 1, repr(hits)))
+
+    generated = ('# notes\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                 + SENTENCE + '\n<!-- END GENERATED -->\n')
+    hits = run(generated)
+    cases.append(('THE DISCRIMINATING CASE: the same sentence inside the '
+                  'GENERATED block raises nothing -- that copy is the loader '
+                  'working', hits == [], repr(hits)))
+
+    hits = run('# notes\n\nA session that hits this trap pays for it twice '
+               'over, and then we did something else entirely.\n')
+    cases.append(('a short coincidental overlap is below the run threshold and '
+                  'is not reported', hits == [], repr(hits)))
+
+    hits = run('# notes\n\nNothing here resembles the practice at all.\n')
+    cases.append(('unrelated prose raises nothing', hits == [], repr(hits)))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'duplicated always-loaded text is detected, and the generated block '
+          f'is not ({len(cases)} stated cases, the generated block being the '
+          f'discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_settled_marker_scan_is_scoped_and_follows_the_split():
     """The SESSION LOAD pass's settled-trap signal reads gotcha entries, and
     only gotcha entries (practice: control-asserts-which-failure).
@@ -19068,6 +19197,8 @@ def main():
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()
     check_fixtures_own_the_credential_environment()
+    check_split_projection_is_costed_and_ordered()
+    check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_environment_gotchas_follows_a_split_index()
     check_gotcha_currency_signals_fire()

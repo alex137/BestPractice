@@ -4867,6 +4867,112 @@ def load_exemptions():
 # code-cites-practice: session-load-budget
 SESSION_LOAD_SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
 
+# --- duplicated always-loaded text (practice: session-load-budget) ---------
+#
+# The FIRST of that practice's three reduction moves is "delete what is
+# duplicated somewhere the session already reads -- and check that it really
+# is, word for word, rather than assuming". Two passes over this repo's own
+# instructions file found 903 tokens of exactly that by hand: eight standing
+# commands whose coining stories sat in full in their own practice files'
+# `## Story`, and three convention bullets restating practices the loader
+# already carries. Nothing detected either. It is the cheapest reduction
+# available -- the text is provably reachable, so removing it loses a session
+# nothing -- and it was the one nobody could find without reading everything.
+#
+# WHAT IS DELIBERATELY NOT SCANNED: the generated loader block. It is a copy
+# of practice text ON PURPOSE, which is the whole design, so reporting it
+# would be reporting the mechanism working. Everything between the BEGIN/END
+# GENERATED markers is cut before the scan.
+_DUP_SHINGLE = 12
+_DUP_MIN_RUN = 3
+
+
+def _dup_words(text):
+    """-> normalized words. Markup differs between a practice file and the
+    prose quoting it -- backticks, link syntax, bolding, line wrapping -- and
+    comparing raw text finds nothing. Compare what a reader would hear."""
+    text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+    text = re.sub(r'[`*_#>|]', ' ', text)
+    return re.findall(r"[a-z0-9']+", text.lower())
+
+
+def _dup_shingles(words, n=_DUP_SHINGLE):
+    return [' '.join(words[i:i + n]) for i in range(len(words) - n + 1)]
+
+
+def _strip_generated(text):
+    try:
+        import build_views as _bv
+        b, e = _bv.BEGIN_MARKER, _bv.END_MARKER
+    except Exception:
+        b, e = '<!-- BEGIN GENERATED: precedent-loader -->', '<!-- END GENERATED -->'
+    out, pos = [], 0
+    while True:
+        i = text.find(b, pos)
+        if i < 0:
+            out.append(text[pos:])
+            return ''.join(out)
+        out.append(text[pos:i])
+        j = text.find(e, i)
+        if j < 0:
+            return ''.join(out)
+        pos = j + len(e)
+
+
+def _practice_corpus(root):
+    """-> {shingle: practice path} for every practice file's prose.
+
+    Built from the catalogue a session can reach on demand: if a sentence is
+    here, the standing instruction and the occasion index already route to it,
+    so an always-loaded file repeating it is paying twice for one sentence.
+    """
+    corpus = {}
+    d = root / 'practices'
+    if not d.is_dir():
+        return corpus
+    for f in sorted(d.glob('*.md')):
+        try:
+            body = f.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        body = re.sub(r'(?s)\A---.*?\n---\n', '', body)   # front matter
+        rel = f'practices/{f.name}'
+        for sh in _dup_shingles(_dup_words(body)):
+            corpus.setdefault(sh, rel)
+    return corpus
+
+
+def duplicated_resident_text(root, text, corpus=None):
+    """-> [(where, quote, words)] for runs of `text` already in the catalogue.
+
+    A RUN, never a single shingle: any two documents about the same subject
+    share a phrase, and reporting those would bury the real finding in noise.
+    Three consecutive 12-word shingles is a sentence and a half that exists
+    twice, which is the shape worth a person's attention.
+    """
+    corpus = _practice_corpus(root) if corpus is None else corpus
+    if not corpus:
+        return []
+    words = _dup_words(_strip_generated(text))
+    shingles = _dup_shingles(words)
+    hits, out, i = [], [], 0
+    while i < len(shingles):
+        src = corpus.get(shingles[i])
+        if src is None:
+            i += 1
+            continue
+        j = i
+        while j + 1 < len(shingles) and corpus.get(shingles[j + 1]) == src:
+            j += 1
+        run = j - i + 1
+        if run >= _DUP_MIN_RUN:
+            quote = ' '.join(words[i:i + _DUP_SHINGLE + run - 1])
+            out.append((src, quote, _DUP_SHINGLE + run - 1))
+            i = j + 1
+        else:
+            i += 1
+    return out
+
 
 def _session_load_budgets():
     """-> the one registry of always-loaded ceilings, or None if absent.
@@ -4886,18 +4992,23 @@ def _session_load_budgets():
 
 @check('session-load-budget', 'tree',
        'every file a session loads before it works is declared in '
-       'tools/session_load_budgets.json and is under its declared ceiling',
+       'tools/session_load_budgets.json and is under its declared ceiling, '
+       'and a change does not add text the practice catalogue already holds',
        'what any of that text is worth. It measures a surface and compares it '
        "to a number somebody wrote down; whether an entry still earns its "
        'place is the reduction pass the practice asks for, and no script can '
-       'make that call. It also sees only THIS repo -- the sum across every '
-       'attached source is very_deep_check.py\'s SESSION LOAD section.')
+       'make that call. The duplication half finds text repeated close to '
+       'VERBATIM and nothing else: the same point made again in fresh words '
+       'costs a session exactly as much and is invisible to it. It also sees '
+       'only THIS repo -- the sum across every attached source is '
+       "very_deep_check.py's SESSION LOAD section.")
 def _session_load_budget(ctx):
     reg = _session_load_budgets()
     if reg is None:
         raise NotApplicable('this repo has no tools/session_load_budgets.json, '
                             'so no ceiling has been declared to check against')
     surfaces = reg.get('surfaces') or {}
+    corpus = None
     try:
         import build_views as _bv
         approx = _bv._approx_tokens
@@ -4926,9 +5037,36 @@ def _session_load_budget(ctx):
         if n > ceiling:
             out.append(Finding(rel, f'{n:,} tokens, every session, over its '
                                     f'declared ceiling of {ceiling:,}. Run the '
-                                    f'reduction pass -- move what no longer '
-                                    f'bites to a linked archive IN FULL -- '
-                                    f'rather than raising the number'))
+                                    f'reduction pass -- delete what is '
+                                    f'duplicated, retire what cannot happen '
+                                    f'any more, split what is still live and '
+                                    f'still long -- rather than raising the '
+                                    f'number'))
+        # ...and whether this CHANGE added text the catalogue already holds.
+        # Scoped to what the change adds, deliberately: reporting every
+        # pre-existing overlap would fail forever on day one and get switched
+        # off, which is the same reasoning acronyms-glossary is built on.
+        # Silent rather than wrong when there is no base to compare against --
+        # a check that cannot see the change has not found the change clean.
+        base = None
+        try:
+            base = ctx.read_base(rel)
+        except Exception:
+            base = None
+        if base is None:
+            continue
+        if corpus is None:
+            corpus = _practice_corpus(ROOT)
+        was = {(src, q) for src, q, _n in
+               duplicated_resident_text(ROOT, base, corpus)}
+        for src, quote, words in duplicated_resident_text(ROOT, text, corpus):
+            if (src, quote) in was:
+                continue
+            out.append(Finding(rel, f'this change adds {words} words that '
+                                    f'already sit in {src}, which a session '
+                                    f'reaches on demand -- so the sentence is '
+                                    f'paid for twice, every session. Link it '
+                                    f'or cut it: "{quote[:70]}..."'))
     for rel in surfaces:
         if rel not in SESSION_LOAD_SURFACES:
             out.append(Finding('tools/session_load_budgets.json',

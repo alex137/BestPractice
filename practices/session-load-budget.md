@@ -84,7 +84,11 @@ and work the largest one; the total is an outcome, never the target.
 
 **Three moves, in the order worth trying.** **Delete** only what is duplicated
 somewhere the session already reads — and check that it really is, word for
-word, rather than assuming. **Retire** what can no longer happen, to a linked
+word, rather than assuming. **That first move is mechanical now**: the check
+reports text a change adds that already sits in a practice file, and the deep
+read reports every such run in the whole surface. Neither decides — repetition
+sharp enough to be worth saying twice is a real answer — but nothing has to be
+found by reading everything any more. **Retire** what can no longer happen, to a linked
 record with the verdict that retired it. **Split** what is still live and still
 long: the section keeps one line per item and the text moves out whole, which
 is [environment-gotchas](environment-gotchas.md)'s index-plus-record shape and

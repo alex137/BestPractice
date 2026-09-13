@@ -819,6 +819,52 @@ _SETTLED_MARKERS = ('fixed ', 'no longer true', 'applies itself now',
                     'resolved for this machine', 'now automated')
 
 
+def _split_projection(section):
+    """-> a costed line for the SPLIT move, or '' when the section has no
+    bulleted entries to split.
+
+    WHY A PROJECTION AND NOT JUST ADVICE. Told a section is 8,858 tokens and
+    that splitting is an option, a person still cannot choose: the question is
+    always "what would that leave, and what would it cost me". Deriving that
+    by hand is what made the 2026-09-13 decision take a whole pass -- the
+    figures existed only because a session computed them on request, and the
+    deep read that flagged the section could have handed them over.
+
+    Four rows rather than one, because the honest choice is graduated: keeping
+    the bolded lead alone is the cheapest and loses the most, and each extra
+    sentence buys back context. Mechanically truncated, so these BOUND the
+    saving rather than predict it -- a careful edit keeps the remedy line
+    wherever it sits, and the output says so.
+    """
+    entries = _md_bullet_entries(section)
+    if len(entries) < 8:
+        return ''
+    whole = bv._approx_tokens(section)
+    rows = []
+    for keep in (0, 1, 2, 3):
+        tot = 0
+        for _line, _title, body in entries:
+            m = re.match(r'- \*\*(.*?)\*\*(.*)', body, re.S)
+            if not m:
+                tot += bv._approx_tokens(body)
+                continue
+            lead = ' '.join(m.group(1).split())
+            rest = ' '.join(m.group(2).split())
+            sents = re.split(r'(?<=[.?!]) ', rest) if rest else []
+            tot += bv._approx_tokens(lead + ' ' + ' '.join(sents[:keep]))
+        rows.append((keep, tot))
+    out = [f'\n      COSTED, if you split this one ({len(entries)} entries, '
+           f'{whole:,} tokens now). Mechanically\n      truncated, so each '
+           f'bounds the saving rather than predicting it:']
+    for keep, tot in rows:
+        what = 'bolded lead only' if keep == 0 else \
+            f'lead + {keep} sentence' + ('' if keep == 1 else 's')
+        out.append(f'        {what:<22} leaves {tot:6,d}   saves {whole - tot:6,d}')
+    out.append('      The text moves out whole either way; only the loading '
+               'changes.')
+    return '\n'.join(out)
+
+
 def _gotchas_section(text):
     """-> the gotchas section of an instructions file, or None if it has none.
 
@@ -897,9 +943,18 @@ def _session_load(repo_dir):
                 findings.append(
                     f'REVIEW   {fname} :: {name}\n'
                     f'      {n:,} tokens, every session, before any work starts.\n'
-                    f'      Ask of each part: would a session hit this TODAY? What '
-                    f'would not\n      bite any more belongs in a linked archive, '
-                    f'in full -- not deleted.')
+                    f'      Ask of each part: would a session hit this TODAY? Then '
+                    f'three moves,\n      in this order (session-load-budget):\n'
+                    f'        DELETE what is duplicated somewhere the session '
+                    f'already reads --\n                and check that it really '
+                    f'is, word for word. See DUPLICATED below.\n'
+                    f'        RETIRE what can no longer happen, to a linked record, '
+                    f'IN FULL,\n                with the verdict that retired it.\n'
+                    f'        SPLIT what is still live and still long: one line per '
+                    f'item here,\n                the text moved out whole. Nothing '
+                    f'is shortened on its way out,\n                and whatever '
+                    f'checked the text has to follow it.'
+                    + _split_projection(body))
 
     # A live entry that says its own trap is settled is the strongest
     # mechanical signal available here, and it is the entry's own words.
@@ -930,6 +985,31 @@ def _session_load(repo_dir):
                     f'      Verify against the tree before archiving it; an '
                     f'entry\'s claim that it\n      was fixed is not evidence '
                     f'that it was.')
+
+    # DELETE is the first of the three moves and the only one a script can
+    # point straight at: text sitting in an always-loaded file that also sits
+    # in a practice file the session reaches on demand is paid for twice, and
+    # removing it costs a session nothing. Two hand passes over this repo
+    # found 903 tokens of it and nothing mechanical was looking.
+    #
+    # It reports and never edits. Some repetition is deliberate -- a rule
+    # sharp enough to be worth saying twice -- and a script cannot tell that
+    # from an accident, so the verdict stays a person's.
+    try:
+        import precedent_check as _pc
+        corpus = _pc._practice_corpus(root)
+    except Exception:
+        corpus = None
+    if corpus:
+        for fname, text in loaded:
+            for src, quote, words in _pc.duplicated_resident_text(
+                    root, text, corpus):
+                findings.append(
+                    f'DUPLICATED {fname}: {words} words also in {src}, which a '
+                    f'session\n      reaches on demand -- so this sentence is '
+                    f'paid for twice, every\n      session. Deliberate '
+                    f'repetition is a real answer; check which it is.\n'
+                    f'      "{quote[:72]}..."')
     return rows, findings
 
 
