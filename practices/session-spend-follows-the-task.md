@@ -5,8 +5,8 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "creating a session, or deciding when to compact one"
-gates:       []
-index_clause: "pick the model from the task; suggest a compact at a boundary, never take one"
+gates:       ["reply"]
+index_clause: "say out loud when a compact is cheap, never take one; model follows the task"
 checked_by:  null
 defines:     []
 status:      active
@@ -30,7 +30,12 @@ approved_by: "Morgan, 2026-09-13 -- \"it's good if it's universal BUT the practi
   \"it should suggest it, never compact on its own\" (strength: decided) -- having
   still read \"compact at a task boundary, never at a size\", which predated the
   same day's rewrite of the Rule and was the one line every session sees in the
-  occasion index."
+  occasion index. AMENDED AGAIN 2026-09-13, after hours of long sessions in which
+  the offer was never once made: Morgan -- \"you have to make it a more prominent
+  recommendation ... maybe we can have another trigger\" (strength: decided, for
+  the requirement). Registering the practice on the `reply` gate, and requiring
+  the offer to be its own line rather than a clause inside a paragraph, are the
+  session's choice of mechanism."
 strength:    assented
 source_practice_number: null
 ---
@@ -57,6 +62,20 @@ thread as much as the session's, they may want the detail kept for reasons the
 session cannot see, and a session that compacts on its own initiative has
 discarded something it was not asked to discard. **Offer the moment, never take
 it.**
+
+**The offer is a line of its own, at the end of the reply, or it does not
+count.** A compaction offer folded into a paragraph of other findings is an
+offer nobody sees; the person is skimming a long reply for what they have to
+do next, and this is one of those things. Put it where the reply says what is
+left to do, in one sentence, and say why this moment is the cheap one.
+
+**Most boundaries are ones the person creates, not ones you finish.** A
+session watching for its own deliverable to land will wait a long time in a
+thread that is really several pieces of work in a row. The commoner signal is
+in their message: a new subject, a question about something the last hour did
+not touch, "now let's", "separately". That is a boundary whether or not the
+session had reached one, and it is the moment to say so — before the new work
+builds context on top of the old.
 
 **How full the context is decides WHICH boundary you say it at, never whether
 the offer is yours to act on.** Boundaries are not evenly spaced — a long
@@ -141,6 +160,18 @@ runs out of room before its next boundary? Nothing answered that, and the
 answer that survives the objection above is not a threshold — it is which
 boundary you speak at, once several are available. No incident behind it; a
 gap found by reading the rule rather than by paying for it.
+
+**The rule did not fire for hours, and could not have**, 2026-09-13.
+Morgan worked a long stretch of long conversations after this practice landed
+and was never once told a compact was cheap: *"you never suggested NOT ONCE to
+do that (or if you did, it was hidden in your novel-length comments so I missed
+it)."* The root cause is not that sessions forgot. The practice was routed
+through the occasion index alone, and its occasion reads *"deciding when to
+compact one"* — so the one line that would have prompted a session reached only
+a session that had already decided to think about compacting. A trigger
+conditioned on the thing it triggers is not a trigger. The reply gate fires at
+the end of every turn regardless of what the session was thinking about, which
+is the part the occasion index cannot do.
 
 **What makes the three-session case the useful example** is that none of the
 three did anything wrong. Each was created for a reasonable-looking piece of

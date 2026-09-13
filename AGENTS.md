@@ -306,7 +306,7 @@ When committing anything that touches the vendored/public tree:
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
 When creating a session, or deciding when to compact one:
-  session-spend-follows-the-task — pick the model from the task; suggest a compact at a boundary, never take one
+  session-spend-follows-the-task — say out loud when a compact is cheap, never take one; model follows the task
 When creating, migrating, closing or superseding a document under spec/ or record/:
   document-status-header — kind and status in frontmatter; a reader must not have to infer either
 When deciding where a new rule belongs:
