@@ -106,6 +106,7 @@ each one saves you a paragraph of explaining:
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
 | **Spawn session** | Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
+| **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from. |
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 | **Vocabulary** | List every standing phrase this project recognizes, and what each one does. |

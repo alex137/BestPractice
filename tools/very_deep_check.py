@@ -4451,8 +4451,54 @@ def _main(box):
           "is it\". What no longer bites moves to a\n  linked archive IN FULL, "
           "never to a deletion.")
     print()
+
+    # OPEN ITEMS. The deep read is the one moment somebody is looking at the
+    # whole repository at once, which is the only moment an item nobody has
+    # touched in months gets looked at at all. Two mechanical signals and no
+    # verdicts: what the person asked to be reminded of, and items naming a
+    # file the tree no longer has -- which is what an item that quietly got
+    # done under another name looks like from outside
+    # (practice: item-closes-on-its-condition).
+    _todo_n = 0
+    try:
+        import todo_progress as _tp
+        _todo_f = pathlib.Path(repo_root) / 'TODO.md'
+        _todo_text = _todo_f.read_text(encoding='utf-8', errors='replace') \
+            if _todo_f.is_file() else None
+    except Exception:
+        _tp, _todo_text = None, None
+    if _tp is not None and _todo_text is not None:
+        print("OPEN ITEMS -- what the queue says about itself\n")
+        _rem = _tp.reminders(_todo_text)
+        _stale = _tp.stale_paths(_todo_text)
+        _todo_n = len(_rem) + len(_stale)
+        _by = {s: b for _n2, s, b in _tp.items(_todo_text)}
+        if _rem:
+            print(f"  REMINDERS -- {len(_rem)} item(s) he asked to be "
+                  f"reminded of:")
+            for _n2, _slug, _note in _rem:
+                print(f"  TODO {_n2} ({_slug}) -- {_tp.title_of(_by[_slug])}")
+                print(f"      {_note}")
+            print()
+        if _stale:
+            print(f"  NAMES A FILE THAT IS GONE -- {len(_stale)} open item(s). "
+                  f"Either the work\n  landed under another name, or the item "
+                  f"has rotted. Read the item's own\n  stated condition before "
+                  f"closing anything:")
+            for _n2, _slug, _gone in _stale:
+                print(f"  TODO {_n2} ({_slug}) -- {_tp.title_of(_by[_slug])}")
+                for _g in _gone[:3]:
+                    print(f"      missing: {_g}")
+            print()
+        if not _rem and not _stale:
+            print("  none -- no reminder-marked item, and every open item's "
+                  "named files are\n  present.\n")
+        print("  This pass proposes and never closes. An item closes only "
+              "when its OWN\n  stated condition is met -- a resemblance is "
+              "not that, and a closed item\n  is not re-read.")
+        print()
     if led:
-        led.end(findings=len(_sl) + len(_gc_msgs if _gc_rows else []))
+        led.end(findings=len(_sl) + len(_gc_msgs if _gc_rows else []) + _todo_n)
         led.start('TIER PLACEMENT', kind='read')
 
     print("TIER PLACEMENT -- which practices are loaded from turn one\n")

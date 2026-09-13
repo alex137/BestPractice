@@ -13845,6 +13845,77 @@ def check_source_supplied_checks_run():
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_todo_progress_discriminates():
+    """The open-item pass reports a resemblance and stays quiet otherwise
+    (practice: control-asserts-which-failure).
+
+    THE MEASUREMENT THAT SHAPED IT. On its first run against this repository
+    the candidate list returned 13 of 83 items for one ordinary day's work,
+    because AGENTS.md is cited by more than a third of the open items and
+    touched by nearly every change. A list like that is read once. Suppressing
+    paths cited across the whole file took it to 5, every one plausible.
+
+    So the discriminating cases here are the QUIET ones: a change touching
+    only a widely-cited file must report nothing, and a change touching
+    nothing an item names must report nothing. A tool that always finds
+    something is a tool nobody reads. The fixture owns its own tree."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import todo_progress as tp
+
+    TODO = (
+        '# TODO\n\n'
+        '1. <a id="alpha"></a>**An item about the widget.** It names\n'
+        '   [tools/widget.py](tools/widget.py) and also [AGENTS.md](AGENTS.md).\n'
+        '   **Disposition:** wait\n\n'
+        '2. <a id="beta"></a>**An item about the gadget.** It names\n'
+        '   `tools/gadget.py` in a code span, and [AGENTS.md](AGENTS.md).\n'
+        '   **Remind:** whether the gadget survives (2026-09-13, Morgan)\n'
+        '   **Disposition:** ask (2026-09-13, Morgan)\n\n'
+        '3. <a id="gamma"></a>**~~A finished item.~~** **DONE 2026-09-13.** It\n'
+        '   names [tools/widget.py](tools/widget.py) too.\n\n'
+        '4. <a id="delta"></a>**An item naming only the common file.** Just\n'
+        '   [AGENTS.md](AGENTS.md).\n'
+        '   **Disposition:** wait\n')
+
+    ignore = tp.common_paths(TODO)
+    cases = []
+
+    cases.append(('a file most items name is suppressed, so it cannot be the '
+                  'thing that matches', 'AGENTS.md' in ignore, repr(ignore)))
+    cases.append(('and a file only one item names is not suppressed',
+                  'tools/widget.py' not in ignore, repr(ignore)))
+
+    got = tp.candidates(TODO, {'tools/widget.py'}, ignore)
+    cases.append(('a change touching a file one item names reports that item',
+                  [c[1] for c in got] == ['alpha'], repr(got)))
+    cases.append(('and a DONE item naming the same file is not reported',
+                  'gamma' not in [c[1] for c in got], repr(got)))
+
+    got = tp.candidates(TODO, {'tools/gadget.py'}, ignore)
+    cases.append(('a path named in a code span counts, not only a link',
+                  [c[1] for c in got] == ['beta'], repr(got)))
+
+    got = tp.candidates(TODO, {'AGENTS.md'}, ignore)
+    cases.append(('THE QUIET CASE: a change touching only the widely-cited '
+                  'file reports NOTHING', got == [], repr(got)))
+
+    got = tp.candidates(TODO, {'tools/unrelated.py'}, ignore)
+    cases.append(('and a change touching nothing any item names reports '
+                  'nothing', got == [], repr(got)))
+
+    rem = tp.reminders(TODO)
+    cases.append(('a **Remind:** item is surfaced with what to remind about',
+                  len(rem) == 1 and rem[0][1] == 'beta'
+                  and 'survives' in rem[0][2], repr(rem)))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the open-item pass matches what an item names and stays quiet '
+          f'otherwise ({len(cases)} stated cases, the two quiet ones being '
+          f'the discriminating pair)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_split_projection_is_costed_and_ordered():
     """A flagged section made of entries gets the costed split table
     (practice: control-asserts-which-failure).
@@ -19227,6 +19298,7 @@ def main():
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()
     check_fixtures_own_the_credential_environment()
+    check_todo_progress_discriminates()
     check_split_projection_is_costed_and_ordered()
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()

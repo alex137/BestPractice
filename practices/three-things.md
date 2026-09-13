@@ -33,6 +33,17 @@ opening line explaining what you are about to do, no closing offer to go
 deeper, no fourth item smuggled in as a note.
 
 ## Detail
+**Weigh the items they asked to be reminded of.** An open item carrying a
+`**Remind:**` mark ([todo-reminder](todo-reminder.md)) is something the person
+is actively carrying and does not want to be the one to remember, so it has a
+claim on this answer that an ordinary item does not. **A claim, not a
+reservation**: the three are still the three most important things, chosen on
+the merits. Never fill the answer with marked items because they are marked,
+and never hand back a marked item that has not moved and does not bear on
+anything in front of them —
+[tools/todo_progress.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/todo_progress.py)
+lists them, which is not the same as them mattering today.
+
 **Read before you answer.** The phrase names four inputs, and skipping any of
 them makes the answer generic: the repository's own state, its recent
 activity, who is asking and what they do here, and who else is working in it.
