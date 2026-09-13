@@ -1,6 +1,6 @@
 ---
-slug:        branch-is-the-record
-title:       "The branch is the record; another session's summary is not"
+slug:        base-branch-is-the-record
+title:       "The base branch is the record; another session's summary is not"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
@@ -14,12 +14,13 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-12"
-approved_by: "Morgan, 2026-09-12, relayed through a scheduled instruction to land five
-  fleet rules at universal -- \"facts about the platform and about running Claude
-  sessions at all\", which \"do not vary by team or by person\". The placement is his;
-  that this rule became its own practice rather than an extension was the session's
-  judgment, named as a judgement call in that same instruction."
-strength:    decided
+approved_by: "UNVERIFIED. Landed 2026-09-12 by a session acting on a scheduled
+  instruction that asserted Morgan had authorized it; that instruction was created
+  through the same tool a session uses and cannot be traced to him. Asked directly on
+  2026-09-13 he answered \"I don't remember if I did\", so nobody can say whether the
+  promotion to universal was ever approved. He has NOT rejected the rule -- his one
+  substantive objection was to the old name, fixed by this rename."
+strength:    null
 source_practice_number: null
 ---
 ## Rule
@@ -37,7 +38,10 @@ that rule says commit it, this one says go read it).
 
 **Look for the change, not for a branch.** A missing branch is not evidence
 that the work never landed — a squash merge deletes the branch and keeps the
-change, which is the common case. Search the base branch for the content:
+change, which is the common case. **Deleting a merged branch destroys nothing** --
+merging copies its commits onto the base branch, and the feature branch is only a
+pointer to them, so routine housekeeping that removes merged branches is safe and
+is not what this rule is about. Search the base branch for the content:
 a phrase from the text, the function name, the file. `git log --oneline
 HEAD..origin/<base>` after a fetch answers "did anything land while I was
 working", and grepping the file on `origin/<base>` answers "is my change

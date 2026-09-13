@@ -4331,7 +4331,7 @@ which is the failure this repointing exists to end — write
   that asserted Morgan's authorization, and nobody can check that assertion.**
   Found 2026-09-12 while looking into the routines described in
   [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md)'s
-  Story. [practices/branch-is-the-record.md](practices/branch-is-the-record.md)
+  Story. [practices/base-branch-is-the-record.md](practices/base-branch-is-the-record.md)
   and
   [practices/session-spend-follows-the-task.md](practices/session-spend-follows-the-task.md)
   are on `precedent-beta-v01`.
@@ -4357,9 +4357,35 @@ which is the failure this repointing exists to end — write
   `approved_by` lines get his own `decided`/`assented` mark, or he did not, and
   two universal practices need re-deciding on their merits.
 
-  **Blocked on / out of scope:** only Morgan can say whether he authorized it.
-  Nothing about it is mechanical.
-  **Disposition:** ask (2026-09-12, this session) — universal practices bind
-  every adopting repo, so an approval nobody can verify is the one kind worth
-  interrupting him about
+  **Answered 2026-09-13, and the answer is that nobody knows.** Asked directly,
+  Morgan said *"I don't remember if I did"*. So the authorization is not
+  confirmed and not denied — permanently UNKNOWN, which is exactly the state
+  [decision-strength](practices/decision-strength.md) reserves `strength: null`
+  for, and it is now written that way rather than guessed at.
+
+  **He then judged the two on their merits, which settles one of them.**
+
+  - **`session-spend-follows-the-task` stays, at universal, amended.** *"it's
+    good if it's universal BUT the practice should recommend to the user to
+    recommend at those points, not compact by itself."* The compact clause now
+    says a session names a cheap moment in one line and carries on without
+    compacting — the context is the person's working memory too, and a session
+    that compacts on its own initiative discards something nobody asked it to.
+    `strength: assented`, on the 2026-09-13 answer rather than the instruction.
+  - **`branch-is-the-record` was renamed to
+    [base-branch-is-the-record](practices/base-branch-is-the-record.md)**, on
+    his objection: *"if the branch is the record, when I delete merged branches,
+    does that delete the record?"* The old name invited exactly that reading and
+    the Rule says the opposite — a squash merge deletes the branch and keeps the
+    change. The Rule now answers the question outright: deleting a merged branch
+    destroys nothing, because merging copies its commits onto the base branch.
+    **Its approval stays `null`**: the rename answers his objection, and he has
+    not said whether universal is right for it.
+
+  **What is left:** whether `base-branch-is-the-record` belongs at universal.
+  That is the only open half.
+  **Blocked on / out of scope:** Morgan's call on that one practice; nothing
+  about it is mechanical.
+  **Disposition:** ask (2026-09-13, this session) — a universal practice with no
+  verifiable approval binds every adopting repo
   ([open-item-disposition](practices/open-item-disposition.md)).
