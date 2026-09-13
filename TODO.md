@@ -4701,8 +4701,27 @@ which is the failure this repointing exists to end — write
     generalized constant, and a path expansion. **Nothing is approved to
     build.**
 
-    **DONE 2026-09-13, reading half.** Shape 3 built and measured against the
-    real `precedent-individual` set: universal cloned beside it, 106
+    **DONE 2026-09-13, reading half, upstream AND rolled out.** New sets get
+    it from `precedent_bootstrap_source.py` automatically (PR #298); the four
+    existing sets were handed to four woken sessions, one per set, each
+    already rooted in that repository from an earlier wiring job the same
+    day — `precedent-individual` (`session_01X7JgfabNF6mSvR7dpqVeAV`),
+    `precedent-team-writing` (`session_01BLrNAxdBkyD4QtMrg4Z57Q`),
+    `precedent-team-repo-maintenance` (`session_0185SF928m3c1dgtAj2uyFR8`),
+    `precedent-team-working-style` (`session_019Tas6QAJHUXwXwUv7ksDYf`).
+    Woken rather than spawned, per
+    [spawn-session](practices/spawn-session.md): a live session reuses the
+    context it holds. **This session could not do it itself** —
+    `git push --dry-run` returned 403 on all four, which is the quotable
+    refusal the handoff rules ask for, and the merge authorization travelled
+    with the seeded prompts.
+    **Whether each landed is not established here**: a woken session has no
+    return path, so confirm by looking at each set's own `main`, or by
+    running `precedent_bootstrap_source.verify()` against it — the two rows
+    it gained in PR #298 name exactly what is missing if the rollout did not
+    finish.
+
+    Shape 3 built and measured against the real `precedent-individual` set: universal cloned beside it, 106
     practices and 92 occasion entries in its untracked
     `.precedent/SESSION_PRACTICES.md`, its committed `AGENTS.md` unchanged.
     What the build took against what the brief predicted — including two
