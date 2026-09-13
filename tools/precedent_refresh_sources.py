@@ -36,7 +36,9 @@ repo itself where its own rules apply.
 
 A SECOND THING THIS COVERS, AND WHY IT IS THE SAME TOOL (added
 2026-09-09). A source set also carries its own session hooks -- the
-freshness guard and the commit-identity backstop -- installed by
+freshness guard, the commit-identity backstop, and since 2026-09-13 the
+individual-source bootstrap that makes the person's own practice set
+resolve there at all -- installed by
 tools/precedent_bootstrap_source.py when the set is created. Sets created
 BEFORE that existed never got them, and nothing has ever repaired one:
 there was an install path and no refresh path, which is the same asymmetry
@@ -336,7 +338,13 @@ def hook_state(repo):
     settings = sorted((repo / '.claude').glob('settings*.json'))
     declared = _declared_hooks(repo)
     missing, unwired = [], []
-    for name in _bootstrap.SESSION_HOOKS:
+    # ALL_SESSION_HOOKS, not SESSION_HOOKS: the individual-source bootstrap
+    # is a session hook this tool has to report like the other two, and every
+    # set that existed on 2026-09-13 is missing it. It lands in `unwired`
+    # there rather than `missing`, which is the honest answer -- the file can
+    # be written, and adding a command to somebody's existing settings.json
+    # is still not this tool's call.
+    for name in _bootstrap.ALL_SESSION_HOOKS:
         where = declared.get(name)
         if not where:
             if settings:
