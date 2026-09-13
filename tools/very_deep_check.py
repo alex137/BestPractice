@@ -819,6 +819,52 @@ _SETTLED_MARKERS = ('fixed ', 'no longer true', 'applies itself now',
                     'resolved for this machine', 'now automated')
 
 
+def _split_projection(section):
+    """-> a costed line for the SPLIT move, or '' when the section has no
+    bulleted entries to split.
+
+    WHY A PROJECTION AND NOT JUST ADVICE. Told a section is 8,858 tokens and
+    that splitting is an option, a person still cannot choose: the question is
+    always "what would that leave, and what would it cost me". Deriving that
+    by hand is what made the 2026-09-13 decision take a whole pass -- the
+    figures existed only because a session computed them on request, and the
+    deep read that flagged the section could have handed them over.
+
+    Four rows rather than one, because the honest choice is graduated: keeping
+    the bolded lead alone is the cheapest and loses the most, and each extra
+    sentence buys back context. Mechanically truncated, so these BOUND the
+    saving rather than predict it -- a careful edit keeps the remedy line
+    wherever it sits, and the output says so.
+    """
+    entries = _md_bullet_entries(section)
+    if len(entries) < 8:
+        return ''
+    whole = bv._approx_tokens(section)
+    rows = []
+    for keep in (0, 1, 2, 3):
+        tot = 0
+        for _line, _title, body in entries:
+            m = re.match(r'- \*\*(.*?)\*\*(.*)', body, re.S)
+            if not m:
+                tot += bv._approx_tokens(body)
+                continue
+            lead = ' '.join(m.group(1).split())
+            rest = ' '.join(m.group(2).split())
+            sents = re.split(r'(?<=[.?!]) ', rest) if rest else []
+            tot += bv._approx_tokens(lead + ' ' + ' '.join(sents[:keep]))
+        rows.append((keep, tot))
+    out = [f'\n      COSTED, if you split this one ({len(entries)} entries, '
+           f'{whole:,} tokens now). Mechanically\n      truncated, so each '
+           f'bounds the saving rather than predicting it:']
+    for keep, tot in rows:
+        what = 'bolded lead only' if keep == 0 else \
+            f'lead + {keep} sentence' + ('' if keep == 1 else 's')
+        out.append(f'        {what:<22} leaves {tot:6,d}   saves {whole - tot:6,d}')
+    out.append('      The text moves out whole either way; only the loading '
+               'changes.')
+    return '\n'.join(out)
+
+
 def _gotchas_section(text):
     """-> the gotchas section of an instructions file, or None if it has none.
 
@@ -907,7 +953,8 @@ def _session_load(repo_dir):
                     f'        SPLIT what is still live and still long: one line per '
                     f'item here,\n                the text moved out whole. Nothing '
                     f'is shortened on its way out,\n                and whatever '
-                    f'checked the text has to follow it.')
+                    f'checked the text has to follow it.'
+                    + _split_projection(body))
 
     # A live entry that says its own trap is settled is the strongest
     # mechanical signal available here, and it is the entry's own words.
