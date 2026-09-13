@@ -14166,6 +14166,120 @@ def check_source_credentials():
                       psc.remind(repo, env={'HOME': str(home_ok)}) is None,
                       str(psc.remind(repo, env={'HOME': str(home_ok)}))))
 
+        # --- 5b: the THREE ways there is no individual source ---------------
+        # Reported 2026-09-13 from a live container: PRECEDENT_GIT_TOKEN set,
+        # the private repo reachable, nothing retired, and no user config at
+        # all -- and this tool answered "<path> declares no individual
+        # source", a statement about a file that did not exist, wrapped in a
+        # credential remedy and a retirement clause neither of which applied.
+        # An absent config, a malformed one and one that parses and names
+        # none are three states with three remedies; `.get('individual')`
+        # made them one. Each case below asserts the words ITS branch alone
+        # prints (practice: control-asserts-which-failure).
+        #
+        # Every env here is a literal dict, so the fixture owns whether this
+        # is a hosted session -- which is the axis the verdict turns on.
+        home_absent = tmp / 'home-absent'          # never created: that is the case
+        home_bad = tmp / 'home-bad'
+        (home_bad / '.config' / 'precedent').mkdir(parents=True)
+        (home_bad / '.config' / 'precedent' / 'config.json').write_text(
+            '{not json', encoding='utf-8')
+
+        for home, state, words in (
+            (home_absent, 'absent', 'does not exist'),
+            (home_bad, 'malformed', 'did not parse as JSON'),
+            (home_empty, 'declares none', 'declares no individual source'),
+        ):
+            why = psc.unresolved_private_sources(repo, env={'HOME': str(home)})
+            cases.append((f'a user config that is {state} is REPORTED as '
+                          f'{state}, not as "declares no individual source" '
+                          f'for all three', any(words in w for _, _, w in why),
+                          str(why)))
+
+        for home, state, words in (
+            (home_absent, 'an absent', 'does not exist at all'),
+            (home_bad, 'a malformed', 'did not parse as JSON'),
+            (home_empty, 'a declares-nothing', 'names no individual source'),
+        ):
+            verdict, message = psc.assess(repo, env={'HOME': str(home),
+                                                     psc.TOKEN_ENV: TOKEN})
+            cases.append((f'...and on a local machine {state} config reads '
+                          f'as UNCONFIGURED with its own remedy -- never as a '
+                          f'credential or a retirement, which cannot write a '
+                          f'config file',
+                          verdict == 'unconfigured' and words in message
+                          and 'RETIRED' not in message,
+                          f'{verdict}: {message[:260]}'))
+
+        # A config that will not PARSE is the one state no credential has
+        # ever fixed, so it reads the same way on a hosted session too.
+        verdict, message = psc.assess(repo, env={'HOME': str(home_bad),
+                                                 'CLAUDE_CODE_REMOTE': 'true',
+                                                 psc.TOKEN_ENV: TOKEN})
+        cases.append(('a config that will not parse is UNCONFIGURED on a '
+                      'hosted session as well: a token cannot repair a '
+                      'syntax error', verdict == 'unconfigured', verdict))
+
+        # ...while the two states a FAILED CLONE also leaves behind keep the
+        # access path there, because the bootstrap writes the config only
+        # after a clone succeeds. Claiming "not an access problem" there
+        # would be the same over-reading in the other direction.
+        for home, state in ((home_absent, 'an absent'),
+                            (home_empty, 'a declares-nothing')):
+            verdict, message = psc.assess(repo, env={'HOME': str(home),
+                                                     'CLAUDE_CODE_REMOTE': 'true',
+                                                     psc.TOKEN_ENV: TOKEN})
+            cases.append((f'on a HOSTED session {state} config is NOT '
+                          f'claimed to be free of access trouble -- it is '
+                          f'what a failed clone leaves -- but the retirement '
+                          f'clause goes, since no repo declares an individual '
+                          f'source',
+                          verdict == 'set' and 'RETIRED' not in message
+                          and 'only after a clone SUCCEEDS' in message,
+                          f'{verdict}: {message[:260]}'))
+
+        # The one individual failure that IS about access: the config named a
+        # path and the clone is not at it. Unchanged, retirement clause and all.
+        home_gone = tmp / 'home-gone'
+        (home_gone / '.config' / 'precedent').mkdir(parents=True)
+        (home_gone / '.config' / 'precedent' / 'config.json').write_text(
+            json.dumps({'individual': {'name': 'precedent-individual',
+                                       'path': str(tmp / 'nowhere')}}),
+            encoding='utf-8')
+        verdict, message = psc.assess(repo, env={'HOME': str(home_gone),
+                                                 psc.TOKEN_ENV: TOKEN})
+        cases.append(('a config that DOES declare a source whose clone is '
+                      'missing still reads as an access problem, retirement '
+                      'clause and all -- the new verdict must not swallow it',
+                      verdict == 'set' and 'RETIRED' in message
+                      and 'has no practices/ directory' in message,
+                      f'{verdict}: {message[:260]}'))
+
+        # --- 5c: PRECEDENT_USER_CONFIG is honoured here too -----------------
+        # It was not, until 2026-09-13, and this file was the ONLY reporter in
+        # the engine that ignored it: precedent_resolve.py,
+        # precedent_session_check.py, precedent_identity.py and
+        # precedent_time.py all read it. So somebody who had pointed it at a
+        # good config was told the DEFAULT path declared no individual source
+        # -- a false alarm naming a file they had deliberately not used.
+        elsewhere = tmp / 'elsewhere-config.json'
+        elsewhere.write_text(json.dumps(
+            {'individual': {'name': 'precedent-individual', 'path': str(indiv)}}),
+            encoding='utf-8')
+        verdict, message = psc.assess(repo, env={'HOME': str(home_absent),
+                                                 psc.USER_CONFIG_ENV: str(elsewhere),
+                                                 psc.TOKEN_ENV: TOKEN})
+        cases.append((f'{psc.USER_CONFIG_ENV} points the individual lookup at '
+                      f'another config, exactly as it does everywhere else in '
+                      f'the engine -- a good config there reads as OK, not as '
+                      f'a complaint about the default path',
+                      verdict == 'ok', f'{verdict}: {message[:200]}'))
+        path, code = psc.individual_config_state({'HOME': str(home_absent),
+                                                  psc.USER_CONFIG_ENV: str(elsewhere)})
+        cases.append(('...and the path it reports is the one it actually '
+                      'read', path == elsewhere and code == 'declared',
+                      f'{path} {code}'))
+
         # --- 6: the CLI's own contract -------------------------------------
         def run(*args, env_extra=None):
             # Scrub BOTH credential variables, not just the token. A case
@@ -14178,23 +14292,47 @@ def check_source_credentials():
             # that wants either variable supplies it through env_extra, which
             # is the only way to tell "the fixture set this" from "the
             # container happened to carry it".
+            #
+            # CLAUDE_CODE_REMOTE and PRECEDENT_USER_CONFIG are scrubbed for
+            # the same reason, added 2026-09-13 with the config-state
+            # verdict below: assess() now branches on whether this is a
+            # hosted session, and resolves the user config through
+            # PRECEDENT_USER_CONFIG when it is set. A container that carries
+            # either -- this one carries CLAUDE_CODE_REMOTE=true -- would
+            # decide the outcome of cases the fixture believes it set up
+            # with HOME alone, and the harness would pass here and fail on
+            # somebody's laptop. An ABSENCE is state the fixture owns too.
             env = dict(os.environ)
             env.pop(psc.TOKEN_ENV, None)
             env.pop(psb.BASE_URL_ENV, None)
+            env.pop('CLAUDE_CODE_REMOTE', None)
+            env.pop(psc.USER_CONFIG_ENV, None)
             if env_extra:
                 env.update(env_extra)
             r = subprocess.run([sys.executable, *args], capture_output=True,
                                text=True, env=env)
             return r.returncode, r.stdout + r.stderr
 
-        rc, out = run(str(tool), '--repo', str(repo), env_extra={'HOME': str(home_empty)})
+        # CLAUDE_CODE_REMOTE is set BY THE FIXTURE, not inherited: on a
+        # hosted session an empty user config is also what a clone that
+        # failed for want of a credential leaves behind, so MISSING is the
+        # right reading there and 'unconfigured' is the right reading on a
+        # local machine. Both are asserted, a few lines apart.
+        hosted = {'HOME': str(home_empty), 'CLAUDE_CODE_REMOTE': 'true'}
+        rc, out = run(str(tool), '--repo', str(repo), env_extra=hosted)
         cases.append(('the CLI reports MISSING and still exits 0 -- a missing '
                       'credential degrades a session, never takes one down',
                       rc == 0 and 'MISSING' in out, f'rc={rc} {out[:300]}'))
         rc, out = run(str(tool), '--repo', str(repo), '--check',
-                      env_extra={'HOME': str(home_empty)})
+                      env_extra=hosted)
         cases.append(('--check is the one caller that exits 1 on MISSING',
                       rc == 1 and 'MISSING' in out, f'rc={rc} {out[:300]}'))
+        rc, out = run(str(tool), '--repo', str(repo), '--check',
+                      env_extra={'HOME': str(home_empty)})
+        cases.append(('...but the SAME state on a local machine is '
+                      'UNCONFIGURED and exits 0: nothing there is in the '
+                      'wrong state, and no credential is what is missing',
+                      rc == 0 and 'UNCONFIGURED' in out, f'rc={rc} {out[:300]}'))
         rc, out = run(str(tool), '--repo', str(repo), '--check',
                       env_extra={'HOME': str(home_ok)})
         cases.append(('--check exits 0 when every source is on disk '

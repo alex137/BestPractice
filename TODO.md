@@ -1591,10 +1591,21 @@ which is the failure this repointing exists to end — write
   audit that reasons from the slug overlap alone will keep proposing the
   round trip that was already made and reversed. The general wart — **a
   source set must re-declare a universal practice to enforce it on itself** —
-  is real and unaddressed, and belongs to
+  was real, and **is addressed as of 2026-09-12**: `binds_publishers` (#261)
+  is exactly that fix, so re-declaration is no longer the mechanism and a
+  session reading this passage should not reach for it. The counter-example
+  still belongs to
   [`practice-consistency-across-team-repos`](TODO.md#practice-consistency-across-team-repos),
-  whose own note that "a copy is usually the bug" needs this counter-example
-  attached to it. And item 7 stays parked: nothing in this split expresses
+  whose own note that "a copy is usually the bug" needs it attached — but
+  attached as history now, not as live guidance: the copy that motivated it
+  was retired on 2026-09-13 once the flag reached that set.
+
+  **One half of the wart is genuinely still open**, and it is worth not
+  losing in the correction: `binds_publishers` teaches a CHECK to bind a repo
+  that publishes practices, and there is no equivalent for PROSE. Universal
+  guidance text still never reaches a source set, which is why a set keeps
+  hand-copied restatements of universal rules it cannot resolve. Filed as
+  [`universal-prose-does-not-reach-a-source-set`](TODO.md#universal-prose-does-not-reach-a-source-set). And item 7 stays parked: nothing in this split expresses
   a preference between two disagreeing team sources, because nothing here
   produced two sources that disagree.
 
@@ -1893,8 +1904,10 @@ which is the failure this repointing exists to end — write
 
   **The third mechanism — call the registered check function directly from CI.**
   The discussion above knows two options, re-declare the universal practice as a
-  same-slug local copy or leave it unenforced. That set now runs a third, in
-  `.github/workflows/practice-links-travel.yml` (`9e92d60`): import
+  same-slug local copy or leave it unenforced. That set ran a third for one week, in
+  `.github/workflows/practice-links-travel.yml` (`9e92d60`, **deleted
+  2026-09-13** once `binds_publishers` made it unnecessary — replaced by a
+  workflow running the whole suite): import
   `precedent_check`, pull the check out of its `CHECKS` registry by slug, and call
   it, bypassing the gate in `run()` that would otherwise skip it. It follows a
   precedent already in that repo — `.github/workflows/views-drift.yml`, whose
@@ -1909,7 +1922,9 @@ which is the failure this repointing exists to end — write
   runs — and one workflow per rule scales no better than one copy per rule.
 
   **And the evidence against re-declaring, which is the part this item most
-  needs.** That set's one re-declared copy has never agreed with universal's.
+  needs.** That set's one re-declared copy never agreed with universal's in
+  the whole of its life (re-declared 2026-09-06, retired 2026-09-13; the
+  analysis below is written in the present tense of the week it existed).
   `practices/catalogue-carries-stories.md` differs there in `title`, `occasion`,
   `index_clause` and Rule prose, and carries `checked_by: null` where this
   repository's copy names `tools/precedent_check.py`. **It did not drift into
@@ -3527,7 +3542,8 @@ which is the failure this repointing exists to end — write
    that practice's own text is vendored in. Not shape 1 (vendor the practice
    FILES a source set needs), which adds a second copy of rule text to every
    set and so recreates the drift this item is about — the one re-declared
-   copy that exists has never agreed with universal's. Not shape 3 (accept it
+   copy that then existed never agreed with universal's, and was retired on
+   2026-09-13 once the flag reached its set. Not shape 3 (accept it
    and reword the output), which makes the gap legible and leaves the
    publishing repos unchecked.
 
@@ -3559,10 +3575,15 @@ which is the failure this repointing exists to end — write
    that needs resolved sources work without them — and the enumeration belongs
    to [`coverage-report-for-registered-checks`](TODO.md#coverage-report-for-registered-checks),
    which is the count taken across every repo in force rather than one at a
-   time. **Also outstanding:** the one re-declared copy of
-   `catalogue-carries-stories` in a team source is now redundant, and its
-   `checked_by: null` actively misstates its own coverage. Retiring it is a
-   change in that set, not here.
+   time. **That was outstanding and is now done (2026-09-13):** the one
+   re-declared copy of `catalogue-carries-stories` in a team source was
+   redundant once the flag reached it, and its `checked_by: null` misstated
+   its own coverage. It was retired in that set — `status: active` to
+   `deduplicated` with an `in_force_at`, in a separate commit from the engine
+   refresh, as this item asked, and in the same pull request that deleted the
+   single-rule workflow. **The file was kept, not deleted**, per that set's
+   withdrawn-practice convention. Reported from a session rooted there; not
+   verifiable from this repo, which cannot read a private cross-owner set.
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
@@ -4256,9 +4277,26 @@ which is the failure this repointing exists to end — write
     [TODO.md's `check-gate-reads-status` item](TODO.md#check-gate-reads-status)
     below.
 
-75. <a id="check-gate-reads-status"></a>**Decide whether
+75. <a id="check-gate-reads-status"></a>~~**Decide whether
     [tools/precedent_check.py](tools/precedent_check.py)'s practice-backed gate
-    should test a practice's `status` rather than whether its file exists.**
+    should test a practice's `status` rather than whether its file exists.**~~
+    **Decided 2026-09-13: document the distinction, do not change the gate.**
+    Morgan, asked to choose between changing the gate and writing the
+    difference down, answered *"Document the disctinction please"* (his
+    spelling), `strength: decided` — he chose it against a stated
+    recommendation rather than assenting to a bare proposal. Relayed to this
+    session by another session rather than typed here, so it is a claim about
+    a person and checkable with him.
+
+    **Where it is written**, both in the same change:
+    [tools/precedent_check.py](tools/precedent_check.py)'s module docstring,
+    beside the existing SKIPPED and EXEMPT paragraphs, which is where a
+    session hits the reasoning; and
+    [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md)'s "A check can bind the repo
+    that PUBLISHES a practice", whose opening sentence *is* the file-presence
+    gate. `run()`'s condition is untouched.
+
+    The original finding follows, unchanged.
     `run()` skips a
     practice-backed check when `_practice_file(slug)` returns nothing, and that
     function looks for the file and nothing more. So a check whose practice is
@@ -4299,10 +4337,10 @@ which is the failure this repointing exists to end — write
     **"the check ran" does not imply "the practice is in force"**, and the two
     are currently documented as the same thing.
 
-    **Blocked on / out of scope:** this is a decision about the engine's own
-    behaviour, not a defect to fix, and the session that found it deliberately
-    changed nothing. Alex and Morgan own it.
-    **Disposition:** wait
+    **Blocked on / out of scope (resolved):** it was a decision about the
+    engine's own behaviour rather than a defect, and the session that found it
+    deliberately changed nothing. Morgan decided it on 2026-09-13. The item
+    carries no disposition because it is no longer an open item.
 
 75. <a id="chief-of-staff-session"></a>**Decide whether to build the Chief of
     Staff session.** Proposal drafted 2026-09-13 at
@@ -4608,7 +4646,36 @@ which is the failure this repointing exists to end — write
     cross-owner. The decision comes first either way.
     **Disposition:** wait
 
-78. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
+78. <a id="universal-prose-does-not-reach-a-source-set"></a>**A check can now
+    bind a repo that publishes practices; universal PROSE still cannot reach
+    one.** `binds_publishers` (#261, 2026-09-12) closed half a wart this file
+    had called "real and unaddressed": a universal check now runs in the
+    source set whose catalogue it is about. The other half is untouched. A
+    source set resolves no universal catalogue, so universal *guidance text* —
+    a Rule a session needs to read, not a check it needs to pass — never
+    arrives there at all.
+
+    **What that costs, observably:** a source set keeps hand-copied
+    restatements of universal rules it cannot resolve, and a hand copy is a
+    second place for a rule to be wrong. This item's own sibling analysis
+    above is the worked example — a re-declared same-slug copy that never
+    agreed with universal's for the whole week it existed, which is worse than
+    drift because there was never a synchronized state to fall out of.
+
+    **Why it is not simply "do for prose what we did for checks".** A check is
+    code that travels with the vendored engine and needs no text; prose is the
+    text. Delivering it means either vendoring practice FILES into every set —
+    shape 1, rejected when `binds_publishers` was chosen, precisely because it
+    adds a second copy of rule text to every set — or a resolve path a source
+    set does not currently have. Neither is a small change, and nobody has
+    established that the pain is worth either.
+
+    **Blocked on / out of scope:** raised 2026-09-13 while correcting the
+    "unaddressed" claim above; nothing here is a defect to fix, and the
+    session that raised it changed no mechanism.
+    **Disposition:** wait
+
+79. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
     `precedent-individual-bootstrap.sh` into the four practice sets that
     already exist.** As of 2026-09-13
     [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)

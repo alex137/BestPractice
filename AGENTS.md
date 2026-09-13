@@ -121,12 +121,18 @@ forbids. Coined by Morgan on 2026-09-09 and placed at universal the same day.
 **A seventh command, "Spawn session"**, is defined universally in
 [practices/spawn-session.md](practices/spawn-session.md) and means: **before
 starting what I just asked for, check whether it belongs in a different
-session — repositories first — and if it does, hand me a link to that
-session, rooted in the right repository and already seeded with the prompt,
-and tell me to click it.** The check itself is **not** waiting on the
-phrase: it runs whenever another repository might be needed, always. The
-phrase is for the times it did not, and an honest "this session is the right
-one" is a complete answer to it.
+session — repositories first — and if it does, wake a live session that
+already holds the context, or, where none fits, hand me a link to a new one,
+rooted in the right repository and already seeded with the prompt, and tell
+me to click it.** The check itself is **not** waiting on the phrase: it runs
+whenever another repository might be needed, always. The phrase is for the
+times it did not, and an honest "this session is the right one" is a
+complete answer to it.
+
+**Waking beats spawning**: a live session reuses the context it holds and
+**can answer back**, where a spawned one re-reads its repository from
+nothing and has no return path. True since 2026-09-12 and in no line any
+session read until 2026-09-13.
 
 It is the step that comes *before*
 [practices/handoff-is-pasteable.md](practices/handoff-is-pasteable.md),
@@ -388,7 +394,7 @@ When finishing a substantial work-product, before the merge-time capture gate:
 When fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy:
   fix-the-original — fix the origin first, then every copy -- name them all in the reply
 When handing the person work to do, or starting work that may touch a repository this session cannot reach:
-  spawn-session — cross-repo check first; hand over a clickable seeded session, not a description
+  spawn-session — cross-repo check first; wake a live session before spawning one, then the link
 When importing, creating, or declaring a repository that holds practices:
   source-naming — names are fixed by level; say the convention before anyone picks a name
 When landing practices in bulk -- a migration, an import, or a move between sources:
@@ -677,26 +683,20 @@ gotcha every session reads is a gotcha every session pays for.
   and the answer is a setting on a web page that nothing in this repository
   can see.** The remote's `HEAD` symref is whatever the repository's default
   branch is set to, and git follows it silently. 2026-09-09: two
-  practice-source repositories had that setting pointed at a feature branch,
-  so every session-start clone of those sources landed on an older tree, and a
-  plain sync would have written the older text over newer committed text —
-  deleting a practice's whole `## Story` block and a clause of its Rule, with
-  no warning and exit 0. **The consuming repo had never been stale; the clone
-  had been pointed somewhere else** — and `git pull --ff-only` pulls whatever
-  branch the checkout is already on, so a clone that landed wrong once stayed
-  wrong every session afterwards.
+  practice-source repositories had it pointed at a feature branch, so every
+  session-start clone landed on an older tree and a plain sync would have
+  overwritten newer committed text — exit 0, no warning. **The consuming repo
+  had never been stale; the clone had been pointed somewhere else**, and
+  `git pull --ff-only` follows whatever branch the checkout is on, so it
+  stayed wrong every session afterwards.
   **The lesson that outlived the fix: when a rule forbids asking a question,
-  check whether something else is asking it for you.**
-  `precedent_check.py --only declared-base-branch` already failed any tool
-  resolving `refs/remotes/origin/HEAD` without reading a DECLARED branch
-  first. It reads Python, so it never saw a `git clone` making the same
-  inference implicitly, on our behalf.
-  Pinned since 2026-09-10:
-  [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
-  clones with an explicit branch and puts an existing clone back on it before
-  pulling — declared `base_branch` if the source declares one, else `main`,
-  never the remote's HEAD — and **refuses** rather than moving a clone that is
-  on the wrong branch with uncommitted work in it. Full incident: entry 36.
+  check whether something else is asking it for you.** The guard against this
+  reads Python, so it never saw a `git clone` making the same inference on our
+  behalf — the class is open even though this instance is shut.
+  Pinned since 2026-09-10 in
+  [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py);
+  a clone you run by hand is still yours to branch explicitly. Full incident:
+  entry 36.
 
 - **A stale checkout is indistinguishable from missing work, and the guard
   cannot save the sessions that most need it.** A session once came up 366
