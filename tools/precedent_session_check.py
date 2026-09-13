@@ -138,9 +138,14 @@ def checks():
     try:
         import precedent_source_credentials as psc
         verdict, message = psc.assess(ROOT)
+        # 'unconfigured' PASSES the row and still says its piece: no
+        # credential is missing, so failing would be false -- but "your
+        # user config is the reason, and no token will fix it" is exactly
+        # the sentence a reader of this row needs, and a silent green row
+        # is where it would otherwise go (practice: fail-gracefully).
         out.append(('the private practice sources resolved, or a credential '
                     'is set that could reach them', verdict != 'missing',
-                    '' if verdict != 'missing' else message))
+                    message if verdict in ('missing', 'unconfigured') else ''))
     except ImportError:
         out.append(('the private practice sources resolved, or a credential '
                     'is set that could reach them', None,

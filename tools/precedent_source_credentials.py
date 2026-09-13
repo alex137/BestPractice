@@ -262,10 +262,91 @@ def _read_json(path):
         return None
 
 
+# Spelled the same as precedent_resolve.py, precedent_identity.py and
+# precedent_bootstrap_source.py, so the override means one thing everywhere.
+USER_CONFIG_ENV = 'PRECEDENT_USER_CONFIG'
+
+
 def _user_config_path(env=None):
+    """-> the user-level config this session would read.
+
+    PRECEDENT_USER_CONFIG is honoured for the same reason it is honoured in
+    precedent_resolve.py, precedent_session_check.py, precedent_identity.py
+    and precedent_time.py: it is how a person says "my config is not at the
+    default path". This file was the one reporter in the engine that ignored
+    it (found 2026-09-13), so somebody who had pointed that variable at a
+    perfectly good config was told that the DEFAULT path -- a file they had
+    deliberately not used -- declared no individual source, about a set that
+    was resolving fine everywhere else.
+    """
     env = os.environ if env is None else env
+    explicit = (env.get(USER_CONFIG_ENV) or '').strip()
+    if explicit:
+        return pathlib.Path(explicit).expanduser()
     home = env.get('HOME') or str(pathlib.Path.home())
     return pathlib.Path(home) / '.config' / 'precedent' / 'config.json'
+
+
+# THE THREE WAYS THERE IS NO INDIVIDUAL SOURCE, WHICH ARE NOT ONE WAY
+# (practice: cite-the-incident). _read_json returns None for a file that is
+# ABSENT and for one that is PRESENT AND MALFORMED, and `.get('individual')`
+# is falsy for a file that parsed perfectly well and simply does not name
+# one. Three situations, three different remedies -- and every one of them
+# was reported here with the single sentence "<path> declares no individual
+# source", which for the absent case is a statement about a file that does
+# not exist. Measured 2026-09-13 in a live container: no config file at all,
+# and the reader was told the file declared nothing.
+#
+# precedent_resolve.py already draws two thirds of this line -- its
+# individual_status codes `no-config-file` and `config-declares-none` -- and
+# refuses outright to read a malformed config as an empty one ("a config the
+# resolver cannot read is not an empty config"). `config-unreadable` is that
+# third state named, in the reporter people actually read.
+CONFIG_CODES = ('no-config-file', 'config-unreadable', 'config-declares-none')
+
+
+def individual_config_state(env=None):
+    """-> (path, code), where code is one of:
+         'declared'             -- the config names an individual source
+         'no-config-file'       -- the file is not there at all
+         'config-unreadable'    -- it is there and did not parse as JSON
+         'config-declares-none' -- it parsed and names no individual source
+    """
+    path = _user_config_path(env)
+    if not path.exists():
+        return path, 'no-config-file'
+    cfg = _read_json(path)
+    if cfg is None:
+        return path, 'config-unreadable'
+    ind = cfg.get('individual')
+    if not isinstance(ind, dict) or not ind.get('path'):
+        return path, 'config-declares-none'
+    return path, 'declared'
+
+
+# What each config state MEANS, one entry per code, and not one of them is
+# "configure a credential": a token cannot write a config file, and it
+# certainly cannot repair a syntax error in one.
+_CONFIG_REMEDY = {
+    'no-config-file': (
+        'that file does not exist at all. $HOME here is this machine\'s own '
+        'and persistent -- nothing clones an individual set into it at '
+        'session start -- so an absent config means none was ever declared '
+        'here. Copy config.json.sample from '
+        'templates/practice-set-individual/, or point ' + USER_CONFIG_ENV +
+        ' at a config you already have.'),
+    'config-unreadable': (
+        'that file EXISTS and did not parse as JSON -- so an individual '
+        'source may well be declared in it and be unreadable. '
+        'precedent_resolve.py refuses to read a config it cannot parse as an '
+        'empty one, and so should you: fix the JSON. Do not read this as "no '
+        'individual set", and do not reach for a credential.'),
+    'config-declares-none': (
+        'that file exists, parses, and names no individual source. That is a '
+        'definite answer -- you have no individual set configured here -- and '
+        'nothing is broken. Add an "individual" entry with a "path" to change '
+        'it.'),
+}
 
 
 def unresolved_private_sources(repo_root=None, env=None):
@@ -290,14 +371,24 @@ def unresolved_private_sources(repo_root=None, env=None):
             out.append(('team', str(src.get('name') or path.name),
                         f'{path} has no practices/ directory'))
 
-    user_cfg = _user_config_path(env)
-    entry = (_read_json(user_cfg) or {}).get('individual')
-    if not entry:
+    user_cfg, code = individual_config_state(env)
+    if code == 'no-config-file':
         out.append(('individual', 'precedent-individual',
-                    f'{user_cfg} declares no individual source'))
-    elif not (pathlib.Path(str(entry.get('path', ''))) / 'practices').is_dir():
-        out.append(('individual', str(entry.get('name') or 'precedent-individual'),
-                    f"{entry.get('path')} has no practices/ directory"))
+                    f'{user_cfg} does not exist'))
+    elif code == 'config-unreadable':
+        out.append(('individual', 'precedent-individual',
+                    f'{user_cfg} exists and did not parse as JSON'))
+    elif code == 'config-declares-none':
+        out.append(('individual', 'precedent-individual',
+                    f'{user_cfg} exists and declares no individual source'))
+    else:
+        entry = (_read_json(user_cfg) or {}).get('individual') or {}
+        if not (pathlib.Path(str(entry.get('path', ''))) / 'practices').is_dir():
+            # The one individual failure that IS about access or retirement:
+            # the config named a path, and the clone is not at it.
+            out.append(('individual',
+                        str(entry.get('name') or 'precedent-individual'),
+                        f"{entry.get('path')} has no practices/ directory"))
     return out
 
 
@@ -326,12 +417,39 @@ _RETIRED_CLAUSE = (
     'so the fix is to remove that declaration, not to configure access.')
 
 
+# ...and what goes THERE INSTEAD when the only thing unresolved is the
+# individual set and the reason is its user-level config. Retirement is not
+# the question then: no repo's precedent.json declares an individual source
+# at all, so there is no declaration to go and check
+# (tools/precedent_resolve.py's privacy boundary). What IS worth saying is
+# the thing that makes an absent or half-written config ambiguous on a
+# hosted session, and it is not obvious from the file: the bootstrap writes
+# the config only AFTER a clone succeeds (precedent_source_bootstrap.py's
+# ensure_source), so "no config" is also exactly what a clone that failed
+# leaves behind.
+_CONFIG_HOSTED_CLAUSE = (
+    'WHAT THE CONFIG STATE MEANS HERE: the session-start bootstrap writes the '
+    'user config only after a clone SUCCEEDS, so this is also the fingerprint '
+    'a failed clone leaves -- read git\'s own output rather than assuming the '
+    'token is wrong (precedent_source_bootstrap.py names a REFUSED credential '
+    'separately from an absent one). And if the hook never ran at all -- a '
+    'session rooted one directory ABOVE the repo runs none of its hooks, '
+    'silently -- then nothing tried, and no credential was ever the question. '
+    'Retirement is not the question either: no repo declares an individual '
+    'source, so there is no declaration to remove.')
+
+
 def assess(repo_root=None, env=None):
     """-> (verdict, message). verdict is one of:
          'ok'       -- every private source this repo expects is on disk
          'missing'  -- one or more are absent AND no credential is set
          'set'      -- one or more are absent while a credential IS set, so
                        the token is not what is missing
+         'unconfigured' -- the only thing unresolved is the individual set,
+                       and the cause is the user-level config rather than
+                       anything a credential reaches. NOT 'missing': --check
+                       still exits 0, because no credential and no repository
+                       is in the wrong state.
     """
     env = os.environ if env is None else env
     unresolved = unresolved_private_sources(repo_root, env)
@@ -340,6 +458,42 @@ def assess(repo_root=None, env=None):
                       f'disk; {TOKEN_ENV} is not needed here')
     named = ', '.join(f'{level}/{name}' for level, name, _ in unresolved)
     detail = '; '.join(why for _, _, why in unresolved)
+
+    # WHY THIS IS DECIDED BEFORE THE TOKEN IS EVEN LOOKED AT.
+    # Every branch below explains an unresolved source as an ACCESS problem
+    # -- absent credential, refused credential, retired repository -- and
+    # offers a remedy from that family. When the ONLY thing unresolved is the
+    # individual set, and the reason is the user-level config rather than a
+    # clone that is not where the config says, not one of those remedies
+    # applies: no token, no add_repo and no un-retiring writes a file into
+    # $HOME. Reported 2026-09-13 from a container that had a token set and a
+    # reachable private repo, where the SET message sent the reader to audit
+    # a credential that was working the whole time and to consider a
+    # retirement that had not happened.
+    #
+    # WHAT IS NOT CLAIMED, and the line is deliberate. On a HOSTED session
+    # an absent or empty config is ambiguous: the bootstrap writes it only
+    # after a successful clone, so a clone that failed for want of a
+    # credential leaves exactly this state. So the two config states a failed
+    # clone can produce keep the access path there, with _CONFIG_HOSTED_CLAUSE
+    # in place of the retirement one, and only a config that will not PARSE
+    # -- which no credential has ever fixed -- takes the new verdict in every
+    # environment. On a local machine $HOME is the person's own and nothing
+    # clones into it at session start, so all three are definite answers.
+    cfg_path, cfg_code = individual_config_state(env)
+    config_only = (cfg_code in CONFIG_CODES
+                   and all(level == 'individual' for level, _, _ in unresolved))
+    hosted = (env.get('CLAUDE_CODE_REMOTE') or '').strip() == 'true'
+    tail = _RETIRED_CLAUSE
+    if config_only:
+        if cfg_code == 'config-unreadable' or not hosted:
+            return 'unconfigured', (
+                f'the individual practice source did not resolve, and this is '
+                f'not an access problem: {cfg_path} -- '
+                f'{_CONFIG_REMEDY[cfg_code]} {TOKEN_ENV} is not involved '
+                f'either way, so do not change it on account of this line.')
+        tail = _CONFIG_HOSTED_CLAUSE
+
     var = token_var(env)
     if var:
         via = ('' if var == TOKEN_ENV
@@ -352,7 +506,7 @@ def assess(repo_root=None, env=None):
             f'separately from an absent one, and an inherited harness token '
             f'is refused for most repositories because it is scoped to the '
             f'ones the harness attached. '
-            + _RETIRED_CLAUSE +
+            + tail +
             f' Sources: {detail}')
     if (env.get(TOKEN_ENV) or '').strip() == INHERIT:
         return 'missing', (
@@ -378,7 +532,7 @@ def assess(repo_root=None, env=None):
         f'"never set" and "set after this container started" -- start a NEW '
         f'session and check `env | grep -c PRECEDENT` before concluding '
         f'anything about the token itself. '
-        + _RETIRED_CLAUSE)
+        + tail)
 
 
 def remind(repo_root=None, env=None, prefix='precedent_source_credentials'):
