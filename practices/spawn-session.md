@@ -64,12 +64,24 @@ what a session costs
 a fresh one when no live session holds the right repository, or when the
 context in the live one is itself the problem.
 
-**A woken session can answer; a spawned one cannot.** That is the second
-reason to prefer waking, and it is not a token argument. A live peer
-receives your message and its reply is delivered back into this
-conversation, so the loop closes without the person carrying anything. A
-session created from scratch has no route back at all, which is why the
-return path below is a repository and a line the person relays by hand.
+**A spawned session CAN report back, and this rule said for a day that it
+could not.** Corrected 2026-09-13, by a spawned session doing it: it reached
+its spawner with `create_trigger` carrying `persistent_session_id`, which
+fires into a named session in the same account. What is true is narrower --
+**peer messaging does not reach a cloud session**: `ListAgents` does not list
+one, so `SendMessage` cannot address it. The trigger route is the one that
+works, and nothing had written it down.
+
+**So the return path is a thing you build, not a thing you have.** A spawned
+session only knows where to send its answer if the seeded prompt told it --
+which makes [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+load-bearing rather than courteous: the session id it requires *is* the
+return address. A prompt that names no origin strands its session exactly as
+this rule wrongly claimed all of them were stranded.
+
+**Waking still beats spawning**, on the context argument alone: a live
+session reuses what it already holds where a new one re-reads its repository
+from nothing. That reason was always the real one.
 
 **Where no live session fits, and only then: do not start the work and do
 not describe the handoff. Create the session** — rooted in the right repository,
