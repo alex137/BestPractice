@@ -2969,10 +2969,22 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None):
                      'referenced repositories were checked.')
 
     checked = 0
+    # COLLAPSED, NOT DROPPED. The 2026-09-11 run spent about 1,738 tokens here and
+    # 26 of its 28 lines were one identical sentence -- "GitHub access to this
+    # repository is not enabled for this session" -- repeated per repository.
+    # Morgan, 2026-09-13, approved cheapening it: the check earns its place
+    # (a private name in a public tree is the failure it exists for) and the
+    # repetition does not. One line per DISTINCT reason, carrying the count
+    # and every name, says exactly as much and is read; twenty-six copies of
+    # one sentence are skimmed, which is how a real finding sitting among
+    # them gets missed. The full paragraph is still printed for a repository
+    # whose visibility was actually determined -- that is where the content
+    # differs per repository. (practice: very-deep-check)
+    unreachable = {}
     for (owner, name), files in sorted(refs.items()):
         data, err = _api_json(f'repos/{owner}/{name}')
         if err:
-            notes.append(f'{owner}/{name}: visibility not checked ({err})')
+            unreachable.setdefault(str(err), []).append(f'{owner}/{name}')
             continue
         if not isinstance(data, dict) or 'private' not in data:
             msg = (data or {}).get('message', 'no visibility in response')
@@ -2983,7 +2995,10 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None):
                     f'{", ".join(sorted(set(files))[:3])}. A dead reference, '
                     f'not necessarily a leak.')
             else:
-                notes.append(f'{owner}/{name}: visibility not checked ({msg})')
+                # The 26-of-28 case: the API answers, but the answer is
+                # "this session cannot see that repository". Collapsed with
+                # the `err` ones above -- same non-result, same one line.
+                unreachable.setdefault(str(msg), []).append(f'{owner}/{name}')
             continue
         checked += 1        # only now is the visibility actually KNOWN
         if data.get('private'):
@@ -3026,6 +3041,12 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None):
                 f'blocklist. A stale entry costs real content: it forces hits '
                 f'clearable only by deleting text about a public repository. '
                 f'Re-check and remove the entry, recording the evidence.')
+
+    for why, names in sorted(unreachable.items()):
+        notes.append(
+            f'visibility not checked for {len(names)} repositor'
+            f'{"y" if len(names) == 1 else "ies"} ({why}): '
+            + ', '.join(sorted(names)))
 
     # `checked` counts repositories whose visibility was actually
     # DETERMINED. It used to increment on any non-error API response,

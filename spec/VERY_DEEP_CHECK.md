@@ -172,20 +172,19 @@ Worked the questions that have found something before, and one that had not:
   reads the practice file.
 - **What does a session inherit that a person configured by hand?** Nine of
   ten guarantees in effect, all from hooks or the environment.
-- **Do string matches respect name boundaries?** One finding, and the leak
-  gate reports it on every clean run: the private blocklist has no stem for
-  `precedent-team-working-style`, so the bare repository name — the form that
-  actually reaches a public tree, through a branch or a directory named after
-  the repo — matches nothing. The qualified form is refused; the short one is
-  not. The set was created after the stems were measured and nothing revisits
-  the list when a source is added. **And the gap is wider than a stem: the
-  set has no `visibility-audit: allow` line either**, which this run proved
-  by tripping it — the first draft of this document named the repository in
-  its scope line and the leak gate refused the push, correctly. So the
-  qualified form is unnameable here and the bare form is unguarded, which is
-  the worst of both. Recorded in
-  [TODO.md](../TODO.md#blocklist-stem-team-working-style); the file is in
-  another owner's repository.
+- **Do string matches respect name boundaries?** One finding at the time,
+  **since closed, and closing it corrected this bullet.** The run reported
+  that the private blocklist had no stem for the newest team set and no
+  `visibility-audit: allow` line either — the second half proved by tripping
+  it, when the first draft of this document named the repository in a scope
+  line and the leak gate refused the push, correctly. The `allow` half was
+  real and a later session landed it. **The stem half was never owed**:
+  [decisions/2026-09-11-team-set-names-are-not-private.md](../decisions/2026-09-11-team-set-names-are-not-private.md)
+  had already settled it two days earlier — Morgan, on measurement, decided
+  those names are not secret and no bare-name pattern is to be added. This
+  run re-raised a settled question because `leak_stem_recommendations` reads
+  the blocklist and not the decisions directory. Re-measured 2026-09-13 with
+  the `allow` line in place: no recommendation, no finding, nothing owed.
 
 ### Pass 3 — coherence read
 
@@ -264,7 +263,16 @@ safe merge measured — not a new finding.
   branch. **Unchanged from the previous run's verdict: it reads as
   superseded, and it is Alex's repository and his call.** Raise it with him.
   Two runs have now recorded the same recommendation without it being put to
-  him, which is itself the drift.
+  him, which is itself the drift. **What it actually holds, read 2026-09-13
+  so the ask can stand on its own:** three commits, forked off `main` at
+  `12b7b3c` (2026-07-22), adding `share/SPEC.md` (482 lines), `share/PLAN.md`
+  (170) and one line in `AGENTS.md`. The spec designs **Share** — a small
+  edge service for publishing single files out of a private repository as
+  capability URLs, so a built deck or a rendered report can go to a named
+  reader without sharing the repository. Its own header says *"draft for
+  review — nothing here is implemented yet"*. It is a design nobody has
+  built, written before the Precedent restructuring, and none of the four
+  months since has touched it.
 - `alex137/BestPractice: philosophy-bidirectional-slugs` — 2 commits, last
   moved **today**, adding `tools/philosophy_backlinks.py` and bidirectional
   cross-references across `philosophy/`. **Live work from a parallel session;
@@ -326,7 +334,7 @@ applies to whatever it owned).
 | WITHIN-SOURCE CONFLICTS | 2026-09-11 | **keep** | ≈35 tokens, and its silence is load-bearing: the 2026-09-07 run *did* end two same-level collisions by promoting `fail-gracefully` and `bold-key-phrases`, and this is what says none has come back. |
 | SOURCE SHAPE | 2026-09-11 | **keep** | ≈26 tokens. It reports `complete` for four sets today and the open TODO item about two sets missing skeleton files is what it found when it was not quiet. |
 | ORPHANS | 2026-09-11 | **keep** | ≈44 tokens, and the failure it covers — a renamed-away engine file left in every adopter's tree — is one the 2026-09-08 run actually hit. |
-| REPOSITORY VISIBILITY | 2026-09-11 | **cheapen** | The only expensive quiet section: ≈1,738 tokens, 10% of the run's output, and 26 of its 28 lines this run were the identical "GitHub access to this repository is not enabled for this session" sentence repeated per repository. The check is worth keeping — a private repository name reaching a public tree is the failure it exists for — but a session does not need that sentence 26 times. Collapse the unreachable ones to one line with a count and the names, and print the full paragraph only for a repository whose visibility was actually determined. |
+| REPOSITORY VISIBILITY | 2026-09-11 | **cheapen** | The only expensive quiet section: ≈1,738 tokens, 10% of the run's output, and 26 of its 28 lines this run were the identical "GitHub access to this repository is not enabled for this session" sentence repeated per repository. The check is worth keeping — a private repository name reaching a public tree is the failure it exists for — but a session does not need that sentence 26 times. Collapse the unreachable ones to one line with a count and the names, and print the full paragraph only for a repository whose visibility was actually determined. **Approved by Morgan and done, 2026-09-13** (`strength: decided` — *"let's do it, approved, that's lots of tokens ... that aren't needed"*): `repo_visibility_audit` now groups every unreachable repository by the reason it could not be checked and emits one line per reason, carrying the count and every name. Re-measured the same day: 34 lines became 1, and the two determined repositories still print in full. |
 
 ## Runs so far
 

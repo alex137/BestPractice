@@ -1329,31 +1329,6 @@ which is the failure this repointing exists to end — write
   **Blocked on:** nothing but the work — both repos are reachable and
   pushable from a session that has them attached.
 
-- <a id="blocklist-stem-team-working-style"></a>**The private blocklist has
-  no stem for `precedent-team-working-style`, so the short name somebody
-  actually types is not refused.** The leak gate says so itself, as a NOTE
-  on every clean run here (2026-09-11): the qualified `owner/name` form is
-  caught by the private-owner allowlist, and the bare repository name — the
-  form that reaches a public tree through a branch, a directory, a check or
-  a practice named after the repo — matches no pattern. This is the same
-  shape as the stem work already done for the other sources, one source
-  later: that set was created after the cuts were measured, and nothing
-  revisits the list when a source is added.
-  **It is two lines, not one, and the second was found by tripping it.**
-  The set also has no `# visibility-audit: allow` line, so the qualified
-  `owner/name` form cannot be written in this public tree at all — the
-  2026-09-11 very deep check's own run record named it in a scope line and
-  the gate refused the push. Between them the qualified form is unnameable
-  and the bare form is unguarded, which is the worst of both states. The
-  same cause covers both: nothing revisits the blocklist when a source is
-  added.
-  **The stem fix is one line, measured before it lands** —
-  truncate to a distinctive head and confirm the hit count against this tree
-  is zero, exactly as the existing stems were derived.
-  **Blocked on:** the file lives in `themorgan/precedent-individual`, which
-  is another owner's repository; a session rooted here reads it and does not
-  write it. Do it from a session rooted in that set.
-
 - **The commit-identity mechanism does not reach an attached sibling
   repo, so `commit-author` is silently unenforced in exactly the sessions
   that do cross-repo work.** Found 2026-09-07 by the

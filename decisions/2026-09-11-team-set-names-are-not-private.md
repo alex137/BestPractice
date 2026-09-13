@@ -77,3 +77,30 @@ repository this session could read and not write. Adding an explanatory
 comment there is optional and can ride along the next time a session is
 rooted in that set; nothing depends on it, because the decision is recorded
 here and the gate's behaviour does not change either way.
+
+## What happened after (2026-09-13)
+
+**Both halves are now closed, and the second one closed by landing rather
+than by deciding.** The 2026-09-11 very deep check re-raised the stem
+question as an open item, because the record above answers the *stem* half
+and the set had a second gap the record does not mention: no
+`# visibility-audit: allow` line, so the owner-qualified form could not be
+written in this public tree at all. That run proved it by tripping it — its
+own run record named the repository in a scope line and the leak gate refused
+the push, correctly.
+
+A later session added the missing `allow` line. Measured here on 2026-09-13,
+with that line in place: `leak_stem_recommendations` returns **nothing**, and
+`repo_visibility_audit` reports **no finding**. So the qualified form is
+nameable, the bare form stays deliberately unguarded per the decision above,
+and nothing is owed to anybody. [TODO.md](../TODO.md)'s
+`blocklist-stem-team-working-style` item was deleted in the same commit as
+this section.
+
+**The lesson worth keeping is why the item existed at all.** A decision
+recorded in `decisions/` did not reach the tool that re-derives the same
+recommendation every run, so two consecutive very deep checks reported a
+settled question as an open gap and put it to Morgan twice. The mechanism
+that actually stopped it was the `allow` line — data the tool reads — not the
+record. **A decision that a tool can contradict has to land as something the
+tool reads.**
