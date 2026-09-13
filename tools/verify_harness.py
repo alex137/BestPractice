@@ -3960,6 +3960,58 @@ def check_session_practices_load_without_publishing():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    # THE WIRING IS REPAIRABLE BY A TOOL, which is the whole reason nobody
+    # has to edit .claude/settings.json by hand. The harness refuses a SESSION
+    # hand-editing that file; it does not refuse a vendored tool writing a
+    # hook the engine ships, and a person was sent to a GitHub web form for
+    # three turns before anybody tested the difference.
+    wtmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-wire-'))
+    try:
+        import json as _json
+        import precedent_bootstrap_source as _bs2
+        ws = wtmp / 'set' / '.claude'
+        ws.mkdir(parents=True)
+        (ws / 'settings.json').write_text(_json.dumps({'hooks': {'SessionStart': [
+            {'hooks': [{'type': 'command',
+                        'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/'
+                                   + _bs2.INDIVIDUAL_SOURCE_HOOK},
+                       {'type': 'command',
+                        'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/'
+                                   'freshness-guard.sh session-start main'}]}]}},
+            indent=2), encoding='utf-8')
+        _p, changed = _bs2.ensure_hook_wired(wtmp / 'set',
+                                             _bs2.UNIVERSAL_CATALOGUE_HOOK)
+        cmds = [e['command'] for g in _json.loads(_p.read_text())['hooks']['SessionStart']
+                for e in g['hooks']]
+        cases.append(('an unwired set gets the catalogue hook written into its '
+                      'settings.json by a TOOL -- no person, no hand edit',
+                      changed and any(_bs2.UNIVERSAL_CATALOGUE_HOOK in c
+                                      for c in cmds)))
+        cases.append(('...placed AFTER the individual-source hook, because the '
+                      'first writes the config the second resolves against',
+                      cmds.index(next(c for c in cmds
+                                      if _bs2.UNIVERSAL_CATALOGUE_HOOK in c))
+                      == cmds.index(next(c for c in cmds
+                                         if _bs2.INDIVIDUAL_SOURCE_HOOK in c)) + 1))
+        before = _p.read_text()
+        _p2, again = _bs2.ensure_hook_wired(wtmp / 'set',
+                                            _bs2.UNIVERSAL_CATALOGUE_HOOK)
+        cases.append(('...and re-running leaves the file byte-identical -- a '
+                      'repair that runs every session start must not append '
+                      'a duplicate each time',
+                      not again and _p2.read_text() == before))
+        bad = wtmp / 'broken' / '.claude'
+        bad.mkdir(parents=True)
+        (bad / 'settings.json').write_text('{not json', encoding='utf-8')
+        _p3, ch3 = _bs2.ensure_hook_wired(wtmp / 'broken',
+                                          _bs2.UNIVERSAL_CATALOGUE_HOOK)
+        cases.append(('a settings.json that does not parse is LEFT ALONE -- '
+                      'rewriting one somebody hand-edited and broke would '
+                      'destroy their work',
+                      not ch3 and _p3.read_text() == '{not json'))
+    finally:
+        shutil.rmtree(wtmp, ignore_errors=True)
+
     # A SET'S OWN PRACTICES ARE NEVER DEFERRED INTO ITS OWN SESSION FILE,
     # however the source that names them was resolved. Two clones of one
     # repository is the real case -- an individual source resolves through an

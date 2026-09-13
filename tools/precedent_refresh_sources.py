@@ -448,6 +448,18 @@ def apply_to(entry, commit=False, branch=None):
                           f'added `.precedent/` to {_gi.name} -- the '
                           f'session-start practices file must never be '
                           f'committed into a set'))
+        # AND THE WIRING, which is the step a person was doing by hand until
+        # 2026-09-13. The harness refuses a SESSION editing settings.json; it
+        # does not refuse a vendored tool writing a hook the engine ships, and
+        # that distinction is what makes this repairable at all. See
+        # precedent_bootstrap_source.ensure_hook_wired()'s docstring.
+        _st, wired = _bs.ensure_hook_wired(
+            pathlib.Path(repo), _bs.UNIVERSAL_CATALOGUE_HOOK)
+        if wired:
+            steps.append(('wiring', True,
+                          f'wired {_bs.UNIVERSAL_CATALOGUE_HOOK} into '
+                          f'SessionStart -- without it none of the universal '
+                          f'catalogue reaches a session rooted here'))
     except Exception as e:                                   # noqa: BLE001
         # Never fatal: a set whose .gitignore could not be written is still
         # correctly refreshed, and saying so beats taking the refresh down
