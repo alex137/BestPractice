@@ -154,9 +154,9 @@ to:
 ```
 
 It runs `python3 tools/build_views.py --repo . --check`, which exits
-non-zero when any of the three has drifted from a fresh regeneration. Every set created before 2026-09-11 needs
-the copy above; see this section's opening for how both workflows are
-installed and verified.
+non-zero when any of the three has drifted from a fresh regeneration.
+Every set created before 2026-09-11 needs the copy above; see this
+section's opening for how both workflows are installed and verified.
 
 **Why a source set needs its own gate.** Until 2026-09-11 nothing checked a
 generated view anywhere but in this repo, where
@@ -186,15 +186,16 @@ by [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
 and given a loader block: `--only generated-artifact-provenance` reports
 `1 passed` where it reported `1 skipped` before, and planted drift turns it
 red in each of the three views separately — [MAP.md](MAP.md),
-[GLOSSARY.md](GLOSSARY.md), and inside `AGENTS.md`'s loader block. In a source set the two now look at the
-same three files, by the same `build_views.py --check` subprocess. The
+[GLOSSARY.md](GLOSSARY.md), and inside `AGENTS.md`'s loader block. In a
+source set the two now look at the same three files, by the same
+`build_views.py --check` subprocess. The
 coverage argument for keeping this workflow is gone.
 
 **What it still does is fire without being asked.** A vendored check runs
 when somebody types the command; this workflow is attached to
 `pull_request`. Nothing else in a source set runs
-[precedent_check.py](tools/precedent_check.py) in
-continuous integration at all, so "the check runs natively now" and "the
+[precedent_check.py](tools/precedent_check.py) in continuous integration
+at all, so "the check runs natively now" and "the
 rule is gated" remain different claims, and only the second one is what a
 generated view drifting silently needs. Whether a set that gains a workflow
 running the whole suite should then drop this one is an open question, not a
