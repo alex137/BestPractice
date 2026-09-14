@@ -448,6 +448,8 @@ When writing code that depends on something outside its own control, handling a 
   fail-gracefully — keep going, never look complete — match the telling to stake and reader
 When writing code that stamps a date or a time into a file, a record or a document:
   timestamps-carry-offset — a stamp carries its offset; never a bare date.today()
+When writing or changing a check that can report a deliberate state:
+  checks-carry-a-declared-decline — a check reporting a state a repo chose needs a declared decline, with a reason
 When writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error:
   github-api-budget — measure API spend from response headers; budget each tool; never /rate_limit
 When writing or editing a document:

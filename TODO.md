@@ -4196,8 +4196,8 @@ which is the failure this repointing exists to end — write
     **Blocked on / out of scope:** Morgan's decision, explicitly deferred.
     **Disposition:** wait (2026-09-12 — deferred by him; nobody has set it
     to `ask`)
-72. <a id="universal-adapters-undeclared"></a>**Decide whether THIS repository
-    declares its own harness adapters.** Since 2026-09-12 a practice source
+72. <a id="universal-adapters-undeclared"></a>~~**Decide whether THIS repository
+    declares its own harness adapters.**~~ **Done (2026-09-14).** Since 2026-09-12 a practice source
     can declare its `bootstrap/*.sh` in its own `precedent.json` and have
     [tools/precedent_materialize.py](tools/precedent_materialize.py) install
     them into every consuming repo on each sync — see
@@ -4242,11 +4242,29 @@ which is the failure this repointing exists to end — write
     source". **So the thing this item was waiting on exists**, and what is
     left is the decision below and nothing else.
 
-    **Blocked on / out of scope:** a deliberate call about a behavioural
-    change to every consuming repo, which the session that built the
-    mechanism should not make by convenience on the way past.
-    **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
-    it to `ask`)
+    **CLOSED 2026-09-14.** The item's stated condition was a deliberate call
+    about a behavioural change to every consuming repo, and Morgan made it:
+    *"Approved - declare the eight adapters"* (`decided` — he chose it from
+    options laid out for him). `precedent.json` now declares **five**, not
+    eight, and the two subtractions are both worth reading.
+
+    `individual-source-bootstrap.sh.template` is not an adapter: it carries
+    variables substituted at install time, so copying it verbatim would
+    install a hook with placeholders where its values belong. The number in
+    this item was wrong, counted off `ls`.
+
+    `commit-identity.sh` and `freshness-guard.sh` are real adapters and are
+    deliberately left undeclared: the individual source already declares the
+    same two destinations, and `precedent_materialize.py` REFUSES a
+    destination collision outright. Declaring them here would have stopped
+    the sync of every repo holding both sources. Found by declaring all
+    seven and running the deep check, which failed the vendored-consumer
+    case against the real four-source pipeline — the only place this was
+    visible, since nothing in this repository alone collides.
+
+    The decline mechanism landed first, on purpose — it is what makes this
+    safe, since a repo that does not want one of the seven can now say so
+    with a reason instead of carrying a permanent violation.
 73. <a id="source-sets-declare-adapters"></a>**Have the private source sets
     declare their harness adapters.** Each of the four attached sets ships
     `bootstrap/*.sh` that its own practices tell a consuming repo to copy into
@@ -4296,7 +4314,15 @@ which is the failure this repointing exists to end — write
     work is one repository — `precedent-individual` — and it is a session
     rooted there, not here: this repository is a different owner and
     `add_repo` refuses across owners (*"cross-tier adds are not supported in
-    v1"*, measured 2026-09-14).
+    v1"*, measured 2026-09-14). A push probe from a session holding the clone
+    is refused the same way: *"access denied by the git proxy:
+    themorgan/precedent-individual is not in this session's authorized
+    repository set"*.
+
+    **Universal declared its own seven on 2026-09-14**
+    ([`universal-adapters-undeclared`](TODO.md#universal-adapters-undeclared),
+    now closed), so the pattern this item asks the sets to follow now exists
+    upstream to copy.
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
 74. <a id="leak-gate-is-background-level"></a>~~**Decide whether
