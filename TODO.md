@@ -5440,3 +5440,23 @@ which is the failure this repointing exists to end — write
   under the same reassuring sentence. The fix is to distinguish the two
   states before writing the message: a practice whose source resolves but
   whose `status` is `retired`, versus one whose source is genuinely gone.
+
+92. <a id="close-detect-declaration-unpushed"></a>**The individual set's
+  `close_detect.json` is written and cannot be pushed from a session rooted
+  here.** Close detection
+  ([tools/precedent_close_detect.py](tools/precedent_close_detect.py),
+  built 2026-09-14) is inert until a source declares the phrases it fires
+  on, and the source that carries Morgan's closing convention is his
+  individual set — a different GitHub owner from this repository. The git
+  proxy refuses to inject a credential across owners (*"not in this
+  session's authorized repository set"*), and `add_repo` was denied here
+  too, so the declaration exists as a local commit on a branch named
+  `close-detect-declaration` in a clone that dies with the container.
+
+  **Blocked on:** a session rooted in the individual set. The file's whole
+  content is in the reply that raised this, and in this item's own commit
+  message; it is five keys and no logic. Close this when
+  `python3 tools/precedent_close_detect.py --explain` names the individual
+  source from a fresh session here.
+
+  **Disposition:** ask (2026-09-14, the session that hit the refusal)
