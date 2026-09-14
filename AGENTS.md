@@ -317,8 +317,8 @@ When an install step adds something GitHub-specific, or a first install finishes
   github-setup-disclosed — disclose GitHub setup where its people read; offer owner settings at install
 When asked to add, change or remove something in a generated file:
   generated-edit-goes-upstream — change the input the file is built from, never the file -- and say which input
-When asking the person to do something in another session:
-  handoff-is-pasteable — name the repo, give the exact text to paste, end with the way back
+When asking the person to do something in another session, or pointing them at one:
+  handoff-is-pasteable — any reply that sends them elsewhere ships the words: repo, copy block, way back
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
