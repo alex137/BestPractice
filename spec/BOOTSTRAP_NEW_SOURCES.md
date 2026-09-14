@@ -435,6 +435,12 @@ case documented above.
    `timezone` silently downgrades the commit-identity check to a guess; an
    unfilled `pronouns` silently falls back to they/them for someone who may
    have wanted otherwise and was never asked. `--verify` reports both.
+   **`relayed_authorization` (2026-09-14) is the same shape and also has to be
+   asked**: the skeleton ships `"refused"`, which is a real answer rather than
+   a placeholder, so nothing will ever report it as unfilled — and a person
+   who would have said `"accepted"` pays a second approval on every
+   cross-repository handoff without ever being offered the choice
+   ([practices/relayed-authorization.md](../practices/relayed-authorization.md)).
 6. Fill in `leak-blocklist.txt` with the person's own private terms, then
    `export PRECEDENT_LEAK_BLOCKLIST=<path>` and
    `git config precedent.requireVocabulary true` in every shared project

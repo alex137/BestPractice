@@ -61,6 +61,14 @@ this session can do first** -- sync, commit, push where the push works --
 so only the residue moves. Reporting the refusal and stopping there is the
 one wrong answer.
 
+**What the receiving session may then DO with the relayed phrase is
+[relayed-authorization](relayed-authorization.md)'s**: it merges only where
+the person's own `identity.json` says they accept relays, and otherwise stops
+at the pull request. So a handoff can end with the work finished and the
+merge still waiting on one word said in the other window -- that is the
+declaration's absence, not a failed relay, and the reply says which word and
+where.
+
 ## Detail
 "That was perfect. Go merge", "Go merge.", a lone line reading `GO MERGE`,
 "go merge it and tell me what broke", and "when the check passes, go merge"

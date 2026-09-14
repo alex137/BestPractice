@@ -30,7 +30,12 @@ consumer that already imports them from there keeps working.
 
 Public interface:
   declared_identity(repo, user_config=None) -> {name, email, timezone, source}
+  relayed_authorization(repo, user_config=None) -> {value, accepted, who, source}
   NoDeclaredIdentity                          raised when nobody is declared
+
+CLI: `precedent_identity.py --relay` prints whether the person this
+repository resolves accepts an authorization relayed from another session,
+and exits non-zero when they do not. Practice: relayed-authorization.
 """
 import json
 import os
@@ -150,3 +155,112 @@ def declared_identity(repo, user_config=None):
         f'author to be wrong about')
 
 
+
+
+# practice: relayed-authorization -- the receiving session reads the
+# person's own declaration rather than trusting the message that carries
+# the authorization.
+RELAY_ACCEPTED = 'accepted'
+
+
+def relayed_authorization(repo, user_config=None):
+    """-> {'value', 'accepted', 'who', 'source'}: does the person this repo
+    resolves accept an authorization RELAYED to a session by another
+    session, rather than typed by them in that window?
+
+    `value` is what was declared (`''` when nothing was), `accepted` is
+    True only for the exact string 'accepted', `who` is the declared name,
+    and `source` is the file it was read from -- a caller reporting this
+    to a person must be able to name where it came from.
+
+    ABSENT MEANS REFUSED. A person who has never heard of this field has
+    not agreed to anything, so the default is the same answer a session
+    gave before the field existed: stop at the pull request.
+
+    WHY THE ENVIRONMENT RUNG IS DROPPED, and this is the whole security
+    argument of the practice. `declared_identity()` accepts
+    PRECEDENT_COMMIT_* because authoring a commit as somebody is a
+    convenience an environment may legitimately configure. Licensing a
+    merge on a relayed say-so is not: an environment variable is an
+    assertion by whatever set it, and the thing this function exists to
+    answer is exactly "did the PERSON say so, in a file they committed".
+    So only an identity.json answers -- this repo's own when it is itself
+    an individual source, else the one the user-level config names.
+
+    Raises NoDeclaredIdentity when no identity.json resolves at all, which
+    a caller reports as UNDECLARED and treats as refused. It is a distinct
+    outcome from a declared 'refused' on purpose: one is a person's answer
+    and the other is nobody having been asked, and the remedies differ.
+    """
+    def _read(path, where):
+        try:
+            ident = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+        except (ValueError, OSError, AttributeError):
+            return None
+        if not isinstance(ident, dict) or not ident.get('email'):
+            return None
+        value = ident.get('relayed_authorization') or ''
+        return {'value': value if isinstance(value, str) else '',
+                'accepted': value == RELAY_ACCEPTED,
+                'who': ident.get('name') or '',
+                'source': where}
+
+    repo_root = pathlib.Path(repo).resolve()
+    own = _read(repo_root / 'identity.json', str(repo_root / 'identity.json'))
+    if own:
+        return own
+
+    cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
+        os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+        indiv_path = (cfg.get('individual') or {}).get('path')
+    except (ValueError, OSError, AttributeError):
+        indiv_path = None
+    if indiv_path:
+        resolved = _read(
+            pathlib.Path(indiv_path).expanduser() / 'identity.json',
+            str(pathlib.Path(indiv_path).expanduser() / 'identity.json'))
+        if resolved:
+            return resolved
+
+    raise NoDeclaredIdentity(
+        f'no identity.json resolves from {repo_root}, so nobody here has '
+        f'declared whether they accept a relayed authorization. Treat that '
+        f'as refused: stop at the pull request and ask the person in the '
+        f'window they are actually in')
+
+
+def _main(argv):
+    import sys
+    if '--relay' not in argv:
+        print(__doc__.strip())
+        return 0
+    repo = pathlib.Path(__file__).resolve().parent.parent
+    try:
+        relay = relayed_authorization(repo)
+    except NoDeclaredIdentity as exc:
+        print(f'UNDECLARED -- {exc}')
+        print('  a relayed authorization is NOT actionable here '
+              '(practice: relayed-authorization)')
+        return 2
+    if relay['accepted']:
+        print(f'ACCEPTED -- {relay["who"] or "the declared person"} accepts an '
+              f'authorization relayed from another session')
+        print(f'  declared in {relay["source"]}')
+        print('  still bounded: named work, the repository\'s own routine '
+              'branch, that repository\'s checks passing, and nothing the '
+              'destination protects')
+        return 0
+    shown = relay['value'] or '(field absent)'
+    print(f'REFUSED -- {relay["who"] or "the declared person"} has not accepted '
+          f'relayed authorizations: relayed_authorization = {shown}')
+    print(f'  read from {relay["source"]}')
+    print('  stop at the pull request and name the one word that would land '
+          'it, and in which window')
+    return 1
+
+
+if __name__ == '__main__':
+    import sys
+    sys.exit(_main(sys.argv[1:]))

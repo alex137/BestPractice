@@ -204,6 +204,18 @@ Nobody's decision was being routed around -- the person had given the
 authorization in the message immediately before. **The tell is whether a
 human said no.** If nobody did, a wall is just a wall.
 
+**Whether the receiving session can ACT on the relayed authorization is
+not the sender's call, and since 2026-09-14 it has an answer:
+[relayed-authorization](relayed-authorization.md).** The receiver acts only
+where the authorizing person's own `identity.json` declares that they accept
+relays; otherwise it does the work, opens the pull request and stops. **Relay
+it either way** -- an authorization that arrives with the work is what lets
+the receiver merge the moment the declaration allows it, and where it does
+not, the person is approving something already finished rather than
+re-explaining it. What the sender owes is the envelope that rule names: this
+session's id and link, the words verbatim, the date, and the three bounds
+above.
+
 **Where you did NOT get the authorization, say that instead of inventing
 it.** A seeded prompt claiming a person approved something they did not is
 the failure
