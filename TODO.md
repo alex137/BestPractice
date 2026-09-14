@@ -5440,3 +5440,46 @@ which is the failure this repointing exists to end — write
   under the same reassuring sentence. The fix is to distinguish the two
   states before writing the message: a practice whose source resolves but
   whose `status` is `retired`, versus one whose source is genuinely gone.
+
+92. <a id="phase3-snapshot-is-not-a-snapshot"></a>**The phase-3 "point-in-time
+    record" is not one: it freezes WHICH practices count and reads what they
+    say TODAY, so editing any of the original 52 moves a figure two documents
+    recite.** Measured 2026-09-14, and the measurement is the demonstration:
+    adding a `## Detail` to [two-check-levels](practices/two-check-levels.md)
+    — one of the original 52 — moved
+    [catalogue_stats.py](tools/catalogue_stats.py)'s
+    `phase3_snapshot_stats()['with_detail']` from 21 to 22, and
+    `scripts-assert-properties` failed on the anchor reciting 21 in
+    [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md)'s "The Rule/Detail
+    Split".
+    **The half-fix is visible in the function's own docstring.** It records
+    that computing these over the growing `practices/` directory "would fail
+    every anchor the first time anything was added after phase 3 -- which is
+    exactly what happened", and the remedy taken was to filter the population
+    by `source_practice_number` 1..52. That freezes the set, not the text: the
+    section content still comes from `_load()`, which reads the working tree.
+    So the figure is stable against *additions* and moves on any *edit* to an
+    original practice.
+    **Neither document knows that.** `spec/PRACTICE_FORMAT.md` says in its own
+    parenthetical that both figures are scoped to the original 52 "so they stay
+    a stable record of what phase 3 delivered rather than drifting", and
+    [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) restates the
+    same figure.
+    **Do not refit the anchor** — [scripts-assert-properties](practices/scripts-assert-properties.md)
+    forbids exactly that, and here refitting would paper over the bug rather
+    than record it. A real snapshot reads the phase-3 text, which upstream can
+    do from its own history and a pinned ref; the population filter then
+    becomes redundant.
+    **Blocked-on** one call: whether these anchors should be a frozen record
+    read from a pinned commit, or be retired as anchors and kept as prose with
+    an "as of phase 3" date. Until it is made, editing an original-52 practice
+    trips a gate that is right to fire and wrong about who is at fault.
+    **Pending behind it:** a clause for
+    [two-check-levels](practices/two-check-levels.md) saying a check is
+    reported by what it found (`0 failed` / `0 violated`) and never by its
+    passed count — which is a property of the tree, so quoting it across a
+    repository boundary invites a comparison that means nothing. Written and
+    verified 2026-09-14, then reverted unlanded because it is an edit to an
+    original-52 practice and trips the anchor above. It came from a real case:
+    a consuming repo reported "52 passed, 0 violated" against upstream's "44
+    passed, 0 violated" for the same change.
