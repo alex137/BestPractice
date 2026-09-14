@@ -575,20 +575,15 @@ that skips them in this repo of all places is the joke writing itself.
 
 ## Build-environment gotchas — do NOT rediscover these
 
-**One line per trap; the story of what failed is one click away**, in
-[record/GOTCHAS.md](record/GOTCHAS.md). The story is where the value is — a fix
-with no account of what failed is a fact you cannot judge, and the next session
-undoes it the moment it looks wrong. **Open the entry before acting on the
-line**: several of these describe mechanisms that have since been fixed, and
-only the entry says which.
+One line per trap; the story is in [record/GOTCHAS.md](record/GOTCHAS.md).
+The split itself is [environment-gotchas](practices/environment-gotchas.md)'s,
+carried in full in the resident block above, so it is not restated here.
 
-**When a symptom below matches what you are seeing, stop and open it.** That is
-the whole design of the split: every session pays for this index, and only the
-session that has actually hit a trap pays for its story.
+**When a symptom below matches what you are seeing, stop and open its entry
+before acting on the line** — several describe mechanisms that have since been
+fixed, and only the entry says which.
 
-**Adding one?** Write it in full in [record/GOTCHAS.md](record/GOTCHAS.md) —
-what failed, not just the fix — and put its one-line symptom here. A trap that
-can no longer fire moves on to
+**Adding one?** A trap that can no longer fire moves on to
 [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) with the verdict that
 retired it. Nothing is ever deleted.
 
@@ -745,9 +740,9 @@ retired it. Nothing is ever deleted.
   tools, and the run still records SUCCEEDED — so a scheduled job that reads
   the fleet quietly does nothing.** [story](record/GOTCHAS.md#g38)
 
-- **A session can push branches but cannot DELETE one on the remote: a 403
-  wearing a dropped-connection message, so it reads as a flake and a retry
-  says the same thing.** [story](record/GOTCHAS.md#g39)
+- **A session can push a branch but not delete one: the 403 wears a
+  dropped-connection message, so it reads as a flake.**
+  [story](record/GOTCHAS.md#g39)
 
 ## Working in this repo
 
