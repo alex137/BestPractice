@@ -346,6 +346,21 @@ ENGINE_FILES = [
     # named 'precedent_reply_check')" on every single turn. Reproduced in a
     # stripped vendor tree before this line was added.
     'precedent_reply_check.py',
+    # The stop hook's other half: close detection (2026-09-14). Same argument
+    # as the line above it, and caught the same way -- Morgan asked whether
+    # updating the vendored engine would carry this to a repo that has it,
+    # and the honest answer was no, because nobody had added it here. The
+    # hook guards on the file existing, so a consuming repo would have gone
+    # on skipping it silently and forever.
+    #
+    # What travels is the MECHANISM only. A source's close_detect.json is
+    # authored at that source's root and is never vendored, exactly like
+    # reply_check.json: it declares one person's or one team's closing
+    # convention, and an engine that shipped somebody's phrases would bind
+    # every adopter to them (practice: rule-level-by-reach). So a vendored
+    # repo receives a detector that detects nothing until a source declares
+    # what it should fire on -- which is the honest default, not a gap.
+    'precedent_close_detect.py',
     'precedent_vendor_engine.py',
 ]
 
