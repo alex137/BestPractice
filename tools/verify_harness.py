@@ -5900,6 +5900,24 @@ def check_precedent_check_fires():
                       'commit-identity.sh does not exist'
                       in planted['declared-hooks-exist'][1]))
 
+        # hooks-on-disk-are-reachable -- the other end of the same failure.
+        # declared-hooks-exist above plants a settings entry whose file is
+        # gone; this plants a file no settings entry, no other hook and no
+        # engine tool names. Both are a hook that does not run, and neither
+        # is visible from inside a session: an orphaned hook and a working
+        # one look identical, which is what cost a consuming repo its reply
+        # gate on 2026-09-14.
+        def _plant_orphan_hook(repo):
+            (repo / '.claude' / 'hooks' / 'zzz-orphan.sh').write_text(
+                '#!/bin/sh\necho orphan\n', encoding='utf-8')
+        case('hooks-on-disk-are-reachable', _plant_orphan_hook)
+        cases.append(('hooks-on-disk-are-reachable: the planted violation '
+                      'names the orphaned hook and says nothing that could '
+                      'run it names it',
+                      'zzz-orphan.sh' in planted['hooks-on-disk-are-reachable'][1]
+                      and 'nothing that could run it names it'
+                      in planted['hooks-on-disk-are-reachable'][1]))
+
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
             up = repo / 'process' / 'upstream' / 'tools'
@@ -7507,6 +7525,43 @@ def check_reply_gate_sees_every_source():
         r5 = replycheck(good)
         cases.append(('a reply that meets the requirement is not blocked',
                       r5.returncode == 0, r5.stderr[:160]))
+
+        # 2026-09-14: the block message has to say SENTENCE when only a
+        # sentence is missing. A source revised its required closing sentence
+        # that morning, so every reply already carrying the heading was
+        # refused for the sentence alone -- and a message that asked for "the
+        # missing closing section(s)" got a whole second `## Next Steps`
+        # block written under the first. Morgan: *"you repeated the 'next
+        # steps' section two times."* The two messages are asserted against
+        # each other below, so neither can quietly become the other.
+        has_heading = tmp / 'has-heading.md'
+        has_heading.write_text('Some work.\n\n## Next Steps\n\n- **Merge it**\n\n'
+                               'Nothing about the session either way.\n', encoding='utf-8')
+        r7 = replycheck(has_heading)
+        cases.append(('a reply with the heading but not the sentence is still '
+                      'blocked', r7.returncode == 2, f'exit {r7.returncode}'))
+        cases.append(('...and the block says the heading is already there and '
+                      'must not be written again -- the whole point, since the '
+                      'refused reply has already been shown',
+                      'ALREADY CARRIES every closing heading' in r7.stderr
+                      and 'Do NOT repeat the closing section' in r7.stderr,
+                      r7.stderr[:240]))
+        cases.append(('...and the per-requirement line says where the sentence '
+                      'goes instead of implying a new section',
+                      'do NOT write that section a second time' in r7.stderr,
+                      r7.stderr[:240]))
+        cases.append(('...and it does NOT ask for a closing SECTION, which is '
+                      'the wording that produced the duplicate',
+                      'closing section(s)' not in r7.stderr, r7.stderr[:240]))
+        # The negative control for the case above: the same check on a reply
+        # that really is missing the heading must still ask for the section,
+        # so "closing section(s) is absent" is a real distinction and not a
+        # string that left the file altogether.
+        cases.append(('the control: a reply missing the HEADING is still asked '
+                      'for the whole closing section',
+                      'closing section(s)' in r4.stderr
+                      and 'ALREADY CARRIES every closing heading' not in r4.stderr,
+                      r4.stderr[:240]))
 
         # A blocking gate may never refuse a reply that FOLLOWED the rule, so
         # the apostrophe the terminal renders and the one a person types have
