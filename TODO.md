@@ -360,7 +360,11 @@ which is the failure this repointing exists to end — write
     [a session seeded there](https://claude.ai/code/session_01DqP5TjkampkhpW3DEvVi7Z)
     (this session cannot attach a repo under another owner, and
     docs.github.com is blocked by the proxy), and its `RESULTS.md` is what
-    closes the three assumptions.
+    closes the three assumptions. **Built the same day, on "build what's
+    needed"** (`strength: assented`): the boundary check, the owned-paths
+    preview, the project mode of the CODEOWNERS generator, the `register`
+    placeholder, and the reworded guides — items 108, 110, 111 (half) and
+    112 below record each. Still open here: the assumptions, and the pilot.
 16. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
     [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per
@@ -4672,9 +4676,13 @@ which is the failure this repointing exists to end — write
   `verify()` finding naming the absent key, and a line in the bootstrap
   procedure. It was left out here deliberately rather than missed — the
   approval covered pronouns.
-  **Blocked on / out of scope:** nothing but the work and a decision that
-  the parallel is wanted; it was out of scope of the approved change.
-  **Disposition:** wait
+  **DONE 2026-09-14**, as part of the contributor-access build: the skeleton
+  carries `"register": "{{PERSON_REGISTER}}"` with its own comment,
+  `precedent_bootstrap_source.py --verify` names an absent key, and
+  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s step 5d
+  asks for it beside pronouns. The one live set already has the field; no
+  existing set was edited.
+  **Disposition:** wait (done, kept for the record)
 
 - <a id="provenance-stamp-for-instantiated-copies"></a>**A file instantiated
   from a template carries no record that it was, so nothing can check
@@ -6943,7 +6951,14 @@ which is the failure this repointing exists to end — write
     already constrains. The session's pick is the first: a wrong row in an
     index is a content mistake, and content is theirs. **Blocked on:**
     Morgan choosing — it changes what a contributor can touch, which is the
-    line he drew. **Disposition:** ask (2026-09-14, the review)
+    line he drew.
+    **CLOSED 2026-09-14, the same day** — unowned, on the session's pick,
+    under Morgan's "build what's needed to implement the spec" (`strength:
+    assented`: he approved the write-up wholesale, not this choice by name).
+    [templates/document-project/precedent.json](templates/document-project/precedent.json)'s
+    `owned_paths` no longer lists the two files, its `_boundary_comment`
+    says why, and the spec's layer-2 section records it.
+    **Disposition:** wait (2026-09-14; done, kept for the record)
 109. <a id="workflow-run-is-not-gated"></a>**`CODEOWNERS` gates the merge of
     an edited workflow, not its first run.** As the 2026-09-14 review
     understands GitHub (unverified, read from no documentation): a Write
@@ -6955,10 +6970,14 @@ which is the failure this repointing exists to end — write
     block. [templates/github-actions/](templates/github-actions/)'s three
     templates all declare `permissions`; whether each is read-only, and
     whether [templates/document-project/README.md](templates/document-project/README.md)
-    should say so at instantiation, has not been checked. **Blocked on:**
-    verifying the run behaviour against GitHub's own documentation, then the
-    audit — both a session's to do, out of the review's write-up scope.
-    **Disposition:** wait (2026-09-14, the review)
+    should say so at instantiation, has not been checked.
+    **Audited the same day**: all three templates and this repository's own
+    three workflows declare `permissions: contents: read`, and the
+    document-project README's step 6 now says to keep the workflows
+    secret-free. **Blocked on:** verifying the run behaviour itself against
+    GitHub's own documentation, which a hosted session cannot reach
+    (docs.github.com is blocked by the proxy) — a person with a browser, or
+    the throwaway repository. **Disposition:** wait (2026-09-14, the review)
 110. <a id="boundary-is-checkable"></a>**Nothing checks that a document
     project's boundary is actually on.** A forgotten instantiation step 6
     (branch protection) leaves Write as unrestricted write, silently, while
@@ -6967,9 +6986,18 @@ which is the failure this repointing exists to end — write
     [tools/precedent_source_names.py](tools/precedent_source_names.py): ask
     the GitHub API whether the base branch requires a pull request and a
     code-owner review, and print `UNVERIFIED` rather than a pass when it
-    cannot. **Blocked on:** the three assumptions in
-    [`contributor-access`](#contributor-access) — a check for a mechanism
-    that may not exist on the plan is written after the plan is known.
+    cannot.
+    **BUILT 2026-09-14, the same day**:
+    [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py),
+    PASS / FAIL / UNVERIFIED, the API stubbed in
+    [tools/verify_harness.py](tools/verify_harness.py) so every verdict
+    asserts its own words, and a 403 naming a plan upgrade read as FAIL
+    rather than UNVERIFIED — it is an answer to assumption 2. Run live here it
+    says UNVERIFIED: the session's token cannot read protection settings.
+    **What is not done**: nobody has run it against a repository where
+    protection is on, so the 200 branch is tested only against the response
+    shape the session remembers GitHub sending. **Blocked on:** the throwaway
+    repository, a token with administration read, and the assumptions.
     **Disposition:** wait (2026-09-14, the review)
 111. <a id="pre-pr-ownership-guardrail"></a>**Before opening a pull request,
     the session should say in plain words when the change will wait for
@@ -6983,9 +7011,18 @@ which is the failure this repointing exists to end — write
     refusals print exit codes and git vocabulary, and
     [fail-gracefully](practices/fail-gracefully.md) says a non-technical
     reader gets a plain sentence instead — nothing translates them yet.
-    Finding 6 of the 2026-09-14 review. **Blocked on:** a real contributor
-    session to design the wording against; building it before the pilot
-    guesses at what they will meet. **Disposition:** wait (2026-09-14, the
+    Finding 6 of the 2026-09-14 review.
+    **The first half is BUILT, same day**:
+    [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py) lists
+    owned and free paths against CODEOWNERS (GitHub's own matching rules,
+    last match wins, an untranslatable pattern reported rather than
+    skipped, a missing file reported as NO BOUNDARY rather than clean) and
+    prints the sentence to say; the document-project `AGENTS.md` runs it
+    before every pull request. Its wording is a first draft nobody has said
+    to a real contributor. **The hook half is not built.** **Blocked on:**
+    the pilot, for the wording of both halves — the hooks' refusals are
+    translated by a session that has met a real contributor's confusion,
+    not by one guessing at it. **Disposition:** wait (2026-09-14, the
     review)
 112. <a id="project-maintainers-registry"></a>**A document project's
     `CODEOWNERS` is hand-written while a practice set's is generated — two
@@ -7000,5 +7037,15 @@ which is the failure this repointing exists to end — write
     Finding under "Define, manage, limit, control" in the 2026-09-14 review.
     **Blocked on:** item [`generated-views-are-owned-paths`](#generated-views-are-owned-paths)
     — the owned-path list is what the generator would write, and it is
-    still being decided. **Disposition:** wait (2026-09-14, the review)
+    still being decided.
+    **BUILT 2026-09-14, the same day, once item 108 was decided**:
+    [tools/build_codeowners.py](tools/build_codeowners.py) reads
+    `maintainers` and `owned_paths` from a project's `precedent.json` when
+    there is no `approvers.json`, writes `.github/CODEOWNERS` with one row
+    per owned path and its reason, and takes `--repo PATH`. The set mode
+    renders byte-for-byte what it did before — all three team sets'
+    committed files still `--check OK`. The document-project template's
+    CODEOWNERS is generated output now, and its README step 7 fills in the
+    registry instead of the file. **Disposition:** wait (2026-09-14; done,
+    kept for the record)
 

@@ -3634,6 +3634,303 @@ def check_source_names_detects_a_rename():
           not bad, '; '.join(f"{n}: {d}" for n, d in bad))
 
 
+def check_owned_paths_previews_the_boundary():
+    """precedent_owned_paths.py names every touched owned path with its
+    owner, says the rest is the contributor's, and never reads a missing
+    CODEOWNERS as a clean change.
+
+    The tool is spec/CONTRIBUTOR_ACCESS.md's finding 6 (2026-09-14): the
+    contributor cannot see the CODEOWNERS line, so the session says before
+    the pull request what will wait for review. Each case asserts the words
+    the tool prints for THAT case, not that something was printed (practice:
+    control-asserts-which-failure); the no-CODEOWNERS case is the one that
+    matters most, since a boundary that is missing must not render as a
+    change that is clean (practice: fail-gracefully)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_owned_paths as pop
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-owned-'))
+    cases = []
+
+    def git(*args):
+        return subprocess.run(['git', '-C', str(tmp), '-c', 'user.name=fixture',
+                               '-c', 'user.email=fixture@example.com', *args],
+                              capture_output=True, text=True)
+
+    try:
+        git('init', '-q')
+        git('checkout', '-q', '-b', 'main')
+        (tmp / '.github').mkdir()
+        (tmp / 'docs').mkdir()
+        (tmp / '.github' / 'CODEOWNERS').write_text(
+            '/.github/ @maint\n/settings.md @maint\n*.secret @maint @other\n'
+            '/docs/generated/ @maint\n/docs/generated/free.md\n', encoding='utf-8')
+        (tmp / 'docs' / 'hello.md').write_text('hi\n', encoding='utf-8')
+        (tmp / 'settings.md').write_text('s\n', encoding='utf-8')
+        (tmp / 'precedent.json').write_text('{"base_branch": "main"}', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'init')
+        git('checkout', '-q', '-b', 'work')
+        (tmp / 'docs' / 'hello.md').write_text('hi\nmore\n', encoding='utf-8')
+        (tmp / 'settings.md').write_text('s\nx\n', encoding='utf-8')
+        (tmp / 'docs' / 'key.secret').write_text('k\n', encoding='utf-8')
+        (tmp / 'docs' / 'generated').mkdir()
+        (tmp / 'docs' / 'generated' / 'free.md').write_text('f\n', encoding='utf-8')
+        (tmp / 'docs' / 'generated' / 'index.md').write_text('i\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'work')
+
+        r = pop.assess(tmp, base='main')
+        owned = {p: (o, pat) for p, o, pat in r['owned']}
+        cases.append(('an owned path is named with its owner and the rule that owns it',
+                      owned.get('settings.md') == (['@maint'], '/settings.md'), str(owned)))
+        cases.append(('a basename pattern owns a file at any depth, with every listed owner',
+                      owned.get('docs/key.secret') == (['@maint', '@other'], '*.secret'), str(owned)))
+        cases.append(('a directory pattern owns what is under it',
+                      'docs/generated/index.md' in owned, str(owned)))
+        cases.append(('the LAST matching rule wins, so a later line with no owner frees a file',
+                      'docs/generated/free.md' in r['free'], str(r['free'])))
+        cases.append(('an unowned document is reported free',
+                      'docs/hello.md' in r['free'], str(r['free'])))
+        words = pop.plain_words(r)
+        cases.append(('the sentence names who has to look and which files, and offers the split',
+                      '@maint and @other have to look' in words and 'settings.md' in words
+                      and 'yours to merge' in words and 'go in on their own now' in words, words))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = pop.main(['--repo', str(tmp), '--base', 'main', '--check'])
+        cases.append(('--check exits 1 when an owned path is touched, and the report names it',
+                      code == 1 and 'OWNED  settings.md' in out.getvalue(), out.getvalue()))
+
+        # A docs-only change: the sentence says it is theirs, and --check passes.
+        git('checkout', '-q', 'main')
+        git('checkout', '-q', '-b', 'docs-only')
+        (tmp / 'docs' / 'hello.md').write_text('hi\nz\n', encoding='utf-8')
+        git('commit', '-q', '-am', 'docs')
+        r = pop.assess(tmp, base='main')
+        words = pop.plain_words(r)
+        cases.append(('a documents-only change is reported as the contributor\'s to merge',
+                      not r['owned'] and 'yours to merge' in words
+                      and 'nothing here needs anyone else' in words, words))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = pop.main(['--repo', str(tmp), '--base', 'main', '--check'])
+        cases.append(('--check exits 0 on a documents-only change', code == 0, out.getvalue()))
+
+        # An uncommitted edit is in the preview too.
+        (tmp / 'settings.md').write_text('s\nuncommitted\n', encoding='utf-8')
+        r = pop.assess(tmp, base='main')
+        cases.append(('an uncommitted edit to an owned path is in the preview',
+                      any(p == 'settings.md' for p, _, _ in r['owned']), str(r['owned'])))
+        git('checkout', '-q', '--', 'settings.md')
+
+        # No base ref: the preview says so instead of reporting a clean change.
+        r = pop.assess(tmp, base='no-such-ref')
+        cases.append(('an unresolvable base is said out loud, never read as clean',
+                      r['base'] is None and 'no base ref resolved' in r['note']
+                      and 'NOT in this preview' in r['note'], r['note']))
+
+        # A pattern the tool cannot match is reported, not skipped.
+        (tmp / '.github' / 'CODEOWNERS').write_text('/settings.md @maint\n!/never.md @x\n',
+                                                     encoding='utf-8')
+        r = pop.assess(tmp, base='main')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            pop.report(r)
+        cases.append(('an untranslatable pattern is reported by line, never silently skipped',
+                      r['untranslatable'] == [('!/never.md', 2)]
+                      and "pattern '!/never.md' is not one this tool can match" in out.getvalue(),
+                      out.getvalue()))
+
+        # THE ONE THAT MATTERS: no CODEOWNERS is NO BOUNDARY, not a clean change.
+        (tmp / '.github' / 'CODEOWNERS').unlink()
+        r = pop.assess(tmp, base='main')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            pop.report(r)
+        cases.append(('a missing CODEOWNERS is reported as NO BOUNDARY, never as a clean change',
+                      r['codeowners'] is None and 'NO BOUNDARY' in out.getvalue()
+                      and 'boundary is missing, not that the change is clean' in out.getvalue(),
+                      out.getvalue()))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'precedent_owned_paths.py previews the CODEOWNERS boundary in the '
+          f'contributor\'s words ({len(cases)} stated cases: owner named, basename '
+          f'pattern, directory pattern, last-match-wins, free file, the sentence, '
+          f'--check red, docs-only sentence, --check green, uncommitted edit, '
+          f'unresolvable base, untranslatable pattern, no CODEOWNERS)',
+          not bad, '; '.join(f"{n}: {d}" for n, d in bad))
+
+
+def check_boundary_check_never_passes_unread():
+    """precedent_boundary_check.py reports PASS only for protection shaped
+    the way the plan needs, FAIL for each way it can be wrong, and
+    UNVERIFIED -- never PASS -- when it could not ask GitHub.
+
+    The tool is spec/CONTRIBUTOR_ACCESS.md's finding 5 (2026-09-14): a
+    forgotten branch-protection step leaves Write as unrestricted write
+    with nothing saying so. The API call is stubbed -- a harness case may
+    not depend on the network, and no protected repository is reachable
+    from a hosted session anyway. Each verdict asserts its own printed
+    words (practice: control-asserts-which-failure); the token never
+    appears in what is printed, and the fixture owns every environment
+    variable the tool reads (practice: fixture-owns-its-state)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_boundary_check as pbc
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-boundary-'))
+    cases = []
+    # Assembled so the leak gate does not read `<anything>@github.com` as an
+    # address; the value is what must NOT come back out.
+    token = 'ghp_NOTAREALTOKEN' + 'x' * 8
+    env_with = {'GITHUB_TOKEN': token}
+    calls = []
+
+    def stub(status, body):
+        def fetch(owner, name, branch, tok):
+            calls.append((owner, name, branch, tok))
+            return status, body
+        return fetch
+
+    good = {'required_pull_request_reviews': {'require_code_owner_reviews': True,
+                                              'required_approving_review_count': 0},
+            'enforce_admins': {'enabled': True}}
+
+    def run(env, fetch, branch=None):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            r = pbc.assess(tmp, branch=branch, env=env, fetch=fetch)
+            pbc.report(r)
+        return r, out.getvalue()
+
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        subprocess.run(['git', '-C', str(tmp), 'remote', 'add', 'origin',
+                        'https://github.com/example/doc-project.git'], capture_output=True)
+        (tmp / '.github').mkdir()
+        (tmp / '.github' / 'CODEOWNERS').write_text('/.github/ @maint\n', encoding='utf-8')
+        (tmp / 'precedent.json').write_text('{"base_branch": "trunk"}', encoding='utf-8')
+
+        r, out = run({}, stub(200, good))
+        cases.append(('no token is UNVERIFIED and says which variables to set, and GitHub is not called',
+                      r['verdict'] == 'UNVERIFIED' and 'no token in the environment' in out
+                      and 'UNVERIFIED is not a pass' in out and not calls, out))
+
+        r, out = run(env_with, stub(200, good))
+        cases.append(('protection shaped as the plan needs, plus CODEOWNERS in the tree, is PASS',
+                      r['verdict'] == 'PASS' and 'boundary-check: PASS' in out
+                      and 'merge their own documents and nothing else' in out, out))
+        cases.append(('the declared base branch is what gets asked about, and the token is passed',
+                      calls and calls[-1][:3] == ('example', 'doc-project', 'trunk')
+                      and calls[-1][3] == token, str(calls)))
+        cases.append(('the token is never printed', token not in out, out))
+
+        r, out = run(env_with, stub(200, good), branch='other')
+        cases.append(('--branch overrides the declared base', calls[-1][2] == 'other', str(calls[-1])))
+
+        r, out = run(env_with, stub(404, {'message': 'Branch not protected'}))
+        cases.append(('an unprotected base branch is FAIL and says what to turn on',
+                      r['verdict'] == 'FAIL' and 'NOT protected' in out
+                      and 'require review from code owners' in out, out))
+
+        r, out = run(env_with, stub(403, {'message': 'Upgrade to GitHub Pro or make this repository public to enable this feature.'}))
+        cases.append(('protection unavailable on the plan is FAIL, not UNVERIFIED -- it is an answer',
+                      r['verdict'] == 'FAIL' and 'not available on this repository\'s plan' in out, out))
+
+        r, out = run(env_with, stub(403, {'message': 'Resource not accessible by integration'}))
+        cases.append(('a 403 that is a refusal to answer is UNVERIFIED and names the scope needed',
+                      r['verdict'] == 'UNVERIFIED' and 'administration read' in out, out))
+
+        r, out = run(env_with, stub(401, {'message': 'Bad credentials'}))
+        cases.append(('a refused token is UNVERIFIED', r['verdict'] == 'UNVERIFIED'
+                      and 'refused the token (401)' in out, out))
+
+        r, out = run(env_with, stub(None, 'timed out'))
+        cases.append(('an unreachable network is UNVERIFIED with the error',
+                      r['verdict'] == 'UNVERIFIED' and 'could not reach GitHub: timed out' in out, out))
+
+        body = {'required_pull_request_reviews': {'require_code_owner_reviews': True,
+                                                  'required_approving_review_count': 1}}
+        r, out = run(env_with, stub(200, body))
+        cases.append(('required approvals above 0 is FAIL and names the bottleneck',
+                      r['verdict'] == 'FAIL' and 'required approvals is 1, not 0' in out, out))
+
+        body = {'required_pull_request_reviews': {'require_code_owner_reviews': False,
+                                                  'required_approving_review_count': 0}}
+        r, out = run(env_with, stub(200, body))
+        cases.append(('code-owner review not required is FAIL',
+                      r['verdict'] == 'FAIL' and 'review from code owners is not required' in out, out))
+
+        r, out = run(env_with, stub(200, {'enforce_admins': {'enabled': False}}))
+        cases.append(('no pull-request requirement is FAIL, and admin bypass is a note beside it',
+                      r['verdict'] == 'FAIL' and 'a pull request is not required' in out
+                      and 'note: administrators can bypass' in out, out))
+
+        (tmp / '.github' / 'CODEOWNERS').unlink()
+        r, out = run(env_with, stub(200, good))
+        cases.append(('good protection with no CODEOWNERS in the tree is FAIL',
+                      r['verdict'] == 'FAIL' and 'no CODEOWNERS file in the tree' in out
+                      and r['codeowners'] is None, out))
+
+        subprocess.run(['git', '-C', str(tmp), 'remote', 'set-url', 'origin',
+                        'https://git.example.com/example/doc-project.git'], capture_output=True)
+        before = len(calls)
+        r, out = run(env_with, stub(200, good))
+        cases.append(('a non-github remote is UNVERIFIED and GitHub is not asked',
+                      r['verdict'] == 'UNVERIFIED' and 'not a github.com remote' in out
+                      and len(calls) == before, out))
+
+        # main() --check: UNVERIFIED and FAIL exit 1, PASS exits 0. The module's
+        # fetch and the process environment are both owned here and restored.
+        subprocess.run(['git', '-C', str(tmp), 'remote', 'set-url', 'origin',
+                        'https://github.com/example/doc-project.git'], capture_output=True)
+        (tmp / '.github' / 'CODEOWNERS').write_text('/.github/ @maint\n', encoding='utf-8')
+        real_fetch = pbc.fetch_protection
+        saved = {k: os.environ.get(k) for k in ('PRECEDENT_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN')}
+        try:
+            for k in saved:
+                os.environ.pop(k, None)
+            pbc.fetch_protection = stub(200, good)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = pbc.main(['--repo', str(tmp), '--check'])
+            cases.append(('--check exits 1 on UNVERIFIED (no token), and 0 without --check',
+                          code == 1 and 'UNVERIFIED' in out.getvalue(), out.getvalue()))
+            with contextlib.redirect_stdout(io.StringIO()):
+                code0 = pbc.main(['--repo', str(tmp)])
+            cases.append(('without --check an UNVERIFIED run exits 0', code0 == 0, str(code0)))
+            os.environ['GITHUB_TOKEN'] = token
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = pbc.main(['--repo', str(tmp), '--check'])
+            cases.append(('--check exits 0 on PASS', code == 0, str(code)))
+            pbc.fetch_protection = stub(404, {'message': 'Branch not protected'})
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = pbc.main(['--repo', str(tmp)])
+            cases.append(('a FAIL exits 1 with or without --check', code == 1, str(code)))
+        finally:
+            pbc.fetch_protection = real_fetch
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'precedent_boundary_check.py passes only protection shaped as the plan '
+          f'needs and never reads "could not look" as a pass ({len(cases)} stated '
+          f'cases: no token, PASS, declared branch, token unprinted, --branch, '
+          f'unprotected, plan, refused 403, 401, network, approvals, no code-owner '
+          f'review, no PR requirement, no CODEOWNERS, non-github remote, and the '
+          f'four exit codes)',
+          not bad, '; '.join(f"{n}: {d}" for n, d in bad))
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -21101,6 +21398,8 @@ def main():
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()
+    check_owned_paths_previews_the_boundary()
+    check_boundary_check_never_passes_unread()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_not_binding_cannot_be_abused()

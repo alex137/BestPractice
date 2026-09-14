@@ -100,9 +100,23 @@ The paths to own, in a repository built from
 | `/practices/`, `/local/` | Practice text, wherever an install materialises it. |
 | `/precedent.json` | Declares the sources in force, the visibility, the base branch. |
 | `/AGENTS.md`, `/CLAUDE.md` | The instructions every session loads. |
-| `/MAP.md`, `/GLOSSARY.md` | Generated views; a hand edit here is a generated-file edit. |
 
-Everything not listed is content, and content is the contributor's.
+Everything not listed is content, and content is the contributor's. **The
+table is a registry now** (2026-09-14): it is the `owned_paths` field of the
+project's `precedent.json`, each path with its reason, and
+[tools/build_codeowners.py](../tools/build_codeowners.py) generates
+`.github/CODEOWNERS` from it and from the `maintainers` field beside it,
+exactly as it generates a practice set's file from `approvers.json`.
+
+**`MAP.md` and `GLOSSARY.md` are deliberately not owned.** They were, until
+the 2026-09-14 review noticed that
+[orientation-map](../practices/orientation-map.md) has every thread that adds
+a document add its row to the map — so every add-a-document pull request
+touched an owned path and waited for the maintainer, the exact bottleneck
+this plan exists to avoid. In a document project those two files index
+content and are content; a wrong row is a content mistake, and content is
+the contributor's. Unowned on the session's recommendation, approved as part
+of "build what's needed" — `strength: assented`.
 
 **`CODEOWNERS` must own itself** (it sits under `/.github/`, which is owned),
 or the boundary is one commit from being removed by whoever it binds.
@@ -117,6 +131,10 @@ no new mechanism:
   set's own `CODEOWNERS` from the list, so GitHub requires an approver's
   review on the practice text itself. One source, one generated view — never
   hand-edit the output.
+- The same generator draws a **project's** boundary from `precedent.json`'s
+  `maintainers` and `owned_paths` (since 2026-09-14), so a document project
+  and a practice set answer "who reviews what" from one tool and one
+  registry each.
 - **[tools/precedent_candidate.py](../tools/precedent_candidate.py)** is how
   anyone raises a suggestion. For a contributor who is not a listed approver
   it defaults to `--as-issue true` against the relevant team set, per
@@ -176,9 +194,13 @@ builds on it.
    toolset creates a collaborator invite — this stays a human step.
 4. Turn on branch protection for the base branch: require a pull request,
    require code-owner review, and do not allow bypassing for people who are
-   not administrators.
-5. Commit `.github/CODEOWNERS` with the maintainer named against every path in
-   layer 2's table.
+   not administrators. Then run
+   `python3 tools/precedent_boundary_check.py` with a token that can read
+   the repository's settings: it says PASS, FAIL with the setting that is
+   wrong, or UNVERIFIED, and only PASS means the boundary is on.
+5. Fill in `maintainers` in `precedent.json` and run
+   `python3 tools/build_codeowners.py`; commit the generated
+   `.github/CODEOWNERS` with it. Never hand-edit the generated file.
 6. Configure the person's own session or environment with layer 4's persona.
    Nothing in it denies a git command any more.
 
@@ -221,18 +243,21 @@ either; that is finding 7.
   Nobody is stored as technical or non-technical anywhere. The one place a
   skill level legitimately lives is the person's own `register` field in
   their `identity.json`, self-declared, which the team-level
-  `default-register` practice already reads. That field is still absent
-  from the individual-set template, so a person bootstrapped today falls to
-  the non-technical default without ever being asked —
-  [TODO.md](../TODO.md)'s open item on the missing `register` placeholder.
+  `default-register` practice already reads. That field was absent from
+  the individual-set template until this review, so a person bootstrapped
+  before 2026-09-14 fell to the non-technical default without ever being
+  asked; the skeleton carries `{{PERSON_REGISTER}}` now and
+  `precedent_bootstrap_source.py --verify` names the key when a set has
+  none.
 - **Manage from one registry.** A practice set generates its `CODEOWNERS`
-  from `approvers.json`. The document project hand-writes its own. That is
+  from `approvers.json`. The document project hand-wrote its own. That was
   two mechanisms for one question, and the hand-written one is the one a
-  maintainer forgets to update. The fix is a `maintainers` field in the
-  project's `precedent.json` and [tools/build_codeowners.py](../tools/build_codeowners.py)
-  generating the project file from it, as it does the set's
+  maintainer forgets to update. **Built the same day**: a `maintainers` field
+  and an `owned_paths` field in the project's `precedent.json`, and
+  [tools/build_codeowners.py](../tools/build_codeowners.py) generating the
+  project file from them, as it does the set's
   ([registry-source-of-truth](../practices/registry-source-of-truth.md)).
-  Onboarding is then one invite plus one line.
+  Onboarding is one invite plus one line.
 - **Limit at GitHub, not in the session.** Paths and lists at the platform,
   persona in the session, no deny lists. Unchanged from the layers above.
 - **Control by checks and a rehearsal.** A mechanical check that the
@@ -264,7 +289,10 @@ either; that is finding 7.
    [the glossary](../templates/GLOSSARY.md.template) in the document-project `CODEOWNERS`, since in a document
    project they index content and are content; or regenerate them in
    continuous integration after merge, so no contributor commit ever
-   touches them. Either is a decision, not a fix, and it waits on Morgan.
+   touches them.
+   **Unowned, same day** — the first way out, on the session's
+   recommendation under "build what's needed" (`strength: assented`); the
+   layer-2 section above records why.
 3. **`CODEOWNERS` gates the merge, not the run.** A Write collaborator who
    edits a workflow file on their own branch gets that workflow executed on
    push, with whatever the repository's secrets are, before any review
@@ -275,29 +303,44 @@ either; that is finding 7.
    workflows carry no secret beyond the default `GITHUB_TOKEN`, with the
    workflow's `permissions` block read-only, so a rewritten workflow has
    nothing to take. The templates under
-   [templates/github-actions/](../templates/github-actions/) already declare
-   `permissions` blocks; whether each is read-only has not been audited.
+   [templates/github-actions/](../templates/github-actions/) and this
+   repository's own three workflows all declare `permissions: contents:
+   read` — audited 2026-09-14, all six read-only — and the document-project
+   README now says to keep it that way. What stays unverified is the run
+   behaviour itself, which needs GitHub's documentation or the throwaway
+   repository.
 4. **The reader-facing documents contradict this plan.**
    [documentation/FOR_EVERYONE_ELSE.md](../documentation/FOR_EVERYONE_ELSE.md)'s
    "What You Can't Do (on Purpose)" and
    [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md)'s step 5
    both still say the contributor proposes and an administrator merges. This
-   plan says they merge their own documents. Whichever is true depends on
-   finding 1, so the wording waits for that answer rather than being fixed
-   to match a plan that has not been run.
+   plan says they merge their own documents. **Reworded the same day** to
+   say what the plan says — content is theirs to merge, the machinery and
+   the rules are not — since a document describing the design should
+   describe this one; if finding 1 sinks the design, both documents change
+   again with it.
 5. **Nothing checks that the boundary is on.** A forgotten instantiation
    step 6 turns Write into unrestricted write, silently, and every document
    here goes on describing a boundary that does not exist. The check is the
    same shape as [tools/precedent_source_names.py](../tools/precedent_source_names.py):
    ask the GitHub API whether the base branch requires a pull request and a
    code-owner review, print `UNVERIFIED` rather than a pass when offline.
+   **Built the same day**:
+   [tools/precedent_boundary_check.py](../tools/precedent_boundary_check.py),
+   with the API stubbed in the harness so every verdict asserts its own
+   words. It needs a token with administration read; the session's own
+   token gets a 403 and the tool says UNVERIFIED, which is the point.
 6. **The session should say, before opening a pull request, when a change
    will wait for review.** Diff the touched paths against `CODEOWNERS` and
    tell the contributor in plain words — *"this touches the project's
    settings, so Alex has to look at it before it lands; want me to split the
    document part out so that goes in now?"* It is user experience, not
    enforcement, and it removes the "worse error" case
-   [TODO.md](../TODO.md)'s `review-skill-level-permissions` item names. The
+   [TODO.md](../TODO.md)'s `review-skill-level-permissions` item names.
+   **Built the same day**:
+   [tools/precedent_owned_paths.py](../tools/precedent_owned_paths.py)
+   prints the owned and free paths and the sentence to say, and the
+   document-project `AGENTS.md` runs it before every pull request. The
    hooks' own refusals are the other half of the same problem: the freshness
    guard and the gates print exit codes and git vocabulary, which
    [fail-gracefully](../practices/fail-gracefully.md) says a non-technical

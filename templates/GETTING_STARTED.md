@@ -50,8 +50,10 @@ work at the same time. The whole loop:
 4. **Look at what it made.** The assistant's reply ends with links to the
    changed files; open them and ask for adjustments until it's right.
 5. **Say "propose this to the team."** The assistant packages your change
-   for review — the technical name is a *pull request* — and an
-   administrator, not you, decides when it joins the shared project.
+   for review — the technical name is a *pull request* — and says who
+   decides when it joins the shared project: for the documents themselves
+   that may be you, depending on how your project is set up; for the
+   project's settings, checks and rules it is always an administrator.
    Until that happens, nobody else sees your change: unlike Google Docs,
    nothing becomes shared automatically.
 

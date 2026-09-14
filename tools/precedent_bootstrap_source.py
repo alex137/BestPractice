@@ -896,6 +896,16 @@ def _malformed(level, path):
                                'answer in (`he/him`, `she/her`, `they/them`); '
                                'until then `declared-pronouns` falls back to '
                                'they/them for them')
+                # `register` is the same shape (2026-09-14): how technical a
+                # reply should be is the person's to declare, and a set built
+                # before the key existed holds no key at all.
+                # practice: technical-describes-people
+                if not (data.get('register') or '').strip():
+                    out.append('identity.json declares no "register" -- ask '
+                               'the person whose set this is how technical '
+                               'their replies should be and write their '
+                               'answer in, in their own words; until then a '
+                               'team-level default may decide it for them')
 
         f = path / 'config.json.sample'
         if f.is_file():

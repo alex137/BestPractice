@@ -17,7 +17,7 @@ rules instead of living and dying inside one document.
 |---|---|
 | [`precedent.json`](precedent.json) | Declares the repo's visibility, the universal practice source (vendored) and two shared team sources (`precedent-team-writing`, `precedent-team-working-style`, both resolved live). |
 | [`AGENTS.md`](AGENTS.md) | The repo's own instructions file — access restrictions, persona, and the candidate-capture flow already filled in. |
-| [`.github/CODEOWNERS`](.github/CODEOWNERS) | The path boundary: which paths need the maintainer's review, and which are any contributor's to write and merge. Fill in the placeholder at instantiation step 7; it does nothing without step 6's branch protection. |
+| [`.github/CODEOWNERS`](.github/CODEOWNERS) | The path boundary: which paths need the maintainer's review, and which are any contributor's to write and merge. **Generated** from `precedent.json`'s `maintainers` and `owned_paths` by `python3 tools/build_codeowners.py` — fill in the registry at instantiation step 7 and regenerate; never hand-edit the file. It does nothing without step 6's branch protection. |
 | [`.claude/settings.json`](.claude/settings.json) | The repo's session config: an allowlist of the read-only and check commands this work needs, plus one repo-wide denial (`rm *`). It is **not** where the contributor's restrictions live — this file is tracked, so it binds every session and cannot tell one person from another; step 6 below is the per-person layer. It also wires four SessionStart/PreToolUse hooks whose scripts this template does not ship; instantiation step 3 is where they come from. |
 
 ## Instantiating this template
@@ -70,7 +70,10 @@ rules instead of living and dying inside one document.
    most importantly whether a code-owner review requirement leaves a
    documents-only pull request mergeable by its author. If it does not, the
    maintainer reviews every content change, which is a different project than
-   the one this template describes.
+   the one this template describes. Whatever the answer,
+   `python3 tools/precedent_boundary_check.py` is how a session checks that
+   step 6 below is actually on: PASS, FAIL naming the setting, or UNVERIFIED
+   when it could not ask, and only PASS means the boundary exists.
 6. **Add the contributor as a Write collaborator, and protect the base
    branch in the same sitting.** GitHub UI: Settings → Collaborators and
    teams → Add people. Then Settings → Branches (or Rules): require a pull
@@ -79,11 +82,20 @@ rules instead of living and dying inside one document.
    unrestricted write** — the two are one step, not two. No tool in this
    repo's GitHub toolset creates a collaborator invite, so this stays a human
    step; confirm the auth-binding model the spec's layer 1 names while you
-   are there.
-7. **Fill in [`.github/CODEOWNERS`](.github/CODEOWNERS)** — replace
-   `{{MAINTAINER_GITHUB}}` with the maintainer's GitHub username, and commit
-   it. That file plus step 6's protection *is* the boundary; it is not
-   per-person, so nothing has to decide what kind of contributor anybody is.
+   are there. **Keep the workflows secret-free**: `CODEOWNERS` gates the
+   merge of an edited workflow, not its first run, and a Write collaborator's
+   branch runs its workflows with whatever secrets the repository holds. Every
+   template under [templates/github-actions/](../github-actions/) declares a
+   read-only `permissions` block; add no repository secret a rewritten
+   workflow could read.
+7. **Fill in `maintainers` in [`precedent.json`](precedent.json)** — replace
+   `{{MAINTAINER_NAME}}` and `{{MAINTAINER_GITHUB}}` — then run
+   `python3 tools/build_codeowners.py` and commit the regenerated
+   [`.github/CODEOWNERS`](.github/CODEOWNERS) with it. That file plus step
+   6's protection *is* the boundary; it is not per-person, so nothing has to
+   decide what kind of contributor anybody is. `owned_paths` in the same file
+   is the list of what the maintainer reviews, each with its reason; change
+   the list there, never in the generated file.
 8. **Set the contributor's own session configuration** — their
    `environment_id`, their per-session settings, or their untracked
    `.claude/settings.local.json` — with `permission_mode` never set to
