@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach"
 gates:       ["reply"]
-index_clause: "cross-repo check; list_sessions before spawning; wake, never spawn beside; list every session you spawned or woke, with its link, in the reply's closing list"
+index_clause: "cross-repo check; wake, never spawn beside; link every session at the end"
 checked_by:  null
 defines:     ["Spawn session"]
 command:     {"Spawn session": "Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go."}
