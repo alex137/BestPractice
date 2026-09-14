@@ -5054,6 +5054,29 @@ which is the failure this repointing exists to end — write
     at all, given that a set pinned to an ancestor is stale the moment it
     lands. Decide that before adding the flag.
 
+    **Closed 2026-09-14 — the flag already exists, and this item's premise was
+    wrong.** It is spelled `--from-ref`, it is on `refresh`, and it landed
+    2026-09-08 in commit `00d124b` — six days BEFORE this item was written.
+    The tool's own module docstring documents it in the usage block
+    (`refresh <bestpractice-clone> [--force] [--from-ref REF]`), and `main()`
+    resolves the ref inside the clone and fails loudly if it does not resolve,
+    so a typo cannot silently fall back to the tip.
+    Measured, not read: a copy of a real practice set was refreshed with
+    `--from-ref 0a45c9f` against this checkout, and its
+    `tools/ENGINE_MANIFEST.json` moved from `03f4e1e03350` to `0a45c9fa1cdf`
+    — an ancestor the branch had already moved past, which is exactly the
+    capability this item says is missing.
+    **Root cause of the wrong item:** it was written from the function
+    signature (`refresh(clone, force=False, ref=None)`) rather than from
+    `main()` or the docstring directly above it, and so concluded no CLI path
+    existed without looking for one. That is
+    [search-by-purpose](practices/search-by-purpose.md)'s exact case — search
+    by mechanism before concluding nothing exists — and it cost the four-set
+    rollout three extra passes, because the session that needed the flag tried
+    to pin a commit by checking it out and by forcing the local branch instead.
+    The undecided question the item ends on needs no answer from anyone:
+    whoever shipped `--from-ref` already settled it.
+
 86. <a id="set-ci-skips-vendored-tests"></a>**No practice set's CI runs the
     vendored checks' own test suite, so a red suite sits under a green pull
     request.** Verified 2026-09-14: none of the three workflow templates a set
