@@ -363,6 +363,14 @@ list.)
      | a document or content project | that team's set + the writing set + the working-style set |
      | a practice set's own repository | the maintaining team's set + the writing set |
 
+     **Ask this out loud rather than inferring it**, here and on every
+     migration and vendored update — `vendor-update-runbook` carries it as
+     a numbered step for exactly that reason. A set that was never declared
+     is **invisible**: no error, no warning, no missing file, just a repo
+     resolving fewer practices than its owner believes. Nothing mechanical
+     can raise it, because the sets a repo *could* declare are not
+     derivable from the ones it *does*.
+
      The pattern underneath it: **a set that is about a kind of work is
      declared by everyone who does that work**, whatever team they are on,
      and a set that is about running a particular kind of repository is

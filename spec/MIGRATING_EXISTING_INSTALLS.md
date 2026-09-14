@@ -57,6 +57,21 @@ the loader.
 
 ## The pattern
 
+**Step 0, before any of it: ask which practice sources this repo should
+declare.** Not which it declares now — which it *should*. Ask the person,
+in the conversation, and write the answer into `precedent.json` as part of
+the migration rather than leaving it for later. A migration is the cheapest
+moment this question will ever have: somebody is already deciding what
+binds this repo.
+
+**It has to be asked, not detected.** An undeclared source throws no error,
+writes no file and leaves nothing missing — the repo simply resolves fewer
+practices than its owner believes, and no check will ever say so, because
+the sets a repo *could* declare are not derivable from the sets it *does*.
+[practices/vendor-update-runbook.md](../practices/vendor-update-runbook.md)
+carries the same question as a numbered step, for every update after this
+one.
+
 1. **Re-vendor `process/upstream/`.** If tracking a real, released
    BestPractice branch (the normal case once a Precedent-carrying branch
    has merged to `main`), this is an ordinary

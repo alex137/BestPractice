@@ -141,9 +141,33 @@ every step's answer is wrong if the one before it was skipped.
    path inside `process/`, the engine copy you are running predates that
    fix: pass `--repo .` and take the answer from that run.**
 
-9. **Verify by content on the remote**, never by ref equality
+9. **Ask the person whether a source should be ADDED or DROPPED.** Steps 7
+   and 8 both ask about the sources this repo already declares — can they
+   be reached, are they still called that. Neither can ask the question
+   underneath: *should this repo be declaring something it isn't?* **A set
+   that was never declared is invisible.** It produces no `MISSING`, no
+   `UNVERIFIED`, no error and no absent file — only a repo quietly
+   resolving fewer practices than its owner believes, and no check will
+   ever report it, because **the sets a repo COULD declare are not
+   derivable from the sets it does.**
+
+   So this one is answered by a person, not a tool, and an update is when
+   to ask: somebody is already looking at how this repo gets its practices.
+   Name what it declares now and ask outright. Do not infer it from the
+   tree, and do not skip the question because nothing looks wrong — nothing
+   looking wrong is the symptom, not the all-clear.
+
+   Measured, 2026-09-09, across five repositories that each looked healthy:
+   one had no session-start instruction at all, so nothing ever fetched the
+   sources its config named; one had never declared `visibility`, and an
+   absent field counts as public, which silently excluded every
+   private-level source from its generated views; and three named their
+   sources in hand-written prose that went stale the day a team set was
+   split by subject. **Not one produced a failing check.**
+
+10. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
-10. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
+11. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop at step 9 and ask. Every condition
     `Go merge` carries still holds -- a branch the repository restricts is
