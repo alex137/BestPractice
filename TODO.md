@@ -11,7 +11,28 @@ documents had already cited items as "TODO.md item N" (found 2026-09-06),
 which is the failure this repointing exists to end — write
 `[TODO.md's \`slug\` item](TODO.md#slug)` instead.
 
-1. <a id="actions-as-enforcement-layer"></a>**Lean further into GitHub Actions as the enforcement layer.** The
+1. <a id="agents-md-over-its-ceiling"></a>**AGENTS.md is over its declared ceiling, and it is a decision, not a
+   bug.** Measured 2026-09-14 on an untouched checkout of
+   `precedent-beta-v01`: 12,019 tokens against the 12,000 in
+   [tools/session_load_budgets.json](tools/session_load_budgets.json), so
+   `python3 tools/precedent_check.py --only session-load-budget` is red on
+   the branch itself and will be red for every session's deep check until
+   somebody acts. Nothing did this wrong — the catalogue grew (an occasion
+   index line, which is generated and cannot be hand-trimmed, plus gotchas
+   g37–g39), which is exactly the drift the ceiling exists to surface.
+   [session-load-budget](practices/session-load-budget.md) forbids raising
+   the number to clear the red and names the alternative: delete what is
+   duplicated, retire what cannot happen any more, split what is still live
+   and still long. The registry's own `why` already says the next raise
+   should come with a reduction pass rather than another re-measurement, and
+   the gotchas section is the bulk of the file. Which of the two — a
+   reduction pass, or a deliberate raise with the reason recorded — is
+   Morgan's to pick; the practice's own text says an over-cap surface is a
+   session's cue to ask rather than choose. **No disposition set here: only
+   the person an item waits on may mark it `ask`, so this sits at the `wait`
+   default until Morgan says otherwise.**
+
+2. <a id="actions-as-enforcement-layer"></a>**Lean further into GitHub Actions as the enforcement layer.** The
    markdown-lint workflow ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)) proves
    the pattern: checks run in CI, so they bind every contributor — human,
    Claude Code, ChatGPT, anyone — regardless of whether the agent has a
@@ -24,34 +45,34 @@ which is the failure this repointing exists to end — write
    audits — never ran, and every commit landed authored as the agent.
    Runbook gates bind only sessions that run the runbook; required CI
    checks bind every path to the default branch.
-2. <a id="github-issues-for-open-items"></a>**Evaluate GitHub Issues for open items.** Mirroring or replacing
+3. <a id="github-issues-for-open-items"></a>**Evaluate GitHub Issues for open items.** Mirroring or replacing
    TODO-file items with Issues would let shell-less assistants and phone
    users browse, discuss, and close work items natively. Needs a
    convention for keeping Issues and the repo-is-the-memory principle
    consistent (an Issue is not on `main`).
-3. <a id="plain-chatgpt-write-support"></a>**Re-verify plain-ChatGPT write support.** As of 2026-08,
+4. <a id="plain-chatgpt-write-support"></a>**Re-verify plain-ChatGPT write support.** As of 2026-08,
    [MOBILE.md](MOBILE.md) treats writing (branches, file updates, PRs)
    from a plain GitHub-connected ChatGPT conversation as not reliably
    available and documents a split workflow instead. Re-test when
    OpenAI's connector capabilities change, and update MOBILE.md either
    way.
-4. <a id="grok-workflow"></a>**Verify a Grok workflow.** Untested as of 2026-08 — see
+5. <a id="grok-workflow"></a>**Verify a Grok workflow.** Untested as of 2026-08 — see
    [MOBILE.md](MOBILE.md). If Grok gains repository access, the universal
    starting instruction should apply unchanged; verify and document.
-5. <a id="companion-mobile-app"></a>**Companion mobile app, if the Shortcut proves insufficient.** The
+6. <a id="companion-mobile-app"></a>**Companion mobile app, if the Shortcut proves insufficient.** The
    iPhone Shortcut and text-replacement setups in
    [MOBILE.md](MOBILE.md) approximate a Claude-Code-like entry point for
    ChatGPT users without custom development. If they prove too clumsy in
    practice, a small companion app (pick repo → type task → open
    assistant with the bootstrap prompt) is the next step — noting that
    this is real app development, not documentation.
-6. <a id="out-of-chat-notifications"></a>**Out-of-chat change notifications for members.** In-chat catch-up is
+7. <a id="out-of-chat-notifications"></a>**Out-of-chat change notifications for members.** In-chat catch-up is
    now a convention (the instructions template's session-start
    catch-up), but a member who hasn't opened a session learns nothing.
    Evaluate a GitHub Actions job that emails a plain-language digest of
    merged changes (or leans on GitHub's built-in Watch notifications,
    documented in the members' page) — as of 2026-08, unexplored.
-7. <a id="multiple-team-sources-disagree"></a>**Define what happens when a consumer repo imports multiple `team`
+8. <a id="multiple-team-sources-disagree"></a>**Define what happens when a consumer repo imports multiple `team`
    sources that disagree.** See PRACTICE_ENGINE_PLAN.md's `## Deferred`
    section (added 2026-09-03, alongside that session's precedence reorder)
    for the detail — not duplicated here. **Half-closed 2026-09-06**: the
@@ -104,7 +125,7 @@ which is the failure this repointing exists to end — write
    **Blocked on:** nothing but a decision about what shape the answer takes.
    Parked deliberately at Morgan's request, 2026-09-07 — do not design it in
    passing.
-8. <a id="reduce-github-dependency"></a>**Reduce GitHub dependency when ready.** The layer itself is plain git
+9. <a id="reduce-github-dependency"></a>**Reduce GitHub dependency when ready.** The layer itself is plain git
    + markdown + Python; GitHub specifics are the worked examples (PRs,
    Actions, Issues, branch rulesets). When priorities allow, document
    Gitea equivalents (Gitea Actions is workflow-compatible; Issues and
@@ -112,10 +133,10 @@ which is the failure this repointing exists to end — write
    losing the practices. Deliberately below the Actions/Issues items
    above: deeper GitHub integration now is acceptable, since equivalents
    can be added later.
-9. <a id="prefork-catalogue-audit-table"></a>~~**The pre-fork catalogue audit table.**~~ **Done (2026-09-03).** One   row per inherited practice, verdict against this plan's architecture,
+10. <a id="prefork-catalogue-audit-table"></a>~~**The pre-fork catalogue audit table.**~~ **Done (2026-09-03).** One   row per inherited practice, verdict against this plan's architecture,
    plus whether Alex needs to hear about it:
    [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md).
-10. <a id="individual-practice-scoping"></a>**`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
+11. <a id="individual-practice-scoping"></a>**`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
     in [PRACTICE_ENGINE_PLAN.md's Deferred section](spec/PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet),
     correctly not built yet. **No longer blocked** (noted 2026-09-06): the
     stated blocker was "a real second team's private set existing to test
@@ -123,7 +144,7 @@ which is the failure this repointing exists to end — write
     existed since 2026-09-05. It is now an ordinary open item — build it
     when it is worth building, and don't re-derive the design judgment,
     which is already made.
-11. <a id="additionalcontext-reaches-the-model"></a>**Confirm `additionalContext` actually reaches the model, not just the
+12. <a id="additionalcontext-reaches-the-model"></a>**Confirm `additionalContext` actually reaches the model, not just the
     transcript.** The new `PreToolUse` hook
     ([templates/harness/claude-code/hooks/precedent-paths.sh](templates/harness/claude-code/hooks/precedent-paths.sh),
     [`spec/LOADER.md`](spec/LOADER.md#the-pretooluse-hook-and-what-is-confirmed-versus-assumed))
@@ -145,7 +166,7 @@ which is the failure this repointing exists to end — write
     negative result (the session never mentions the practice across
     several such edits) is itself the answer, and should be recorded here
     either way rather than left unconfirmed indefinitely.
-12. <a id="routing-audit-silent-drop"></a>~~**Investigate why `routing-audit` fell through, audit the plan for    other silent drops.**~~ **Part 1 done (2026-09-04)** — root cause and
+13. <a id="routing-audit-silent-drop"></a>~~**Investigate why `routing-audit` fell through, audit the plan for    other silent drops.**~~ **Part 1 done (2026-09-04)** — root cause and
     scan for other drops in
     [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s "Part 1,
     answered" section; the one adjacent gap it found is [`wire-the-very-deep-check-list`](#wire-the-very-deep-check-list) below.
@@ -166,7 +187,7 @@ which is the failure this repointing exists to end — write
     that two 6-case runs are a stronger signal than one but still not a
     replacement for the routing eval's fuller multi-run discipline, if this
     ever needs to be trusted at higher stakes than an on-demand backstop.
-13. <a id="retire-merge-target-practice"></a>**Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
+14. <a id="retire-merge-target-practice"></a>**Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
     (and its check at
     [local/tools/checks/check_merge_target_is_beta_branch.py](local/tools/checks/check_merge_target_is_beta_branch.py),
     and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the
@@ -275,7 +296,7 @@ which is the failure this repointing exists to end — write
       before phase 7; `main`'s only three commits since the merge base are
       the bad merge, the revert, and the revert's own pull request merge,
       so there is nothing there to want.
-14. <a id="contributor-access"></a>**Run the contributor-access plan for real.**
+15. <a id="contributor-access"></a>**Run the contributor-access plan for real.**
     [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)
     is drafted but not executed — it doubles as item 9's neighbor,
     [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s still-open item 4 (the
@@ -294,7 +315,7 @@ which is the failure this repointing exists to end — write
     person and repo for the rest of it, and Morgan adding the GitHub
     collaborator role and branch protection by hand (no tool in this repo's
     GitHub toolset creates a collaborator invite or a protection rule).
-15. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
+16. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
     [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per
     [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) (empty of
@@ -303,14 +324,14 @@ which is the failure this repointing exists to end — write
     [templates/document-project/](templates/document-project/)
     added here. Step 3 (the plan's own boundary) deliberately not done — see
     item 16.
-16. <a id="document-project-pilot"></a>**Run the document-project pilot once Morgan has a real first
+17. <a id="document-project-pilot"></a>**Run the document-project pilot once Morgan has a real first
     project.** Item 15 no longer blocks this — the template and team repo
     are real. Deliberately not planned further than that: see
     [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     "Sequencing" section for why a pilot project and person are not invented
     ahead of a real one existing. **Blocked on:** a real subject and a real
     person, neither of which exists yet.
-17. <a id="wire-the-very-deep-check-list"></a>~~**Enumerate and wire the inherited RepoPersonalPreferences (RPP) "very deep check" audit list as    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
+18. <a id="wire-the-very-deep-check-list"></a>~~**Enumerate and wire the inherited RepoPersonalPreferences (RPP) "very deep check" audit list as    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
     [RepoPersonalPreferences](https://github.com/themorgan/RepoPersonalPreferences)
     answered the redundancy question first: `full-practice-audit` asks,
     practice by practice, "is this Rule satisfied" — a closed question
@@ -333,7 +354,7 @@ which is the failure this repointing exists to end — write
     `precedent-team-repo-maintenance`'s own `deep-check` (a team-level call, not
     decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
     "Part 1, answered" section.
-18. <a id="ledger-root-commit-exemption"></a>~~**`parallel-artifact-ledger`'s root-commit exemption doesn't cover a    family's own inception commit.**~~ Found 2026-09-05: `_parallel_artifact_ledger`
+19. <a id="ledger-root-commit-exemption"></a>~~**`parallel-artifact-ledger`'s root-commit exemption doesn't cover a    family's own inception commit.**~~ Found 2026-09-05: `_parallel_artifact_ledger`
     in [tools/precedent_check.py](tools/precedent_check.py) excludes the
     *repository's* root commit (`git rev-list --max-parents=0`) from needing
     a ledger row, but not the commit that first created a given family's
@@ -352,7 +373,7 @@ which is the failure this repointing exists to end — write
     the harness case that proves the check fires gained a fourth stated case
     for the exemption, and a planted removal of a genuine later change still
     fails, so the exemption did not widen into a hole.
-19. <a id="ledger-ci-step-invisible"></a>~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows    its diagnostic output — a GitHub Actions log-capture anomaly, currently
+20. <a id="ledger-ci-step-invisible"></a>~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows    its diagnostic output — a GitHub Actions log-capture anomaly, currently
     working around it by making the check advisory-only.**~~ **Done
     (2026-09-06)** — there was no log-capture anomaly and no false positive.
     [verify_harness.py](tools/verify_harness.py) (CI step 5) invoked a
@@ -398,7 +419,7 @@ which is the failure this repointing exists to end — write
     why [`dfe504d`](https://github.com/alex137/BestPractice/commit/dfe504d)'s
     ledger row has to land in the same merge, as it does.
 
-20. <a id="gate-and-paths-unreachable-source"></a>~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable    materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
+21. <a id="gate-and-paths-unreachable-source"></a>~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable    materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
     **Done (2026-09-06).** Both read `practices/*.md` directly via
     `split_practices._read_practice_file` rather than shelling out to
     `precedent_show.py` (confirmed by grep, not assumed), so the
@@ -428,7 +449,7 @@ which is the failure this repointing exists to end — write
     the gate and path channels, alongside the pre-existing
     `precedent_show.py` cases) — all 12 pass.
 
-21. <a id="materialized-links-dead"></a>~~**A materialized practice's relative links are dead in the consuming    repo.**~~ **Done (2026-09-06.)** Every consuming repo was shipping ≈60
+22. <a id="materialized-links-dead"></a>~~**A materialized practice's relative links are dead in the consuming    repo.**~~ **Done (2026-09-06.)** Every consuming repo was shipping ≈60
     practice files whose internal links resolved to nothing:
     [tools/precedent_materialize.py](tools/precedent_materialize.py) copied
     practice bytes verbatim, so `../tools/very_deep_check.py` and
@@ -447,7 +468,7 @@ which is the failure this repointing exists to end — write
     own light check has dropped the exemption it needed to stay green, and
     its test case for that path now requires a finding instead of silence.
 
-22. <a id="sweep-judgment-only-practices"></a>~~**Sweep the team and individual sets' judgment-only practices.**~~
+23. <a id="sweep-judgment-only-practices"></a>~~**Sweep the team and individual sets' judgment-only practices.**~~
     [tools/full_practice_audit.py](tools/full_practice_audit.py) reports 49
     judgment-only practices across the three sources. The 2026-09-06
     pre-launch audit judged the universal slice's highest-yield ones and
@@ -494,7 +515,7 @@ which is the failure this repointing exists to end — write
     Full context: [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md) and
     [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md).
 
-23. <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
+24. <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
     `precedent-team-repo-maintenance`' own `deep-check`.**
     [practices/very-deep-check.md](practices/very-deep-check.md) was
     restructured 2026-09-06 from one drift checklist into four ordered
@@ -523,7 +544,7 @@ which is the failure this repointing exists to end — write
     `deep-check` should adopt anything from the four passes — not whether it
     should be replaced by them.
 
-24. <a id="consumer-source-names"></a>~~**Check the consumer repos' own source names against the convention.**~~
+25. <a id="consumer-source-names"></a>~~**Check the consumer repos' own source names against the convention.**~~
     **Done (2026-09-06.)** A private consumer repo — the one consumer
     that declares sources and was not attached when
     [practices/source-naming.md](practices/source-naming.md) landed — was
@@ -539,7 +560,7 @@ which is the failure this repointing exists to end — write
     is visible instead of silent. Two findings it surfaced are item 30
     below and the `code-cites-practice` fix that landed with this entry.
 
-25. <a id="unreachable-practices"></a>**Populate `not_binding` for the practices in force here that do not
+26. <a id="unreachable-practices"></a>**Populate `not_binding` for the practices in force here that do not
     bind this repo.** **The design decision is made and the mechanism is
     built (2026-09-06** —
     [decisions/2026-09-06-precedent-binds-itself.md](decisions/2026-09-06-precedent-binds-itself.md)**).**
@@ -622,7 +643,7 @@ which is the failure this repointing exists to end — write
     known rather than guessed.
 
 
-26. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
+27. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
     holding all four repositories searched by purpose and by mechanism
     across every practice body, frontmatter, check script and test:
     exactly one duplicate, `header-caps` in `precedent-team-repo-maintenance`,
@@ -681,7 +702,7 @@ which is the failure this repointing exists to end — write
     `individual_status` in `--json`;
     [spec/SOURCES.md](spec/SOURCES.md) carries the row.
 
-29. <a id="rpp-migration-audited"></a>**Done 2026-09-06 — nothing was lost in the migration, and the audit
+28. <a id="rpp-migration-audited"></a>**Done 2026-09-06 — nothing was lost in the migration, and the audit
     is recorded here because no ledger holds it.** RepoPersonalPreferences'
     46 rule identifiers (from its own `process/personal/README.md` headings,
     cross-checked against its `MAP.md`) were diffed against 41 practices in
@@ -737,7 +758,7 @@ which is the failure this repointing exists to end — write
     folded into the thread that found the first instance, which would have
     meant deciding all of them in passing.
 
-32. <a id="migrated-practices-lost-their-stories"></a>~~**The RPP migration dropped every `## Story`, and that is the
+29. <a id="migrated-practices-lost-their-stories"></a>~~**The RPP migration dropped every `## Story`, and that is the
     provenance the catalogue exists to keep.**~~ **Done — confirmed by
     re-measurement, 2026-09-07.** The backfill happened; this item outlived
     it and went on asserting figures that were no longer true. Every one of
@@ -769,7 +790,7 @@ which is the failure this repointing exists to end — write
     render identically — the rule is `fail-gracefully`'s second clause, and
     the finding above is what it looks like when nothing enforces it.
 
-33. <a id="team-check-cites-retired-practice"></a>~~**`precedent-team-repo-maintenance`' `check_deep_check.py` cites a practice
+30. <a id="team-check-cites-retired-practice"></a>~~**`precedent-team-repo-maintenance`' `check_deep_check.py` cites a practice
     retired in that same set.**~~ **Resolved by reversal, 2026-09-06.** The
     premise was the bug: `deep-check` was never redundant with
     `very-deep-check` — they are unrelated rules of different kind and
@@ -780,7 +801,7 @@ which is the failure this repointing exists to end — write
     move. This is the incident that motivated
     [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md).
 
-34. <a id="attach-private-sources"></a>**Run one session rooted at each private set — this unblocks four other
+31. <a id="attach-private-sources"></a>**Run one session rooted at each private set — this unblocks four other
     items at once.** Established 2026-09-06 by trying it, rather than
     assumed: all three private repos (`themorgan/precedent-team-repo-maintenance`,
     `themorgan/precedent-team-tms`, `themorgan/precedent-individual`) are
@@ -880,7 +901,7 @@ which is the failure this repointing exists to end — write
     [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
     reports which state a session is in.
 
-35. <a id="convert-team-set-retired-statuses"></a>*(was item 34 — two items carried that number until 2026-09-06.)* **Convert
+32. <a id="convert-team-set-retired-statuses"></a>*(was item 34 — two items carried that number until 2026-09-06.)* **Convert
     `precedent-team-repo-maintenance`' two `status: retired` practices to
     `status: deduplicated`.** `bestpractice-sync` (rule in force at
     individual) and `header-caps` (rule in force at universal) are both
@@ -916,7 +937,7 @@ which is the failure this repointing exists to end — write
     one state the old record was never entitled to claim and is now simply
     true.
 
-36. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
+33. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
     and writes anyway.**~~ **Done 2026-09-06.** Both defects fixed in
     [tools/build_codeowners.py](tools/build_codeowners.py): a real `--check`
     that compares and exits non-zero without writing (and an unknown flag is
@@ -939,7 +960,7 @@ which is the failure this repointing exists to end — write
     `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`
     then `python3 tools/build_codeowners.py`, committed.
 
-37. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
+34. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
     None of the three private sets has a `precedent.json`, so each set's
     `build_views.py` renders its own catalogue alone — and a universal
     practice cannot reach the set that dropped its own copy in favour of it.
@@ -951,7 +972,7 @@ which is the failure this repointing exists to end — write
     source repo eating its own cooking changes what binds a contributor to
     that set, so it needs Morgan's call before any work starts.
 
-38. <a id="relax-the-pinned-branch-hold"></a>**Relax the pinned-branch hold
+35. <a id="relax-the-pinned-branch-hold"></a>**Relax the pinned-branch hold
     once the fix has run through real sync cycles.**
     [tools/checkin.py](tools/checkin.py)'s four commands — `fresh`,
     `update`, `record`, `push` — now read `upstream.branch` from a consuming
@@ -997,7 +1018,7 @@ which is the failure this repointing exists to end — write
     tree (a CI check refusing a commit that reverts the tree against its
     pin) is a real question and nobody has decided it.
 
-39. <a id="background-freshness-fetch"></a>**Consider making the freshness check's fetch asynchronous.**
+36. <a id="background-freshness-fetch"></a>**Consider making the freshness check's fetch asynchronous.**
     [.claude/hooks/freshness-guard.sh](.claude/hooks/freshness-guard.sh)'s
     `user-prompt` mode is throttled rather than backgrounded: it skips
     entirely inside its interval (measured ≈17ms, no network, no output) and
@@ -1022,7 +1043,7 @@ which is the failure this repointing exists to end — write
     measurements and the two rejected alternatives:
     [this thread](https://claude.ai/code/session_01NQCKsA4otmeujdrbCGrqR3).
 
-40. <a id="cache-freshness-verdict"></a>~~**Cache the freshness guard's verdict so a blocked state stops
+37. <a id="cache-freshness-verdict"></a>~~**Cache the freshness guard's verdict so a blocked state stops
     re-probing.**~~ **Considered and declined 2026-09-06 — the measurements
     are here so nobody re-derives them.** The behavior is real:
     [.claude/hooks/freshness-guard.sh](.claude/hooks/freshness-guard.sh)'s
@@ -1104,7 +1125,7 @@ which is the failure this repointing exists to end — write
   and that is the point — reopening this means someone arguing the imposition
   is worth it for every adopter, which is a decision rather than a task.
 
-41. <a id="gates-absent-from-main"></a>**Put the leak gate on `main`; the deep
+38. <a id="gates-absent-from-main"></a>**Put the leak gate on `main`; the deep
     check cannot go there until the merge-back.** **Deferred by Morgan
     2026-09-07 — worth doing, not now.** `main` carries only
     [.github/workflows/docs.yml](.github/workflows/docs.yml), so the official
@@ -1151,7 +1172,7 @@ which is the failure this repointing exists to end — write
     with no grace period. **What closes it for free:** the merge-back landing
     first, which brings both gates to `main` in one move.
 
-42. <a id="bold-rule-for-heading-dense-pages"></a>~~**`bold-key-phrases` needs a weak
+39. <a id="bold-rule-for-heading-dense-pages"></a>~~**`bold-key-phrases` needs a weak
     counter-clause for heading-dense pages.**~~ **Done 2026-09-07**, in the team set,
     on branch `claude/bold-phrases-density-clause-mo6m33`. The clause went to
     `## Detail`, not `## Rule`: the practice is `tier: resident`, and a suggestion
@@ -1972,7 +1993,7 @@ which is the failure this repointing exists to end — write
   [`attach-private-sources`](TODO.md#attach-private-sources) stays the route for
   anything needing GitHub-side access to a `themorgan/` set — the API, a push, a
   pull request — rather than a read of its files on disk.
-43. <a id="loader-comment-names-an-unvendored-check"></a>**The generated loader block
+40. <a id="loader-comment-names-an-unvendored-check"></a>**The generated loader block
     tells every source set that a check catches drift, in exactly the repos where that
     check does not exist.** [tools/build_views.py](tools/build_views.py) writes `do not
     hand-edit this block, tools/verify_harness.py's regeneration check fails on drift.`
@@ -2141,7 +2162,7 @@ which is the failure this repointing exists to end — write
   change this run has been finding all day. The engine-side guard is blocked
   on a design call (which baseline to compare against), not on the work.
 
-40. <a id="philosophy-sync"></a>**~~Decide how `philosophy/` stays current with the notebook it came from.~~
+41. <a id="philosophy-sync"></a>**~~Decide how `philosophy/` stays current with the notebook it came from.~~
     Settled 2026-09-07: there is nothing to stay current with.** The
     question was which of three options to take — dated snapshot,
     vendored-and-synced, or move the originals here. Morgan chose the
@@ -2177,7 +2198,7 @@ which is the failure this repointing exists to end — write
     that into a public repo where nothing points at it would be a copy kept
     for the feeling of not having thrown anything away.
 
-41. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` are masked, and there is no longer an
+42. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` are masked, and there is no longer an
     original to compare them against.** The default leak blocklist bans
     profanity in this repository's public tree, and the essays carried it
     three times — in
@@ -2685,7 +2706,7 @@ which is the failure this repointing exists to end — write
 
   `STYLEGUIDE.md` is unchanged, as recommended: it ships empty, it is project
   data, and it is not a rule at any level.
-42. <a id="upstream-notice-silent-when-rooted-above"></a>**The upstream-carry
+43. <a id="upstream-notice-silent-when-rooted-above"></a>**The upstream-carry
     notice is silent in exactly the layout this project requires, and nothing
     reports its absence.**
     [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py)
@@ -2712,7 +2733,7 @@ which is the failure this repointing exists to end — write
     and therefore already prints the notice — what is missing is the
     REPORTING line that tells a session the notice never arrived.
 
-45. <a id="small-calls-vs-brainstorm"></a>**`small-calls` tells a session to commit during a brainstorm, and
+44. <a id="small-calls-vs-brainstorm"></a>**`small-calls` tells a session to commit during a brainstorm, and
     nothing mechanical stops it.** Opened 2026-09-08 alongside
     [brainstorm-holds-commits](practices/brainstorm-holds-commits.md), and
     **corrected the same day** — the first version of this item said the team
@@ -2739,7 +2760,7 @@ which is the failure this repointing exists to end — write
     to `precedent-team-repo-maintenance` from this session (`cross-source-rollout`).
     Whoever takes it should check the individual set for the same shape.
 
-46. <a id="decision-strength-private-sources"></a>**Carry `decision-strength` into the two private practice sets.** The
+45. <a id="decision-strength-private-sources"></a>**Carry `decision-strength` into the two private practice sets.** The
    `strength:` frontmatter key, the `Weak yes` phrase and the
    `decision-strength` check landed universal on 2026-09-09
    ([decisions/2026-09-09-decision-strength.md](decisions/2026-09-09-decision-strength.md)).
@@ -2759,7 +2780,7 @@ which is the failure this repointing exists to end — write
    (`add_repo` refused with *"cross-tier adds are not supported in v1"*)
    (`cross-source-rollout`).
 
-47. <a id="whatsapp-bridge-research"></a>**Verify the chat bridge's platform claims against
+46. <a id="whatsapp-bridge-research"></a>**Verify the chat bridge's platform claims against
    the platforms, or drop it.**
    [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md)
    designs a bot that gives each participant a private thread and
@@ -2809,7 +2830,7 @@ which is the failure this repointing exists to end — write
    `wait` ([open-item-disposition](practices/open-item-disposition.md)):
    nobody chases it, and nobody raises it unless Morgan asks.
 
-48. <a id="audit-trail-item-placement"></a>**Confirm where the audit-trail item belongs in
+47. <a id="audit-trail-item-placement"></a>**Confirm where the audit-trail item belongs in
    [philosophy/AI_GOVERNANCE_TO_COCREATE.md](philosophy/AI_GOVERNANCE_TO_COCREATE.md).**
    Morgan's 2026-09-09 batch asked for *"Version Control and an Audit
    Trail"* to be added under **Verification**, and, two items later, for
@@ -2828,7 +2849,7 @@ which is the failure this repointing exists to end — write
    ([decision-strength](practices/decision-strength.md)), which is the
    difference between the two.
 
-49. <a id="cross-owner-add-repo-push"></a>**Measure whether `add_repo` refuses a cross-owner attachment in the
+48. <a id="cross-owner-add-repo-push"></a>**Measure whether `add_repo` refuses a cross-owner attachment in the
    REVERSE direction, with `access: "push"`.** Every measurement so far ran
    one way — from a session rooted in this repository, reaching for a
    private practice-set repository under another owner — and the refusal
@@ -2854,7 +2875,7 @@ which is the failure this repointing exists to end — write
    transcript. It carries no disposition, so it is `wait`
    ([open-item-disposition](practices/open-item-disposition.md)).
 
-50. <a id="source-hook-drift"></a>**Decide whether a drifted-but-present session hook in a practice-set
+49. <a id="source-hook-drift"></a>**Decide whether a drifted-but-present session hook in a practice-set
    source gets brought up to canonical automatically.** Measured 2026-09-09
    across the five private sets: every declared hook exists and is
    executable, so nothing is broken — but one set's `freshness-guard.sh` is
@@ -3020,7 +3041,7 @@ which is the failure this repointing exists to end — write
    open is the general question: whether `--apply` should keep hook content
    current by default.
 
-51. <a id="sync-refuses-a-rewind"></a>**Make `precedent_sync_views.py` refuse a sync that would rewind a
+50. <a id="sync-refuses-a-rewind"></a>**Make `precedent_sync_views.py` refuse a sync that would rewind a
    practice's content, not just one that would remove the practice
    outright.** It already refuses at practice granularity: `_lost_practices`
    blocks a write that would remove a practice the committed
@@ -3049,7 +3070,7 @@ which is the failure this repointing exists to end — write
    **Blocked-on:** nothing external — it is queued for size, not for
    permission. It carries no disposition, so it is `wait`
    ([open-item-disposition](practices/open-item-disposition.md)).
-52. <a id="source-checks-adopt-engine-helpers"></a>**Move the two private practice sets' checks onto the engine helpers
+51. <a id="source-checks-adopt-engine-helpers"></a>**Move the two private practice sets' checks onto the engine helpers
    added 2026-09-10.** Three source-supplied checks were found broken by a
    real §0 install into a fresh private repository, and each one's cause
    was the same shape: a check re-deriving from private assumptions
@@ -3143,7 +3164,7 @@ which is the failure this repointing exists to end — write
    two documented import-failure fallbacks stay legal, since only a
    path-matching call is a decision.
 
-53. <a id="review-skill-level-permissions"></a>**Review the whole
+52. <a id="review-skill-level-permissions"></a>**Review the whole
    technical/non-technical permission split, now that the pieces are in
    three separate places.** Asked for by Morgan on 2026-09-10, closing the
    thread that produced the split: *"note a TODO to review the 'technical vs
@@ -3217,7 +3238,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** ask (2026-09-10, Morgan asked for the review himself)
 
-54. <a id="stale-days-does-not-travel"></a>**Decide whether the four private
+53. <a id="stale-days-does-not-travel"></a>**Decide whether the four private
    practice sets should declare their own `branch_stale_days`.** Found
    2026-09-10 by the first real cross-repo run of the widened branch sweep
    ([practices/very-deep-check.md](practices/very-deep-check.md), pass 4),
@@ -3252,7 +3273,7 @@ which is the failure this repointing exists to end — write
    only the person an item waits on may set it to `ask`, and a session
    stamping that for him is the session giving itself permission to chase.
 
-55. <a id="private-owner-allowlist-inert"></a>**The repo-reference allowlist is
+54. <a id="private-owner-allowlist-inert"></a>**The repo-reference allowlist is
    inert here, and this public tree names the account that owns the private
    practice sets.** Found 2026-09-10 while answering a question about
    `PRECEDENT_SOURCE_BASE_URL`.
@@ -3332,7 +3353,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait (2026-09-10, Morgan) — the code half is done; the
    remaining half needs a session rooted in his own account.
-53. <a id="retire-a-practice-source"></a>**Write the retirement sequence for a practice SOURCE, from the one real
+55. <a id="retire-a-practice-source"></a>**Write the retirement sequence for a practice SOURCE, from the one real
    run.** `precedent-team-tms` was retired 2026-09-10 — the first time a
    whole source has been taken out of service rather than a file or a
    directory inside one, which is what
@@ -3481,7 +3502,7 @@ which is the failure this repointing exists to end — write
     **Disposition:** wait
     ([open-item-disposition](practices/open-item-disposition.md)).
 
-57. <a id="repo-name-regex-shape"></a>**Think about the shape of the leak
+58. <a id="repo-name-regex-shape"></a>**Think about the shape of the leak
    gate's repository-name rule: it refuses `owner/name` and ignores `name`.**
    Raised by Morgan, 2026-09-11, in the same breath as deciding the team
    sets' names are not private
@@ -3520,7 +3541,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-58. <a id="source-load-ceilings"></a>**Declare session-load ceilings in the attached practice-set sources, and
+59. <a id="source-load-ceilings"></a>**Declare session-load ceilings in the attached practice-set sources, and
    measure the real total a session pays.**
    [session-load-budget](practices/session-load-budget.md) landed 2026-09-11
    with a registry
@@ -3539,7 +3560,7 @@ which is the failure this repointing exists to end — write
    is a merge under that repository's own rules, not this one's. Do it in the
    session that refreshes their engines.
 
-59. <a id="provenance-check-skips-in-a-source-set"></a>**A universal
+60. <a id="provenance-check-skips-in-a-source-set"></a>**A universal
    practice's mechanical check could not bind a source set, so sets relied on
    checks that silently skipped there.** **Largely resolved**: the mechanism
    below shipped as `binds_publishers` (#261, 2026-09-12) and reached all four
@@ -3631,7 +3652,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-60. <a id="consumer-views-drift-uncheckable-in-ci"></a>**A consuming repo's
+61. <a id="consumer-views-drift-uncheckable-in-ci"></a>**A consuming repo's
    generated loader block cannot be drift-checked in CI, and today nothing
    checks it anywhere.** A consuming repo materializes `practices/` from the
    sources it resolves. A team source is a sibling clone outside the repo; an
@@ -3665,7 +3686,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-61. <a id="views-drift-gate-rollout-to-existing-sets"></a>**Install the views
+62. <a id="views-drift-gate-rollout-to-existing-sets"></a>**Install the views
    drift gate in the four existing private sets.**
    [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template)
    reaches a new set through
@@ -3718,7 +3739,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-62. <a id="cross-source-resident-block-over-cap"></a>~~**The resident block is
+63. <a id="cross-source-resident-block-over-cap"></a>~~**The resident block is
    over its 2,000-token cap once the private sources resolve, and has been
    since before this item was written.**~~ **CLOSED 2026-09-11: both demotions
    landed, and the block measures 1,695 tokens across 15 practices,
@@ -3866,7 +3887,7 @@ which is the failure this repointing exists to end — write
    and the full harness at `0 failed`.
 
 
-63. <a id="source-clone-keeps-no-credential"></a>~~**A private source clone carries no credential helper, so every later
+64. <a id="source-clone-keeps-no-credential"></a>~~**A private source clone carries no credential helper, so every later
     fetch of it fails — and the freshness guard blocks on that.**~~
     **Done (2026-09-11).**
     [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
@@ -3909,7 +3930,7 @@ which is the failure this repointing exists to end — write
     `check_source_clone_keeps_its_credential` holds it, with two negative
     controls that were run rather than assumed.
 
-64. <a id="renamed-team-source-not-in-allowlist"></a>**Nothing checks that a
+65. <a id="renamed-team-source-not-in-allowlist"></a>**Nothing checks that a
     rename carried its allowlist entry.** *(The anchor is kept and the title
     changed: anchors are permanent here
     ([rename-updates-links](practices/rename-updates-links.md)), and this
@@ -3976,7 +3997,7 @@ which is the failure this repointing exists to end — write
     ([handoff-is-pasteable](practices/handoff-is-pasteable.md) is about
     making the right handoff easy, not about having one).
 
-65. <a id="figures-reach-commit-messages-ungated"></a>**A figure can reach a
+66. <a id="figures-reach-commit-messages-ungated"></a>**A figure can reach a
     commit message without anything checking it, and it did twice in two
     days.** Every script-derived number in a *document* sits inside a
     generated block that [doc_sync.py](tools/doc_sync.py) regenerates and
@@ -4027,7 +4048,7 @@ which is the failure this repointing exists to end — write
     item and said in the same breath that it is a weak one.
     **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
 
-66. <a id="source-clause-check-reads-only-html-comments"></a>**The `Source:`
+67. <a id="source-clause-check-reads-only-html-comments"></a>**The `Source:`
     clause check reads only HTML comments, so a generated file whose header is
     a `#` comment is never asked for one.**
     [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md)'s
@@ -4053,7 +4074,7 @@ which is the failure this repointing exists to end — write
     whatever it names, and plant a case per header shape.
     **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
 
-67. <a id="consuming-repo-clause-clears-on-vendor-update"></a>**Confirm the
+68. <a id="consuming-repo-clause-clears-on-vendor-update"></a>**Confirm the
     consuming repo's `Source:` clause actually clears, rather than assuming
     it.** The clause-matcher faults in item 66's sibling fix were found from a
     consuming repo, whose generator emits a hyphenated `Source:` path. That
@@ -4070,7 +4091,7 @@ which is the failure this repointing exists to end — write
     after the vendor update.
     **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
 
-68. <a id="source-sets-vendor-the-broken-clause-matcher"></a>**All four
+69. <a id="source-sets-vendor-the-broken-clause-matcher"></a>**All four
     practice-set sources vendor the pre-fix `Source:` clause matcher.**
     `precedent_check.py` is in `ENGINE_FILES`, so `precedent-individual`,
     `precedent-team-repo-maintenance`, `precedent-team-writing` and
@@ -4095,7 +4116,7 @@ which is the failure this repointing exists to end — write
     tree.
     **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
 
-69. <a id="source-name-check-cannot-run-in-a-hosted-session"></a>**The
+70. <a id="source-name-check-cannot-run-in-a-hosted-session"></a>**The
     source-name check reports UNVERIFIED for every private source in a hosted
     session, which is where most vendor updates happen.**
     [tools/precedent_source_names.py](tools/precedent_source_names.py) asks
@@ -4126,7 +4147,7 @@ which is the failure this repointing exists to end — write
     which this repository does not control, and a decision between those three
     shapes. **Disposition:** wait (2026-09-11 — a session filed this; nobody
     has set it to `ask`)
-70. <a id="my-options-includes-doing-nothing"></a>**Decide whether "My
+71. <a id="my-options-includes-doing-nothing"></a>**Decide whether "My
     options" must always list the do-nothing option.** When
     [my-options](practices/my-options.md) was coined on 2026-09-12, the
     session proposed that a plain "none of these, don't do it" be a
@@ -4141,7 +4162,7 @@ which is the failure this repointing exists to end — write
     **Blocked on / out of scope:** Morgan's decision, explicitly deferred.
     **Disposition:** wait (2026-09-12 — deferred by him; nobody has set it
     to `ask`)
-71. <a id="universal-adapters-undeclared"></a>**Decide whether THIS repository
+72. <a id="universal-adapters-undeclared"></a>**Decide whether THIS repository
     declares its own harness adapters.** Since 2026-09-12 a practice source
     can declare its `bootstrap/*.sh` in its own `precedent.json` and have
     [tools/precedent_materialize.py](tools/precedent_materialize.py) install
@@ -4161,7 +4182,7 @@ which is the failure this repointing exists to end — write
     mechanism should not make by convenience on the way past.
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
-72. <a id="source-sets-declare-adapters"></a>**Have the private source sets
+73. <a id="source-sets-declare-adapters"></a>**Have the private source sets
     declare their harness adapters.** Each of the four attached sets ships
     `bootstrap/*.sh` that its own practices tell a consuming repo to copy into
     `.claude/hooks/` by hand — the individual set's `freshness-guard.sh`,
@@ -4183,7 +4204,7 @@ which is the failure this repointing exists to end — write
     that may hold an older copy on purpose.
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
-73. <a id="leak-gate-is-background-level"></a>~~**Decide whether
+74. <a id="leak-gate-is-background-level"></a>~~**Decide whether
     `leak-gate-is-background` belongs at team or universal level rather than
     individual.**~~ **Answered 2026-09-13, by him: universal** — *"Yes, make
     this one universal."* Asked to choose between the two readings below, he
@@ -4257,7 +4278,7 @@ which is the failure this repointing exists to end — write
     proportionality guard). Recorded here because the shape recurs: a limit on
     what a *repository* can reach, stated as a limit on what the session can do.
 
-74. <a id="leak-gate-is-background-dedup"></a>~~**Deduplicate
+75. <a id="leak-gate-is-background-dedup"></a>~~**Deduplicate
     `leak-gate-is-background` in the individual set, now that it is in force at
     universal.**~~ **Done 2026-09-13** — `themorgan/precedent-individual` pull
     request #94, merge commit `e3bb64e`. That set's copy now carries
@@ -4321,7 +4342,7 @@ which is the failure this repointing exists to end — write
     [TODO.md's `check-gate-reads-status` item](TODO.md#check-gate-reads-status)
     below.
 
-75. <a id="check-gate-reads-status"></a>~~**Decide whether
+76. <a id="check-gate-reads-status"></a>~~**Decide whether
     [tools/precedent_check.py](tools/precedent_check.py)'s practice-backed gate
     should test a practice's `status` rather than whether its file exists.**~~
     **Decided 2026-09-13: document the distinction, do not change the gate.**
@@ -4386,7 +4407,7 @@ which is the failure this repointing exists to end — write
     deliberately changed nothing. Morgan decided it on 2026-09-13. The item
     carries no disposition because it is no longer an open item.
 
-75. <a id="chief-of-staff-session"></a>~~**Decide whether to build the Chief of
+77. <a id="chief-of-staff-session"></a>~~**Decide whether to build the Chief of
     Staff session.**~~ **Decided 2026-09-14, by him: build it.** The universal
     practice and the sweeper Routine are live; the tag namespaces and the
     standing desk are not, and each is still his call —
@@ -4609,7 +4630,7 @@ which is the failure this repointing exists to end — write
   no disposition because it is no longer an open item — the broken link is
   repaired and all four sets carry the flag.
 
-76. <a id="reply-check-rollout"></a>**Roll the blocking reply check out to the
+78. <a id="reply-check-rollout"></a>**Roll the blocking reply check out to the
     sources that want one, and land the individual set's half.** Built
     2026-09-13 in this repo: `tools/precedent_reply_check.py` enforces whatever
     a source declares in a `reply_check.json` at its root, and the `reply` gate
@@ -4672,7 +4693,7 @@ which is the failure this repointing exists to end — write
     here. **Disposition:** ask (2026-09-13, this session) — the written half
     dies with this container otherwise.
 
-77. <a id="views-drift-vs-suite-workflow"></a>**Decide whether a source set
+79. <a id="views-drift-vs-suite-workflow"></a>**Decide whether a source set
     that runs the whole check suite in continuous integration should still
     carry `views-drift.yml`.** Until 2026-09-12 the two could not overlap:
     `generated-artifact-provenance` skipped itself in a source set, so the
@@ -4713,7 +4734,7 @@ which is the failure this repointing exists to end — write
     cross-owner. The decision comes first either way.
     **Disposition:** wait
 
-78. <a id="universal-prose-does-not-reach-a-source-set"></a>**A check can now
+80. <a id="universal-prose-does-not-reach-a-source-set"></a>**A check can now
     bind a repo that publishes practices; universal PROSE still cannot reach
     one.** `binds_publishers` (#261, 2026-09-12) closed half a wart this file
     had called "real and unaddressed": a universal check now runs in the
@@ -4794,7 +4815,7 @@ which is the failure this repointing exists to end — write
     and rolling the change out to the four sets is still to do.
     **Disposition:** wait
 
-79. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
+81. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
     `precedent-individual-bootstrap.sh` into the four practice sets that
     already exist.** As of 2026-09-13
     [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
@@ -4857,7 +4878,7 @@ which is the failure this repointing exists to end — write
     is why it was handed off rather than done here.
     **Disposition:** wait
 
-80. <a id="session-load-under-20k"></a>**Get what every session loads under
+82. <a id="session-load-under-20k"></a>**Get what every session loads under
     20,000 tokens.** **DONE 2026-09-13 — 14,386.** Measured with
     [tools/build_views.py](tools/build_views.py)'s own `_approx_tokens`:
     [AGENTS.md](AGENTS.md) 11,468, `.precedent/SESSION_PRACTICES.md` 2,863,
@@ -4902,7 +4923,7 @@ which is the failure this repointing exists to end — write
 
 
 
-81. <a id="source-set-runs-no-universal-checks"></a>**A practice set now READS
+83. <a id="source-set-runs-no-universal-checks"></a>**A practice set now READS
     the universal rules and still RUNS none of universal's mechanical
     checks.** Shape 3 landed 2026-09-13
     ([spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md)): a session
@@ -4949,7 +4970,7 @@ which is the failure this repointing exists to end — write
     **Disposition:** ask (2026-09-13, Morgan)
 
 
-83. <a id="vendor-very-deep-check-into-sets"></a>**Vendor
+84. <a id="vendor-very-deep-check-into-sets"></a>**Vendor
     `very_deep_check.py` into the practice sets, so a set can audit its own
     always-loaded files instead of only gating new ones.** A set carries its
     own `AGENTS.md` — measured 2026-09-11 at 943, 956 and 963 tokens for the
@@ -5003,7 +5024,7 @@ which is the failure this repointing exists to end — write
     raise it tonight (2026-09-13, Morgan)
     **Disposition:** ask (2026-09-13, Morgan)
 
-84. <a id="source-set-push-triggers"></a>**The four practice sets still run
+85. <a id="source-set-push-triggers"></a>**The four practice sets still run
     their checks on `pull_request` only, so a direct push to one runs
     nothing.** Upstream's half landed 2026-09-14 in
     [PR #313](https://github.com/alex137/BestPractice/pull/313):
@@ -5052,7 +5073,7 @@ which is the failure this repointing exists to end — write
     accepting a proposal. Nothing here is waiting on a decision; it is
     waiting on a session that can push.
 
-85. <a id="vendor-engine-ref-not-on-cli"></a>**Expose
+86. <a id="vendor-engine-ref-not-on-cli"></a>**Expose
     [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)'s
     `ref` parameter on the command line.** `refresh` fetches
     `origin <SOURCE_BRANCH>` and then resolves `origin/<SOURCE_BRANCH>`, so it
@@ -5109,7 +5130,7 @@ which is the failure this repointing exists to end — write
     [#336](https://github.com/alex137/BestPractice/pull/336) — and was
     corrected the same day.
 
-86. <a id="set-ci-skips-vendored-tests"></a>**No practice set's CI runs the
+87. <a id="set-ci-skips-vendored-tests"></a>**No practice set's CI runs the
     vendored checks' own test suite, so a red suite sits under a green pull
     request.** Verified 2026-09-14: none of the three workflow templates a set
     is bootstrapped with —
@@ -5130,7 +5151,7 @@ which is the failure this repointing exists to end — write
     that turns real answers into `SKIPPED` unless
     `PRECEDENT_BESTPRACTICE_CLONE` is set.
 
-87. <a id="set-cannot-show-a-universal-practice"></a>**In a practice SET,
+88. <a id="set-cannot-show-a-universal-practice"></a>**In a practice SET,
     `precedent_show.py SLUG` cannot read any universal practice — and the
     generated file that delivers those practices tells its reader to run
     exactly that command.** Measured 2026-09-14 in a real team set, not
@@ -5165,7 +5186,7 @@ which is the failure this repointing exists to end — write
     to four sets before it helps anyone — a bigger piece than the note asked
     for. Nothing is waiting on a decision.
 
-88. <a id="reply-check-cannot-forbid"></a>**The reply check can only REQUIRE
+89. <a id="reply-check-cannot-forbid"></a>**The reply check can only REQUIRE
     text, never forbid it — so every practice about what a reply must NOT
     contain is unenforceable by it.** Verified 2026-09-14 by reading
     [tools/precedent_reply_check.py](tools/precedent_reply_check.py): the
@@ -5196,7 +5217,7 @@ which is the failure this repointing exists to end — write
     and what it does with a reply that quotes the forbidden thing in order to
     report a real hit, which that practice explicitly still requires.
 
-89. <a id="consumer-cannot-resolve-upstream-commit"></a>**A consumer repo
+90. <a id="consumer-cannot-resolve-upstream-commit"></a>**A consumer repo
     cannot read upstream's own text at `upstream.commit` — nothing local
     resolves it — so no check that runs there may assume it can.** Measured
     2026-09-14 in a real consumer, not reasoned about: `process/upstream/` is
@@ -5401,7 +5422,7 @@ which is the failure this repointing exists to end — write
   the most stale means the job has been failing or disabled, and wants looking
   at before it is copied three more times.
 
-90. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
+91. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
   wrong repo when vendored, and five more have not been checked.** Fixed
   2026-09-14 for the five a consuming repo actually runs —
   [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py),
@@ -5434,7 +5455,7 @@ which is the failure this repointing exists to end — write
   readings is confident, specific, and about the wrong repository — the
   shape of wrongness that gets believed.
 
-91. <a id="sync-views-blames-a-dropped-source-for-a-retirement"></a>**A
+92. <a id="sync-views-blames-a-dropped-source-for-a-retirement"></a>**A
   retired practice is reported as one whose SOURCE was dropped, and a
   renamed source would read identically.** On 2026-09-14
   [tools/precedent_sync_views.py](tools/precedent_sync_views.py) removed four
@@ -5454,7 +5475,7 @@ which is the failure this repointing exists to end — write
   states before writing the message: a practice whose source resolves but
   whose `status` is `retired`, versus one whose source is genuinely gone.
 
-92. <a id="phase3-snapshot-is-not-a-snapshot"></a>**The phase-3 "point-in-time
+93. <a id="phase3-snapshot-is-not-a-snapshot"></a>**The phase-3 "point-in-time
     record" is not one: it freezes WHICH practices count and reads what they
     say TODAY, so editing any of the original 52 moves a figure two documents
     recite.** Measured 2026-09-14, and the measurement is the demonstration:
@@ -5517,7 +5538,7 @@ which is the failure this repointing exists to end — write
     a consuming repo reported "52 passed, 0 violated" against upstream's "44
     passed, 0 violated" for the same change.
 
-93. <a id="close-detect-declaration-unpushed"></a>**The individual set's
+94. <a id="close-detect-declaration-unpushed"></a>**The individual set's
   `close_detect.json` is written and cannot be pushed from a session rooted
   here.** Close detection
   ([tools/precedent_close_detect.py](tools/precedent_close_detect.py),
