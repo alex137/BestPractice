@@ -5691,6 +5691,26 @@ def check_precedent_check_fires():
                     lambda s: s.replace('Park it', 'the phrase'))
         case('park-it', _plant_park_it)
 
+        # install-declares-its-scope -- SETUP.md put back the way it read
+        # before 2026-09-14: the paragraph naming VOICE.md and STYLEGUIDE.md
+        # together, stripped of every deferral marker, so it reads as an
+        # instruction to fill them in during the install. That is the exact
+        # regression the check exists for, and it is the state the guided
+        # install was actually in.
+        #
+        # The counterpart matters as much as the case: the check's own test
+        # (local/tools/checks/tests/) proves that prose saying "do NOT walk
+        # them through" does NOT fire. A first draft of the check could not
+        # tell an instruction from its negation and flagged three correct
+        # passages in INSTALL.md.
+        def _plant_idis(repo):
+            rewrite(repo, 'SETUP.md', lambda s: s + (
+                "\n## Fill In the Identity Files\n\n"
+                "Walk the administrator through `VOICE.md` section by "
+                "section, and\nask whether a brand guideline exists to fill "
+                "`STYLEGUIDE.md` from.\n"))
+        case('install-declares-its-scope', _plant_idis)
+
         # environment-gotchas -- an entry that is a bare fix
         def _plant_eg(repo):
             rewrite(repo, 'AGENTS.md', lambda t: t.replace(
