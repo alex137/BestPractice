@@ -4209,6 +4209,17 @@ which is the failure this repointing exists to end — write
     The open work is a declared decline carrying a reason, satisfied by the
     reason rather than by the wiring — not a new check.
 
+    **Built 2026-09-14.** `precedent.json` takes a `declined_adapters` list
+    of `{path, reason}`, and `hooks-on-disk-are-reachable` reads it: a hook
+    declined with a reason is satisfied by the reason. A decline with no
+    reason, a decline naming a file that is not there, and a decline sitting
+    beside a hook something actually calls are each reported instead — four
+    planted cases in
+    [tools/verify_harness.py](tools/verify_harness.py). Documented in
+    [spec/SOURCES.md](spec/SOURCES.md)'s "Harness adapters travel with the
+    source". **So the thing this item was waiting on exists**, and what is
+    left is the decision below and nothing else.
+
     **Blocked on / out of scope:** a deliberate call about a behavioural
     change to every consuming repo, which the session that built the
     mechanism should not make by convenience on the way past.
@@ -4255,6 +4266,15 @@ which is the failure this repointing exists to end — write
     `precedent-universal-catalogue.sh` are not declared, and nothing says
     whether that is a decision or an oversight. That question, and nothing
     about the team sets, is this item.
+
+    **Unblocked 2026-09-14**, now that a consuming repo can decline an
+    adapter with a reason (see item 72). Declaring the two remaining scripts
+    no longer forces every consumer that does not want them into a
+    permanent violation, which was the real cost of doing this early. The
+    work is one repository — `precedent-individual` — and it is a session
+    rooted there, not here: this repository is a different owner and
+    `add_repo` refuses across owners (*"cross-tier adds are not supported in
+    v1"*, measured 2026-09-14).
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
 74. <a id="leak-gate-is-background-level"></a>~~**Decide whether
