@@ -526,7 +526,25 @@ def apply_to(entry, commit=False, branch=None):
     # leaves the repo's committed AGENTS.md/MAP.md describing the OLD
     # engine's output, which its own --check would then fail on. The
     # engine bump and its output have to land together.
-    ok, out = _run([sys.executable, 'tools/build_views.py'], repo)
+    # WHICH regenerator, and why it is not always build_views.py. A practice
+    # SET's views ARE its own practices/, so build_views.py is the whole job
+    # there. A CONSUMER's views are materialized from several sources first,
+    # and its entry point for that is precedent_sync_views.py; running plain
+    # build_views.py against one renders MAP.md's "## The engine" table over
+    # the consumer's tools/ directory, which holds the consumer's OWN scripts
+    # alongside the vendored engine -- and that table asserts every file
+    # beside the script has a TOOLS_DESCRIPTIONS entry, which a script this
+    # repo wrote can never have for a script it has never seen. Found
+    # 2026-09-14 against a real consumer, on `tools/check_file_mention_links.py`:
+    # the refresh had already written the new engine and then hard-failed
+    # before regenerating anything, leaving exactly the engine-ahead-of-its-
+    # output state the comment above exists to prevent.
+    sync = repo / 'tools' / 'precedent_sync_views.py'
+    if entry.get('kind') == 'consumer' and sync.is_file():
+        cmd = [sys.executable, 'tools/precedent_sync_views.py', '--repo', '.']
+    else:
+        cmd = [sys.executable, 'tools/build_views.py']
+    ok, out = _run(cmd, repo)
     steps.append(('build_views', ok, out))
     if not ok or not commit:
         return steps
