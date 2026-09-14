@@ -3416,6 +3416,15 @@ def check_source_names_detects_a_rename():
     practices materialize correctly. It surfaced because a person recognised
     a name he had retired.
 
+    THE REDIRECT PATH, ADDED 2026-09-14. The incident above was reported by
+    a person, not by the tool: run against the real renamed repository the
+    tool answered UNVERIFIED, because GitHub's 301 points at the numeric-ID
+    form (`/repositories/1352494938`) and the session proxy refuses it, so
+    the tool caught the error and said it could not check. A redirect is
+    conclusive on its own -- a repository still called that does not
+    redirect -- so it is now RENAMED whether or not the new name can be
+    read, and `--check` fails on it.
+
     THE API CALL IS STUBBED HERE AND MEASURED ELSEWHERE. A harness case may
     not depend on the network, and no renamed repository is reachable from a
     hosted session anyway -- api.github.com answers 403 for every repo the
@@ -3430,7 +3439,7 @@ def check_source_names_detects_a_rename():
     must never render the same, so each case asserts the printed verdict,
     not merely that something was printed (practice:
     control-asserts-which-failure)."""
-    import io, shutil, tempfile
+    import io, shutil, tempfile, urllib.error, urllib.request
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_source_names as psn
 
@@ -3467,7 +3476,7 @@ def check_source_names_detects_a_rename():
             return rows, buf.getvalue()
 
         rows, out = run_with(lambda o, n, env=None:
-                             ('example/precedent-team-repo-maintenance', None))
+                             ('example/precedent-team-repo-maintenance', None, False))
         cases.append(('a renamed source is reported as RENAMED, naming both '
                       'the name this repo fetches and the one GitHub uses now',
                       [r['verdict'] for r in rows] == ['RENAMED']
@@ -3476,14 +3485,14 @@ def check_source_names_detects_a_rename():
                       out))
 
         rows, out = run_with(lambda o, n, env=None:
-                             ('example/precedent-team-fixture', None))
+                             ('example/precedent-team-fixture', None, False))
         cases.append(('an unrenamed source is OK, and the summary counts zero '
                       'renamed and zero unchecked',
                       [r['verdict'] for r in rows] == ['OK']
                       and '0 renamed, 0 NOT checked' in out, out))
 
         rows, out = run_with(lambda o, n, env=None:
-                             (None, 'GitHub answered HTTP 403: not enabled'))
+                             (None, 'GitHub answered HTTP 403: not enabled', False))
         cases.append(('a source whose name could NOT be checked is UNVERIFIED '
                       'with the reason, never OK, and the summary says an '
                       'unchecked source is not a passing one',
@@ -3493,10 +3502,72 @@ def check_source_names_detects_a_rename():
                       and 'an unchecked source is not a passing one' in out,
                       out))
 
+        # THE REDIRECT, which is the case this tool exists for and the one
+        # it got wrong until 2026-09-14. GitHub answers 301 for a renamed
+        # repository, `urlopen` followed it by default, the Location is the
+        # numeric-ID form, and a session proxy refuses that form -- so the
+        # tool caught an HTTPError and said "could not check" about the one
+        # input that is conclusive on its own. Both halves are stated: the
+        # verdict must be RENAMED even when the new name cannot be read, and
+        # the detail must not pretend to know a name it never got.
+        class _FakeOpener:
+            def __init__(self, second=None):
+                self.calls = 0
+                self.second = second
+
+            def open(self, req, timeout=None):
+                self.calls += 1
+                if self.calls == 1 or self.second is None:
+                    raise urllib.error.HTTPError(
+                        'https://api.github.com/repos/example/old-name', 301,
+                        'Moved Permanently',
+                        {'Location': 'https://api.github.com/repositories/1352494938'},
+                        io.BytesIO(b'{}'))
+                return io.BytesIO(json.dumps(self.second).encode('utf-8'))
+
+        # The two cases below exercise the REAL api_full_name, so the stub
+        # the run_with cases above installed has to come off first -- leaving
+        # it on measures the stub (practice: fixture-owns-its-state).
+        psn.api_full_name = real_api
+        real_build = urllib.request.build_opener
+        try:
+            fake = _FakeOpener()
+            urllib.request.build_opener = lambda *a, **k: fake
+            full, why, renamed = psn.api_full_name('example', 'old-name')
+            cases.append(('a 301 whose Location cannot be read is still a '
+                          'rename: renamed is True, no name is invented, and '
+                          'the detail says how to read the current one',
+                          (full, renamed) == (None, True)
+                          and 'is NOT what this repository is called' in (why or '')
+                          and '1352494938' in (why or '')
+                          and 'github.com/example/old-name' in (why or ''),
+                          why or ''))
+
+            fake2 = _FakeOpener(second={'full_name': 'example/new-name'})
+            urllib.request.build_opener = lambda *a, **k: fake2
+            full, why, renamed = psn.api_full_name('example', 'old-name')
+            cases.append(('a 301 whose Location CAN be read reports the new '
+                          'name, and still as a rename',
+                          (full, why, renamed) == ('example/new-name', None, True),
+                          str((full, why, renamed))))
+        finally:
+            urllib.request.build_opener = real_build
+
+        # And the verdict the redirect produces has to survive into the
+        # report: a row with no `current` name used to render UNVERIFIED
+        # unconditionally, which is exactly the bug.
+        rows, out = run_with(lambda o, n, env=None:
+                             (None, 'that name is a redirect', True))
+        cases.append(('a source whose rename was proven by a redirect is '
+                      'RENAMED in the report and counts against --check, not '
+                      'UNVERIFIED',
+                      [r['verdict'] for r in rows] == ['RENAMED']
+                      and '1 renamed' in out, out))
+
         # A case difference is not a rename: git does not care, and reporting
         # it as one would cry wolf on every clone URL a tool lowercased.
         rows, out = run_with(lambda o, n, env=None:
-                             ('example/Precedent-Team-Fixture', None))
+                             ('example/Precedent-Team-Fixture', None, False))
         cases.append(('a name differing only in case is SPELLING, not RENAMED',
                       [r['verdict'] for r in rows] == ['SPELLING'], out))
 
@@ -3505,7 +3576,7 @@ def check_source_names_detects_a_rename():
                         'https://github.com/example/something-else'],
                        capture_output=True)
         rows, out = run_with(lambda o, n, env=None:
-                             ('example/something-else', None))
+                             ('example/something-else', None, False))
         cases.append(('the declared name disagreeing with the clone\'s own '
                       'remote is reported as DRIFT even when the API says the '
                       'repository is current',
@@ -3516,7 +3587,8 @@ def check_source_names_detects_a_rename():
         subprocess.run(['git', '-C', str(clone), 'remote', 'set-url', 'origin',
                         'https://git.example.com/example/precedent-team-fixture'],
                        capture_output=True)
-        rows, out = run_with(lambda o, n, env=None: (None, 'should not be called'))
+        rows, out = run_with(lambda o, n, env=None:
+                             (None, 'should not be called', False))
         cases.append(('a source on a non-github host is UNVERIFIED, not OK',
                       [r['verdict'] for r in rows] == ['UNVERIFIED']
                       and 'github.com' in out, out))
@@ -3539,8 +3611,10 @@ def check_source_names_detects_a_rename():
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'precedent_source_names.py reports a renamed source and never '
           f'reports an unchecked one as current ({len(cases)} stated cases: '
-          f'renamed, unrenamed, unverified, case-only, declared-vs-remote '
-          f'drift, a non-github host, and a tokenised remote URL)',
+          f'renamed, unrenamed, unverified, a 301 whose new name cannot be '
+          f'read, a 301 whose new name can, that redirect surviving into the '
+          f'report, case-only, declared-vs-remote drift, a non-github host, '
+          f'and a tokenised remote URL)',
           not bad, '; '.join(f"{n}: {d}" for n, d in bad))
 
 
