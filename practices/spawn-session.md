@@ -167,6 +167,28 @@ repository declares is not something a relayed phrase can lift, exactly as
 repository's own checks passing** -- the seeded prompt says which ones, so
 the receiving session does not have to guess.
 
+**A repository wall is not a permission refusal, and only one of the two
+stops you relaying.** A session that cannot reach another owner's repository
+has hit a **capability** boundary -- `add_repo` answering *"cross-tier adds
+are not supported in v1"*, or the git proxy refusing to inject a credential
+for a repository outside the session's authorized set. That is the case this
+rule exists for: the person authorized the work, and the only thing missing
+is a session that can reach the repository. **Relay it.** A **permission
+refusal** is the other thing entirely -- the person declined, or the tool
+governing this session blocked the action itself -- and there the answer is
+to go back to the person, never to find a session that will do it instead.
+Generic harness guidance against *asking a peer to do what was blocked in
+your session* is aimed at the second; **reading it onto the first turns
+every cross-owner handoff into a manual paste** and spends the person a
+round trip for nothing. Ask which kind of block you hit before you decide.
+
+Cost, 2026-09-14: a session holding a merge authorization, with a live
+session already blocked and waiting for exactly that authorization, handed
+the person a paste block instead and called the relay permission laundering.
+Nobody's decision was being routed around -- the person had given the
+authorization in the message immediately before. **The tell is whether a
+human said no.** If nobody did, a wall is just a wall.
+
 **Where you did NOT get the authorization, say that instead of inventing
 it.** A seeded prompt claiming a person approved something they did not is
 the failure
