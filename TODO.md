@@ -7061,7 +7061,7 @@ which is the failure this repointing exists to end — write
     kept for the record)
 
 
-108. <a id="withdrawn-and-landed-nowhere-with-no-baseline"></a>**A rule
+113. <a id="withdrawn-and-landed-nowhere-with-no-baseline"></a>**A rule
     withdrawn at its source and landed nowhere is still caught only where a
     consumer had already recorded it.** The move rehearsal of 2026-09-14
     ([spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md), "the fifth
