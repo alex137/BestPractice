@@ -2983,6 +2983,26 @@ which is the failure this repointing exists to end — write
    reason" is still true, and is now weighed against a guard that misreports
    staleness.
 
+   **Morgan authorized the carry the same day, and a BestPractice-rooted
+   session cannot perform it — established, not assumed.** 2026-09-14, asked
+   to push the guard out to the four sets, a session here copied canonical
+   into each set at the path that set's own `settings.json` declares
+   (`bootstrap/freshness-guard.sh` in the individual set, `.claude/hooks/` in
+   the three team sets — [record/GOTCHAS.md#g19](record/GOTCHAS.md#g19)),
+   committed all four on `precedent/carry-deepen-fix`, and got HTTP 403 on
+   every push: *"not in this session's authorized repository set, so the
+   proxy will not inject a credential"*. `add_repo` at `access: "push"` then
+   refused with a different message than the one this item already records —
+   *"cross-tier adds are not supported in v1"*, naming the owner mismatch
+   directly. **Those four commits died with that container**, which is the
+   part worth knowing: the work is a verbatim copy of a file in a public
+   repository, so a session rooted in the sets reproduces it in one command
+   rather than needing anything transported.
+   **The carry itself no longer needs a decision** — it is the `assented`
+   authorization above, now narrowed to one hook and one reason. What stays
+   open is the general question: whether `--apply` should keep hook content
+   current by default.
+
 51. <a id="sync-refuses-a-rewind"></a>**Make `precedent_sync_views.py` refuse a sync that would rewind a
    practice's content, not just one that would remove the practice
    outright.** It already refuses at practice granularity: `_lost_practices`
