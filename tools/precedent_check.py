@@ -2604,12 +2604,15 @@ def _tracked_practice_files(ctx):
        '`utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` '
        '-- every one of those resolves to whatever zone the machine is on, '
        'which in a container is UTC and in a record is unrecoverable. And '
-       'the declared fallback zone is the SAME string in all three places '
-       'that hold it: precedent.json, the time engine, and the commit hook',
+       'the ENGINE\'s fallback zone is the SAME string in all three engine '
+       'files that hold it: the time engine and both copies of the commit '
+       'hook',
        'a stamp that carries an offset but the WRONG one -- a zone declared '
        'incorrectly in somebody\'s identity.json is a true statement about a '
        'false fact, and nothing mechanical can tell where a person actually '
-       'is. It is also blind to `datetime.now(tz)` with an explicit zone '
+       'is. It is also blind, deliberately, to whether a repo\'s own '
+       '`fallback_timezone` in precedent.json matches the engine constant: '
+       'that field exists to differ from it. It is also blind to `datetime.now(tz)` with an explicit zone '
        'argument: that IS offset-carrying and orderable, so flagging it '
        'would fire on correct code, and routing it through the one module '
        'is a one-formatter-per-quantity matter this check leaves to review. '
@@ -2618,7 +2621,9 @@ def _tracked_practice_files(ctx):
        'session zone is set, which is the hook\'s job, not this one\'s.')
 def _timestamps_carry_offset(ctx):
     """Two properties, one practice: nothing writes a naive moment, and the
-    fallback zone cannot drift between the three files that name it.
+    ENGINE's fallback zone cannot drift between the three engine files that
+    name it (NOT precedent.json, which is the rung that overrides them --
+    see the comment at the second half).
 
     AST, NOT GREP. The first draft grepped, and matched its own explanatory
     comments in all twelve files it had just migrated -- a check reporting
@@ -2677,18 +2682,43 @@ def _timestamps_carry_offset(ctx):
                 f'({"today()" if fn.attr == "today" else "stamp(), utc_iso() or from_unix()"}), '
                 f'which resolves the person\'s zone and always carries the offset'))
 
-    # ---- the declared fallback, in the three files that hold it
+    # ---- the ENGINE's fallback zone, in the three engine files that hold it
+    #
+    # precedent.json IS NOT IN THIS SET, and putting it here was a real bug
+    # (found 2026-09-14 by the first real §0 install into a project with
+    # subject matter of its own). The comment this replaces said "the three
+    # files that hold it" while the code compared FOUR holders, and the
+    # fourth is not a copy of the other three -- it is a different RUNG of
+    # the ladder in tools/precedent_time.py. precedent.json's
+    # `fallback_timezone` is rung 5, the repository's own choice, and it
+    # EXISTS to override rung 6, the engine constant below: precedent_time's
+    # own header says "rung 5 lets any repo say otherwise", declared where
+    # "an adopting repo can set its own without editing vendored code".
+    # Both consumers honour that at runtime -- precedent_time._repo_fallback_zone
+    # and commit-identity.sh's _repo_fallback_tz, which falls back to
+    # DEFAULT_TZ only when precedent.json names nothing.
+    #
+    # So an adopter declaring America/Argentina/Buenos_Aires in precedent.json,
+    # with the engine files untouched at America/New_York, behaves correctly
+    # and used to fail this check. Reproduced in a private consumer before
+    # this was changed.
+    #
+    # What IS a lockstep, and stays one: the three ENGINE holders, so the
+    # engine never reports a zone it is not applying.
     declared = {}
     cfg = ctx.root / 'precedent.json'
     if cfg.exists():
+        # Read for its own sake: an unparseable precedent.json means the
+        # repo's declared override cannot be applied at all, which is worth
+        # saying even though the value is not compared against anything.
         try:
-            v = json.loads(cfg.read_text(encoding='utf-8')).get('fallback_timezone')
-            if isinstance(v, str) and v.strip():
-                declared['precedent.json (fallback_timezone)'] = v.strip()
+            json.loads(cfg.read_text(encoding='utf-8'))
         except ValueError:
-            out.append(Finding('precedent.json', 'is not valid JSON, so the '
-                                                 'declared fallback zone could '
-                                                 'NOT be compared'))
+            out.append(Finding('precedent.json', 'is not valid JSON, so this '
+                                                 'repo\'s own declared fallback '
+                                                 'zone (`fallback_timezone`, the '
+                                                 'rung that overrides the '
+                                                 'engine\'s) could NOT be read'))
     for rel, pat in ((ENGINE, r"^FALLBACK_TZ\s*=\s*'([^']+)'"),
                      ('.claude/hooks/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"'),
                      ('templates/harness/claude-code/hooks/commit-identity.sh',
@@ -2705,10 +2735,13 @@ def _timestamps_carry_offset(ctx):
                                     'reads -- it could NOT be compared'))
     if len(set(declared.values())) > 1:
         detail = '; '.join(f'{k} says {v}' for k, v in sorted(declared.items()))
-        out.append(Finding('', f'the declared fallback zone disagrees across '
-                               f'the files that hold it -- {detail}. One of '
-                               f'them silently stamps a different offset than '
-                               f'the others'))
+        out.append(Finding('', f'the ENGINE\'s fallback zone disagrees across '
+                               f'the three engine files that hold it -- '
+                               f'{detail}. One of them silently stamps a '
+                               f'different offset than the others. (A repo\'s '
+                               f'own `fallback_timezone` in precedent.json is '
+                               f'NOT one of these: it is the rung above, and '
+                               f'it is meant to differ.)'))
     return out
 
 

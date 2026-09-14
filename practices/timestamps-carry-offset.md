@@ -130,7 +130,12 @@ are asserted equal by the check below; they cannot drift.
 **Checked.** `tools/precedent_check.py --only timestamps-carry-offset`
 fails on a bare `date.today()` / naive `datetime.now()` /
 `utcnow()` / `utcfromtimestamp()` in any tracked `.py` outside the time
-module itself, and on the three declared fallback values disagreeing.
+module itself, and on the three ENGINE fallback values disagreeing — the
+time module's `FALLBACK_TZ` and both copies of the hook's `DEFAULT_TZ`. Not
+on a repo's own `fallback_timezone`: rung 5 exists to override the engine, so
+a repo declaring a different zone there is the mechanism working. Comparing
+it as a fourth copy made the documented override a red check, and did until
+2026-09-14.
 
 **Related.** [one-formatter-per-quantity](one-formatter-per-quantity.md)
 (this is that rule applied to the kind "a moment in time");

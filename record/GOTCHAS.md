@@ -1055,3 +1055,29 @@ red on it.
 [tools/precedent_session_check.py](../tools/precedent_session_check.py) now carries that row — *every practice
 source on this disk commits as a person too* — so the next occurrence is
 reported rather than discovered by a refused commit.
+
+**Swept for the same assumption, 2026-09-14**, because one mechanism getting
+a repo list wrong is a bug and four mechanisms deriving the list four ways is
+the actual problem. Four walk repositories on disk, and they did not agree:
+
+- `tools/precedent_refresh_sources.py` already asks the resolver for the
+  declared paths and adds siblings to them — its own docstring records
+  learning this the hard way. Correct, untouched.
+- `tools/precedent_session_check.py` scans `$HOME` **and** the parent, so it
+  reached both. Correct, untouched.
+- `tools/leak_gate.py`'s `local_clone_refs()` surveyed siblings only, and on
+  this container that found four of the five clones on disk — **missing the
+  private one**. Measured, not reasoned: it returned `alex137/BestPractice`
+  and the three team sets, and no individual set. So the repository whose
+  name most needs auto-blocklisting was the one the survey never saw. Fixed
+  by unioning the resolver's declared paths in.
+- `tools/verify_harness.py`'s commit-identity copy check globbed
+  `precedent-team-*` beside this repo. It happens to find all three here;
+  it is now the union with what `precedent.json` declares, so it will keep
+  finding them when one moves.
+
+**The rule the sweep suggests**, for anything that needs to know what
+repositories are on this disk: ask the resolver what is DECLARED, then add
+siblings — never siblings alone. The individual set is the one that breaks
+it, every time, because it is the only one whose location is a person's own
+config rather than the session's layout.

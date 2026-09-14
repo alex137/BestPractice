@@ -313,6 +313,25 @@ def check_broken_links(path):
     rel = str(path).replace('\\', '/')
     if rel.startswith(LINK_CHECK_EXEMPT_DIRS):
         return []
+    # A MIRRORED tree is exempt too, and it is exempt for a stronger reason
+    # than the directories above: its links are not broken upstream and
+    # cannot be fixed here. An INSTALL.md §0 install vendors the catalogue
+    # to precedent/universal/practices/, verbatim and unrewritten (§1's
+    # materialize() rewrites links; §0's plain copy does not), so every
+    # `../tools/...` and `../spec/...` in a practice file resolves at
+    # <repo>/practices/ and nowhere near where it actually landed. That put
+    # dozens of unactionable findings into every §0 install's light check,
+    # permanently -- reported, correctly, as nobody's to fix, which is a
+    # thing a person reads once and then stops reading.
+    #
+    # Asked of precedent_resolve.mirrored_prefixes() via VENDORED_PREFIXES,
+    # not added to the constant above: that is the one place the question
+    # "what does this repo mirror" is answered, and a second list is how the
+    # first one goes stale (practice: durable-fix, registry-source-of-truth).
+    # Only the LINK check is skipped here -- every other doc_lint finding in
+    # a mirror still prints, split out of the gate by _split_vendored().
+    if _is_vendored(rel):
+        return []
     # Paths exempt, fragments still checked -- see ANCHOR_CHECKED_EXEMPT_DIRS.
     anchors_only = rel.startswith(ANCHOR_CHECKED_EXEMPT_DIRS)
     p = ROOT / path
@@ -344,7 +363,8 @@ def check_broken_links(path):
                 drel = str(dest.resolve().relative_to(ROOT.resolve()))
             except ValueError:
                 continue
-            if drel.replace('\\', '/').startswith(LINK_CHECK_EXEMPT_DIRS):
+            drel = drel.replace('\\', '/')
+            if drel.startswith(LINK_CHECK_EXEMPT_DIRS) or _is_vendored(drel):
                 continue
             have = document_anchors(dest)
             if have is not None and frag.lower() not in have:
