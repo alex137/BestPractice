@@ -5061,11 +5061,38 @@ which is the failure this repointing exists to end — write
 - <a id="leak-gate-misses-a-bare-undeclared-repo-name"></a>**The leak gate
   refuses a private repo named as `owner/name`, and lets the same repo through
   under its BARE name when no line in the blocklist has ever mentioned it.**
-  No disposition, so it is `wait` — it needs a decision from Morgan, and
-  [open-item-disposition](practices/open-item-disposition.md) reserves `ask`
-  for him to set rather than for the session raising the item to claim. It was
-  put to him once, in the reply that landed this item; that is the raise, not
-  a standing licence for every later session to bring it up again.
+  **Remind:** the deny line is a band-aid — bring up the permanent fix, the
+  one that makes the gate derive bare-name patterns instead of being told them
+  one repo at a time, when I ask for **Three Things** (2026-09-14, Morgan)
+  **Disposition:** ask (2026-09-14, Morgan)
+
+  **Two fixes, and only one of them is the real one**
+  ([durable-fix](practices/durable-fix.md)). Morgan, 2026-09-14: *"I prefer a
+  real fix, not a band-aid; so let's put the deny item as you said, and also
+  note in the TODO that we should do the permanent fix eventually."*
+
+  1. **The band-aid, and it is named as one:** a deny line in
+     `precedent-individual`'s blocklist for the one repository that got
+     through. It closes that repository and nothing else, and the next repo
+     nobody has written down is in exactly the same position. It lives in
+     machine-adjacent config in another repository — rung 1 of durable-fix for
+     that repo, but it does not generalize, which is the sense in which it is
+     a band-aid rather than the sense of being fragile.
+  2. **The permanent fix, still open:** stop maintaining the bare-name list by
+     hand. Derive the patterns from the repositories the environment can
+     actually see — declared sources in `precedent.json`, attached clones, the
+     session's own git remotes — so a private repo is covered the moment it
+     exists rather than the moment somebody remembers to write it down. The
+     open design question is the false-positive cost, and it is a real one:
+     refusing every capitalized word that might be a repo name is what got the
+     blocklist approach replaced by an allowlist in the first place. Deriving
+     from what is on disk is narrower than that and is the shape worth costing
+     first.
+
+  **This item is `ask` because Morgan set it**, and the `**Remind:**` line
+  says when: a session answering [three-things](practices/three-things.md)
+  should weigh this item as a candidate. It is not a standing licence to raise
+  it in every reply.
 
   **Measured 2026-09-14**, in the session that landed this file's
   `practice-links-travel` change. Writing a consuming repository's bare name
