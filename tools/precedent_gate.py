@@ -256,8 +256,15 @@ def _print_hard_requirements(root):
         one_of = r.get('require_one_of') or []
         if one_of:
             quoted = ' or '.join(f'"{s}"' for s in one_of)
+            every = r.get('require_when_context_grew_tokens')
+            when = ('' if not every else
+                    f" -- but ONLY once this conversation has grown "
+                    f"{int(every):,} tokens since one of them was last said, "
+                    f"and the stop hook is the thing that knows whether it "
+                    f"has. Below that it is silent, so do not add the line "
+                    f"out of caution")
             print(f"- [{src}] the reply contains one of these, verbatim: "
-                  f"{quoted}")
+                  f"{quoted}{when}")
     for n in notes:
         print(f"- NOTE: {n}")
 

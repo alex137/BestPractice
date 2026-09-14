@@ -35,7 +35,14 @@ approved_by: "Morgan, 2026-09-13 -- \"it's good if it's universal BUT the practi
   recommendation ... maybe we can have another trigger\" (strength: decided, for
   the requirement). Registering the practice on the `reply` gate, and requiring
   the offer to be its own line rather than a clause inside a paragraph, are the
-  session's choice of mechanism."
+  session's choice of mechanism. AMENDED 2026-09-14, after the reply-gate
+  registration went eleven hours without producing one offer: Morgan --
+  \"yes, build the size-aware check\" -- agreeing to the mechanism this session
+  proposed in answer to his own question (\"should we update our rule again?\").
+  Recorded `assented` and not `decided` because the proposal was the session's:
+  the threshold, counting growth from the session's own starting context, and
+  the two fixed sentences are all this session's choices, and none of them was
+  put to him as a choice between alternatives."
 strength:    assented
 source_practice_number: null
 ---
@@ -173,6 +180,26 @@ conditioned on the thing it triggers is not a trigger. The reply gate fires at
 the end of every turn regardless of what the session was thinking about, which
 is the part the occasion index cannot do.
 
+**The reply gate was not enough either, and the eleven hours after it prove
+it**, 2026-09-14. The fix for the failure above landed 2026-09-13 at 19:38
+UTC; Morgan worked through the night and into the morning and got the offer
+exactly as often as before, which is never: *"you never once recommended I
+compact a session - despite our updated rules."* The root cause is that the
+reply gate **prints** — the stop hook writes the practice to stderr after the
+reply has been composed and shown, so for a rule about what a reply must
+CONTAIN it arrives after the only moment it could have been applied, and that
+is written in the hook's own source. Only
+[precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_reply_check.py)
+refuses a turn, and until this change it enforced one source's closing
+convention and nothing else.
+
+**The thing that made it hard to enforce is worth keeping**: the offer is owed
+at a boundary, and no check can see a boundary. A requirement that fired on
+every reply would be a nag, and one that waited for a session to notice its
+own boundary is what had already failed twice. Size is the third answer, and
+it is not the threshold this practice rejects — it never decides whether to
+compact, only whether the question has gone unasked for too long.
+
 **What makes the three-session case the useful example** is that none of the
 three did anything wrong. Each was created for a reasonable-looking piece of
 work. The cost was in the pattern, which no individual session was in a
@@ -181,14 +208,26 @@ records from the other side, where the session that should have been reused
 is invisible to the session about to be created.
 
 ## Install
-Nothing to configure, and nothing to install: both halves are decisions made
-at the moment a session is created or continued, and the parameters belong to
-whatever harness is running it.
+**The compaction offer is enforced, since 2026-09-14.** The universal source
+declares it in its own `reply_check.json`, and the stop hook refuses a reply
+that carries neither *"This is a cheap point to compact"* nor *"Not a cheap
+point to compact"* once the conversation has grown 100,000 tokens since one of
+them was last said. Both answers satisfy it: mid-investigation the rule's own
+answer is to keep working, and a check that took only the offer would push a
+session into making one it does not mean.
 
-No mechanical check. The artifacts are a session-creation call and a
-compaction, neither of which is in the repository, and a repository cannot
-see what model another session ran on or when it compacted. A check that
-inferred either from commit timing would be a guess wearing a mechanism's
-clothes — the shape [checkable-gets-checked](checkable-gets-checked.md) warns
-against, since a gate that fires on correct work teaches the next session to
-ignore every gate.
+**The number is a choice, and here is what it was chosen against.** A session
+in this repository opens at ≈97,000 tokens of context before anyone types
+anything, and this one reached ≈205,000 across a morning's work — both
+measured on 2026-09-14, not estimated. So the threshold counts growth from
+where the session STARTED, and 100,000 puts the first offer about one long
+working stretch in, and each repeat about the same again. Nobody has measured
+that it is the right interval; change it in the file rather than in the
+engine ([constants-are-risk-inputs](constants-are-risk-inputs.md)).
+
+**What still has no mechanical check is the model half.** A session-creation
+call is not in the repository, and a check that inferred the model from commit
+timing would be a guess wearing a mechanism's clothes — the shape
+[checkable-gets-checked](checkable-gets-checked.md) warns against, since a
+gate that fires on correct work teaches the next session to ignore every
+gate.

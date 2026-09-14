@@ -7420,6 +7420,141 @@ def check_reply_gate_sees_every_source():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_compaction_offer_fires_on_context_growth():
+    """The size-aware half of the reply check: a long session is REFUSED a
+    reply that never says whether this is a cheap point to compact.
+
+    The incident is practices/session-spend-follows-the-task.md's own Story.
+    The rule was registered on the reply gate on 2026-09-13 and still did not
+    fire once in the eleven hours after -- because the reply gate PRINTS, and
+    printing happens after the reply it was meant to shape. Morgan, 2026-09-14:
+    *"you never once recommended I compact a session - despite our updated
+    rules."*
+
+    Every case below owns its own transcript (practice: fixture-owns-its-state)
+    -- a real session's JSONL would make the assertions depend on how long this
+    container had been running.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-compact-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-compaction',
+            'require_one_of': ['This is a cheap point to compact',
+                               'Not a cheap point to compact'],
+            'require_when_context_grew_tokens': 100000,
+        }]), encoding='utf-8')
+
+        def transcript(name, turns):
+            """turns: [(context_tokens, reply_text), ...], oldest first."""
+            path = tmp / name
+            lines = []
+            for ctx, text in turns:
+                lines.append(json.dumps({
+                    'type': 'assistant',
+                    'message': {
+                        'usage': {'input_tokens': 2,
+                                  'cache_creation_input_tokens': 0,
+                                  'cache_read_input_tokens': max(ctx - 2, 0)},
+                        'content': [{'type': 'text', 'text': text}],
+                    }}))
+            path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+            return path
+
+        def run(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx)],
+                input=json.dumps({'transcript_path': str(path)}),
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        # A short session says nothing about compacting and is left alone.
+        # This is the case that keeps the rule from becoming a nag: most
+        # sessions never reach the threshold and must never see this message.
+        short = run(transcript('short.jsonl', [
+            (96000, 'Opening.'), (120000, 'Done. Nothing about compacting here.')]))
+        cases.append(('a session that has grown less than the declared amount '
+                      'is NOT blocked', short.returncode == 0, short.stderr[:200]))
+
+        # The same reply, on a session that has grown past it.
+        grown = run(transcript('grown.jsonl', [
+            (96000, 'Opening.'), (150000, 'Middle.'),
+            (205000, 'Done. Nothing about compacting here.')]))
+        cases.append(('a session that HAS grown past it is blocked',
+                      grown.returncode == 2, f'exit {grown.returncode}'))
+        # control-asserts-which-failure: the exit code alone would pass even if
+        # the block came from some other requirement entirely.
+        cases.append(('...and the message names the sentence that is missing',
+                      'cheap point to compact' in grown.stderr, grown.stderr[:200]))
+        cases.append(('...and says how big the conversation actually is, since '
+                      'the person is deciding against a number they cannot see',
+                      '109,000' in grown.stderr or '≈109' in grown.stderr,
+                      grown.stderr[:300]))
+
+        # Both answers satisfy it. The honest negative matters as much as the
+        # offer: mid-investigation the rule's own answer is to keep working,
+        # and a check that accepted only the offer would push a session into
+        # making one it does not mean.
+        for phrase in ('This is a cheap point to compact if you want to.',
+                       'Not a cheap point to compact -- we are mid-investigation.'):
+            r = run(transcript('ok.jsonl', [
+                (96000, 'Opening.'), (205000, f'Done. {phrase}')]))
+            cases.append((f'a reply saying "{phrase[:28]}..." is not blocked',
+                          r.returncode == 0, r.stderr[:200]))
+
+        # Having said it once, the session is not asked again until the
+        # conversation has grown another full increment.
+        again = run(transcript('again.jsonl', [
+            (96000, 'Opening.'),
+            (205000, 'This is a cheap point to compact if you want to.'),
+            (250000, 'More work. Nothing about compacting here.')]))
+        cases.append(('after the offer is made, it is not demanded again until '
+                      'the conversation has grown another increment',
+                      again.returncode == 0, again.stderr[:200]))
+        overdue = run(transcript('overdue.jsonl', [
+            (96000, 'Opening.'),
+            (205000, 'This is a cheap point to compact if you want to.'),
+            (320000, 'Much more work. Nothing about compacting here.')]))
+        cases.append(('...and IS demanded once it has',
+                      overdue.returncode == 2, f'exit {overdue.returncode}'))
+
+        # THE COMPACTION ITSELF. After one, the context drops and the
+        # historical maximum does not, so a check reading the high-water mark
+        # goes on demanding the offer from the one session that owes nothing.
+        # The first draft of this did exactly that.
+        # The offer is deliberately ABSENT before the compaction here: with one
+        # present, both the buggy and the fixed reading come out silent, and
+        # the case discriminates nothing.
+        compacted = run(transcript('compacted.jsonl', [
+            (96000, 'Opening.'),
+            (240000, 'A long stretch of work, no offer made.'),
+            (40000, 'Fresh after the compaction. Nothing about compacting here.')]))
+        cases.append(('a session that has just been COMPACTED is not asked '
+                      'again -- the check reads the latest context, not the '
+                      'high-water mark', compacted.returncode == 0,
+                      compacted.stderr[:200]))
+
+        # A size condition nobody can evaluate must not block a reply.
+        missing = run(tmp / 'no-such-transcript.jsonl')
+        cases.append(('an unreadable transcript blocks nothing',
+                      missing.returncode == 0, missing.stderr[:200]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the compaction offer is demanded once a session has grown, and only '
+          f'then ({len(cases)} stated cases)',
+          not bad_cases,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
 def check_loader_tools_are_repo_relocatable():
     """precedent_show.py, precedent_paths.py, precedent_gate.py and
     build_views.py used to compute their working root as `pathlib.Path(
@@ -19688,6 +19823,7 @@ def main():
     check_publisher_bound_checks_run_in_a_source_set()
     check_gate_channel()
     check_reply_gate_sees_every_source()
+    check_compaction_offer_fires_on_context_growth()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
