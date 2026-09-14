@@ -94,7 +94,8 @@ passes in Detail, in that order. The tool enumerates the scope — this
 checkout's own top-level documents, plus the `practices/*.md` tree of every
 source in force, resolved exactly the way
 [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves them for
-ordinary loading — and prints the passes; reading and judging that scope is
+ordinary loading — and points at the passes (`--checklist` prints them in
+full); reading and judging that scope is
 the session's work, and is nearly the whole cost of this check. Never wired
 into a commit, push, or merge gate — the mechanical audits and
 [routing-audit](routing-audit.md) already cover what can be checked cheaply

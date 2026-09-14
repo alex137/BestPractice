@@ -8,7 +8,7 @@
 deliverables are <name them>, and this map indexes each one down to the
 documents, models, and sources that back it.
 
-Companions: `CLAUDE.md` (build machinery + workflow — read before touching
+Companions: [AGENTS.md](AGENTS.md) (build machinery + workflow — read before touching
 <build dir>), `TODO.md` (open items across sessions).
 
 ## Top-level layout
@@ -18,7 +18,7 @@ Companions: `CLAUDE.md` (build machinery + workflow — read before touching
 | `GLOSSARY.md` | **Canonical names** — the one list. Use its names; don't invent new ones. |
 | `<deliverable dir>/` | <what it is, its builder, which output is the shippable one> |
 | `<supporting dir>/` | <what it holds> |
-| `process/` | Practice layer (vendored Precedent + manifest + blocklist) — see `CLAUDE.md` "Practice export". |
+| `process/` | Practice layer (vendored Precedent + manifest + blocklist) — see [AGENTS.md](AGENTS.md) "Practice export". |
 | `TODO.md` | Cross-session open items. |
 
 ## <Deliverable 1>

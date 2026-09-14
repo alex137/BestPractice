@@ -188,6 +188,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -1318,8 +1319,54 @@ def refresh(clone, force=False, ref=None):
         if r.returncode != 0:
             return r.returncode
 
-    print("next: review the diff, run this repo's own light check, then commit.")
+    _warn_bare_sync_invocations(ROOT)
+    print("next: review the diff, then `python3 tools/precedent_sync_views.py "
+          "--repo .` (a refresh changes what the loader renders, so `--check` "
+          "is expected to FAIL until the sync has run), review that diff too, "
+          "run this repo's own light check, then commit the two together.")
     return 0
+
+
+_BARE_SYNC_RE = re.compile(r'precedent_sync_views\.py(?![^\n]*--repo)')
+
+
+def _warn_bare_sync_invocations(root):
+    """Name every wiring file that still invokes precedent_sync_views.py
+    without `--repo`, which the engine has refused since 2026-09-10.
+
+    The engine's manifest does not cover tools/bootstrap.sh, the harness
+    hooks or the instructions file -- those are instantiated from templates
+    and adapted, so a refresh cannot rewrite them. Measured 2026-09-14 on a
+    consumer vendored six days earlier: its refreshed engine refused the
+    bare `--check` its own bootstrap.sh runs at every session start, so
+    every session opened with a WARN naming a fix that failed the same way.
+    Nothing in the refresh had told it (practice: change-updates-its-docs --
+    the mechanism moved, the wiring that calls it did not).
+    """
+    candidates = [root / 'tools' / 'bootstrap.sh', root / 'AGENTS.md',
+                  root / 'CLAUDE.md']
+    hooks = root / '.claude' / 'hooks'
+    if hooks.is_dir():
+        candidates += sorted(hooks.glob('*.sh'))
+    hits = []
+    for path in candidates:
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            if 'precedent_sync_views.py' in line and _BARE_SYNC_RE.search(line) \
+                    and not line.lstrip().startswith('#'):
+                hits.append(f'{path.relative_to(root)}:{n}')
+    if hits:
+        print("NOTICE: precedent_sync_views.py is invoked WITHOUT --repo in "
+              + ', '.join(hits)
+              + " -- the refreshed engine refuses that call, so a session-start "
+                "check there will WARN on every session and name a fix that "
+                "fails the same way. Re-instantiate tools/bootstrap.sh and the "
+                "harness hooks from upstream's templates/, or add `--repo .` "
+                "to each line; these files are not in the engine manifest, so "
+                "a refresh never rewrites them.")
 
 
 def fresh():

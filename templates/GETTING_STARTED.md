@@ -116,7 +116,7 @@ Codex; the project's automatic checks protect the result either way.
 
 Working from an iPhone a lot? This project includes an iPhone Shortcut
 recipe that prepares this starting message for you — see the phone guide
-at `<upstream-docs>/MOBILE.md`.
+in [MOBILE.md](<upstream-docs>/MOBILE.md).
 
 ### Gemini Users
 
@@ -182,7 +182,7 @@ opener:
 - **Compose bigger requests.** For anything substantial, draft your
   request in a notes app first, then paste it — the assistant's output
   quality tracks the clarity of what you hand it. (More habits like this
-  in the project's method guide: `<upstream-docs>/METHOD.md`.)
+  in the project's method guide, [METHOD.md](<upstream-docs>/METHOD.md).)
 
 ## For the Administrator: Approving Changes
 
@@ -257,11 +257,12 @@ them.** Click-paths as of <install date>.
      introduces a new one (a required secret, a new required check). -->
 
 - **A Markdown check runs on every pull request** (the GitHub Actions
-  workflow `doc-lint.yml`) and catches a couple of specific formatting mistakes before
+  workflow `bestpractice-docs.yml`) and catches a couple of specific formatting mistakes before
   they reach the shared project. It needs no maintenance. If it doesn't
   appear on a pull request's checks, GitHub Actions may be disabled for
   this repository — an administrator can turn it on at repository
-  **Settings → Actions**. Details: `<upstream-docs>/GITHUB_ACTIONS.md`.
+  **Settings → Actions**. Details:
+  [GITHUB_ACTIONS.md](<upstream-docs>/GITHUB_ACTIONS.md).
 - **Every pull request opens with a standard template** — what changed,
   why, files touched, and a short checklist. An unchecked box on that
   checklist is normal; it means that gate didn't apply to this particular

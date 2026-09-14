@@ -19,10 +19,9 @@ behind both live in your own GitHub repository.
 > here wanting to *use* the practice engine on your own project, read
 > [documentation/ADOPTING.md](documentation/ADOPTING.md) — it is written for that, and assumes no
 > programming. The design and its evidence are in
-> [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md). Everything below is
-> the pre-fork BestPractice documentation, still accurate for the parts the rewrite
-> has not reached; it is rewritten in place as later phases land rather than
-> kept as a second, drifting copy.
+> [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md). Alex merged this
+> branch into `main` on 2026-09-14 (pull request #367), so `main` carries
+> Precedent too; work still lands here until the switch is called.
 
 **New here?** Start with [What This Is (and Why Explore Using
 Precedent)](documentation/WHY_PRECEDENT.md) for

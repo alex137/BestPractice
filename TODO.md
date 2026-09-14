@@ -209,6 +209,26 @@ which is the failure this repointing exists to end — write
     and approval of `precedent-beta-v01` for the real phase-7 merge into
     `main` — not something to anticipate or do early.
 
+    **That condition was met on 2026-09-14** — Alex merged
+    [pull request #367](https://github.com/alex137/BestPractice/pull/367)
+    ("Merge Precedent (precedent-beta-v01) into main"), tree-identical to
+    this branch at `3386318`, and `main` has carried all of Precedent
+    since. Found by the 2026-09-14 very deep check, whose `EXPIRING
+    PRACTICES` section asked exactly this question. **What is now the
+    decision, and it is not this item's to take:** this branch has moved
+    64 commits past the merged point already, so retiring the practice
+    means choosing where work lands next — switch to `main` now
+    (`base_branch` in [precedent.json](precedent.json) flips, the catalogue's
+    ≈134 absolute links are rewritten by one `sed`, this practice and its
+    check are deleted, the `TEMPORARY` paragraph leaves
+    [AGENTS.md](AGENTS.md), and the 64 commits go across as a second
+    merge-back by the same recipe) or keep landing here until a named
+    second fold-in. The session's recommendation is the first: every day on
+    the branch after the merge is another fold-in to rehearse, and the
+    recipe is proven. **Disposition:** ask (2026-09-14, the very deep check;
+    the question is Alex's and Morgan's together, since it decides which
+    branch adopters and check-ins target)
+
     **What that merge will actually look like, rehearsed 2026-09-07 in a
     throwaway worktree and thrown away.** Two things worth not
     re-deriving under time pressure:
@@ -6747,4 +6767,125 @@ which is the failure this repointing exists to end — write
     makes for the catalogue), or decide `spec/` earns its passage and cut
     only `record/` and `decisions/`.
 
+    **Three more, measured 2026-09-14 by a by-the-book §1 rehearsal**: the
+    vendored tree also carries this repo's `.github/workflows/` (three
+    workflows GitHub never runs from a subdirectory), `.claude/` (this
+    repo's own hook wiring) and `local/` — whose
+    [merge-target-is-beta-branch](local/practices/merge-target-is-beta-branch.md)
+    tells every PR to target a branch the adopter's project does not have.
+    A session grepping the adopter's repo for rules finds another
+    repository's. 382 files and 128,000 lines landed in that install's one
+    commit; `checkin.py not-vendored` reported `0 of 360` excluded because
+    its exclusion list and §1 step 1's are the same two directories, so
+    widening one means widening both and the harness check that ties them.
+
     **Disposition:** wait (2026-09-14, the session that cut `philosophy/`)
+
+102. <a id="setup-default-is-the-loader"></a>**Decide whether [SETUP.md](SETUP.md)'s
+    guided install should install §0 (the loader) instead of §1 (the classic
+    vendored model).** Raised 2026-09-14 by the very deep check, which
+    rehearsed all three paths with fresh eyes. What a non-technical
+    administrator gets today from the one document written for them is the
+    classic model: the vendored prose, the audit, the check-in loop — and
+    **not** the resident block, the occasion index or the enforced checks,
+    which is everything [documentation/ADOPTING.md](documentation/ADOPTING.md)
+    and [README.md](README.md) promise ("they show up when they matter";
+    "where a practice can be checked, it is"). The classic template
+    ([templates/AGENTS.md.template](templates/AGENTS.md.template)) carries no
+    generated block at all, and §1 never runs the sync. A §1 project that
+    later wants the loader takes
+    [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
+    which the same check found is still a rough road. §1's reasons to stay
+    the default — the export gate and check-in loop, the manifest audit —
+    are optional by their own headings (§3, §4), and §0 was rehearsed
+    against a real project on 2026-09-14 with the defects it found fixed the
+    same day. The session's recommendation: flip the default to §0 and keep
+    §1 for a project that wants the check-in loop, in one change that also
+    retires §1's `reply-gate.sh`/`precedent-paths.sh` wiring problem (next
+    item). **Blocked on:** Morgan's decision — it changes what every new
+    adopter receives. **Disposition:** ask (2026-09-14, the very deep check)
+
+103. <a id="classic-install-wires-loader-hooks"></a>**A §1 install ends
+    every turn with `precedent gate FAIL`, because the Claude Code adapter
+    wires two hooks the hook table says are loader-only.** Measured
+    2026-09-14 on a by-the-book §1 rehearsal:
+    [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json)
+    wires `reply-gate.sh` and `precedent-paths.sh` unconditionally, and
+    INSTALL.md's table marks both "only with the Precedent loader" without
+    saying to delete the entries. `precedent-paths.sh` exits silently; the
+    `Stop` hook's gate call finds `process/upstream/tools/precedent_gate.py`
+    and prints *gate 'reply' has no practices registered to it* on every
+    turn, permanently. **Blocked on:** the previous item — if §0 becomes the
+    default the §1 adapter shrinks to what §1 uses; if not, ship a §1
+    variant of `settings.json` or make the gate stay quiet under the
+    `process/upstream` layout. **Disposition:** wait (2026-09-14, the very
+    deep check)
+
+104. <a id="no-origin-is-not-stale"></a>**A repository with no `origin` at
+    all reads as a stale checkout and as a repo with nothing changed, and
+    both readings are wrong.** Measured 2026-09-14 on a freshly `git init`ed
+    §0 install: the freshness guard's `pre-write` refused the session's
+    first write (*could not fetch origin/…*), and `doc_lint.py`'s default
+    scope reported `0 file(s) checked` on a tree with three dead links,
+    because both hard-code `origin/<branch>` as the thing to compare
+    against. An unreachable origin should block, deliberately (gotcha
+    g21); an origin that was never configured cannot be stale relative to
+    anything, and `git remote get-url origin` tells the two apart in one
+    call. The install documents now say to lint the instantiated files by
+    name and to give the repo an origin first (INSTALL.md §0 step 8, §1
+    step 7), which is a workaround written as an instruction. **Blocked
+    on:** a change to both copies of the guard plus the harness-adapter
+    ledger, and to `doc_lint.py`'s `default_branch()` fallback — small, but
+    it touches the hook every session runs, so it wants its own change with
+    its own fixtures rather than a line in a documentation sweep.
+    **Disposition:** wait (2026-09-14, the very deep check)
+
+105. <a id="consumer-hears-about-files-it-does-not-have"></a>**The engine's
+    remedy strings and the loader template send a consumer to files only
+    this repository has.** Measured 2026-09-14 on a §0 install: every
+    prompt, stop and `vendor_engine status` prints *"Copy config.json.sample
+    from templates/practice-set-individual/"* (no `templates/` in a
+    consumer), session start prints *"see spec/BOOTSTRAP_NEW_SOURCES.md"*
+    (no `spec/`), and
+    [templates/AGENTS.md.loader.template](templates/AGENTS.md.loader.template)
+    says *"see INSTALL.md §0"* (no `INSTALL.md`). The same rehearsal found
+    that an administrator who answered "no individual set" is told *"treat
+    this as unknown, not as 'none'"* on every session start, every prompt
+    and every stop, with no way to record the answer. **Blocked on:** a
+    consumer-aware remedy renderer (the engine knows its `kind` from
+    `tools/ENGINE_MANIFEST.json`, so the upstream URL can replace a relative
+    path there) and a `precedent.json` key that records "no individual
+    source, on purpose". **Disposition:** wait (2026-09-14, the very deep
+    check)
+
+106. <a id="consumer-doc-sync-carries-upstream-pairs"></a>**The vendored
+    `doc_sync.py` ships this repository's own `PAIRS`, and two checks skip
+    on modules the consumer seed omits.** Measured 2026-09-14 on a §0
+    install: `computed-numbers-in-scripts` skips with *"this is an upstream
+    copy of PAIRS"*, `doc_lint.py --all` reports four unfindable analyses
+    for documents the consumer never had, and `document-status-header`,
+    `speculation-is-marked` and `docs-track-models` skip on
+    `doc_lifecycle.py` and `catalogue_stats.py`, which
+    `CONSUMER_ENGINE_FILES` does not include — so an adopter reading "a skip
+    is not a pass" cannot tell which of 21 skips are theirs. **Blocked on:**
+    a decision per module: vendor it, or make the check say "not part of the
+    consumer engine" rather than naming a missing file. **Disposition:** wait
+    (2026-09-14, the very deep check)
+
+107. <a id="team-skeleton-ships-three-files-short"></a>**All three team sets
+    carry `precedent.json`, `precedent-individual-bootstrap.sh` and
+    `precedent-universal-catalogue.sh`, and
+    [templates/practice-set-team/](templates/practice-set-team/) ships none
+    of them.** Reported by the very deep check's `TEMPLATE FRESHNESS`
+    section on 2026-09-14 — three of three sources of the level, which is
+    the threshold that separates a habit from a template gap. The
+    `precedent.json` carries each set's `fallback_timezone` and
+    `visibility`; the two hooks are what the `wire-individual-hook-in-existing-sets`
+    item (81) and the adapters declaration added after the skeleton was
+    written. **Blocked on:** nothing but the edit — the three files' current
+    shape is in any of the three sets, and
+    [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+    already installs the individual hook for a new set, so the question is
+    only whether the skeleton should carry a `precedent.json` with
+    placeholders. **Disposition:** wait (2026-09-14, the very deep check)
+

@@ -51,7 +51,7 @@ The supplied workflow:
 2. installs Python and `cmarkgfm`;
 3. runs the Precedent Markdown linter;
 4. reports warnings in the job log; and
-5. fails the pull request only when changed Markdown contains accidental strikethrough.
+5. fails the pull request when changed Markdown contains accidental strikethrough or a relative link that lands nowhere.
 
 The linter determines which Markdown files changed relative to the repository's default branch. A full-history checkout is therefore required.
 

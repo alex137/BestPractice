@@ -284,7 +284,48 @@ def render(extra, levels, notes, repo=None):
             f' but do NOT raise `resident_block_tokens`, which is a different '
             f'surface.', '']
     head += [block, '']
+    head += _how_to_read_one(extra, levels, _repo)
     return '\n'.join(head)
+
+
+def _how_to_read_one(extra, levels, repo):
+    """-> lines telling the session how to load one of these practices.
+
+    The block above ends with the loader's standing instruction, which says
+    `python3 tools/precedent_show.py SLUG`. That command reads THIS repo's
+    practices/, and not one practice in this file lives there -- that is the
+    whole reason the file exists -- so in a public repo, and in every practice
+    set, it answers `unknown slug` for all of them. Measured 2026-09-14: a
+    session in this repository ran the instruction for ten slugs from this
+    file and got ten refusals, then found the sources by hand. The tool has
+    had `--repo DIR` all along; nothing told the reader to use it.
+
+    One line per source, derived from where each practice's file actually
+    sits (practices/<slug>.md, so the source root is two levels up), never
+    from a path typed here. A consuming repo that materializes every source
+    into its own practices/ never reaches this: its tracked block carries
+    the practices and this file is not written.
+    """
+    roots = {}
+    for fm, _sections, path in extra:
+        slug = (fm.get('slug') or path.stem).strip()
+        root = path.resolve().parent.parent
+        roots.setdefault(root, [levels.get(slug, '?'), 0])
+        roots[root][1] += 1
+    if not roots:
+        return []
+    lines = ['## Reading one of these in full', '',
+             'None of the practices above lives in this repository\'s '
+             '`practices/`, so the standing instruction\'s bare '
+             '`python3 tools/precedent_show.py SLUG` reports an unknown slug '
+             'for every one of them. Add `--repo` naming the source that '
+             'holds it (`--detail`, `--why` and `--story` work the same way):',
+             '']
+    for root, (level, n) in sorted(roots.items(), key=lambda kv: (kv[1][0], str(kv[0]))):
+        lines.append(f'- `python3 tools/precedent_show.py SLUG --repo {root}` '
+                     f'-- the {level} source ({n} practice(s) above)')
+    lines.append('')
+    return lines
 
 
 def main():

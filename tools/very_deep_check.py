@@ -24,8 +24,10 @@ gives for enumerating practices instead of leaving that to the session too.
 Reading the enumerated scope for contradiction, staleness, repetition,
 disproportion, formatting drift, self-application gaps, and backlog drift
 is the part only a session can do -- see practices/very-deep-check.md's
-Detail section for the fixed checklist, printed again at the end of this
-tool's own output so it travels with the enumeration.
+Detail section for the fixed checklist. A pointer to it closes this tool's
+output; `--checklist` prints it in full beside the enumeration (off by
+default since 2026-09-14 -- it was 46% of every run's output, and a session
+that has loaded the practice already holds it).
 
 READ practices/very-deep-check.md's Why section before trusting this
 mechanism's own reliability -- it has not been evaluated the way
@@ -135,7 +137,12 @@ session records what one cost with --record-pass, from its own measurement.
 
 Run:
   python3 tools/very_deep_check.py [--repo PATH] [--user-config PATH]
-      -- the scope to read, plus the checklist, as plain text.
+      -- the scope to read, as plain text, with a pointer to the checklist.
+  python3 tools/very_deep_check.py --checklist
+      -- also print the four passes in full (practices/very-deep-check.md's
+      Detail, ~10,000 tokens). Off by default since 2026-09-14: the ledger
+      measured it at 46% of every run's output, and a session that has
+      loaded the practice already holds it.
   python3 tools/very_deep_check.py --json [--repo PATH] [--user-config PATH]
       -- the same enumeration as structured data.
   python3 tools/very_deep_check.py --target BRANCH
@@ -777,16 +784,20 @@ def _last_commit(repo_dir, path):
 
 
 def _spoken_commands(repo_dir):
-    """-> sorted [(phrase, slug)] for every active practice defining a phrase
-    that begins with a capital letter.
+    """-> sorted [(phrase, slug)] for every active practice that declares a
+    `command:` field -- the phrases a person SAYS.
 
-    The capital is the whole test, and it is a convention rather than a
-    field: a `defines:` entry is either a term this catalogue names
-    ("capture gate", "negative control") or a phrase a person SAYS
-    ("Go merge", "Park it"). Only the second kind is capitalized, because
-    only the second kind is quoted back in a sentence. Measured against the
-    catalogue when this was written: 23 active practices define something,
-    4 of them capitalized, and those 4 are exactly the standing commands.
+    The field is the test, and it is the same field tools/precedent_vocabulary.py
+    reads to build the page this scan checks. Until 2026-09-14 this function
+    used a different test -- any capitalized `defines:` entry -- on the
+    reasoning that only a spoken phrase is capitalized. That held for the four
+    commands that existed when it was written and failed the first time a
+    practice defined a capitalized TERM ("API budget", "Relayed authorization"):
+    this scan reported two commands missing from DAILY_HABITS.md while
+    doc_sync, reading the real field, reported the page current. Two
+    definitions of one thing, one of them wrong (practice: very-deep-check,
+    pass 2 question 8). A phrase in `command:` and nowhere else is still a
+    command; a capitalized term in `defines:` alone is not.
     """
     found = []
     for sub in ('practices', 'local/practices'):
@@ -800,12 +811,20 @@ def _spoken_commands(repo_dir):
             fm = sp.parse_frontmatter_fields(text.split('---', 2)[1], decode=True)
             if (fm.get('status') or 'active').strip() != 'active':
                 continue
-            defines = fm.get('defines') or []
-            if isinstance(defines, str):
-                defines = [defines]
-            for phrase in defines:
-                if isinstance(phrase, str) and phrase[:1].isupper():
-                    found.append((phrase, fm.get('slug', f.stem)))
+            raw = fm.get('command')
+            if not raw or raw == 'null':
+                continue
+            if isinstance(raw, str):
+                try:
+                    raw = json.loads(raw)
+                except ValueError:
+                    # A malformed field is precedent_vocabulary.py's to
+                    # report; here it is simply not a readable command.
+                    continue
+            phrases = raw.keys() if isinstance(raw, dict) else raw
+            for phrase in phrases:
+                if isinstance(phrase, str) and phrase.strip():
+                    found.append((phrase.strip(), fm.get('slug', f.stem)))
     return sorted(set(found))
 
 
@@ -1919,7 +1938,7 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             if not gen_path.is_file():
                 continue
             rel = str(gen_path.relative_to(gen_root))
-            # practices/ is the set's own content, and example-starter is
+            # practices/ is the set's own content, and example-starter-<level> is
             # the one file an adopter is told to delete.
             if rel.split(os.sep)[0] == 'practices':
                 continue
@@ -3829,6 +3848,7 @@ def _main(box):
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    print_checklist = '--checklist' in args
     skip_visibility = '--skip-visibility' in args
     skip_liveness = '--skip-liveness' in args
     # Narrow the read to repos this session can actually land work in. NOT the
@@ -4744,7 +4764,24 @@ def _main(box):
 
     if led:
         led.start('CHECKLIST -- the four passes a session works', kind='read')
-    print(checklist())
+    if print_checklist:
+        print(checklist())
+    else:
+        # CHEAPENED 2026-09-14, on the component ledger's own reading: this
+        # section printed ~9,900 tokens a run, 46% of the whole output, and it
+        # is a verbatim copy of a section the session loads anyway with
+        # `precedent_show.py very-deep-check --detail` before it can work a
+        # single pass. The pointer is the section now; `--checklist` prints
+        # the text for a session that wants it beside the enumeration.
+        print('CHECKLIST -- the four passes a session works')
+        print()
+        print('  Not printed here (pass --checklist to print it). Read it from '
+              'the practice:\n'
+              '  python3 tools/precedent_show.py very-deep-check --detail\n'
+              '  Pass 1 — adopter installs; Pass 2 — mechanisms; Pass 3 — '
+              'coherence read;\n  Pass 4 — catalogue, backlog and branches. '
+              'Work them in order.')
+        print()
     if led:
         led.end()
 

@@ -154,7 +154,8 @@ list.)
      the repo's root README: an agent-entry HTML comment (invisible on the
      rendered page, read by assistants opening the source) routing agents
      to `AGENTS.md`, plus one visible line pointing people to
-     `GETTING_STARTED.md`. **The project comes first** (practice 38): if
+     `GETTING_STARTED.md`. **The project comes first**
+     ([lead-with-what-it-is](practices/lead-with-what-it-is.md)): if
      the repo already has a README describing the project, insert only
      this block near its top — don't rewrite the opening. If the repo has
      no README yet, write a short project-specific opening first — from
@@ -173,7 +174,8 @@ list.)
      it) or merge into an existing one (append, don't overwrite): baseline
      ignores for ordinary tool/interpreter caches — `__pycache__/` in
      particular, left behind by every run of the vendored Python audits in
-     `tools/`. Add this repo's own generated-deliverable globs (practice 8)
+     `tools/`. Add this repo's own generated-deliverable globs
+     ([generated-artifact-provenance](practices/generated-artifact-provenance.md))
      to the same file rather than a second one.
    - **Apply the harness adapter(s)** for whichever agent(s) will work this
      repo — see [templates/harness/README.md](templates/harness/README.md).
@@ -189,8 +191,8 @@ list.)
      `harness/claude-code/hooks/reply-gate.sh` → `.claude/hooks/`, which puts
      the reply gate's practices in front of the session at the START of a
      turn rather than after its reply is already written. **Replace the base-branch
-     argument in the two `freshness-guard.sh` commands** with this repo's real
-     base branch; it is passed explicitly because detecting it gets this repo
+     argument in all three `freshness-guard.sh` commands** (SessionStart,
+     UserPromptSubmit and PreToolUse) with this repo's real base branch; it is passed explicitly because detecting it gets this repo
      itself wrong. Codex reads `AGENTS.md` natively.
      Multiple adapters can be installed side by side.
 
@@ -204,7 +206,7 @@ list.)
      | `session-start.sh` | **Always.** It is the install. |
      | `commit-identity.sh` | **Always, and it asks nobody anything.** See below. |
      | `freshness-guard.sh` | **Always**, unless this repo's own bootstrap already fetches and fast-forwards — then it is duplicated work, not a conflict. |
-     | `stop-git-check.sh` | **Judgment.** It blocks ending a turn on uncommitted or unpushed work. Good discipline for a repo you own; intrusive in one shared with someone who did not choose it. |
+     | `stop-git-check.sh` | **Wired by default** — the adapter's settings.json carries it, and an install leaves it. It blocks ending a turn on uncommitted or unpushed work: good discipline for a repo you own, intrusive in one shared with someone who did not choose it, so the one thing to say to the administrator is that the `Stop` entry can be removed if the team objects. Not a question at install. |
      | `precedent-paths.sh` | **Only with the Precedent loader.** It surfaces path-triggered practice Rules; without a resolved catalogue it has nothing to read. |
      | `reply-gate.sh` | **Only with the Precedent loader**, same reason. One line per reply-gate practice, on every prompt; it never blocks (a `UserPromptSubmit` hook that exits non-zero eats the person's message). |
 
@@ -220,6 +222,14 @@ list.)
      `pre-commit` (and `prepare-commit-msg`) hook refusing a commit authored
      by that bot account. Declining it is what leaves one person's name on
      another person's commits — which is what happened.
+
+     **One side effect worth knowing about.** `commit-identity.sh` also
+     repoints the container's `/etc/localtime` to the resolved zone, so that
+     every tool on the machine stamps the same offset (`PRECEDENT_LOCALTIME`
+     names another file to repoint instead). On a shared or local machine
+     that is a change to the machine, not to the repo — measured on
+     2026-09-14 when a rehearsal moved a container from Buenos Aires to New
+     York and could not move it back.
 
      **Timezone is the one thing guessed, deliberately.** Nothing in a GitHub
      profile says where a person is, and a container's own clock is UTC
@@ -256,8 +266,10 @@ list.)
      line; the hook warns if your repo does not.
    - `tools/doc_lint.py` → run it from `process/upstream/tools/` in place,
      or copy to the repo's tools dir if it needs local adaptation.
-   - `tools/doc_sync.py` (practice 19) and `tools/model_audit.py`
-     (practice 30) → copy to the repo's tools dir and wire their registries
+   - `tools/doc_sync.py` ([computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md))
+     and `tools/model_audit.py`
+     ([scripts-assert-properties](practices/scripts-assert-properties.md))
+     → copy to the repo's tools dir and wire their registries
      (`PAIRS` and `INSTRUMENTED` respectively); both are gates meant to run
      with the repo's other pre-commit checks. Install `doc_sync` when
      documents quote computed numbers, and `model_audit` as soon as any
@@ -268,8 +280,9 @@ list.)
    landed, at what granularity, and what was adapted. Then run
    `python3 process/upstream/tools/practice_audit.py --update-baseline`
    to record content hashes.
-4. **If the dependent repo is private** (and it usually is): create
-   `process/scrub_blocklist.txt` — one regex per line (`#` comments), the
+4. **Create `process/scrub_blocklist.txt`** — whether or not the repo is
+   private (read that from the remote; it is not a question for the
+   administrator, and the file is harmless on a public repo): — one regex per line (`#` comments), the
    repo's private vocabulary: project and product names, internal code
    words, identifier patterns, anything that must never appear in the
    public vendored tree. Err broad; false positives are a one-line review,
@@ -307,9 +320,16 @@ list.)
    rules look mutually exclusive; it now reads
    [GETTING_STARTED.md](templates/GETTING_STARTED.md) first.
 7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
+   Then lint the files this install created **by name** —
+   `python3 process/upstream/tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md VOICE.md STYLEGUIDE.md README.md`
+   — because the bare light check scopes itself to files changed against
+   `origin/<default branch>`, and on a repo that has not been pushed yet
+   that is nothing at all: it reported `0 file(s) checked` on a fresh
+   install (2026-09-14) whose STYLEGUIDE.md carried three dead links.
    Commit.
 
-8. **Disclose anything GitHub-specific** (practice 37): if any step above
+8. **Disclose anything GitHub-specific**
+   ([github-setup-disclosed](practices/github-setup-disclosed.md)): if any step above
    added a required Actions workflow, a repository secret, a
    branch-protection or required-check setting, or any other
    GitHub-specific requirement, add a line for it in
@@ -329,7 +349,10 @@ list.)
    question. **This step's default follow-up is an active offer, not a
    passive one:** if the answer to either half is no, the very next thing
    this session says is *"Want me to set one up for you right now? It only
-   takes a minute and needs nothing from you but a name."* — not a
+   takes a minute and needs nothing from you but a yes."* (The name is
+   not theirs to pick — `precedent-individual`, or
+   `precedent-team-<subject>` where the subject is the only word they
+   supply; see the naming rule under the team branch below.) — not a
    once-mentioned option left for the administrator to bring back up
    later. Nobody using Precedent should have to already know
    `spec/BOOTSTRAP_NEW_SOURCES.md` exists to get offered it.
@@ -555,7 +578,8 @@ list.)
     The plain-language, step-by-step version is [SETUP.md](SETUP.md)
     step 7. *(Click-paths as of 2026-09-10.)*
 
-`.gitignore` / `.gitattributes` stanzas for generated artifacts (practice 8),
+`.gitignore` / `.gitattributes` stanzas for generated artifacts
+([generated-artifact-provenance](practices/generated-artifact-provenance.md)),
 appended to the baseline `.gitignore` instantiated above from
 [templates/gitignore.template](templates/gitignore.template):
 
@@ -575,11 +599,17 @@ appended to the baseline `.gitignore` instantiated above from
 **Most projects should still use §1.** This is the alternative, for a
 project that has never installed BestPractice before and wants to start on
 the three-source model (universal + team + individual) directly rather than
-installing the older single-source model and migrating later. It is newer
-and **has not been rehearsed end to end against a real project** — see the
-caveat closing this section. [SETUP.md](SETUP.md)'s guided conversation
-still uses §1 by default; take this path only when the administrator asks
-for it by name.
+installing the older single-source model and migrating later. **It is the
+only install that turns the loader on** — the resident block, the occasion
+index, the enforced checks; §1 installs the vendored prose and none of
+that, so a §1 project that wants Precedent later takes
+[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
+Rehearsed against a real project on 2026-09-14 (the closing paragraph of
+this section says what it found). [SETUP.md](SETUP.md)'s guided
+conversation still uses §1 by default; whether that default should flip
+is [TODO.md's `setup-default-is-the-loader` item](TODO.md#setup-default-is-the-loader),
+and until it is decided, take this path when the administrator asks for it
+by name.
 
 **When to use this instead of §1**: a genuinely fresh repo, never
 BestPractice-vendored before. A repo that already vendored BestPractice
@@ -595,17 +625,18 @@ not this section.
    `precedent/universal/practices/`), and the loader engine itself.
    **Don't hand-copy the engine files** — from the Precedent clone, run
    `python3 tools/precedent_vendor_engine.py seed <this repo's path> --kind consumer`
-   to write the engine into this repo's own `tools/`: the loader
-   (`build_views.py`, `precedent_show.py`, `precedent_paths.py`,
-   `precedent_gate.py`, `split_practices.py`), the multi-source resolver
-   (`precedent_resolve.py`, `precedent_materialize.py`,
-   `precedent_sync_views.py`), the enforced channel (`precedent_check.py`,
-   plus `doc_lint.py`, `doc_sync.py` and `routing_audit.py`, which several
-   universal practices' checks call by name), the individual-source
-   bootstrap (`precedent_source_bootstrap.py`), and the vendoring tool
-   itself — plus a trimmed `routing_scope.json` and a tracked
-   `tools/ENGINE_MANIFEST.json` recording the exact commit and a sha256 per
-   file. See "Keep the vendored engine current (consumer repos)" under §2
+   to write the engine into this repo's own `tools/`: the loader, the
+   multi-source resolver, the enforced channel, the individual-source
+   bootstrap, the vendoring tool itself and their companions — the exact
+   list is `CONSUMER_ENGINE_FILES` in that tool, and the tracked
+   `tools/ENGINE_MANIFEST.json` it writes records every file with the exact
+   commit and a sha256 (a list typed here named fifteen files on the day it
+   was written and the seed wrote thirty-one by 2026-09-14). **What does
+   not travel this way**: the harness adapters this repo's `precedent.json`
+   declares are copied by the sync only from a source's `precedent.json`,
+   and step 1 copies `practices/` alone — so a §0 install gets its hooks
+   from step 5's harness adapter, by hand, and the sync reports
+   `0 harness adapter(s)`; that is expected, not a failure. See "Keep the vendored engine current (consumer repos)" under §2
    for what that buys over a hand-copy, and how to refresh it later.
    **Nothing here is hand-copied any more.** `precedent_check.py` used to
    be, on the reasoning that the enforced channel is not the loader engine
@@ -691,6 +722,8 @@ not this section.
    | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) | **Not this repo's — skip it.** It gates the generated views of a repo that AUTHORS its `practices/` (an individual or team practice set). A consuming repo materializes `practices/` from sources a CI runner cannot reach, so there is nothing on the runner to check the views against, and the workflow exits non-zero saying so rather than passing blind. See [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)'s Limits. |
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/VOICE.md.template](templates/VOICE.md.template) and [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Both mention `process/upstream/` in prose — the export-gate route in one, a review-grouping hint in the other. Neither breaks anything, and both name a directory your repo does not have, so a reader follows a dead path. Reword or drop those lines. |
+   | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template), [templates/STYLEGUIDE.md.template](templates/STYLEGUIDE.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row, an export note). Same treatment: reword or drop the line — and `STYLEGUIDE.md` still ships as an empty skeleton, out of scope for the install; only its one path note changes. |
+   | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Four `process/upstream/tools/…` entries in the permission allowlist. Harmless (they match nothing), but replace them with the `tools/…` forms so the allowlist covers the commands this repo actually runs. |
 
    After instantiating, grep the new root for `process/upstream` — in a §0
    install every remaining hit is a path that does not exist. The table
@@ -702,12 +735,32 @@ not this section.
    source `precedent.json` declares and writes `AGENTS.md`'s generated
    block from the result (the resident block, the occasion index, the
    standing instruction). Confirm it prints `OK`, not `FAIL`, and that
-   the reported resident-block size is inside its stated budget.
+   the reported resident-block size is inside its stated budget. **It also
+   writes three things to commit**: a materialized `practices/` at the
+   root (every source resolved into one tree — the copy the loading tools
+   read), `MANIFEST.json` beside it (what was materialized from where), and
+   `tools/checks/tests/run_all.sh`. All three are tracked output of the
+   sync, regenerated on every run; commit them, never hand-edit them.
+   The generated block's own header names `build_views.py` as the
+   regeneration command; in a consuming repo the command is this one,
+   `precedent_sync_views.py --repo .` — `build_views.py --check` alone
+   reports the hand-templated `MAP.md` and `GLOSSARY.md` as drift, which
+   they are not.
 7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
-   loose at the repo root except the instantiated files above — the
-   vendored engine and universal catalogue live under `tools/` and step
-   1's tracked path, not scattered elsewhere.
-8. Commit everything on a branch, same as §1.
+   loose at the repo root except the instantiated files above and step 6's
+   `practices/` and `MANIFEST.json` — the vendored engine and universal
+   catalogue live under `tools/` and step 1's tracked path, not scattered
+   elsewhere.
+8. Commit everything on a branch, same as §1 — and, as in §1 step 7, lint
+   the instantiated files **by name** first
+   (`python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md VOICE.md STYLEGUIDE.md README.md`),
+   because the bare light check scopes itself to what changed against
+   `origin/<base branch>` and a repo with no `origin` yet checks nothing.
+   **Give the repo an `origin` before the first session works in it**: the
+   freshness guard the harness adapter wires refuses the session's first
+   write while it cannot reach one, by design — an unreachable origin is
+   indistinguishable from a stale checkout — and a freshly `git init`ed
+   project is exactly the repo with none (measured 2026-09-14).
 9. **Mention the same optional owner-only settings** as §1 step 10 — this
    path installs a different layout, not a different GitHub account.
 
@@ -790,13 +843,22 @@ particular are never filled in by an update.
 them.** §1 vendors upstream's *prose* under `process/upstream/` and tracks it
 in `process/manifest.json`, which is what steps 1–5 merge, record and audit.
 A §0 install has neither: it vendors a `practices/` tree and the engine, and
-nothing else. So a §0 repo's whole update is **step 0 below, then step 6** —
-and step 0 is new here, because until 2026-09-11 this section covered the
-engine and never mentioned the catalogue, so a §0 repo following it exactly
-refreshed its tools, kept a frozen practice catalogue, and got `OK` from
-every check. Measured that day on a scratch consumer vendored at a
-2026-09-07 commit: after the documented update it still materialized 72
-practices while upstream carried 98, with nothing said.
+nothing else. So a §0 repo's whole update is **step 6 (the engine) first,
+then step 0 (the catalogue), then step 0b (the wiring)** — the engine first
+so the new checks read the new catalogue rather than the old checks reading
+it uncommitted, which reported five false `acronyms-glossary` hits on
+2026-09-14 when the steps ran the other way round. Step 0 is here because
+until 2026-09-11 this section covered the engine and never mentioned the
+catalogue, so a §0 repo following it exactly refreshed its tools, kept a
+frozen practice catalogue, and got `OK` from every check. Measured that day
+on a scratch consumer vendored at a 2026-09-07 commit: after the documented
+update it still materialized 72 practices while upstream carried 98, with
+nothing said. Step 0b is here for the same shape one layer out, found
+2026-09-14: the engine manifest does not cover `tools/bootstrap.sh`, the
+harness hooks or the instructions file, so a refreshed engine that changed
+what a command accepts left a consumer's own session-start script calling
+it the old way — a WARN at every session start naming a fix that failed the
+same way.
 
 0. **(§0 installs) Replace the vendored universal catalogue.** From a
    sibling Precedent clone, already on `precedent-beta-v01` and pulled:
@@ -815,8 +877,10 @@ practices while upstream carried 98, with nothing said.
    practices, changed Rules and retired ones all arrive here, and this is
    the only place a reader sees them.
 
-   **Expect one refusal, and read it before reaching for the flag.** If
-   anything was retired upstream since you installed, the sync refuses
+   **Expect a refusal if anything was retired, and read it before reaching
+   for the flag.** If anything was retired upstream since you installed
+   (nothing may have been — a six-day update on 2026-09-14 saw none), the
+   sync refuses
    rather than deleting a practice your committed `MANIFEST.json` records.
    Retirement is the ordinary case when you have just replaced the whole
    catalogue, and then `--allow-removals` is the correct answer — but the
@@ -831,6 +895,18 @@ practices while upstream carried 98, with nothing said.
    somebody dropped, and overriding it there deletes practices that are
    still alive. Compare the recorded name against your declared ones first.
    `--allow-removals` proceeds once you know which you have.
+
+0b. **(§0 installs) Re-instantiate the wiring the engine manifest does not
+   cover.** `tools/bootstrap.sh`, the `.claude/hooks/*.sh` adapters and the
+   instructions file are instantiated from `templates/` and adapted, so
+   `refresh` never rewrites them — and it now ends by naming any of them
+   that still invokes `precedent_sync_views.py` without `--repo`, which the
+   refreshed engine refuses. Re-instantiate `tools/bootstrap.sh` from
+   [templates/bootstrap.sh](templates/bootstrap.sh) and the hooks from
+   [templates/harness/](templates/harness/) (carrying your adaptations
+   across), or fix each named line. Then `python3 tools/precedent_check.py`
+   should come back `0 violated`; `access-probe-is-wired` in particular is
+   satisfied by the current `bootstrap.sh` and by nothing older.
 
 1. Fetch the new upstream tree; diff it against the vendored copy at the
    **recorded base commit** (manifest `upstream.commit`).
@@ -993,10 +1069,12 @@ practices while upstream carried 98, with nothing said.
    and refuses to overwrite a hand-edited vendored file unless `--force` —
    this engine carries zero local variance by design, so a local edit is a
    signal to move the change upstream into Precedent instead. After a
-   refresh, re-run `python3 tools/precedent_sync_views.py --repo . --check`
-   to confirm the freshly refreshed engine still produces the same
-   materialized tree and `AGENTS.md` (or, if the refresh changed loader
-   behavior, review the diff before committing).
+   refresh, run `python3 tools/precedent_sync_views.py --repo .` — **expect
+   `--check` to FAIL first**: a refresh changes what the loader renders
+   (the generated block, `MANIFEST.json`), so a byte-identical check against
+   the old output fails every time, and it failed on every ordering tried
+   on 2026-09-14. Run the sync, review both diffs together, and commit the
+   refresh and the sync as one change; `--check` is then the confirmation.
 
 ## 3. (Optional) Give Back an Improvement — The Export Gate
 
@@ -1025,7 +1103,7 @@ If yes, in the **same branch**:
 
 1. Write the **abstracted** form into the right file under
    `process/upstream/` — patterns and lessons only, subject matter stripped
-   (see practice 15). Abstraction is authorship, not copying: rewrite the
+   ([scrub-gate](practices/scrub-gate.md)). Abstraction is authorship, not copying: rewrite the
    incident generically, keep the lesson.
 2. Update the touched manifest entries (`notes`, status) and run
    `python3 process/upstream/tools/practice_audit.py` — the scrub must pass.
@@ -1156,10 +1234,10 @@ python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record 
 
 Checks, in order — any FAIL exits non-zero:
 
-1. **Scrub** (practice 15): every text file under `process/upstream/`
+1. **Scrub** ([scrub-gate](practices/scrub-gate.md)): every text file under `process/upstream/`
    scanned against `process/scrub_blocklist.txt`. Any hit → FAIL. (Skipped,
    with a notice, if no blocklist exists — a public dependent repo.)
-2. **Drift** (practice 7): for each `file`-granularity entry, current hash
+2. **Drift** ([registry-source-of-truth](practices/registry-source-of-truth.md)): for each `file`-granularity entry, current hash
    vs `local_sha256`. Changed while `status: "synced"` → FAIL (export it or
    flip to `diverged`). `diverged` entries are listed as pending export,
    not failed.
@@ -1169,7 +1247,7 @@ Checks, in order — any FAIL exits non-zero:
 ## 7. Practice Packs (Domain Layers)
 
 A repo can install additional practice layers beside this upstream —
-**packs** (practice 23): domain-scoped practice sets (a compliance regime, a
+**packs** ([layered-practice-packs](practices/layered-practice-packs.md)): domain-scoped practice sets (a compliance regime, a
 lab workflow, a regulated-filing process) that are too domain-bound for this
 public upstream but too general to be one repo's local rules. Mechanics:
 

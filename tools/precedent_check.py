@@ -5678,16 +5678,41 @@ def _github_api_budget(ctx):
         # touches GitHub's API. A repo with a caller and no registry is the
         # finding itself -- it is spending an allowance it has not named,
         # which is the state this whole practice was written out of.
-        if not callers:
-            raise NotApplicable(f'this repo has no {GITHUB_API_BUDGETS} and '
-                                f'nothing here calls the GitHub API, so there '
-                                f'is no spend to declare')
+        #
+        # A caller THIS REPO RECEIVED is not its finding, though. The engine
+        # vendors precedent_source_names.py into every consumer, and the
+        # registry that declares it is deliberately not vendored (it is the
+        # repo's own declaration, like session_load_budgets.json) -- so on
+        # 2026-09-14 two by-the-book installs, a fresh one and an update,
+        # came back `1 violated` on a tool the adopter had never seen, with a
+        # remedy ("copy one from upstream") that produced a second violation
+        # about a budget for a tool the consumer does not have. A file in
+        # tools/ENGINE_MANIFEST.json was audited where it was written
+        # (practice: very-deep-check, pass 2 question 1 -- bucket a finding by
+        # who wrote it); what this check owns here is what the repo itself
+        # wrote. Practice: github-api-budget.
+        vendored = set(_engine_manifest().get('files') or [])
+        mirrored = _mirrored(ROOT)
+        own = [rel for rel in callers
+               if not (rel.startswith('tools/') and rel[len('tools/'):] in vendored)
+               and not rel.startswith(mirrored)]
+        if not own:
+            raise NotApplicable(
+                f'this repo has no {GITHUB_API_BUDGETS} and nothing it wrote '
+                f'calls the GitHub API'
+                + (f' (the vendored engine files that do -- '
+                   f'{", ".join(sorted(set(callers) - set(own)))} -- are '
+                   f'declared where they were written)' if callers else '')
+                + ', so there is no spend to declare')
         return [Finding(rel, f'calls the GitHub API, and this repo has no '
                              f'{GITHUB_API_BUDGETS} declaring what that '
-                             f'should cost. Copy one from upstream and give '
-                             f'this tool a run budget, or declare it under '
-                             f'"unrouted_callers" with the reason')
-                for rel in callers]
+                             f'should cost. Write one naming THIS repo\'s '
+                             f'tools -- a "core" floor and a run budget for '
+                             f'each caller here (upstream\'s file is the '
+                             f'shape, not the content: it budgets tools this '
+                             f'repo does not have) -- or declare the tool '
+                             f'under "unrouted_callers" with the reason')
+                for rel in own]
     try:
         reg = json.loads(reg_path.read_text(encoding='utf-8'))
     except ValueError as e:

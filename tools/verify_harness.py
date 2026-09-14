@@ -12451,11 +12451,16 @@ def check_bootstrap_source_produces_resolvable_set():
 
     Fixture: bootstrap one individual set and one team set into a scratch
     dir, point a synthetic consumer repo's precedent.json (team) and
-    PRECEDENT_USER_CONFIG (individual) at them, and resolve. Both skeletons'
-    example-starter.md intentionally share a slug -- that also exercises the
-    precedence resolver for real (team must win over individual, per
+    PRECEDENT_USER_CONFIG (individual) at them, and resolve. A fixture
+    practice with ONE slug is then planted into both sets, which exercises
+    the precedence resolver for real (team must win over individual, per
     tools/precedent_resolve.py's documented order) rather than only proving
-    the sources load."""
+    the sources load. Until 2026-09-14 the two skeletons' own placeholder
+    files shared the slug `example-starter` and this case leaned on that --
+    and a real migration that bootstrapped both sets then had its first
+    sync REFUSED: the team placeholder overrode the individual one, so the
+    individual set "contributed no practices at all". The skeletons carry
+    distinct slugs now; the collision this case needs is planted here."""
     import shutil, tempfile
 
     def pyrun(*args, env_extra=None):
@@ -12476,7 +12481,7 @@ def check_bootstrap_source_produces_resolvable_set():
         rc, out = pyrun(bootstrap_tool, '--level', 'individual',
                         '--name', 'precedent-individual', '--dest', str(indiv_dest))
         cases.append(('bootstrapping an individual set succeeds and writes its files',
-                      rc == 0 and (indiv_dest / 'practices' / 'example-starter.md').is_file()
+                      rc == 0 and (indiv_dest / 'practices' / 'example-starter-individual.md').is_file()
                       and (indiv_dest / 'config.json.sample').is_file(), out))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
@@ -12515,6 +12520,19 @@ def check_bootstrap_source_produces_resolvable_set():
             'individual': {'name': 'precedent-individual', 'path': str(indiv_dest)},
         }), encoding='utf-8')
 
+        # The deliberate collision: one slug in both sets.
+        for dest, level in ((indiv_dest, 'individual'), (team_dest, 'team')):
+            (dest / 'practices' / 'zz-shared-slug.md').write_text(
+                '---\nslug:        zz-shared-slug\n'
+                f'title:       A {level} practice sharing a slug\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\noccasion:    "fixture"\n'
+                'index_clause: "fixture"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nin_force_at: null\n'
+                'supersedes:  []\noverrides:   null\nadded:       null\n'
+                'approved_by: "fixture"\n---\n\n## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
         rc, out = pyrun(str(ROOT / 'tools' / 'precedent_resolve.py'),
                         '--repo', str(consumer), '--json',
                         env_extra={'PRECEDENT_USER_CONFIG': str(user_config)})
@@ -12527,9 +12545,14 @@ def check_bootstrap_source_produces_resolvable_set():
         cases.append(('the resulting consumer repo resolves cleanly -- no missing, '
                       'no blocked sources',
                       rc == 0 and not resolved.get('missing') and not resolved.get('blocked'), out))
-        cases.append(('example-starter resolves, won by the team set over the '
-                      'individual set (real precedence, not just presence)',
-                      slugs.get('example-starter', {}).get('level') == 'team', out))
+        cases.append(('the planted shared slug resolves, won by the team set over '
+                      'the individual set (real precedence, not just presence)',
+                      slugs.get('zz-shared-slug', {}).get('level') == 'team', out))
+        cases.append(('and the two skeletons\' own placeholders no longer collide: '
+                      'both resolve, each from its own level',
+                      slugs.get('example-starter-team', {}).get('level') == 'team'
+                      and slugs.get('example-starter-individual', {}).get('level')
+                      == 'individual', out))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -19387,7 +19410,7 @@ def check_unlanded_work_is_reported_before_the_passes():
                    PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
-             '--repo', str(work)],
+             '--repo', str(work), '--checklist'],
             capture_output=True, text=True, cwd=str(work), env=env)
         out = r.stdout
 
@@ -19702,7 +19725,7 @@ def check_shallow_clone_never_fabricates_unlanded_work():
                    PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
-             '--repo', str(work)],
+             '--repo', str(work), '--checklist'],
             capture_output=True, text=True, cwd=str(work), env=env)
         # THE UNLANDED WORK BLOCK ONLY, not everything printed before the
         # checklist. This used to slice at 'Pass 1 --' and assert that a
@@ -20496,7 +20519,8 @@ def check_doc_currency_finds_a_stale_document():
         'tier:        on-demand\nseverity:    default\n'
         'applies_to:  ["**"]\noccasion:    "testing"\n'
         'index_clause: "a fixture"\nchecked_by:  null\n'
-        'defines:     ["Zorp It"]\nstatus:      active\nsupersedes:  []\n'
+        'defines:     []\ncommand:     {"Zorp It": "do the thing"}\n'
+        'status:      active\nsupersedes:  []\n'
         'overrides:   null\nadded:       null\napproved_by: "fixture"\n'
         '---\n\n## Rule\nSay it.\n')
     PAGE_WITH = '# Page\n\nSay **Zorp It** to do the thing.\n'

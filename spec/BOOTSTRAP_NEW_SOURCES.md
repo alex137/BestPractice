@@ -482,7 +482,7 @@ case documented above.
    `export PRECEDENT_LEAK_BLOCKLIST=<path>` and
    `git config precedent.requireVocabulary true` in every shared project
    they work in.
-7. Delete `practices/example-starter.md` once a real first practice
+7. Delete `practices/example-starter-<level>.md` once a real first practice
    replaces it.
 
 ### For a team set
@@ -520,7 +520,7 @@ per person), and it needs at least one approver at creation time.
    step 4 already documents for an existing team source — this is the
    identical gap, not a new one.
 7. Fill in `leak-blocklist.txt` and `approvers.json` for real, delete
-   `practices/example-starter.md` once a real first practice replaces it.
+   `practices/example-starter-<level>.md` once a real first practice replaces it.
 8. **For a team set, run `python3 tools/build_codeowners.py`** and commit
    the `CODEOWNERS` it writes. `approvers.json` is the declaration;
    `CODEOWNERS` is what actually makes GitHub require an approver's review,

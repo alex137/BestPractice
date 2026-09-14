@@ -1191,6 +1191,266 @@
       ],
       "passes": [],
       "completed": true
+    },
+    {
+      "run_id": "2026-09-14T18:49:49-03:00",
+      "date": "2026-09-14",
+      "repo": "/home/user/BestPractice",
+      "argv": [],
+      "seconds": 43.67,
+      "components": [
+        {
+          "name": "FRESHNESS -- this checkout",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 0.9,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.05,
+          "status": "clean"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 74,
+          "seconds": 4.34,
+          "status": "clean"
+        },
+        {
+          "name": "REPOS IN FORCE -- still there, still writable",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 546,
+          "seconds": 5.35,
+          "status": "clean"
+        },
+        {
+          "name": "SCOPE -- documents and practices to read",
+          "kind": "read",
+          "findings": null,
+          "items": 334,
+          "output_tokens": 131,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "WITHIN-SOURCE CONFLICTS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 35,
+          "seconds": 0.05,
+          "status": "clean"
+        },
+        {
+          "name": "SOURCE SHAPE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 0.01,
+          "status": "clean"
+        },
+        {
+          "name": "TEMPLATE FRESHNESS",
+          "kind": "mechanical",
+          "findings": 4,
+          "items": null,
+          "output_tokens": 178,
+          "seconds": 0.01,
+          "status": "findings"
+        },
+        {
+          "name": "BOOTSTRAP DRIFT",
+          "kind": "mechanical",
+          "findings": 24,
+          "items": null,
+          "output_tokens": 599,
+          "seconds": 3.24,
+          "status": "findings"
+        },
+        {
+          "name": "CONVERGENT DRIFT",
+          "kind": "mechanical",
+          "findings": 6,
+          "items": null,
+          "output_tokens": 894,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "EXPIRING PRACTICES",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 85,
+          "seconds": 0.02,
+          "status": "findings"
+        },
+        {
+          "name": "ORPHANS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 44,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "SESSION LOAD",
+          "kind": "mechanical",
+          "findings": 16,
+          "items": null,
+          "output_tokens": 1275,
+          "seconds": 0.25,
+          "status": "findings"
+        },
+        {
+          "name": "TIER PLACEMENT",
+          "kind": "read",
+          "findings": null,
+          "items": 10,
+          "output_tokens": 317,
+          "seconds": 0.01,
+          "status": "material"
+        },
+        {
+          "name": "RULES WE SHIP SOMEWHERE ELSE",
+          "kind": "read",
+          "findings": null,
+          "items": 26,
+          "output_tokens": 357,
+          "seconds": 0.02,
+          "status": "material"
+        },
+        {
+          "name": "DOCUMENTATION CURRENCY",
+          "kind": "mechanical",
+          "findings": 6,
+          "items": null,
+          "output_tokens": 643,
+          "seconds": 0.14,
+          "status": "findings"
+        },
+        {
+          "name": "UNLANDED WORK",
+          "kind": "mechanical",
+          "findings": 5,
+          "items": null,
+          "output_tokens": 254,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "LIVE SESSIONS -- recent work against the repo",
+          "kind": "read",
+          "findings": null,
+          "items": 1951,
+          "output_tokens": 722,
+          "seconds": 0.0,
+          "status": "partial"
+        },
+        {
+          "name": "REPOSITORY VISIBILITY",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 196,
+          "seconds": 11.75,
+          "status": "clean"
+        },
+        {
+          "name": "CHECKLIST -- the four passes a session works",
+          "kind": "read",
+          "findings": null,
+          "items": null,
+          "output_tokens": 11156,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "BRANCHES -- verdicts owed",
+          "kind": "mechanical",
+          "findings": 223,
+          "items": null,
+          "output_tokens": 4574,
+          "seconds": 16.53,
+          "status": "findings"
+        },
+        {
+          "name": "BASE BRANCH DRIFT",
+          "kind": "mechanical",
+          "findings": 3,
+          "items": null,
+          "output_tokens": 258,
+          "seconds": 0.1,
+          "status": "findings"
+        },
+        {
+          "name": "ENDGAME MERGE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 130,
+          "seconds": 0.78,
+          "status": "clean"
+        },
+        {
+          "name": "GITHUB API BUDGET",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 396,
+          "seconds": 0.0,
+          "status": "clean"
+        }
+      ],
+      "passes": [
+        {
+          "pass": "1",
+          "status": "done",
+          "recorded": "2026-09-14T19:08:48-03:00",
+          "findings": 65,
+          "tokens": null,
+          "note": "PARTIAL - four literal rehearsals (SETUP.md guided, section 0, migration, update); 8 roadblocks; every one fixable here fixed; no real consumer attached"
+        },
+        {
+          "pass": "2",
+          "status": "done",
+          "recorded": "2026-09-14T19:08:48-03:00",
+          "findings": 4,
+          "tokens": null,
+          "note": "two definitions of a command; SESSION_PRACTICES show instruction unreachable; checklist reprint cheapened; session-start misdiagnosis recorded"
+        },
+        {
+          "pass": "3",
+          "status": "done",
+          "recorded": "2026-09-14T19:08:48-03:00",
+          "findings": 9,
+          "tokens": null,
+          "note": "SETUP.md self-contradictions; numbered citations into the frozen catalogue; templates telling the installer to ask; README and section 0 stale; team skeleton three files short"
+        },
+        {
+          "pass": "4",
+          "status": "done",
+          "recorded": "2026-09-14T19:08:48-03:00",
+          "findings": 6,
+          "tokens": null,
+          "note": "phase-7 merge into main landed today unnoticed (ask); watermark moved; endgame 0/0; five branch verdicts; full catalogue read NOT DONE"
+        }
+      ],
+      "completed": true
     }
   ]
 }

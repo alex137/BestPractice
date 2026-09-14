@@ -41,7 +41,10 @@ pip install --quiet cmarkgfm 2>/dev/null || \
 # refs, and re-running it is a no-op. Doing it here means the freshness
 # block below can actually resolve origin/<branch> on a feature branch,
 # which on a single-branch clone it silently could not.
-if git rev-parse --git-dir >/dev/null 2>&1; then
+# Only where an origin exists at all: a repo that has not been pushed yet has
+# nothing to widen, and the NOTE below would be false there (measured on two
+# fresh installs, 2026-09-14).
+if git rev-parse --git-dir >/dev/null 2>&1 && git remote get-url origin >/dev/null 2>&1; then
   if ! git config --get-all remote.origin.fetch 2>/dev/null | grep -q 'refs/heads/\*'; then
     git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null && \
       echo "NOTE: this clone fetched only one branch; widened remote.origin.fetch so other branches resolve. (See AGENTS.md gotchas: a single-branch clone makes every other branch read as 'unpushed' forever.)" >&2

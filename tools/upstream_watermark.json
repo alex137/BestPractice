@@ -25,9 +25,9 @@
   "upstream_branch": "main",
   "working_branch": "precedent-beta-v01",
   "last_carried": {
-    "sha": "f0689efd9ad9c262984c470611f392b0c71deed5",
-    "recorded": "2026-09-08",
-    "carried_by": "PR #148 -- Carry Alex's 2026-09-08 main check-in onto precedent-beta-v01",
-    "note": "Alex's PR #139 (practices 54-55, the doc_lint anchor check, the model_audit loader fix). Landed here as four practices/*.md files plus the tooling changes; PRACTICES.md itself stays frozen at 53 on this branch."
+    "sha": "f4f9ac956ca5f12d5fe2c618a95fb24cfd27539a",
+    "recorded": "2026-09-14",
+    "carried_by": "PR #367 -- main took precedent-beta-v01 at 3386318; its carry audit found gap zero, so nothing on main is missing here",
+    "note": "Merge pull request #367 from alex137/precedent-merge-back"
   }
 }

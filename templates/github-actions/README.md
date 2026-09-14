@@ -1,13 +1,14 @@
 # GitHub Actions templates
 
-Two templates, for two different kinds of repository. Both are read-only:
-they report, and neither holds a token that could write
+Three templates, for two different kinds of repository. All are read-only:
+they report, and none holds a token that could write
 ([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/ci-commits-carry-identity.md)).
 
 | Template | Install as | In which repo |
 |---|---|---|
 | [`doc-lint.yml.template`](doc-lint.yml.template) | `.github/workflows/bestpractice-docs.yml` | any dependent repository |
 | [`views-drift.yml.template`](views-drift.yml.template) | `.github/workflows/views-drift.yml` | one that GENERATES its own views — an individual or team practice set, or any repo whose `practices/` it authors itself |
+| [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it |
 
 ## The Markdown lint template
 
