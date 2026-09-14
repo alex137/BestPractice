@@ -232,7 +232,10 @@ bootstrap hook or provisioned environment*. Nothing had read them. **The
 information was complete and unattended**, which is a scheduling problem
 rather than a platform limit.
 
-**So: a scheduled Routine, firing a fresh session, with notifications on.**
+**So: a scheduled Routine.** What it may fire is settled by a measurement
+taken after this section was written — see
+[The fresh-session sweeper does not work](#the-fresh-session-sweeper-does-not-work)
+below, which corrects the rest of this paragraph and the table under it.
 Every few hours it lists the fleet, keeps the rows blocked on Morgan, and
 sends him the links. Routines can deliver push to a phone and email to an
 inbox when a run finishes with something worth saying — which reaches him
@@ -252,6 +255,36 @@ definition. **So the sweep and the desk are two things:**
 | What it does | Lists the fleet, keeps what is blocked, notifies | Answers "Chief of Staff", routes, spawns |
 | Why separate | Only a fresh-session Routine can notify | Only a standing session holds context |
 | What it costs | One short session per firing, most returning nothing | Nothing until spoken to |
+
+**The table's "why separate" row is the half that did not survive contact.**
+It is kept as written because the reasoning was right about notifications and
+wrong about what a fired session can do; the correction follows.
+
+## The fresh-session sweeper does not work
+
+**Measured 2026-09-14, after the design above was approved and built.** A
+Routine firing a fresh session gets **none of the session-management tools** —
+so the sweeper could not call `list_sessions`, which is the one thing it exists
+to do. The test firing completed in 32 seconds, exited 0, and recorded
+`SUCCEEDED`; it had done nothing. Neither the run status nor `create_trigger`'s
+own warning says this, and the remedy that warning names does not apply: the
+`connectors` argument resolves against connected claude.ai connectors, and the
+session-management server is the harness's own, not one of those.
+
+**A standing session does have the tools**, confirmed by creating one and
+watching it read the fleet. So the built shape is:
+
+- **The desk**, a standing session carrying `role:cos`, which does the sweep.
+- **A Routine bound to it** by `persistent_session_id`, waking it on the
+  schedule.
+- **The notification moved into the prompt.** A persistent-session Routine is
+  refused notifications — that constraint above is real — but the desk can send
+  one itself with `PushNotification`, which reaches his phone. So the desk is
+  no longer optional: it is where the sweep lives.
+
+Full story, and the generalization about a scheduled job's capabilities not
+being its scheduler's, at
+[record/GOTCHAS.md](../record/GOTCHAS.md#g38).
 
 The sweeper is deliberately dumb and cheap: no memory between firings, no
 judgment beyond *is this row blocked on him*. Everything that needs
@@ -302,10 +335,12 @@ Built 2026-09-14, on Morgan's authorization:
 - **The universal practice**, [practices/chief-of-staff.md](../practices/chief-of-staff.md) —
   the command, the link-every-session requirement, and the state-not-prose
   filter above.
-- **The sweeper Routine**, on Morgan's account. A fresh session per firing,
-  push notification on, four times a day at 09:00, 13:00, 17:00 and 21:00
-  Buenos Aires time. Its prompt carries the filter, so a firing that finds
-  nothing blocked says nothing.
+- **The desk**, a standing session carrying `role:cos`, which holds the sweep
+  prompt and does the work. It was built the same day rather than deferred,
+  because the measurement above made it the only shape that runs.
+- **The sweeper Routine**, on Morgan's account, waking the desk four times a
+  day at 09:00, 13:00, 17:00 and 21:00 Buenos Aires time. The desk sends the
+  push itself; a sweep that finds nothing blocked sends nothing.
 
 - **The tag namespaces**, [practices/session-tags.md](../practices/session-tags.md) —
   `subject:`, `repo:`, `role:`, `wants:`, applied in the `create_session` call
@@ -315,8 +350,5 @@ Built 2026-09-14, on Morgan's authorization:
 
 **Still not built**, and each needs a decision that is his:
 
-- **The desk** — a standing session carrying `role:cos`, seeded with a prompt
-  naming what it may not do. The phrase works in any session without it; what
-  a dedicated one adds is context that survives between askings.
 - **The cadence and channel** are set at a default, not decided. Open question
   2 below stays open; changing either is one `update_trigger` call.
