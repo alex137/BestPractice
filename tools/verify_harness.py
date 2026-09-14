@@ -13819,6 +13819,46 @@ def check_rendered_docs_are_current():
               + ([f'missing: {", ".join(missing)}'] if missing else [])))
 
 
+def check_install_names_every_not_vendored_dir():
+    """INSTALL.md §1 step 1 names every directory checkin.py refuses to vendor.
+
+    These are two halves of one rule kept in two files, which is the shape
+    that drifts. tools/checkin.py's NOT_VENDORED is what the tooling acts
+    on; INSTALL.md step 1 is what a person copying the tree by hand reads.
+    A directory added to one and not the other means either a consumer
+    hand-copies a tree the tooling then reports as drifted, or the prose
+    promises an exclusion nothing performs.
+
+    Found when philosophy/ was excluded on 2026-09-14 and nothing would have
+    caught the doc being left behind (practice: checkable-gets-checked).
+    Name-only: the paragraph's wording is nobody's business but its author's.
+    """
+    install = ROOT / 'INSTALL.md'
+    if not install.is_file():
+        not_applicable('INSTALL.md names every not-vendored directory',
+                       'INSTALL.md does not exist -- not a pass')
+        return
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import checkin as _checkin
+        excluded = set(_checkin.NOT_VENDORED)
+    except Exception as exc:                       # pragma: no cover
+        not_applicable('INSTALL.md names every not-vendored directory',
+                       f'could not read checkin.NOT_VENDORED: {exc}')
+        return
+    text = install.read_text(encoding='utf-8')
+    # The step is the one that says "Skip"; scoping to it stops an incidental
+    # mention elsewhere in a 1000-line document from passing this.
+    i = text.find('**Skip ')
+    step = text[i:i + 2000] if i != -1 else ''
+    missing = sorted(d for d in excluded if f'{d}/' not in step)
+    check(f'INSTALL.md §1 step 1 names every not-vendored directory '
+          f'({len(excluded)} excluded)',
+          not missing,
+          f'not named in the vendor step: {", ".join(missing)}' if missing
+          else '')
+
+
 def check_philosophy_readme_lists_every_file():
     """philosophy/README.md's list names every file in philosophy/, and no other.
 
@@ -21017,6 +21057,7 @@ def main():
     check_leak_gate_names_a_stale_blocklist_clone()
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
+    check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.

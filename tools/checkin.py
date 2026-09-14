@@ -165,7 +165,24 @@ def _rev_parse_quiet(clone, ref):
 # directory simply stops being told it drifted; deleting the stale copy is
 # the consumer's own next re-vendor, not something this tool reaches in and
 # does.
-NOT_VENDORED = frozenset({'evals'})
+# `philosophy/` is the second entry, added 2026-09-14 after Morgan read the
+# vendoring instructions and asked why it was in them at all: it is the
+# argument FOR the ideas Precedent implements -- essays, notes, rules being
+# tried -- and it is neither part of the system nor instructions for using it.
+# The repo already says so in two places and had not joined them up:
+# local/practices/philosophy-is-not-repo-policy.md says philosophy/ binds
+# nothing outside itself, and spec/DOCUMENT_LIFECYCLE.md's placement table
+# sorts every directory by AUDIENCE -- documentation/ is "someone using
+# Precedent on their own project", which is exactly who a vendored tree is
+# for, and philosophy/ is not in that table at all. A consumer was cloning,
+# scanning and scrubbing a case for adopting a thing they had adopted.
+#
+# No link goes dead: doc_lint.py skips the link check inside a mirrored tree
+# outright (see check_broken_links), so the references into philosophy/ from
+# the vendored README.md, METHOD.md and MAP.md report nothing in a consumer.
+# The two checks that read philosophy/ (verify_harness.py) already report
+# not-applicable when the directory is absent rather than passing blind.
+NOT_VENDORED = frozenset({'evals', 'philosophy'})
 
 
 def not_vendored_share(base=None):

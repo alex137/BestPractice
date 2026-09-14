@@ -80,21 +80,41 @@ list.)
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
    upstream commit hash you copied from (used by updates, step 2).
-   **Skip [evals/](evals/)** — it is Precedent's own routing-quality
-   measurement corpus (the fixtures behind
-   [spec/LOADER.md](spec/LOADER.md)'s recall and precision figures), it
-   answers a question about *building* Precedent rather than using it, and
-   nothing a consumer runs reads any of it. It is most of what a consumer
-   was otherwise copying; run
-   `python3 tools/checkin.py not-vendored` for the share against the tree in
-   front of you rather than trusting a figure typed here, which goes stale
-   the week it is written. **Nothing about this skips a practice** — every
-   file under `practices/` still vendors; this is measurement fixtures only.
-   [tools/checkin.py](tools/checkin.py) excludes the same directory from
-   its drift comparison, so an install that skips it is not reported as
+   **Skip [evals/](evals/) and [philosophy/](philosophy/).** Both fail the
+   same test: they answer a question about *building* Precedent rather than
+   using it, and nothing a consumer runs reads either.
+
+   - [evals/](evals/) is Precedent's own routing-quality measurement corpus
+     (the fixtures behind [spec/LOADER.md](spec/LOADER.md)'s recall and
+     precision figures). It is most of what a consumer was otherwise
+     copying.
+   - [philosophy/](philosophy/) is the argument *for* the ideas — essays,
+     notes, rules being tried. It is not part of the system and it is not
+     instructions for using the system, and it
+     [binds nothing outside itself](local/practices/philosophy-is-not-repo-policy.md)
+     even here. An adopter has already adopted; shipping them the case for
+     adopting is reading material, not machinery.
+
+   **Which is not the same as "skip the reader-facing prose".**
+   [documentation/](documentation/) vendors, in full and on purpose:
+   [spec/DOCUMENT_LIFECYCLE.md](spec/DOCUMENT_LIFECYCLE.md)'s placement
+   table sorts every directory by audience, and `documentation/`'s audience
+   is *"someone using Precedent on their own project"* — exactly who a
+   vendored tree is for. That table is the test to apply to any directory
+   this list does not name. **And nothing here skips a practice** — every
+   file under `practices/` still vendors.
+
+   Run `python3 tools/checkin.py not-vendored` for the share against the
+   tree in front of you rather than trusting a figure typed here, which
+   goes stale the week it is written.
+   [tools/checkin.py](tools/checkin.py) excludes the same directories from
+   its drift comparison, so an install that skips them is not reported as
    having drifted, and an existing install that already carries a copy is
    not either — deleting that stale copy is a re-vendor, not something the
-   tooling reaches in and does.
+   tooling reaches in and does. **No link goes dead by skipping either
+   one**: [tools/doc_lint.py](tools/doc_lint.py) skips the link check
+   inside a mirrored tree outright, so the vendored README's references
+   into `philosophy/` report nothing in a consumer.
 2. **Instantiate the templates** (adaptive — rewrite with the repo's actual
    subject matter, don't copy verbatim):
    - `templates/AGENTS.md.template` → `AGENTS.md` at the repo root: the
