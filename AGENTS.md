@@ -172,7 +172,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 122 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 123 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -357,8 +357,6 @@ When decommissioning a mechanism — a workflow, a tool, a vendored tree, a conf
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
 When discovering something a session in another window will need:
   findings-return-through-repo — commit it; never leave it for the person to carry to the next window
-When ending a reply in which something was committed, or any reply while something is still outstanding for the person:
-  next-steps-after-commit — close every reply on a real `## Next Steps` HEADING, never a bold line
 When exporting a tool across a repo boundary:
   engine-plus-host-shims — one vendored engine, thin host shims, never a fork
 When finishing a substantial work-product, before the merge-time capture gate:

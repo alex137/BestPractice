@@ -414,6 +414,19 @@ def check_checked_by_targets_exist(files):
 
 
 def check_reachability(files):
+    """A GATE counts, and it did not until 2026-09-14. This check was written
+    before gates existed and knew three channels: a check, a narrow glob, an
+    occasion-index line. tools/routing_scope.json's own note has called gates
+    "the fourth loading channel" since phase 4, and tools/build_views.py's
+    over-budget message names step 1 of its reduction menu as "give the
+    practice a REAL applies_to glob or a `gates:` entry and drop its
+    `occasion:`" -- a move this check then refused, so the menu's cheapest
+    step was unreachable. Found by taking it: landing
+    next-steps-after-commit put the occasion index 33 tokens over its
+    ceiling, dropping its occasion: was step 1, and the harness called a
+    practice the stop hook refuses every turn over "unreachable". A gate is a
+    real invocation point (tools/precedent_gate.py resolves and prints it),
+    which is the whole test this check applies to the other three."""
     ok = True
     for stem, (fm, sections, f) in files.items():
         if fm.get('tier') != 'on-demand':
@@ -421,14 +434,16 @@ def check_reachability(files):
         checked_by = fm.get('checked_by', 'null')
         applies_to = fm.get('applies_to', '[]')
         occasion = fm.get('occasion', '""')
+        gates = fm.get('gates', '[]')
         has_checked_by = checked_by not in ('null', '')
         has_narrow_applies = applies_to not in ('[]', '["**"]', '')
         has_occasion = occasion not in ('""', "''", '')
-        if not (has_checked_by or has_narrow_applies or has_occasion):
+        has_gate = gates.strip() not in ('[]', 'null', '')
+        if not (has_checked_by or has_narrow_applies or has_occasion or has_gate):
             ok = False
             print(f"  UNREACHABLE: {f.name} (slug={stem}) has no checked_by, "
-                  f"no narrower-than-** applies_to, and no occasion")
-    check('reachability (every on-demand practice has checked_by / narrow applies_to / occasion)', ok)
+                  f"no narrower-than-** applies_to, no occasion and no gate")
+    check('reachability (every on-demand practice has checked_by / narrow applies_to / occasion / gate)', ok)
 
 
 # ---------------------------------------------------------------------------

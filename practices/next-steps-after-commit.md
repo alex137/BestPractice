@@ -4,7 +4,7 @@ title:       "A reply that commits closes with an explicit Next Steps heading"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "ending a reply in which something was committed, or any reply while something is still outstanding for the person"
+occasion:    ""
 gates:       ["reply"]
 index_clause: "close every reply on a real `## Next Steps` HEADING, never a bold line"
 checked_by:  null
@@ -86,3 +86,5 @@ The mechanism is [tools/precedent_reply_check.py](https://github.com/alex137/Bes
 **What it checks, and what it still cannot.** It checks the two things with fixed shapes: a real markdown heading matching /next step/i, and one of the two session-disposition sentences. It cannot check the parts that need judgment -- whether a decision item carries its one-sentence summary, whether every item carries the session's recommendation, whether a branch or merge named its repository, whether outstanding items were restated after a tangent. Those stay a rule a session has to apply. What the check buys is that the section always EXISTS, which is what makes everything missing from it visible.
 
 Why it was worth building rather than living with: Morgan, 2026-09-13 -- *"I feel like it sometimes does that, sometimes doesn't, how can we force that?"* The same diagnosis found that the reply gate had never served a private set at all. [precedent_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_gate.py) read one directory, the consuming repo's own `practices/`, so this practice's `gates: ["reply"]` registration had no invocation point anywhere, and the only channel left was the occasion index -- which fires when a session recognises the occasion, which is exactly the "sometimes" he was describing. Fixed the same day in the engine (`resolved_gate_practices`).
+
+**It carries no `occasion:` line, and that is the routing rather than an omission.** The `reply` gate loads it at the end of every turn and the stop hook refuses the turn outright, so the occasion index -- which fires only when a session RECOGNISES the occasion -- is the one channel this practice does not need. Dropped 2026-09-14, on [build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py)'s own reduction menu, when landing it here put the generated index 33 tokens over its ceiling. Step 1 of that menu is exactly this case (a `**` practice that declares a gate); raising the ceiling is step 3 and was not taken. No other practice's line was touched.
