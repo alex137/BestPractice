@@ -9995,13 +9995,147 @@ def _declared_fallback_tz():
     """This repository's declared last-resort timezone, read from the engine
     rather than typed into a test.
 
-    precedent_check.py's `timestamps-carry-offset` already asserts that
-    precedent.json, precedent_time.FALLBACK_TZ and both copies of
-    commit-identity.sh agree, so reading any one of them is reading all four
-    -- and reading beats restating, which is what turned a one-line value
-    change into two mystery failures once already."""
+    precedent_check.py's `timestamps-carry-offset` asserts that
+    precedent_time.FALLBACK_TZ and both copies of commit-identity.sh agree,
+    so reading any one of them is reading all three -- and reading beats
+    restating, which is what turned a one-line value change into two mystery
+    failures once already.
+
+    NOT precedent.json, since 2026-09-14: a repo's own `fallback_timezone`
+    is the rung that OVERRIDES these three, and is free to differ. The
+    fixtures below run where no repo-level value applies, so the engine
+    constant is the right thing to read for them."""
     import precedent_time
     return precedent_time.FALLBACK_TZ
+
+
+def check_doc_lint_exempts_links_in_a_mirrored_tree():
+    """A vendored catalogue's relative links are not this repo's to fix, and
+    since 2026-09-14 doc_lint does not report them -- while the repo's own
+    broken link in the same run still is.
+
+    Both directions in one fixture, because the failure mode of a blanket
+    exemption is silence in the half that matters (practice:
+    control-asserts-which-failure). An INSTALL.md §0 install copies the
+    catalogue to precedent/universal/practices/ verbatim, so every
+    `../tools/...` in a practice file lands nowhere -- dozens of findings
+    per run, in files the adopter must not edit.
+    """
+    import shutil, tempfile, json as _json
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-mirror-lint-'))
+    try:
+        repo = tmp / 'repo'
+        repo.mkdir()
+        shutil.copytree(ROOT / 'tools', repo / 'tools')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': 'precedent/universal'}]}), encoding='utf-8')
+        mirror = repo / 'precedent' / 'universal' / 'practices'
+        mirror.mkdir(parents=True)
+        (mirror / 'some-practice.md').write_text(
+            # The heading skip is deliberate: with its links exempt, a
+            # mirror file carrying nothing else would produce no findings
+            # at all, and the third case below could not tell "scanned,
+            # links exempt" from "never scanned".
+            '# X\n\n### Skipped level\n\nSee [the engine](../tools/very_deep_check.py).\n',
+            encoding='utf-8')
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'mine.md').write_text(
+            '# Mine\n\nSee [nothing](../nowhere/absent.md).\n', encoding='utf-8')
+        for args in (['init', '-q'], ['add', '-A']):
+            subprocess.run(['git', '-C', str(repo), *args], check=True,
+                           capture_output=True)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.email=h@example.com',
+                        '-c', 'user.name=harness', 'commit', '-qm', 'baseline'],
+                       check=True, capture_output=True)
+        r = subprocess.run([sys.executable, str(repo / 'tools' / 'doc_lint.py'),
+                            '--all'], capture_output=True, text=True, cwd=str(repo))
+        out = r.stdout + r.stderr
+        broken = [l for l in out.splitlines() if '(no such file)' in l]
+        check('doc_lint reports no broken relative link inside a mirrored '
+              'tree (a vendored catalogue nobody here may edit)',
+              not any('precedent/universal/' in l for l in broken),
+              '; '.join(broken)[:300])
+        check('doc_lint still reports the repo\'s OWN broken relative link '
+              'in the same run',
+              any('docs/mine.md' in l for l in broken),
+              '; '.join(broken)[:300] or 'no broken-link findings at all')
+        check('a mirrored tree is still scanned for everything else (the '
+              'exemption is the link check alone)',
+              'precedent/universal/practices/some-practice.md' in out
+              or 'vendored upstream tree' in out,
+              out.strip()[-300:])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_repo_may_declare_its_own_fallback_zone():
+    """A repo's own `fallback_timezone` overrides the engine's; drift BETWEEN
+    the engine files is still a violation.
+
+    Both directions, because only one of them was ever wrong and the wrong
+    one looks exactly like the right one from inside the check. Until
+    2026-09-14 `timestamps-carry-offset` compared FOUR holders as one
+    equality set -- precedent.json plus the three engine files -- and so
+    reported a repo exercising the documented rung-5 override as "the
+    declared fallback zone disagrees". Reproduced in a private consumer
+    declaring America/Argentina/Buenos_Aires against untouched engine files:
+    red check, correct runtime behaviour.
+
+    A control that only planted the drift would have passed before the fix
+    too (practice: control-asserts-which-failure), so the override case is
+    the one that carries this.
+    """
+    import shutil, tempfile, json as _json
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-tz-rung-'))
+    try:
+        repo = tmp / 'repo'
+        shutil.copytree(ROOT, repo, symlinks=True,
+                        ignore=shutil.ignore_patterns('.git', '__pycache__',
+                                                      '*.pyc', 'prompts'))
+        subprocess.run(['git', '-C', str(repo), 'init', '-q'], check=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True,
+                       capture_output=True)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.email=h@example.com',
+                        '-c', 'user.name=harness', 'commit', '-qm', 'baseline'],
+                       check=True, capture_output=True)
+
+        def run():
+            env = dict(os.environ)
+            env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            env['PRECEDENT_USER_CONFIG'] = str(repo / '.no-user-config.json')
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'precedent_check.py'),
+                 '--only', 'timestamps-carry-offset'],
+                capture_output=True, text=True, cwd=str(repo), env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        cfg = repo / 'precedent.json'
+        data = _json.loads(cfg.read_text(encoding='utf-8'))
+        data['fallback_timezone'] = 'America/Argentina/Buenos_Aires'
+        cfg.write_text(_json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        rc_override, out_override = run()
+        check('a repo declaring its own fallback_timezone, with the engine '
+              'files untouched, passes timestamps-carry-offset (rung 5 '
+              'overrides rung 6 -- it is not drift)',
+              rc_override == 0, out_override.strip()[-400:])
+
+        eng = repo / 'tools' / 'precedent_time.py'
+        eng.write_text(eng.read_text(encoding='utf-8').replace(
+            "FALLBACK_TZ = 'America/New_York'",
+            "FALLBACK_TZ = 'Europe/Madrid'"), encoding='utf-8')
+        rc_drift, out_drift = run()
+        check('the engine\'s own fallback zone drifting between '
+              'precedent_time.py and the commit hooks IS still reported, by '
+              'that name',
+              rc_drift != 0 and 'engine' in out_drift.lower()
+              and 'fallback zone disagrees' in out_drift,
+              out_drift.strip()[-400:])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def check_session_check_reports_a_dead_also_list_entry():
@@ -10528,7 +10662,28 @@ def check_commit_identity_copies_are_identical():
     # the global identity fix) while this check reported every copy
     # identical. A check that names the copies it compares is only as good
     # as that list, so the list is now discovered rather than written down.
-    for sib in sorted(ROOT.parent.glob('precedent-team-*')):
+    #
+    # SIBLINGS ARE NOT THE WHOLE LIST EITHER (2026-09-14). A declared source
+    # lives wherever its config says -- this repo's own container keeps the
+    # individual set at $HOME while everything else sits under another
+    # parent -- so the glob is UNIONED with what the resolver declares
+    # rather than trusted on its own. Same assumption, same failure shape as
+    # record/GOTCHAS.md#g40, which is what sent somebody looking for the
+    # rest of them.
+    team_dirs = list(ROOT.parent.glob('precedent-team-*'))
+    try:
+        import precedent_resolve as _pr
+        team_dirs += [pathlib.Path(x['path']).expanduser()
+                      for x in _pr.load_config(ROOT)
+                      if x.get('level') == 'team' and x.get('path')]
+    except Exception:
+        pass
+    seen_dirs = set()
+    for sib in sorted(team_dirs):
+        real = str(sib.resolve())
+        if real in seen_dirs:
+            continue
+        seen_dirs.add(real)
         cand = sib / '.claude' / 'hooks' / 'commit-identity.sh'
         if cand.exists():
             digests[cand] = _h.sha256(cand.read_bytes()).hexdigest()
@@ -20270,6 +20425,8 @@ def main():
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_freshness_gate_fires()
+    check_doc_lint_exempts_links_in_a_mirrored_tree()
+    check_repo_may_declare_its_own_fallback_zone()
     check_session_check_reports_a_dead_also_list_entry()
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()

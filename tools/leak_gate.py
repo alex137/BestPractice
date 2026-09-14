@@ -695,6 +695,29 @@ def local_clone_refs(root):
         candidates += [d for d in sorted(root.parent.iterdir()) if d.is_dir()]
     except OSError:
         pass
+    # SIBLINGS ARE NOT ALL OF THEM, and this container is the proof: a
+    # person's individual practice set is cloned wherever their user-level
+    # config says, which here is $HOME/precedent-individual while this repo
+    # and all three team clones sit under /home/user. Surveying siblings
+    # alone found four of the five repositories on this disk and missed the
+    # private one -- so its name was never auto-blocklisted and never
+    # reported as uncovered, which is the exact shape of the bug this
+    # session was handed in record/GOTCHAS.md#g40 (the session-start
+    # identity block, same wrong assumption, same missed repository).
+    #
+    # Asked of the resolver, which is what knows where the declared sources
+    # actually are. Guarded, because leak_gate.py ships into trees where the
+    # rest of the engine may not be importable, and best-effort, because
+    # this is a survey of what happens to be on disk.
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve
+        for src in precedent_resolve.load_config(root):
+            path = src.get('path')
+            if path:
+                candidates.append(pathlib.Path(path).expanduser())
+    except Exception:
+        pass
     refs = set()
     for d in candidates:
         if not (d / '.git').exists():

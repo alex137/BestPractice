@@ -705,11 +705,33 @@ install. Two of them only bite a consumer declaring `visibility: public` —
 private practice text was materialized into its tracked tree, and the
 loader block the documented step wrote was one the enforced check then
 reported as hand-edited. All four are fixed; the run is recorded in
-[spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md). **What is still
-missing is a real project**: a scratch repository has no subject matter,
-so nothing here has been tested against an adopter actually adapting the
-templates to their own work, which [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)
-names as still ahead. Two things this section deliberately does **not**
+[spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md).
+
+**A real project has now done this, 2026-09-14**, which is what the
+paragraph above used to say was still missing — a scratch repository has no
+subject matter, so until then nothing here had been tested against an
+adopter adapting the templates to their own work. It found three more
+defects, all of them in this engine and none in the steps:
+
+- two checks an individual practice source supplies crash on a repository
+  with **no commits** — which a fresh install is, exactly — and the
+  traceback is reported as a violation of the practice itself. The fix
+  (skip, saying there is no history yet) is written and tested but lives in
+  a private source a session rooted here cannot push to;
+  [TODO.md's `no-history-checks-unpushed` item](TODO.md#no-history-checks-unpushed)
+  carries it in full and says what closes it;
+- a repo declaring its own `fallback_timezone` in `precedent.json` — the
+  documented rung-5 override — was reported as drift by
+  `timestamps-carry-offset`, which compared it against the engine constant
+  it exists to override. The check now holds the three ENGINE copies in
+  lockstep and leaves the repo's own declaration alone;
+- the catalogue this section vendors to `precedent/universal/practices/`
+  carries relative links written for its own repo, so `doc_lint.py`
+  reported dozens of broken links in files an adopter must not edit. A
+  mirrored tree is now exempt from the link check alone.
+
+What is still untested is the rest of [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s
+list, not the install itself. Two things this section deliberately does **not**
 cover, by design and not oversight:
 
 - **`MAP.md`/`GLOSSARY.md` generation.** `tools/precedent_sync_views.py`
