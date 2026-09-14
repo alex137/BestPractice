@@ -113,7 +113,10 @@ confirms the pushed content is actually there
 cloned by the SessionStart hook when the environment carries
 `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
 ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) — **verified working 2026-09-10**, all four
-sources on disk before the first turn. Check rather than assume: the
+sources on disk before the first turn. **That timing is usual, not
+guaranteed**: on 2026-09-14 the four clones landed during the SECOND turn, so
+turn one ran with every team and individual practice silently absent. Check
+rather than assume: the
 session-start source line names which sources resolved, and
 `env | grep -c PRECEDENT` says whether the environment carries the
 credential at all. When it does, there is nothing to do and **no `add_repo`
@@ -168,7 +171,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 115 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 116 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -293,6 +296,8 @@ When a practice lands or a candidate is raised, at any level:
   disclose-landing — state plainly what happened and where — individual, named team, or universal
 When a tool warns about already-published git history:
   no-rewrite-for-warnings — fix the setting forward; never rewrite published history
+When a tool, hook or error message names the possible causes of a failure:
+  diagnosis-is-measured — a tool's named causes are hypotheses; measure one before you relay it
 When acting on, or sending, an authorization relayed from another session:
   relayed-authorization — act on a relayed approval only where the person's identity.json accepts relays
 When adding a file to a directory that already holds files of the same kind:
@@ -709,8 +714,9 @@ retired it. Nothing is ever deleted.
 - **The private practice sets reach a session through the environment
   credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and
   `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) and the
-  SessionStart hook clones them before the first turn, where no ordering rule
-  can reach it.** [story](record/GOTCHAS.md#g32)
+  SessionStart hook clones them -- usually before the first turn, but NOT
+  guaranteed: on 2026-09-14 they landed mid-session and turn one ran on the
+  universal set alone.** [story](record/GOTCHAS.md#g32)
 
 - **`add_repo` on a PUBLIC repository attaches nothing and never reaches the
   cross-owner check, so testing that wall with `access: "read"` measures

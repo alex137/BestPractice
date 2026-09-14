@@ -683,7 +683,23 @@ credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and
 `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)) and the SessionStart
 hook clones them before the first turn, where no ordering rule can reach it.**
 Verified end to end 2026-09-10 on a brand-new container and again 2026-09-11:
-all four sources on disk before the first turn.
+all four sources on disk before the first turn. **That "before the first
+turn" guarantee did NOT hold on 2026-09-14, and it is the failure to plan
+for.** In a resumed session the four clones landed *during the second turn*
+-- reflog `clone: from .../precedent-team-writing` timestamped mid-session --
+so the whole first turn ran with every team and individual practice silently
+absent, on the universal set alone. Nothing announced it except the
+unresolved-source notes, which read identically to the steady-state failure
+this entry is about. **So treat the credential route as reliable but not
+instantaneous**: on turn one, check the session-start source line rather than
+assuming, and where something reports a source missing, look again before
+concluding anything -- a race and a real absence print the same text
+(practice: [diagnosis-is-measured](../practices/diagnosis-is-measured.md)).
+The cost when that is skipped was paid the same day: a session read the
+missing sources, relayed this entry's own two candidate causes -- refused
+credential, retired repository -- as a diagnosis, and recommended deleting
+three live source declarations. Both causes were wrong; the clone had simply
+not run yet.
 [tools/precedent_resolve.py](../tools/precedent_resolve.py) prints `MISSING` when
 no credential is set and `SET` when one is set and a clone still failed; the
 session check and the session-start source report print the same line.
