@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       Both TODO.md and the gotchas index capture mechanically and drain by hand, so both only grow. Second draft, rewritten against Morgan's nine responses: one item is one file with a permanent address, filed by kind and labelled by owner, with every list generated. Classifies the 57 live open items, sizes the reference migration, and gives the gotchas an exit condition per entry.
+summary:       "Both TODO.md and the gotchas index capture mechanically and drain by hand, so both only grow. Second draft, rewritten against Morgan's nine responses — one item is one file with a permanent address, filed by kind and labelled by owner, with every list generated. Classifies the 57 live open items, sizes the reference migration, and gives the gotchas an exit condition per entry."
 ---
 # Open Items and Gotchas: What to Split, What to Retire, What to Just Do
 
