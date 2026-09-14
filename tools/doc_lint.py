@@ -861,8 +861,18 @@ def check_residue(path):
 # backlog, so a legacy corpus never blocks.
 # This repo's index documents. AGENTS.md carries the quick index a
 # session actually consults; MAP.md is generated from the practices and
-# indexes those, so a spec document is reachable only through AGENTS.md.
-INDEX_FILES = ["MAP.md", "CLAUDE.md", "AGENTS.md"]
+# indexes those, so a spec document is reachable only through the quick index.
+#
+# WHERE_THINGS_ARE.md joined the list on 2026-09-14, and it had to: the quick
+# index was split that day, with the dozen rows sessions reach for constantly
+# left in AGENTS.md and the other 76 moved there (practice: reduction-pass,
+# step 3). The split immediately turned three wired documents red here --
+# spec/ENFORCEMENT.md, spec/CHANGES_TO_TELL_ALEX.md and
+# documentation/DAILY_HABITS.md -- which was this check working correctly:
+# their rows really had left AGENTS.md. Nothing became less findable, because
+# AGENTS.md's short table links straight to the full one, so the fix is to
+# name both halves of the index rather than to put the rows back.
+INDEX_FILES = ["MAP.md", "CLAUDE.md", "AGENTS.md", "WHERE_THINGS_ARE.md"]
 
 # Where the (document, block, model) registry lives. A document is "carrying
 # generated numbers" if it appears in that registry.
