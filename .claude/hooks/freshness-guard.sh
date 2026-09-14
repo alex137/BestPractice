@@ -4,8 +4,14 @@
 #
 # practice: session-bootstrap
 #
-# Install to .claude/hooks/freshness-guard.sh, wired twice by the
-# adapter's settings.json -- once as SessionStart, once as PreToolUse.
+# Install wherever this harness's settings.json wires its hooks FROM, and
+# wire it twice there -- once as SessionStart, once as PreToolUse. That is
+# usually .claude/hooks/freshness-guard.sh, which is what this line used to
+# assert outright; a practice SET may instead wire its own tracked
+# bootstrap/ directory, on purpose, so that one copy exists and nothing can
+# drift from it. The header then named a path the file was not installed at,
+# which is a header lying about its own location (practice: fix-the-original,
+# reported 2026-09-14 from precedent-individual).
 # The rule it implements -- verify and fast-forward the checkout before a
 # session's first write, never after -- is not yet a universal practice
 # here: promoting one is a separate, reviewed step. This is the mechanism,
@@ -503,11 +509,21 @@ mode_pre_write() {
   local payload="" session="" tool="" command=""
   payload="$(cat 2>/dev/null || true)"
 
-  if [ -n "$payload" ] && command -v jq >/dev/null 2>&1; then
+  if [ -z "$payload" ]; then
+    # An EMPTY payload is a different failure from a missing parser, and the
+    # branch below used to swallow both -- so a session that got no payload
+    # was told "no jq, no python3" with both installed and working, which
+    # sends whoever reads it off installing tools that are already there.
+    # Same fail-open verdict, an honest reason (practice: fail-gracefully).
+    echo "NOTE: freshness-guard: the hook payload was empty -- pre-write check skipped, not passed. This is not a missing-parser problem; jq and python3 are not implicated." >&2
+    exit 0
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
     session="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null || true)"
     tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true)"
     command="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
-  elif [ -n "$payload" ] && command -v python3 >/dev/null 2>&1; then
+  elif command -v python3 >/dev/null 2>&1; then
     local parsed
     parsed="$(printf '%s' "$payload" | python3 -c 'import json,sys
 try:
@@ -527,7 +543,7 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
     # cannot recognise the git commands that are its own escape hatch, and
     # blocking on that would lock the session out of the only tools that
     # could clear the block. The session-start layer still ran.
-    echo "NOTE: freshness-guard: could not read the hook payload (no jq, no python3) -- pre-write check skipped, not passed." >&2
+    echo "NOTE: freshness-guard: no JSON parser available (no jq, no python3) -- pre-write check skipped, not passed." >&2
     exit 0
   fi
 
