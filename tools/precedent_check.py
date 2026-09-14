@@ -2141,6 +2141,78 @@ def _declared_hook_targets(settings_path):
     return out
 
 
+@check('access-probe-is-wired', 'tree',
+       'a tree that vendors tools/precedent_access_check.py also INVOKES it '
+       'from its session-start wiring -- this repo\'s .claude/hooks/'
+       'session-start.sh, or the harness-neutral tools/bootstrap.sh an '
+       'adopter installs',
+       'whether the hook the wiring lives in actually RUNS (that is '
+       'declared-hooks-exist, and the session-rooted-one-directory-up case '
+       'it names defeats both); whether the probe returns the right verdict '
+       '(verify_harness\'s '
+       'check_access_probe_separates_refusal_from_silence owns that); and a '
+       'repo that deliberately wants no access probe, which has no way to '
+       'say so yet and would have to drop the tool itself',
+       practice_backed=False)
+def _access_probe_is_wired(ctx):
+    """A mechanism nobody invokes is a file, not a guarantee.
+
+    WHY THIS EXISTS (practice: cite-the-incident). The probe itself was
+    written to close a measured four-day, ~$100 block: a session built a
+    seven-commit patch for a repo it could not push to, because
+    spawn-session's "settle who merges before the work starts" is a sentence
+    a busy session does not stop to read. Moving the question to session
+    start is the whole fix -- so the ONE thing that must not rot quietly is
+    the line that runs it. Delete that line and every symptom returns with
+    nothing red anywhere.
+
+    Deliberately tolerant about WHERE. This repo runs it from its own
+    session-start hook; an adopter runs it from tools/bootstrap.sh, which is
+    harness-neutral so codex and gemini-cli reach it too. Either satisfies
+    this. A tree with the tool and no invocation anywhere does not.
+    """
+    tool = ctx.root / 'tools' / 'precedent_access_check.py'
+    if not tool.exists():
+        # A tree predating the tool is not in violation -- the engine is
+        # vendored into older trees on purpose (practice: fail-gracefully).
+        return []
+    wirings = [
+        pathlib.Path('.claude') / 'hooks' / 'session-start.sh',
+        pathlib.Path('tools') / 'bootstrap.sh',
+        pathlib.Path('templates') / 'bootstrap.sh',
+    ]
+    present, invoking = [], []
+    for rel in wirings:
+        f = ctx.root / rel
+        if not f.exists():
+            continue
+        present.append(str(rel))
+        try:
+            text = f.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        # AN INVOCATION, NOT A MENTION, and the difference was measured
+        # rather than reasoned about. The first version of this check tested
+        # `'precedent_access_check.py' in text` and PASSED a tree whose
+        # invocation had been replaced with a different script -- because the
+        # surrounding `[ -f tools/precedent_access_check.py ]` guard still
+        # named the file. A check that a broken tree passes is worse than no
+        # check (practice: control-asserts-which-failure).
+        if re.search(r'python3?\s+\S*precedent_access_check\.py', text):
+            invoking.append(str(rel))
+    if not present:
+        # Nothing to wire it into. Not this check's business to invent one.
+        return []
+    if invoking:
+        return []
+    return [(str(tool.relative_to(ctx.root)), 0,
+             'tools/precedent_access_check.py is vendored here but no '
+             'session-start wiring invokes it, so no session is told which '
+             'repos in force it can actually push to. Candidates present: '
+             + ', '.join(present)
+             + '. Add: python3 tools/precedent_access_check.py .')]
+
+
 @check('declared-hooks-exist', 'tree',
        'every hook file a .claude/settings.json declares exists on disk, and '
        'is executable where the harness execs it directly',

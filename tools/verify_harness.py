@@ -5945,6 +5945,37 @@ def check_precedent_check_fires():
         # to be the one asking.
         def _plant_declared_hook(repo):
             (repo / '.claude' / 'hooks' / 'commit-identity.sh').unlink()
+        # access-probe-is-wired -- the tool is vendored and nothing runs it.
+        # Same family as the two hook cases around it, and the same reason a
+        # machine has to ask: a wiring line that was deleted and a wiring line
+        # that was never added look identical, and both leave a session
+        # unable to discover it cannot push somewhere until after the work is
+        # done. The plant swaps the invocation for a different script, which
+        # is the realistic shape -- the `[ -f ... ]` guard around it still
+        # names the file, so a check testing for a MENTION rather than an
+        # INVOCATION passes this plant. That false pass was measured on the
+        # first version of the check, which is why the plant is written this
+        # way rather than by deleting the whole block.
+        def _plant_unwired_probe(repo):
+            for rel in (pathlib.Path('.claude') / 'hooks' / 'session-start.sh',
+                        pathlib.Path('templates') / 'bootstrap.sh'):
+                f = repo / rel
+                if not f.exists():
+                    continue
+                f.write_text(
+                    f.read_text(encoding='utf-8').replace(
+                        'python3 tools/precedent_access_check.py',
+                        'python3 tools/some_other_tool.py'),
+                    encoding='utf-8')
+
+        case('access-probe-is-wired', _plant_unwired_probe)
+        cases.append(('access-probe-is-wired: the planted violation names the '
+                      'wiring files it looked in and the line to add',
+                      'no session-start wiring invokes it'
+                      in planted['access-probe-is-wired'][1]
+                      and 'python3 tools/precedent_access_check.py .'
+                      in planted['access-probe-is-wired'][1]))
+
         case('declared-hooks-exist', _plant_declared_hook)
         cases.append(('declared-hooks-exist: the planted violation names the '
                       'hook that went missing, not just that something did',
@@ -20631,6 +20662,113 @@ def check_assumed_visibility_never_deletes_practices():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_access_probe_separates_refusal_from_silence():
+    """`can_land_here` must answer 'handoff' ONLY for a real permission
+    refusal, and 'unknown' for everything else (practice: spawn-session).
+
+    THE INCIDENT THE PROBE EXISTS FOR (2026-09-10): a session rooted in a
+    private practice set built a seven-commit patch for a repo it could not
+    push to, and sat blocked four days having spent about a hundred dollars
+    reaching a branch nobody could land. The probe now runs at session start
+    so nobody has to remember to ask.
+
+    THE DISTINCTION THIS CHECK DEFENDS is the one that makes the answer worth
+    printing. A network blip classified as 'handoff' tells a session it has no
+    access where it has plenty -- and the remedy it then reaches for is
+    spawning a session nobody needed. Collapsing 'unknown' into 'handoff'
+    would make every case below still "work", which is exactly why the
+    negative control is here: case 5 neuters the refusal vocabulary and
+    asserts the verdict FLIPS, so a classifier that answered 'handoff'
+    unconditionally could not pass this.
+
+    Case 1 is a real end-to-end push --dry-run over file://, so the probe is
+    measured doing its actual job rather than only its string handling."""
+    import tempfile, subprocess as _sp
+    import precedent_access_check as pac
+
+    results = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        # fixture-owns-its-state: this fixture asserts on what git can reach,
+        # so it owns the credential environment rather than inheriting the
+        # container's. A real token here would send the probe at the network.
+        env = dict(os.environ)
+        for var in ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL'):
+            env.pop(var, None)
+
+        # 1. A genuinely writable remote answers 'land'. file:// (not a bare
+        # path) because git only treats it as a transport that way.
+        bare = tmp / 'origin.git'
+        _sp.run(['git', 'init', '--quiet', '--bare', str(bare)], check=True, env=env)
+        work = tmp / 'work'
+        work.mkdir()
+        for cmd in (['git', 'init', '--quiet', '-b', 'main'],
+                    ['git', 'remote', 'add', 'origin', f'file://{bare}']):
+            _sp.run(cmd, cwd=work, check=True, env=env)
+        (work / 'f.txt').write_text('x', encoding='utf-8')
+        _sp.run(['git', 'add', '.'], cwd=work, check=True, env=env)
+        _sp.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@e',
+                 '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'c'],
+                cwd=work, check=True,
+                env={**env, 'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+        verdict, detail = pac.can_land_here(str(work))
+        results.append(('a writable remote answers land', verdict == 'land', detail))
+
+        # 2. A directory that is not a repo at all: 'unknown', and the detail
+        # says which failure (practice: control-asserts-which-failure).
+        plain = tmp / 'not-a-repo'
+        plain.mkdir()
+        v2, d2 = pac.can_land_here(str(plain))
+        results.append(('a non-repo answers unknown', v2 == 'unknown', d2))
+
+        # 3. A path with no clone at all names its own reason, verbatim.
+        v3, d3 = pac.can_land_here(str(tmp / 'nothing-here'))
+        results.append(('a missing clone says "no local clone to probe"',
+                        v3 == 'unknown' and d3 == 'no local clone to probe', d3))
+
+        # 4/5. The classifier, driven with canned git output so the two
+        # branches are measured rather than hoped for. Restored in a finally:
+        # a monkeypatch left installed would silently rewire every later check.
+        real = pac._run_git
+        try:
+            pac._run_git = lambda repo, *a: (
+                1, '', "remote: Permission to x/y denied to z.\nfatal: 403")
+            v4, d4 = pac.can_land_here(str(work))
+            results.append(('a 403 answers handoff and quotes the server',
+                            v4 == 'handoff' and 'denied' in d4.lower(), d4))
+
+            pac._run_git = lambda repo, *a: (
+                1, '', 'fatal: unable to access: Could not resolve host: github.com')
+            v5, d5 = pac.can_land_here(str(work))
+            results.append(('an unreachable host answers unknown, NOT handoff',
+                            v5 == 'unknown', f'{v5}: {d5}'))
+
+            # NEGATIVE CONTROL. Same failure, refusal vocabulary removed: the
+            # verdict must move off 'handoff'. If this case passes as
+            # 'handoff', the classifier is not reading the message at all and
+            # case 4 above proves nothing.
+            pac._run_git = lambda repo, *a: (1, '', 'fatal: something else entirely')
+            v6, d6 = pac.can_land_here(str(work))
+            results.append(('a refusal with no refusal words is NOT handoff',
+                            v6 != 'handoff', f'{v6}: {d6}'))
+        finally:
+            pac._run_git = real
+
+        # 6. very_deep_check must be using THIS definition, not a second copy.
+        # The probe was moved down into the vendored file precisely so one
+        # definition serves both; a re-added local copy would pass every case
+        # above while drifting from what adopters actually run.
+        import very_deep_check as _vdc
+        results.append(('very_deep_check imports the probe rather than copying it',
+                        _vdc.can_land_here is pac.can_land_here,
+                        repr(getattr(_vdc.can_land_here, '__module__', '?'))))
+
+    failed = [f'{n} [{d}]' for n, ok, d in results if not ok]
+    check(f'the access probe separates a refusal from silence '
+          f'({len(results)} stated cases, including a negative control that '
+          f'flips the verdict)',
+          not failed, '; '.join(failed) if failed else '')
 # practice: environment-gotchas -- the trap this guards is record/GOTCHAS.md#g1.
 #
 # Several checks below need a package that is not in the standard library:
@@ -20709,6 +20847,7 @@ def main():
     check_public_tree_bakes_in_no_owner_account()
     check_public_consumer_does_not_materialize_private_text()
     check_assumed_visibility_never_deletes_practices()
+    check_access_probe_separates_refusal_from_silence()
     check_sync_refuses_to_write_from_incomplete_sources()
     check_unlanded_work_is_reported_before_the_passes()
     check_very_deep_check_records_its_components()

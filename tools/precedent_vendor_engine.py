@@ -338,6 +338,21 @@ ENGINE_FILES = [
     # ModuleNotFoundError from its own session-start hook.
     'precedent_resolve.py',
     'precedent_session_practices.py',
+    # Whether this session can actually PUSH to each repo in force, probed at
+    # session start (added 2026-09-14). In ENGINE_FILES rather than
+    # consumer-only because the question is sharpest exactly where a practice
+    # SET is attached: a set is normally another owner's repository, which is
+    # the wall that produced the incident in this file's own docstring -- a
+    # session that built a seven-commit patch it could not push and sat
+    # blocked on it for four days.
+    #
+    # It imports precedent_resolve (above, and in both lists) to enumerate the
+    # sources, and precedent_source_credentials (also in both) to authenticate
+    # the probe; both degrade to a narrower answer rather than raising, so a
+    # tree older than either still starts. It deliberately does NOT import
+    # very_deep_check, which is in neither list -- the probe was moved out of
+    # that file into this one precisely so it would travel.
+    'precedent_access_check.py',
     # The command vocabulary, read off the `command:` field of every
     # practice a repo resolves (added 2026-09-13 with practices/vocabulary.md).
     # In ENGINE_FILES rather than the consumer half for the same reason
