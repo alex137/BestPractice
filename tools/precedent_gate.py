@@ -359,6 +359,25 @@ def main():
                 print(f"{line}\n")
         except ImportError:
             pass
+    # A session about to PUBLISH is the last point at which the always-loaded
+    # surfaces can still be looked at cheaply, and the only point at which
+    # somebody is certainly paying attention to gates. The ceiling check is
+    # binary -- green at 11,999 tokens and red at 12,001 -- so it reports the
+    # wall only once a session has hit it, which on 2026-09-13/14 happened
+    # four times in two days to three sessions that had come to do something
+    # else (practice: session-load-budget). This says the DISTANCE instead.
+    # Never fatal, never a finding: it is a number to know, and a gate that
+    # blocks on approaching a ceiling would be the raise-it pressure the
+    # practice exists to resist (practice: fail-gracefully).
+    if gate in ('merge', 'push'):
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import session_load_trend as slt
+            line = slt.headroom_notice(root)
+            if line:
+                print(f"{line}\n")
+        except Exception:                                    # noqa: BLE001
+            pass
     for n in source_notes:
         print(f"NOTE: {n}\n")
     if any(registered[s][0] in PRIVATE_LEVELS for s in slugs):

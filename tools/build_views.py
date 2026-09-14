@@ -1457,6 +1457,7 @@ TOOLS_DESCRIPTIONS = {
     'routing_audit.py': "The routing audit — mechanical coverage check plus a rotating deep-read slice",
     'routing_eval.py': "Measures whether trigger-based loading actually beats carrying the whole catalogue",
     'routing_eval_synthetic.py': "Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits",
+    'session_load_trend.py': "How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print",
     'split_practices.py': "PRACTICES.md ↔ practices/ converter",
     'table_fmt.py': "One formatter per quantity kind — the engine",
     'title_case.py': "Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix",
