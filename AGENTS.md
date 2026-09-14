@@ -744,6 +744,10 @@ retired it. Nothing is ever deleted.
   dropped-connection message, so it reads as a flake.**
   [story](record/GOTCHAS.md#g39)
 
+- **The session-start identity block reached every Precedent repo except the
+  individual set it read the identity from, so that one set kept committing as
+  the container's bot.** [story](record/GOTCHAS.md#g40)
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**

@@ -161,6 +161,39 @@ def checks():
                 f'account. Commits made now are wrong-author commits, and '
                 f'this repo\'s own check refuses them'))
 
+    # 3b. The same question for every PRACTICE SOURCE on this disk, which is
+    # a different question from row 3 and was answered wrongly for months.
+    #
+    # Row 3 asks about THIS checkout. The session-start hook's identity block
+    # applies commit-identity.sh to a LIST of repositories, and until
+    # 2026-09-14 that list was the primary repo plus its siblings -- which
+    # silently excluded an individual set cloned somewhere else, i.e. the one
+    # repository the block reads the identity FROM (record/GOTCHAS.md#g40).
+    # Nothing reported it, because nothing had ever asked the question of any
+    # repo but this one, and a normal session never commits to a source set.
+    #
+    # Deliberately reads `git config user.email` rather than
+    # `--local user.email`: an unset local value is not a clean state here, it
+    # is the state that falls through to the container's global bot identity,
+    # which is exactly what a commit would then be authored as.
+    offenders = []
+    for _written, _base in _attachable_sources():
+        _path = pathlib.Path(_expand_source_path(_written))
+        if not (_path / '.git').exists():
+            continue
+        _code, _email, _ = _run('git', '-C', str(_path), 'config',
+                                'user.email')
+        if _code == 0 and _email in BOT_EMAILS:
+            offenders.append(f'{_written} ({_email})')
+    out.append(('every practice source on this disk commits as a person too',
+                not offenders,
+                '' if not offenders else
+                ', '.join(offenders) + ' -- a commit made in that source would '
+                'be a wrong-author commit, and the global backstop will refuse '
+                'it. The session-start identity block is meant to have covered '
+                'it; a source outside the primary repo\'s own parent directory '
+                'is how it gets missed (record/GOTCHAS.md#g40)'))
+
     # 4. The global backstop reaches repositories attached later.
     #
     # WHY THIS ROW NAMES ITS OWN REMEDY INSTEAD OF LEANING ON --apply.
