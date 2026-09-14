@@ -38,6 +38,14 @@ and never the file being linked. **Link the successor instead** — `in_force_at
 names it — or, where the rule was absorbed into the engine or is in force
 nowhere, drop the link and say in prose what it covered.
 
+**The one withdrawn sibling you may link is a DEDUPLICATED one whose
+`in_force_at:` names its own slug**, and this is the common case in a private
+set rather than an edge case. It means the copy *here* is redundant because
+another source carries that same slug and is active. The resolver walks
+sources lowest-precedence first, so the surviving copy lands at exactly the
+`practices/<slug>.md` the link already points at, and the link travels
+untouched. **Link it the normal way.**
+
 **Everything else in the publishing repository does not travel** — `spec/`,
 `templates/`, root documents, decisions, records, hooks. Link one of those
 relatively and the link is live where it was written and dead in every
@@ -203,6 +211,34 @@ one half arrives anywhere else. Every other shape this rule catches is
 detectable where it is written; this one is detectable only by reading the
 target's own frontmatter, which is what the check now does.
 
+**The check's first run against a real private set was a false positive, and
+it blocked the vendor update it was supposed to protect.** 2026-09-14, hours
+after the clause above landed: a session taking this engine into an individual
+set found two of that set's own practices linking `go-merge.md`, which is
+`status: deduplicated` there with `in_force_at: go-merge` — **its own slug**.
+The check read "not active" and reported both. The remedy it printed gave the
+game away: *"that rule is in force as `go-merge` — link `go-merge.md`
+instead"*, telling the reader to link the file they had already linked.
+
+**A degenerate message is a symptom; the false positive was the defect.** The
+session was one step from editing two correct files to satisfy a wrong check,
+and it stopped because the remedy made no sense — which is a thin thing to
+have relied on. Settled by measurement rather than argument: a fixture with a
+universal `go-merge` (active) and an individual `go-merge` (deduplicated,
+`in_force_at` itself) resolves to the universal one, so a consuming repository
+does receive `practices/go-merge.md` and the link was always sound.
+
+**The miss, root-caused** ([mistakes-become-rules](mistakes-become-rules.md)):
+the check asked "is this file in force?" when the question is "will a file
+exist at this path in the consumer?" — and in a multi-source world those come
+apart exactly where one source deduplicates against another. The check reads
+one directory and cannot see the other sources, but it does not need to:
+`in_force_at:` naming the file's own slug **is** the declaration that another
+source carries it. What made this reachable at all is that the rule binds
+publishers, so it runs in the sets where same-slug deduplication is normal —
+and it was written against this repository, where every withdrawn practice
+happens to point at a differently-named successor.
+
 ## Install
 [tools/precedent_check.py](../tools/precedent_check.py) enforces it, as a
 tree-scope check over the practice files this repository owns. It reads
@@ -217,7 +253,9 @@ copy of the vocabulary, so it fails closed the same way the loader does: a
 status this engine does not recognize counts as not in force. The finding
 names the successor when `in_force_at:` gives one, because a finding that only
 says the link is broken sends the reader back to the dead file to work out what
-replaced it. **A withdrawn-sibling link between two withdrawn practices is
+replaced it. **A sibling whose `in_force_at:` is its own slug is not reported
+at all** — that is deduplication against another source, and the surviving copy
+materializes at the same filename. **A withdrawn-sibling link between two withdrawn practices is
 not reported** — neither file reaches a consumer, so nothing anybody receives
 is broken. Only that finding is suppressed: the rest of the rule still applies
 to a withdrawn practice's links, which are read in the publishing repository

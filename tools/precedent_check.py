@@ -855,8 +855,8 @@ def _origin_slug():
 
 
 def _practice_status_fields(path):
-    """-> (in_force, status, in_force_at) for a practice file, or None when
-    the file will not parse.
+    """-> (in_force, status, in_force_at, slug) for a practice file, or None
+    when the file will not parse.
 
     Fails CLOSED exactly as build_views.is_in_force does -- the test is for
     `active`, never against a list of known withdrawn statuses -- so a status
@@ -869,7 +869,8 @@ def _practice_status_fields(path):
     try:
         import build_views as _bv
         return (_bv.is_in_force(fm), _bv.practice_status(fm),
-                _bv._json_str(fm.get('in_force_at', '')) or '')
+                _bv._json_str(fm.get('in_force_at', '')) or '',
+                _bv._json_str(fm.get('slug', '')) or path.stem)
     except Exception:                           # practice: fail-gracefully
         # build_views travels in both ENGINE_FILES and CONSUMER_ENGINE_FILES,
         # so this is a broken install rather than a supported layout. Read the
@@ -877,7 +878,8 @@ def _practice_status_fields(path):
         # practices-are-reachable check above uses.
         status = (fm.get('status') or 'active').strip('" ')
         return (status == 'active', status,
-                (fm.get('in_force_at') or '').strip('" '))
+                (fm.get('in_force_at') or '').strip('" '),
+                (fm.get('slug') or path.stem).strip('" '))
 
 
 # A link to a sibling practice is only as good as that sibling's status, and
@@ -899,8 +901,24 @@ def _sibling_not_in_force(pdir, base):
         # catalogue-carries-stories' -- naming the LINKING file for a defect
         # in the target would send the repair to the wrong file.
         return None
-    in_force, status, target = fields
+    in_force, status, target, slug = fields
     if in_force:
+        return None
+    # THE LINK STILL TRAVELS when `in_force_at` names this practice's OWN
+    # slug. That is the deduplication case -- the copy in THIS source is
+    # redundant because another source carries the same slug and is active --
+    # and precedent_resolve.resolve() walks sources lowest-precedence first,
+    # so the surviving copy lands at exactly the same `practices/<slug>.md`
+    # the link already points at. Reporting it was a false positive, and the
+    # message it printed was degenerate in the bargain: "that rule is in force
+    # as `go-merge` -- link `go-merge.md` instead" of `go-merge.md`.
+    # Measured 2026-09-14 against the resolver rather than reasoned: a
+    # universal `go-merge` (active) plus an individual `go-merge`
+    # (deduplicated, in_force_at itself) resolves to the universal one, so a
+    # consumer does receive the file. Found by the session running this
+    # check's own first vendor update, which it blocked (practice:
+    # mistakes-become-rules).
+    if target and target == slug:
         return None
     try:
         import build_views as _bv
@@ -931,7 +949,9 @@ def _sibling_not_in_force(pdir, base):
        'its declared base_branch, naming a path that exists. A sibling link '
        'from an ACTIVE practice must also point at one that is in force: a '
        'withdrawn practice is not materialized, so a link to one resolves '
-       'here and nowhere else',
+       'here and nowhere else -- unless its `in_force_at:` names its own '
+       'slug, which is the deduplication case and still travels, because '
+       'another source carries that slug and resolves to the same filename',
        'whether the target is the RIGHT file -- including the nastiest '
        'shape of this bug, a link like ../.claude/settings.json that '
        'RESOLVES in the consumer, to that consumer\'s own file rather than '
