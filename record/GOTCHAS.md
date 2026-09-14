@@ -484,6 +484,19 @@ the branch on its first run and compares on every later one. When it fires the
 work is **not lost** — `git reflog` lists the commit, `git checkout` returns
 to it, `git cherry-pick` recovers anything committed after.
 
+**Second recorded instance, 2026-09-14, and it narrows the suspects.** A
+session working on a feature branch found the checkout back on
+`precedent-beta-v01` between one tool call and the next, with
+`git reflog` showing `checkout: moving from <feature-branch> to
+precedent-beta-v01` and nothing else — **no pull afterwards this time**, unlike
+the 2026-09-08 case. Nothing was lost: the branch tip still matched its remote,
+because the work had already been pushed. What that buys is the ordering — the
+move happened AFTER a push and a fetch, in a turn that ran no repository tool
+at all beyond `git`, so whatever does this does not need one of this repo's
+own tools to have been invoked. **The cheap habit that made it a non-event was
+pushing before the gap**: a pushed branch survives the move, an unpushed one
+survives only in the reflog.
+
 
 ## 23. <a id="g23"></a>A verify_harness.py fixture that builds an "absent credential" scenario inherits ...
 

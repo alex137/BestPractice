@@ -37,7 +37,7 @@ field costs one line and breaks nothing.
 | # | Morgan's idea | Verdict |
 |---|---|---|
 | 1 | Slugs instead of numbers | **Accepted** — and half-done already: every item has an anchor, and the file's own header says never to cite the number |
-| 1b | The date inside the slug | **Pushback** — `opened:` as a field, with **age in days** computed into the generated index. Age is the thing you want; a date is arithmetic |
+| 1b | The date inside the slug | **Settled his way, 2026-09-14** (`decided`) — the date goes in the name, at the FRONT, matching [decisions/](../decisions/). The `opened:` field stays beside it, and a check asserts the two agree |
 | 2 | Split by type, one file per type | **Accepted** — and the type axis already exists, unused, in [templates/TODO.md.template](../templates/TODO.md.template) |
 | 3 | Do **not** organize by who owns it | **Accepted, and my first draft was wrong** — see below |
 | 4 | One `todo/` directory; `TODO.md` renamed | **Accepted** |
@@ -45,7 +45,7 @@ field costs one line and breaks nothing.
 | 5 | The very deep check sweeps the open items | **Accepted** |
 | 6 | Decision strength on each item | **Pushback, partly** — only where an item carries an approval, and no bulk backfill by a session |
 | 7 | The very deep check reviews the gotchas | **Accepted — and it already half does.** Measured, not recalled |
-| 8 | Gotcha slugs, `gotcha-` and `todo-` prefixes | **Accepted**, with one reservation about stutter |
+| 8 | Gotcha slugs, `gotcha-` and `todo-` prefixes | **Accepted outright, 2026-09-14** (`decided`) — his reason replaced mine, and the reservation is withdrawn |
 | 9 | One `.md` file per item, like the practices | **Accepted — this is the keystone** |
 
 ### Where My First Draft Was Wrong (Point 3)
@@ -74,13 +74,14 @@ lives.
 ## What an Item File Looks Like
 
 ```
-todo/todo-source-set-push-triggers.md
+todo/todo-2026-09-14-source-set-push-triggers.md
 
 ---
-slug:       todo-source-set-push-triggers
+slug:       todo-2026-09-14-source-set-push-triggers
 kind:       analysis            # analysis | verify | physical | decision
 status:     open                # open | done | dropped
-opened:     2026-09-14
+opened:     2026-09-14        # must match the date in the name; checked
+opened_precision: exact  # exact | at-or-before
 closed:     null
 blocked_on: "a session rooted in each practice set"
 owner:      null                # a person, only when one is genuinely needed
@@ -104,9 +105,10 @@ at least:
 
 - **One table per kind** — the four files you wanted, as sections of one
   generated page rather than four hand-edited files that drift.
-- **Age in days**, computed from `opened:`, sorted oldest first. This is point
-  1b done better than a date in a name: *"open 47 days"* is the sentence you
-  actually want, and no one has to subtract.
+- **Age in days**, computed from `opened:`, sorted oldest first — *"open 47
+  days"*, or *"open ≥ 47 days"* where `opened_precision` says the date is a
+  floor. This does not replace the date in the name; the name serves the
+  reader who has no index in front of them, and this serves the one who does.
 - **A "nothing is blocking this" view** — every `open` item with no
   `blocked_on`. That is the 16-item group below, and it is a query, not a file.
 - **Open decisions**, for the one list you are ever asked to read.
@@ -139,8 +141,11 @@ The sequence, in order:
    anything else moves. Nothing can then be cited by number.
 2. **Fix the 8 prose references** to cite anchors. This is independently worth
    doing and needs none of the rest.
-3. **Split into files**, one per item, slug unchanged except for the `todo-`
-   prefix, with a mapping table written into the migration commit.
+3. **Split into files**, one per item, renamed to `todo-<date>-<slug>` per the
+   naming rule above, with a mapping table written into the migration commit.
+   **This is where the 36 undatable items are handled** — floor date in the
+   name, `opened_precision: at-or-before` in the file — and it is the step to
+   do carefully, because every name it writes is permanent.
 4. **Repoint the 23 links**, mechanically, from the mapping table
    ([rename-updates-links](../practices/rename-updates-links.md)).
 5. **Add a check that fails on a stale reference** — a link to `TODO.md#x`, or
@@ -162,17 +167,101 @@ template, and convert each set in a session rooted in it
 ([cross-source-rollout](../practices/cross-source-rollout.md)), rather than
 claiming a one-pass conversion that cannot exist.
 
-## What I Would Not Do
+## The Naming Rule, Settled 2026-09-14
 
-**A date inside the slug (point 1b).** Three reasons, none fatal on its own:
-a date is not an age, so you still do the arithmetic; a name that carries a
-date can never be corrected if the date is wrong, because the name is the
-address; and an item that gets split or merged inherits a date that is now a
-lie. What your version buys, and my version does not, is **the date visible in
-a plain directory listing with no tool involved** — which is a real advantage
-on a day when the generator is broken. **My pick: `opened:` plus computed age.
-If you want the date in the name anyway, say so and it is a one-word change to
-the naming rule.**
+**The date goes in the filename. Morgan decided this** (`decided` — he argued
+it against a written counter-case and it landed his way), on one concrete
+example that beat the abstraction:
+
+> *"just seeing a todo `cleanup-old-list-items-2026-09-11.md` is VERY different
+> than `cleanup-old-list-items-2021-09-11.md`"*
+
+**Why that wins.** My counter-case assumed the reader is looking at the
+generated index. The listing, the grep result, the pull-request file tree and
+the citation in somebody's prose are all places where **no index is in front of
+you**, and those are most of the places an item name is actually read. A field
+inside the file is invisible in every one of them.
+
+**One refinement: the date goes at the FRONT, not the end.**
+
+```
+todo/todo-2026-09-11-cleanup-old-list-items.md
+gotchas/gotcha-2026-09-13-shallow-clone-reads-as-diverged.md
+```
+
+A constant prefix followed by the date means **the directory sorts by age with
+no tool at all** — `ls` puts the oldest first, which is the thing a long list
+most needs and which a trailing date cannot give you. It also matches what this
+repository already does: [decisions/](../decisions/) has held 16 files named
+`YYYY-MM-DD-slug.md` since 2026-08-31, so this is an existing convention rather
+than a new one. The `todo-` and `gotcha-` prefixes from point 8 sit in front of
+the date and do not disturb the sort, since every file in the directory carries
+the same one.
+
+**`opened:` stays in the frontmatter**, because the generator needs a
+machine-readable field and because a check can then assert that the name and
+the field agree — which catches a mistyped date while the item is young and
+nothing links to it yet.
+
+### Two of My Objections Were Wrong, One Survives
+
+**Retracted: "an item that gets split inherits a date that is now a lie."** A
+split produces new items with new dates; the original keeps its own. The
+objection describes nothing that happens.
+
+**Retracted: "a name carrying a date can never be corrected."** Too strong. A
+name is only frozen once things link to it, a creation date is known at
+creation, and the check above catches a typo in the window where renaming is
+still free.
+
+**Survives, and it is a real migration problem: 36 of the items in the file
+cannot be dated.** Their anchors are already present at the earliest commit
+this repository's history reaches, so the only honest statement about them is
+*at or before that date*, and a filename cannot say "at or before". **The
+answer is not to write a confident false date into 36 permanent addresses**
+([no-invented-specifics](../practices/no-invented-specifics.md)). Use the floor
+date in the name, and carry `opened_precision: at-or-before` in the
+frontmatter, so the generated index prints *"open ≥ 8 days"* for those and a
+plain *"open 3 days"* for everything since. The name is then a true lower
+bound rather than a claim.
+
+## The Prefix Rule, Settled 2026-09-14
+
+**Practices carry no prefix. Everything else that looks like a practice
+does.** Morgan decided this (`decided`), and his reason replaced the weaker one
+I had accepted it for:
+
+> *"it is too easy to see that and assume it is a practice in effect"*
+
+**That is a misreading with consequences, not an inconvenience.** A bare slug
+in a sentence — *"as we said in `cleanup-old-list-items`, we will clean up the
+whatever"* — reads as a rule that binds, because in this repository a bare slug
+IS a rule that binds. A reader has no way to tell an open item or a trap report
+apart from a practice in force, and the failure is silent in the direction that
+costs most: somebody follows something nobody ever adopted. My own reason for
+accepting the prefix was narrower and more mechanical — `precedent_show.py`
+takes a bare slug and practices already own that namespace — and it is still
+true, but it is the smaller half.
+
+**So the naming rule has an asymmetry, on purpose:**
+
+| Kind | Prefix | Reads as |
+|---|---|---|
+| Practice | none — `verify-postcondition` | a rule in force |
+| Open item | `todo-2026-09-14-<slug>` | work nobody has done |
+| Gotcha | `gotcha-2026-09-13-<slug>` | a trap somebody hit |
+
+**The unmarked namespace is the one that binds.** That is worth stating as the
+principle rather than as three naming conventions, because it says what to do
+the next time a fourth kind of slug appears: if it does not bind, it is marked.
+
+**I withdraw the stutter objection.** `gotchas/gotcha-…` is redundant when you
+are looking at the directory, and the directory is exactly what is missing at
+the moment the confusion happens — in prose, in a chat reply, in a commit
+message. Paying a repeated word in the one place it is redundant to be
+unambiguous in every place it is not is the right trade.
+
+## What I Would Not Do
 
 **A separate completed file, or an open/done pair per kind (point 4b).** Both
 shapes move a file when an item closes, and a moved file breaks every link to
@@ -198,13 +287,7 @@ because that is a fresh statement rather than a reconstruction. What I would
 not do is make it a chore — set it when an item is next touched, and leave the
 rest unmarked, which is a true state.
 
-**A `gotcha-` prefix on files inside a `gotchas/` directory** reads as stutter,
-and I would have used the directory alone. **The reason I accept it anyway is
-`precedent_show.py`**: it takes a bare slug, practices already own that
-namespace, and a todo or gotcha slug colliding with a practice slug is a real
-possibility with a silent failure mode. The prefix makes the namespace visible
-in every citation, including prose where no directory is in sight. Same
-argument for `todo-`.
+
 
 ## The Diagnosis Both Files Share
 
@@ -509,12 +592,7 @@ Cheap and independent first, so nothing waits on the big migration:
 
 ## What Is Still Open Between Us
 
-Four things, and only the last is big.
-
-**The date in the slug.** Mine is `opened:` as a field with age computed into
-the index; yours is the date in the name. Yours is visible with no tool, mine
-is correctable and gives you age rather than a date to subtract. **One word of
-the naming rule either way — say which and it is settled.**
+Three things, and only the last is big.
 
 **Four physical files, or one generated index with four sections.** You asked
 for four files. I would generate them, because a hand-maintained file whose
