@@ -57,10 +57,52 @@ upstream update (the `Update Vendors` command), **[§3](../INSTALL.md#3-optional
 and **[§4](../INSTALL.md#4-optional-periodic-check-in--propose-your-improvements-upstream)**
 flow an improvement back upstream, **[§7](../INSTALL.md#7-practice-packs-domain-layers)**
 covers domain practice packs, and
-**[§8](../INSTALL.md#8-per-machine-setup--what-each-person-sets-on-each-machine)**
+**[PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)**
 is what each person sets on each machine — including the credential that
 lets a hosted session reach a private practice source without an
 `add_repo` dance.
+
+### What Actually Bites
+
+The five-step summary above is honest about the *shape* of an install and
+misleading about its *difficulty*. These are the places real installs have
+gone wrong; each one fails quietly, which is why they are worth naming
+here rather than leaving to be discovered at the link.
+
+- **The harness hooks are not four judgment calls.** A real install
+  (2026-09-07) treated them as four and declined all four; three of those
+  calls were right and one was wrong.
+  [INSTALL.md §1 step 2](../INSTALL.md#1-install-into-a-dependent-repo)
+  carries a table saying which is which. `commit-identity.sh` in
+  particular names nobody and pins nothing — **declining it is what leaves
+  one person's name on another person's commits.**
+- **The vendored engine has a seed step and a refresh step, and `refresh`
+  cannot bootstrap itself.** With no `tools/ENGINE_MANIFEST.json`, all
+  three verbs exit 2 with "No such file or directory" — which reads like a
+  broken instruction and is a missing baseline.
+  [§2 step 6](../INSTALL.md#2-take-an-upstream-update) has the seed
+  command and the rename trap that forces a manual reseed.
+- **`output_paths` in `precedent.json` is usually the key you want**, and
+  omitting it is not neutral: `title_case.py` falls back to reasoning from
+  *Precedent's* directory names, so your whole tree reads as published and
+  `headline-capitalization` reports headings you never meant to rewrite.
+  [§0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using).
+- **The timezone in `identity.json` is the field that fails silently.**
+  Name and email resolve from the GitHub account the session is
+  authenticated as, so a half-filled identity looks fine; nothing anywhere
+  can resolve a zone, so the author-date check drops from enforced to
+  guessed and wrong-offset commits reach the remote.
+  [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md).
+- **A repo attached mid-session runs none of its own hooks**, so every
+  guarantee the install wired up is absent while you work in it — and the
+  failure looks like a broken tool rather than an unrun hook. The
+  project's own `AGENTS.md` gotchas section is the list.
+
+**A word you don't recognize** — *practice*, *source*, *resident set*,
+*capture gate*, *deep check* — is probably in
+[GLOSSARY.md](../GLOSSARY.md), which is generated from the `defines:` field
+of whichever practice owns the term, so each entry links to the rule that
+defines it.
 
 **Not technical, or handing this to someone who isn't?**
 [SETUP.md](../SETUP.md) runs the same install as a conversation: the

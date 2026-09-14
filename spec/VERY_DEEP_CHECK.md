@@ -63,7 +63,7 @@ that rebuilds the thing described to the one that reads the description.
 ### Prerequisites
 
 All four sources cloned by the SessionStart hook before the first turn, from
-the environment credential, with no `add_repo` call — the route INSTALL.md §8
+the environment credential, with no `add_repo` call — the route [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)
 documents, working end to end. `precedent_session_check.py`: 9 guarantees in
 effect, 1 undetermined (the session-root row, which cannot be answered from a
 tool shell and is why the effect checks exist).

@@ -160,7 +160,7 @@ asks for it by name.
       environments with the same name, the values go on the one they are
       not using**, so give the environments distinct names first. The
       full list of variables and what each does is
-      [INSTALL.md](INSTALL.md) §8.
+      [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 
    Put the same five into `GETTING_STARTED.md` so they are findable after
    this conversation closes.
@@ -174,6 +174,38 @@ asks for it by name.
    instructions file every future session reads, not just remembered for
    this one conversation. Nobody has to ask for that by name, and nothing
    gets written down without saying so and getting a yes first.
+
+## What the Administrator Actually Has to Decide
+
+Work through this with them. It is every moment across the whole lifecycle
+where the decision is genuinely theirs rather than yours; everything not on
+it runs inside your ordinary work. The section references are to
+[INSTALL.md](INSTALL.md), which you are following and they are not.
+
+- **At install (§1).** They answer two questions — what the project is
+  about, and what private names or code words must never go public. Then
+  they look at what you built and either approve it or ask for changes.
+  You also walk them through `VOICE.md` — the project's own voice, its
+  audiences, its vocabulary — and ask whether a brand guideline exists to
+  fill in `STYLEGUIDE.md` from. **Both stay entirely local to their
+  project, and leaving either mostly blank is a perfectly good answer.**
+  Finally, §1 step 9: does the team, or do they personally, already have a
+  practices repo to wire in? Most projects don't yet, and saying so is a
+  complete answer — but offer to set one up on the spot.
+- **At every check-in (§4) — and only if the project gives back at all,
+  since §3 and §4 are both optional.** They review the plain-language
+  summary of what is being proposed back to the public Precedent project,
+  and approve it, adjust it, or hold it back. **This is the one recurring
+  moment where content leaves the project's boundary**, so it is the one
+  worth actually reading rather than rubber-stamping.
+- **When the audit flags something (§6).** A failed automatic check is you
+  catching a problem before it reached them, not something they fix by
+  hand. Explain what failed, fix it, and let them confirm the fix makes
+  sense.
+- **Nowhere else.** Updates (§2), the day-to-day export gate (§3), and the
+  manifest and audit internals (§5–§6) run inside your normal work and
+  need no sign-off unless you specifically flag a conflict or a judgment
+  call.
 
 ## Rules While Guiding
 

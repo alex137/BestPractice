@@ -5,14 +5,54 @@ or GitHub — how do I actually use this?**
 
 Someone — usually whoever set up the project — has already installed
 Precedent before you ever open it. If that's you and it isn't set up
-yet, see [INSTALL.md](../INSTALL.md) — it doesn't require you to write any
-code either. Everything below assumes it's already running.
+yet, see [SETUP.md](../SETUP.md) — you paste it to an assistant and it does
+the install as a conversation, no code required. Everything below assumes
+it's already running.
 
 You talk to an assistant, the same way you'd talk to a capable colleague.
 You describe what you want written, changed, or fixed, in your own words.
 The assistant does the actual work — you never touch a technical tool
 yourself, and your account is deliberately set up so nothing you do can
 break the project, even by accident.
+
+## Nothing Is Real Until It's Merged
+
+This is the one piece of machinery worth understanding, because you will
+meet the words on your first day and everything else rests on it.
+
+When you ask for a change, the assistant does not edit the live project.
+It makes a **private copy** of it — a *branch* — and works there. Nobody
+else sees it, and the real project is untouched no matter how badly the
+work goes. When it's ready, the assistant opens a **pull request**: a
+proposal, sitting on a page, saying *here is the change and here is why*.
+Somebody with the authority to say yes reads it and **merges** it, which is
+the moment it becomes part of the real project.
+
+**So there are three states, and "done" is only the last one.** Work in
+progress on a branch; a change proposed and waiting; a change that has
+landed. If you asked for something and it isn't live, it is almost always
+sitting in the middle state waiting for a yes.
+
+Three things follow from this that are worth knowing:
+
+- **You can't break anything.** The worst outcome of a bad request is a
+  proposal somebody declines. That's the whole point of the arrangement,
+  and it's why your account is set up the way it is.
+- **Several people — and several assistant conversations — can work at the
+  same time** without waiting for each other or overwriting each other,
+  because each is on its own copy. This is the thing a shared live document
+  cannot do.
+- **Whose yes it is depends on the project.** Most people here can propose
+  freely and cannot merge — see [What you can't do (on
+  purpose)](#what-you-cant-do-on-purpose) below, which is a deliberate
+  wall, not a comment on you. **If you are one of the people who can say
+  yes**, and you want the assistant to stop asking every time, say **"Go
+  merge"** — a standing phrase this project understands to mean *do all of
+  it, including the merge, without checking back.*
+
+There are a few more of those standing phrases — **"Park it"**, **"Plain
+words"**, **"Three Things"** — and [How to Use This Day to
+Day](DAILY_HABITS.md) lists them.
 
 ## Personal, Team, and Universal — And Moving Between Them
 
@@ -102,6 +142,10 @@ assistant's, stops at a wall instead of reaching anyone else.
 companion to this page: this one is how an idea becomes a rule, that one
 is what an ordinary working day looks like. [What This Is (and Why Explore
 Using Precedent)](WHY_PRECEDENT.md) for the bigger picture.
-[INSTALL.md](../INSTALL.md) if the project isn't set up yet. If you ever
+[SETUP.md](../SETUP.md) if the project isn't set up yet. If you ever
 want the fuller technical version of this page:
 [FOR_DEVELOPERS.md](FOR_DEVELOPERS.md).
+
+**And if you hit a word you don't know** — one of this project's own, like
+*practice* or *capture gate* — [GLOSSARY.md](../GLOSSARY.md) is the master
+list, with each term linked to the rule that defines it.

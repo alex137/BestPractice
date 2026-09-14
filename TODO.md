@@ -791,7 +791,7 @@ which is the failure this repointing exists to end — write
     source is the private repo** — or, since 2026-09-10, a session with
     `PRECEDENT_GIT_TOKEN` on its environment, which clones every private
     source at session start with no `add_repo` call at all
-    ([INSTALL.md](INSTALL.md) §8). That route is verified working and is the
+    ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)). That route is verified working and is the
     cheaper one; this item's remaining work is the per-set commands below,
     which still need a session that can PUSH to each set. BestPractice itself is public, so that
     session can `git clone https://github.com/alex137/BestPractice` directly;
@@ -869,7 +869,7 @@ which is the failure this repointing exists to end — write
     hook can then clone the sources *before the agent's first turn*, which is
     the ordering every part of this problem turns on. Set
     `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
-    ([INSTALL.md §8](INSTALL.md#8-per-machine-setup--what-each-person-sets-on-each-machine)),
+    ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)),
     and [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
     `--teams-from .` clones every declared team set as a sibling. **Nobody
     has run it with a valid token yet** — three of the four things it depends
@@ -1944,7 +1944,7 @@ which is the failure this repointing exists to end — write
   **Blocked on:** nothing about access, as of 2026-09-12 — what remains is
   building the thing the four bullets above describe. A session rooted at this
   repository now holds it, all three team sets and the individual set at once:
-  the SessionStart hook's credential route ([INSTALL.md](INSTALL.md) §8) clones
+  the SessionStart hook's credential route ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) clones
   every declared source before the first turn, and
   `~/.config/precedent/config.json` exists. Both halves of the 2026-09-08
   reading this paragraph replaces are superseded — on that date no sibling
@@ -3207,7 +3207,7 @@ which is the failure this repointing exists to end — write
    practice sets.** Found 2026-09-10 while answering a question about
    `PRECEDENT_SOURCE_BASE_URL`.
 
-   **What is actually there.** [INSTALL.md](INSTALL.md) §8 explains that the
+   **What is actually there.** [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) explains that the
    base URL is an environment variable precisely so that **no tracked file
    names the account owning the private sets**. That is not true of this
    repository as it stands: `.claude/hooks/precedent-individual-bootstrap.sh`
