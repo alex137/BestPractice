@@ -5880,6 +5880,26 @@ def check_precedent_check_fires():
                     e['ceiling'] = 10
                 return json.dumps(d, indent=2) + '\n'
             rewrite(repo, 'tools/session_load_budgets.json', _lower)
+        # github-api-budget -- a new tool starts calling the API directly,
+        # which is the shape that made "what is spending our allowance"
+        # unanswerable in the first place: one uncounted caller, and the
+        # figures every other tool reports are no longer the whole bill.
+        # control-asserts-which-failure: the exit code alone would pass if
+        # the check fired for any other reason, so the message is asserted.
+        def _plant_api_caller(repo):
+            (repo / 'tools' / 'gh_thing.py').write_text(
+                "import subprocess\n"
+                "subprocess.run(['curl', 'https://api.github.com/user'])\n",
+                encoding='utf-8')
+            subprocess.run(['git', '-C', str(repo), 'add', 'tools/gh_thing.py'],
+                           capture_output=True, text=True)
+
+        case('github-api-budget', _plant_api_caller)
+        cases.append(('github-api-budget: the planted violation names the '
+                      'uncounted caller and the way out of it',
+                      'tools/gh_thing.py' in planted['github-api-budget'][1]
+                      and 'unrouted_callers' in planted['github-api-budget'][1]))
+
         case('session-load-budget', _plant_load_budget)
         cases.append(('session-load-budget: the planted violation names the '
                       'ceiling it is over, not just that something is big',
@@ -7166,13 +7186,23 @@ def check_source_sets_can_learn_they_are_stale():
     #    pulled back out the same day: a cron job that phones a remote every
     #    week and opens pull requests is a real imposition on every adopter
     #    who inherits it, and a universal template is exactly the wrong place
-    #    to make that choice for people. It lives at the individual level
-    #    now, for whoever wants it. This case exists so the file cannot
+    #    to make that choice for people. This case exists so the file cannot
     #    reappear here without someone deciding to put it back.
+    #
+    #    The 2026-09-06 comment here used to end "it lives at the individual
+    #    level now, for whoever wants it". SUPERSEDED 2026-09-14: it lives
+    #    nowhere. Morgan killed the weekly refresh outright -- "No weekly
+    #    updates ... this is now really complex and deserves hand attention"
+    #    -- after two scheduled runs produced two abandoned branches, a 100%
+    #    report rate against a 0% landing rate. The replacement is a person
+    #    saying "Update Vendors" by hand. So this assertion is no longer the
+    #    narrow "not in a TEMPLATE" claim it was written as; it is now the
+    #    universal one, and the individual-level copy it used to point at is
+    #    being removed in the practice sets (not reachable from this repo).
     for level in ('individual', 'team'):
         wf = ROOT / 'templates' / f'practice-set-{level}' / '.github' / 'workflows' / 'engine-refresh.yml'
         cases.append((f'the {level} source template ships no scheduled workflow '
-                      f'(a per-person choice, not a universal default)',
+                      f'(no repository runs one, decided 2026-09-14)',
                       not wf.exists(), str(wf.relative_to(ROOT)) if wf.exists() else ''))
 
     # 2. The bootstrap tool warns when the clone it is seeding FROM is behind.

@@ -999,12 +999,23 @@ which is the failure this repointing exists to end — write
     costs a silent overnight wipe of a repo's practices while staying
     cautious costs a stale paragraph. **Blocked on:** the fix surviving real
     sync cycles rather than only its own tests, and then Morgan saying so.
-    What it needs then, in one change: put `checkin.py update` back as the
-    remedy `_warn_catalogue_skew` names, drop the hold paragraph from the
-    migration document, and un-pause the `schedule:` block in each
-    consumer's `bestpractice-upstream-sync.yml` — never one of the three
-    without the others, since a half-relaxed hold is what makes an
-    unattended job run against advice nobody re-read.
+    What it needs then: put `checkin.py update` back as the remedy
+    `_warn_catalogue_skew` names, and drop the hold paragraph from the
+    migration document.
+
+    **The third part is WITHDRAWN, 2026-09-14.** It used to read "and
+    un-pause the `schedule:` block in each consumer's
+    `bestpractice-upstream-sync.yml` — never one of the three without the
+    others, since a half-relaxed hold is what makes an unattended job run
+    against advice nobody re-read." Morgan killed every scheduled vendor
+    update — *"No weekly updates. I had that weeks ago, but we're not doing
+    that anymore; this is now really complex and deserves hand attention and
+    issues come up every time and I'm on it every day anyway."*
+    **Strength:** decided ([decision-strength](practices/decision-strength.md)).
+    There is no `schedule:` block left to un-pause, so the coupling warning
+    it carried is moot with it: the remaining two parts are independent of
+    any clock, and the replacement channel is a person saying
+    `Update Vendors` ([vendor-update-runbook](practices/vendor-update-runbook.md)).
     **Enforced 2026-09-07, which changes what relaxing it costs.**
     `checkin.py update` now refuses while a non-default branch is pinned
     (`_pinned_branch_hold`), printing the manual procedure and naming
@@ -1125,12 +1136,23 @@ which is the failure this repointing exists to end — write
   that was added to both source templates on 2026-09-06 and **removed the
   same day, deliberately**: a cron job phoning a remote weekly, spending an
   adopter's Actions minutes and opening pull requests in their repository, is
-  not something a universal template gets to decide on their behalf. It is an
-  individual-level preference now, and
+  not something a universal template gets to decide on their behalf.
   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) records the
-  shape in full so nobody re-derives it. **Blocked on:** nothing mechanical,
-  and that is the point — reopening this means someone arguing the imposition
-  is worth it for every adopter, which is a decision rather than a task.
+  shape in full so nobody re-derives it.
+
+  **SUPERSEDED 2026-09-14 in its second half.** This item used to end "it is
+  an individual-level preference now", which was true for eight days. Morgan
+  killed the weekly refresh outright — *"No weekly updates. I had that weeks
+  ago, but we're not doing that anymore; this is now really complex and
+  deserves hand attention and issues come up every time and I'm on it every
+  day anyway."* **Strength:** decided
+  ([decision-strength](practices/decision-strength.md)). So there is no
+  individual-level copy to point at either, and the replacement channel is a
+  person saying `Update Vendors`
+  ([vendor-update-runbook](practices/vendor-update-runbook.md)). **Blocked
+  on:** nothing — this is no longer an open question. A set nobody touches
+  for a month still goes a month unwarned, and that is now the accepted cost
+  rather than a gap awaiting a cron.
 
 38. <a id="gates-absent-from-main"></a>**Put the leak gate on `main`; the deep
     check cannot go there until the merge-back.** **Deferred by Morgan
@@ -4938,6 +4960,19 @@ which is the failure this repointing exists to end — write
     enforcement half is open as
     [`source-set-runs-no-universal-checks`](TODO.md#source-set-runs-no-universal-checks)**,
     and rolling the change out to the four sets is still to do.
+
+    **The reading half was NOT finished on 2026-09-13, and the gap was in this
+    repository rather than in any set.** The hook wrote
+    `.precedent/SESSION_PRACTICES.md` correctly and **nothing told the session
+    to read it**: the standing instruction's pointer at that file was
+    conditional on `repo_is_public()`, which is one of the two reasons
+    `build_views.sources_for_tracked_block()` defers a source, and a set defers
+    universal for the other one. Every set is private, so the pointer was
+    suppressed in all four. Fixed 2026-09-14 (`build_views.defers_any_source`),
+    found by Morgan from the symptom — sessions open on a practice repo and
+    most of the rules he wants are not loaded. **The measurement that missed it
+    checked that the file was written, never that a session is told to read
+    it.**
     **Disposition:** wait
 
 81. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
@@ -5637,7 +5672,7 @@ which is the failure this repointing exists to end — write
   [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)'s
   `WORKFLOW_TEMPLATES` for that reason — recorded in
   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
-  scheduled channel, and why it is not shipped here". The individual set was
+  scheduled channel, and why there is not one". The individual set was
   the one place that took the cron anyway, on the ground that it was the
   owner's own preference about his own repositories. He has now withdrawn that
   preference, so the exception closes and nothing anywhere schedules a vendor
@@ -5847,7 +5882,7 @@ which is the failure this repointing exists to end — write
   this one is deliberately not in it; that exclusion was a 2026-09-06 call
   about what a STRANGER's repository inherits, recorded in
   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
-  scheduled channel, and why it is not shipped here"; and
+  scheduled channel, and why there is not one"; and
   `precedent-team-repo-maintenance` predates the workflow outright (founded
   2026-08-31 against the workflow's 2026-09-06) while the other two were
   founded 2026-09-09 and bootstrapped from that same list. Sessions edited all
@@ -6485,41 +6520,62 @@ which is the failure this repointing exists to end — write
     the same honest gap [82](TODO.md#session-load-under-20k) recorded for the
     gotchas split. **Disposition:** parked (2026-09-14, closed as done)
 
-98. <a id="no-history-checks-unpushed"></a>**Two individual-set checks crash
-    on a repo with no commits; the fix is written and cannot be pushed from a
-    session rooted here.** `tools/checks/check_commit_author.py` and
-    `tools/checks/check_buenos_aires_dates.py` call `git log` with
+98. <a id="no-history-checks-unpushed"></a>**Two individual-set checks crashed
+    on a repo with no commits. CLOSED 2026-09-14 — they skip it now, saying
+    there is no history yet.** `tools/checks/check_commit_author.py` and
+    `tools/checks/check_buenos_aires_dates.py` called `git log` with
     `check=True`. An unborn HEAD makes git log exit 128, the
-    `CalledProcessError` escapes `find_violations()`, and
-    [tools/precedent_check.py](tools/precedent_check.py) prints the traceback
+    `CalledProcessError` escaped `find_violations()`, and
+    [tools/precedent_check.py](tools/precedent_check.py) printed the traceback
     as a VIOLATION of the practice itself. **A fresh install is exactly a repo
-    with no commits**, so every [INSTALL.md](INSTALL.md) §0 install hits both,
+    with no commits**, so every [INSTALL.md](INSTALL.md) §0 install hit both,
     and it is invisible from inside a practice set, which has years of
     history. Reported from the first real §0 install into a project with
     subject matter of its own, 2026-09-14.
 
-    The fix, reproduced and tested here: read the log through a
-    `_git_log_lines()` helper that drops `check=True`, and on a non-zero exit
-    raise the file's own `NotApplicable` — *"this repository has no commits
-    yet"* when `git rev-parse --verify --quiet HEAD` fails, *"not a git
-    repository"* when `rev-parse --git-dir` does, and otherwise what git
-    said. Each suite gets a two-direction case: the empty repo is SKIPPED
-    **and the message says "no commits yet"** (exit 2 alone would pass
-    against a skip for the wrong reason — that is also what a repo declaring
-    no identity gets), and the same fixture, once it carries one commit by
-    the declared person, runs clean. Both suites are green against it.
+    **What unblocked it** is the one thing it was waiting on: a session rooted
+    in the individual set. The git proxy refuses to inject a credential across
+    owners and `add_repo` refused the cross-owner add, so nothing rooted here
+    could ever push the fix — it had to be pushed from there, and on
+    2026-09-14 it was, as that set's pull request #130, *"A repository with no
+    commits skips these two checks instead of crashing"*, merged at `519d20f`
+    over `68da995`. The set is private, so there is no link to give.
 
-    **Blocked on:** a session rooted in the individual set. Same wall as
-    [`close-detect-declaration-unpushed`](TODO.md#close-detect-declaration-unpushed):
-    the git proxy refuses to inject a credential across owners (*"not in this
-    session's authorized repository set"*), and `add_repo` refused the
-    cross-owner add. The work exists as a local commit on
-    `claude/no-history-skips-cleanly` in a clone that dies with the
-    container; the paragraph above is the whole of it. Close this when a
-    fresh repo (`git init`, nothing committed) runs both checks and gets
-    SKIPPED rather than a traceback.
+    **What landed.** Both files read the log through a `_git_log_lines()`
+    helper that drops `check=True` and, on a non-zero git exit, raises the
+    file's own `NotApplicable` — SKIPPED, exit 2: *"this repository has no
+    commits yet"* when `git rev-parse --verify --quiet HEAD` fails, *"not a
+    git repository"* when `rev-parse --git-dir` fails, and otherwise git's own
+    stderr. **`--git-dir` is probed first**, because a directory that is not a
+    repository fails the HEAD probe too and would otherwise be told the wrong
+    cause. The helper is **duplicated verbatim in both files**, for the reason
+    those files already give at length: `precedent_materialize.py` copies only
+    the `check_*.py` scripts a practice's `checked_by:` claims, so a shared
+    helper module sitting beside them would never travel into a consuming
+    repo.
 
-    **Disposition:** ask (2026-09-14, the session that hit the refusal)
+    **Both suites got the two-direction case**, against a repository built
+    from nothing (`git init`) rather than a clone — a clone of that set
+    carries years of history and can never reach the condition. The empty repo
+    must exit 2 **and** the message must say "no commits yet" (exit 2 alone
+    would pass against a skip for the wrong reason — a repo declaring no
+    identity skips too); then the same fixture, once it carries one commit by
+    the declared person (name, email and zone read from the fixture's own
+    `identity.json` rather than written out a second time), must run **clean**
+    rather than stay skipped forever. Reproduced before and after rather than
+    reasoned about: an empty `git init` repo printed the `CalledProcessError`
+    traceback before the change and prints `SKIPPED: this repository has no
+    commits yet ...` after it. Both suites are green, that set's
+    `tools/checks/tests/run_all.sh` exits 0, and its `precedent_check.py`
+    reports 17 passed, 0 violated, 0 errored.
+
+    So this item's own closing condition — a fresh repo (`git init`, nothing
+    committed) runs both checks and gets SKIPPED rather than a traceback — is
+    met. **The sibling item is not:**
+    [`close-detect-declaration-unpushed`](TODO.md#close-detect-declaration-unpushed)
+    hit the same cross-owner wall, is a different fix, and stays open.
+
+    **Disposition:** parked (2026-09-14, closed as done)
 
 99. <a id="session-start-deepen-is-tentative"></a>**The session-start deepen is
     TENTATIVE — revisit whether every session should pay it.** Since
@@ -6556,3 +6612,27 @@ which is the failure this repointing exists to end — write
     it.
 
     **Disposition:** ask (2026-09-14, Morgan — he asked for it to be revisited)
+
+100. <a id="github-budget-into-the-source-sets"></a>**The four practice sets do not have
+    `github_budget.py` yet, and will not until their next engine refresh.**
+    Added 2026-09-14 with
+    [github-api-budget](practices/github-api-budget.md):
+    [tools/github_budget.py](tools/github_budget.py) is now in
+    `ENGINE_FILES`, so every set picks it up the next time
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    runs there — the `Update Vendors` runbook, or each set's own
+    on-demand engine-refresh workflow. Until then the vendored
+    `precedent_check.py` in those sets carries the `github-api-budget`
+    check and reports NOT APPLICABLE, correctly: a set declares no
+    `tools/github_api_budgets.json` and nothing in one calls the API, so
+    there is no spend to judge. Nothing is broken there; this item exists
+    so nobody re-derives that from a NOT APPLICABLE row.
+
+    **Blocked on:** nothing, deliberately — refreshing four private
+    repositories from here would open four pull requests for a file none
+    of them can use yet, which is the opposite of what
+    [cross-source-rollout](practices/cross-source-rollout.md) is for.
+    Close it when a refresh has landed in each set, or when one of them
+    grows its own API-calling tool and needs the module sooner.
+
+    **Disposition:** wait (2026-09-14, the session that added the practice)

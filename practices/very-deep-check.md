@@ -15,7 +15,12 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
+approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
+  GitHub with a rate-limit error, he asked for the cause investigated, the
+  fixes made, and this check to report the account's API limits so normal
+  usage can be seen not to overspend them (strength: decided; the section's
+  shape is the session's, the requirement is his);
+  pending review; revised 2026-09-05, Morgan F, to require every
   declared team/individual source actually be in the session before the check
   runs, and to add a stale-branch sweep across every repo the check touches;
   revised again same day, Morgan F, to add a cross-source-staleness check;
@@ -121,6 +126,18 @@ and one in a `HANDOFF` repo ends in a woken session
 starts is the point; discovering it at the moment of trying to fix something
 is the cost. `--landable-only` narrows scope for a deliberately cheap run and
 says out loud what it made unreachable.
+
+**The check reads its own GitHub API bill, and the account's, in its last
+section** ([github-api-budget](github-api-budget.md)). What the run spent,
+against a declared budget; what each allowance pool has left, read off the
+headers of the calls it already made rather than bought with another one; and
+plainly, as unmeasured rather than as clean, the allowances a session cannot
+see from inside a container — `search`, at 30 requests a minute shared across
+every window at once, and the secondary limit on creating content, which
+nothing anywhere reports. **It reports and never refuses.** The pool is shared
+by every session running, so a run that stopped because somebody else had
+spent it would be punishing the wrong session; the remedy is fewer
+simultaneous windows and cheaper tools, and neither is this tool's to apply.
 
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
@@ -262,8 +279,9 @@ cannot tell a drift this run introduced from one that was there before. So:
    — and fix what it reports, before this check reads a line. `0 failed` and
    `0 violated` is the starting line, not the finish.
 3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)** for the
-   enumeration, the machine-readable parse, the source-shape check, and the
-   branch scan. A missing declared source stops the run here.
+   enumeration, the machine-readable parse, the source-shape check, the
+   branch scan, and the GitHub API budget. A missing declared source stops
+   the run here.
 4. **Read the unmerged-branch inventory, before any pass begins.** Not the
    verdicts — those are pass 4's expensive half and stay there. Just the
    list, and enough of each branch's diff to know *what already exists

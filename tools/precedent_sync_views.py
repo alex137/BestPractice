@@ -450,7 +450,7 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     planned = {f"practices/{w['slug']}.md" for w in written}
     planned.update(c['path'] for c in checks_written)
     block, _tokens, _n = bv.build_loader_block(
-        triples, source_levels=levels, omits_private=bool(omitted),
+        triples, source_levels=levels, defers_sources=bool(omitted),
         # The block lands in <repo>/AGENTS.md, so a resident Rule's relative
         # links are placed against <repo>, never this engine's own root.
         block_dir=pathlib.Path(repo), planned=planned)

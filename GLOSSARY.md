@@ -6,7 +6,9 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| allowance pool | [github-api-budget](practices/github-api-budget.md) |
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
+| API budget | [github-api-budget](practices/github-api-budget.md) |
 | Approved | [go-merge](practices/go-merge.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |

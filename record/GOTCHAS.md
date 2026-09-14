@@ -747,7 +747,23 @@ that cross-owner attachments may still be refused. **The useful half is what
 it hands you anyway**: a session rooted anywhere, under any owner, can
 `GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1` this public repository with
 nothing attached — which is how a session working in a private source set
-reads the upstream tree. Allow ≈10 minutes and do not interrupt the clone.
+reads the upstream tree.
+
+**This entry said "allow ≈10 minutes" until 2026-09-14, and that figure does
+not reproduce.** Measured on a hosted container that day, both clones landing
+on `precedent-beta-v01` with all 116 practice files present: `--depth 1` took
+**1 second** for 14 MB and 1 commit, and a FULL clone — which is what
+[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+actually runs for a universal source, with no `--depth` — took **3 seconds**
+for 20 MB and all 1,394 commits. This repository is almost entirely prose, so
+there is very little to transfer. Nobody knows what the ten minutes on
+2026-09-09 was; a cold proxy and a Git Large File Storage (LFS) fetch are both candidates and
+neither was measured. **What matters is not to cost a design decision against
+it** — the ≈10 minutes was quoted in a 2026-09-14 session as the reason not to
+put the universal catalogue in front of every session, and the real number is
+three seconds (practice: diagnosis-is-measured — a relayed figure is a
+hypothesis until this container measures it).
+
 What that checkout cannot do: push, reach the GitHub tools (its web
 application programming interface, and the Model Context Protocol server that
 fronts it), or fetch Git Large File Storage objects.
@@ -1092,3 +1108,54 @@ repositories are on this disk: ask the resolver what is DECLARED, then add
 siblings — never siblings alone. The individual set is the one that breaks
 it, every time, because it is the only one whose location is a person's own
 config rather than the session's layout.
+
+## 41. <a id="g41"></a>`/rate_limit` lies from inside a session — it reports a pristine window while the response headers report the truth
+
+**The symptom.** You want to know how much of the GitHub API allowance this
+account has already spent, so you ask the endpoint built for exactly that.
+It answers `core: 0 used of 15000`, with a reset always about an hour away,
+and it answers that every time you ask — the reset moves forward on each
+call. Nothing looks broken.
+
+**What is actually true.** Measured 2026-09-14, seconds apart, on the same
+credential in the same container:
+
+```
+GET /rate_limit                    -> "core": {"used": 0, "limit": 15000}
+GET /repos/<owner>/<name>  headers -> X-RateLimit-Used: 74, Remaining: 14926
+```
+
+The headers on an ordinary call are correct and the endpoint is not. The
+cause was not chased past establishing which of the two to trust — the agent
+proxy sits between the session and GitHub, and `/rate_limit` is plainly not
+being served the way the repository endpoints are.
+
+**Why it matters more than an ordinary wrong number.** A budget check built
+on that endpoint is green on the day the account runs out, which is the one
+day it exists for — the same shape as the stale `views-drift` header that
+claimed something was already failing the build. It was nearly built that
+way here. [tools/github_budget.py](../tools/github_budget.py) reads
+`X-RateLimit-*` off calls it was making anyway, never the endpoint, and
+[tools/precedent_check.py](../tools/precedent_check.py)'s
+`github-api-budget` check fails if anything goes back.
+
+**Two more things the same session established**, both surprising and both
+load-bearing:
+
+- **There is more than one allowance pool, keyed by repository.** A call
+  about the public upstream repo was charged to a 15,000/hour pool; calls
+  about two private sources to two separate 5,200/hour pools with their own
+  reset clocks. The harness attaches a per-repository credential, so "how
+  much is left" is a question about a repository, not about the account.
+- **`/search/*` and `/graphql` never reach GitHub from a container.** The
+  proxy answers `403 This GitHub API path is not available: sessions are
+  bound to their configured repositories`. So the tightest allowance on the
+  account — search, at 30 requests a MINUTE, shared by every session at once
+  — cannot be measured from where its refusals are felt, and the calls that
+  spend it come from the harness-side `mcp__github__*` tools.
+
+**Do not "fix" a rate-limit refusal by retrying.** The pool is shared by
+every window running; the lever is fewer simultaneous sessions and cheaper
+tools (the local clone before the API, a repo-scoped `list_*` before a
+`search_*`). Practice:
+[github-api-budget](../practices/github-api-budget.md).
