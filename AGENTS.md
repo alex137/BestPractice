@@ -693,6 +693,11 @@ retired it. Nothing is ever deleted.
   more than one allowance pool, keyed by repository.**
   [story](record/GOTCHAS.md#g41)
 
+- **The permission classifier refuses `git commit` and the checks inside the
+  very practice set whose `identity.json` declares `relayed_authorization:
+  accepted` — non-deterministically, so retrying teaches you nothing.**
+  [story](record/GOTCHAS.md#g42)
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
