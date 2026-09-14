@@ -484,6 +484,17 @@
       ],
       "gates_why": "Fires when merging a branch that touches shared files."
     },
+    "merged-session-offers-a-practice": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, not a place \u2014 routed by the `reply` gate instead.",
+      "decided": "Morgan F, 2026-09-14",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Its occasion is the closing reply of a session that merged something and is ready to archive; tools/precedent_close_detect.py measures that moment from the transcript."
+    },
     "migration-scrubs-vocabulary": {
       "globs": [
         "**"
