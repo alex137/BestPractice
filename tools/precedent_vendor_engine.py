@@ -201,6 +201,16 @@ SOURCE_BRANCH = 'precedent-beta-v01'  # see docstring: NOT the configured defaul
 
 ENGINE_FILES = [
     'build_views.py',
+    # The one place this engine asks GitHub anything, and the counter behind
+    # precedent_check.py's github-api-budget check (added 2026-09-14). It
+    # travels with the engine because the check travels with it: a consumer
+    # told to "route this caller through tools/github_budget.py" needs the
+    # file the finding names, and its own API-calling tools draw on the same
+    # account allowances this repo's do. Its companion registry
+    # (github_api_budgets.json) is deliberately NOT vendored -- a repo's
+    # floors and per-tool budgets are its own declaration, the same way
+    # session_load_budgets.json is.
+    'github_budget.py',
     # build_views.py's companion word list, and the reason it is here rather
     # than left behind: the engine vocabulary it declares (level, source,
     # catalogue, slug, gate, resident block) is what an adopter needs to read
