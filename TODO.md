@@ -3243,6 +3243,9 @@ which is the failure this repointing exists to end — write
    blocker is his attention, and the queue ahead of it is real work he has
    already named.
 
+   **Remind:** still pending on Morgan; surface it again on 2026-09-15 as a
+   line in this list, not as a trigger phrase — he asked for the reminder to
+   be the note itself (2026-09-14, Morgan)
    **Disposition:** ask (2026-09-10, Morgan asked for the review himself)
 
 53. <a id="stale-days-does-not-travel"></a>**Decide whether the four private
@@ -4643,7 +4646,23 @@ which is the failure this repointing exists to end — write
     a source declares in a `reply_check.json` at its root, and the `reply` gate
     now serves every source rather than this repo's own `practices/` alone.
 
-    **The individual set's half is written and cannot be pushed from here.**
+    **The individual half LANDED, and this item said otherwise until
+    2026-09-14.** Verified by content that day, not inferred: the set's
+    `reply_check.json` is on its `origin/main`, declaring
+    `require_heading_matching: "next step"` and the two archive sentences, and
+    it is what gates every reply in a session that resolves it — including the
+    session that checked. The paragraph below describes the state on
+    2026-09-13 and is kept as the record of what was true then.
+    **Recommendation, 2026-09-14: close this item's individual half on its
+    stated condition and keep only the engine-rollout half open.** What is
+    genuinely left is that the four attached sources still run an older
+    vendored engine, so none of them can declare a CONDITIONAL requirement of
+    its own — the object-vs-list form and
+    `require_when_context_grew_tokens`. That is ordinary vendor-update work,
+    not a design question, and it belongs to whichever session is rolling the
+    sets forward rather than to a separate effort.
+
+    **The individual set's half was written and could not be pushed from here.**
     Its `next-steps-after-commit` gained the session-disposition clause, its
     `## Install` was corrected (it asserted a mechanical check was impossible,
     which was the premise that stopped anyone building one), and a
@@ -4967,6 +4986,21 @@ which is the failure this repointing exists to end — write
     practice, which is the nearest existing machinery and the place to start
     reading.
 
+    **Recommendation, 2026-09-14: run the measurement, wire nothing yet.**
+    The item already specifies it — universal's checks against ONE set,
+    every finding sorted into (a) real, (b) not applicable to a set at all,
+    (c) already covered by the set's own copy. That is a bounded job with a
+    concrete output, and it turns an open-ended "should a set run these?" into
+    a list somebody can act on. Wiring before the count is what the
+    `not_binding` reasoning above warns against, and the cost of guessing
+    wrong is a permanently red gate in four repositories.
+    **It pairs with item 87**, found 2026-09-14: a set cannot even run
+    `precedent_show.py` on a universal slug, because `practices/` there holds
+    the set's own files only. That is the same boundary from the READING side
+    — the rules arrive as one-line clauses and nothing else — so whoever takes
+    the measurement should read both items together rather than discover the
+    second one halfway through.
+
     **Not blocked on anything external** — it needs a session with a set
     attached, which is the ordinary condition here. It is queued rather than
     done because it is a measurement pass with an unknown answer, not a
@@ -5027,8 +5061,11 @@ which is the failure this repointing exists to end — write
     That is the question to put to him; the landing itself is four sessions'
     work in four repositories, and cheap once the shape is decided.
 
-    **Remind:** the vendoring decision — whole deep check or a named subset —
-    raise it tonight (2026-09-13, Morgan)
+    **DECIDED 2026-09-14: the whole check, not a named subset.** Morgan, in
+    his own words, asked which and answered *"the whole thing"*.
+    **Strength:** decided (2026-09-14, Morgan). The `**Remind:**` line that
+    carried this is removed because it has fired and been answered; what is
+    left is landing work in four repositories this session cannot push to.
     **Disposition:** ask (2026-09-13, Morgan)
 
 85. <a id="source-set-push-triggers"></a>**The four practice sets still run
@@ -5564,3 +5601,34 @@ which is the failure this repointing exists to end — write
   source from a fresh session here.
 
   **Disposition:** ask (2026-09-14, the session that hit the refusal)
+
+93. <a id="one-unrelated-item-at-the-close"></a>**`closing-items-are-this-thread`
+    forbids every unrelated item; Morgan asked for exactly one, and only at
+    the close.** Asked for 2026-09-14, in his own words: *"please only give me
+    ONE to-do that is unrelated to the issue, and ONLY do that when the issue
+    is done (when you are about to say it's ready to be archived), and make it
+    the issue most important in your opinion AND (importantly) label clearly
+    that this is UNRELATED to the thread."* **Strength:** decided (2026-09-14,
+    Morgan).
+    **Why the current rule is not quite right.** It reads *"close on this
+    thread's own work and nothing else — an unrelated suggestion sends me to a
+    window already doing it"*, and the reasoning holds: an unrelated item
+    dropped mid-thread competes with the thread. But a blanket ban also loses
+    the one case where a session is the only thing that has seen a problem,
+    and the person asking "anything else?" gets told no.
+    **The amendment, in full, for whoever lands it:**
+    > **One unrelated item is allowed, and only one.** It appears in the
+    > `## Next Steps` section of the reply that closes the thread — the same
+    > reply that says the session can be archived — never earlier, never twice,
+    > and never as a second-best filler when the thread's own work is
+    > unfinished. It is labelled with the words **"Unrelated Todo item to
+    > consider:"** so it cannot be mistaken for this thread's business, and it
+    > is the single most important one the session knows of, chosen rather than
+    > collected. Everything else stays in the repository, where the person will
+    > meet it when they are working on that thing.
+    **Blocked on / out of scope here:** `closing-items-are-this-thread` lives
+    in `precedent-individual`, a repository under a different owner.
+    `add_repo` refuses cross-owner and `git push` returns 403 from the git
+    proxy — both established by measurement, not assumed. A session rooted in
+    that set lands it; this one cannot. Recorded here so the wording survives
+    the window that produced it.
