@@ -211,7 +211,7 @@ and [spec/SOURCES.md](SOURCES.md).
 but left its subdirectory placement as a *recommendation*: `path: "."` or a
 subdirectory both resolved, with a subdirectory only ever "the better
 choice." Raised by a dependent-repo comparison (the project's own prior notes repository has no
-repo-local practices at all and so no `local/`; `TodoMorgan` does, at
+repo-local practices at all and so no `local/`; another dependent repo does, at
 `local/practices/`, following the recommendation) — the two repos are not
 actually inconsistent with each other, but the convention itself was only
 ever advisory, so a third repo was always free to pick a different
@@ -229,7 +229,7 @@ repo-local, whose `path` equals the materialize target) is untouched and
 still the backstop for the levels this new rule doesn't reach — universal
 self-hosted at `path: "."` (this repo's own `precedent.json`, unaffected)
 remains legal. Every existing repo-local declaration already in the wild
-(this repo's own `local/`, `TodoMorgan`'s) already used `"local"`, so
+(this repo's own `local/`, and one dependent repo's) already used `"local"`, so
 nothing that already followed the recommendation needed to change.
 
 See [practices/layered-practice-packs.md](../practices/layered-practice-packs.md),
