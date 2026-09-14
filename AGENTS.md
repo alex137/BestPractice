@@ -345,7 +345,7 @@ When finishing a substantial work-product, before the merge-time capture gate:
 When fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy:
   fix-the-original — fix the origin first, then every copy -- name them all in the reply
 When handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach:
-  spawn-session — cross-repo check; list_sessions before spawning; wake, never spawn beside
+  spawn-session — cross-repo check; list_sessions before spawning; wake, never spawn beside; list every session you spawned or woke, with its link, in the reply's closing list
 When importing, creating, or declaring a repository that holds practices:
   source-naming — names are fixed by level; say the convention before anyone picks a name
 When landing practices in bulk -- a migration, an import, or a move between sources:
