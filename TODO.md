@@ -5547,10 +5547,31 @@ which is the failure this repointing exists to end — write
   worse than one that repeats itself.
 
 - <a id="team-sets-carry-no-engine-refresh-workflow"></a>**The weekly
-  engine-refresh cron is retired; what is left is removing it from
-  `precedent-individual`, the one repository that still runs it.**
-  **Disposition:** wait (2026-09-14 — the decision is made; what is left is
-  one change in `precedent-individual`, which no session rooted here can push)
+  engine-refresh cron is dead in all four practice sets. What survives it is
+  the finding underneath: a set's vendored engine goes stale, and nothing
+  unattended says so.**
+  **Disposition:** wait (2026-09-14 — the cron kill has landed; what is left
+  is refreshing the sets by hand, which is now the only channel there is)
+
+  **THE LIVE FINDING, re-measured 2026-09-14 in this session.** All four sets
+  vendor `74eb776277105b70fa504470de1dc3c521b0fd33` while this branch's tip is
+  `d23714b48a36`, so all four are behind — the same shape as the morning
+  measurement below, which caught the three team sets at `a114836` and the
+  individual set further back still. **The drift is not the problem; the
+  noticing is.** The three team sets carry `precedent-check.yml` and
+  `views-drift.yml` and neither looks at `ENGINE_MANIFEST.json`, and since the
+  cron kill the fourth has no scheduled channel either. Nothing reports this
+  on its own, and after 2026-09-14 nothing is supposed to.
+
+  **THE REMEDY IS BY HAND, and it is not a gap waiting on a workflow.**
+  `Update Vendors` ([vendor-update-runbook](practices/vendor-update-runbook.md))
+  is the channel: [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+  `refresh` per set, landed in the same pass. What reports the drift is a session that has the sources
+  attached — [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  prints a behind/current line per source at session start, and printed
+  exactly the four STALE rows above at the start of this one. That is
+  attended reporting, which is what Morgan chose over a clock; **do not read
+  anything below as a standing argument for restoring one.**
 
   **CLOSED 2026-09-14 — THE SCHEDULED CHANNEL IS RETIRED, NOT EXTENDED.**
   Read this first: everything below it was written toward rolling the weekly
@@ -5595,17 +5616,22 @@ which is the failure this repointing exists to end — write
   actually does. The evidence in this item was always pointing here: the
   channel never leaked at the reporting step.
 
-  **NOT DONE FROM THIS REPO, and this is the live residue.**
+  **DONE 2026-09-14 — the kill landed, and both halves landed together.**
   `.github/workflows/engine-refresh.yml` and the practice requiring it,
-  `practice-set-engine-refresh`, both live in the private practice sets.
-  Neither file is in this repository. Measured, not assumed:
-  `git push --dry-run` to `themorgan/precedent-individual` came back
-  *"access denied by the git proxy: themorgan/precedent-individual is not in
-  this session's authorized repository set"*, and `add_repo` with push access
-  was refused by this session's own permission layer. A session rooted in
-  those sets removes the `schedule:` block (keeping `workflow_dispatch`, so
-  the job stays runnable on request) or deletes the workflow outright, and
-  retires or rewrites `practice-set-engine-refresh` to match.
+  `practice-set-engine-refresh`, both live in the private practice sets;
+  neither file is in this repository. A session rooted in the individual set
+  removed the `schedule:` block, kept `workflow_dispatch` as the only trigger,
+  and revised the practice in the same pull request rather than leaving the
+  set failing a rule that still demanded a weekly job. Verified from here
+  against that set's `origin/main` rather than a local clone
+  ([verify-postcondition](practices/verify-postcondition.md)); the workflow's
+  own header now records the cron's dates and why it went.
+
+  **Why it had to go to a session rooted there**, kept because it is the
+  standing constraint and not a one-off: measured, not assumed,
+  `git push --dry-run` to that set came back *"access denied by the git
+  proxy"*, and `add_repo` with push access was refused by this session's own
+  permission layer.
 
   **THE SCOPE IS FOUR REPOSITORIES, NOT ONE — corrected 2026-09-14 by Morgan**
   (*"I think we need to remove it from the 4 practice level repos"*), against
@@ -5671,9 +5697,10 @@ which is the failure this repointing exists to end — write
   be unmerged.)
 
   **Not done here, and the reason is scope rather than difficulty:** the work
-  is four `precedent_vendor_engine.py refresh` runs and a copied workflow
-  file, but this session's designated repositories were one consuming project
-  and this one, and a request to attach a set with push access was refused.
+  is four `precedent_vendor_engine.py refresh` runs — **no workflow is copied
+  anywhere**, per the reversal below — but this session's designated
+  repositories were one consuming project and this one, and a request to
+  attach a set with push access was refused.
   Recorded so the
   finding survives the window that found it
   ([findings-return-through-repo](practices/findings-return-through-repo.md)).
@@ -5719,9 +5746,13 @@ which is the failure this repointing exists to end — write
   one of the four — all four at `27655a18bc50`, all committed within three
   seconds of each other at 06:24 -03, so one session's sweep — and none of
   them merged. The refresh gets produced reliably and landed almost never.
-  That is an argument for giving the other three sets the same channel AND for
-  fixing what happens after it fires; a weekly job leaves up to seven days of
-  drift on its own, and a weekly job nobody lands leaves all of it.
+  **That was read at the time as an argument for giving the other three sets
+  the same channel. It is not, and the reversal below settles it the other
+  way:** the leak is at the landing step, which is precisely the half an
+  unattended job is worst at — a weekly job leaves up to seven days of drift
+  on its own, and a weekly job nobody lands leaves all of it. What six
+  abandoned branches actually argue for is refreshing by hand and landing it
+  in the same pass, which is what `Update Vendors` does.
 
   **The cron time does not match either run, and this is not explained.** The
   installed workflow says `17 6 * * 1` (06:17 UTC); both runs committed near
@@ -5840,10 +5871,10 @@ which is the failure this repointing exists to end — write
   any time), but it is a second change, not part of this one.
 
   **Scope:** `precedent-individual` only — it is the sole carrier — and a
-  session rooted there does it. Whether the three team sets get the fixed
-  version or the current one depends on the ordering of that work against
-  decision 1 above; the fixed one is obviously preferable and neither blocks
-  the other.
+  session rooted there does it, if it is ever wanted. **There is no "which
+  version do the team sets get" question to sequence any more**: decision 1 is
+  void, the three team sets never carried the workflow, and with no schedule
+  nothing stacks superseded pull requests on a clock.
 
   **REVERSED 2026-09-14, later the same day: Morgan wants the cron killed.**
   In his own words — *"we have a cron that we want to kill"* — so
@@ -6420,3 +6451,39 @@ which is the failure this repointing exists to end — write
     SKIPPED rather than a traceback.
 
     **Disposition:** ask (2026-09-14, the session that hit the refusal)
+
+99. <a id="session-start-deepen-is-tentative"></a>**The session-start deepen is
+    TENTATIVE — revisit whether every session should pay it.** Since
+    2026-09-14 [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh)
+    fetches the rest of a shallow clone's history before the first turn, so no
+    session here reads a truncated one. What it buys: three tools that report
+    success while checking almost nothing on a short history
+    ([behavioral_replay.py](tools/behavioral_replay.py) with nothing to replay,
+    [doc_lint.py](tools/doc_lint.py) silently narrowing to uncommitted files,
+    [precedent_check.py](tools/precedent_check.py)'s `scope: tree` checks
+    reading an empty `git log` as `0 violated`). What it costs: **4 seconds and
+    about 7 MB on every session**, measured against this remote through this
+    container's proxy — 2.7 MB of history before, 9.5 MB after — paid whether
+    or not that session ever reads history, which most do not.
+
+    **Morgan approved it weakly and asked for this item in the same breath**
+    (`strength: assented`, 2026-09-14): *"Okay let's do it, go merge. BUT note
+    this in the Todo as an issue to revisit in the future, it's tentative,
+    'weak'."* So the thing to revisit is the trade, not the implementation.
+
+    Three things would change the answer, and none of them is knowable yet
+    from one measurement: whether **4 seconds is noticeable** in practice at
+    the start of a session; whether the repo's history **grows** enough that
+    the figure stops being 4 seconds (it is ≈1,300 commits of mostly text
+    today); and whether the three tools above get fixed to **say "could not
+    check"** instead of degrading, which would remove most of the reason for
+    the deepen. The narrower alternative, if it stops paying: deepen a bounded
+    slice rather than everything, or deepen only when a tool that needs history
+    is about to run.
+
+    **Close it** by re-measuring the cost on a fresh container, deciding
+    keep / narrow / drop with that number in hand, and recording which — not
+    by the deepen having worked, which says nothing about whether it was worth
+    it.
+
+    **Disposition:** ask (2026-09-14, Morgan — he asked for it to be revisited)
