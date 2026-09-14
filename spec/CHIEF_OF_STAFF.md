@@ -260,7 +260,37 @@ definition. **So the sweep and the desk are two things:**
 It is kept as written because the reasoning was right about notifications and
 wrong about what a fired session can do; the correction follows.
 
-## The fresh-session sweeper does not work
+## There is no sweeper: it runs when he asks
+
+**Decided by Morgan on 2026-09-14**, the same day the scheduled version was
+built and twice corrected: *"I do NOT want automatic sweeps 4 times a day, nor
+never automatically; ONLY when I invoke the session."* The Routine is deleted.
+Everything below about firing, notifications and cadence is kept as the record
+of how the design got there, and **none of it is in force.**
+
+**What the two failed attempts were actually worth** is the measurement each
+forced. The first said a fresh session cannot read the fleet at all. The
+second, below, said the count depends entirely on how far you page — which is
+the finding that survives the schedule being removed, because it bites just as
+hard on a sweep he asks for.
+
+### How far back to read
+
+Measured 2026-09-14, paging one account's own sessions: **2** non-archived
+blocked rows in the first 30, **6** in the first 90, **8** in the first 120,
+and the listing still had more behind the cursor. The filter was right at every
+depth; **old sessions are simply never archived**, so the tail is unbounded.
+
+That is why the first sweep from this session reported one blocked row and the
+desk reported six. **Neither used a different method.** One read two pages and
+one read further. A sweep that stops at an arbitrary page reports an arbitrary
+number, and nothing on the page tells the reader which.
+
+**So a sweep is bounded by recency and names its bound** — non-archived
+sessions updated in the last N days, N stated in the report. The ancient
+blocked tail is reported once as a count, separately, as a prompt to archive.
+
+## What the fresh-session sweeper proved on its way out
 
 **Measured 2026-09-14, after the design above was approved and built.** A
 Routine firing a fresh session gets **none of the session-management tools** —
@@ -335,12 +365,14 @@ Built 2026-09-14, on Morgan's authorization:
 - **The universal practice**, [practices/chief-of-staff.md](../practices/chief-of-staff.md) —
   the command, the link-every-session requirement, and the state-not-prose
   filter above.
-- **The desk**, a standing session carrying `role:cos`, which holds the sweep
-  prompt and does the work. It was built the same day rather than deferred,
-  because the measurement above made it the only shape that runs.
-- **The sweeper Routine**, on Morgan's account, waking the desk four times a
-  day at 09:00, 13:00, 17:00 and 21:00 Buenos Aires time. The desk sends the
-  push itself; a sweep that finds nothing blocked sends nothing.
+- **Nothing scheduled.** Both Routines built on 2026-09-14 were deleted the
+  same day, the first because it could not work and the second because he did
+  not want one.
+- **A standing desk session** exists, carrying `role:cos`, from the measurement
+  that proved a standing session has the tools. It is not required: the phrase
+  works in any ordinary working session, and preferring the session already in
+  front of you is now the rule, because the fleet is re-read from scratch
+  either way and a second session only adds its own context to the bill.
 
 - **The tag namespaces**, [practices/session-tags.md](../practices/session-tags.md) —
   `subject:`, `repo:`, `role:`, `wants:`, applied in the `create_session` call
@@ -350,5 +382,5 @@ Built 2026-09-14, on Morgan's authorization:
 
 **Still not built**, and each needs a decision that is his:
 
-- **The cadence and channel** are set at a default, not decided. Open question
-  2 below stays open; changing either is one `update_trigger` call.
+**Open question 2 below — cadence and channel — is answered and closed:** there
+is no cadence, because there is no schedule.

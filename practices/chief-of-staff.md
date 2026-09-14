@@ -4,9 +4,9 @@ title:       "\"Chief of Staff\" routes the fleet instead of doing the work"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Chief of Staff\", or a scheduled sweep reads the fleet"
+occasion:    "a person says \"Chief of Staff\""
 gates:       ["reply"]
-index_clause: "\"Chief of Staff\" -- what is blocked and what collides; every session a link"
+index_clause: "\"Chief of Staff\" -- on request only; name the window read, link every session"
 checked_by:  null
 defines:     ["Chief of Staff", "the sweeper", "the desk"]
 command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each."}
@@ -73,25 +73,48 @@ problem it was created for.
 to give in the session that holds the work ([go-merge](go-merge.md)), and
 routing them to the right window to say it is the whole job.
 
-### The sweeper and the desk are two things
+### How far back to read, and why it has to be said
 
-**The desk** is the standing session the person talks to. It answers the
-phrase, routes, and spawns.
+**The listing is paged, it does not end, and the blocked count grows with
+every page you read.** Measured 2026-09-14 on one account: 2 non-archived
+blocked rows in the first 30, 6 in the first 90, 8 in the first 120, with more
+still behind the cursor. **Not because the filter is wrong — because old
+sessions are rarely archived.** A session finished long ago, on a question
+since overtaken, still reads as BLOCKED forever.
 
-**The sweeper** is a scheduled Routine that wakes the desk to list the fleet,
-keep the rows the filter above calls blocked, and notify. **It must wake a
-standing session rather than fire a fresh one**: a fresh session fired by a
-Routine has none of the session-management tools, so it cannot read the fleet
-at all — and it reports the run as succeeded anyway
-(https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g38). It is
-deliberately dumb: no memory between firings, no judgment beyond *is this row
-blocked on him*. **It exists because nothing pushes.** No session signals
-anywhere when it finishes, blocks, or goes idle, and peer messaging does not
-reach a cloud session — so the missing piece is a clock, not a signal.
+So **a sweep bounded by "read a few pages" reports whatever number it happened
+to stop at**, and two sweeps of the same fleet disagree without either being
+wrong. That is worse than a wrong number, because nothing on the page says
+which one you are holding.
 
-**The notification lives in the desk's prompt, not on the Routine.** A Routine
-bound to an existing session is refused notifications; a session can send one
-itself. That is the whole reason the two are still described separately.
+**Bound the sweep by recency, and say the bound out loud**: every non-archived
+session updated within the last N days, with N named in the report. Seven days
+is a sensible default and is not the rule — the rule is that the report states
+the window it read. Page until the rows fall outside it, then stop.
+
+**The long tail is its own finding, not part of the count.** A fleet carrying
+dozens of ancient blocked sessions is telling the person to archive, and that
+is worth saying once, as a number, separately from the live rows.
+
+### Where it runs, and what it costs
+
+**It runs when the person asks, and only then.** No schedule, no Routine, no
+background sweep. A report nobody asked for spends their attention against an
+unknown return, and they are the one who knows when they want to look.
+
+**It needs a session that has the session-management tools.** The phrase works
+in an ordinary working session. It does **not** work in a fresh session fired
+by a Routine, which gets none of those tools and reports the run as succeeded
+anyway
+(https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g38).
+
+**Prefer the session you are already in.** A sweep costs its own read of the
+fleet — roughly 15,000 tokens per page of thirty, several pages deep — and
+that is paid wherever it runs. Waking a dedicated session on top adds that
+session's whole context to the bill and buys nothing, because the fleet is
+read fresh every time regardless. **Open a separate session for this only when
+the one in front of you cannot afford the read**, which is a judgment about
+the context you are holding, not a standing arrangement.
 
 ## Why
 Work spreads across many open sessions, and **no session can see another from
@@ -102,7 +125,13 @@ a session burns most of its context unattended.
 
 The information to fix all three is already there — the status buckets, the
 branch, the repositories, the asks written out in `needs_action`. **Nothing
-was reading it.** That is a scheduling problem, not a platform limit.
+was reading it**, and the fix is that somebody can now ask.
+
+**It is asked for rather than scheduled, on Morgan's instruction of
+2026-09-14**, after a day of building it the other way: *"I do NOT want
+automatic sweeps 4 times a day, nor never automatically; ONLY when I invoke
+the session."* The design it replaces argued that the missing piece was a
+clock. The missing piece was a command.
 
 **The filter is the part that decides whether the report gets read.** A status
 report carrying rows the person has already dealt with teaches them to skim it,
@@ -114,7 +143,12 @@ and a skimmed report is worth less than none — they will trust it exactly once
 with the platform capability measured rather than assumed. He held
 implementation and left four questions open, the phrase among them.
 
-**What decided it was the first real sweep, on 2026-09-14, getting two rows
+**Three corrections landed the same day it was built, and each came from
+running it rather than reading it**: the archived filter below, the fact that
+a Routine's fresh session has no tools at all, and finally the schedule
+itself, which Morgan removed — a sweep happens when he asks for one.
+
+**The first came from the first real sweep, on 2026-09-14, getting two rows
 wrong in the same way.** Asked for the fleet's state, the session reported
 four sessions blocked on him. Two of them he had already finished with and
 archived — one where he had decided the question and closed the tab, one where

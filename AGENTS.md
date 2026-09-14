@@ -273,8 +273,8 @@ When a person explicitly asks for a "very deep check" across the whole repo, or 
   very-deep-check — read every repo in force against itself, pass by pass; never a routine gate
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
-When a person says "Chief of Staff", or a scheduled sweep reads the fleet:
-  chief-of-staff — "Chief of Staff" -- what is blocked and what collides; every session a link
+When a person says "Chief of Staff":
+  chief-of-staff — "Chief of Staff" -- on request only; name the window read, link every session
 When a person says "My options", or asks to have a decision's options laid out:
   my-options — "My options" -- every option, plainer, both sides, then your pick and why
 When a person says "Park it" about an open item or a question:
