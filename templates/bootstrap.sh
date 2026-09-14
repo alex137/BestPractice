@@ -135,6 +135,28 @@ if [ -f tools/precedent_sync_views.py ] && [ -f precedent.json ]; then
   fi
 fi
 
+# WHICH REPOS IN FORCE THIS SESSION CAN ACTUALLY LAND WORK IN.
+#
+# practice: spawn-session, which has said "settle who merges before the work
+# starts" since 2026-09-12 -- and the sentence alone did not carry. On
+# 2026-09-10 a session rooted in a private practice set migrated twelve
+# repositories and built a seven-commit patch for the upstream repo that it
+# could not push, because a session holding one owner's repositories is
+# refused another's. It sat blocked four days, having spent about a hundred
+# dollars to reach a branch nobody could land. The rule was right; the MOMENT
+# was missing, and the session least likely to stop and read a practice file
+# is the one already deep enough in the work for this to cost the most.
+#
+# Guarded like every other step here, and the guard matters: this tool is
+# vendored (ENGINE_FILES), so a tree older than 2026-09-14 does not have it
+# and must start anyway. Reports and never gates; bounded internally so an
+# unreachable remote cannot hold a session at the door. A repo it could not
+# reach is printed as unanswered, never as refused.
+if [ -f tools/precedent_access_check.py ]; then
+  python3 tools/precedent_access_check.py . || \
+    echo "WARN: access check did not run -- whether this session can land work in each repo in force is unknown" >&2
+fi
+
 # Precedent upstream freshness notice, for a repo on the CLASSIC
 # process/upstream/ vendoring layout (INSTALL.md section 1). Detection is
 # automated -- one ls-remote against the public upstream, silent when

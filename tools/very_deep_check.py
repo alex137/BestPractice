@@ -3201,67 +3201,20 @@ def _repos_in_force(repo_root, sources=(), missing=(), base_url=None):
     return rows
 
 
-def can_land_here(repo_dir):
-    """-> (verdict, detail). Can THIS session put work into this repo?
-
-    verdict is 'land', 'handoff' or 'unknown'.
-
-    A DIFFERENT QUESTION from the liveness audit below, and the difference is
-    the whole point. That one asks whether the REPOSITORY accepts work -- is
-    it archived, disabled, renamed. This asks whether this SESSION can put
-    work into it, which is a fact about the credentials in this container and
-    not about the repository at all. A repo can be perfectly live, writable by
-    its owner, and unreachable from here.
-
-    MEASURED, not inferred, because a guess here is the expensive kind.
-    `git push --dry-run` to a ref name nothing uses asks the server and
-    changes nothing: the server answers before any object is written, so a
-    'land' verdict is a real permission answer and a 403 is quotable. The
-    alternative -- reasoning from the owner in the URL -- is exactly the
-    inference spawn-session says to stop making
-    (https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/spawn-session.md).
-
-    WHY THE CHECK NEEDS THIS AT ALL. On 2026-09-13 a very deep check read 200
-    practice files across six sources; 89 of them were in four repos this
-    session got 403 on, and nothing in the output said so. Every finding in
-    those 89 files was a finding the reading session could not act on without
-    a handoff it would only discover at the moment of trying to fix it -- the
-    cost paid after the reading, the reasoning and the context, which is the
-    failure spawn-session already names. Morgan, that day: "There's no point
-    in including in the very deep check a repo that you don't have access to
-    suggest changes to nor to make changes to."
-
-    NOT USED TO DROP A REPO FROM SCOPE, deliberately. A finding is as likely
-    to sit in the seam between two repos as inside one, and a set's practice
-    contradicting universal's is a finding about BOTH -- dropping the set
-    loses it. And a repo this session cannot push to is not unactionable, only
-    more expensive: it needs a woken session, which is a route that works.
-    So the verdict LABELS the repo and groups the findings; --landable-only
-    is there for the person who wants the narrow run, and is never the default.
-    """
-    if not repo_dir or not pathlib.Path(repo_dir).is_dir():
-        return 'unknown', 'no local clone to probe'
-    probe = 'refs/heads/precedent-access-probe-do-not-use'
-    # _run_git(repo_dir, *args) -- the repo is the FIRST positional and it
-    # inserts `-C` itself; passing '-C' again puts it in the arg list where
-    # git reads it as a refspec.
-    code, stdout, stderr = _run_git(repo_dir, 'push', '--dry-run',
-                                    '--porcelain', 'origin', f'HEAD:{probe}')
-    out = f'{stdout}\n{stderr}'.strip()
-    if code == 0:
-        return 'land', 'push --dry-run accepted'
-    low = out.lower()
-    if ('403' in low or 'permission' in low or 'denied' in low
-            or 'read-only' in low or 'not authorized' in low):
-        first = next((l.strip() for l in out.splitlines() if l.strip()),
-                     'no message')
-        return 'handoff', first[:160]
-    # Could not reach the server, or something else entirely. NOT 'handoff':
-    # reporting a network blip as "you have no access here" sends somebody to
-    # spawn a session they did not need (practice: fail-gracefully).
-    first = next((l.strip() for l in out.splitlines() if l.strip()),
-                 'git said nothing')
-    return 'unknown', first[:160]
+# THE PROBE MOVED, 2026-09-14, and this import is the point of the move.
+# `can_land_here` was defined here from 2026-09-13 and was correct. But this
+# file is in neither ENGINE_FILES nor CONSUMER_ENGINE_FILES, so it reaches no
+# adopting repo -- and the probe was wanted at SESSION START, where it would
+# have saved a session four days and about a hundred dollars (see
+# precedent_access_check's own docstring). A session-start step importing THIS
+# module would have worked in the upstream repo and silently WARNed in every
+# repo that actually vendors the engine.
+#
+# So the definition went DOWN into the small file that travels, and the big
+# on-request audit imports it (practice: fix-the-original). Keeping a copy
+# here is how two probes drift apart; `access_audit` below is unchanged and
+# still owns the TABLE, which is this tool's own presentation concern.
+from precedent_access_check import can_land_here  # noqa: E402
 
 
 def access_audit(repo_root, sources=(), out=None):
