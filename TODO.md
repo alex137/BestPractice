@@ -5520,11 +5520,13 @@ which is the failure this repointing exists to end — write
   about the workflow's health worth checking before copying it anywhere.
 
   **Each set has a `precedent/engine-refresh` branch, and it is not evidence
-  of a scheduled job.** It is a spent working branch from the last manual
-  refresh, already merged. This session read it as the workflow and said so in
-  a pull request body before checking `.github/workflows/`; that is the
-  specific mistake worth not repeating, because the branch name is exactly
-  what a scheduled job's branch would be called.
+  of a scheduled job.** It is a working branch from a manual refresh. This
+  session read it as the workflow and said so in a pull request body before
+  checking `.github/workflows/`; that is the specific mistake worth not
+  repeating, because the branch name is exactly what a scheduled job's branch
+  would be called. (It said "already merged" as well, and **that half is
+  false** — see the 2026-09-14 correction below, where all four turned out to
+  be unmerged.)
 
   **Not done here, and the reason is scope rather than difficulty:** the work
   is four `precedent_vendor_engine.py refresh` runs and a copied workflow
@@ -5538,21 +5540,62 @@ which is the failure this repointing exists to end — write
   healthy.** The suspicion above — that the only carrier being the most stale
   might mean the job was failing or disabled — is false, checked against
   `precedent-individual`'s own history rather than inferred. Its cron is
-  Mondays, and it fired on Monday 2026-09-07 (`aec5ed5`, authored
-  `github-actions[bot]`, pushing `precedent/engine-refresh-c6c885033a9f`) and
-  again on Monday 2026-09-14 (`1eb647e`, landed as that set's pull request
-  #128), producing a correct refresh both times. A third refresh on Thursday
-  2026-09-10 (`b80210c`) is off the cron day, so it was dispatched or run by
-  hand. All four sets vendor `74eb776` as of this writing, so the staleness
-  figures above are the state on the morning they were taken, not now.
+  Mondays, and it fired on Monday 2026-09-07 (`aec5ed5`, pushing
+  `precedent/engine-refresh-c6c885033a9f`) and again on Monday 2026-09-14
+  (`982dfcf`, pushing `precedent/engine-refresh-7c8904d2ec47`), producing a
+  correct refresh both times. All four sets vendor `74eb776` as of this
+  writing, so the staleness figures above are the state on the morning they
+  were taken, not now.
 
-  **What it was stale from is the LANDING, not the job.** The 2026-09-07
-  branch is still unmerged — `git merge-base --is-ancestor` says so, and
-  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) already names it an
-  unlanded attempt. One of the two scheduled refreshes was offered and never
-  taken, and a weekly job leaves up to seven days of drift in a set whose
-  upstream moves dozens of commits a day. Both are arguments for giving the
-  other three sets the same channel, not for holding it back.
+  **What it was stale from is the LANDING, not the job — and the scheduled
+  channel has never once been landed.** Both workflow branches are unmerged,
+  by `git merge-base --is-ancestor`: `-c6c885033a9f` from 2026-09-07, which
+  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) already names an unlanded
+  attempt, and `-7c8904d2ec47` from 2026-09-14. **Two runs, two abandoned
+  branches.** Every refresh that actually reached that set's `main` was landed
+  by a person or a session instead — `b80210c` (2026-09-10) reproduces the
+  workflow's tree by hand and says so in its own message, and `1eb647e`
+  (2026-09-14, this set's pull request #128) is a session's `Update Vendors`
+  run. So the job's report rate is 100% and its landing rate is 0%, which is
+  the same failure this practice's own Detail predicts for the ISSUE fallback
+  — a channel that reports into a place nobody acts on becomes litter and gets
+  muted — arriving through the pull-request channel instead.
+
+  **How to tell the two apart, since authorship no longer does it.** Since the
+  2026-09-10 identity fix the workflow commits as the declared identity, so
+  `git log --format=%an` cannot separate a scheduled run from a session. What
+  separates them is the BODY: the workflow's `git commit -m` is a single line
+  with no trailer, and every session-produced refresh carries a
+  `Claude-Session:` or `Session:` trailer and a written rationale. The branch
+  name is the second signal — the workflow appends the upstream commit
+  (`precedent/engine-refresh-<12 hex>`) and
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  does not (bare `precedent/engine-refresh`).
+
+  **Six unmerged refresh branches across the four sets, counted 2026-09-14.**
+  The two workflow ones above, plus a bare `precedent/engine-refresh` in every
+  one of the four — all four at `27655a18bc50`, all committed within three
+  seconds of each other at 06:24 -03, so one session's sweep — and none of
+  them merged. The refresh gets produced reliably and landed almost never.
+  That is an argument for giving the other three sets the same channel AND for
+  fixing what happens after it fires; a weekly job leaves up to seven days of
+  drift on its own, and a weekly job nobody lands leaves all of it.
+
+  **The cron time does not match either run, and this is not explained.** The
+  installed workflow says `17 6 * * 1` (06:17 UTC); both runs committed near
+  12:30 UTC on their Mondays. Whether that is GitHub delaying a scheduled job,
+  a `workflow_dispatch`, or a cron that was different at the time has not been
+  checked — recorded as an open thread rather than guessed at.
+
+  **How this item got it wrong the first time, 2026-09-14** (practice:
+  [diagnosis-is-measured](practices/diagnosis-is-measured.md)): the paragraphs
+  above originally credited the 09-14 run to `1eb647e` and reported one
+  unlanded branch rather than two. The cause was reading a local clone's
+  remote-tracking refs as if they were the remote — `git branch -a` and
+  `git log --all` without a `git fetch` first, in a clone that was several
+  hours stale. Two of the four branches simply were not there to be found, and
+  nothing about the output said so. Morgan noticed the missing branch by name.
+  **Fetch before you enumerate refs**, in any clone you did not just make.
 
   **Why the three team sets never got it, established rather than assumed:**
   three causes, none of them a decision anybody made about these
@@ -5579,12 +5622,86 @@ which is the failure this repointing exists to end — write
   `templates/github-actions/` entry that would put the mechanism back in the
   one place 2026-09-06 decided it should not live.
 
-  **What is left to decide is one word, and it is Morgan's:** whether a
+  **What was left to decide was one word, and it is Morgan's:** whether a
   `precedent-team-*` set counts as "a practice-set repo of mine" under the
   individual practice that requires this workflow. If it does, that practice
   wants one word widened and three repositories are out of compliance with a
   rule approved 2026-09-06. If it does not, the team level needs a rule of its
   own. The mechanism is right either way; only its level is open.
+
+  **DECIDED 2026-09-14 — the workflow goes into the three team sets.** Morgan
+  approved a four-part recommendation as written, so
+  **strength: assented (2026-09-14, Morgan)** on all four: the substance was
+  the session's proposal and he took it rather than choosing between options
+  he framed himself ([decision-strength](practices/decision-strength.md)).
+
+  1. **Install it in the three team sets — yes.** On the ground that the
+     workflow is proven healthy above, not on an assumption that it is.
+  2. **Daily instead of weekly — NO, withdrawn.** Weekly fires correctly; the
+     leak is at the landing step, and a faster cron only produces more pull
+     requests nobody lands.
+  3. **Auto-merge on green — NO, withdrawn.** It would reverse a decision
+     recorded and approved 2026-09-06 (*the workflow never merges; landing it
+     is his call*), and the session proposed it without noticing that, on a
+     reason that turned out to be wrong: the 2026-09-06 incident was NO
+     CHANNEL AT ALL, not an unlanded pull request. The two abandoned branches
+     above are a real argument for revisiting it, and a different one — his to
+     open, not a session's to slip in.
+  4. **A `templates/github-actions/` entry — NO, withdrawn**, for the reason
+     in the paragraph above it.
+
+  **The individual set needs nothing: it already has the workflow.** Asked and
+  answered rather than assumed — it is the one set of the four that has
+  carried `.github/workflows/engine-refresh.yml` since 2026-09-06, and the two
+  scheduled runs measured above are its own.
+
+  **STILL OPEN, and it cuts against decision 4 above:** Morgan asked, in the
+  same message that approved that withdrawal, whether the workflow should go
+  into the templates *"so they go into future ones"*. Those cannot both hold,
+  so decision 4 stands as approved and this is recorded as the live fork
+  rather than resolved by reading his question as an instruction. **Three ways
+  out, and the third is the session's recommendation:** put it in
+  `WORKFLOW_TEMPLATES` (every adopter inherits a weekly cron — the exact thing
+  2026-09-06 refused); leave it where it is and copy by hand into each new set
+  of his (today's behaviour, and how three sets came to be missing it);
+  **or ship the template and gate it behind an opt-in flag on
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)**,
+  so a set gets it when somebody asks for it and never by inheritance. The
+  third keeps 2026-09-06's reasoning intact — nobody inherits a cron they did
+  not choose — while ending the hand-copy. It also means publishing a file
+  that currently lives only in a private set, which is a
+  [scrub-gate](practices/scrub-gate.md) question and not a formality.
+
+  **A SEPARATE CHANGE, RECOMMENDED 2026-09-14: the workflow should close its
+  own superseded pull requests.** Raised by another session and endorsed here
+  on the evidence this item already carries. The workflow reuses and closes a
+  single staleness ISSUE, and the practice states why in its own Detail — an
+  open issue must mean *stale right now* rather than *was stale once*, or the
+  channel becomes litter inside a month and gets muted. **Its pull-request
+  path has no equivalent.** It checks only whether a pull request is open for
+  the branch it is about to push, so every earlier run's pull request stays
+  open claiming an engine gap that a later run has already closed. Two
+  abandoned branches are the state above; the cost is live as well, in a
+  session sitting blocked on *"PR #126 — should delete or keep?"* between two
+  refresh pull requests from different runs. **A person arbitrating superseded
+  refresh pull requests by hand is the failure the issue path was built to
+  prevent, arriving through the other channel.**
+
+  **What the step has to get right**, since "close the old ones" is broader
+  than it sounds: close only pull requests **this workflow opened** — branches
+  matching `precedent/engine-refresh-<sha>`, never the bare
+  `precedent/engine-refresh` that
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  writes from a session — and comment naming the superseder before closing, as
+  the issue path already does. Whether the superseded BRANCH is deleted too is
+  a smaller question with an easy answer (it is reproducible from upstream at
+  any time), but it is a second change, not part of this one.
+
+  **Scope:** `precedent-individual` only — it is the sole carrier — and a
+  session rooted there does it. Whether the three team sets get the fixed
+  version or the current one depends on the ordering of that work against
+  decision 1 above; the fixed one is obviously preferable and neither blocks
+  the other.
 
 91. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
   wrong repo when vendored, and five more have not been checked.** Fixed
