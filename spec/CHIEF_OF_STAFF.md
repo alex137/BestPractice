@@ -1,20 +1,22 @@
 ---
 title:         "Chief of Staff: one session that routes the fleet"
 kind:          proposal
-status:        drafted
+status:        accepted
 opened:        2026-09-13
 closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       A standing session that reads every other session, says what is blocked and what collides, and spawns work rather than doing it — proposed, with the tagging convention it needs and the platform limits measured.
+summary:       A standing session that reads every other session, says what is blocked and what collides, and spawns work rather than doing it — accepted 2026-09-14; the sweeper Routine and the universal practice are built, the tag namespaces are not.
 ---
 # Chief of Staff: one session that routes the fleet
 
-**Nothing here is built.** This is a design written up for a decision, on
-Morgan's ask of 2026-09-13, after the platform capability it rests on was
-measured rather than assumed. The measurements are dated; the design is not
-approved.
+**Accepted 2026-09-14, and partly built.** Morgan asked for the design on
+2026-09-13, held implementation, and authorized the build a day later after
+the first real sweep got two rows wrong — see
+[What got built](#what-got-built) for what exists now and what still does
+not. The measurements below are dated and were taken before the decision;
+re-check any of them before relying on it.
 
 ## The problem it addresses
 
@@ -85,6 +87,40 @@ retag sessions after the fact, `interrupt_session`, `archive_session`, and
   signal**: a blocked session is already fully described in the listing, so
   anything that reads the listing on a schedule closes the gap. See
   [What wakes it](#what-wakes-it).
+
+## Reading a row: state, never prose
+
+**This is the part the first real sweep got wrong, and it decides whether the
+report is worth reading.** A row carries two kinds of information, and they
+age differently.
+
+The platform maintains `status_bucket` and `session_status`. The session
+itself writes `post_turn_summary` — including `needs_action` — on its last
+turn, and **nothing ever rewrites it.** Not the person answering. Not the
+person archiving the session. Not the thing it asked for getting done. So on
+any finished session the ask is stale by construction, while still reading as
+a live, specific request.
+
+| Signal | Verdict |
+|---|---|
+| `session_status` is `ARCHIVED` | **Done. Drop the row**, whatever the summary says. |
+| `status_bucket` is `COMPLETED` | Done. Drop the row. |
+| `status_bucket` is `BLOCKED`, not archived | Blocked. Report it. |
+| `needs_action` | What it wants — read only after the two above say it is still waiting. |
+
+**Archiving is how Morgan says he is finished**, and it is the signal he gives
+most often: one click, no typing. A session archived on an unanswered question
+has had that question answered somewhere he did not have to tell anybody
+about.
+
+**The one exception is his**, given in the same message that authorized the
+build: *"unless there is still something pending."* An archived session can
+leave something behind that outlives it — an open pull request, an unmerged
+branch, a spawned session still running. **That artifact is the row, named as
+the artifact**, and the dead session's summary asking for something is not
+evidence the artifact exists. Go look at it.
+
+The rule is [practices/chief-of-staff.md](../practices/chief-of-staff.md).
 
 ## The command
 
@@ -259,12 +295,28 @@ them.
    and it names a role rather than an action, which is either the point or
    the objection.
 
-## What landing it would take
+## What got built
 
-Not done, and in this order: a universal practice file defining the command;
-the tag namespaces written down where a spawning session reads them; the
-link-every-session rule, which is the part most likely to be quietly dropped;
-the Chief of Staff session itself, created with `role:cos` and seeded with a
-prompt naming what it may not do; and the sweeper Routine, which is the
-smallest piece and the one that would pay for itself first — it is useful
-even if nothing else on this list is ever built.
+Built 2026-09-14, on Morgan's authorization:
+
+- **The universal practice**, [practices/chief-of-staff.md](../practices/chief-of-staff.md) —
+  the command, the link-every-session requirement, and the state-not-prose
+  filter above.
+- **The sweeper Routine**, on Morgan's account. A fresh session per firing,
+  push notification on, four times a day at 09:00, 13:00, 17:00 and 21:00
+  Buenos Aires time. Its prompt carries the filter, so a firing that finds
+  nothing blocked says nothing.
+
+- **The tag namespaces**, [practices/session-tags.md](../practices/session-tags.md) —
+  `subject:`, `repo:`, `role:`, `wants:`, applied in the `create_session` call
+  and wired into [spawn-session](../practices/spawn-session.md), which is the
+  practice that creates sessions. The live fleet was retagged by hand the same
+  day, which answers open question 3 below.
+
+**Still not built**, and each needs a decision that is his:
+
+- **The desk** — a standing session carrying `role:cos`, seeded with a prompt
+  naming what it may not do. The phrase works in any session without it; what
+  a dedicated one adds is context that survives between askings.
+- **The cadence and channel** are set at a default, not decided. Open question
+  2 below stays open; changing either is one `update_trigger` call.

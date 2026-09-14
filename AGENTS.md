@@ -165,7 +165,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 111 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 113 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -270,6 +270,8 @@ When a person explicitly asks for a "very deep check" across the whole repo, or 
   very-deep-check — read every repo in force against itself, pass by pass; never a routine gate
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
+When a person says "Chief of Staff", or a scheduled sweep reads the fleet:
+  chief-of-staff — "Chief of Staff" -- what is blocked and what collides; every session a link
 When a person says "My options", or asks to have a decision's options laid out:
   my-options — "My options" -- every option, plainer, both sides, then your pick and why
 When a person says "Park it" about an open item or a question:
@@ -322,6 +324,8 @@ When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
 When creating a session, or deciding when to compact one:
   session-spend-follows-the-task — say out loud when a compact is cheap, never take one; model follows the task
+When creating a session, or retagging one:
+  session-tags — tag a session at creation -- subject, repo, role, wants; never retrofitted
 When creating, migrating, closing or superseding a document under spec/ or record/:
   document-status-header — kind and status in frontmatter; a reader must not have to infer either
 When deciding where a new rule belongs:

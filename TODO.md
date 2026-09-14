@@ -4336,8 +4336,14 @@ which is the failure this repointing exists to end — write
     deliberately changed nothing. Morgan decided it on 2026-09-13. The item
     carries no disposition because it is no longer an open item.
 
-75. <a id="chief-of-staff-session"></a>**Decide whether to build the Chief of
-    Staff session.** Proposal drafted 2026-09-13 at
+75. <a id="chief-of-staff-session"></a>~~**Decide whether to build the Chief of
+    Staff session.**~~ **Decided 2026-09-14, by him: build it.** The universal
+    practice and the sweeper Routine are live; the tag namespaces and the
+    standing desk are not, and each is still his call —
+    [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md)'s "What got built" says
+    which is which. What decided it was the first real sweep reporting two
+    sessions as blocked on him that he had already archived, which is now the
+    practice's own filter: state, never the session's own prose. Proposal drafted 2026-09-13 at
     [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md): one standing session that
     reads the whole fleet through `list_sessions`, reports what is blocked and
     what collides, spawns work rather than doing it, and links every session it
@@ -4352,17 +4358,17 @@ which is the failure this repointing exists to end — write
     useful applied at creation, so every session opened before the decision is
     invisible to the collision check unless somebody retags it by hand.
 
-    **Blocked on / out of scope:** Morgan asked for the proposal and explicitly
-    held implementation. Four open questions in the document are his to settle,
-    the phrase itself among them.
-
-    **A reminder is scheduled for 2026-09-16**, on his ask — a one-shot Routine
-    firing a fresh session that puts the four questions to him, with push and
-    email notification, and stands down if it finds the question already
-    settled. It is recorded here because a Routine is invisible from inside
-    the repository: if this item is still open well after that date, the
-    Routine did not reach him and the question is still owed.
-    **Disposition:** wait
+    **A reminder was recorded here as scheduled for 2026-09-16** — a one-shot
+    Routine that would put the four questions to him. **It is not on the
+    account.** Checked 2026-09-14 with `list_triggers`, which returned four
+    Routines, all one-shot dispatchers from the 2026-09-13 rollout, all
+    already fired. Why it is missing is not established. The decision arrived
+    without it, so nothing is owed — but it is the second thing this item
+    demonstrates: **a Routine is invisible from inside the repository, so a
+    session reporting that it scheduled one is not evidence that it exists.**
+    Verify with `list_triggers`
+    ([verify-postcondition](practices/verify-postcondition.md)).
+    **Disposition:** parked (2026-09-14, closed by his decision)
 
 - <a id="morgan-prose-name"></a>~~**What to call Morgan in prose, when it is
   not what git records.**~~ **Answered 2026-09-12, by him: the name in
