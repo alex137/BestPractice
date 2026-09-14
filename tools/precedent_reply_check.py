@@ -36,6 +36,19 @@ its own requirements, in a `reply_check.json` at the source root:
       "why": "so I never have to re-read a reply to find out what is on me"
     }
 
+A source may declare one requirement (an object) or several (a list).
+
+WHAT A REQUIREMENT MAY BE CONDITIONED ON. `require_when_context_grew_tokens`
+makes a requirement fire only once the conversation has grown by that many
+tokens since the sentence was last said -- which is how the universal
+compaction offer is enforced without becoming a line on every reply. The
+size is read from the transcript's own `usage` records, and it decides
+WHETHER THE OFFER IS OWED, never anything about compacting: the person still
+answers it. That is deliberate, and it is the clause
+practices/session-spend-follows-the-task.md already carried -- how full the
+context is picks which boundary you speak at, never whether the choice is
+yours to take.
+
 A repo where no source declares one checks nothing and says nothing. That is
 the honest default: this file enforces rules somebody wrote down, and has no
 opinion of its own about how a reply should end.
@@ -81,8 +94,18 @@ def declared_requirements(repo):
         except (OSError, json.JSONDecodeError) as e:
             notes.append(f"{s['level']}/{s['name']}'s {CONFIG_NAME} is unreadable ({e})")
             continue
-        d['_source'] = f"{s['level']}/{s['name']}"
-        reqs.append(d)
+        # A source may declare ONE requirement (an object, the original shape)
+        # or SEVERAL (a list). The list arrived when the universal source
+        # needed a second requirement that fires on a different condition from
+        # its first; an object is still read exactly as it was.
+        items = d if isinstance(d, list) else [d]
+        for item in items:
+            if not isinstance(item, dict):
+                notes.append(f"{s['level']}/{s['name']}'s {CONFIG_NAME} has an "
+                             f"entry that is not an object; it is skipped")
+                continue
+            item['_source'] = f"{s['level']}/{s['name']}"
+            reqs.append(item)
     return reqs, notes
 
 
@@ -115,6 +138,85 @@ def last_assistant_text(transcript):
     return ''
 
 
+def assistant_timeline(transcript):
+    """-> [(context_tokens, text), ...] for every assistant message in the
+    transcript, oldest first, or None if the transcript could not be read.
+
+    `context_tokens` is how big the conversation was when that message was
+    produced: the whole input the model was handed, which is
+    `input_tokens + cache_creation_input_tokens + cache_read_input_tokens`.
+    Most of a long session is cache READS, so a size taken from
+    `input_tokens` alone reads as ~2 tokens on a 150,000-token thread --
+    measured here 2026-09-14, and the reason this sums all three.
+
+    Transcript bytes were the obvious proxy and are a bad one: the JSONL
+    repeats every system reminder on every line, so it grows with turn COUNT
+    as much as with context. The usage record is the actual quantity, already
+    on disk, written by the harness (practice: no-invented-specifics -- this
+    is read, not estimated).
+    """
+    try:
+        lines = [json.loads(l) for l in
+                 pathlib.Path(transcript).read_text(encoding='utf-8').splitlines()
+                 if l.strip()]
+    except (OSError, json.JSONDecodeError):
+        return None
+    out = []
+    for d in lines:
+        if d.get('type') != 'assistant':
+            continue
+        msg = d.get('message')
+        if not isinstance(msg, dict):
+            continue
+        u = msg.get('usage') or {}
+        ctx = sum(int(u.get(k) or 0) for k in
+                  ('input_tokens', 'cache_creation_input_tokens',
+                   'cache_read_input_tokens'))
+        content = msg.get('content')
+        text = ''
+        if isinstance(content, list):
+            text = '\n'.join(b.get('text', '') for b in content
+                             if isinstance(b, dict) and b.get('type') == 'text')
+        out.append((ctx, text))
+    return out
+
+
+def offer_is_due(timeline, every, phrases):
+    """Has the conversation grown by `every` tokens since one of `phrases`
+    was last said? -> (bool, current_context_tokens, tokens_since).
+
+    This is the whole of the size-aware channel, and what it deliberately
+    does NOT do is decide anything about compacting. It decides only WHETHER
+    THE OFFER IS OWED, which is the clause
+    practices/session-spend-follows-the-task.md already carries: how full the
+    context is picks which boundary you speak at, never whether the choice is
+    yours. The person still answers it.
+
+    Stateless on purpose -- the transcript is the state. The alternative was a
+    counter file somewhere, which goes stale the moment a session is resumed
+    in a fresh container (practice: durable-fix).
+    """
+    # The BASELINE is where the session started, not zero. A session in this
+    # repository opens at ≈97,000 tokens before anybody types anything --
+    # measured 2026-09-14 -- so counting from zero would owe an offer within
+    # two or three turns of every session, in a repo whose always-loaded files
+    # happen to be large. Counting from the floor makes `every` mean what it
+    # says: how much CONVERSATION has accumulated.
+    # ctx_now is the LATEST context, never the high-water mark. A compaction
+    # is exactly the event that makes those two differ -- the context drops and
+    # the historical maximum does not -- so a `max()` here would go on demanding
+    # the offer from a session that had just taken it, which is the one session
+    # that owes nothing. Caught by reading this function's own diff before
+    # committing it, not by a test.
+    ctx_now = next((c for c, _ in reversed(timeline) if c), 0)
+    ctx_at_last_offer = next((c for c, _ in timeline if c), 0)
+    for ctx, text in timeline:
+        if any(_norm(ph) in _norm(text) for ph in phrases):
+            ctx_at_last_offer = max(ctx_at_last_offer, ctx)
+    since = ctx_now - ctx_at_last_offer
+    return since >= every, ctx_now, since
+
+
 def _norm(s):
     # A typed apostrophe and a rendered one are the same sentence to the
     # reader and two different strings to `in`. Fold both, and case, before
@@ -124,12 +226,30 @@ def _norm(s):
     return s.replace('’', "'").replace('‘', "'").lower()
 
 
-def violations(text, reqs):
-    """-> list of human-readable failures, one per unmet requirement."""
+def violations(text, reqs, timeline=None):
+    """-> list of human-readable failures, one per unmet requirement.
+
+    `timeline` is assistant_timeline()'s output, needed only by a requirement
+    that declares `require_when_context_grew_tokens`. Absent (the --text path,
+    or an unreadable transcript), such a requirement is SKIPPED rather than
+    enforced: a size condition nobody could evaluate must not block a reply
+    (practice: fail-gracefully).
+    """
     out = []
     headings = [re.sub(r'^#{1,6}\s+', '', l).strip()
                 for l in text.splitlines() if re.match(r'^#{1,6}\s+\S', l)]
     for r in reqs:
+        every = r.get('require_when_context_grew_tokens')
+        if every:
+            phrases = r.get('require_one_of') or []
+            if timeline is None or not phrases:
+                continue
+            due, ctx_now, since = offer_is_due(timeline, int(every), phrases)
+            if not due:
+                continue
+            r = dict(r, _context_note=(
+                f"this conversation is at ≈{ctx_now:,} tokens of context and "
+                f"has grown ≈{since:,} since the last time this was said"))
         pat = r.get('require_heading_matching')
         if pat and not any(re.search(pat, h, re.I) for h in headings):
             out.append(
@@ -146,6 +266,7 @@ def violations(text, reqs):
                 + ". One of them has to be there, in those words -- an absent "
                   "line and a 'nothing is outstanding' line look identical on "
                   "the page and mean opposite things."
+                + (f" ({r['_context_note']})" if r.get('_context_note') else '')
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))
     return out
 
@@ -168,10 +289,19 @@ def main():
             print("  no source declares a reply_check.json -- nothing is checked, "
                   "and no reply will ever be blocked by this file.")
         for r in reqs:
-            print(f"  {r.get('_source')}: heading /{r.get('require_heading_matching')}/i, "
-                  f"one of {r.get('require_one_of')}")
+            bits = []
+            if r.get('require_heading_matching'):
+                bits.append(f"heading /{r['require_heading_matching']}/i")
+            if r.get('require_one_of'):
+                bits.append(f"one of {r['require_one_of']}")
+            if r.get('require_when_context_grew_tokens'):
+                bits.append("ONLY once the context has grown "
+                            f"{int(r['require_when_context_grew_tokens']):,} "
+                            "tokens since that was last said")
+            print(f"  {r.get('_source')}: " + ', '.join(bits))
         return 0
 
+    timeline = None
     if '--text' in argv:
         text = pathlib.Path(argv[argv.index('--text') + 1]).read_text(encoding='utf-8')
     else:
@@ -187,6 +317,7 @@ def main():
         transcript = payload.get('transcript_path')
         if not transcript:
             return 0
+        timeline = assistant_timeline(transcript)
         text = last_assistant_text(transcript)
         if not text:
             # No transcript we could parse, or a turn with no prose in it.
@@ -199,7 +330,7 @@ def main():
     # this block?" about a tool-only turn.
     if not reqs or not text.strip():
         return 0
-    bad = violations(text, reqs)
+    bad = violations(text, reqs, timeline)
     if not bad:
         return 0
     # The reply that was just refused has ALREADY been shown to the person --

@@ -168,7 +168,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 114 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 115 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -523,6 +523,7 @@ that skips them in this repo of all places is the joke writing itself.
 | Whether Alex has moved `main` since the last carry onto this branch, and what changed | [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py) — printed at session start; the watermark it compares against is [tools/upstream_watermark.json](tools/upstream_watermark.json), moved with `--record` in the carry's own commit |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Why the closing **Next Steps** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — the requirement is a `reply_check.json` in whichever practice source declares it, never in the engine; `--explain` says what is declared here. The same requirements are printed at the START of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate, because a Stop hook refusing a reply cannot un-show the one it refused |
+| Why a long conversation is refused a reply that never says whether this is a cheap point to compact, and the number that decides "long" | [reply_check.json](reply_check.json) — this repo's own declaration, read by [tools/precedent_reply_check.py](tools/precedent_reply_check.py); the rule is [practices/session-spend-follows-the-task.md](practices/session-spend-follows-the-task.md), and the size is read from the transcript's `usage` records, never from its byte count |
 | Why a team or individual practice registered to a gate used to load nothing | [tools/precedent_gate.py](tools/precedent_gate.py)'s `resolved_gate_practices` — the gate read one directory until 2026-09-13, so only universal practices ever reached it |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |

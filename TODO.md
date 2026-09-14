@@ -4617,6 +4617,23 @@ which is the failure this repointing exists to end — write
     already behind at this session's start, so nothing about this change made
     them stale.
 
+    **The universal source now declares one too, 2026-09-14** — one
+    requirement, the compaction offer from
+    [session-spend-follows-the-task](practices/session-spend-follows-the-task.md),
+    fired by context growth rather than unconditionally. Two engine changes
+    came with it and both are backwards-compatible: a
+    [`reply_check.json`](reply_check.json) may
+    now be a LIST of requirements as well as a single object, and a
+    requirement may carry `require_when_context_grew_tokens`. **An attached
+    source keeps working on its old vendored engine** — its object-form file
+    reads exactly as before — but a source that wants a *conditional*
+    requirement of its own needs the refreshed engine first, which is the
+    paragraph above. Not rolled out to the four attached sources in the
+    landing session on purpose: all four were already ≈249 commits behind, so
+    refreshing them is a vendor update with its own runbook and its own
+    authorization ([vendor-update-runbook](practices/vendor-update-runbook.md)),
+    not a rollout of this change.
+
     **What each other source has to decide, and nobody should decide for it:**
     whether it wants a `reply_check.json` of its own. A team set declaring one
     imposes a closing convention on everyone in that team, which is a real
