@@ -231,8 +231,20 @@ message arrives in that session's conversation at its next tool round. For a
 session `ListAgents` cannot see — one spawned with `create_session` has been
 recorded as unreachable that way — go by session id instead: `create_trigger`
 with `persistent_session_id`, then `fire_trigger` to deliver it now rather
-than on a schedule. **Permission boundaries are per-session**, so work
-refused here is never work to ask a peer for; that routes back to the person.
+than on a schedule. **Permission boundaries are per-session**, so work a person REFUSED here is
+never work to ask a peer for; that routes back to them. **A repository this
+session merely cannot reach is not that** -- it is the wall the Rule's clause
+above is about, and the answer there is to relay, not to hand the person a
+paste block.
+
+**Waking a session is something the person has to be TOLD about, with the
+link.** They cannot see the other conversation from where they are, so a
+relay nobody mentions looks exactly like nothing having happened -- and they
+are the one who has to chase it if it stalls. Say in the reply that you woke
+it, what you sent it in one line, and give the
+`https://claude.ai/code/<session id>` link. That is the same three things
+[handoff-is-pasteable](handoff-is-pasteable.md) asks for; the only difference
+is who pressed send.
 
 **Finding the live session to wake is by TITLE, not by tag.** `list_sessions`
 accepts a `tags` filter and it does not work from inside a session — it
