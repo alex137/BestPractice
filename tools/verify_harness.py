@@ -12563,7 +12563,13 @@ def check_bootstrap_source_engine_is_functional():
             '---\nslug: engine-fixture-slug\ntitle: Fixture\ntier: on-demand\n'
             'severity: default\napplies_to: ["fixture-only/**"]\n'
             'occasion: "testing the bootstrapped engine is functional"\n'
-            'gates: []\nindex_clause: "engine-fixture-slug — a bootstrap-harness fixture"\n'
+            'gates: []\n'
+            # Asserts the slug lands in the rendered block, so it declares
+            # its index line rather than inheriting one: its applies_to names
+            # real paths, which is the shape build_views now omits from the
+            # occasion index (practice: fixture-owns-its-state).
+            'index_required: true\n'
+            'index_clause: "engine-fixture-slug — a bootstrap-harness fixture"\n'
             'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
             'overrides: null\nadded: 2026-09-05\n'
             'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
