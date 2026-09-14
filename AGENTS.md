@@ -6,9 +6,10 @@
      has its own instantiated AGENTS.md at ITS root. -->
 
 **TEMPORARY, read before opening or merging any pull request (PR) here:
-every PR in this repository targets `precedent-beta-v01`, never `main`, until Alex reviews
-and merges `precedent-beta-v01` into `main` for real — a deliberate,
-phase-7 act, not something any routine PR does incidentally. Merging a PR
+every PR in this repository targets `precedent-beta-v01`, never `main`.
+Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
+regularly; **that does not retire this rule** — work still lands here, and
+`main` takes it by those merges only (Morgan, 2026-09-14). Merging a PR
 into `precedent-beta-v01` needs no sign-off from Alex — once its deep
 check passes, a session may merge it directly; that branch is where
 routine work lands, not a gate he sits behind. Alex's approval is reserved

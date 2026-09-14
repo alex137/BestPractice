@@ -388,6 +388,63 @@ will ask the same things.
    one commit whose content the carry audit had already found here). The
    histories are joined now, so the next fold-in is an ordinary merge and
    the base-branch scan lists nothing. The watermark was already at PR #367.
+   **His answer on where work lands (later the same day)**: on
+   `precedent-beta-v01`, with `main` taking it through his regular merges
+   (`strength: decided`). The beta-target rule's expiry is reworded to
+   match — a decision, not the merge event, retires it.
+
+### The fifth question: moving a practice between levels
+
+Morgan, later the same day: *"did you test the process of moving a
+practice between different types of repos? ... I've had bumps doing
+that."* The run had not. The same rehearsal method was run on
+[spec/MOVING_PRACTICES.md](MOVING_PRACTICES.md): a fresh subagent, two
+bootstrapped sets and a consumer in scratch, three moves (individual →
+team, team → individual, team → universal) plus the copy-and-delete the
+document forbids. All three completed; the document was followable only
+with knowledge its reader does not have. Thirteen findings, and what each
+became:
+
+- **The creation pipeline cannot carry a file** (four findings): the
+  candidate tool takes one rule string, so `## Detail`, `## Why` and
+  `index_clause` were hand-restored after landing; a moved practice has a
+  recurrence of one and was refused until a cost line was invented; an
+  honest `--against` refused the landing as a duplicate; and no tool
+  wrote the deduplication. **Built**: [tools/precedent_move.py](../tools/precedent_move.py)
+  copies the file whole, records the destination's approval, deduplicates
+  the source with a forwarding address and a Story line naming the
+  approver, regenerates both sets' views, and refuses the unsafe states by
+  name. Harness fixture, 18 cases.
+- **A copy-and-delete went unnoticed by every check** (the rehearsal's
+  third section). **Built**: `precedent_sync_views.py` now names a slug the
+  consumer's committed manifest recorded from one source and now takes
+  from another with nothing left at the first. A warning, since the rule
+  is in force; the record is what is missing.
+- **The forwarding address was verified only in this harness**, so for
+  team ↔ individual the page's "whole safety property" held nowhere a set
+  or consumer could run. **Built**: `precedent_resolve.py` reports
+  `IN FORCE NOWHERE` for a deduplicated practice whose target resolves in
+  no source, and the sync prints the same line.
+- **Universal direction**: deduplicating the team copy before every
+  consumer had taken the new catalogue made the consumer's next sync
+  refuse, correctly, and nothing had said so; the drafted file also left
+  the clone's deep check red until `build_views.py` and `doc_sync.py
+  --write` ran. **Built**: the tool runs both on the clone and its
+  disclosure says when `--dedupe-only` is safe. **Documented**: the same
+  sentence in the page.
+- **Which copy of the tools to run**, never said: the sets and consumers
+  vendor none of them. **Documented** at the top of the pattern and in
+  the tool's help.
+- **A bootstrapped set had no `AGENTS.md`**, so its own `build_views.py`
+  failed on first run and the views-drift workflow went red on its first
+  pull request. **Built**: bootstrap writes the file with the loader
+  markers and generates the views; `--verify` reports a set missing
+  either. `precedent_land.py`'s post-landing line, which said the private
+  sets carried no generated views, now says the opposite.
+- **Not built**: a check for a rule withdrawn at the source and landed
+  nowhere, in a consumer that never recorded it — the manifest guard is
+  the baseline, and a fresh install has none. The practice now lists a
+  moved practice as a fifth rehearsal path, so the next run rehearses it.
 
 ## What Each Part of the Check Returned, and What It Cost
 

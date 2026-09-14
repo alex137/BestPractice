@@ -21,7 +21,8 @@ behind both live in your own GitHub repository.
 > programming. The design and its evidence are in
 > [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md). Alex merged this
 > branch into `main` on 2026-09-14 (pull request #367), so `main` carries
-> Precedent too; work still lands here until the switch is called.
+> Precedent too, and Morgan merges this branch into `main` regularly; work
+> still lands here, on this branch.
 
 **New here?** Start with [What This Is (and Why Explore Using
 Precedent)](documentation/WHY_PRECEDENT.md) for

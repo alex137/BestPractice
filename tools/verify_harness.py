@@ -13672,6 +13672,11 @@ def check_source_shape_is_verified():
             # writes.
             bss.ensure_universal_source(d)
             bss.ensure_precedent_gitignore(d)
+            # And the set's own AGENTS.md with the loader markers, written
+            # by bootstrap() since 2026-09-14 (a set without one fails its
+            # own build_views.py). Written here without the generator run,
+            # which a fixture with no tools/ cannot do.
+            bss._write_instructions_and_views(d, level, 'a-fixture-set')
             for rel, text in edits.items():
                 if text is None:
                     (d / rel).unlink(missing_ok=True)
@@ -13683,6 +13688,12 @@ def check_source_shape_is_verified():
                       bss.verify('team', fixture('team')) == []))
         cases.append(('a complete individual set is well-formed',
                       bss.verify('individual', fixture('individual')) == []))
+        cases.append(('a set with no AGENTS.md is reported, naming what fails without it',
+                      any('AGENTS.md' in f and 'build_views' in f for f in bss.verify(
+                          'team', fixture('team', **{'AGENTS.md': None})))))
+        cases.append(('an AGENTS.md without the loader markers is reported too',
+                      any('BEGIN GENERATED' in f for f in bss.verify(
+                          'team', fixture('team', **{'AGENTS.md': '# notes, no markers\n'})))))
         cases.append(('a source with no session hooks is reported -- they are '
                       'the one part of a source\'s shape that does not live '
                       'in the skeleton',
@@ -17509,6 +17520,213 @@ def check_installer_produces_a_clean_install():
           '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
+def check_move_tool_lands_then_deduplicates():
+    """tools/precedent_move.py does spec/MOVING_PRACTICES.md's two steps in
+    the one safe order, records the move at both ends, and refuses the
+    states the procedure says never to produce.
+
+    WHY (practice: cite-the-incident). The procedure told a mover to feed an
+    existing practice's four sections through precedent_candidate.py, which
+    takes one --proposed-rule string; every move was a hand copy and the
+    deduplication was done from memory. Morgan, 2026-09-14: "I've had bumps
+    doing that." The fixture owns its environment (practice:
+    fixture-owns-its-state): no individual source, no hosted-session
+    self-heal, the commit backstop waved."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-'))
+    cases = []
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+    env.pop('CLAUDE_CODE_REMOTE', None)
+
+    def run(args, cwd=ROOT):
+        return subprocess.run([sys.executable, *args], cwd=str(cwd),
+                              capture_output=True, text=True, env=env)
+
+    def practice(slug, story='A dated incident.'):
+        return ('---\nslug:        ' + slug + '\n'
+                'title:       A fixture practice\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["fixture/**"]\noccasion:    "fixture"\n'
+                'gates:       []\nindex_clause: "fixture"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nin_force_at: null\n'
+                'supersedes:  []\noverrides:   null\nadded:       "2026-09-14"\n'
+                'approved_by: "Fixture, 2026-09-14"\n---\n\n## Rule\nDo the thing.\n\n'
+                '## Why\nBecause.\n\n## Story\n' + story + '\n')
+
+    try:
+        tool = str(ROOT / 'tools' / 'precedent_move.py')
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
+        r1 = run([boot, '--level', 'team', '--name', 'precedent-team-fixture',
+                  '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'])
+        r2 = run([boot, '--level', 'individual', '--name', 'precedent-individual',
+                  '--dest', str(indiv)])
+        cases.append(('both fixture sets bootstrap', r1.returncode == 0 and r2.returncode == 0,
+                      (r1.stdout + r1.stderr + r2.stdout + r2.stderr)[-600:]))
+        (indiv / 'practices' / 'zz-moves.md').write_text(practice('zz-moves'), encoding='utf-8')
+        (indiv / 'practices' / 'zz-no-story.md').write_text(practice('zz-no-story', ''), encoding='utf-8')
+
+        # -- the move, individual -> team --
+        r = run([tool, '--slug', 'zz-moves', '--from', 'individual', '--from-path', str(indiv),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver',
+                 '--strength', 'decided'])
+        cases.append(('individual -> team completes', r.returncode == 0, r.stdout + r.stderr))
+        dest = (team / 'practices' / 'zz-moves.md')
+        src = (indiv / 'practices' / 'zz-moves.md')
+        dtext = dest.read_text(encoding='utf-8') if dest.is_file() else ''
+        stext = src.read_text(encoding='utf-8')
+        cases.append(('the destination copy is active, carries the Rule and Story verbatim, '
+                      'the approval, and its strength',
+                      'status:      active' in dtext and 'Do the thing.' in dtext
+                      and 'A dated incident.' in dtext and 'Fixture Approver' in dtext
+                      and 'strength: decided' in dtext, dtext[:600]))
+        cases.append(('the source copy is deduplicated, points at the slug, and its Story '
+                      'says where it went',
+                      'status:      deduplicated' in stext and 'in_force_at: zz-moves' in stext
+                      and 'Moved to the team set `precedent-team-fixture`' in stext, stext[-400:]))
+        cases.append(('the disclosure names both sets and the level',
+                      'DISCLOSE TO THE HUMAN' in r.stdout and 'team set precedent-team-fixture' in r.stdout
+                      and 'individual set precedent-individual' in r.stdout, r.stdout[-400:]))
+
+        # -- a consumer resolving both sets sees the practice from the team, once --
+        consumer = tmp / 'consumer'
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
+                        {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)}],
+        }), encoding='utf-8')
+        cfg = tmp / 'user-config.json'
+        cfg.write_text(json.dumps({'individual': {'name': 'precedent-individual',
+                                                  'path': str(indiv)}}), encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                            '--repo', str(consumer), '--json'],
+                           capture_output=True, text=True,
+                           env=dict(env, PRECEDENT_USER_CONFIG=str(cfg)))
+        try:
+            resolved = json.loads(r.stdout)
+        except json.JSONDecodeError:
+            resolved = {}
+        levels = {p['slug']: p['level'] for p in resolved.get('practices', [])}
+        cases.append(('a consumer resolving both sets gets the moved practice from the '
+                      'team, once, and the deduplicated copy is not reported as a collision',
+                      levels.get('zz-moves') == 'team'
+                      and not resolved.get('blocked'), (r.stdout + r.stderr)[:600]))
+
+        # -- the resolver names a forwarding address that resolves nowhere --
+        # (the rehearsal of 2026-09-14 found that only this harness ever
+        # asked; a set or a consumer ran the shape check alone)
+        ipath = indiv / 'practices' / 'zz-moves.md'
+        itext = ipath.read_text(encoding='utf-8')
+        ipath.write_text(itext.replace('in_force_at: zz-moves', 'in_force_at: zz-nowhere'),
+                         encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                            '--repo', str(consumer), '--json'],
+                           capture_output=True, text=True,
+                           env=dict(env, PRECEDENT_USER_CONFIG=str(cfg)))
+        try:
+            dangling = json.loads(r.stdout).get('dangling') or []
+        except json.JSONDecodeError:
+            dangling = []
+        cases.append(('a deduplicated copy whose in_force_at resolves nowhere is reported '
+                      'by the resolver itself, not only by this harness',
+                      any(d.get('slug') == 'zz-moves' and 'does not resolve IN FORCE' in d.get('why', '')
+                          for d in dangling), (r.stdout + r.stderr)[-500:]))
+        ipath.write_text(itext, encoding='utf-8')
+
+        # -- a copy-and-delete, the thing the procedure says never to do, is named by sync --
+        (consumer / 'AGENTS.md').write_text('# notes\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                            '<!-- END GENERATED -->\n', encoding='utf-8')
+        (team / 'practices' / 'zz-copied.md').write_text(practice('zz-copied'), encoding='utf-8')
+        cenv = dict(env, PRECEDENT_USER_CONFIG=str(cfg))
+        subprocess.run(['git', 'init', '-q'], cwd=str(consumer), capture_output=True)
+        sync_tool = str(ROOT / 'tools' / 'precedent_sync_views.py')
+        r = subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
+                           capture_output=True, text=True, env=cenv)
+        subprocess.run(['git', 'add', '-A'], cwd=str(consumer), capture_output=True)
+        subprocess.run(['git', '-c', 'user.name=fx', '-c', 'user.email=fx',
+                        'commit', '-q', '-m', 'sync'], cwd=str(consumer),
+                       capture_output=True, env=cenv)
+        cases.append(('the consumer committed a synced MANIFEST.json recording zz-copied from the team',
+                      r.returncode == 0 and 'zz-copied' in (consumer / 'MANIFEST.json').read_text(encoding='utf-8'),
+                      (r.stdout + r.stderr)[-400:]))
+        shutil.copy(team / 'practices' / 'zz-copied.md', indiv / 'practices' / 'zz-copied.md')
+        (team / 'practices' / 'zz-copied.md').unlink()
+        r = subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
+                           capture_output=True, text=True, env=cenv)
+        cases.append(('copying the file to the other set and deleting the original is named '
+                      'as a copy-and-delete by the next sync, and the sync still writes',
+                      r.returncode == 0 and 'copy-and-delete' in r.stderr
+                      and 'zz-copied was recorded from precedent-team-fixture' in r.stderr,
+                      (r.stdout + r.stderr)[-500:]))
+        (team / 'practices' / 'zz-copied.md').write_text(
+            (indiv / 'practices' / 'zz-copied.md').read_text(encoding='utf-8')
+            .replace('status:      active', 'status:      deduplicated')
+            .replace('in_force_at: null', 'in_force_at: zz-copied'), encoding='utf-8')
+        r = subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
+                           capture_output=True, text=True, env=cenv)
+        cases.append(('and a deduplicated copy left at the source, pointing across, is a record: '
+                      'the same sync says nothing',
+                      r.returncode == 0 and 'copy-and-delete' not in r.stderr,
+                      (r.stdout + r.stderr)[-500:]))
+
+        # -- refusals, each by its own message --
+        r = run([tool, '--slug', 'zz-no-story', '--from', 'individual', '--from-path', str(indiv),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
+        cases.append(('an empty Story is refused, naming the fill-it-first rule',
+                      r.returncode == 1 and 'empty ## Story' in r.stderr, r.stderr[:300]))
+        cases.append(('and the refusal wrote nothing',
+                      not (team / 'practices' / 'zz-no-story.md').exists(), ''))
+        r = run([tool, '--slug', 'zz-moves', '--from', 'team', '--from-path', str(team),
+                 '--to', 'individual', '--to-path', str(indiv), '--approved-by', 'Anyone'])
+        cases.append(('a destination that already carries the slug is refused',
+                      r.returncode == 1 and 'already exists' in r.stderr, r.stderr[:300]))
+        (team / 'practices' / 'zz-team-only.md').write_text(practice('zz-team-only'), encoding='utf-8')
+        (indiv / 'practices' / 'zz-second.md').write_text(practice('zz-second'), encoding='utf-8')
+        r = run([tool, '--slug', 'zz-second', '--from', 'individual', '--from-path', str(indiv),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Nobody'])
+        cases.append(('an approver not listed in the team set is refused by name',
+                      r.returncode == 1 and 'not in' in r.stderr and 'approver' in r.stderr,
+                      r.stderr[:300]))
+        r = run([tool, '--slug', 'zz-moves', '--from', 'universal', '--from-path', str(ROOT),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
+        cases.append(('moving OUT of universal is refused as the undesigned direction',
+                      r.returncode == 1 and 'OUT of universal' in r.stderr, r.stderr[:300]))
+
+        # -- team -> universal drafts, leaves the source active, and dedupes on request --
+        clone = tmp / 'precedent-clone'
+        clone.mkdir()
+        (clone / 'practices').mkdir()
+        r = run([tool, '--slug', 'zz-team-only', '--from', 'team', '--from-path', str(team),
+                 '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Fixture Approver'])
+        ttext = (team / 'practices' / 'zz-team-only.md').read_text(encoding='utf-8')
+        cases.append(('team -> universal drafts into the clone and leaves the source ACTIVE',
+                      r.returncode == 0 and (clone / 'practices' / 'zz-team-only.md').is_file()
+                      and 'status:      active' in ttext and 'DRAFTED' in r.stdout,
+                      r.stdout + r.stderr))
+        cases.append(('the draft says the clone\'s own generated surfaces were (or here could not be) '
+                      'regenerated, and when it is safe to --dedupe-only: after the merge AND '
+                      'after every consumer has taken the catalogue',
+                      'tools/build_views.py' in r.stdout and 'doc_sync.py' in r.stdout
+                      and 'every repository consuming' in r.stdout, r.stdout[-700:]))
+        r = run([tool, '--slug', 'zz-team-only', '--from', 'team', '--from-path', str(team),
+                 '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Fixture Approver',
+                 '--dedupe-only'])
+        ttext = (team / 'practices' / 'zz-team-only.md').read_text(encoding='utf-8')
+        cases.append(('--dedupe-only afterwards withdraws the source copy',
+                      r.returncode == 0 and 'status:      deduplicated' in ttext
+                      and 'in_force_at: zz-team-only' in ttext, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'tools/precedent_move.py lands first, deduplicates second, and refuses the '
+          f'unsafe states by name ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
 def check_declared_identity_has_a_passing_state_in_a_shared_repo():
     """`commit-author` and `buenos-aires-dates` have to be able to PASS in
     a repo many people commit to.
@@ -21177,6 +21395,7 @@ def main():
     check_mirrored_prefixes_answers_both_install_models()
     check_no_engine_tool_hardcodes_a_mirror_path()
     check_installer_produces_a_clean_install()
+    check_move_tool_lands_then_deduplicates()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
     check_tools_answer_help_without_writing()
