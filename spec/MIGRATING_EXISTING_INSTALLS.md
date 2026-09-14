@@ -606,6 +606,16 @@ the tool defends the pin from then on.
 - Do the vendor as a one-off manual mirror (replace the tree wholesale from
   a checkout of the named branch), not `checkin.py update` — which now
   refuses anyway, rather than leaving this to be read and remembered.
+  **"Replace" is load-bearing, and copying over the top is the way it goes
+  wrong.** `checkin.py update` deletes every vendored file the source no
+  longer has; a hand-run `cp -a` cannot express a deletion, so a document
+  upstream has since renamed stays behind under its old path and reads as
+  live. A real consumer accumulated twelve such files across four manual
+  mirrors between 2026-09-06 and 2026-09-07 — three root documents that had
+  moved under `documentation/` and `spec/`, three renamed how-to guides, two
+  renamed specs and a whole renamed template tree — every one of them a
+  superseded copy a session could have opened and believed, and nothing
+  reported any of it. Remove the directory and lay the archive down fresh.
 - Record the branch name in `process/manifest.json` (add an `upstream.branch`
   field; the schema doesn't have one by default, but the field costs
   nothing and every subsequent session needs to see it) alongside a `_note`
