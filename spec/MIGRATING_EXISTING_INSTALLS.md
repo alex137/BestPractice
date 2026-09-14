@@ -65,8 +65,10 @@ the loader.
    — as the project's own prior notes repository deliberately did, to beta-test this exact pattern —
    the repo is pinning a **named non-default branch** ahead of its merge,
    read "The default-branch gotcha" below first: this step is a one-off
-   manual mirror instead, and the scheduled sync workflow stays paused for
-   the duration. `checkin.py`'s commands *can* track a named branch as of
+   manual mirror instead. (This used to add "and the scheduled sync workflow
+   stays paused for the duration". Since 2026-09-14 there is no schedule to
+   pause: step 6 below and "The default-branch gotcha" both say what
+   replaced it.) `checkin.py`'s commands *can* track a named branch as of
    2026-09-06 — they read `upstream.branch` from the manifest now — but the
    manual procedure is held in place deliberately while that fix settles,
    for the reason that section gives.
@@ -425,12 +427,23 @@ the loader.
    retire a workflow whose `on:` block carries any trigger but
    `workflow_dispatch`, so a retirement is never the first thing that
    stops a running job), let one cycle pass, then run the same audit-then-
-   `--apply` sequence step 5 describes. **Not every paused workflow is
+   `--apply` sequence step 5 describes. **Not every stood-down workflow is
    being retired:** a consuming repo's `bestpractice-upstream-sync.yml`
-   stays, paused deliberately, for the reason
-   [TODO.md](../TODO.md#relax-the-pinned-branch-hold)'s own item gives — a hold
-   with a stated condition for lifting it, which is exactly what
-   distinguishes one from a leftover.
+   stays, on `workflow_dispatch` only, so a person can still run it by hand.
+
+   **What changed 2026-09-14:** this used to read "stays, paused
+   deliberately", pointing at
+   [TODO.md](../TODO.md#relax-the-pinned-branch-hold)'s hold as a pause with
+   a stated condition for lifting it. The condition no longer lifts
+   anything. Morgan killed every scheduled vendor update — *"No weekly
+   updates. I had that weeks ago, but we're not doing that anymore; this is
+   now really complex and deserves hand attention and issues come up every
+   time and I'm on it every day anyway."* **Strength:** decided
+   ([decision-strength](../practices/decision-strength.md)). So the
+   `schedule:` block is **deleted, not commented out**, and the workflow
+   keeps only its manual trigger. The distinction the old wording drew — a
+   hold versus a leftover — still matters for the *file*, which stays; it
+   just no longer applies to the schedule, which is gone.
 
 7. **Rewrite the consuming repo's own instructions file** (`AGENTS.md` or
    equivalent) with the same `<!-- BEGIN GENERATED: precedent-loader -->` /
@@ -620,12 +633,17 @@ the tool defends the pin from then on.
   field; the schema doesn't have one by default, but the field costs
   nothing and every subsequent session needs to see it) alongside a `_note`
   explaining why automated sync is paused and when to lift it.
-- Pause the scheduled sync workflow's schedule (comment it out; leave
-  `workflow_dispatch` for a manual run) with a header comment pointing at
-  the same note, and guard any unattended prompt text so a manual trigger
-  stands down rather than silently assuming default-branch semantics.
-- Re-enable once the branch merges to the default branch and
-  `process/manifest.json` is repointed there.
+- Delete the sync workflow's `schedule:` block, leaving `workflow_dispatch`
+  for a manual run, with a header comment pointing at the same note, and
+  guard any unattended prompt text so a manual trigger stands down rather
+  than silently assuming default-branch semantics.
+- **Nothing gets re-enabled.** This bullet used to read *"re-enable once the
+  branch merges to the default branch and `process/manifest.json` is
+  repointed there"*, which made the schedule a pause. **Superseded
+  2026-09-14:** no repository runs a scheduled vendor update at all, so
+  repointing the manifest lifts the *pin*, not a clock. The replacement
+  channel is a person saying `Update Vendors`
+  ([vendor-update-runbook](../practices/vendor-update-runbook.md)).
 
 ## A real finding: the scrub check has no notion of "already public upstream"
 

@@ -999,12 +999,23 @@ which is the failure this repointing exists to end — write
     costs a silent overnight wipe of a repo's practices while staying
     cautious costs a stale paragraph. **Blocked on:** the fix surviving real
     sync cycles rather than only its own tests, and then Morgan saying so.
-    What it needs then, in one change: put `checkin.py update` back as the
-    remedy `_warn_catalogue_skew` names, drop the hold paragraph from the
-    migration document, and un-pause the `schedule:` block in each
-    consumer's `bestpractice-upstream-sync.yml` — never one of the three
-    without the others, since a half-relaxed hold is what makes an
-    unattended job run against advice nobody re-read.
+    What it needs then: put `checkin.py update` back as the remedy
+    `_warn_catalogue_skew` names, and drop the hold paragraph from the
+    migration document.
+
+    **The third part is WITHDRAWN, 2026-09-14.** It used to read "and
+    un-pause the `schedule:` block in each consumer's
+    `bestpractice-upstream-sync.yml` — never one of the three without the
+    others, since a half-relaxed hold is what makes an unattended job run
+    against advice nobody re-read." Morgan killed every scheduled vendor
+    update — *"No weekly updates. I had that weeks ago, but we're not doing
+    that anymore; this is now really complex and deserves hand attention and
+    issues come up every time and I'm on it every day anyway."*
+    **Strength:** decided ([decision-strength](practices/decision-strength.md)).
+    There is no `schedule:` block left to un-pause, so the coupling warning
+    it carried is moot with it: the remaining two parts are independent of
+    any clock, and the replacement channel is a person saying
+    `Update Vendors` ([vendor-update-runbook](practices/vendor-update-runbook.md)).
     **Enforced 2026-09-07, which changes what relaxing it costs.**
     `checkin.py update` now refuses while a non-default branch is pinned
     (`_pinned_branch_hold`), printing the manual procedure and naming
