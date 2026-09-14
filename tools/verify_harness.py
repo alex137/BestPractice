@@ -5918,6 +5918,61 @@ def check_precedent_check_fires():
                       and 'nothing that could run it names it'
                       in planted['hooks-on-disk-are-reachable'][1]))
 
+        # ...and the same failure in the OTHER hook layout. A practice set
+        # created by precedent_bootstrap_source.py wires its hooks out of a
+        # tracked `bootstrap/` and has no .claude/hooks/ at all, so sweeping
+        # only the conventional directory declined as NotApplicable there
+        # while five real hooks sat unchecked -- measured 2026-09-14 against
+        # a real individual set. Two plants, because the sweep is driven by
+        # what settings*.json actually wires: the directory is in scope only
+        # when a hook is declared out of it.
+        # The planted names are spelled `<dir>/<name>` NOWHERE in this
+        # file, and that is load-bearing rather than fussy. The check reads
+        # tools/*.py for callers, this source sits in tools/, and a path
+        # reference written here would make the planted orphan reachable --
+        # the same unfalsifiability that made the first version of this
+        # check pass its own plant, caught then by matching a bare filename
+        # and reintroduced here by an assertion string. So the directory is
+        # joined at runtime and only the bare basename is ever a literal.
+        _BS_ORPHAN = 'zzz-bootstrap-orphan.sh'
+        _BS_LIVE = 'zzz-bootstrap-live.sh'
+        _bs_ref = lambda n: 'bootstrap' + '/' + n
+
+        def _plant_bootstrap(repo, wire):
+            (repo / 'bootstrap').mkdir(exist_ok=True)
+            for n in (_BS_LIVE, _BS_ORPHAN):
+                (repo / 'bootstrap' / n).write_text('#!/bin/sh\necho x\n',
+                                                    encoding='utf-8')
+            if wire:
+                sp = repo / '.claude' / 'settings.json'
+                d = json.loads(sp.read_text(encoding='utf-8'))
+                d.setdefault('hooks', {}).setdefault('SessionStart', []).append(
+                    {'hooks': [{'type': 'command',
+                                'command': '$CLAUDE_PROJECT_DIR/'
+                                           + _bs_ref(_BS_LIVE)}]})
+                sp.write_text(json.dumps(d, indent=2), encoding='utf-8')
+
+        _bs = fresh('hooks-reachable-bootstrap')
+        _plant_bootstrap(_bs, wire=True)
+        _bs_rc, _bs_out = run(_bs, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: an orphan in a '
+                      'bootstrap/ a settings entry wires hooks out of is '
+                      'found, so a source set is not silently unswept',
+                      _bs_rc == 1 and _bs_ref(_BS_ORPHAN) in _bs_out))
+        cases.append(('hooks-on-disk-are-reachable: THE DISCRIMINATING CASE '
+                      '-- the hook that settings entry DECLARES is not '
+                      'reported alongside it',
+                      _bs_ref(_BS_LIVE) not in _bs_out))
+
+        _bs2 = fresh('hooks-reachable-bootstrap-unwired')
+        _plant_bootstrap(_bs2, wire=False)
+        _bs2_rc, _bs2_out = run(_bs2, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: THE DISCRIMINATING CASE '
+                      '-- a bootstrap/ no settings entry wires hooks out of '
+                      'is not swept, so the sweep follows declarations and '
+                      'does not just walk every directory',
+                      _bs2_rc == 0 and _BS_ORPHAN not in _bs2_out))
+
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
             up = repo / 'process' / 'upstream' / 'tools'

@@ -2176,6 +2176,34 @@ def _declared_hooks_exist(ctx):
     return found
 
 
+def _settings_hook_dirs():
+    """-> [Path] every directory a .claude/settings*.json actually wires a
+    hook out of, resolved against this repo.
+
+    Only `$CLAUDE_PROJECT_DIR`-rooted commands are resolvable from here --
+    the same limit declared-hooks-exist states for itself. A hook declared
+    by an absolute or bare relative path names a directory this tree cannot
+    resolve, so it simply is not swept: the cost of missing one is a hook
+    that goes unchecked, where the cost of guessing wrong would be calling a
+    working hook dead.
+    """
+    out = []
+    claude = ROOT / '.claude'
+    if not claude.is_dir():
+        return out
+    for sp in sorted(claude.glob('settings*.json')):
+        try:
+            raw = sp.read_text(encoding='utf-8')
+        except OSError:                          # practice: fail-gracefully
+            continue
+        for m in re.finditer(
+                r'\$\{?CLAUDE_PROJECT_DIR\}?/([\w./-]+\.sh)', raw):
+            d = (ROOT / m.group(1)).parent
+            if d not in out:
+                out.append(d)
+    return out
+
+
 @check('hooks-on-disk-are-reachable', 'tree',
        'every hook file in .claude/hooks/ is reachable from something that '
        'could run it — a settings*.json entry, another hook, or an engine '
@@ -2206,19 +2234,45 @@ def _hooks_on_disk_are_reachable(ctx):
     report this repo's own working bootstrap hook as dead — measured here
     before this check shipped, which is why the clause exists."""
     hooks_dir = ROOT / '.claude' / 'hooks'
-    if not hooks_dir.is_dir():
-        raise NotApplicable('this repo has no .claude/hooks/ directory, so no '
-                            'hook file here could be orphaned')
-    hooks = sorted(p for p in hooks_dir.iterdir()
-                   if p.is_file() and not p.name.startswith('.'))
+    # A practice set created by precedent_bootstrap_source.py wires its hooks
+    # out of a tracked `bootstrap/` instead, on purpose, so one copy exists
+    # and nothing can drift from it -- and such a set has no .claude/hooks/
+    # at all. Sweeping only the conventional directory declined as
+    # NotApplicable there while five real hooks sat unchecked, which is the
+    # blind spot this reads settings for. Measured 2026-09-14 against a real
+    # individual set.
+    hook_dirs = []
+    if hooks_dir.is_dir():
+        hook_dirs.append(hooks_dir)
+    for d in _settings_hook_dirs():
+        if d.is_dir() and d not in hook_dirs:
+            hook_dirs.append(d)
+    if not hook_dirs:
+        raise NotApplicable('this repo has no .claude/hooks/ directory and no '
+                            'settings*.json naming a hook anywhere else, so '
+                            'no hook file here could be orphaned')
+    hooks = []
+    for d in hook_dirs:
+        for p in sorted(d.iterdir()):
+            # `.sh` only outside the conventional directory: a bootstrap/
+            # holds settings and freshness snippets beside its hooks, and
+            # calling those abandoned hooks would be noise.
+            if not p.is_file() or p.name.startswith('.'):
+                continue
+            if d != hooks_dir and p.suffix != '.sh':
+                continue
+            hooks.append(p)
     if not hooks:
-        raise NotApplicable('.claude/hooks/ holds no files')
+        raise NotApplicable('no hook files in ' +
+                            ', '.join(str(d.relative_to(ROOT))
+                                      for d in hook_dirs))
     # Everything that could plausibly RUN a hook. Prose is excluded on
     # purpose: naming a file in a document does not invoke it.
     callers = []
-    for d, pat in ((ROOT / '.claude', 'settings*.json'),
-                   (hooks_dir, '*'),
-                   (ROOT / 'tools', '*.py')):
+    caller_dirs = [(ROOT / '.claude', 'settings*.json'),
+                   (ROOT / 'tools', '*.py')]
+    caller_dirs.extend((d, '*') for d in hook_dirs)
+    for d, pat in caller_dirs:
         if d.is_dir():
             callers.extend(p for p in d.glob(pat) if p.is_file())
     texts = []
@@ -2238,11 +2292,17 @@ def _hooks_on_disk_are_reachable(ctx):
         # writes the planted name into the test source, read as a caller and
         # the planted violation passed. Measured 2026-09-14, before it
         # shipped.
-        if any(f'hooks/{hook.name}' in t for c, t in texts if c != hook):
+        # `hooks/<name>` for the conventional directory; `<dir>/<name>` for
+        # a set wiring them out of bootstrap/ -- still a PATH reference, the
+        # only form that can actually run one, never a bare filename.
+        ref = (f'hooks/{hook.name}' if hook.parent == hooks_dir
+               else f'{hook.parent.name}/{hook.name}')
+        if any(ref in t for c, t in texts if c != hook):
             continue
         found.append(Finding(
             str(hook.relative_to(ROOT)),
-            'sits in .claude/hooks/ and nothing that could run it names it — '
+            f'sits in {hook.parent.relative_to(ROOT)}/ and nothing that '
+            'could run it names it — '
             'no settings*.json entry, no other hook, no engine tool. An '
             'orphaned hook is off, and from inside a session that is '
             'indistinguishable from one that works'))
