@@ -5183,8 +5183,26 @@ def check_precedent_check_fires():
                 '## Rule\nDo the thing.\n\n## Detail\n\n## Why\nBecause.'
                 '\n\n## Story\nPlanted.\n\n## Install\nNone.\n',
                 encoding='utf-8')
+            # A DEDUPLICATED sibling whose in_force_at names its OWN slug:
+            # the redundant-copy case, where another source carries the same
+            # slug and materialization writes it at this very filename. The
+            # link travels, and reporting it was a false positive that blocked
+            # a real vendor update on 2026-09-14 (see the practice's Story).
+            (repo / 'practices' / 'zzz-dedup-self.md').write_text(
+                '---\nslug:        zzz-dedup-self\ntitle:       Dedup\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\noccasion:    "testing"\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      deduplicated\n'
+                'in_force_at: zzz-dedup-self\nsupersedes:  []\n'
+                'overrides:   null\nadded:       null\n'
+                'approved_by: "harness"\n---\n\n'
+                '## Rule\nDo the thing.\n\n## Detail\n\n## Why\nBecause.'
+                '\n\n## Story\nPlanted.\n\n## Install\nNone.\n',
+                encoding='utf-8')
             f = repo / 'practices' / 'repo-is-memory.md'
             f.write_text(f.read_text(encoding='utf-8') +
+                         '\nPlanted: [f](zzz-dedup-self.md), '
                          '\nPlanted: [a](../spec/LOADER.md), '
                          '[b](https://github.com/alex137/BestPractice/blob/'
                          'main/TODO.md), '
@@ -5275,6 +5293,17 @@ def check_precedent_check_fires():
         cases.append(('practice-links-travel: the travel half still reports a '
                       'non-travelling link in a WITHDRAWN practice',
                       'practices/zzz-withdrawn.md:' in _plt))
+        # The deduplication case, and the reason this clause exists at all: a
+        # sibling whose in_force_at names its OWN slug is redundant HERE and
+        # in force elsewhere under that same slug, so the resolver writes the
+        # surviving copy at the same practices/<slug>.md the link points at.
+        # Asserting both halves keeps it from passing vacuously: the
+        # different-slug case above must still be reported.
+        cases.append(('practice-links-travel: a deduplicated sibling whose '
+                      'in_force_at names its own slug is NOT reported, though '
+                      'one naming a different slug is',
+                      'links `zzz-dedup-self.md`' not in _plt
+                      and 'links `zzz-withdrawn.md`' in _plt))
 
         # technical-describes-people -- a DIRECTORY named for a person's
         # skill level. The person-noun form (`nontechnical-contributor-*`)
