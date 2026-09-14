@@ -6227,6 +6227,27 @@ which is the failure this repointing exists to end — write
   /next step/i section`, where it previously said no source declares a
   `close_detect.json`.
 
+  **Then it moved up a level, hours later and in the same day's work.** The
+  blocker was never the declaration's content; it was that the phrase it
+  fires on (*"You can archive this session"*) belonged to a private set, so
+  the declaration had to live beside it. Moving
+  [next-steps-after-commit](practices/next-steps-after-commit.md) to
+  universal took that phrase with it, and a phrase that is universal can
+  carry a universal declaration. `close_detect.json` now sits at the root of
+  THIS repository, next to `reply_check.json`, and the individual set's copy
+  goes with the practice's other declaration in that move's second step --
+  [precedent_close_detect.py](tools/precedent_close_detect.py) accumulates
+  every source's declaration rather than overriding, so two identical ones
+  would both fire and `--explain` would report the rule twice.
+
+  So `--explain` now prints `universal/precedent`, not the individual source
+  the closing condition above asked for. **Recorded rather than ticked off**,
+  per [item-closes-on-its-condition](practices/item-closes-on-its-condition.md):
+  the literal condition was met on 2026-09-14 and then stopped being true,
+  and what replaced it is better than what it asked for — close detection is
+  live for every adopter running Precedent, not for one person, and nothing
+  about it is blocked on a repository under another owner.
+
   **Disposition:** parked (2026-09-14, closed as done)
 
 95. <a id="one-unrelated-item-at-the-close"></a>**`closing-items-are-this-thread`

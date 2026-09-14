@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 118 practice files (10 resident, 108 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 119 practice files (10 resident, 109 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -73,6 +73,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself |
 | [my-options](practices/my-options.md) | on-demand | a person says "My options", or asks to have a decision's options laid out |
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
+| [next-steps-after-commit](practices/next-steps-after-commit.md) | on-demand | ** |
 | [no-invented-specifics](practices/no-invented-specifics.md) | resident | writing a sentence that would land better with a specific figure, date, name or source |
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming a new file |

@@ -546,6 +546,17 @@
       "why": "Domain-specific to work this repo does not do; no locus here.",
       "decided": "phase 4 routing pass"
     },
+    "next-steps-after-commit": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, not a place \u2014 routed by the `reply` gate instead.",
+      "decided": "Morgan, 2026-09-14",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Its occasion is the end of a reply; tools/precedent_reply_check.py measures it from the transcript at the stop hook. It carries NO occasion: -- deliberately, and it is the one case where dropping it costs nothing: the requirement is REFUSED at the stop hook whether or not a session recognised the occasion, so the index line bought the least of any line in it. Dropped 2026-09-14, as step 1 of build_views' own reduction menu, when landing this practice put the occasion index 33 tokens over its ceiling."
+    },
     "no-invented-specifics": {
       "globs": [
         "**/*.md"
