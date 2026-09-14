@@ -718,6 +718,10 @@ retired it. Nothing is ever deleted.
 - **A background `sleep` is not a wait, and using one as a wait makes you
   invent elapsed time.** [story](record/GOTCHAS.md#g36)
 
+- **A shallow clone makes a merely-behind checkout read as diverged, so the
+  freshness guard refuses to update it and the session works from a day-old
+  tree.** [story](record/GOTCHAS.md#g37)
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
