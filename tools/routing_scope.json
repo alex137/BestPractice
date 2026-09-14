@@ -793,6 +793,17 @@
       ],
       "gates_why": "The reply gate, added 2026-09-13 after the practice went hours without firing once (its Story). The original reasoning -- that neither moment is among the four a gate fires at -- was true of the model half and wrong about the compaction half: deciding whether to OFFER a compact happens when the reply is written, which is exactly the reply gate's moment, and it needs no artifact to inspect because the question a session asks itself there (\"is the next thing independent of how I got here?\") is answerable from the thread alone. The occasion index could not carry it: its occasion is \"deciding when to compact one\", so the prompt reached only a session that had already decided to think about compacting."
     },
+    "session-tags": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment -- creating a session -- and the tags live on the session service, not in any tree. No file path reaches it. Routed by the `reply` gate.",
+      "decided": "2026-09-14, when the practice landed at universal",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The obligation lands where a session is created, which is a tool call made while composing a reply."
+    },
     "slow-steps-report-and-cache": {
       "globs": [
         "**"

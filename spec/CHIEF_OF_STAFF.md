@@ -307,13 +307,14 @@ Built 2026-09-14, on Morgan's authorization:
   Buenos Aires time. Its prompt carries the filter, so a firing that finds
   nothing blocked says nothing.
 
+- **The tag namespaces**, [practices/session-tags.md](../practices/session-tags.md) —
+  `subject:`, `repo:`, `role:`, `wants:`, applied in the `create_session` call
+  and wired into [spawn-session](../practices/spawn-session.md), which is the
+  practice that creates sessions. The live fleet was retagged by hand the same
+  day, which answers open question 3 below.
+
 **Still not built**, and each needs a decision that is his:
 
-- **The tag namespaces** — `subject:`, `repo:`, `role:`, `wants:`. This is the
-  half that decays while it waits: a `subject:` tag is only useful applied at
-  creation, so every session opened before they exist is invisible to the
-  collision check unless somebody retags it by hand. Open question 3 below is
-  exactly this.
 - **The desk** — a standing session carrying `role:cos`, seeded with a prompt
   naming what it may not do. The phrase works in any session without it; what
   a dedicated one adds is context that survives between askings.

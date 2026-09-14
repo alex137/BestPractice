@@ -38,12 +38,15 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
+| repo: | [session-tags](practices/session-tags.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
+| role: | [session-tags](practices/session-tags.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | Spawn session | [spawn-session](practices/spawn-session.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
+| subject: | [session-tags](practices/session-tags.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |
 | the origin artifact | [fix-the-original](practices/fix-the-original.md) |
 | the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
@@ -52,6 +55,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
+| wants: | [session-tags](practices/session-tags.md) |
 | Weak yes | [weak-yes](practices/weak-yes.md) |
 
 ## Engine vocabulary
