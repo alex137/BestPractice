@@ -12738,14 +12738,31 @@ def check_vendor_engine_consumer_case():
         # vendor from committed HEAD, so between the rename and its commit the
         # refresh legitimately fails, and this line turned that into a total
         # outage (practice: fail-gracefully).
-        missing = [f for f in manifest.get('sha256', {})
+        # THE MANIFEST TO CHECK IS THE ONE ON DISK NOW, not the snapshot taken
+        # at line ~12486 before any of the refreshes above ran. Reading the
+        # stale copy asserted "the pre-refresh shas describe the post-refresh
+        # files", which is true only while the refresh changes nothing -- and
+        # went red the first time a commit actually changed an engine file
+        # (2026-09-14, adding precedent_close_detect.py to ENGINE_FILES),
+        # naming precedent_vendor_engine.py, which the refresh had correctly
+        # replaced and correctly re-recorded. The property worth checking is
+        # the engine's postcondition: whatever the manifest records, the file
+        # beside it matches (practice: fixture-owns-its-state).
+        current = json.loads(manifest_path.read_text(encoding='utf-8'))
+        missing = [f for f in current.get('sha256', {})
                    if not (consumer / 'tools' / f).is_file()]
-        mismatched = [f for f, h in manifest.get('sha256', {}).items()
+        mismatched = [f for f, h in current.get('sha256', {}).items()
                       if (consumer / 'tools' / f).is_file()
                       and hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
         cases.append(('every recorded sha256 matches the file actually written',
-                      bool(manifest.get('sha256')) and not mismatched and not missing,
+                      bool(current.get('sha256')) and not mismatched and not missing,
                       f'mismatched={mismatched} missing={missing}'))
+        # …and the tool that rewrites itself is covered by it, which is the
+        # one entry a stale read could never have caught.
+        cases.append(('…including the vendoring tool, which the refresh '
+                      'replaces with a copy of itself',
+                      'precedent_vendor_engine.py' in current.get('sha256', {}),
+                      f"recorded: {sorted(current.get('sha256', {}))[:4]}…"))
 
         # -- status(), run from the consumer's OWN vendored copy, against
         # this real checkout, finds zero drift right after seeding --
