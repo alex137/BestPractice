@@ -243,7 +243,13 @@ def checks():
                 '' if not missing else
                 f'missing {", ".join(missing)} -- doc_lint\'s strikethrough '
                 f'check and tools/doc_html.py degrade rather than fail, so '
-                f'they pass while checking less than they claim'))
+                f'they pass while checking less than they claim. '
+                f'verify_harness does NOT degrade: it fails the checks that '
+                f'need them, naming what each was testing and never what is '
+                f'absent, which cost two full re-runs to attribute on '
+                f'2026-09-14. Remedy: pip install {" ".join(missing)} -- '
+                f'--apply re-runs the hook that installs them, which is the '
+                f'same fix only when the hook can run at all'))
 
     # 6. A single-branch clone's refspec, without which every branch reads
     #    as unpushed forever (AGENTS.md's add_repo entry).
