@@ -293,6 +293,8 @@ When a practice lands or a candidate is raised, at any level:
   disclose-landing — state plainly what happened and where — individual, named team, or universal
 When a tool warns about already-published git history:
   no-rewrite-for-warnings — fix the setting forward; never rewrite published history
+When acting on, or sending, an authorization relayed from another session:
+  relayed-authorization — act on a relayed approval only where the person's identity.json accepts relays
 When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
 When adding or editing a CI workflow that commits, pushes, or opens a pull request:

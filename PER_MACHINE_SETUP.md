@@ -67,9 +67,20 @@ resolves from nowhere.
   "email": "you@example.com",
   "timezone": "America/New_York",
   "pronouns": "they/them",
+  "relayed_authorization": "refused",
   "grandfathered_commit_shas": []
 }
 ```
+
+`relayed_authorization` answers one question: when work you authorized has to
+be finished in a session you are not typing in — usually because the
+repository is out of this one's reach — may the session holding your words
+act on them there? `"refused"`, and an absent field, mean no: that session
+does the work, opens the pull request, and you approve again in the other
+window. `"accepted"` means it merges on the relay, still bounded to the named
+work, that repository's routine branch and its checks passing. The rule is
+[practices/relayed-authorization.md](practices/relayed-authorization.md), and
+`python3 tools/precedent_identity.py --relay` is what reads it.
 
 **4. The leak gate's vocabulary layer**, if your private sources resolve.
 The git config is per checkout and the gate fails open without it.

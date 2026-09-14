@@ -16432,6 +16432,170 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
           '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
+def check_relayed_authorization_reader():
+    """A relayed authorization is actionable only where the PERSON declared
+    it (practice: relayed-authorization), and the declaration has to be
+    unforgeable by the thing carrying the relay.
+
+    The failure this came from, 2026-09-14: a session relayed a real
+    `Go merge` to a session that could reach the repository, three times,
+    and was refused every time -- correctly, since a message asserting an
+    approval is indistinguishable from a message inventing one. The fix
+    moves the evidence into the person's own identity.json, so these cases
+    assert the three outcomes SEPARATELY (a declared yes, a declared no,
+    and nobody having been asked are three different states with three
+    different remedies) and, above all, that the environment cannot
+    manufacture the yes."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_identity as pi
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-relay-'))
+    cases = []
+    saved = {k: os.environ.pop(k) for k in
+             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+              'PRECEDENT_COMMIT_TZ') if k in os.environ}
+    try:
+        empty_cfg = tmp / 'no-individual.json'
+        empty_cfg.write_text('{"individual": null}', encoding='utf-8')
+
+        def _set(name, **extra):
+            d = tmp / name
+            d.mkdir()
+            body = {'name': 'Fixture Person', 'email': 'fixture@example.com'}
+            body.update(extra)
+            (d / 'identity.json').write_text(json.dumps(body), encoding='utf-8')
+            return d
+
+        yes = _set('accepts', relayed_authorization='accepted')
+        got = pi.relayed_authorization(yes, user_config=empty_cfg)
+        cases.append(('a declared "accepted" licenses acting on a relay',
+                      got['accepted'] is True and got['value'] == 'accepted',
+                      str(got)))
+        cases.append(('and names the file it read, so a reply can say where '
+                      'the permission came from',
+                      str(yes) in got['source'], str(got)))
+
+        no = _set('refuses', relayed_authorization='refused')
+        got_no = pi.relayed_authorization(no, user_config=empty_cfg)
+        cases.append(('a declared "refused" does not',
+                      got_no['accepted'] is False and got_no['value'] == 'refused',
+                      str(got_no)))
+
+        silent = _set('silent')
+        got_silent = pi.relayed_authorization(silent, user_config=empty_cfg)
+        cases.append(('an ABSENT field is refused, not accepted -- a person '
+                      'who never heard of the field agreed to nothing',
+                      got_silent['accepted'] is False and got_silent['value'] == '',
+                      str(got_silent)))
+
+        odd = _set('odd', relayed_authorization='yes please')
+        cases.append(('and so is any other value -- only the exact string '
+                      'counts, so a typo fails closed',
+                      pi.relayed_authorization(odd, user_config=empty_cfg)['accepted'] is False,
+                      ''))
+
+        shared = tmp / 'shared-consumer'
+        shared.mkdir()
+        raised = None
+        try:
+            pi.relayed_authorization(shared, user_config=empty_cfg)
+        except pi.NoDeclaredIdentity as e:
+            raised = e
+        cases.append(('a repo resolving no identity at all raises '
+                      'NoDeclaredIdentity -- "nobody was asked" is its own '
+                      'outcome, distinct from a declared refusal',
+                      raised is not None, 'it returned an answer instead'))
+        cases.append(('and the message says what to do instead, rather than '
+                      'only that it failed',
+                      raised is not None and 'stop at the pull request' in str(raised),
+                      str(raised)))
+
+        cfg = tmp / 'user-config.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'fixture-individual', 'path': str(yes)}}), encoding='utf-8')
+        cases.append(('a SHARED repo resolves the declaration from the '
+                      "person's individual source, which is what makes one "
+                      'declaration cover every project they work in',
+                      pi.relayed_authorization(shared, user_config=cfg)['accepted'] is True,
+                      ''))
+
+        # THE SECURITY CASE. declared_identity() honours PRECEDENT_COMMIT_*;
+        # this must not, or the permission is grantable by whatever set the
+        # environment rather than by the person.
+        os.environ['PRECEDENT_COMMIT_EMAIL'] = 'override@example.com'
+        os.environ['PRECEDENT_COMMIT_NAME'] = 'Someone Else'
+        try:
+            env_raised = False
+            try:
+                pi.relayed_authorization(shared, user_config=empty_cfg)
+            except pi.NoDeclaredIdentity:
+                env_raised = True
+            cases.append(('PRECEDENT_COMMIT_* cannot manufacture acceptance: '
+                          'with the variables set and no identity.json in '
+                          'reach, the answer is still "nobody declared this"',
+                          env_raised, 'the environment answered for a person'))
+            cases.append(('and it cannot flip a declared refusal either',
+                          pi.relayed_authorization(no, user_config=empty_cfg)['accepted'] is False,
+                          ''))
+        finally:
+            os.environ.pop('PRECEDENT_COMMIT_EMAIL', None)
+            os.environ.pop('PRECEDENT_COMMIT_NAME', None)
+
+        # The CLI is what a receiving session actually runs, so its three
+        # exit codes are part of the contract, not an implementation detail.
+        for label, home_repo, want_code, want_word in (
+                ('accepted -> 0', yes, 0, 'ACCEPTED'),
+                ('refused  -> 1', no, 1, 'REFUSED'),
+                ('undeclared -> 2', shared, 2, 'UNDECLARED')):
+            probe = (
+                'import sys, pathlib\n'
+                f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+                'import precedent_identity as pi\n'
+                f'pi.relayed_authorization.__module__\n'
+                'code = 0\n'
+                'try:\n'
+                f'    r = pi.relayed_authorization({str(home_repo)!r}, user_config={str(empty_cfg)!r})\n'
+                '    code = 0 if r["accepted"] else 1\n'
+                '    print("ACCEPTED" if r["accepted"] else "REFUSED")\n'
+                'except pi.NoDeclaredIdentity:\n'
+                '    code = 2\n'
+                '    print("UNDECLARED")\n'
+                'sys.exit(code)\n')
+            out = subprocess.run([sys.executable, '-c', probe],
+                                 capture_output=True, text=True)
+            cases.append((f'the reader\'s reported outcome and exit code agree '
+                          f'({label})',
+                          out.returncode == want_code and want_word in out.stdout,
+                          f'rc={out.returncode} out={out.stdout.strip()!r}'))
+
+        cli = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_identity.py'),
+                              '--relay'], capture_output=True, text=True)
+        cases.append(('`precedent_identity.py --relay` runs in this repo and '
+                      'names one of the three outcomes',
+                      any(w in cli.stdout for w in ('ACCEPTED', 'REFUSED', 'UNDECLARED')),
+                      f'rc={cli.returncode} out={cli.stdout.strip()[:120]!r}'))
+
+        skeleton = (ROOT / 'templates' / 'practice-set-individual'
+                    / 'identity.json.template').read_text(encoding='utf-8')
+        cases.append(('the individual skeleton ships the field, so a set '
+                      'created after this is asked the question instead of '
+                      'defaulting silently',
+                      '"relayed_authorization"' in skeleton, ''))
+        cases.append(('and ships it as refused -- the skeleton never hands '
+                      'out a standing yes nobody chose',
+                      '"relayed_authorization": "refused"' in skeleton, ''))
+    finally:
+        os.environ.update(saved)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a relayed authorization is actionable only where the person '
+          f'declared it ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_pretooluse_hook_fires():
     """The path-triggered channel's consumer-repo integration
     (spec/LOADER.md's status table, "not yet wired into a PreToolUse hook...
@@ -19546,6 +19710,7 @@ def main():
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_environment_gotchas_follows_a_split_index()
     check_gotcha_currency_signals_fire()
+    check_relayed_authorization_reader()
     check_pretooluse_hook_fires()
     check_not_binding_actually_exempts_a_check()
     check_mirrored_prefixes_answers_both_install_models()
