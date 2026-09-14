@@ -148,11 +148,11 @@ does not run its SessionStart hooks either" below.
 
 On the `add_repo` route nothing else can do it for you:
 `.claude/hooks/precedent-individual-bootstrap.sh` runs to completion *before*
-the first turn **wherever a settings.json wires it — this repo's does not**,
-so it cannot call `add_repo` — its own header says why a retry loop there was
-tried and proven inert — and
-[tools/precedent_resolve.py](tools/precedent_resolve.py) re-invoking it later
-in the turn is, here, the only thing that runs it at all.
+the first turn **wherever a settings.json wires it — this repo's does not** —
+so it cannot call `add_repo`; its header says why a retry loop there was
+proven inert. Here
+[tools/precedent_resolve.py](tools/precedent_resolve.py)'s mid-turn self-heal
+is the only thing that runs it.
 
 **This repo is becoming Precedent, a restructuring of BestPractice — read
 [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) first, in full, before
