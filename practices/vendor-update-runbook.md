@@ -51,7 +51,14 @@ every step's answer is wrong if the one before it was skipped.
    failure.
 3. **Refresh the engine.** Expect two passes when the tool replaces
    itself; the second is not a retry, it is the new copy running its own
-   corrected file list.
+   corrected file list. **When the same update is going into more than one
+   repo, read the source commit once and pass that exact commit to every
+   refresh** — `refresh <clone> --from-ref <commit>`. Without it each refresh
+   resolves the branch tip at the moment it runs, so two repos updated an hour
+   apart land a commit apart with nobody having done anything wrong. That is
+   not hypothetical: a four-set rollout on 2026-09-14 cost three extra passes
+   to bring the sets level again, by a session that did not know the flag was
+   there.
 4. **Take the catalogue update by the documented route.** Under a branch
    pin this is the manual mirror, never a tool that resolves the remote's
    *default* branch — that mirrors the wrong lineage over a pinned tree,
