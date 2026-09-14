@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 117 practice files (10 resident, 107 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 118 practice files (10 resident, 108 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -21,6 +21,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [change-updates-its-docs](practices/change-updates-its-docs.md) | on-demand | changing a mechanism, a workflow or a behaviour that some document describes |
 | [check-source-architecture](practices/check-source-architecture.md) | on-demand | comparing an option against a baseline |
 | [checkable-gets-checked](practices/checkable-gets-checked.md) | on-demand | writing a new convention or rule |
+| [checks-carry-a-declared-decline](practices/checks-carry-a-declared-decline.md) | on-demand | writing or changing a check that can report a deliberate state |
 | [chief-of-staff](practices/chief-of-staff.md) | on-demand | a person says "Chief of Staff" |
 | [ci-commits-carry-identity](practices/ci-commits-carry-identity.md) | on-demand | adding or editing a CI workflow that commits, pushes, or opens a pull request |
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |

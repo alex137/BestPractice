@@ -172,7 +172,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 121 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 122 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -446,6 +446,8 @@ When writing code that depends on something outside its own control, handling a 
   fail-gracefully — keep going, never look complete — match the telling to stake and reader
 When writing code that stamps a date or a time into a file, a record or a document:
   timestamps-carry-offset — a stamp carries its offset; never a bare date.today()
+When writing or changing a check that can report a deliberate state:
+  checks-carry-a-declared-decline — a check reporting a state a repo chose needs a declared decline, with a reason
 When writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error:
   github-api-budget — measure API spend from response headers; budget each tool; never /rate_limit
 When writing or editing a document:
