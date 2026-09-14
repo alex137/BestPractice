@@ -5074,8 +5074,23 @@ which is the failure this repointing exists to end — write
     by mechanism before concluding nothing exists — and it cost the four-set
     rollout three extra passes, because the session that needed the flag tried
     to pin a commit by checking it out and by forcing the local branch instead.
-    The undecided question the item ends on needs no answer from anyone:
-    whoever shipped `--from-ref` already settled it.
+    The undecided question the item ends on — whether vendoring a commit the
+    branch has moved past should be offered at all — does have an answer, and
+    it is not the one this closure first gave. Shipping `--from-ref` settled
+    *can you*, not *should a rollout*. Morgan settled that half the same day,
+    reading the runbook sentence this closure had just produced: *"but do we
+    want to install that specific version we told it? Why not install the most
+    recent version?"* **Strength:** decided (2026-09-14, Morgan).
+    So: a rollout takes the tip every time, and where repos land a commit
+    apart the laggard is rolled forward rather than the leaders held back —
+    pinning all of them to the older commit would have made all four miss the
+    reply-gate change and removed the difference that made anyone look.
+    `--from-ref` stays for the two cases where the exact commit is the point:
+    a commit whose diff was actually reviewed, and reproducing against an
+    older engine. [vendor-update-runbook](practices/vendor-update-runbook.md)
+    step 3 carried the wrong version of this for one commit — `9e5088d`, in
+    [#336](https://github.com/alex137/BestPractice/pull/336) — and was
+    corrected the same day.
 
 86. <a id="set-ci-skips-vendored-tests"></a>**No practice set's CI runs the
     vendored checks' own test suite, so a red suite sits under a green pull

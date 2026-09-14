@@ -49,16 +49,24 @@ every step's answer is wrong if the one before it was skipped.
    different trees with different manifests, and **they move
    independently**. Checking one and reporting "current" is the common
    failure.
-3. **Refresh the engine.** Expect two passes when the tool replaces
-   itself; the second is not a retry, it is the new copy running its own
-   corrected file list. **When the same update is going into more than one
-   repo, read the source commit once and pass that exact commit to every
-   refresh** — `refresh <clone> --from-ref <commit>`. Without it each refresh
-   resolves the branch tip at the moment it runs, so two repos updated an hour
-   apart land a commit apart with nobody having done anything wrong. That is
-   not hypothetical: a four-set rollout on 2026-09-14 cost three extra passes
-   to bring the sets level again, by a session that did not know the flag was
-   there.
+3. **Refresh the engine, and take the branch tip.** Expect two passes when
+   the tool replaces itself; the second is not a retry, it is the new copy
+   running its own corrected file list.
+   **When the same update is going into more than one repo, note the tip
+   before you start and check every repo against it at the end.** Each refresh
+   resolves the tip at the moment it runs, so two repos updated an hour apart
+   can land a commit apart with nobody having done anything wrong — a
+   four-set rollout on 2026-09-14 ended exactly that way.
+   **Close that gap by rolling the laggard FORWARD, never by holding the
+   others back.** Level matters less than current: a repo pinned to an
+   ancestor is missing whatever landed after it, and in that rollout the one
+   set left behind was missing the reply gate the other three already had.
+   Holding the others back would have made all four miss it and removed the
+   very difference that made anyone look.
+   `--from-ref <commit>` is for the two cases where an exact commit is the
+   point — vendoring a commit whose diff you actually reviewed, and
+   reproducing a bug against an older engine — never for making a rollout
+   tidy.
 4. **Take the catalogue update by the documented route.** Under a branch
    pin this is the manual mirror, never a tool that resolves the remote's
    *default* branch — that mirrors the wrong lineage over a pinned tree,
