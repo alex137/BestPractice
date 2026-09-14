@@ -169,6 +169,19 @@ def api_full_name(owner, name, env=None):
     paths are not supported through this proxy"). It then caught the
     HTTPError and reported UNVERIFIED -- "could not check" -- on precisely
     the input the tool exists to recognise, and `--check` exited 0.
+
+    CONFIRMED IN THE FIELD the same day, after the fix landed, by a session
+    that held BOTH names at once -- it had attached that source before the
+    rename and re-attached it after. Running the shipped code against four
+    real inputs: the renamed repository under its OLD name (RENAMED, carrying
+    the 301), the same repository under its CURRENT name (OK, with the right
+    `full_name`), an unrenamed source (OK), and a repository that does not
+    exist (UNVERIFIED, a different message, not confused for a rename).
+    **Reproducing that needs both names attached at once**, which only a
+    session straddling the rename has; from anywhere else the API answers 403
+    for the old name. A 403 on a re-run is an attachment state, not a
+    regression here -- the two are indistinguishable from the status code, as
+    the module docstring's environment note already says.
     """
     env = os.environ if env is None else env
 
