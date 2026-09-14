@@ -5846,5 +5846,106 @@ which is the failure this repointing exists to end — write
     **Strength:** decided (2026-09-14, Morgan), on the tab; the question's
     answer is what that session is for and is not decided by anyone yet.
 
-    **Disposition:** wait (2026-09-14) — it waits on that session's costed
-    options reaching Morgan, and nobody chases it here.
+    **COSTED FOR MORGAN 2026-09-14**, re-measured at `50d82ff` after the
+    seed's own figures went stale within hours — `AGENTS.md` **11,590 of
+    12,000, 410 tokens (3.4%)**, down from 447 at `74eb776` with nobody
+    trimming or adding prose in between. Reproduce any figure below with
+    `python3 tools/session_load_trend.py`.
+
+    **The one measurement that reorders the options: what consumes the
+    headroom is GENERATED.** The occasion index is **3,383 tokens, 29.2% of
+    the file, 106 entries**, and it has grown every single day — 1,136 on
+    2026-08-31, 2,462 on 09-09, 2,753 on 09-11, 3,053 on 09-12, 3,211 on
+    09-13, 3,377 on 09-14. That is **≈160 tokens a day over the fortnight and
+    ≈232 over the last three days**. With the resident block it is **4,340
+    tokens (37%) that no reduction pass may touch**. At those rates the
+    current headroom is gone in **under two days**, whether or not anybody
+    writes a word.
+
+    **Section costs, for any option that proposes cutting something:**
+    preamble 2,112 (18.2%) · resident block 967 (8.3%, generated) · occasion
+    index 3,383 (29.2%, generated) · standing instruction 322 · quick index
+    2,671 (23.0%) · gotchas index 1,532 (13.2%) · working-in-this-repo 429 ·
+    conventions 171.
+
+    **A. A standing reduction pass on a stated trigger.** Formalises what
+    already happens: at a declared headroom floor, the next session to touch
+    the file pays a pass before pushing. *Cost:* it keeps the tax and keeps
+    landing it on whoever is unlucky — **four crossings in two days, three
+    sessions, none of which added the thing that broke it** — and it fires
+    roughly weekly forever at the measured growth. The cheap material is also
+    spent: item 82's pass found that outside the gotchas *"nothing else in the
+    file was a duplicate"*, the gotchas are already split to
+    [record/GOTCHAS.md](record/GOTCHAS.md), the command stories are gone, and
+    the quick index is already back to pointers. **The next pass cuts live
+    content**, which is a different decision from the four before it.
+
+    **B. Raise the ceiling deliberately, with the reason recorded.**
+    Permitted — [session-load-budget](practices/session-load-budget.md)
+    forbids raising one *to clear a red check*, not raising one on purpose.
+    *Cost, and it is the finding that surprised this session:* **a raise buys
+    days, not months.** To 13,000 ≈ 6–9 days; to 14,000 ≈ 10–15; to 16,000 ≈
+    19–28; to 20,000 — which alone equals the whole-session target — ≈ 36–53.
+    The generated growth eats any number. **A raise defers this question; it
+    does not answer it.**
+
+    **C. A second split, in item 82's shape.** The only block big enough to be
+    worth moving is the **quick index, 2,671 tokens**, to a pointer at
+    [MAP.md](MAP.md). *Cost:* it exists precisely to stop sessions searching
+    the repo, so moving it re-adds the hop it was built to remove, and it was
+    *just* compressed on 2026-09-14 — cutting it again is cutting muscle. Buys
+    ≈11–17 days at the measured rates, then the same question returns.
+
+    **D. Cap the generated occasion index, the way the resident block is
+    capped.** [tools/build_views.py](tools/build_views.py) already refuses to
+    write an over-budget resident block; the occasion index has **no cap at
+    all**. A cap moves the cost onto the session ADDING a practice, at the
+    moment it adds one, and makes the decision about the thing that actually
+    grew. *Cost, measured rather than assumed:* of 113 active practices, **33
+    are reachable ONLY by the occasion index** — `applies_to: ["**"]`, which
+    matches everything and therefore routes nothing, and no `gates:` entry.
+    For those, dropping an index line **un-routes the rule**. The other ≈73
+    carry a specific path glob or a gate; **whether that channel fires at the
+    right moment is a per-practice reading this measurement does not
+    establish.** It also makes adding a practice harder in a project whose
+    thesis is capturing practices.
+
+    **E. Move something else out of the always-loaded set.** *Cost:* there is
+    no candidate. [CLAUDE.md](CLAUDE.md) is 55 tokens and
+    `.precedent/SESSION_PRACTICES.md` (3,081) is the private sources' only
+    channel into a session. **Named because leaving an option out is a
+    decision taken on somebody's behalf, not because it is live.**
+
+    **RECOMMENDED: D and B together, in that order — and the pair is the
+    recommendation, because neither works alone.** D is the only option that
+    stops the growth rather than absorbing it; B is the only one that stops
+    the next honest sentence from triggering a pass at 3.4% headroom. A and C
+    are both "absorb it again", and the material they absorb it with has
+    nearly run out. **What has to happen first for D to be safe:** the 33
+    index-only practices need a real `applies_to` glob or a gate, or the cap's
+    first bite silently un-routes a rule — that is work, and it is the reason
+    D is not simply done here.
+
+    **Not done, deliberately:** no ceiling was raised. The seed forbade it and
+    [session-load-budget](practices/session-load-budget.md) puts the
+    equivalent resident-block choice on the person in the same words.
+
+    **BUILT HERE**, because every option above needs it and none of them is
+    chosen: [tools/session_load_trend.py](tools/session_load_trend.py) reports
+    headroom, the hand-written/generated split and the growth rate per
+    surface, and its `headroom_notice()` is called from
+    [tools/precedent_gate.py](tools/precedent_gate.py) at the **merge and push
+    gates** — so a session is told the DISTANCE to the ceiling instead of
+    meeting it as a red check. The threshold is `headroom_floor_pct` in
+    [tools/session_load_budgets.json](tools/session_load_budgets.json); it is
+    a **notice, never a failure**, on the ground that a gate blocking on an
+    *approaching* ceiling would manufacture exactly the raise-it pressure the
+    practice exists to resist. It fires today at 3.4%.
+
+    **Record the answer with
+    [decision-strength](practices/decision-strength.md)** — `decided` only if
+    Morgan can be quoted choosing an option, `assented` for a bare "ok" to the
+    recommendation above.
+
+    **Disposition:** wait (2026-09-14) — the costed options reached Morgan on
+    2026-09-14; it now waits on his pick, and nobody chases it here.

@@ -12,6 +12,24 @@
     "one is a decision somebody makes on purpose, in a commit, with the reason in",
     "'why'. Never raise it to make a red check green."
   ],
+  "_headroom_comment": [
+    "When a surface gets within this % of its ceiling, the merge and push gates",
+    "say so -- tools/session_load_trend.py's headroom_notice(), called from",
+    "tools/precedent_gate.py. It is a NOTICE and never a failure.",
+    "",
+    "WHY it exists: the ceiling check is binary -- green at 11,999 tokens and red",
+    "at 12,001 -- so it reports the wall only once a session has already hit it.",
+    "On 2026-09-13/14 that happened four times in two days, each time to a",
+    "session that had come to do something else and now owed a reduction pass",
+    "before it could push. 'Green' carried no information anybody could plan",
+    "against. This says the DISTANCE instead.",
+    "",
+    "5% of 12,000 is 600 tokens. At the occasion index's own measured growth",
+    "(+232/day over 2026-09-11..14) that is a few days of warning rather than",
+    "none. It is a notice threshold, not a target: headroom is the distance to",
+    "the next forced reduction pass, never room to spend."
+  ],
+  "headroom_floor_pct": 5,
   "resident_block_tokens": 2000,
   "section_review_tokens": 2500,
   "surfaces": {
