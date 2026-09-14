@@ -2176,6 +2176,79 @@ def _declared_hooks_exist(ctx):
     return found
 
 
+@check('hooks-on-disk-are-reachable', 'tree',
+       'every hook file in .claude/hooks/ is reachable from something that '
+       'could run it — a settings*.json entry, another hook, or an engine '
+       'tool that invokes it by path',
+       'a hook that IS named somewhere but by a caller that never fires, and '
+       'a hook named only in prose: a document mentioning a filename is not '
+       'an invocation, so documents are deliberately not searched. It says '
+       'nothing about a repo with no .claude/hooks/ at all, which is '
+       "session-bootstrap's question, nor about what a hook does once it "
+       'runs.',
+       practice_backed=False)
+def _hooks_on_disk_are_reachable(ctx):
+    """A hook nothing names is off, and from inside a session that looks
+    exactly like a hook that is working.
+
+    WHY THIS EXISTS (practice: cite-the-incident). The forward direction — a
+    settings entry naming a file that is not there — is
+    declared-hooks-exist above. This is the other end, and it cost a real
+    consuming repo: on 2026-09-14 an `Update Vendors` pass found two hooks
+    sitting in its .claude/hooks/ with nothing naming them, one of them the
+    reply gate, so replies there had closed ungated for as long as the files
+    had been present. Nothing failed, which is the whole problem.
+
+    Reachability deliberately includes engine tools, not only settings.
+    tools/precedent_resolve.py invokes
+    .claude/hooks/precedent-individual-bootstrap.sh by path rather than
+    through any settings entry, so a check that read settings alone would
+    report this repo's own working bootstrap hook as dead — measured here
+    before this check shipped, which is why the clause exists."""
+    hooks_dir = ROOT / '.claude' / 'hooks'
+    if not hooks_dir.is_dir():
+        raise NotApplicable('this repo has no .claude/hooks/ directory, so no '
+                            'hook file here could be orphaned')
+    hooks = sorted(p for p in hooks_dir.iterdir()
+                   if p.is_file() and not p.name.startswith('.'))
+    if not hooks:
+        raise NotApplicable('.claude/hooks/ holds no files')
+    # Everything that could plausibly RUN a hook. Prose is excluded on
+    # purpose: naming a file in a document does not invoke it.
+    callers = []
+    for d, pat in ((ROOT / '.claude', 'settings*.json'),
+                   (hooks_dir, '*'),
+                   (ROOT / 'tools', '*.py')):
+        if d.is_dir():
+            callers.extend(p for p in d.glob(pat) if p.is_file())
+    texts = []
+    for c in callers:
+        try:
+            texts.append((c, c.read_text(encoding='utf-8', errors='ignore')))
+        except OSError:                          # practice: fail-gracefully
+            continue
+    found = []
+    for hook in hooks:
+        # A PATH reference, not a bare mention. Every real caller names a
+        # hook the only way it can be run -- `hooks/<name>`, whether that is
+        # `$CLAUDE_PROJECT_DIR/.claude/hooks/reply-gate.sh` in a settings
+        # entry or `.claude/hooks/precedent-individual-bootstrap.sh` in
+        # precedent_resolve.py. Matching the bare filename instead made this
+        # check unfalsifiable: its own harness plant, which necessarily
+        # writes the planted name into the test source, read as a caller and
+        # the planted violation passed. Measured 2026-09-14, before it
+        # shipped.
+        if any(f'hooks/{hook.name}' in t for c, t in texts if c != hook):
+            continue
+        found.append(Finding(
+            str(hook.relative_to(ROOT)),
+            'sits in .claude/hooks/ and nothing that could run it names it — '
+            'no settings*.json entry, no other hook, no engine tool. An '
+            'orphaned hook is off, and from inside a session that is '
+            'indistinguishable from one that works'))
+    return found
+
+
 @check('engine-plus-host-shims', 'tree',
        'no file outside the vendored tree duplicates a run of lines from '
        'inside it — that is a fork, not a shim',

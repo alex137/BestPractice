@@ -5900,6 +5900,24 @@ def check_precedent_check_fires():
                       'commit-identity.sh does not exist'
                       in planted['declared-hooks-exist'][1]))
 
+        # hooks-on-disk-are-reachable -- the other end of the same failure.
+        # declared-hooks-exist above plants a settings entry whose file is
+        # gone; this plants a file no settings entry, no other hook and no
+        # engine tool names. Both are a hook that does not run, and neither
+        # is visible from inside a session: an orphaned hook and a working
+        # one look identical, which is what cost a consuming repo its reply
+        # gate on 2026-09-14.
+        def _plant_orphan_hook(repo):
+            (repo / '.claude' / 'hooks' / 'zzz-orphan.sh').write_text(
+                '#!/bin/sh\necho orphan\n', encoding='utf-8')
+        case('hooks-on-disk-are-reachable', _plant_orphan_hook)
+        cases.append(('hooks-on-disk-are-reachable: the planted violation '
+                      'names the orphaned hook and says nothing that could '
+                      'run it names it',
+                      'zzz-orphan.sh' in planted['hooks-on-disk-are-reachable'][1]
+                      and 'nothing that could run it names it'
+                      in planted['hooks-on-disk-are-reachable'][1]))
+
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
             up = repo / 'process' / 'upstream' / 'tools'
