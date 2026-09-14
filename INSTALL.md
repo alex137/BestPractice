@@ -797,6 +797,13 @@ practices while upstream carried 98, with nothing said.
    the named practices against upstream's
    [MAP.md](MAP.md) withdrawn-practices table before overriding.
 
+   **A second refusal names a source your `precedent.json` no longer
+   declares**, and it is worth reading rather than flagging past: the match
+   is by NAME, so a source somebody RENAMED looks exactly like a source
+   somebody dropped, and overriding it there deletes practices that are
+   still alive. Compare the recorded name against your declared ones first.
+   `--allow-removals` proceeds once you know which you have.
+
 1. Fetch the new upstream tree; diff it against the vendored copy at the
    **recorded base commit** (manifest `upstream.commit`).
 2. Three-way merge per manifest entry: *old upstream* vs *new upstream* vs

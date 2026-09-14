@@ -337,10 +337,13 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     #   * A WITHHELD slug is excluded: a public repo keeps private-level text
     #     out of its tracked tree deliberately, and those practices still
     #     bind through .precedent/SESSION_PRACTICES.md.
-    #   * A slug whose recorded SOURCE IS NO LONGER DECLARED is reported but
-    #     not refused: dropping a source from precedent.json is a decision
-    #     somebody just made on purpose, and the practices it contributed are
-    #     supposed to go with it.
+    #   * A slug whose recorded SOURCE NAME IS NOT AMONG THE DECLARED ONES
+    #     is refused too, since 2026-09-14. It used to be reported and
+    #     written, on the reasoning that dropping a source from
+    #     precedent.json is a decision somebody just made on purpose -- true
+    #     of a drop, and false of a RENAME, which looks identical here
+    #     because the match is by name. The refusal names all three states it
+    #     cannot separate; --allow-removals proceeds.
     #   * A slug whose recorded source IS STILL DECLARED, and which that
     #     source no longer produces, is the real case: the rule moved or the
     #     vendored copy went stale, and syncing now loses it. That is the
@@ -369,11 +372,43 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                 "is the ordinary case when you have just replaced the "
                 "catalogue with a newer one -- then the removal is correct "
                 "and `--allow-removals` is the answer, not a workaround.")
+        # THE NAME IS NOT THE SOURCE'S IDENTITY, and treating it as one let a
+        # RENAME delete practices under a sentence saying the person had
+        # dropped the source on purpose (practice: cite-the-incident). On
+        # 2026-09-14 this removed four practices from a consumer and named a
+        # source renamed three days earlier; the removals were correct only
+        # because all four were `status: retired` upstream as well. Had they
+        # not been, the same rename would have stripped them out and printed
+        # the same reassuring line. So an unmatched recorded source now
+        # REFUSES like the other bucket does, and the message names the three
+        # states it cannot tell apart rather than asserting the one that
+        # happens to be commonest (practice: diagnosis-is-measured).
+        if _lost['source_dropped'] and not (allow_removals or allow_missing):
+            raise pm.MaterializeError(
+                "refusing to WRITE: this sync would remove "
+                + str(len(_lost['source_dropped'])) + " practice(s) this "
+                "repository's committed MANIFEST.json records, whose source "
+                "name is not among the sources precedent.json declares -- "
+                + '; '.join(f"{s} (recorded from {src})"
+                            for s, src in sorted(_lost['source_dropped']))
+                + ". THREE things produce this and the matching is by NAME, "
+                "so it cannot tell them apart: the source was DROPPED from "
+                "precedent.json deliberately, and the removal is what you "
+                "asked for. Or the source was RENAMED and is still declared "
+                "under its new name, in which case these practices are alive "
+                "and this would delete them -- check the recorded name "
+                "against the declared ones before going further, and "
+                "`python3 tools/precedent_source_names.py` reports a rename "
+                "GitHub still redirects. Or the practices were RETIRED at "
+                "source, which precedent_resolve.py reports accurately and "
+                "which makes the removal correct for a reason that has "
+                "nothing to do with the source. `--allow-removals` proceeds "
+                "once you know which one you have.")
         if _lost['source_dropped']:
             print("precedent_sync_views: removing "
-                  f"{len(_lost['source_dropped'])} practice(s) whose source "
-                  "is no longer declared in precedent.json, which is what "
-                  "dropping a source means: "
+                  f"{len(_lost['source_dropped'])} practice(s) whose recorded "
+                  "source name is not among the declared sources, allowed by "
+                  "--allow-removals: "
                   + ', '.join(f"{s} ({src})"
                               for s, src in sorted(_lost['source_dropped'])),
                   file=sys.stderr)

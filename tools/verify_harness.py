@@ -8861,17 +8861,66 @@ def check_sync_refuses_to_lose_a_recorded_practice():
                       r.returncode == 0
                       and not (repo / 'practices' / 'team-x-rule.md').exists()))
 
-        # 4. DROPPING the source is a decision already made -- report, allow.
+        # 4. DROPPING the source: refused too, since 2026-09-14. This used
+        #    to assert returncode == 0 on the reasoning that a drop is a
+        #    decision somebody just made -- and the matching is by NAME, so
+        #    a RENAME is indistinguishable from a drop here and would have
+        #    been written under the same reassuring message. Case 5 is the
+        #    one that could not be told apart; this one is its twin.
         repo2, team2, user2 = _repo(tmp / 'b')
         _sync(repo2, user2); _commit(repo2)
         cfg = json.loads((repo2 / 'precedent.json').read_text())
         cfg['sources'] = [s for s in cfg['sources'] if s['level'] != 'team']
         (repo2 / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
         r = _sync(repo2, user2)
-        cases.append(('dropping a source from precedent.json is allowed, not '
-                      'refused', r.returncode == 0))
-        cases.append(('and it says which practices went with it',
+        cases.append(('an undeclared recorded source REFUSES rather than '
+                      'deleting', r.returncode != 0))
+        # practice: control-asserts-which-failure -- a non-zero exit proves
+        # nothing about WHICH guard fired, and the fixture above can trip at
+        # least two others. Assert the three states this message names.
+        cases.append(('and the refusal names all three states it cannot '
+                      'tell apart',
+                      all(w in r.stderr for w in ('DROPPED', 'RENAMED',
+                                                  'RETIRED'))))
+        cases.append(('and it says which practices are at stake',
                       'team-x-rule' in r.stderr))
+        cases.append(('and the practice files survive the refusal',
+                      (repo2 / 'practices' / 'team-x-rule.md').exists()))
+        r = _sync(repo2, user2, '--allow-removals')
+        cases.append(('--allow-removals proceeds once you know which it is',
+                      r.returncode == 0
+                      and not (repo2 / 'practices' / 'team-x-rule.md').exists()))
+
+        # 5. THE INCIDENT ITSELF, and it takes two changes to reproduce.
+        #    A rename ALONE deletes nothing: the source still resolves and
+        #    still produces the same slugs, so nothing is lost and the guard
+        #    has no occasion to fire -- asserted below, because a fixture
+        #    that cannot tell a safe rename from a dangerous one would make
+        #    this whole case unfalsifiable. The damage needs a rename PLUS a
+        #    practice that really does go: then the slug is lost, the
+        #    recorded source name matches nothing, and before 2026-09-14
+        #    that was written and reported as the person having dropped the
+        #    source on purpose. The 2026-09-14 removals were correct only
+        #    because the four practices were retired upstream as well.
+        repo3, team3, user3 = _repo(tmp / 'c2')
+        _sync(repo3, user3); _commit(repo3)
+        cfg = json.loads((repo3 / 'precedent.json').read_text())
+        for s in cfg['sources']:
+            if s['level'] == 'team':
+                s['name'] = 'precedent-team-x-renamed'
+        (repo3 / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        r = _sync(repo3, user3)
+        cases.append(('a rename ALONE loses nothing and is not refused',
+                      r.returncode == 0
+                      and (repo3 / 'practices' / 'team-x-rule.md').exists()))
+        _commit(repo3)
+        (team3 / 'practices' / 'team-x-rule.md').unlink()
+        r = _sync(repo3, user3)
+        cases.append(('a rename PLUS a real removal refuses instead of '
+                      'deleting under a dropped-source message',
+                      r.returncode != 0))
+        cases.append(('and the practice survives that refusal',
+                      (repo3 / 'practices' / 'team-x-rule.md').exists()))
 
     failed = [n for n, ok in cases if not ok]
     check(f'a sync refuses to lose a practice the committed manifest records '

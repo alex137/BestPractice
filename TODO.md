@@ -2145,8 +2145,10 @@ which is the failure this repointing exists to end — write
     is no baseline, so the guard does not apply.
   - A **withheld** slug is excluded: a public repo keeps private-level text
     out of its tracked tree deliberately.
-  - A slug whose recorded **source is no longer declared** is reported, not
-    refused: dropping a source is a decision somebody just made.
+  - A slug whose recorded **source name is not among the declared ones** is
+    refused as well, since 2026-09-14. It used to be reported and written,
+    on the reasoning that dropping a source is a decision somebody just
+    made -- which is true of a drop and false of a rename. See item 92.
   - A slug whose source **is** still declared, and which that source no
     longer produces, is refused. `--allow-removals` overrides it.
 
@@ -4232,6 +4234,27 @@ which is the failure this repointing exists to end — write
     [`universal-adapters-undeclared`](TODO.md#universal-adapters-undeclared):
     the first sync after a declaration starts writing into consuming repos
     that may hold an older copy on purpose.
+
+    **Measured 2026-09-14, with all four sets on disk, and two of this
+    item's own claims are wrong.** First: *"each of the four attached sets
+    ships `bootstrap/*.sh`"* — only the individual set does. The three team
+    sets have no `bootstrap/` directory at all, so there is nothing for them
+    to declare and the work here is one set, not four. Second, and this is
+    the blocker: *"each set's vendored engine has to carry the new
+    `precedent_materialize.py` before a declaration does anything at all"* —
+    none of the four carries it, and the individual set's three declared
+    adapters are being written into consuming repos anyway. A SOURCE never
+    materializes; the CONSUMER does, out of its own engine. The sets vendor
+    a source-set subset that deliberately has no
+    `precedent_materialize.py` or `precedent_sync_views.py` in it. So the
+    stated blocker was never the real one, and the engine-currency report
+    that seemed to clear it was answering a different question.
+
+    **What is actually left here:** the individual set declares three of its
+    five `bootstrap/*.sh` — `session-start.sh` and
+    `precedent-universal-catalogue.sh` are not declared, and nothing says
+    whether that is a decision or an oversight. That question, and nothing
+    about the team sets, is this item.
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
 74. <a id="leak-gate-is-background-level"></a>~~**Decide whether
@@ -5908,6 +5931,31 @@ which is the failure this repointing exists to end — write
   under the same reassuring sentence. The fix is to distinguish the two
   states before writing the message: a practice whose source resolves but
   whose `status` is `retired`, versus one whose source is genuinely gone.
+
+  **Done 2026-09-14, the safety half: the silent write is gone.** An
+  unmatched recorded source now REFUSES like the still-declared bucket
+  already did, and the message names the three states the name-matching
+  cannot separate — dropped, renamed, retired at source — instead of
+  asserting the commonest one. `--allow-removals` proceeds once the person
+  knows which they have. Covered by two new cases in
+  [tools/verify_harness.py](tools/verify_harness.py)'s
+  `check_sync_refuses_to_lose_a_recorded_practice`, including the one the
+  fixture had to be corrected to reach: **a rename alone loses nothing** —
+  the source still resolves and still produces the same slugs, so the guard
+  has no occasion to fire — and the damage needs a rename PLUS a practice
+  that really goes. A fixture asserting the rename alone passes for the
+  wrong reason.
+
+  **Still open, and this item stays open for it: the tool still cannot TELL
+  the three apart.** It refuses safely rather than distinguishing, which is
+  what the condition above asks for. Two ways to actually distinguish, in
+  order of durability: record something rename-proof in `MANIFEST.json` (a
+  URL or an id) instead of matching on the source's name, which removes the
+  ambiguity rather than catching it; or call
+  [tools/precedent_source_names.py](tools/precedent_source_names.py), whose
+  `renamed=True` (landed in PR #347, still unconsumed) reports a rename
+  GitHub redirects — precise, but a network call inside a tool that
+  otherwise runs offline, so it needs the refusal underneath it either way.
 
 93. <a id="phase3-snapshot-is-not-a-snapshot"></a>**The phase-3 "point-in-time
     record" is not one: it freezes WHICH practices count and reads what they
