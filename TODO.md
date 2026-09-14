@@ -5474,6 +5474,26 @@ which is the failure this repointing exists to end — write
     read from a pinned commit, or be retired as anchors and kept as prose with
     an "as of phase 3" date. Until it is made, editing an original-52 practice
     trips a gate that is right to fire and wrong about who is at fault.
+    **The trap is narrower than "do not edit an original-52 practice", and the
+    exact boundary was measured 2026-09-14 by enumerating `ANCHORS`.** Of the
+    four, one reads the LIVE catalogue and three read the frozen snapshot,
+    which returns exactly two figures: `with_detail` moves when a `## Detail`
+    is added or removed, `long_rules` when a Rule crosses 150 words. A `Why`,
+    a `Story`, an `Install`, or any practice outside 1..52 moves neither. Note
+    that `long_rules` is recited in TWO documents -- `spec/PRACTICE_FORMAT.md`
+    and `spec/PRACTICE_ENGINE_PLAN.md` -- so a Rule crossing 150 words trips
+    two anchors at once, and a session that fixes only the document named in
+    the first failure will be back.
+    **Two mechanisms are in play here with OPPOSITE remedies, and conflating
+    them is the likelier mistake.** An `ANCHORS` figure is prose in a document
+    of record: never refit it, because making it agree with the present
+    destroys the thing it recorded. A `doc_sync` generated block --
+    `spec/LOADER.md`'s catalogue table -- is a render target reading the live
+    catalogue, and the correct action there is always
+    `python3 tools/doc_sync.py --write`. Editing one practice can trip both in
+    the same run, which is how it presented when this was found: `LOADER.md`
+    drifted 76 -> 77 on "Carrying a `## Detail`" and wanted regenerating,
+    while the anchor reciting 21 wanted leaving alone.
     **Pending behind it:** a clause for
     [two-check-levels](practices/two-check-levels.md) saying a check is
     reported by what it found (`0 failed` / `0 violated`) and never by its
