@@ -5127,3 +5127,47 @@ which is the failure this repointing exists to end — write
   showed no line covering the name either way. Not a finding about the three
   items already recorded upstream in the consuming repo's own
   `upstream-findings` file.
+
+- <a id="restate-fires-on-machine-turns"></a>**The closing-list restate rule
+  fires on turns no human asked for, so a background event makes the person
+  read the same Next Steps twice.**
+  No disposition, so it is `wait`.
+
+  **Seen 2026-09-14, by Morgan, in the session that landed
+  [practice-links-travel](practices/practice-links-travel.md)'s
+  withdrawn-sibling check:** *"you sent me the message twice here; but didn't
+  we make a change to fix that?"* He had two near-identical `## Next Steps`
+  blocks ninety seconds apart.
+
+  **The change he remembered is real, and it is not this.**
+  [tools/precedent_reply_check.py](tools/precedent_reply_check.py) tells a
+  session whose reply the gate refused that the person has ALREADY SEEN that
+  reply and to emit only the missing closing. Its own comment records the
+  2026-09-13 failure it was written for. It worked here: the refused turn
+  emitted the closing alone.
+
+  **The second copy came from a different door.** A continuous-integration
+  notification arrived as its own turn, and the individual practice governing
+  the closing list requires the outstanding items be restated **in full on
+  every reply** — a rule written for a human tangent, where restating is
+  exactly right. Nothing in it distinguishes a turn a person opened from one a
+  machine opened, and the hard requirement that every reply carry the heading
+  means the second turn cannot simply omit it.
+
+  **Not fixed here, deliberately** (`dont-race-another-window`, an
+  individual practice — unlinked on purpose, since a private set's name does
+  not belong in a public tree):
+  two sessions were live on these rules when this was found —
+  `claude/spawned-sessions-in-closing-list` in this repository and a pull
+  request in the individual set — and the rule itself lives in an individual
+  set this session cannot push to. Recorded here so the finding survives the
+  window that found it
+  ([findings-return-through-repo](practices/findings-return-through-repo.md)),
+  not as a claim about what the fix should be.
+
+  **What a fix would have to decide**, since it is not obvious: whether a
+  machine-opened turn should carry the closing list at all, or carry a short
+  form pointing at the last full one. Suppressing it entirely has a real cost
+  — the background turn is often the one carrying the result the person was
+  waiting for, and a turn that reports a red check with no closing list is
+  worse than one that repeats itself.
