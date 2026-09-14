@@ -742,6 +742,10 @@ retired it. Nothing is ever deleted.
   tools, and the run still records SUCCEEDED — so a scheduled job that reads
   the fleet quietly does nothing.** [story](record/GOTCHAS.md#g38)
 
+- **A session can push branches but cannot DELETE one on the remote: a 403
+  wearing a dropped-connection message, so it reads as a flake and a retry
+  says the same thing.** [story](record/GOTCHAS.md#g39)
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
