@@ -7777,6 +7777,174 @@ def check_compaction_offer_fires_on_context_growth():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_close_detection_fires_only_when_all_conditions_hold():
+    """precedent_close_detect.py: the noticing end of the engine, and every
+    one of its four conditions, each with the control that proves the
+    condition is doing the work.
+
+    Morgan, 2026-09-14, set all four: a merge happened, the reply closes as
+    ready to archive, one per session, and the signal came from this
+    session's own material. The failure this guards against is not a missed
+    detection -- it is a hook that fires on ordinary sessions and trains
+    everyone to ignore it.
+
+    Every case owns its own transcript (practice: fixture-owns-its-state).
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-close-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+
+        def transcript(name, turns):
+            """turns: [('user'|'assistant'|'tool', payload), ...], oldest first.
+            A 'tool' turn is an assistant turn carrying one Bash tool_use."""
+            path = tmp / name
+            lines = []
+            for kind, payload in turns:
+                if kind == 'user':
+                    rec = {'type': 'user', 'timestamp': '2026-09-14T12:00:00Z',
+                           'message': {'role': 'user',
+                                       'content': [{'type': 'text', 'text': payload}]}}
+                elif kind == 'tool':
+                    rec = {'type': 'assistant', 'timestamp': '2026-09-14T12:00:00Z',
+                           'message': {'content': [
+                               {'type': 'tool_use', 'name': 'Bash',
+                                'input': {'command': payload}}]}}
+                else:
+                    rec = {'type': 'assistant', 'timestamp': '2026-09-14T12:00:00Z',
+                           'message': {'content': [{'type': 'text', 'text': payload}]}}
+                lines.append(json.dumps(rec))
+            path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+            return path
+
+        def run(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_close_detect.py'),
+                 '--repo', str(fx)],
+                input=json.dumps({'transcript_path': str(path)}),
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        SAID = 'From now on always run the deep check before pushing.'
+        MERGED = 'git merge --no-ff feature-branch'
+        CLOSE = 'Done and merged.\n\n## Next Steps\n\n- **Nothing.**\n\nYou can archive this session.'
+        full = [('user', SAID), ('tool', MERGED), ('assistant', CLOSE)]
+
+        # The honest default, first: an engine with no declaration has no
+        # opinion about anybody's closing convention (rule-level-by-reach).
+        r0 = run(transcript('undeclared.jsonl', full))
+        cases.append(('with no close_detect.json declared, nothing is detected '
+                      'and nothing is blocked', r0.returncode == 0, r0.stderr[:200]))
+
+        (fx / 'close_detect.json').write_text(json.dumps({
+            'practice': 'fixture-close-detect',
+            'archive_ready_one_of': ['You can archive this session'],
+            'closing_heading_matching': 'next step',
+            'candidate_marker': 'Practice candidate',
+        }), encoding='utf-8')
+
+        r1 = run(transcript('all.jsonl', full))
+        cases.append(('all four conditions holding blocks the close',
+                      r1.returncode == 2, f'exit {r1.returncode}: {r1.stderr[:200]}'))
+        # control-asserts-which-failure: a non-zero exit is not evidence.
+        cases.append(('...and the message names the signal it found',
+                      'explicit-instruction' in r1.stderr, r1.stderr[:240]))
+        cases.append(('...and quotes what he actually said, so the session '
+                      'judges the evidence rather than the label',
+                      'deep check before pushing' in r1.stderr, r1.stderr[:240]))
+        cases.append(('...and says plainly that a one-off is a valid answer, '
+                      'because a hook that only accepts a candidate manufactures '
+                      'candidates', 'NOT A RULE' in r1.stderr, r1.stderr[:400]))
+        cases.append(('...and names the practice that asked for it',
+                      'fixture-close-detect' in r1.stderr, r1.stderr[:400]))
+
+        # Condition 1: a merge. "If there wasn't, we were just talking."
+        r2 = run(transcript('no-merge.jsonl',
+                            [('user', SAID), ('assistant', CLOSE)]))
+        cases.append(('a session that merged NOTHING is left alone, however '
+                      'much it said', r2.returncode == 0, r2.stderr[:200]))
+        # …and `git merge-base` is not a merge. The freshness guard runs one at
+        # the start of every session, so a pattern that counts it reports a
+        # merge on every session there has ever been.
+        r3 = run(transcript('merge-base.jsonl',
+                            [('user', SAID),
+                             ('tool', 'git merge-base HEAD origin/main'),
+                             ('assistant', CLOSE)]))
+        cases.append(('`git merge-base` is not a merge -- the check that '
+                      'separates the freshness guard from real work',
+                      r3.returncode == 0, r3.stderr[:200]))
+
+        # Condition 2: the session is closing as ready to archive. A session
+        # still in flight is one somebody is working in.
+        mid = 'Merged it.\n\n## Next Steps\n\n- **Keep going.**\n\nDon\'t archive this session.'
+        r4 = run(transcript('mid.jsonl', [('user', SAID), ('tool', MERGED),
+                                          ('assistant', mid)]))
+        cases.append(('a session that is NOT ready to archive is never '
+                      'interrupted with a suggestion', r4.returncode == 0,
+                      r4.stderr[:200]))
+
+        # Condition 3: the cap. One per session, not one per reply.
+        spent = [('user', SAID), ('tool', MERGED),
+                 ('assistant', 'Practice candidate: run the deep check first.'),
+                 ('assistant', CLOSE)]
+        r5 = run(transcript('spent.jsonl', spent))
+        cases.append(('a session that already offered one is not asked again '
+                      '-- the cap is per SESSION, not per reply',
+                      r5.returncode == 0, r5.stderr[:200]))
+
+        # Condition 4: there is actually something to offer. This is the case
+        # that keeps the mechanism from becoming filler -- the ordinary
+        # session, which is most of them.
+        quiet = [('user', 'Can you fix the typo in the README?'),
+                 ('tool', MERGED), ('assistant', CLOSE)]
+        r6 = run(transcript('quiet.jsonl', quiet))
+        cases.append(('an ordinary session with nothing to offer is silent, '
+                      'and is not asked to SAY it found nothing either',
+                      r6.returncode == 0, r6.stderr[:200]))
+
+        # The engine's own injected text is written in exactly the standing-
+        # rule phrasing the detector looks for, and it comes back through the
+        # transcript as a `user` record. Reading those as the person's words
+        # would fire this on every session forever.
+        injected = [('user', '<system-reminder>\nnever guess; always read the '
+                     'file first\n</system-reminder>'),
+                    ('tool', MERGED), ('assistant', CLOSE)]
+        r7 = run(transcript('injected.jsonl', injected))
+        cases.append(("a hook's own injected rule text is not mistaken for "
+                      'something the person said', r7.returncode == 0,
+                      r7.stderr[:200]))
+
+        # A gate that blocks the same reply twice is a loop.
+        r8 = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_close_detect.py'),
+             '--repo', str(fx)],
+            input=json.dumps({'transcript_path': str(transcript('again.jsonl', full)),
+                              'stop_hook_active': True}),
+            capture_output=True, text=True, cwd=str(tmp),
+            env={**os.environ,
+                 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+        cases.append(('a turn this hook already blocked is not blocked twice',
+                      r8.returncode == 0, r8.stderr[:200]))
+
+        # Blindness never blocks.
+        r9 = run(tmp / 'no-such-transcript.jsonl')
+        cases.append(('an unreadable transcript blocks nothing',
+                      r9.returncode == 0, r9.stderr[:200]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'close detection fires on all four conditions and on none of them '
+          f'alone ({len(cases)} stated cases, each with its control)',
+          not bad_cases,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
 def check_loader_tools_are_repo_relocatable():
     """precedent_show.py, precedent_paths.py, precedent_gate.py and
     build_views.py used to compute their working root as `pathlib.Path(
@@ -12680,14 +12848,31 @@ def check_vendor_engine_consumer_case():
         # vendor from committed HEAD, so between the rename and its commit the
         # refresh legitimately fails, and this line turned that into a total
         # outage (practice: fail-gracefully).
-        missing = [f for f in manifest.get('sha256', {})
+        # THE MANIFEST TO CHECK IS THE ONE ON DISK NOW, not the snapshot taken
+        # at line ~12486 before any of the refreshes above ran. Reading the
+        # stale copy asserted "the pre-refresh shas describe the post-refresh
+        # files", which is true only while the refresh changes nothing -- and
+        # went red the first time a commit actually changed an engine file
+        # (2026-09-14, adding precedent_close_detect.py to ENGINE_FILES),
+        # naming precedent_vendor_engine.py, which the refresh had correctly
+        # replaced and correctly re-recorded. The property worth checking is
+        # the engine's postcondition: whatever the manifest records, the file
+        # beside it matches (practice: fixture-owns-its-state).
+        current = json.loads(manifest_path.read_text(encoding='utf-8'))
+        missing = [f for f in current.get('sha256', {})
                    if not (consumer / 'tools' / f).is_file()]
-        mismatched = [f for f, h in manifest.get('sha256', {}).items()
+        mismatched = [f for f, h in current.get('sha256', {}).items()
                       if (consumer / 'tools' / f).is_file()
                       and hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
         cases.append(('every recorded sha256 matches the file actually written',
-                      bool(manifest.get('sha256')) and not mismatched and not missing,
+                      bool(current.get('sha256')) and not mismatched and not missing,
                       f'mismatched={mismatched} missing={missing}'))
+        # …and the tool that rewrites itself is covered by it, which is the
+        # one entry a stale read could never have caught.
+        cases.append(('…including the vendoring tool, which the refresh '
+                      'replaces with a copy of itself',
+                      'precedent_vendor_engine.py' in current.get('sha256', {}),
+                      f"recorded: {sorted(current.get('sha256', {}))[:4]}…"))
 
         # -- status(), run from the consumer's OWN vendored copy, against
         # this real checkout, finds zero drift right after seeding --
@@ -20136,6 +20321,7 @@ def main():
     check_gate_channel()
     check_reply_gate_sees_every_source()
     check_compaction_offer_fires_on_context_growth()
+    check_close_detection_fires_only_when_all_conditions_hold()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()

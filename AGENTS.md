@@ -172,7 +172,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 116 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 117 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -267,6 +267,8 @@ When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person:
   leak-gate-is-background — never relay a blocklist note or ask for a term; the deep review is its place
+When a merged session closes as ready to archive:
+  merged-session-offers-a-practice — one candidate at most, in the closing list, from this session's work
 When a message carries a standing merge-authorization phrase:
   go-merge — "Go merge"/"Approved": sync, branch, commit, push, PR, merge; blocked hands off
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
@@ -742,6 +744,10 @@ retired it. Nothing is ever deleted.
 - **A Routine that fires a FRESH session gets none of the session-management
   tools, and the run still records SUCCEEDED — so a scheduled job that reads
   the fleet quietly does nothing.** [story](record/GOTCHAS.md#g38)
+
+- **A session can push branches but cannot DELETE one on the remote: a 403
+  wearing a dropped-connection message, so it reads as a flake and a retry
+  says the same thing.** [story](record/GOTCHAS.md#g39)
 
 ## Working in this repo
 
