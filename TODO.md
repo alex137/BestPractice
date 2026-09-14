@@ -6481,41 +6481,62 @@ which is the failure this repointing exists to end — write
     the same honest gap [82](TODO.md#session-load-under-20k) recorded for the
     gotchas split. **Disposition:** parked (2026-09-14, closed as done)
 
-98. <a id="no-history-checks-unpushed"></a>**Two individual-set checks crash
-    on a repo with no commits; the fix is written and cannot be pushed from a
-    session rooted here.** `tools/checks/check_commit_author.py` and
-    `tools/checks/check_buenos_aires_dates.py` call `git log` with
+98. <a id="no-history-checks-unpushed"></a>**Two individual-set checks crashed
+    on a repo with no commits. CLOSED 2026-09-14 — they skip it now, saying
+    there is no history yet.** `tools/checks/check_commit_author.py` and
+    `tools/checks/check_buenos_aires_dates.py` called `git log` with
     `check=True`. An unborn HEAD makes git log exit 128, the
-    `CalledProcessError` escapes `find_violations()`, and
-    [tools/precedent_check.py](tools/precedent_check.py) prints the traceback
+    `CalledProcessError` escaped `find_violations()`, and
+    [tools/precedent_check.py](tools/precedent_check.py) printed the traceback
     as a VIOLATION of the practice itself. **A fresh install is exactly a repo
-    with no commits**, so every [INSTALL.md](INSTALL.md) §0 install hits both,
+    with no commits**, so every [INSTALL.md](INSTALL.md) §0 install hit both,
     and it is invisible from inside a practice set, which has years of
     history. Reported from the first real §0 install into a project with
     subject matter of its own, 2026-09-14.
 
-    The fix, reproduced and tested here: read the log through a
-    `_git_log_lines()` helper that drops `check=True`, and on a non-zero exit
-    raise the file's own `NotApplicable` — *"this repository has no commits
-    yet"* when `git rev-parse --verify --quiet HEAD` fails, *"not a git
-    repository"* when `rev-parse --git-dir` does, and otherwise what git
-    said. Each suite gets a two-direction case: the empty repo is SKIPPED
-    **and the message says "no commits yet"** (exit 2 alone would pass
-    against a skip for the wrong reason — that is also what a repo declaring
-    no identity gets), and the same fixture, once it carries one commit by
-    the declared person, runs clean. Both suites are green against it.
+    **What unblocked it** is the one thing it was waiting on: a session rooted
+    in the individual set. The git proxy refuses to inject a credential across
+    owners and `add_repo` refused the cross-owner add, so nothing rooted here
+    could ever push the fix — it had to be pushed from there, and on
+    2026-09-14 it was, as that set's pull request #130, *"A repository with no
+    commits skips these two checks instead of crashing"*, merged at `519d20f`
+    over `68da995`. The set is private, so there is no link to give.
 
-    **Blocked on:** a session rooted in the individual set. Same wall as
-    [`close-detect-declaration-unpushed`](TODO.md#close-detect-declaration-unpushed):
-    the git proxy refuses to inject a credential across owners (*"not in this
-    session's authorized repository set"*), and `add_repo` refused the
-    cross-owner add. The work exists as a local commit on
-    `claude/no-history-skips-cleanly` in a clone that dies with the
-    container; the paragraph above is the whole of it. Close this when a
-    fresh repo (`git init`, nothing committed) runs both checks and gets
-    SKIPPED rather than a traceback.
+    **What landed.** Both files read the log through a `_git_log_lines()`
+    helper that drops `check=True` and, on a non-zero git exit, raises the
+    file's own `NotApplicable` — SKIPPED, exit 2: *"this repository has no
+    commits yet"* when `git rev-parse --verify --quiet HEAD` fails, *"not a
+    git repository"* when `rev-parse --git-dir` fails, and otherwise git's own
+    stderr. **`--git-dir` is probed first**, because a directory that is not a
+    repository fails the HEAD probe too and would otherwise be told the wrong
+    cause. The helper is **duplicated verbatim in both files**, for the reason
+    those files already give at length: `precedent_materialize.py` copies only
+    the `check_*.py` scripts a practice's `checked_by:` claims, so a shared
+    helper module sitting beside them would never travel into a consuming
+    repo.
 
-    **Disposition:** ask (2026-09-14, the session that hit the refusal)
+    **Both suites got the two-direction case**, against a repository built
+    from nothing (`git init`) rather than a clone — a clone of that set
+    carries years of history and can never reach the condition. The empty repo
+    must exit 2 **and** the message must say "no commits yet" (exit 2 alone
+    would pass against a skip for the wrong reason — a repo declaring no
+    identity skips too); then the same fixture, once it carries one commit by
+    the declared person (name, email and zone read from the fixture's own
+    `identity.json` rather than written out a second time), must run **clean**
+    rather than stay skipped forever. Reproduced before and after rather than
+    reasoned about: an empty `git init` repo printed the `CalledProcessError`
+    traceback before the change and prints `SKIPPED: this repository has no
+    commits yet ...` after it. Both suites are green, that set's
+    `tools/checks/tests/run_all.sh` exits 0, and its `precedent_check.py`
+    reports 17 passed, 0 violated, 0 errored.
+
+    So this item's own closing condition — a fresh repo (`git init`, nothing
+    committed) runs both checks and gets SKIPPED rather than a traceback — is
+    met. **The sibling item is not:**
+    [`close-detect-declaration-unpushed`](TODO.md#close-detect-declaration-unpushed)
+    hit the same cross-owner wall, is a different fix, and stays open.
+
+    **Disposition:** parked (2026-09-14, closed as done)
 
 99. <a id="session-start-deepen-is-tentative"></a>**The session-start deepen is
     TENTATIVE — revisit whether every session should pay it.** Since
