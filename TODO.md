@@ -24,13 +24,20 @@ which is the failure this repointing exists to end — write
    the number to clear the red and names the alternative: delete what is
    duplicated, retire what cannot happen any more, split what is still live
    and still long. The registry's own `why` already says the next raise
-   should come with a reduction pass rather than another re-measurement, and
-   the gotchas section is the bulk of the file. Which of the two — a
-   reduction pass, or a deliberate raise with the reason recorded — is
-   Morgan's to pick; the practice's own text says an over-cap surface is a
-   session's cue to ask rather than choose. **No disposition set here: only
-   the person an item waits on may mark it `ask`, so this sits at the `wait`
-   default until Morgan says otherwise.**
+   should come with a reduction pass rather than another re-measurement.
+   **CLOSED 2026-09-14 — Morgan picked the reduction pass** (`strength:
+   decided`, from *"Let's do a reduction pass as you recommend"*), and the
+   ceiling was never raised. Two passes ran, deliberately separate: the
+   session that broke it cut the gotchas preamble, which spent three
+   paragraphs restating [environment-gotchas](practices/environment-gotchas.md)
+   that every session already loads in full in the resident block
+   (12,026 → 11,917, PR #357); then this one cut the quick index, where 14
+   rows had grown into abstracts of the documents they only need to point at
+   (11,917 → 11,538). Both cuts were duplication, not content — every fact
+   dropped was verified present in the file the row links to, or in this
+   file. **462 tokens of headroom now**, which is the real close condition:
+   a ceiling met exactly is one the next honest addition breaks, and that is
+   precisely how this happened.
 
 2. <a id="actions-as-enforcement-layer"></a>**Lean further into GitHub Actions as the enforcement layer.** The
    markdown-lint workflow ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)) proves
