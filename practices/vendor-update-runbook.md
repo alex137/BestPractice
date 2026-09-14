@@ -6,23 +6,36 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a message says \"Update Vendors\", or an upstream update is being taken into a repo that vendors a practice layer"
 gates:       ["merge"]
-index_clause: "\"Update Vendors\" -- refresh the source clone first; both layers move separately"
+index_clause: "\"Update Vendors\" -- source clone first, both layers move separately, then merge"
 checked_by:  null
 defines:     ["Update Vendors"]
-command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from."}
+command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, and publish the result -- the merge is part of the phrase."}
 status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-08"
-approved_by: "Morgan"
+approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
+  the merge as well as the update"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
 whole sequence below without asking again -- the same standing-phrase
 mechanism as [go-merge](go-merge.md), for the other operation a person
-otherwise has to spell out every time. It does NOT authorize merging or
-publishing what the update produces; that is still `Go merge`'s to give.
+otherwise has to spell out every time. **It carries the merge too**: when the
+sequence below is done, run [go-merge](go-merge.md)'s chain on what it
+produced -- say the target branch out loud, commit, push, open the pull
+request, merge -- without going back for a second authorization. That is step
+10, and it is part of the phrase rather than a separate grant.
+
+**This does not lift the gate the chain already runs through**, and it does
+not add one. `Go merge` publishes by the repository's usual conventions, and
+those are what decide whether a push may happen at all -- here, the full check
+that gates every push. Step 6 below IS that check, and it sits before the
+merge for that reason: a red check stops this merge exactly as it stops any
+other. What the phrase removes is the second question, not the gate. So a
+failing check is reported, with what failed, and nothing is published -- that
+is the sequence working, not a refusal needing permission to stand.
 
 A vendored tree is updated by a fixed sequence, in this order, because
 every step's answer is wrong if the one before it was skipped.
@@ -80,6 +93,12 @@ every step's answer is wrong if the one before it was skipped.
    does.
 9. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
+10. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
+    chain on the result and report which branch it landed on. The phrase
+    authorizes this step; do not stop at step 9 and ask. Every condition
+    `Go merge` carries still holds -- a branch the repository restricts is
+    still restricted, and a step this session cannot reach hands off rather
+    than coming back as a question.
 
 **A refusal naming a file that no longer exists upstream means reseed, not
 investigate.** The refresh runs *this repo's own vendored copy* of the
@@ -118,6 +137,21 @@ that moved `go-merge` and `park-it` up to universal: *"Let's use the phrase
 'Update Vendors' to trigger vendor-update-runbook."* It is plural on
 purpose -- a repo usually vendors more than one layer, and the step people
 skip is the second one.
+
+**Amended 2026-09-14, on Morgan's instruction**, to carry the merge:
+*"Also Update the definition of \"update vendors\" to include invoking go
+merge."* The sentence it replaced had said the opposite in as many words --
+that the phrase authorized the update and never the merge of what the update
+produced. **Strength:** decided (2026-09-14, Morgan)
+
+The original split was defensible and cost a step every time: an update that
+stops at a verified, unpushed tree is a job half-finished, and the person who
+typed one phrase to avoid being asked a question got asked one anyway, at the
+end, about work that was already done and already checked. **What the split
+was protecting is still protected, by the thing that was actually doing it:**
+step 6's full check, which runs before anything is published and is what a
+`Go merge` here would have run into regardless. Removing the sentence removes
+a second authorization, not a gate.
 
 **Asked for by Morgan, 2026-09-08**, after watching a session do this from
 memory across four repositories: *"maybe we define another phrase ... with

@@ -854,12 +854,84 @@ def _origin_slug():
     return m.group(1) if m else None
 
 
+def _practice_status_fields(path):
+    """-> (in_force, status, in_force_at) for a practice file, or None when
+    the file will not parse.
+
+    Fails CLOSED exactly as build_views.is_in_force does -- the test is for
+    `active`, never against a list of known withdrawn statuses -- so a status
+    this engine does not recognize counts as not in force rather than being
+    waved through."""
+    try:
+        fm, _sections = sp._read_practice_file(path)
+    except Exception:
+        return None
+    try:
+        import build_views as _bv
+        return (_bv.is_in_force(fm), _bv.practice_status(fm),
+                _bv._json_str(fm.get('in_force_at', '')) or '')
+    except Exception:                           # practice: fail-gracefully
+        # build_views travels in both ENGINE_FILES and CONSUMER_ENGINE_FILES,
+        # so this is a broken install rather than a supported layout. Read the
+        # two fields by hand rather than going silent, the same fallback the
+        # practices-are-reachable check above uses.
+        status = (fm.get('status') or 'active').strip('" ')
+        return (status == 'active', status,
+                (fm.get('in_force_at') or '').strip('" '))
+
+
+# A link to a sibling practice is only as good as that sibling's status, and
+# a link to one that is NOT in force is the shape no check in this system
+# could see. The target file is sitting right there in practices/, so every
+# local check passes; but precedent_resolve.resolve() drops any non-active
+# practice before materialize is handed the set, so the consumer receives the
+# LINKING file and never the LINKED one. The link therefore dies in the one
+# place nobody who could repair it is reading -- and it broke exactly that
+# way twice in one practice file, with neither the owning set's own checks
+# nor this one seeing either time (see this practice's ## Story).
+# practice: practice-links-travel
+def _sibling_not_in_force(pdir, base):
+    """-> a message naming why a link to this sibling practice does not
+    travel, or None when the sibling is in force and the link is sound."""
+    fields = _practice_status_fields(pdir / base)
+    if fields is None:
+        # A sibling that will not parse is the format check's finding, and
+        # catalogue-carries-stories' -- naming the LINKING file for a defect
+        # in the target would send the repair to the wrong file.
+        return None
+    in_force, status, target = fields
+    if in_force:
+        return None
+    try:
+        import build_views as _bv
+        engine, nowhere = _bv.IN_FORCE_AT_ENGINE, _bv.IN_FORCE_AT_NOWHERE
+    except Exception:                           # practice: fail-gracefully
+        engine, nowhere = 'engine', 'none'
+    head = (f'links `{base}`, which is `status: {status}` -- the resolver '
+            f'drops it before materialization, so this link is live here and '
+            f'dead in every repository that receives the catalogue')
+    if target and target not in (engine, nowhere):
+        return (f'{head}. That rule is in force as `{target}` -- link '
+                f'`{target}.md` instead')
+    if target == engine:
+        return (f'{head}. That rule was absorbed into the engine, so there is '
+                f'no practice file to link -- describe the behaviour instead')
+    if target == nowhere:
+        return (f'{head}, and it is in force nowhere -- drop the link and say '
+                f'in prose what it used to cover')
+    return (f'{head}, and it carries no `in_force_at:`, so nothing records '
+            f'where that rule went -- settle that before linking it')
+
+
 @check('practice-links-travel', 'tree',
        'every link in a practice file THIS repo owns either travels with the '
        "file (a sibling practice, a vendored engine file, this source's own "
        'tools/checks/ check script or tests/ test, which must exist here) or '
        'is an absolute URL into this repository on '
-       'its declared base_branch, naming a path that exists',
+       'its declared base_branch, naming a path that exists. A sibling link '
+       'from an ACTIVE practice must also point at one that is in force: a '
+       'withdrawn practice is not materialized, so a link to one resolves '
+       'here and nowhere else',
        'whether the target is the RIGHT file -- including the nastiest '
        'shape of this bug, a link like ../.claude/settings.json that '
        'RESOLVES in the consumer, to that consumer\'s own file rather than '
@@ -868,7 +940,12 @@ def _origin_slug():
        'link that travels today '
        'and stops travelling when a file leaves CONSUMER_ENGINE_FILES -- that '
        'shows up as a violation on the next run, not at the moment of '
-       'removal. It reads practices/ only: local/practices/ is read in place '
+       'removal. A withdrawn-sibling link BETWEEN two withdrawn practices '
+       'is not reported, deliberately: neither file is materialized, so '
+       'nothing a consumer receives is broken by it -- but only that finding '
+       'is suppressed, and the travel half above still reports a '
+       'non-travelling link in a withdrawn practice. '
+       'It reads practices/ only: local/practices/ is read in place '
        'here and never materialized, so its links travel nowhere and break '
        'nothing. It also cannot see a repo-local source in a CONSUMING repo, '
        'where materialization moves a practice up a directory and changes '
@@ -905,6 +982,11 @@ def _practice_links_travel(ctx):
     for path in owned:
         rel = str(path.relative_to(ROOT))
         text = path.read_text(encoding='utf-8', errors='ignore')
+        # Only an ACTIVE practice's sibling links are worth reporting: a
+        # withdrawn practice is not written into a consumer either, so a link
+        # from one to another breaks nothing anybody receives.
+        _own = _practice_status_fields(path)
+        linking_in_force = _own is None or _own[0]
         for lineno, target in _markdown_links(text):
             where = f'{rel}:{lineno}'
             if target.startswith(('mailto:', '#')):
@@ -929,7 +1011,13 @@ def _practice_links_travel(ctx):
             if not base:
                 continue
             if '/' not in base and (pdir / base).exists():
-                continue                        # a sibling practice file -- it travels
+                # It travels only if it is still in force -- see
+                # _sibling_not_in_force above.
+                withdrawn = (_sibling_not_in_force(pdir, base)
+                             if linking_in_force else None)
+                if withdrawn:
+                    out.append(Finding(where, withdrawn))
+                continue                        # a sibling practice file
             if base.startswith('../') and base[3:] in travel:
                 continue                        # a vendored engine file
             # A source's own check scripts travel too: materialize writes

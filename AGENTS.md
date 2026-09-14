@@ -80,8 +80,11 @@ practice file — `python3 tools/precedent_show.py SLUG` for any of them.
 - **"Update Vendors"**
   ([vendor-update-runbook](practices/vendor-update-runbook.md)) — the fixed
   sequence for taking an upstream update, starting with making the SOURCE
-  clone current against the pinned branch. It authorizes the update, not the
-  merge of what the update produces; that is still `Go merge`'s to give.
+  clone current against the pinned branch. **It carries the merge too**, since
+  2026-09-14 — its last step runs `Go merge`'s chain on what the update
+  produced, so nobody is asked a second time for work that is already done and
+  already checked. It reverses the sentence that used to sit here; the full
+  check at step 6 still gates the push, as it does for any merge.
 
 The three dispositions an open item can carry are
 [open-item-disposition](practices/open-item-disposition.md)'s; its one line is
@@ -263,7 +266,7 @@ When a leak gate, blocklist, or scrub result is in front of you, or you are abou
 When a message carries a standing merge-authorization phrase:
   go-merge — "Go merge"/"Approved": sync, branch, commit, push, PR, merge; blocked hands off
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
-  vendor-update-runbook — "Update Vendors" -- refresh the source clone first; both layers move separately
+  vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
   constants-are-risk-inputs — a constant nobody decided is a swept, registered input -- never doctrine
 When a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift:
