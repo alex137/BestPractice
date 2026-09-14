@@ -191,6 +191,68 @@ section covers git's and GitHub's own.
   remote branch it is paired with. For a *project*, the original repository
   yours takes updates from — which is what this project means by it.
 
+### The Files That Run Things
+
+These are not project content. They are the machinery a repository carries
+so that GitHub, git and your assistant know what to do — and they are the
+files most likely to go past unexplained, because everyone assumes you
+already know what they are.
+
+- **`.github/`** — a folder GitHub itself reads. Nothing in it is part of
+  what the project is *about*; it holds the files that tell GitHub how to
+  behave.
+- **Workflow** — a program GitHub runs for you, on its own machines, when
+  something happens in the repository. One file per workflow, under
+  `.github/workflows/`. The filename is whoever wrote it's choice:
+  [`docs.yml`](.github/workflows/docs.yml) here runs the markdown linter,
+  [`leak-gate.yml`](.github/workflows/leak-gate.yml) checks nothing private
+  is being published.
+- **GitHub Actions** — GitHub's name for the service that runs those
+  workflows, and for the tab where you watch them run.
+- **Continuous integration (CI)** — the general name for the idea: checks
+  that run by themselves on every change, instead of someone remembering to
+  run them.
+- **Trigger (a workflow's `on:` block)** — the lines at the top of a
+  workflow saying *when* to run it: on a push, on a pull request, on a
+  schedule, and on which branches. **This is the part that goes quietly
+  wrong.** A workflow pointed at the wrong branch still runs, still passes,
+  and covers nothing — and a green tick on the branch nobody uses looks
+  exactly like a green tick on the branch everybody does.
+- **Check (or "status check")** — one workflow's verdict on one commit: the
+  green tick or red cross beside it. A red one blocks nothing on its own
+  unless someone has switched on branch protection.
+- **Lint (a "linter")** — a program that reads your files and complains
+  about small mechanical faults — a link pointing at nothing, a character
+  that renders wrong — without understanding a word of what you wrote.
+  [`tools/doc_lint.py`](tools/doc_lint.py) is this project's. Until
+  2026-09-14 the workflow running it watched only `main` and pull requests:
+  push straight to the working branch, and the link checker didn't run.
+- **Hook** — a script that runs at a fixed moment on *your* machine rather
+  than GitHub's: before a commit, before a push, when a session starts. Same
+  idea as a workflow, one step earlier. This repository's live in
+  [.claude/hooks/](.claude/hooks/).
+- **Webhook** — GitHub's own hooks, and they point the other way: instead of
+  running something, GitHub *sends a message* to an address you gave it when
+  an event happens — a push, a comment, a check finishing. Nothing runs on
+  GitHub and nothing runs on your machine; a third thing is being told. It is
+  how a session finds out that a check went red without anybody watching the
+  page. Under a repository's Settings they are listed as **Webhooks**, and
+  older screens call them Hooks, which is where the collision with the entry
+  above comes from.
+- **`.gitignore`** — a list of files git should pretend are not there:
+  build output, scratch files, anything private. They stay untracked
+  forever unless someone deliberately overrides it.
+- **Template files** — [`.github/pull_request_template.md`](.github/pull_request_template.md)
+  and the files under [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) are text GitHub pre-fills into the box
+  when you open a pull request or an issue. A prompt to fill in, never a
+  rule that blocks anything.
+- **`CODEOWNERS`** — a file naming who has to review changes to which
+  paths. This is the one item here GitHub actually enforces, and only on
+  pull requests.
+- **YAML (`.yml`)** — the format all of the above configuration is written
+  in. Indentation carries meaning, so a wrong space is a real error rather
+  than untidiness.
+
 ## Knowing Your Work Actually Landed
 
 A published operation reports on *itself*, not on your intention, and the

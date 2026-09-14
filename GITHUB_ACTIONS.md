@@ -192,8 +192,11 @@ source set the two now look at the same three files, by the same
 coverage argument for keeping this workflow is gone.
 
 **What it still does is fire without being asked.** A vendored check runs
-when somebody types the command; this workflow is attached to
-`pull_request`. Nothing else in a source set runs
+when somebody types the command; this workflow is attached to `push`, on
+every branch — it was `pull_request` alone until 2026-09-14, which meant a
+session pushing straight to a source set's own branch, the normal way work
+lands in a private single-owner set, ran no check at all. Nothing else in a
+source set runs
 [precedent_check.py](tools/precedent_check.py) in continuous integration
 at all, so "the check runs natively now" and "the
 rule is gated" remain different claims, and only the second one is what a
