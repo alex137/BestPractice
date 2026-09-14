@@ -6186,55 +6186,82 @@ which is the failure this repointing exists to end — write
     passed, 0 violated" for the same change.
 
 94. <a id="close-detect-declaration-unpushed"></a>**The individual set's
-  `close_detect.json` is written and cannot be pushed from a session rooted
-  here.** Close detection
+  `close_detect.json` was written and could not be pushed from a session
+  rooted here. CLOSED 2026-09-14 — it is pushed, and close detection is
+  live.** Close detection
   ([tools/precedent_close_detect.py](tools/precedent_close_detect.py),
   built 2026-09-14) is inert until a source declares the phrases it fires
   on, and the source that carries Morgan's closing convention is his
   individual set — a different GitHub owner from this repository. The git
-  proxy refuses to inject a credential across owners (*"not in this
+  proxy refused to inject a credential across owners (*"not in this
   session's authorized repository set"*), and `add_repo` was denied here
-  too, so the declaration exists as a local commit on a branch named
-  `close-detect-declaration` in a clone that dies with the container.
+  too, so the declaration existed as a local commit on a branch named
+  `close-detect-declaration` in a clone that died with the container.
 
-  **Blocked on:** a session rooted in the individual set. The file's whole
-  content is in the reply that raised this, and in this item's own commit
-  message; it is five keys and no logic. Close this when
-  `python3 tools/precedent_close_detect.py --explain` names the individual
-  source from a fresh session here.
+  **What unblocked it, and the correction worth keeping.** The wall is not a
+  property of this repository — it is a property of a session's **authorized
+  repository set**. A session started with BOTH owners in scope reaches the
+  individual set and pushes to it normally, and one did on 2026-09-14,
+  landing this as that set's pull request #131. It measured the access
+  rather than assuming it, which is the only reason it looked at all: the
+  clone was present, its remote was the individual set, and a dry-run push
+  of a new branch was accepted. **So the thing to ask for is a session
+  scoped to both owners**, not a session "rooted in" the other one — the
+  phrasing this item and its sibling both used, which reads as though the
+  starting repository were what decides.
 
-  **Disposition:** ask (2026-09-14, the session that hit the refusal)
+  **What landed is five keys and no logic**, at that source's root and never
+  vendored: `practice`, `archive_ready_one_of`, `closing_heading_matching`,
+  `candidate_marker`, `why`. The phrase it declares is deliberately the same
+  one that set's `reply_check.json` already requires, so one sentence marks
+  both *this session is finished* and *a practice may be offered here*,
+  rather than adding a second convention that would go unused.
+
+  **The closing condition is met, measured from the clone a fresh session
+  actually reads** (not the editable one — see the gotcha about the
+  individual source resolving to a clone you are probably not editing):
+  after fetching that set's `main`, `python3
+  tools/precedent_close_detect.py --explain` prints
+  `individual/precedent-individual: ready-to-archive ['You can archive this
+  session'], one candidate per session marked 'Practice candidate', in the
+  /next step/i section`, where it previously said no source declares a
+  `close_detect.json`.
+
+  **Disposition:** parked (2026-09-14, closed as done)
 
 95. <a id="one-unrelated-item-at-the-close"></a>**`closing-items-are-this-thread`
-    forbids every unrelated item; Morgan asked for exactly one, and only at
-    the close.** Asked for 2026-09-14, in his own words: *"please only give me
-    ONE to-do that is unrelated to the issue, and ONLY do that when the issue
-    is done (when you are about to say it's ready to be archived), and make it
-    the issue most important in your opinion AND (importantly) label clearly
-    that this is UNRELATED to the thread."* **Strength:** decided (2026-09-14,
+    forbade every unrelated item; Morgan asked for exactly one, and only at
+    the close. CLOSED 2026-09-14 — the amendment is in the practice file.**
+    Asked for 2026-09-14, in his own words: *"please only give me ONE to-do
+    that is unrelated to the issue, and ONLY do that when the issue is done
+    (when you are about to say it's ready to be archived), and make it the
+    issue most important in your opinion AND (importantly) label clearly that
+    this is UNRELATED to the thread."* **Strength:** decided (2026-09-14,
     Morgan).
-    **Why the current rule is not quite right.** It reads *"close on this
-    thread's own work and nothing else — an unrelated suggestion sends me to a
-    window already doing it"*, and the reasoning holds: an unrelated item
-    dropped mid-thread competes with the thread. But a blanket ban also loses
-    the one case where a session is the only thing that has seen a problem,
-    and the person asking "anything else?" gets told no.
-    **The amendment, in full, for whoever lands it:**
-    > **One unrelated item is allowed, and only one.** It appears in the
-    > `## Next Steps` section of the reply that closes the thread — the same
-    > reply that says the session can be archived — never earlier, never twice,
-    > and never as a second-best filler when the thread's own work is
-    > unfinished. It is labelled with the words **"Unrelated Todo item to
-    > consider:"** so it cannot be mistaken for this thread's business, and it
-    > is the single most important one the session knows of, chosen rather than
-    > collected. Everything else stays in the repository, where the person will
-    > meet it when they are working on that thing.
-    **Blocked on / out of scope here:** `closing-items-are-this-thread` lives
-    in `precedent-individual`, a repository under a different owner.
-    `add_repo` refuses cross-owner and `git push` returns 403 from the git
-    proxy — both established by measurement, not assumed. A session rooted in
-    that set lands it; this one cannot. Recorded here so the wording survives
-    the window that produced it.
+    **Why the old rule was not quite right.** It read *"close on this thread's
+    own work and nothing else — an unrelated suggestion sends me to a window
+    already doing it"*, and the reasoning holds: an unrelated item dropped
+    mid-thread competes with the thread. But a blanket ban also lost the one
+    case where a session is the only thing that has seen a problem, and the
+    person asking "anything else?" gets told no.
+    **What landed.** The amendment is now the practice's own Rule, transcribed
+    unchanged from the blockquote this item used to carry, with the exchange
+    above in its Story: one unrelated item, only in the `## Next Steps`
+    section of the reply that says the session can be archived, labelled
+    **"Unrelated Todo item to consider:"**, chosen rather than collected. It
+    is a `gates: ["reply"]` practice with no mechanical check, for the reason
+    its Install section gives — the subject is the conversation transcript,
+    and the correct outcome is the *absence* of a paragraph.
+    **The item was already stale when it was read.** Its blocked-on paragraph
+    said a session rooted in that set lands it and this one cannot; a
+    different window holding that repository had landed it the same day, at
+    12:05 −03:00, hours before this item was next opened. That is the
+    mechanism working as intended — the wording was preserved here precisely
+    so another window could land it, and one did — but it is also why
+    [item-closes-on-its-condition](practices/item-closes-on-its-condition.md)
+    says to check the condition rather than re-read the item's own
+    description of the world.
+    **Disposition:** parked (2026-09-14, closed as done)
 
 96. <a id="applies-to-sprawl"></a>**The path-trigger channel prints a wall of
     rules for markdown and almost nothing for code, and a consuming repo
