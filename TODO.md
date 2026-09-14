@@ -5622,12 +5622,86 @@ which is the failure this repointing exists to end — write
   `templates/github-actions/` entry that would put the mechanism back in the
   one place 2026-09-06 decided it should not live.
 
-  **What is left to decide is one word, and it is Morgan's:** whether a
+  **What was left to decide was one word, and it is Morgan's:** whether a
   `precedent-team-*` set counts as "a practice-set repo of mine" under the
   individual practice that requires this workflow. If it does, that practice
   wants one word widened and three repositories are out of compliance with a
   rule approved 2026-09-06. If it does not, the team level needs a rule of its
   own. The mechanism is right either way; only its level is open.
+
+  **DECIDED 2026-09-14 — the workflow goes into the three team sets.** Morgan
+  approved a four-part recommendation as written, so
+  **strength: assented (2026-09-14, Morgan)** on all four: the substance was
+  the session's proposal and he took it rather than choosing between options
+  he framed himself ([decision-strength](practices/decision-strength.md)).
+
+  1. **Install it in the three team sets — yes.** On the ground that the
+     workflow is proven healthy above, not on an assumption that it is.
+  2. **Daily instead of weekly — NO, withdrawn.** Weekly fires correctly; the
+     leak is at the landing step, and a faster cron only produces more pull
+     requests nobody lands.
+  3. **Auto-merge on green — NO, withdrawn.** It would reverse a decision
+     recorded and approved 2026-09-06 (*the workflow never merges; landing it
+     is his call*), and the session proposed it without noticing that, on a
+     reason that turned out to be wrong: the 2026-09-06 incident was NO
+     CHANNEL AT ALL, not an unlanded pull request. The two abandoned branches
+     above are a real argument for revisiting it, and a different one — his to
+     open, not a session's to slip in.
+  4. **A `templates/github-actions/` entry — NO, withdrawn**, for the reason
+     in the paragraph above it.
+
+  **The individual set needs nothing: it already has the workflow.** Asked and
+  answered rather than assumed — it is the one set of the four that has
+  carried `.github/workflows/engine-refresh.yml` since 2026-09-06, and the two
+  scheduled runs measured above are its own.
+
+  **STILL OPEN, and it cuts against decision 4 above:** Morgan asked, in the
+  same message that approved that withdrawal, whether the workflow should go
+  into the templates *"so they go into future ones"*. Those cannot both hold,
+  so decision 4 stands as approved and this is recorded as the live fork
+  rather than resolved by reading his question as an instruction. **Three ways
+  out, and the third is the session's recommendation:** put it in
+  `WORKFLOW_TEMPLATES` (every adopter inherits a weekly cron — the exact thing
+  2026-09-06 refused); leave it where it is and copy by hand into each new set
+  of his (today's behaviour, and how three sets came to be missing it);
+  **or ship the template and gate it behind an opt-in flag on
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)**,
+  so a set gets it when somebody asks for it and never by inheritance. The
+  third keeps 2026-09-06's reasoning intact — nobody inherits a cron they did
+  not choose — while ending the hand-copy. It also means publishing a file
+  that currently lives only in a private set, which is a
+  [scrub-gate](practices/scrub-gate.md) question and not a formality.
+
+  **A SEPARATE CHANGE, RECOMMENDED 2026-09-14: the workflow should close its
+  own superseded pull requests.** Raised by another session and endorsed here
+  on the evidence this item already carries. The workflow reuses and closes a
+  single staleness ISSUE, and the practice states why in its own Detail — an
+  open issue must mean *stale right now* rather than *was stale once*, or the
+  channel becomes litter inside a month and gets muted. **Its pull-request
+  path has no equivalent.** It checks only whether a pull request is open for
+  the branch it is about to push, so every earlier run's pull request stays
+  open claiming an engine gap that a later run has already closed. Two
+  abandoned branches are the state above; the cost is live as well, in a
+  session sitting blocked on *"PR #126 — should delete or keep?"* between two
+  refresh pull requests from different runs. **A person arbitrating superseded
+  refresh pull requests by hand is the failure the issue path was built to
+  prevent, arriving through the other channel.**
+
+  **What the step has to get right**, since "close the old ones" is broader
+  than it sounds: close only pull requests **this workflow opened** — branches
+  matching `precedent/engine-refresh-<sha>`, never the bare
+  `precedent/engine-refresh` that
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  writes from a session — and comment naming the superseder before closing, as
+  the issue path already does. Whether the superseded BRANCH is deleted too is
+  a smaller question with an easy answer (it is reproducible from upstream at
+  any time), but it is a second change, not part of this one.
+
+  **Scope:** `precedent-individual` only — it is the sole carrier — and a
+  session rooted there does it. Whether the three team sets get the fixed
+  version or the current one depends on the ordering of that work against
+  decision 1 above; the fixed one is obviously preferable and neither blocks
+  the other.
 
 91. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
   wrong repo when vendored, and five more have not been checked.** Fixed
