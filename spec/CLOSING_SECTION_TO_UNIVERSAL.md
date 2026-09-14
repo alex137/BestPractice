@@ -98,18 +98,22 @@ declaration — and not a reason to hold this move.
 
 ## The payoff worth collecting in the same pass
 
-**Close detection is currently switched off for everyone, and this move
-switches it on.** [merged-session-offers-a-practice](../practices/merged-session-offers-a-practice.md)
+**Close detection is on for this project and off for every adopter, and this
+move switches it on for them too.**
+[merged-session-offers-a-practice](../practices/merged-session-offers-a-practice.md)
 fires only when a source declares a `close_detect.json` naming its
-ready-to-archive sentence. No source does: the declaration for this project's
-own use sits unpushed in a repository under a different owner, which is
-[TODO.md's `close-detect-declaration-unpushed` item](../TODO.md#close-detect-declaration-unpushed).
+ready-to-archive sentence. Since 2026-09-14 one source does — Morgan's
+individual set, whose declaration landed once a session holding both owners
+could push it
+([TODO.md's `close-detect-declaration-unpushed` item](../TODO.md#close-detect-declaration-unpushed),
+now closed). Nobody else's does, and nothing tells them to.
 
 **Once the sign-off sentence is universal, that file can be universal too** —
-declared in this repository, next to `reply_check.json`, reachable by every
-adopter, and the blocked item closes on its own stated condition. Do it in the
-same pull request; the content is five keys and the practice's `## Install`
-section carries it verbatim.
+declared in this repository, next to `reply_check.json`, so an adopter gets
+close detection by installing Precedent rather than by knowing to write five
+keys. Do it in the same pull request; the practice's `## Install` section
+carries the content verbatim, and the individual set's copy then becomes the
+override case rather than the only one.
 
 ## Before opening the pull request
 
