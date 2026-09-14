@@ -6720,3 +6720,31 @@ which is the failure this repointing exists to end — write
     grows its own API-calling tool and needs the module sooner.
 
     **Disposition:** wait (2026-09-14, the session that added the practice)
+
+101. <a id="build-audience-dirs-still-vendor"></a>**Three more directories whose audience is "someone building Precedent"
+    still vendor, and only `philosophy/` was cut.** Added 2026-09-14, when
+    Morgan asked why the vendoring instructions were shipping `philosophy/`
+    to adopters at all. The answer generalizes further than the fix did:
+    [spec/DOCUMENT_LIFECYCLE.md](spec/DOCUMENT_LIFECYCLE.md)'s placement
+    table sorts directories by audience, and it puts [spec/](spec/),
+    `record/` and [decisions/](decisions/) under *"a contributor or session
+    building Precedent"* — the same audience test that took `evals/` out in
+    the first place, and the same one that took `philosophy/` out now. An
+    adopter vendors all three today and reads none of them.
+
+    **Blocked on:** a judgment about the links, which is why this was left
+    out of the change that prompted it rather than swept in. `philosophy/`
+    is linked from a handful of vendored files and nothing more;
+    [spec/](spec/) is cited dozens of times from the vendored
+    [INSTALL.md](INSTALL.md) itself, and cutting it turns this repo's own
+    install instructions into a document that points repeatedly at a
+    directory the reader does not have. [tools/doc_lint.py](tools/doc_lint.py)
+    skips the link check inside a mirrored tree, so nothing would go red —
+    which makes this worse, not better: the dead links would be invisible
+    to every gate and visible to every reader. Either rewrite those
+    citations as absolute upstream URLs first (the same move
+    [practice-links-travel](practices/practice-links-travel.md) already
+    makes for the catalogue), or decide `spec/` earns its passage and cut
+    only `record/` and `decisions/`.
+
+    **Disposition:** wait (2026-09-14, the session that cut `philosophy/`)
