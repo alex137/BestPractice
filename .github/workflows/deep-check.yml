@@ -1,0 +1,89 @@
+name: Deep check
+
+# The three tools AGENTS.md's own "deep check" gate suite names besides
+# doc_lint.py (Documentation checks) and leak_gate.py (Leak gate), both
+# already their own workflows. Until now, none of these three ran in CI at
+# all -- they were session discipline only (AGENTS.md: "deep check is the
+# full gate suite run before push or merge"), and TODO.md's own item 1
+# already named the gap ("required CI checks bind every path to the
+# default branch [...] runbook gates bind only sessions that run the
+# runbook"). A 2026-09-03 deep-check audit found two critical,
+# reproduced bugs and three other real gaps sitting in exactly this
+# territory -- verify_harness.py, precedent_check.py -- none of which a
+# passing doc_lint/leak_gate run would ever have caught, on a branch
+# whose own merges are all green. This closes that: the same three tools
+# a session is already supposed to run before every push or merge, now
+# bound to every push, on every branch.
+#
+# Runs on every branch, not just main -- same reasoning as leak-gate.yml:
+# on this project the branch IS the published artifact.
+
+on:
+  # push only, and deliberately so. `pull_request:` sat here from this
+  # file's first commit (2236a94, copied wholesale from leak-gate.yml
+  # along with the every-branch scope above) and fired a SECOND run of
+  # every push on any branch with an open PR: same SHA, 2-37 seconds
+  # apart. Measured 2026-09-07 over 13 fully paired runs from 2026-09-06
+  # -- the pair never once disagreed, including two pairs that failed
+  # together. That is structural rather than luck: the push run tests the
+  # branch tip, the pull_request run tests head-merged-into-base, and
+  # those are the same tree whenever the branch is current with its base,
+  # which the habit of merging the base branch in keeps true here.
+  # Nothing is lost from the PR's own view -- check runs attach to the
+  # head SHA whatever event produced them, so this workflow still reports
+  # on the PR -- and the merge commit gets its own run on the base branch
+  # afterwards, which is the only run that tests what actually landed.
+  #
+  # PUT `pull_request:` BACK IF A PR EVER ARRIVES FROM A FORK. A fork's
+  # pushes do not fire `push` in this repo, so pull_request would be the
+  # only trigger that could run this check on it, and such a PR would go
+  # unchecked. Every PR to date (#83-#123, checked 2026-09-07) came from
+  # a branch inside this repo, and the documented check-in flow keeps it
+  # that way: INSTALL.md sec.4 has a dependent repo push its branch HERE
+  # from a dual-repo session, because a single-repo session cannot write to
+  # this repo at all -- it does not fork. So the fork case is an outside
+  # contributor on a public repo, not the check-in path this repo expects.
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deep-check:
+    name: verify_harness + precedent_check + doc_sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # Full history, not the actions/checkout default (fetch-depth: 1).
+          # precedent_check.py's parallel-artifact-ledger (scope 'tree') walks
+          # `git log --no-merges -- <member-dir>` across this repo's real
+          # history; on a depth-1 checkout that history isn't there to walk,
+          # and a check finding nothing to flag is indistinguishable from one
+          # that had nothing wrong to find -- see AGENTS.md's own
+          # "scope: 'tree' check... false pass on an under-fetched clone"
+          # gotcha, confirmed for real here: this workflow ran with no
+          # fetch-depth set (so depth 1) from the day it was added, and
+          # parallel-artifact-ledger was silently red on every push until
+          # this fix -- the check simply never had enough history to run
+          # for real, on `main` or any branch, until now.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Markdown parser
+        run: python -m pip install cmarkgfm markdown
+
+      - name: Run the verification harness
+        run: python3 tools/verify_harness.py
+
+      - name: Run precedent_check.py
+        run: python3 tools/precedent_check.py
+
+      - name: Run doc_sync.py
+        run: python3 tools/doc_sync.py

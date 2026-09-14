@@ -1,0 +1,1 @@
+{"slugs": ["quote-discipline"], "reasoning": "The task compresses a vendor's benchmark quote into one release-notes sentence, and the shown diff already drops the qualifiers ('approximately', 'measured under our standard synthetic load profile', 'results vary by workload') that must travel with the 30% figure -- exactly the quote-discipline occasion."}

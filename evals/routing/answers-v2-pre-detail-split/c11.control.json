@@ -1,0 +1,1 @@
+{"slugs": ["session-bootstrap", "doc-references-are-links"], "reasoning": "The change literally extends session-bootstrap's own principle (a hook, not agent memory, guarantees the behavior) to the stop end of a turn, and the new prose in templates/harness/README.md and PRACTICES.md adds proper relative markdown links to the new hook file rather than bare filenames."}

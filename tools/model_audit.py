@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """model_audit -- run each computing script's self-assertions, and check the
-figures its authoritative source documents recite (practice 30).
+figures its authoritative source documents recite (practice: scripts-assert-properties).
 
 The failure mode this kills is NOT a stale copy, and that is the whole point.
 In the incident that produced this tool, a script published results out by a
@@ -14,7 +14,7 @@ does not scale.
 
 So the check that matters is not "do the numbers match" but "does the output
 satisfy the properties it must satisfy". And the edge that mattered was not
-document-vs-script (practice 19's sync gate covers that, and it faithfully
+document-vs-script (computed-numbers-in-scripts' sync gate covers that, and it faithfully
 published the wrong number) but SCRIPT-VS-SOURCE-DOCUMENT: the authoritative
 document recited the correct figure for exactly the case the script got wrong,
 and nothing compared them. The most carefully reasoned documents in a repo are
@@ -60,6 +60,7 @@ ignores everything else.
 
 import argparse
 import io
+import pathlib
 import importlib.util
 import sys
 import traceback
@@ -75,12 +76,18 @@ def find_root(start):
 
 
 ROOT = find_root(__file__)
+# Where this file physically sits -- <repo>/tools/ in a loader install,
+# <repo>/process/upstream/tools/ in the classic vendoring one. See the
+# INSTRUMENTED loop for why the difference matters.
+HERE = Path(__file__).resolve()
 
 # Scripts expected to carry self_check() and/or ANCHORS: those that consume or
 # re-derive a quantity owned by another script or recited in an authoritative
 # source document. Add a script here when it starts depending on a derived
 # quantity it does not itself own.
 INSTRUMENTED = [
+    # Re-derives the catalogue figures that spec/ and the plan recite.
+    "tools/catalogue_stats.py",
     # "scripts/some_model.py",
     # Add a script here when it starts consuming or re-deriving a quantity
     # another script or an authoritative document owns.
@@ -110,10 +117,11 @@ def load(path: Path):
 
 
 # ---------------------------------------------------------------------------
-# Undecided-constants guard (practice 54). A module-level constant in an
-# instrumented script whose attached comments claim a settled status must
-# be named in the host's constants register (as a risk input, a banded
-# setting, or an explicit exclusion) or carry '# doctrine-ok: <reason>'.
+# Undecided-constants guard (practice: constants-are-risk-inputs). A
+# module-level constant in an instrumented script whose attached comments
+# claim a settled status must be named in the host's constants register (as
+# a risk input, a banded setting, or an explicit exclusion) or carry
+# '# doctrine-ok: <reason>'.
 # Hosts set CONSTANTS_REGISTER to the register's repo-relative path; left
 # None, the check is skipped.
 CONSTANTS_REGISTER = None
@@ -173,9 +181,19 @@ def main():
     failures.extend(check_constants_register())
 
     for rel in INSTRUMENTED:
+        # Two layouts. In the classic vendoring install this file sits at
+        # <repo>/process/upstream/tools/, ROOT is the CONSUMING repo's
+        # root, and the upstream scripts this list names live beside this
+        # file rather than at <repo>/tools/ -- so a vendored copy reported
+        # every entry of its own inherited list as MISSING, in every
+        # dependent repo, forever. Fall back to the tree this file was
+        # vendored with before calling an entry absent.
         path = ROOT / rel
         if not path.exists():
-            failures.append(f"MISSING: {rel} listed in INSTRUMENTED but absent")
+            path = HERE.parent / pathlib.PurePath(rel).name
+        if not path.exists():
+            failures.append(f"MISSING: {rel} listed in INSTRUMENTED but absent "
+                            f"from both {ROOT} and {HERE.parent}")
             continue
         mod, err = load(path)
         if err:
@@ -229,6 +247,14 @@ def main():
         print("An anchor failure means a script and a source document disagree. "
               "Resolve it — do not refit the anchor to silence it.")
         return 1
+    if not INSTRUMENTED:
+        # "OK: 0 instrumented script(s)" is the confident all-clear from a
+        # check that never ran -- the failure mode this repo has now been
+        # bitten by four times. Nothing was inspected, so nothing passed.
+        print("model_audit NOT APPLICABLE: INSTRUMENTED is empty, so no script "
+              "was inspected. This is not a pass — instrument the scripts that "
+              "re-derive a quantity another script or document owns.")
+        return 0
     print(f"model_audit OK: {checked} instrumented script(s), "
           f"{anchors_ok} figure(s) recited in source documents verified, "
           f"{len(warnings)} warning(s).")

@@ -1,4 +1,4 @@
-<!-- Template: instantiate per BestPractice INSTALL.md §1 as
+<!-- Template: instantiate per Precedent INSTALL.md §1 as
      .github/pull_request_template.md — GitHub picks it up automatically
      for every PR opened against this repo. Copy verbatim; nothing here
      needs adapting to the project's subject matter.
@@ -8,7 +8,7 @@
      PR — never check a box, or write N/A across every field, just to make
      the form look complete. A checklist filled in mechanically looks like
      verification and isn't; that defeats the entire point of having one
-     (practice 39 in PRACTICES.md). -->
+     (practice `pr-template-honest-gates` in PRACTICES.md). -->
 
 ## What changed
 

@@ -1,0 +1,14 @@
+{
+  "positive": {
+    "scenario": "A dependent repo's session is preparing a check-in PR that vendors a newly abstracted pattern into the shared upstream tree. While drafting the pattern description, the author starts to include a snippet from the original incident log for context, then catches themselves and rewrites it to describe only the general shape of the problem. Before opening the PR, they run the scrub check against their private blocklist to make sure nothing slipped through. The reviewer on the public side will also re-scan the vendored files once the PR lands.",
+    "files": ["process/upstream/patterns/incident-response-pattern.md", "process/scrub_blocklist.txt"]
+  },
+  "negative": {
+    "scenario": "A team is setting up a brand-new internal tooling repository from scratch and wants its process folder to mirror the public upstream's layout for consistency. Since this new repo is itself private and has no public counterpart yet, they copy over the directory structure and start writing internal runbooks with real service names and ticket numbers directly into it. Someone asks whether the wording needs to be abstracted before committing, but since nothing here is ever pushed to a public remote, the team just documents things plainly for their own future reference.",
+    "files": ["process/upstream/runbooks/deploy-rollback.md", "process/README.md"]
+  },
+  "adversarial": {
+    "scenario": "A contributor is fixing a broken markdown link in what they think is just a stale cross-reference file that happens to live under the vendored pattern directory of the public upstream repo. While updating the link they notice the surrounding paragraph still references the old ticket number and internal service alias from when the file was first migrated over months ago, and figure it's fine to leave since the PR is only about the link. The repo is public and always has been, and this file has apparently carried that identifier since its very first commit here.",
+    "files": ["process/upstream/patterns/deploy-failure-pattern.md"]
+  }
+}

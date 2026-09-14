@@ -1,0 +1,7 @@
+{
+  "slugs": [
+    "mistakes-become-rules",
+    "cite-the-incident"
+  ],
+  "reasoning": "A bug found by walking the full guard cycle end-to-end is root-caused and fixed with the lesson recorded inline in the code comment, rather than just patched silently."
+}

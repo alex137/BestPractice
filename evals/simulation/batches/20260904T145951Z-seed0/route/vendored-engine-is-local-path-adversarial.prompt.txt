@@ -1,0 +1,164 @@
+<!-- BEGIN GENERATED: precedent-loader -->
+
+<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block, tools/verify_harness.py's regeneration check fails on drift. -->
+
+### Resident block (~312 of 2000 token budget, 6 of 59 practices (6 universal))
+
+**environment-gotchas.** Every expensive environment discovery (a package that must be
+installed, a tool that silently doesn't work, a path that does work) is
+written into a "do NOT rediscover these" section — with the story of what
+failed and why, not just the fix.
+
+**orientation-map.** A top-level `MAP.md` indexes the repo: what the key deliverables
+are, where everything lives, and — crucially — which supporting documents back
+each part of each deliverable. Every session reads it before doing anything.
+
+**quick-index.** The project instructions file carries a "check here BEFORE searching
+the repo" table: *looking for X → go to Y*, one row per thing sessions
+actually hunt for.
+
+**reply-links-files.** A session's reply that created or modified files ends with a
+"Files touched" list: each entry links the file on the working branch *and*
+its post-merge location, with a one-line description. The reader must be able
+to open the work from the chat, not merely learn it exists.
+
+**repo-is-memory.** Everything a future session needs — orientation, open items,
+decisions, lessons — lives in committed files. A session's chat thread is
+disposable; if knowledge exists only in a thread, it is already lost.
+
+**verify-postcondition.** After any state-changing operation, check **the state you wanted**,
+not that the command reported success. Name the postcondition before you run
+the command — *"no unpushed commits on any branch"*, *"the gate passed"*,
+*"the file contains X"* — and then test that, independently of whatever the
+command printed.
+
+### Occasion index
+
+```
+When a change must propagate across several parallel artifacts:
+  parallel-artifact-ledger — ledger the transfer verdict per member, per change
+When a computation books a transfer between two parties:
+  name-both-sides-of-ledger — name both sides; check what is charged against what is received
+When a convention is violated for the first time:
+  convention-to-audit — promote a costly broken convention to a script that exits non-zero
+When a document presents a script-derived figure:
+  docs-track-models — every script-derived figure sits inside a generated block
+When a document replaces or is replaced by an earlier one:
+  index-remembers-past — put the lineage in the index, not in either document
+When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
+  full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
+When a practice lands or a candidate is raised, at any level:
+  disclose-landing — state plainly what happened and where — individual, named team, or universal
+When a review finds a defect:
+  mistakes-become-rules — root-cause the miss, then encode the prevention
+When a tool warns about already-published git history:
+  no-rewrite-for-warnings — fix the setting forward; never rewrite published history
+When an install step adds something GitHub-specific:
+  github-setup-disclosed — disclose GitHub-specific setup where the project's people read
+When building a mechanism that makes something discoverable or reachable:
+  affordance-is-shared — name who else the mechanism you just built now serves
+When building a permutation or configuration-sweep table:
+  permutation-frontier-column — one full table with a computed Frontier column
+When building a variant of an existing thing:
+  variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
+When building or committing a generated artifact:
+  generated-artifact-provenance — stamp a build code and a manifest; never hand-edit output
+When checking whether the practices that should have fired for recent work actually fired:
+  routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
+When committing anything that touches the vendored/public tree:
+  scrub-gate — the public tree is public-safe at all times, not just at check-in
+When comparing an option against a baseline:
+  check-source-architecture — check both options exist in the source before costing them
+When deciding where a new rule belongs:
+  layered-practice-packs — generic, domain, repo-local — each rule to its own layer
+When deciding whether to build or buy a component:
+  build-buy-decompose — decompose first; one verdict per part, on ownership grounds
+When exporting a tool across a repo boundary:
+  vendored-engine-is-local-path — one vendored engine, thin host shims — here, under vendor/precedent-engine/
+When finishing a substantial work-product, before the merge-time capture gate:
+  second-pass-capture — a separate capture pass after the work, not inside it
+When merging a branch:
+  capture-gate — capture the follow-on work in the thread that created the need
+When merging a branch that improved a generic practice:
+  practice-export-loop — vendor upstream as tracked files; check improvements back in
+When merging a branch that touches shared files:
+  merge-runbook — write conflict resolution per file class, once, then follow it
+When migrating a repo off an old practice system onto Precedent:
+  migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
+When naming a new file:
+  no-version-suffix — name a file for what it is; the repository is the version
+When naming what "run the checks" means in a repo:
+  two-check-levels — name a fast check and a full check; say which gates what
+When ordering sections in a document:
+  section-order-by-frequency — order sections by how often the reader needs them
+When printing a numeric quantity that will be compared across rows:
+  one-formatter-per-quantity — one formatter per quantity kind, declared in one module
+When publishing a document with a multi-column sortable table:
+  tabular-shared-renderer — ship a sortable render from the one shared renderer
+When quoting or compressing someone else's figures:
+  quote-discipline — compression rounds against you; qualifiers travel with the figure
+When reporting a computed total or a negative feasibility result:
+  verify-decomposition — check the parts, not the total; never assert an impossibility
+When setting up a new repo's session start:
+  session-bootstrap — setup lives in a session-start hook, not in memory
+When starting an outward-facing deliverable:
+  frame-from-audience-question — build it around the audience's question, not your material
+When starting work the repository may already cover:
+  search-by-purpose — search by purpose and by mechanism before concluding nothing exists
+When the user gives a standing merge instruction:
+  merge-authorization-keyword — one fixed word means "merge as agreed"; document it exactly
+When tracking state that multiple documents need to agree on:
+  registry-source-of-truth — state lives in one machine-readable registry; documents derive
+When writing a README or other project-facing entry document:
+  lead-with-what-it-is — say what the project is before how it is maintained
+When writing a document that cites a computed number:
+  computed-numbers-in-scripts — computed content lives in a sync-gated generated block
+When writing a new convention or rule:
+  checkable-gets-checked — attempt a mechanical check before leaving a new practice advisory-only
+  cite-the-incident — record the failure a rule prevents, inline with the rule
+When writing a reader-facing deliverable with supporting apparatus:
+  deliverables-look-like-output — the deliverable holds only what its audience needs
+When writing a rule that depends on the outside world:
+  volatile-rules-carry-dates — a rule about the outside world carries its date, inline
+When writing a script whose numbers a document will cite:
+  scripts-assert-properties — scripts assert their own properties and their cited anchors
+When writing an outward-facing document:
+  readers-vocabulary — use the reader's words; gloss inline or replace
+When writing an outward-facing summary of claims:
+  outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
+When writing code because a specific practice requires it:
+  code-cites-practice — cite the practice's slug in a comment, right where the code is
+When writing or editing a document:
+  acronyms-glossary — expand acronyms on first use; keep one central glossary
+  doc-references-are-links — reference repo files as relative links; use ≈, never ~
+  docs-are-current-state — state what is true now; version control holds the history
+  label-describes-content — "one line" must be one line; else name it for its content
+When writing or filling out a pull-request description:
+  pr-template-honest-gates — write the body from the diff; an unchecked box is fine
+When writing or triaging an open item:
+  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
+```
+
+### Standing instruction
+
+Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging, reviewing, pushing, ending a turn — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those.
+
+<!-- END GENERATED -->
+
+Path-triggered channel output for the files this task touches (README.md, vendor/precedent-engine/engine.py):
+  acronyms-glossary (matched README.md)
+  computed-numbers-in-scripts (matched README.md)
+  deliverables-look-like-output (matched README.md)
+  doc-references-are-links (matched README.md)
+  docs-are-current-state (matched README.md)
+  docs-track-models (matched README.md)
+  label-describes-content (matched README.md)
+  lead-with-what-it-is (matched README.md)
+  readers-vocabulary (matched README.md)
+  section-order-by-frequency (matched README.md)
+  vendored-engine-is-local-path (matched vendor/precedent-engine/engine.py)
+
+TASK:
+While writing a troubleshooting guide, a session pastes a multi-line code block into the README to illustrate 'how the engine resolves precedence internally,' copying the exact lines straight out of engine.py so readers don't have to open the vendored file themselves. The doc calls it an 'illustrative excerpt' rather than a shim, and it's framed purely as documentation work, not code. But the block reproduces a real run of the engine's own lines outside vendor/precedent-engine/, in a file meant to be read and trusted as current.
+
+Which practice slug(s) from the occasion index or the path-triggered output above actually apply to this task? Read the ones you think might apply (mentally, or by naming them) before deciding. Answer with a bare list of slugs that apply, or the single word NONE if none do. One slug per line, no other commentary.

@@ -1,0 +1,1 @@
+{"slugs": ["mistakes-become-rules", "cite-the-incident"], "reasoning": "The fix root-causes a defect (synced_from not advanced despite record() proving stronger currency than update()) and encodes the prevention directly in the code, and the added comment inline documents the incident/story that motivated the fix, matching both practices' clauses."}

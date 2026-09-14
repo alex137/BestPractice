@@ -1,0 +1,14 @@
+{
+  "positive": {
+    "scenario": "A developer is speeding up build times by copying the retry-and-backoff loop out of the vendored engine's HTTP client into a new module under app/, so the app's own request layer can call it without importing the whole engine package. They paste in the same twenty-line loop verbatim and adjust a couple of variable names, planning to keep both copies in sync by hand going forward. The PR description calls it 'a small local helper' and doesn't mention the engine at all.",
+    "files": ["app/http/retry_helper.py", "vendor/precedent-engine/engine.py"]
+  },
+  "negative": {
+    "scenario": "A contributor is adding a thin wrapper script in templates/harness/ that shells out to the vendored engine's CLI entrypoint and reformats its output as JSON for a different agent adapter. The wrapper is about fifteen lines, imports nothing from the engine's internals, and contains no line-for-line run of the engine's own source. They mention in the PR that it 'mirrors the engine's behavior' for clarity, though no code is actually duplicated.",
+    "files": ["templates/harness/adapter_wrapper.py", "vendor/precedent-engine/engine.py"]
+  },
+  "adversarial": {
+    "scenario": "While writing a troubleshooting guide, a session pastes a multi-line code block into the README to illustrate 'how the engine resolves precedence internally,' copying the exact lines straight out of engine.py so readers don't have to open the vendored file themselves. The doc calls it an 'illustrative excerpt' rather than a shim, and it's framed purely as documentation work, not code. But the block reproduces a real run of the engine's own lines outside vendor/precedent-engine/, in a file meant to be read and trusted as current.",
+    "files": ["README.md", "vendor/precedent-engine/engine.py"]
+  }
+}

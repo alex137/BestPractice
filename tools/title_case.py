@@ -1,0 +1,522 @@
+#!/usr/bin/env python3
+"""title_case.py — headline capitalization for markdown headings.
+
+Checks (bare, the default) or applies (--write) New York Times headline
+capitalization on every ATX heading in the files given, or, when none are
+named, in every outward-facing document in the repo — everything except the
+internal working files listed in INTERNAL_DIRS / INTERNAL_FILES below.
+
+The rule, stated once so the output is arguable rather than magic:
+
+  * The first and last word of a heading are always capitalized.
+  * A word immediately after a colon or a dash is capitalized — it opens a
+    new phrase.
+  * Articles, coordinating conjunctions and short prepositions (SMALL below,
+    the standard NYT list) are lowercased anywhere else.
+  * Every other word gets its first letter capitalized and the REST OF THE
+    WORD UNTOUCHED. That is what keeps AI, GitHub, PR and TODO intact
+    without needing a dictionary of proper nouns.
+  * Both halves of a hyphenated compound are capitalized (Multi-Person).
+
+Fenced code blocks are skipped, so a ``` block containing a `# comment` is
+never rewritten.
+
+practice: headline-capitalization — this file IS that practice's definition,
+not merely its enforcement: the rules above are stated here once so no
+adopting repository restates them. Change them here and everywhere follows.
+"""
+
+import json
+import pathlib
+import re
+import subprocess
+import sys
+
+# EVERY document is outward-facing unless it is named here. Stated as an
+# exclusion on purpose (Morgan, 2026-09-06): an allowlist of outward
+# directories silently misses each new one somebody adds, which is exactly
+# what happened here — the practice shipped covering `documentation/` alone,
+# and `content/` and `book*/` had to be added the same day. An exclusion
+# fails the safe way round: a directory nobody has classified is treated as
+# published, and the worst case is a heading capitalized that did not need to
+# be.
+#
+# WHAT COUNTS AS INTERNAL: the project managing itself. Practice files, the
+# engine, specs, briefs, decision records, evaluation fixtures, templates
+# awaiting instantiation, and the instructions/index/catalogue documents a
+# session reads to work here. None of it is published to anyone, and heading
+# style in it is never to be "fixed".
+INTERNAL_DIRS = (
+    ".claude", ".github", ".precedent", "candidates", "decisions", "deck",
+    "evals", "examples", "local", "practices", "process", "record", "spec",
+    "templates", "tools",
+)
+# `record` joined `spec` on 2026-09-08, and it was missing for the same reason
+# VOICE.md was missing from INTERNAL_FILES: this list was written from the
+# directories the repository HAPPENED TO HAVE at the time, and record/ did not
+# exist yet -- spec/DOCUMENT_LIFECYCLE.md had planned it but nothing had
+# created it. The two are twins by design (spec/ holds current normative
+# reference, record/ holds the working record), so one being internal and the
+# other outward was never a decision anybody made.
+
+# A repository's root holds BOTH kinds, which is why directories alone cannot
+# settle this: README.md and SETUP.md are the first things an outsider reads,
+# while PRACTICES.md sits beside them and is pure
+# internal machinery. Named individually, therefore. Three of these are also
+# GENERATED (AGENTS.md, MAP.md, GLOSSARY.md) — rewriting a heading in one
+# would be undone by the next tools/build_views.py run and fail its
+# byte-identical check in between, so they could not be in scope even if they
+# were outward-facing.
+#
+# VOICE.md and STYLEGUIDE.md are here for a different reason, and the reason
+# is the bug that put them here (2026-09-08, found by a consumer repo taking
+# the beta update). THIS LIST WAS BUILT FROM UPSTREAM'S OWN ROOT NAMES, and
+# upstream never instantiates those two -- it ships them as
+# templates/*.template and only an ADOPTER ever has them at a root. So the
+# check was blind to precisely the files this project hands out, and every
+# adopter got the same false positive on a file whose own header says it is
+# LOCAL ONLY. An adopter could clear it in precedent.json's `internal_paths`,
+# but making each of them discover and fix the same upstream oversight is not
+# a mechanism, it is a toll.
+#
+# The general lesson, which is why this comment is longer than the fix: a
+# default derived from THIS repository's contents is wrong wherever the file
+# is vendored, and it fails in the direction nobody checks -- upstream's own
+# gate stays green, because upstream does not have the file.
+INTERNAL_FILES = (
+    "AGENTS.md", "CLAUDE.md", "GLOSSARY.md",
+    "MAP.md", "PRACTICES.md", "TODO.md",
+    "VOICE.md", "STYLEGUIDE.md",
+    # WHERE_THINGS_ARE.md joined on 2026-09-14, the day it was created: it is
+    # AGENTS.md's own quick index, split out of it to stop every session
+    # paying 2,671 tokens for a table it reads a dozen rows of
+    # (practice: reduction-pass, step 3). Nothing about it changed except
+    # which file it lives in, so classifying the halves differently would
+    # capitalize headings in one and not the other for no reason anybody
+    # decided -- the same accident that left record/ out of INTERNAL_DIRS
+    # above until somebody noticed the twin.
+    "WHERE_THINGS_ARE.md",
+)
+
+
+# The two lists above are THIS repository's names, and this file is VENDORED
+# into every consumer (precedent_vendor_engine.py's CONSUMER_ENGINE_FILES),
+# where a refresh overwrites whatever an adopter edited into them. So a
+# consumer had no way at all to say "this directory of mine is internal
+# too" -- the exclusion default that fails safe here fails the other way
+# there: every working directory nobody happened to name above reads as
+# published. 2026-09-07, a real private consumer repo came back from
+# an engine update with 69 outward-facing headings across 10 files, none of
+# them outward-facing; the repo queued them in its TODO rather than sweep
+# headings it did not want swept, which is the honest response and also a
+# permanently noisy check.
+#
+# `internal_paths` in a repo's own precedent.json is how it says so, without
+# touching this file. Each entry is a repo-relative path prefix -- a
+# directory name (`notes`), a nested directory (`docs/drafts`), or a single
+# file (`ROADMAP.md`) -- and matches that path and everything under it.
+# Deliberately additive only: a consumer can EXCLUDE more, never re-include
+# what the lists above exclude, so no consumer config can talk this module
+# into rewriting headings in a vendored practices/ tree.
+# `output_paths` INVERTS the question, and is the better answer wherever a
+# repo will give one. Raised 2026-09-07 by Morgan, from a consuming repo that
+# ran the rule against real output: the exclusion default reasons from THIS
+# repo's directory names, so in any other tree it names almost nothing and
+# classifies the entire working tree as published. `internal_paths` lets a
+# consumer subtract, but subtracting everything-but-three-directories is a
+# list that must be kept current forever, and the repo already knows the
+# short answer -- "these three directories are what we publish".
+#
+# The exclusion default was chosen deliberately, to fail safe: an allowlist
+# "silently misses each new one somebody adds", worst case "a heading
+# capitalized that did not need to be". That holds INSIDE this repo. Outside
+# it the failure is not one stray heading, it is every document in the repo,
+# arriving as a check the repo cannot satisfy -- and a rule nobody can
+# satisfy is a rule everybody learns to skip, which costs more than either
+# failure. So the inversion is opt-in and the old default is untouched:
+#
+#   output_paths DECLARED -> those paths are output, everything else is
+#     internal. The repo has answered the question.
+#   output_paths ABSENT   -> exactly today's behaviour, so no existing
+#     install moves under anyone's feet.
+#
+# `internal_paths` still subtracts, from whichever way the default fell.
+# That is what expresses a vendored subtree sitting INSIDE an output
+# directory -- a mirror maintained by a sync tool, whose headings would be
+# "fixed" here and silently reverted on its next sync.
+_PATHS_CONFIG = {}
+
+
+def _paths_config(root):
+    """-> (internal_prefixes, output_prefixes_or_None) from precedent.json.
+
+    Fails open on anything malformed: no config, unreadable, not JSON, or a
+    value that is not a list of strings. A repo whose config is broken gets
+    this module's built-in boundary, which is the behaviour it had before
+    these keys existed -- never a crash inside a heading check. An entry that
+    is absolute or contains `..` is dropped: those escape the repo, and a
+    rule nobody can locate is worse than none.
+
+    `output_paths` present but EMPTY is a declaration, not an absence: a repo
+    saying it publishes nothing gets exactly that, rather than silently
+    falling back to a default built for a different tree.
+    """
+    key = str(pathlib.Path(root).absolute())
+    if key in _PATHS_CONFIG:
+        return _PATHS_CONFIG[key]
+
+    def _clean(declared):
+        if not isinstance(declared, list):
+            return None
+        out = []
+        for entry in declared:
+            if not isinstance(entry, str):
+                continue
+            norm = entry.replace("\\", "/").strip().strip("/")
+            if not norm or norm.startswith("/") or ".." in norm.split("/"):
+                continue
+            out.append(norm)
+        return out
+
+    try:
+        cfg = json.loads((pathlib.Path(root) / "precedent.json").read_text(
+            encoding="utf-8"))
+    except (ValueError, OSError):
+        cfg = {}
+    internal = _clean(cfg.get("internal_paths")) or []
+    output = _clean(cfg.get("output_paths"))
+    _PATHS_CONFIG[key] = (internal, output)
+    return _PATHS_CONFIG[key]
+
+
+def _extra_internal(root):
+    """Back-compat shim: the internal half alone."""
+    return _paths_config(root)[0]
+
+
+def is_outward(rel_path, root="."):
+    """Is a repo-relative path a document published to people outside the
+    project? True for anything not excluded above, and not named by the
+    repo's own `internal_paths` in precedent.json."""
+    parts = pathlib.PurePosixPath(str(rel_path).replace("\\", "/")).parts
+    if not parts or not parts[-1].endswith(".md"):
+        return False
+    if parts[0] in INTERNAL_DIRS:
+        return False
+    # A practices/ tree at ANY depth is received content, never this repo's
+    # own outward prose: a consumer vendors the universal catalogue (INSTALL
+    # section 0 recommends precedent/universal/practices/) and
+    # precedent_materialize.py writes a resolved tree of its own. Only
+    # parts[0] was tested, so a vendored tree one level down was scanned as
+    # publishable and reported headings the adopter cannot fix -- the file
+    # came from upstream, and editing it would be undone by the next
+    # refresh. Found on a real fresh install, which failed on a heading
+    # inside a practice it had just vendored.
+    #
+    # Deliberately narrow: only `practices`, not every name in INTERNAL_DIRS
+    # at every depth. Names like `examples` or `spec` are plausible
+    # subdirectories of a genuinely outward tree (documentation/examples/),
+    # and excluding those would hide real findings -- the failure this
+    # module's own comments say to avoid, in the direction that costs more.
+    if 'practices' in parts[:-1]:
+        return False
+    if len(parts) == 1 and parts[0] in INTERNAL_FILES:
+        return False
+    posix = "/".join(parts)
+    internal, output = _paths_config(root)
+    # internal_paths subtracts from whichever way the default fell, so it is
+    # checked first and wins over a declared output path -- that is what
+    # expresses a vendored subtree inside an output directory.
+    for entry in internal:
+        if posix == entry or posix.startswith(entry + "/"):
+            return False
+    if output is not None:
+        # The repo has answered: only what it named is published. Note the
+        # engine exclusions above still apply, so declaring an output path
+        # can never pull a vendored practices/ tree back into scope.
+        return any(posix == e or posix.startswith(e + "/") for e in output)
+    return True
+
+
+def _ignored(base, rels):
+    """The subset of `rels` that git ignores, in one call.
+
+    A GITIGNORED markdown file is never outward-facing, for the same reason
+    the generated files in INTERNAL_FILES are not: nobody outside reads it,
+    and rewriting a heading in it is undone by whatever regenerates it. The
+    directory list above cannot be the only guard, because it has to be
+    edited every time something starts writing a new one -- which is exactly
+    how this was found. 2026-09-06: tools/precedent_session_practices.py
+    began writing .precedent/SESSION_PRACTICES.md at session start, and the
+    next `title_case.py --check` failed the deep check on four headings in a
+    generated, untracked, deliberately-private file. Fails open rather
+    than crashing: no git, no repo, no exclusions, and the directory list
+    still applies.
+    """
+    if not rels:
+        return set()
+    try:
+        r = subprocess.run(['git', 'check-ignore', '--stdin'],
+                           cwd=str(base), capture_output=True, text=True,
+                           input='\n'.join(str(x) for x in rels))
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return {line.strip() for line in r.stdout.splitlines() if line.strip()}
+
+
+def outward_files(root=None):
+    """Every outward-facing markdown file in the repo."""
+    base = pathlib.Path(root) if root is not None else pathlib.Path(".")
+    candidates = []
+    for f in sorted(base.rglob("*.md")):
+        rel = f.relative_to(base)
+        if rel.parts and rel.parts[0] == ".git":
+            continue
+        if is_outward(rel, root=base):
+            candidates.append((f, rel))
+    ignored = _ignored(base, [rel for _f, rel in candidates])
+    return [f for f, rel in candidates if str(rel) not in ignored]
+
+
+# The standard New York Times list of words that stay lowercase inside a
+# headline. Length is not the criterion — membership is.
+SMALL = {
+    "a", "an", "and", "as", "at", "but", "by", "en", "for", "if", "in",
+    "of", "on", "or", "the", "to", "v", "v.", "via", "vs", "vs.",
+}
+
+# Exact phrases that carry their own capitalization as part of their meaning,
+# and so are exempt from the SMALL rule. "The Why" is a noun phrase — the
+# reasoning behind a decision — not an article plus a word.
+KEEP_PHRASES = ("The Why",)
+
+HEADING = re.compile(r"^(#{1,6})(\s+)(.*?)(\s*)$")
+FENCE = re.compile(r"^\s*(```|~~~)")
+# A word is capitalized after one of these; each opens a new phrase.
+OPENS_PHRASE = (":", "—", "–", "--")
+
+
+def _cap(word: str) -> str:
+    """Capitalize the first letter, leave every other character alone."""
+    for i, ch in enumerate(word):
+        if ch.isalpha():
+            return word[:i] + ch.upper() + word[i + 1:]
+    return word
+
+
+def _lower(word: str) -> str:
+    """Lowercase the first letter, leave every other character alone."""
+    for i, ch in enumerate(word):
+        if ch.isalpha():
+            return word[:i] + ch.lower() + word[i + 1:]
+    return word
+
+
+def _core(token: str) -> str:
+    """The token stripped of surrounding punctuation, for SMALL lookup."""
+    return token.strip("([{\"'“”‘’),.!?;]}").lower()
+
+
+def _cap_hyphenated(token: str) -> str:
+    if "-" not in token:
+        return _cap(token)
+    return "-".join(_cap(part) for part in token.split("-"))
+
+
+# An inline code span is content, not prose: `tools/practice_audit.py` is a
+# path that either resolves or does not, and capitalizing it makes it wrong.
+# 2026-09-06, found by the judgment-only sweep: INSTALL.md's own section
+# headings had been rewritten to `Process/manifest.json` and
+# `Tools/practice_audit.py`, neither of which exists. The docstring above
+# already promised fenced blocks were safe; inline spans were not, and a
+# heading is exactly where a document names a file.
+CODE_SPAN = re.compile(r"`[^`]*`")
+
+
+def _protect_code_spans(text):
+    """-> (masked text, restore(fn)). Code spans become opaque tokens with no
+    letters, so no capitalization rule can reach inside them."""
+    spans = []
+
+    def take(m):
+        spans.append(m.group(0))
+        return f"\x00{len(spans) - 1}\x00"
+
+    masked = CODE_SPAN.sub(take, text)
+    def restore(s):
+        for i, original in enumerate(spans):
+            s = s.replace(f"\x00{i}\x00", original)
+        return s
+    return masked, restore
+
+
+# A heading that opens with an enumerator -- "5.", "1)", "iv." -- has its
+# first WORD after that marker, and headline style capitalizes the first
+# word. Without this, `## 5. the Manifest Schema` kept a lowercase "the",
+# because "5." counted as token zero and "the" was merely token one.
+ENUMERATOR = re.compile(r"^(\d+|[ivxlIVXL]+)[.)]$")
+
+
+# A token that names a FILE OR PATH is content, exactly like a code span --
+# the only difference is that nobody backticked it. Capitalizing a segment
+# makes it name something that does not exist.
+#
+# Reported 2026-09-07 from a consuming repo running the rule against real
+# output: a provenance heading, `Moved from content/BUSINESS-MODEL-CONCEPTS.md:
+# the moat`, came back as `Moved From Content/...`, and the heading now names
+# a path that is not there. A sweep here found the same class without a slash
+# at all: `title_case.py` -> `Title_case.py`.
+#
+# Deliberately narrow, so ordinary prose is untouched: a token qualifies only
+# if it ends in a known source/document extension, or contains a "/" with a
+# "." somewhere in it. That second condition is what keeps `and/or` -- which
+# is prose and SHOULD be capitalized -- out of this exemption, while
+# `content/FILE.md` and `docs/a.b/c` stay put.
+PATHISH_EXT = (
+    ".md", ".py", ".sh", ".json", ".yml", ".yaml", ".txt", ".html", ".css",
+    ".js", ".ts", ".toml", ".ini", ".cfg", ".csv", ".tsv", ".svg", ".png",
+)
+
+
+def _is_pathish(token: str) -> bool:
+    core = token.strip("([{\"'\u201c\u201d\u2018\u2019),.!?;]}")
+    if not core:
+        return False
+    low = core.lower()
+    if low.endswith(PATHISH_EXT):
+        return True
+    return "/" in core and "." in core
+
+
+def title_case(text: str) -> str:
+    text, restore = _protect_code_spans(text)
+    tokens = text.split(" ")
+    # Index of the last token that actually contains a letter — a trailing
+    # "—" or "(cont.)" should not absorb the always-capitalize-the-last rule.
+    last = max(
+        (i for i, t in enumerate(tokens) if any(c.isalpha() for c in t)),
+        default=len(tokens) - 1,
+    )
+    out = []
+    for i, token in enumerate(tokens):
+        if not token:
+            out.append(token)
+            continue
+        after_break = i > 0 and tokens[i - 1].endswith(OPENS_PHRASE)
+        first_word = i == 0 or (i == 1 and ENUMERATOR.match(tokens[0] or ""))
+        if _is_pathish(token):
+            # A path or filename, whatever position it sits in.
+            out.append(token)
+        elif first_word or i == last or after_break:
+            out.append(_cap_hyphenated(token))
+        elif _core(token) in SMALL:
+            # NEVER lowercase a single-letter token that arrived CAPITALIZED.
+            # "A" in the small-word list is the article, and nothing else
+            # distinguishes the article from a label -- so `Option A and
+            # Option B` came back as `Option a and Option B`, and `SAMPLE A`
+            # as `SAMPLE a`. That is not a capitalization choice a reader
+            # could disagree with; it is a different word, in the one place
+            # labels live (`Option A`, `Appendix A`, `Exhibit A and B`).
+            # Reported 2026-09-07 from a consuming repo, mid-heading only:
+            # `Plan B` survived as the last word and `Exhibit A:` survived
+            # before a colon, which is why it went unseen.
+            #
+            # Case is already the signal: an article is written lowercase in
+            # the source, so a capital single letter was meant as a label.
+            if len(_core(token)) == 1 and any(c.isupper() for c in token):
+                out.append(token)
+            else:
+                out.append(_lower(token))
+        else:
+            out.append(_cap_hyphenated(token))
+    result = " ".join(out)
+    # Restore any phrase whose own capitalization is the point.
+    for phrase in KEEP_PHRASES:
+        result = re.sub(re.escape(phrase), phrase, result, flags=re.IGNORECASE)
+    return restore(result)
+
+
+def process(path: pathlib.Path, write: bool):
+    """Return the list of (line_no, before, after) headings that differ."""
+    lines = path.read_text(encoding="utf-8").split("\n")
+    in_fence = False
+    changes = []
+    for n, line in enumerate(lines):
+        if FENCE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = HEADING.match(line)
+        if not m:
+            continue
+        hashes, gap, text, tail = m.groups()
+        fixed = title_case(text)
+        if fixed != text:
+            changes.append((n + 1, text, fixed))
+            lines[n] = f"{hashes}{gap}{fixed}{tail}"
+    if write and changes:
+        path.write_text("\n".join(lines), encoding="utf-8")
+    return changes
+
+
+def main():
+    args = [a for a in sys.argv[1:]]
+    if "--help" in args or "-h" in args:
+        print(__doc__.strip())
+        print("\nRun:\n"
+              "  python3 tools/title_case.py [FILE ...]"
+              "           # check; exit 1 on any wrong heading\n"
+              "  python3 tools/title_case.py --write [FILE ...]"
+              "   # rewrite them in place\n"
+              "  python3 tools/title_case.py --json [FILE ...]"
+              "    # report as JSON\n"
+              "\nWith no FILE, every outward-facing markdown file in the repo "
+              "— that is, all of them except " + ", ".join(
+                  f"{d}/" for d in INTERNAL_DIRS) + " and the internal "
+              "root documents (" + ", ".join(INTERNAL_FILES) + ").")
+        return 0
+    write = "--write" in args
+    as_json = "--json" in args
+    paths = [pathlib.Path(a) for a in args if not a.startswith("--")]
+    if not paths:
+        paths = outward_files()
+    paths = [p for p in paths if p.is_file()]
+    if not paths:
+        print("title_case: no markdown files to inspect")
+        return 0
+
+    total = 0
+    report = {}
+    for path in paths:
+        changes = process(path, write)
+        total += len(changes)
+        if changes:
+            report[str(path)] = changes
+            if not as_json:
+                print(f"{path}")
+                for n, before, after in changes:
+                    print(f"  {n}: {before}")
+                    print(f"  {' ' * len(str(n))}  -> {after}")
+
+    if as_json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0
+    if not total:
+        print(
+            f"title_case OK: {len(paths)} file(s) — every heading is already "
+            "in headline capitalization."
+        )
+        return 0
+    if write:
+        print(f"title_case: rewrote {total} heading(s) in {len(report)} file(s).")
+        return 0
+    print(
+        f"title_case FAIL: {total} heading(s) in {len(report)} file(s) are not "
+        "in headline capitalization. Re-run with --write to fix."
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

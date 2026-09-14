@@ -1,0 +1,135 @@
+{
+  "_comment": "Session config for a document project. It allows the read-only and check commands this work needs, and denies `rm *` for everyone. It is NOT where a contributor's boundary lives -- see _permissions_comment: this file is tracked and repo-wide, while the boundary is .github/CODEOWNERS plus branch protection, per spec/CONTRIBUTOR_ACCESS.md layer 2.",
+  "_hooks_comment": [
+    "THE HOOK SCRIPTS ARE NOT SHIPPED IN THIS TEMPLATE -- copy them, per the",
+    "README's instantiation step 3, from templates/harness/claude-code/hooks/",
+    "into .claude/hooks/ and make them executable. They live in the harness",
+    "adapter rather than here so a fix reaches every adopter through one file",
+    "instead of drifting copies (the same reasoning",
+    "tools/precedent_bootstrap_source.py's _install_session_hooks() states).",
+    "",
+    "Until 2026-09-10 this file wired session-start.sh and the README never",
+    "mentioned templates/harness/ at all, so a verbatim instantiation --",
+    "which is exactly what the README's step 2 asks for -- produced a repo",
+    "whose SessionStart hook pointed at a file that did not exist, and",
+    "tools/bootstrap.sh therefore never ran. Found installing",
+    "precedent-beta-v01 into a real project.",
+    "",
+    "WHICH HOOKS, and why these. INSTALL.md §1 step 2's decision table calls",
+    "session-start.sh, commit-identity.sh and freshness-guard.sh 'always',",
+    "and precedent-paths.sh 'only with the Precedent loader' -- which this",
+    "template IS, so it is wired. stop-git-check.sh is the one deliberate",
+    "omission, and its reasoning CHANGED on 2026-09-11: it used to be that",
+    "the contributor was denied `git push` outright, so the hook would end",
+    "every session of theirs in a block they could not clear. They push now",
+    "(spec/CONTRIBUTOR_ACCESS.md), and it stays omitted for a smaller",
+    "reason -- a document left deliberately unpushed overnight is ordinary",
+    "here, and a hook that refuses to end the turn over it is noise.",
+    "",
+    "REPLACE THE BASE BRANCH ARGUMENT (`main` in the three freshness-guard",
+    "commands) with this repo's real base branch. It is passed explicitly",
+    "because asking git for the default branch gets it wrong in at least one",
+    "real repo."
+  ],
+  "_permissions_comment": [
+    "WHY THE DENY LIST IS ONE ENTRY. .claude/settings.json is TRACKED, so",
+    "it binds every session on this repository and cannot tell one person",
+    "from another -- it never sees who is running. Anything role-specific",
+    "written here therefore restricts the maintainer exactly as much as the",
+    "contributor it was meant for.",
+    "",
+    "This file used to deny `git push`, `git merge`, `git reset` and",
+    "`git rebase`, reading spec/CONTRIBUTOR_ACCESS.md's per-person layer",
+    "as a repo-wide one. In the template's first real",
+    "install (2026-09-10) that cost the repository's own administrator the",
+    "ability to push or merge his own work from a session, and the shipped",
+    "file's comment had to tell him to edit it before he could land",
+    "anything. A default whose first documented step is 'undo this default'",
+    "is not a default.",
+    "",
+    "WHERE THE BOUNDARY ACTUALLY LIVES, since 2026-09-11: .github/CODEOWNERS",
+    "plus branch protection on the base branch. A pull request touching an",
+    "owned path -- the vendored engine, practices/, precedent.json, .claude/,",
+    ".github/ -- waits for the maintainer's review; one touching only the",
+    "documents is the contributor's to merge. That is a PATH boundary, so it",
+    "needs no per-person configuration and nothing has to decide what kind of",
+    "person is running. The contributor's own session config still sets the",
+    "persona and never sets permission_mode to bypassPermissions.",
+    "README.md's instantiation steps 5-7 are those steps;",
+    "spec/CONTRIBUTOR_ACCESS.md is the reasoning.",
+    "",
+    "`Bash(rm *)` stays, for everyone, deliberately: it is not",
+    "role-specific. Deletion in a document project goes through git, where",
+    "it is reviewable and recoverable, and no ordinary work here needs the",
+    "shell form."
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(python3 tools/precedent_show.py)",
+      "Bash(python3 tools/precedent_show.py *)",
+      "Bash(python3 tools/precedent_check.py)",
+      "Bash(python3 tools/precedent_check.py *)",
+      "Bash(python3 tools/precedent_sync_views.py)",
+      "Bash(python3 tools/precedent_sync_views.py *)",
+      "Bash(python3 tools/doc_lint.py)",
+      "Bash(python3 tools/doc_lint.py *)"
+    ],
+    "deny": [
+      "Bash(rm *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh session-start main"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh user-prompt main"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-paths.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh pre-write main"
+          }
+        ]
+      }
+    ]
+  }
+}

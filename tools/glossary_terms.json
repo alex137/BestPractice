@@ -1,0 +1,64 @@
+{
+  "_comment": [
+    "ENGINE VOCABULARY -- the words this project uses constantly that no",
+    "single practice owns. A practice's own terms come from its `defines:`",
+    "field and are rendered above these; these are the words the MECHANISM",
+    "is made of, which is why none of them has an owning rule.",
+    "",
+    "Measured before this file existed (2026-09-08): `source` appeared 1152",
+    "times across the tracked markdown, `gate` 709, `slug` 372, `level` 342,",
+    "`catalogue` 304, `in force` 94 -- and not one of them was defined",
+    "anywhere. Someone reading AGENTS.md cold met four of them in the first",
+    "screen with nothing to look them up in.",
+    "",
+    "One registry, rendered into GLOSSARY.md (practice:",
+    "registry-source-of-truth). Never hand-edit GLOSSARY.md itself."
+  ],
+  "terms": [
+    {
+      "term": "level",
+      "definition": "Which population a rule binds. Four of them: universal (everyone using Precedent), team (one named team), individual (one person), repo-local (one repository). A rule's level is chosen by asking who it would still be true for -- see layered-practice-packs.",
+      "see": "practices/layered-practice-packs.md"
+    },
+    {
+      "term": "source",
+      "definition": "A place practices come from -- usually a repository, sometimes a directory inside one. Each source sits at exactly one level, and a repository declares the sources in force in it in its own precedent.json. The individual source is the exception that is never declared in a shared file: it is named in a person's own user-level config, so its existence stays private.",
+      "see": "practices/source-naming.md"
+    },
+    {
+      "term": "level repo",
+      "definition": "Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just \"the source\", or \"the individual set\" / \"a team set\" when the level matters. Naming conventions for those repositories are in source-naming.",
+      "see": "practices/source-naming.md"
+    },
+    {
+      "term": "catalogue",
+      "definition": "All the practice files of one source, taken together -- what that source teaches. \"The catalogue\" with no qualifier means the universal one. A practice can be in the catalogue and not in force, if its status is retired or deduplicated.",
+      "see": "spec/PRACTICE_FORMAT.md"
+    },
+    {
+      "term": "in force",
+      "definition": "A practice actually binds work here, right now. Being present in a catalogue is not enough: a retired or deduplicated practice keeps its file and stops binding, and a source nobody declared is not in force at all even when its repository is sitting on disk.",
+      "see": "spec/PRACTICE_FORMAT.md"
+    },
+    {
+      "term": "slug",
+      "definition": "A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`go-merge` is practices/go-merge.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit.",
+      "see": "practices/rename-updates-links.md"
+    },
+    {
+      "term": "gate",
+      "definition": "A named moment when practices are loaded, rather than a kind of file. Four exist -- merge, review, push, reply -- and a practice lists the ones it fires at. Gates carry the rules no path pattern can reach: \"before pushing\" is not a file.",
+      "see": "tools/precedent_gate.py"
+    },
+    {
+      "term": "resident block",
+      "definition": "The handful of practices written into a repository's instructions file in full, so they are read every session without anyone asking. Everything else is on-demand, reached through the occasion index. The block has a token budget, which is what stops it becoming the whole catalogue.",
+      "see": "spec/LOADER.md"
+    },
+    {
+      "term": "occasion index",
+      "definition": "The generated list of *when X, read Y* lines -- one per on-demand practice, naming the moment it applies and the one line that gets it opened. It is how a rule reaches a session that had no reason to go looking for it.",
+      "see": "spec/LOADER.md"
+    }
+  ]
+}

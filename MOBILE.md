@@ -1,4 +1,4 @@
-# Working with BestPractice on a phone
+# Working With Precedent on a Phone
 
 Your whole project can be run from your phone: ask questions, request
 changes, review what came back, and approve it — from anywhere. How much
@@ -8,7 +8,7 @@ the box; the others take more effort.**
 Product behavior in this guide was verified August 2, 2026, except where
 a section says otherwise. Apps and connectors change.
 
-## Claude — works out of the box (recommended)
+## Claude — Works Out of the Box (Recommended)
 
 1. Install the Claude app and sign in (or use
    [claude.ai/code](https://claude.ai/code) in a browser).
@@ -25,7 +25,7 @@ Claude reads the project's instruction files automatically, makes the
 changes, runs the project's checks, and replies with links you can open.
 There is nothing else to set up, and the same works on desktop.
 
-## Reviewing changes from your phone
+## Reviewing Changes From Your Phone
 
 Whichever tool made a change, checking it is the same: the assistant's
 reply ends with links to the files it touched — the proposed version and
@@ -34,7 +34,7 @@ then tell the assistant to make the change live, or ask for adjustments.
 Nothing becomes shared until it is approved, and the project's automatic
 checks must pass first.
 
-## ChatGPT — reading works; changes need a workaround
+## ChatGPT — Reading Works; Changes Need a Workaround
 
 What works today *(as of 2026-08)*: a ChatGPT conversation connected to
 GitHub can read your project and answer questions dependably. What
@@ -76,18 +76,18 @@ it as a disconnected assistant: paste in the documents you are
 discussing, decide what you want changed, and hand the change request to
 a teammate with a coding agent.
 
-## Any other assistant
+## Any Other Assistant
 
 Any assistant that can read your repository understands the same opener:
 
 > Work on `OWNER/REPOSITORY`. Start with its README and follow the
 > repository's agent instructions before answering.
 
-## Make starting easier: an iPhone Shortcut
+## Make Starting Easier: An IPhone Shortcut
 
 A Shortcut can pick the repository, ask what you want done, prepare the
 full opener, and hand it to ChatGPT. Create a shortcut named
-**BestPractice Project** with these actions:
+**Precedent Project** with these actions:
 
 1. **Choose from Menu** with the repositories you use most often.
 2. For each menu choice, set a text variable to its `OWNER/REPOSITORY`
@@ -118,7 +118,7 @@ a small companion app — pick a repository, type the task, open the
 assistant with the prompt prepared. That is real app development rather
 than documentation, and is tracked as an open item in [TODO.md](TODO.md).
 
-## Even lighter: a text replacement
+## Even Lighter: A Text Replacement
 
 Create an iPhone text replacement such as `;bp` that expands to:
 
@@ -130,9 +130,9 @@ agent instructions before answering.
 Use one replacement per frequently used repository, or keep the generic
 form and fill in the repository name after pasting.
 
-## For agents and installers: how the one-line opener works
+## For Agents and Installers: How the One-Line Opener Works
 
-A BestPractice repository's README carries a short entry block, installed
+A Precedent repository's README carries a short entry block, installed
 from
 [templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template):
 
@@ -158,7 +158,7 @@ README; `AGENTS.md` remains authoritative.
 For a new assistant, an unfamiliar connector, or sensitive work, use the
 defensive form of the opener:
 
-> Work on `OWNER/REPOSITORY` as a BestPractice agent. Read its README and
+> Work on `OWNER/REPOSITORY` as a Precedent agent. Read its README and
 > root `AGENTS.md` before answering, then use `MAP.md` to locate relevant
 > context. Treat the repository as the shared project memory. Use a
 > branch for changes, run or verify required checks, and finish

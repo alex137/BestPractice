@@ -1,0 +1,435 @@
+{
+  "_note": "Phase-1 hand-curated metadata keyed by the practice's pre-conversion number in PRACTICES.md (source_practice_number). Assigned by the converting session, not yet reviewed practice-by-practice by a human approver -- see spec/PRACTICE_FORMAT.md for what is and isn't settled. slug/occasion are set for all 52 so the reachability check passes; checked_by/applies_to are narrowed only where the Install text unambiguously names a script or path.",
+  "practices": {
+    "1": {
+      "slug": "repo-is-memory",
+      "occasion": "starting any session cold",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "2": {
+      "slug": "orientation-map",
+      "occasion": "orienting in a repo for the first time this session",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**"
+      ]
+    },
+    "3": {
+      "slug": "quick-index",
+      "occasion": "looking for where something lives, before searching",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**"
+      ]
+    },
+    "4": {
+      "slug": "environment-gotchas",
+      "occasion": "hitting an environment or tooling quirk",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**"
+      ]
+    },
+    "5": {
+      "slug": "cite-the-incident",
+      "occasion": "writing a new convention or rule",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "practices/**",
+        "PRACTICES.md"
+      ]
+    },
+    "6": {
+      "slug": "convention-to-audit",
+      "occasion": "a convention is violated for the first time",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "7": {
+      "slug": "registry-source-of-truth",
+      "occasion": "tracking state that multiple documents need to agree on",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "8": {
+      "slug": "generated-artifact-provenance",
+      "occasion": "building or committing a generated artifact",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "deck/**",
+        "MAP.md",
+        "GLOSSARY.md"
+      ]
+    },
+    "9": {
+      "slug": "merge-runbook",
+      "occasion": "merging a branch that touches shared files",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "10": {
+      "slug": "capture-gate",
+      "occasion": "merging a branch",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "11": {
+      "slug": "doc-references-are-links",
+      "occasion": "writing or editing a document",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "12": {
+      "slug": "reply-links-files",
+      "occasion": "ending a reply that created or modified files",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "13": {
+      "slug": "session-bootstrap",
+      "occasion": "setting up a new repo's session start",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        ".claude/**",
+        "**/hooks/**",
+        "**/bootstrap*",
+        "templates/harness/**"
+      ]
+    },
+    "14": {
+      "slug": "practice-export-loop",
+      "occasion": "merging a branch that improved a generic practice",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "PRACTICES.md",
+        "practices/**",
+        "templates/**",
+        "tools/**",
+        "process/upstream/**"
+      ]
+    },
+    "15": {
+      "slug": "scrub-gate",
+      "occasion": "committing anything that touches the vendored/public tree",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "process/upstream/**"
+      ]
+    },
+    "16": {
+      "slug": "volatile-rules-carry-dates",
+      "occasion": "writing a rule that depends on the outside world",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "17": {
+      "slug": "acronyms-glossary",
+      "occasion": "writing or editing a document",
+      "checked_by": null,
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "18": {
+      "slug": "no-version-suffix",
+      "occasion": "naming a new file",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**"
+      ]
+    },
+    "19": {
+      "slug": "computed-numbers-in-scripts",
+      "occasion": "writing a document that cites a computed number",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "20": {
+      "slug": "mistakes-become-rules",
+      "occasion": "a review finds a defect",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "21": {
+      "slug": "second-pass-capture",
+      "occasion": "finishing a substantial work-product, before the merge-time capture gate",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "22": {
+      "slug": "parallel-artifact-ledger",
+      "occasion": "a change must propagate across several parallel artifacts",
+      "checked_by": null,
+      "applies_to": [
+        "templates/harness/**"
+      ]
+    },
+    "23": {
+      "slug": "layered-practice-packs",
+      "occasion": "deciding where a new rule belongs",
+      "checked_by": null,
+      "applies_to": [
+        "practices/**",
+        "PRACTICES.md",
+        "precedent.json"
+      ]
+    },
+    "24": {
+      "slug": "quote-discipline",
+      "occasion": "quoting or compressing someone else's figures",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "25": {
+      "slug": "outward-summary-discipline",
+      "occasion": "writing an outward-facing summary of claims",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "26": {
+      "slug": "docs-are-current-state",
+      "occasion": "writing or editing a document",
+      "checked_by": null,
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "27": {
+      "slug": "label-describes-content",
+      "occasion": "writing or editing a document",
+      "checked_by": null,
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "28": {
+      "slug": "frame-from-audience-question",
+      "occasion": "starting an outward-facing deliverable",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "29": {
+      "slug": "variant-re-derives",
+      "occasion": "building a variant of an existing thing",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "30": {
+      "slug": "scripts-assert-properties",
+      "occasion": "writing a script whose numbers a document will cite",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**"
+      ]
+    },
+    "31": {
+      "slug": "no-rewrite-for-warnings",
+      "occasion": "a tool warns about already-published git history",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**"
+      ]
+    },
+    "32": {
+      "slug": "verify-postcondition",
+      "occasion": "after any state-changing operation",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**"
+      ]
+    },
+    "33": {
+      "slug": "docs-track-models",
+      "occasion": "a document presents a script-derived figure",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "34": {
+      "slug": "readers-vocabulary",
+      "occasion": "writing an outward-facing document",
+      "checked_by": null,
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "35": {
+      "slug": "build-buy-decompose",
+      "occasion": "deciding whether to build or buy a component",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "36": {
+      "slug": "section-order-by-frequency",
+      "occasion": "ordering sections in a document",
+      "checked_by": null,
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "37": {
+      "slug": "github-setup-disclosed",
+      "occasion": "an install step adds something GitHub-specific",
+      "checked_by": null,
+      "applies_to": [
+        ".github/**",
+        "templates/github-actions/**"
+      ]
+    },
+    "38": {
+      "slug": "lead-with-what-it-is",
+      "occasion": "writing a README or other project-facing entry document",
+      "checked_by": null,
+      "applies_to": [
+        "README.md"
+      ]
+    },
+    "39": {
+      "slug": "pr-template-honest-gates",
+      "occasion": "writing or filling out a pull-request description",
+      "checked_by": null,
+      "applies_to": [
+        ".github/pull_request_template.md"
+      ]
+    },
+    "40": {
+      "slug": "check-source-architecture",
+      "occasion": "comparing an option against a baseline",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "41": {
+      "slug": "search-by-purpose",
+      "occasion": "concluding that no prior work exists on a question",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**"
+      ]
+    },
+    "42": {
+      "slug": "verify-decomposition",
+      "occasion": "trusting a model's total without checking its parts",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "43": {
+      "slug": "affordance-is-shared",
+      "occasion": "building a mechanism that makes something discoverable or reachable",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "44": {
+      "slug": "two-check-levels",
+      "occasion": "naming what \"run the checks\" means in a repo",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "45": {
+      "slug": "merge-authorization-keyword",
+      "occasion": "the user gives a standing merge instruction",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "46": {
+      "slug": "tabular-shared-renderer",
+      "occasion": "publishing a document with a multi-column sortable table",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "47": {
+      "slug": "permutation-frontier-column",
+      "occasion": "building a permutation or configuration-sweep table",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "48": {
+      "slug": "index-remembers-past",
+      "occasion": "a document replaces or is replaced by an earlier one",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "49": {
+      "slug": "deliverables-look-like-output",
+      "occasion": "writing a reader-facing deliverable with supporting apparatus",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "**/*.md"
+      ]
+    },
+    "50": {
+      "slug": "engine-plus-host-shims",
+      "occasion": "exporting a tool across a repo boundary",
+      "checked_by": "tools/precedent_check.py",
+      "applies_to": [
+        "process/upstream/**",
+        "templates/harness/**"
+      ]
+    },
+    "51": {
+      "slug": "one-formatter-per-quantity",
+      "occasion": "printing a numeric quantity that will be compared across rows",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    },
+    "52": {
+      "slug": "name-both-sides-of-ledger",
+      "occasion": "a computation books a transfer between two parties",
+      "checked_by": null,
+      "applies_to": [
+        "**"
+      ]
+    }
+  }
+}

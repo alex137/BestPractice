@@ -1,0 +1,1 @@
+{"slugs": ["no-version-suffix"], "reasoning": "The change creates export_v2.py as a numbered-suffix fork of export.py purely to add CSV support, rather than extending or renaming the existing file for what it now is; no-version-suffix governs exactly this naming choice, and nothing here establishes that the old and new versions must coexist and be told apart."}

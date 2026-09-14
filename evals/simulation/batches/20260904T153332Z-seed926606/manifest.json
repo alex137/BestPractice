@@ -1,0 +1,11 @@
+{
+  "batch_id": "20260904T153332Z-seed926606",
+  "seed": 926606,
+  "created_utc": "2026-09-04T15:33:32.854731+00:00",
+  "practices": [
+    "scrub-gate",
+    "no-rewrite-for-warnings"
+  ],
+  "repo_root": null,
+  "status": "generated-prompts-written"
+}

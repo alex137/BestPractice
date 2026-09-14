@@ -1,0 +1,7 @@
+{
+  "slugs": [
+    "readers-vocabulary",
+    "lead-with-what-it-is"
+  ],
+  "reasoning": "The new README paragraph is outward-facing prose for non-developer readers (readers-vocabulary), and it's opening-section material describing what the project is about (lead-with-what-it-is)."
+}

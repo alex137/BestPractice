@@ -1,0 +1,1 @@
+{"slugs": ["docs-are-current-state", "readers-vocabulary", "doc-references-are-links"], "reasoning": "The edit rewrites prose in an outward-facing install document, so it should be checked against current-state phrasing and reader vocabulary conventions, and the reference to 'step 7'/SETUP.md should be checked for proper linking."}

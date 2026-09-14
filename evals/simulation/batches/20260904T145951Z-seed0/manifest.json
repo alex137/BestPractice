@@ -1,0 +1,10 @@
+{
+  "batch_id": "20260904T145951Z-seed0",
+  "seed": 0,
+  "created_utc": "2026-09-04T14:59:51.079111+00:00",
+  "practices": [
+    "vendored-engine-is-local-path"
+  ],
+  "repo_root": "/home/user/BestPractice/evals/simulation/fixtures/demo-consumer-repo",
+  "status": "generated-prompts-written"
+}

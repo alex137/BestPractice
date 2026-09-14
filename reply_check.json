@@ -1,0 +1,11 @@
+[
+  {
+    "practice": "session-spend-follows-the-task",
+    "require_one_of": [
+      "This is a cheap point to compact",
+      "Not a cheap point to compact"
+    ],
+    "require_when_context_grew_tokens": 100000,
+    "why": "so a long session hears the offer instead of the rule quietly not firing for hours"
+  }
+]

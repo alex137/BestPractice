@@ -1,7 +1,11 @@
-<!-- Template: instantiate per BestPractice INSTALL.md §1 as STYLEGUIDE.md at
-     the dependent repo's root. Unlike VOICE.md, there is no sensible default
-     content here — visual identity is specific to each project or company,
-     so this file ships as an empty skeleton. At install, ask the
+<!-- Template: instantiate per Precedent INSTALL.md §1 as STYLEGUIDE.md at
+     the dependent repo's root. There is no sensible default content here --
+     visual identity is specific to each project or company -- so this file
+     ships as an empty skeleton. VOICE.md next door ships nearly empty for a
+     different reason, and the distinction is worth holding: general writing
+     rules were DELETED from it (2026-09-08) because the practice catalogue
+     already carries them, whereas nothing generic was ever possible here.
+     At install, ask the
      administrator directly: does the project have a visual identity yet
      (colors, logo, fonts), and if there's a formal brand guideline (a PDF,
      a slide deck, a style manual from a design team), offer to read it and
@@ -20,7 +24,7 @@
      §3) or check-in (§4). A brand's visual identity is not a generic
      practice; nothing here is meant to travel to another project. -->
 
-# Style guide
+# Style Guide
 
 Visual rules for anything this project produces — decks, documents,
 diagrams, images. Read this before generating a deck ([deck/](deck/)),
@@ -53,12 +57,12 @@ tool's default, this file wins.
 - **Body:** <typeface, weight>
 - **Fallback stack (web/HTML output):** <font-family list>
 
-## Imagery and iconography
+## Imagery and Iconography
 
 <Photography style, illustration style, icon set, or "avoid stock photos
 entirely" — whatever the project's convention actually is.>
 
-## Tone in visuals
+## Tone in Visuals
 
 Visual tone follows [VOICE.md](VOICE.md): the same restraint applies to
 slides and charts as to prose — no decorative icons standing in for a
@@ -66,7 +70,7 @@ point that isn't made, no gradient-and-glow treatment to make a plain
 fact look like an insight. Project-specific visual tells to avoid go
 here: <e.g., "never use the corporate stock-photo handshake image">.
 
-## Formats this project produces
+## Formats This Project Produces
 
 <List the recurring outputs and where their conventions live, e.g.:>
 - **Slide decks:** built with [deck/build_deck.py](deck/build_deck.py);
@@ -78,6 +82,6 @@ here: <e.g., "never use the corporate stock-photo handshake image">.
 ## Source
 
 <If a formal brand guideline exists, name it here for provenance — title,
-owner, date last reviewed (practice 16) — without attaching or vendoring
+owner, date last reviewed (practice `volatile-rules-carry-dates`) — without attaching or vendoring
 the document itself: "Acme Corp Brand Guidelines v3, design team,
 verified 2026-08-16.">

@@ -1,0 +1,86 @@
+{
+  "affordance-is-shared": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "build-buy-decompose": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "check-source-architecture": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "frame-from-audience-question": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "full-practice-audit": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "layered-practice-packs": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "lead-with-what-it-is": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "name-both-sides-of-ledger": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "one-formatter-per-quantity": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "outward-summary-discipline": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "parallel-artifact-ledger": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "permutation-frontier-column": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "pr-template-honest-gates": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "quote-discipline": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "readers-vocabulary": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "registry-source-of-truth": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "section-order-by-frequency": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "tabular-shared-renderer": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "variant-re-derives": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "verify-decomposition": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  },
+  "volatile-rules-carry-dates": {
+    "commit": "c605ca7cf58e42312d13f84a99396920b3d3bd28",
+    "last_reviewed": "2026-09-04"
+  }
+}

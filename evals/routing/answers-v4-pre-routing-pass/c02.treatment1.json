@@ -1,0 +1,1 @@
+{"slugs": ["readers-vocabulary"], "reasoning": "The change is a pure wording fix in an outward-facing install document aimed at non-developer approvers, which is exactly what readers-vocabulary governs; nothing in the diff involves references, generated numbers, dates, section order, acronyms, or labels, so the other document-editing practices do not genuinely apply."}

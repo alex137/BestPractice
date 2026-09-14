@@ -1,13 +1,24 @@
-# Getting started with `<project name>`
+# Getting Started With `<project name>`
 
 <!-- Template AND rendered sample: this file is readable as-is on GitHub
-     (linked from the BestPractice README as the sample members' page)
+     (linked from the Precedent README as the sample members' page)
      and is instantiated per INSTALL.md §1 as GETTING_STARTED.md at the
      dependent repo's root. When instantiating: replace the backticked
      `<placeholders>` with the project's real values and keep the
      section structure so upstream improvements propagate on updates
-     (INSTALL.md §2). Assistant-capability statements carry their as-of
-     dates (practice 16); refresh them from the upstream MOBILE.md when
+     (INSTALL.md §2).
+
+     `<upstream-docs>` IS ONE OF THOSE PLACEHOLDERS, and what it becomes
+     depends on which install model this is -- which is why it is a
+     placeholder rather than a path. INSTALL.md §1 vendors Precedent's
+     prose into the repo, so it becomes `process/upstream`. §0 vendors the
+     practices and the engine and NO prose, so there is no local copy to
+     point at and it becomes the upstream URL prefix
+     `https://github.com/alex137/BestPractice/blob/main`. Until 2026-09-10
+     this file wrote `process/upstream/` outright and §0 step 5 said to
+     install it "unchanged by which install model this is", so a §0 install
+     shipped its members three dead references on day one. Assistant-capability statements carry their as-of
+     dates (practice `volatile-rules-carry-dates`); refresh them from the upstream MOBILE.md when
      taking updates. -->
 
 Welcome. This project runs on a simple idea: **the project's memory lives
@@ -19,7 +30,7 @@ it becomes shared. Decisions don't get lost in chat history, nobody
 overwrites anyone's work, and a person who joins today can be useful
 within the hour. You do not need to be a programmer.
 
-## How contributing works — five steps
+## How Contributing Works — Five Steps
 
 One difference from tools like Google Docs matters here: in Google Docs,
 your edits appear for everyone instantly. In this project, **your changes
@@ -44,13 +55,26 @@ work at the same time. The whole loop:
    Until that happens, nobody else sees your change: unlike Google Docs,
    nothing becomes shared automatically.
 
-## Setting up your AI tool
+## How the Project Remembers New Rules
+
+You don't have to ask for this by name — it happens as part of ordinary
+conversation. If you say something like *"always name these a certain
+way"*, *"never merge without running the tests"*, or *"from now on, do
+X"*, the assistant will notice and offer to write that down as one of
+this project's own working rules, so every future conversation follows it
+too — not just the one you're having right now. It always tells you
+plainly when it's doing this and where the rule is going, and nothing
+becomes official until it's reviewed and approved the same way any other
+change is (see the five steps above) — you're never signing up for
+something without seeing it first.
+
+## Setting Up Your AI Tool
 
 Before any of it works, an administrator must have given your GitHub
 account access to `<OWNER/REPOSITORY>` — if you don't have access yet,
 ask `<administrator contact>`. Then follow the section for your tool:
 
-### Claude users (Claude Code)
+### Claude Users (Claude Code)
 
 The most complete experience, on web, desktop, or phone. *(As of
 2026-08.)*
@@ -65,7 +89,7 @@ The most complete experience, on web, desktop, or phone. *(As of
 Claude Code reads the project's instruction files automatically. Nothing
 else to set up.
 
-### Codex users
+### Codex Users
 
 *(As of 2026-08.)*
 
@@ -74,7 +98,7 @@ else to set up.
 2. Codex follows the project's instruction files automatically.
 3. Give it a task or a question, the same way as any coding session.
 
-### ChatGPT users
+### ChatGPT Users
 
 A plain ChatGPT conversation with the GitHub connector can **read** this
 project and answer questions dependably. **Making changes** from a plain
@@ -92,9 +116,9 @@ Codex; the project's automatic checks protect the result either way.
 
 Working from an iPhone a lot? This project includes an iPhone Shortcut
 recipe that prepares this starting message for you — see the phone guide
-at `process/upstream/MOBILE.md`.
+at `<upstream-docs>/MOBILE.md`.
 
-### Gemini users
+### Gemini Users
 
 The Gemini CLI (a desktop tool) is already wired to this project's
 instructions — nothing for you to configure. *(As of 2026-08; a
@@ -103,7 +127,7 @@ rather than the CLI, follow the "Any other assistant" line below for
 reading and questions, and hand changes to a teammate who uses Claude
 Code or Codex.
 
-### Grok users
+### Grok Users
 
 Not yet verified with this workflow *(as of 2026-08)*. If Grok can reach
 the repository, use the same starting instruction as ChatGPT users above.
@@ -111,7 +135,7 @@ Otherwise, treat Grok as a disconnected assistant: paste in the documents
 you're discussing, work out what you want changed, and hand the change
 request to a teammate who uses Claude Code or Codex.
 
-### Any other assistant
+### Any Other Assistant
 
 Any assistant that can read this repository understands the same one-line
 opener:
@@ -119,7 +143,7 @@ opener:
 > Work on `<OWNER/REPOSITORY>`. Start with its README and follow the
 > repository's agent instructions before answering.
 
-## Tips while you work
+## Tips While You Work
 
 - **Ask before hunting.** The fastest way to learn anything about this
   project is to ask your assistant — it reads the project's map and
@@ -158,9 +182,9 @@ opener:
 - **Compose bigger requests.** For anything substantial, draft your
   request in a notes app first, then paste it — the assistant's output
   quality tracks the clarity of what you hand it. (More habits like this
-  in the project's method guide: `process/upstream/METHOD.md`.)
+  in the project's method guide: `<upstream-docs>/METHOD.md`.)
 
-## For the administrator: approving changes
+## For the Administrator: Approving Changes
 
 Members draft changes on their own private copies; nothing joins the
 shared project until you approve it. Your side of the loop is also just
@@ -182,21 +206,62 @@ conversation:
   because it reworks someone's writing, collides with other work, or
   touches something you've pushed back on before.
 
-### Automatic checks installed for this project
+### Settings Only You Can Turn On
 
-<!-- Standing note (INSTALL.md §1 step 8 / practice 37): every
+A few things can only be done by hand, in GitHub's own settings pages, by
+someone with administrator rights here. None is urgent, and each fails
+*quietly* rather than loudly, so they are worth a look when you have a
+moment. **Ask the assistant for more specific instructions on any of
+them.** Click-paths as of <install date>.
+
+- **This project's repository is private**, unless it is meant to be
+  public.
+- **A developer key, stored in this project** — a personal access token
+  (GitHub's name for a key that stands in for a person) that can reach this
+  repository, saved under **Settings → Secrets and variables → Actions →
+  New repository secret**, named `PRECEDENT_REPO_TOKEN` unless something
+  here expects another name. Without it an assistant can prepare changes
+  but not push them or open a proposal on the project's behalf.
+- **The main line of work is called `main`** — **Settings → General →
+  Default branch**. The Markdown check below watches a branch by that exact
+  name.
+- **Automation is allowed to open proposals** — **Settings → Actions →
+  General → Workflow permissions**, with *Allow GitHub Actions to create
+  and approve pull requests* ticked.
+- **A few settings inside Claude itself**, if you work in Claude Code on
+  the web. Open [claude.ai/code](https://claude.ai/code), go to the
+  environment this project runs in, and add these to its **environment
+  variables**, with your own values:
+
+  ```
+  PRECEDENT_COMMIT_NAME=Your Name
+  PRECEDENT_COMMIT_EMAIL=you@example.com
+  PRECEDENT_COMMIT_TZ=America/Argentina/Buenos_Aires
+  ```
+
+  Without them your work gets committed under the assistant's own account
+  rather than your name, with the wrong timezone on it. If you have a
+  practices repo of your own, add `PRECEDENT_GIT_TOKEN` (a read-only
+  personal access token that can see it) and `PRECEDENT_SOURCE_BASE_URL`
+  (`https://github.com/your-account`) too, or your own practices never
+  load. **A change here does not reach a session already open** — start a
+  new one to test it.
+
+### Automatic Checks Installed for This Project
+
+<!-- Standing note (INSTALL.md §1 step 8 / practice `github-setup-disclosed`): every
      GitHub-specific requirement this project depends on gets a line
      here, naming what it is and the exact click-path to configure it —
      not just a mention in the internal install log under
-     `process/upstream/`. Add a line whenever a future install step
+     `<upstream-docs>/`. Add a line whenever a future install step
      introduces a new one (a required secret, a new required check). -->
 
-- **A Markdown check runs on every pull request** (a GitHub Actions
-  workflow) and catches a couple of specific formatting mistakes before
+- **A Markdown check runs on every pull request** (the GitHub Actions
+  workflow `doc-lint.yml`) and catches a couple of specific formatting mistakes before
   they reach the shared project. It needs no maintenance. If it doesn't
   appear on a pull request's checks, GitHub Actions may be disabled for
   this repository — an administrator can turn it on at repository
-  **Settings → Actions**. Details: `process/upstream/GITHUB_ACTIONS.md`.
+  **Settings → Actions**. Details: `<upstream-docs>/GITHUB_ACTIONS.md`.
 - **Every pull request opens with a standard template** — what changed,
   why, files touched, and a short checklist. An unchecked box on that
   checklist is normal; it means that gate didn't apply to this particular
