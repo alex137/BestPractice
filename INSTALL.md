@@ -1,62 +1,69 @@
-# How to Install Precedent for You and Your Team
+# Installing Precedent — The Install Runbook
 
-**One question first: are you technical?**
+**This page is written for the assistant doing the install**, not for the
+person approving it. It is the full reference: every file, every command,
+every trap. A person reading it over the assistant's shoulder is welcome
+to, but nothing here needs them.
 
-- **No — I don't write code.** You do not need this page at all. Open a
-  session on your project with an AI assistant and paste it
-  [SETUP.md](SETUP.md): it runs the whole install as a conversation, asks
-  you three questions, and does the technical work itself.
-  [documentation/ADOPTING.md](documentation/ADOPTING.md) explains what you are agreeing to before you
-  start, and
-  [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md)
-  is how you work once it is running.
-- **Yes — I want the files, the steps and the commands.** They are on this
-  page, below.
-  [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md)
-  is its companion: the short form of the install, plus how to actually
-  work in a Precedent project once it is installed.
+**If you are a person, you almost certainly want one of these instead:**
 
-Still deciding whether to adopt it at all?
-[documentation/WHY_PRECEDENT.md](documentation/WHY_PRECEDENT.md).
-Already set up and just want the daily habits?
-[documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md).
+| You are… | Read |
+|---|---|
+| not a programmer, and want this installed | [SETUP.md](SETUP.md) — paste it to an assistant and it runs the whole install as a conversation, asking you three questions |
+| still deciding whether to adopt it | [documentation/WHY_PRECEDENT.md](documentation/WHY_PRECEDENT.md), then [documentation/ADOPTING.md](documentation/ADOPTING.md) |
+| a developer who wants the short form plus how to work here | [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) |
+| not a developer, and it is already installed | [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md), then [documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md) |
+| setting up your own machine rather than a repository | [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
 
-Everything below is the technical reference: wiring Precedent into a
-*dependent repo*, keeping it current, and flowing improvements back. For
-what each practice is and why, read [practices/](practices/) — indexed by
-[MAP.md](MAP.md), one rule at a time with
-`python3 tools/precedent_show.py SLUG`. ([PRACTICES.md](PRACTICES.md) is
-the frozen pre-fork catalogue, kept for its prose; it is no longer the
-live list.)
-
-**Approving this install without running it?** Read just the shaded
-**"In plain terms"** note at the start of each section below, in order,
-and skip everything underneath — together they walk the whole setup
-without requiring GitHub knowledge. The last section,
-[For approvers: your checklist](#for-approvers-your-checklist), gathers
-every point that actually needs a decision from you into one list.
-
-> **In plain terms.** Precedent is a set of working habits — how a
-> project remembers its decisions, how contributors avoid overwriting each
-> other's work, and how private information stays private even though this
-> rulebook itself is public. What follows is how that layer gets installed
-> into your project, how it picks up improvements later, and how an
-> improvement made in your project can be offered back for every other
-> project's benefit.
-
-The model in one paragraph: the dependent repo **vendors** this repo at
+**The model in one paragraph.** The dependent repo **vendors** this repo at
 `process/upstream/` as plain tracked files. **Install is adaptive** — you
 instantiate templates with the repo's subject matter, placing real files at
 their real locations. **Export is abstractive** — when installed practice
 improves, you fold the generic form back into `process/upstream/`. The
 **manifest** records the mapping in both directions; the **audit** makes
-drift and proprietary leakage loud instead of silent. **This is the
-classic model** (§1) — the right default for essentially every install
-today, and where the sections below start. A repo with no prior
-BestPractice install that wants Precedent's three-source loader directly,
-without ever going through `process/upstream/`, should use §0 instead —
-covered after §1, since it is the rarer path; see §0's own note for when
-it applies.
+drift and proprietary leakage loud instead of silent. **That is the classic
+model, §1** — the right default for essentially every install today, and
+where the sections below start. A repo with no prior BestPractice install
+that wants the three-source loader directly, never going through
+`process/upstream/`, uses §0 instead; it sits after §1 because it is the
+rarer path.
+
+## Essentials Only — What an Install, Upgrade or Migration Leaves for Later
+
+**Read this before §0, §1 or §2, because it governs all three.** An
+install, an upgrade and a migration do the essentials, correctly, and stop.
+Everything that would merely make the result *better* is named once, in a
+sentence, and left for a later conversation.
+
+**The test, applied per step: would the project work correctly without this
+today?** If yes, it is not install work. Say it exists, say it is optional,
+say the administrator can have it done any time by asking an assistant —
+then move on. Do not walk them through it, and do not ask a question whose
+answer only refines something already working.
+
+**Why, since the temptation is to be thorough:** the person is at their
+least informed about Precedent on the day they install it, so a decision
+put to them then is the worst version of that decision they will ever make.
+It also lengthens the conversation that most needs to feel short, and every
+extra question is a chance to lose them before the essentials land.
+
+`VOICE.md` and `STYLEGUIDE.md` are the standing examples — both ship
+near-empty, both stay that way through install, upgrade and migration alike.
+**The rule is not about those two files.** It is about every step: a
+refinement is deferred whether or not it appears on a list here.
+
+**What is never deferred as "polish":** the private-word blocklist, the
+commit identity, the team and individual source question, the audit passing,
+and anything a mechanical check fails without. Those are not refinements —
+the project is wrong without them, and an install that skips one has not
+installed.
+
+For what each practice is and why, read [practices/](practices/) — indexed
+by [MAP.md](MAP.md), one rule at a time with
+`python3 tools/precedent_show.py SLUG`. ([PRACTICES.md](PRACTICES.md) is
+the frozen pre-fork catalogue, kept for its prose; it is no longer the live
+list.)
+
 
 ## 1. Install Into a Dependent Repo
 
@@ -69,22 +76,6 @@ it applies.
 > Most projects still use §1; read §0's own caveat before choosing it.
 > A repo that already vendored BestPractice the old way wants neither,
 > but [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
-
-> **In plain terms.** This is the one-time setup. An assistant copies
-> Precedent's files into your project, then rewrites a handful of
-> them to describe *your* project specifically — a map of where things
-> live, a to-do list, a page that welcomes new members. Nothing from
-> this step becomes visible to anyone but you until you (or whoever has
-> authority to make it official) approve it: the work is committed on a
-> private branch (step 7), and it becomes official only at the
-> review-and-merge that the [guided install](SETUP.md) walks an
-> administrator through in conversation rather than as a technical
-> checklist. Two decisions only you can make: **which private names and
-> code words must never leak into a public file** (step 4) — your
-> assistant cannot guess your project's secrets, so it will ask you
-> directly — and **whether your team or you personally already have your
-> own practices repo to wire in** (step 9) — most projects don't yet, and
-> that's a fine answer, but you're the only one who'd know if you do.
 
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
@@ -113,27 +104,19 @@ it applies.
    - `templates/MAP.md.template` → `MAP.md`; `templates/TODO.md.template` →
      `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
      domain-appropriate name).
-   - `templates/VOICE.md.template` → `VOICE.md`; `templates/STYLEGUIDE.md.template`
-     → `STYLEGUIDE.md`. Unlike the files above, these are **not** rewritten
-     with the repo's subject matter — **both ship as near-empty skeletons**,
-     because general writing quality is the practice catalogue's job and
-     visual identity is specific to each company. VOICE.md carries only
-     this project's own voice: its voice target, its audiences, its domain
-     vocabulary, and any deliberate departure from a catalogue rule. Every
-     section may legitimately stay `<undecided>`. Instead, **prompt the
-     administrator explicitly**: walk them through VOICE.md's sections and
-     fill in what they can answer; ask whether a
-     formal brand guideline exists (a PDF, a slide deck, a design team's
-     style manual) to fill in STYLEGUIDE.md from. If one exists, read it and
-     transcribe the relevant rules into STYLEGUIDE.md as plain text — never
-     attach, vendor, or link the source document itself into the repo. If no
-     visual identity exists yet, leave STYLEGUIDE.md's sections marked
-     `<undecided>` rather than inventing values. Record both as `local-only`
-     in the manifest (§5) — **neither file is ever exported upstream**
-     (§3–§4): a project's voice and brand are its own identity, not a
-     generic practice, and both live at the repo root rather than under
-     `process/upstream/`, so the check-in tooling structurally never touches
-     them.
+   - `templates/VOICE.md.template` → `VOICE.md`;
+     `templates/STYLEGUIDE.md.template` → `STYLEGUIDE.md`. **Copy the
+     skeletons and stop.** Unlike the files above, these are not rewritten
+     with the repo's subject matter, and **filling them in is out of scope
+     for an install** — see [Essentials only](#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later).
+     Do not walk the administrator through VOICE.md's sections and do not
+     ask whether a brand guideline exists; say once that both exist, are
+     optional, and can be filled in any time by asking an assistant.
+     Record both as `local-only` in the manifest (§5) — **neither file is
+     ever exported upstream** (§3–§4): a project's voice and brand are its
+     own identity, not a generic practice, and both live at the repo root
+     rather than under `process/upstream/`, so the check-in tooling
+     structurally never touches them.
    - `templates/GETTING_STARTED.md` → `GETTING_STARTED.md` at the repo
      root: the member-facing onboarding page, one section per kind of AI
      user. (This template keeps a plain `.md` name on purpose — it
@@ -272,16 +255,6 @@ it applies.
    public vendored tree. Err broad; false positives are a one-line review,
    false negatives are published.
 
-   > **In plain terms.** This is the list of words your project can
-   > never say in public — your product's real name, internal
-   > nicknames, client names, anything you'd wince at seeing on a public
-   > website. It's the only step in this whole document where the
-   > assistant genuinely needs information only you have; everything
-   > else it can do by reading your project's files. When your assistant
-   > asks for this list, be generous — listing a word that turns out to
-   > be harmless costs nothing, but a word you forget to list is the one
-   > that could actually leak.
-
 5. **Add the export-gate section** to the instructions file (the template
    includes it): the copy-back rule, the scrub rule, and the periodic
    check-in item (add one to `TODO.md`).
@@ -315,13 +288,6 @@ it applies.
    [GETTING_STARTED.md](templates/GETTING_STARTED.md) first.
 7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
    Commit.
-
-   > **In plain terms.** "The audit must pass" means an automatic check
-   > has confirmed nothing looks wrong — no private words leaked, no
-   > files ended up in the wrong place. Think of it as a spell-checker
-   > for the rules themselves: green means safe to show you, red means
-   > the assistant fixes it before you ever see the result. You should
-   > never be shown a failing install.
 
 8. **Disclose anything GitHub-specific** (practice 37): if any step above
    added a required Actions workflow, a repository secret, a
@@ -477,42 +443,30 @@ it applies.
      [`tools/precedent_source_bootstrap.py`](tools/precedent_source_bootstrap.py)
      rather than a one-off hand-written clone.
 
-     **That clone still needs the session to actually have git read access
-     to the individual repo first, and on a hosted agent platform that
-     access is not automatic just because the hook exists** — a session's
-     git access is scoped per session, and a shell hook has no way to
-     grant itself more of it. The consuming repo's own instructions file
-     still needs the standing instruction
+     **That clone still needs the session to have git read access to the
+     individual repo, and on a hosted agent platform that access is not
+     automatic just because the hook exists** — a session's git access is
+     scoped per session, and a shell hook cannot grant itself more of it.
+     The consuming repo's instructions file still needs the standing
+     `add_repo` instruction that
      [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
-     step 4 gives in full (`add_repo` for both sibling sources at the very
-     start of every session, unconditionally) — but **read the next
-     sentence even if you already know that instruction, because two
-     independent adopters had it in place and still hit the gap it was
-     supposed to close**: a
-     `SessionStart` hook runs *entirely to completion* before the agent's
-     own first turn starts — this is a strict ordering, not a race with
-     variable odds (Claude Code's own docs for this hook: synchronous
-     mode "guarantees dependencies are installed before your session
-     starts") — so telling the agent to call `add_repo` "before running
-     any bootstrap script" cannot make that tool call precede a hook the
-     harness has already started running, at any retry count or delay.
-     **An earlier version of this paragraph claimed a retry loop inside
-     the hook closed the gap; a follow-up testing session proved that
-     false by direct test, not just unconvincing in theory** — see
-     [`practices/session-bootstrap.md`](practices/session-bootstrap.md)'s
-     Story for both incidents and this correction. What actually closes
-     it: `tools/precedent_resolve.py`'s own `load_config()` treats a
-     still-missing individual config, on a remote session, as "try the
-     bootstrap hook once more" rather than "no individual set" — and
-     because that re-invocation happens from inside the agent's own turn,
-     after `add_repo` has already run, it succeeds where the original hook
-     invocation structurally could not. The `add_repo` instruction above
-     is still required — the self-heal has nothing to succeed *into*
-     without real repo access — it just isn't, and never was, helped by
-     retrying earlier. See
-     [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
-     step 4 for the worked pattern, including the access gate and exactly
-     how it's closed now.
+     step 4 gives in full.
+
+     **Two independent adopters had that instruction in place and still hit
+     the gap, so read this even if you know it.** A `SessionStart` hook
+     runs entirely to completion before the agent's first turn — strict
+     ordering, not a race — so no instruction to call `add_repo` "first"
+     can make that call precede the hook, at any retry count or delay. What
+     actually closes it is
+     [tools/precedent_resolve.py](tools/precedent_resolve.py)'s
+     `load_config()`, which treats a still-missing individual config on a
+     remote session as *try the bootstrap hook once more*; that
+     re-invocation happens inside the agent's own turn, after `add_repo`
+     has run. **The `add_repo` instruction is still required** — the
+     self-heal has nothing to succeed into without real repo access. Both
+     incidents are in
+     [practices/session-bootstrap.md](practices/session-bootstrap.md)'s
+     Story.
    - **Whichever branch above ran, finish the person before moving on:
      an individual set is not wired until its `identity.json` says who
      they are.** The file ships with placeholders and
@@ -590,15 +544,14 @@ appended to the baseline `.gitignore` instantiated above from
 
 ## 0. Installing Directly Onto the Precedent Loader (New, 2026-09-03 — Read the Caveat Before Using)
 
-> **In plain terms.** This is an alternative to §1 above, for a project
-> that has never installed BestPractice before and wants to start on
-> Precedent's newer three-source system (universal + team + individual)
-> directly, rather than installing the older single-source model first and
-> migrating later. Most projects today should still use §1 — this path is
-> new and has not yet been rehearsed end to end against a real project
-> (see the caveat at the end of this section). [SETUP.md](SETUP.md)'s
-> guided conversation still uses §1 by default; ask for this path by name
-> if you want it.
+**Most projects should still use §1.** This is the alternative, for a
+project that has never installed BestPractice before and wants to start on
+the three-source model (universal + team + individual) directly rather than
+installing the older single-source model and migrating later. It is newer
+and **has not been rehearsed end to end against a real project** — see the
+caveat closing this section. [SETUP.md](SETUP.md)'s guided conversation
+still uses §1 by default; take this path only when the administrator asks
+for it by name.
 
 **When to use this instead of §1**: a genuinely fresh repo, never
 BestPractice-vendored before. A repo that already vendored BestPractice
@@ -777,14 +730,11 @@ cover, by design and not oversight:
 `checkin.py fresh` (one `ls-remote`, notice-only). *Taking* it is the
 deliberate procedure below.
 
-> **In plain terms.** Precedent itself keeps improving — other
-> projects find better ways of doing things and publish them here. This
-> section is how your project pulls those improvements in later,
-> without losing anything you've customized. Nothing here needs you
-> personally unless the assistant flags a conflict between an upstream
-> change and something your project changed on purpose — in that case it
-> will show you both versions and ask which should win, the same as
-> reviewing any proposed edit.
+**[Essentials only](#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later)
+governs an update exactly as it governs an install.** An update brings the
+project to current and stops; a newly shipped template that is optional gets
+one sentence, not a walkthrough. `VOICE.md` and `STYLEGUIDE.md` in
+particular are never filled in by an update.
 
 **Which install model is this? Steps 1–5 are §1's, and a §0 install skips
 them.** §1 vendors upstream's *prose* under `process/upstream/` and tracks it
@@ -993,20 +943,6 @@ practices while upstream carried 98, with nothing said.
 
 ## 3. (Optional) Give Back an Improvement — The Export Gate
 
-> **In plain terms.** This whole section, and §4 after it, are entirely
-> **optional** — nothing about using Precedent requires your project to
-> give anything back. They exist for when your project discovers a *better
-> way of working* — not a fact about your business, just a sharper habit
-> (a clearer checklist, a smarter automatic check) — that could help every
-> other project using Precedent, the same way yours benefited from
-> lessons other projects learned first. Think of it as reporting a better
-> recipe back to a shared cookbook, with your kitchen's specific
-> ingredients removed first. If your project chooses to do this, the
-> drafting happens automatically, on your project's own private working
-> copy, as part of the assistant's ordinary work; it doesn't leave your
-> project until the check-in step below (§4), which does need your
-> sign-off.
-
 For projects that choose to give back, run this check **before any thread
 ends / before any merge to the default branch** (it is step 0b of the merge
 runbook, beside the capture gate). Projects that don't intend to contribute
@@ -1041,22 +977,6 @@ If yes, in the **same branch**:
    export happens or the baseline is deliberately updated.
 
 ## 4. (Optional) Periodic Check-In — Propose Your Improvements Upstream
-
-> **In plain terms.** Like §3, this whole section is **optional** — skip
-> it if your project would rather keep its improvements to itself. For
-> projects that do want to give back, this is where §3's accumulated
-> improvements actually leave your project: on a schedule, they get
-> bundled up and offered to the public Precedent project as a formal
-> proposal — a pull request — so that everyone else using Precedent can
-> learn from what your team figured out. **This is the step where a human
-> reviewer other than you looks at what's being shared**, as a second
-> check that nothing private slipped through the automatic scrub. If
-> you're the one with authority to approve changes on your own project,
-> your part is: skim what the assistant proposes to share (it will
-> summarize it in plain language), and either approve it or ask for
-> something to be reworded or left out. Nothing leaves your project
-> without a PR existing first, and a PR is just a draft sitting on GitHub
-> until someone approves it.
 
 **Session scope note (hosted agent platforms).** Repo access is typically
 fixed when a session is created: a session opened on the dependent repo
@@ -1120,15 +1040,6 @@ order records a hash the vendored tree doesn't match.
 
 ## 5. The Manifest Schema (`process/manifest.json`)
 
-> **In plain terms.** The manifest is a receipt — a list of exactly what
-> was installed, where each piece landed in your project, and whether
-> it still matches what was originally installed or has since been
-> customized. You will rarely need to open this file yourself; it exists
-> so the assistant (and the automatic check in §6) never has to guess
-> "did we already install this?" or "has this drifted from the
-> original?" — the answer is always written down rather than
-> re-derived.
-
 ```json
 {
   "upstream": {
@@ -1181,16 +1092,6 @@ order records a hash the vendored tree doesn't match.
 
 ## 6. The Audit (`tools/practice_audit.py`)
 
-> **In plain terms.** This is the automatic check that runs before
-> almost every step above. It looks for two things: private words that
-> shouldn't be public (§1 step 4's list), and files that were changed
-> without anyone recording why. It's a machine doing the checking — not
-> a person reading every line — which is precisely why it can run every
-> single time without becoming a chore for anyone. If you ever hear
-> "the audit failed," it means the assistant caught a problem itself,
-> before it could reach you or the public repo; that is the system
-> working as intended, not a crisis.
-
 ```
 python3 process/upstream/tools/practice_audit.py                    # full check (gate)
 python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
@@ -1209,17 +1110,6 @@ Checks, in order — any FAIL exits non-zero:
    `local-only` entries have notes.
 
 ## 7. Practice Packs (Domain Layers)
-
-> **In plain terms.** Some rules are too specific to your industry or
-> workflow to belong in the public Precedent project, but too general
-> to belong only to your one project either — think a compliance
-> procedure that any project in your regulated field would need, not
-> just yours. A "pack" is a separate, smaller rulebook for exactly that
-> middle ground. Most projects never need one; if yours has a body of
-> rules that would make sense handed to a sister project in the same
-> field but not to an unrelated one, that's the sign a pack belongs
-> here, and it's worth raising with whoever oversees your process
-> setup.
 
 A repo can install additional practice layers beside this upstream —
 **packs** (practice 23): domain-scoped practice sets (a compliance regime, a
@@ -1251,251 +1141,10 @@ public upstream but too general to be one repo's local rules. Mechanics:
 
 ## 8. Per-Machine Setup — What Each Person Sets, on Each Machine
 
-Everything above installs Precedent into a *repository*, once. This section
-is the other axis: settings that belong to **a person on a computer**, and
-therefore have to be set again on every machine they work from. None of it
-lives in any repository — that is the point of it — so nothing in a fresh
-clone will remind you, and most of it fails **quietly** when absent.
-
-Written down because it kept being rediscovered. On 2026-09-07 a session
-found the individual source's clone URL living in a public repository's
-tracked hook, moved it to the private per-person config where it belongs,
-and then had nowhere to say so.
-
-### Required, and Silent When Missing
-
-| Setting | Where | What happens without it |
-|---|---|---|
-| `individual.name`, `individual.path`, `individual.repo_url` | `~/.config/precedent/config.json` (or wherever `PRECEDENT_USER_CONFIG` points) | Your individual practices do not resolve. The session says so on stderr and runs with team and universal only — easy to miss in a long startup. `repo_url` specifically is what the session-start hook clones from; without it the hook cannot fetch your set. |
-| `PRECEDENT_LEAK_BLOCKLIST` **and** `git config precedent.requireVocabulary true` | shell profile, and git config per checkout | The leak gate's vocabulary layer **fails open**: it prints `PARTIAL`, exits 0, and the push goes through with only the structural rules applied. Both are needed — the variable alone is not enough. **Since 2026-09-12 the variable is an override rather than the only route**: with it unset, the gate reads `leak-blocklist.txt` from the individual set your config names — the path this same section tells you to put it at — so a fresh shell no longer silently drops to the structural half. Set it anyway when your list lives somewhere else. |
-| `# visibility-audit: private-owner <your GitHub account> -- reason`, inside that blocklist file | the private blocklist itself | Switches the **repo-reference allowlist** on. Without it, every `<account>/<name>` mention passes: a blocklist blocks only the names someone remembered, and a private repository you create tomorrow is not one of them. With it, each mention is refused until an `allow` line gives a reason. The gate prints `INERT` on every run until you declare it, rather than passing quietly. **Do not pre-allow your individual source** — a shared repo naming one is refused by [tools/precedent_resolve.py](tools/precedent_resolve.py) as a privacy boundary, so an allow line for it grants exactly what the architecture withholds. Two further directives live in the same file, both off by default and both dated 2026-09-12: `stem-notes off -- reason` moves the routine missing-stem note out of every push run and into the very deep check, and `auto-cover-bare-names on -- reason` makes each private clone's **bare** name a pattern in its own right, so the short form is refused without anybody writing a stem. |
-| `name`, `email`, `timezone` in your individual set's `identity.json` | the individual set itself | Your commits carry the wrong person or the wrong clock. Name and address can still be resolved from the GitHub account the session is authenticated as, so this half often *looks* fine; **the timezone cannot be resolved from anywhere** — nothing in a GitHub profile says where a person is and a container's clock is UTC — so an unfilled zone silently downgrades the author-date check from enforced to guessed, and wrong-offset commits reach the remote before anyone notices. Use an IANA zone name (`America/New_York`), never a bare offset. The same file's `grandfathered_commit_shas` is the exemption list for commits that were **already published** when a violation surfaced; it starts empty and stays empty until you genuinely need one — an unpushed commit gets fixed, not listed. |
-| `pip install cmarkgfm markdown` | the machine | `doc_lint.py`'s strikethrough check stops running and says so in one line, and `doc_html.py` cannot import. A session-start hook installs these where one runs; a repo attached mid-session never runs its own hook, so do it by hand there. |
-
-`tools/precedent_bootstrap_source.py` writes all three `individual` fields
-for you when it creates a set, and
-`tools/precedent_source_bootstrap.py` keeps them current at session start.
-Filling them in by hand is for a machine where neither has run — copy
-[templates/practice-set-individual/config.json.sample](templates/practice-set-individual/config.json.sample),
-which carries the same explanation.
-
-### Hosted Sessions — The Credential That Replaces `add_repo`
-
-**On a hosted, ephemeral session there is a second way to reach your
-private sources, and it is the durable one.** The usual route is the agent
-calling `add_repo` in its first turn; that grants access *per session*, and
-it **refuses across owners** — reproduced 2026-09-09 as the very first tool
-call of a session whose initial repository was `alex137/bestpractice`:
-*"cross-tier adds are not supported in v1"*. There is no ordering of calls
-that gets around it, because the initial repository already counts. A
-session in that state runs on the universal catalogue alone and **says so
-only on stderr**.
-
-A credential the *environment* carries is under no such ordering. The
-SessionStart hook runs before the agent's first turn, so with these two
-variables set it clones the sources then, and `add_repo` never enters into
-it.
-
-| Setting | Where | Effect |
-|---|---|---|
-| `PRECEDENT_GIT_TOKEN` | the environment's own configuration (on Claude Code on the web, the environment; locally, your shell profile) | A token with **read** access to your practice-set repositories. [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) uses it to clone them at session start — and, since 2026-09-11, to fast-forward the ones already on disk, so a container that has been up for days is not still reading the sources as they were the day it started. A clone with uncommitted work in it is reported and left alone, never clobbered. Since 2026-09-11 each synced clone also keeps the credential helper in its own config, so a later plain `git fetch` inside it works too — the helper names the variable, so no token is written to disk. Nothing else reads it. |
-| `PRECEDENT_SOURCE_BASE_URL` | same | Where a practice set is cloned from, by name: `<base>/<set-name>`, e.g. `https://github.com/<account>`. Covers the **individual** set as well as the team ones (since 2026-09-10) — [source-naming](practices/source-naming.md) fixes that set's name to `precedent-individual` for everybody, so the account is the only unknown and this supplies it. Without it neither can be located, since **no tracked file names the account that owns them** — that is deliberate, and [precedent.json](precedent.json)'s own comment says why. |
-| `PRECEDENT_GIT_TOKEN_USER` | same | Optional. The username sent with the token; defaults to `x-access-token`, which GitHub accepts alongside any personal access token. |
-| `PRECEDENT_INDIVIDUAL_REPO` | same | Optional. The individual set's full URL, overriding the `<base>/precedent-individual` derivation above. Needed only where that set does not sit under the same account as the team sets. |
-| `PRECEDENT_GIT_TOKEN=inherit` | same | Opt-in: use whatever git credential the container itself carries (`GITHUB_TOKEN`, then `GH_TOKEN`). **Expect it to be refused** — see below. |
-
-**About `inherit`, and why it is opt-in rather than a fallback.** A Claude
-Code on the web container already carries a GitHub token, and it is scoped to
-the repositories the session attached — so for a practice set under another
-owner it does not work. **Measured 2026-09-09**: `inherit` against a real
-cross-owner private set was refused by GitHub with *"Invalid username or
-token"*. That is a useful answer rather than a wasted one, because the
-clone's own diagnosis distinguishes a **refused** credential from an absent
-one, so the failure names itself. What it must never be is automatic: a token
-nobody chose to send, sent anyway, turns "you have not set a credential" into
-"your credential is wrong", which is the more expensive of the two to chase.
-Ask for it by name, or set a real token.
-
-**Use a read-only token, scoped to the practice-set repositories.** Nothing
-here pushes with it.
-
-**A practice set is a repository you work in, and since 2026-09-13 it gets
-the same hook a consuming repo does.** Before that, a session rooted in
-`precedent-individual` or any `precedent-team-*` resolved **no individual
-practice source at all** — nothing there ever wrote
-`~/.config/precedent/config.json` — so every personal rule was silently
-absent while the session applied the ones it could see. The hook that writes
-it now ships into a set as well
-([tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)),
-execing the same vendored
-[tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py),
-which a set may hold for the first time. **A set created before that date
-has neither the hook nor the wiring**, and this cannot be repaired for you:
-an existing `.claude/settings.json` is never rewritten, so
-[tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
-reports the hook as unwired at every session start. The hook file and the one
-`SessionStart` command are both yours to add there — `--apply` writes neither
-for a set whose settings do not already declare the hook — ahead of
-`commit-identity.sh`, which reads that set for the author and the timezone.
-
-**Verified end to end, 2026-09-10.** A real read-scoped token set on the
-environment, and a brand-new container came up with all four private sources
-already cloned, before the first turn:
-[tools/precedent_resolve.py](tools/precedent_resolve.py) reported **146
-practices from 6 sources (41 team, 13 individual)** in a repository that had
-been resolving 89 from 1, and
-[tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
-reported `OK`. No `add_repo` call was made or needed. **What made this look impossible
-for three days was not the token**: the account held two environments with
-the same name, and the values had been set on the one the sessions were not
-running in. Name your environments distinctly — see [AGENTS.md](AGENTS.md)'s
-gotcha and, for the full sequence, entry 29 in
-[record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md).
-
-**What was verified before that, and how (measured 2026-09-09, in a Claude
-Code on the web container).** Three things were tested directly: an
-authenticated request to `github.com` **leaves the sandbox and reaches
-GitHub's own authentication** rather than being stopped by the proxy; there
-is **no ambient credential** for a private repository, so nothing works by
-accident; and the credential helper this ships **does deliver** the token to
-git — with a deliberately invalid one, git did not fall back to prompting,
-it sent the credential and GitHub rejected it. A valid token stayed untested until 2026-09-10,
-when it worked on the first try — recorded above.
-
-**The token is never written down.** It reaches git through a helper that
-reads the environment variable itself, so it appears in no command line, no
-clone's `.git/config`, and none of the files the bootstrap writes.
-
-**Setting the variable does not reach a session that is already running**,
-and the check below reads identically for "never set" and "set five minutes
-ago" — which is exactly how a correct configuration gets reported as a broken
-one (2026-09-09: a resumed session in a container that predated the change
-measured **zero** `PRECEDENT_*` variables, not an empty token). **Test an
-environment change in a NEW session**, and run `env | grep -c PRECEDENT`
-before concluding anything about the token itself.
-
-**If the token is not set, there are two fallbacks and then nothing.** In
-order:
-
-1. **`add_repo` from inside the session**, which grants access for that
-   session only. It works when the practice sets and the repository you are
-   working in belong to the **same GitHub owner**; across owners it refuses,
-   and no ordering of calls avoids that — the initial repository already
-   counts.
-2. **Start the session rooted at the practice set itself**, and reach the
-   other repository by a plain `git clone` if it is public. This is what the
-   cross-owner case is left with, and it is why work spanning both owners
-   gets split across two sessions.
-3. **Nothing else, by design.** There is no offline copy to fall back on: a
-   private set's text may not be vendored into a repository other people can
-   read, which is the whole reason it is a separate private repository. So
-   when neither route is available, **the session runs on the universal
-   catalogue alone** — and the only protection left is knowing it. That is
-   what every line below is for; a session in this state should say so in its
-   reply rather than let the reader assume the personal and team rules were
-   applied.
-
-**Check it from inside any session:**
-
-```
-python3 tools/precedent_source_credentials.py
-```
-
-It reports `OK` when every private source this repository expects is on
-disk, `MISSING` when one is absent and no credential is set — the state
-worth acting on — and `SET` when one is absent *despite* a credential,
-which means the token is not the problem and the clone itself is. The same
-line is printed by the session check, by the source-freshness report at
-session start, and by a vendor update.
-
-A fourth verdict, **`UNCONFIGURED`**, says the one thing the other three
-cannot: the only source missing is your **individual** set, and the reason
-is the user-level config rather than anything a credential reaches — the
-file is absent, or will not parse, or parses and names no individual
-source. Those are three different states with three different remedies, and
-none of them is a token. It exits 0, because nothing is in the wrong state;
-on a hosted session an absent or empty config still reads as `MISSING` or
-`SET`, since the bootstrap writes that file only after a clone succeeds, so
-a clone that failed leaves exactly the same fingerprint.
-
-### Setting These on the Environment, With an Example for Each
-
-**Recommended, not required.** Precedent installs and runs with none of this
-set. What it buys is that three problems stop recurring per session: private
-practices that silently never load, commits authored by the assistant's bot
-account instead of a person, and attached repositories nobody checks for
-staleness. Set on the environment rather than per checkout, they follow a
-session into every repository it touches.
-
-| Variable | Status | Example value |
-|---|---|---|
-| `PRECEDENT_GIT_TOKEN` | Required to reach a private practice set from a hosted session; irrelevant without one | `github_pat_<the rest of your read-only token>` |
-| `PRECEDENT_SOURCE_BASE_URL` | Required whenever `PRECEDENT_GIT_TOKEN` is set — the token says you may read, this says what to read | `https://github.com/your-github-account` |
-| `PRECEDENT_COMMIT_NAME` | Recommended | `Your Name` |
-| `PRECEDENT_COMMIT_EMAIL` | Recommended, alongside the name | `you@example.com` |
-| `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
-| `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `~/precedent-individual=main;~/precedent-team-writing=main` |
-| `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
-| `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |
-
-**Give your environments distinct names, and set a throwaway
-`PRECEDENT_PING=1` beside the token.** Verified 2026-09-08: an account can hold
-two environments with the SAME NAME — the selector gives you no way to tell
-them apart — and three sessions across two fresh containers reported
-`env | grep -c PRECEDENT` as **0**, with not one user-defined variable of any
-kind. That reads exactly like "the runner does not pass variables through",
-and was not that: `list_environments` showed two environments both named
-`Default`, created 100 ms apart, with the variables set on one and the sessions
-running in the other. The ping separates "the variables do not arrive" from
-"the token is wrong", which print identically otherwise. An environment change
-never reaches a session already running, so test in a NEW one. Full sequence:
-[record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) entry 29.
-
-### Optional, and Each One an Escape Hatch
-
-| Setting | Where | Effect |
-|---|---|---|
-| `git config precedent.freshness.intervalSeconds` | per checkout | How long the freshness guard's `user-prompt` mode stays quiet between checks. Default 600. |
-| `git config precedent.freshness.override true` | per checkout | Stops the guard refusing a write on a stale checkout. Deliberate override; the guard prints this remedy itself when it blocks. |
-| `PRECEDENT_FRESHNESS_ALSO` | environment | `;`-separated `<path>=<base branch>` entries naming repositories the session merely has **attached** — a sibling clone a team source resolves to, anything `add_repo` handed it. A hook only ever fires for the project dir, so without this an attached repo runs none of its own freshness checking, however correctly its guard is installed. Unset, nothing changes. An entry naming a path that is absent or is not a git repository is reported and skipped, never blocked on. Set it on the environment, like `PRECEDENT_COMMIT_*` below and for the same reason: environment variables follow a session into every repository it touches. **Write a path under your home directory as `~/name` or `$HOME/name`, not spelled out**: an individual practice source lives at `$HOME/precedent-individual`, and `$HOME` is not the same on every container, so an absolute path written on one names nothing on the next — silently, since a dead entry is skipped rather than blocked on. `$CLAUDE_PROJECT_DIR` is expanded too. `python3 tools/precedent_session_check.py` reports any entry that resolves to nothing and prints the value to set instead. |
-| `PRECEDENT_INDIVIDUAL_REPO` | environment | Overrides `individual.repo_url` for one session — for an environment that sets per-session variables and would rather not touch the config file. |
-| `PRECEDENT_COMMIT_NAME` / `_EMAIL` / `_TZ` | environment | The commit-identity layer that reaches a repository attached mid-session, which no hook can. Normally derived from your individual set's `identity.json` by the harness adapter's `env` block rather than set by hand. |
-| `PRECEDENT_ALLOW_ANY_AUTHOR=1` | one command | Lets a single commit through the author check. For a commit deliberately authored by someone else. |
-| `PRECEDENT_USER_CONFIG` | environment | Points at a user config somewhere other than the default path. Useful for testing an empty-neighbourhood case without disturbing your own. |
-
-`PRECEDENT_CHECK_ROOT` and `PRECEDENT_VENDOR_ENGINE_SECOND_PASS` are
-deliberately omitted: both are internal to a check or a tool's own test
-harness, and neither is a person's setting.
-
-## For Approvers: Your Checklist
-
-Everything above is written for the assistant doing the work. Stripped
-down to just the moments a non-technical approver actually needs to act
-on, across the whole lifecycle:
-
-- **At install (§1):** answer two questions — what the project is about,
-  and what private names/words must never go public. Then look at what
-  the assistant built and either approve it or ask for changes. You'll
-  also be walked through `VOICE.md` — your project's own voice, its
-  audiences, its vocabulary — and asked whether a brand guideline exists to
-  fill in `STYLEGUIDE.md` from. Both stay entirely local to your project,
-  and leaving either mostly blank is a perfectly good answer.
-  You'll also be asked whether your team, or you personally, already have
-  a practices repo of your own to wire in (§1 step 9) — most projects
-  don't yet, and saying so is a complete answer. See the
-  [guided install](SETUP.md) for the conversational version of this.
-- **At every check-in (§4), only if your project gives back at all
-  (§3–§4 are both optional):** review the plain-language summary of what's
-  being proposed back to the public Precedent project, and approve,
-  adjust, or hold it back. This is the one recurring moment where content
-  leaves your project's boundary, so it's the one worth actually reading
-  rather than rubber-stamping.
-- **When the audit flags something (§6):** if your assistant tells you an
-  automatic check failed, that's it catching a problem before it reached
-  you — not something you need to fix by hand. Ask it to explain what
-  failed and fix it; you're confirming the fix makes sense, not debugging
-  code yourself.
-- **Everywhere else** (taking updates in §2, the day-to-day export gate in
-  §3, the manifest and audit internals in §5–§6): these run inside your
-  assistant's normal work and don't need your sign-off unless it
-  specifically flags a conflict or a judgment call for you.
+**Moved to [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).** Everything on
+this page installs Precedent into a *repository*; that one is the other
+axis — what a person sets on each computer they work from, none of which
+lives in any repository and most of which fails quietly when absent. It
+covers the user-level config, the leak blocklist, `identity.json`, and the
+`PRECEDENT_GIT_TOKEN` / `PRECEDENT_SOURCE_BASE_URL` credential that lets a
+hosted session reach a private practice source without an `add_repo` dance.

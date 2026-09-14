@@ -109,7 +109,7 @@ confirms the pushed content is actually there
 **FIRST, and normally already done for you.** The private sources are
 cloned by the SessionStart hook when the environment carries
 `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
-([INSTALL.md](INSTALL.md) §8) — **verified working 2026-09-10**, all four
+([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) — **verified working 2026-09-10**, all four
 sources on disk before the first turn. Check rather than assume: the
 session-start source line names which sources resolved, and
 `env | grep -c PRECEDENT` says whether the environment carries the
@@ -509,7 +509,7 @@ that skips them in this repo of all places is the joke writing itself.
 | What each part of the very deep check returned and cost, run after run — and which parts have found nothing and are owed a keep/cheapen/retire answer | [record/very-deep-check-ledger.json](record/very-deep-check-ledger.json), written by [tools/very_deep_check.py](tools/very_deep_check.py) on every run (never hand-edit it); the answers go in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
 | Whether every declared practice-source repository is still CALLED what this repo calls it — a rename redirects forever, so git never notices | [tools/precedent_source_names.py](tools/precedent_source_names.py), run at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 8; `UNVERIFIED` is not a pass |
-| Whether this session can reach its PRIVATE practice sources at all, and the credential that removes the `add_repo` dance | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py), setup in [INSTALL.md](INSTALL.md) §8 |
+| Whether this session can reach its PRIVATE practice sources at all, and the credential that removes the `add_repo` dance | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py), setup in [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
 | Whether an attached practice-set source's vendored engine has gone stale, or is missing the session hooks a source is created with, and repairing either | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes and restores hooks, `--commit` commits |
 | Why a source clone that is on disk, with the token set, still fails every `git` command inside it with `could not read Username` — and what now repairs it at session start | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)'s `persist_credential_helper`, called from [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)'s `_try_sync` on every sync and from [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) for a clone nothing syncs |
 | Whether a hook this repo *declares* actually exists on disk and is executable — the failure the harness reports as nothing at all | [tools/precedent_check.py](tools/precedent_check.py) — `--only declared-hooks-exist` |
@@ -541,8 +541,8 @@ that skips them in this repo of all places is the joke writing itself.
 | Canonical names, generated (phase 2) | [GLOSSARY.md](GLOSSARY.md) — built from every practice's `defines:` field |
 | The loader — resident block, occasion index, path-trigger channel | This file's generated block above; engine at [tools/build_views.py](tools/build_views.py), [tools/precedent_paths.py](tools/precedent_paths.py) |
 | Loader premise, measured against this repo's own history | [tools/behavioral_replay.py](tools/behavioral_replay.py) |
-| Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) |
-| What each person sets on each machine (individual source, leak blocklist, the optional overrides) | [INSTALL.md](INSTALL.md) §8 |
+| Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
+| What each person sets on each machine (individual source, leak blocklist, the optional overrides) | [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
 | Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
 | Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
 | Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
@@ -702,7 +702,7 @@ retired it. Nothing is ever deleted.
 
 - **The private practice sets reach a session through the environment
   credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and
-  `PRECEDENT_SOURCE_BASE_URL` ([INSTALL.md](INSTALL.md) §8) and the
+  `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) and the
   SessionStart hook clones them before the first turn, where no ordering rule
   can reach it.** [story](record/GOTCHAS.md#g32)
 

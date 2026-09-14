@@ -680,7 +680,7 @@ and `team`, not universal alone.
 
 **The private practice sets reach a session through the environment
 credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and
-`PRECEDENT_SOURCE_BASE_URL` ([INSTALL.md](../INSTALL.md) §8) and the SessionStart
+`PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)) and the SessionStart
 hook clones them before the first turn, where no ordering rule can reach it.**
 Verified end to end 2026-09-10 on a brand-new container and again 2026-09-11:
 all four sources on disk before the first turn.
@@ -700,7 +700,7 @@ unresolved applies the wrong rules all day and cannot tell. **If `env | grep
 account can hold two environments with the SAME NAME and the selector cannot
 tell them apart, which is what it was three times. The setting-up half of this
 now lives where someone setting the variables reads it,
-[INSTALL.md](../INSTALL.md) §8's environment table; the three-day sequence is
+[PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)'s environment table; the three-day sequence is
 [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) entry 29.
 
 

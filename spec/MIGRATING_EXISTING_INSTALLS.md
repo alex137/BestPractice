@@ -22,6 +22,13 @@ rather than starting from a blank page. This document is that missing
 piece — **the recommended pattern**, not a plan, written from having
 actually done it once, on a real repo, for the first time.
 
+**[Essentials only](../INSTALL.md#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later)
+governs a migration too.** Bring the repo onto the three-source model,
+correctly, and stop. A refinement the migration surfaces — `VOICE.md` and
+`STYLEGUIDE.md` being the standing pair — gets one sentence saying it exists
+and can be done any time by asking an assistant, never a walkthrough inside
+the migration.
+
 **Worked example: the project's own prior notes repository.** Everything below generalizes
 what that repo's own migration actually did on 2026-09-02, first tested
 against the real `precedent-team-repo-maintenance` and `precedent-individual`
@@ -274,7 +281,7 @@ the loader.
    call, so no ordering fixes it and the self-heal has nothing to retry
    into. Set `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` in the
    environment's own configuration
-   ([INSTALL.md §8](../INSTALL.md#8-per-machine-setup--what-each-person-sets-on-each-machine)):
+   ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)):
    a credential the environment carries is available to the SessionStart
    hook itself, before the agent's first turn, which is the one thing
    `add_repo` can never be. Then
