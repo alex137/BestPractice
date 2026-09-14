@@ -87,6 +87,15 @@ INTERNAL_FILES = (
     "AGENTS.md", "CLAUDE.md", "GLOSSARY.md",
     "MAP.md", "PRACTICES.md", "TODO.md",
     "VOICE.md", "STYLEGUIDE.md",
+    # WHERE_THINGS_ARE.md joined on 2026-09-14, the day it was created: it is
+    # AGENTS.md's own quick index, split out of it to stop every session
+    # paying 2,671 tokens for a table it reads a dozen rows of
+    # (practice: reduction-pass, step 3). Nothing about it changed except
+    # which file it lives in, so classifying the halves differently would
+    # capitalize headings in one and not the other for no reason anybody
+    # decided -- the same accident that left record/ out of INTERNAL_DIRS
+    # above until somebody noticed the twin.
+    "WHERE_THINGS_ARE.md",
 )
 
 

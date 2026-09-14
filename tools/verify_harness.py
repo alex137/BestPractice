@@ -6125,9 +6125,19 @@ def check_precedent_check_fires():
         # search-by-purpose -- a document carrying generated numbers, indexed
         # from nothing a reader consults
         def _plant_sbp(repo):
-            rewrite(repo, 'AGENTS.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
-            rewrite(repo, 'MAP.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
-            rewrite(repo, 'CLAUDE.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
+            # Scrub the reference from EVERY index file the check reads, taken
+            # from doc_lint's own list rather than named here. The three were
+            # hardcoded until 2026-09-14, when the quick index was split and
+            # WHERE_THINGS_ARE.md became a fourth: the plant then left the
+            # reference standing in a file the check consults, so the planted
+            # violation stopped firing and this control silently passed while
+            # proving nothing (practice: fixture-owns-its-state -- whatever a
+            # fixture asserts on, it must own).
+            import doc_lint as _dl
+            for _idx in _dl.INDEX_FILES:
+                if (repo / _idx).exists():
+                    rewrite(repo, _idx,
+                            lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
             rewrite(repo, 'spec/LOADER.md', lambda t: t + '\n')
         case('search-by-purpose', _plant_sbp)
 

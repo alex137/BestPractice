@@ -1019,6 +1019,13 @@
         "reply"
       ],
       "gates_why": "The cost lands in the reply: a relayed guess presented as a finding, and a recommendation built on it. That is what the gate has to catch."
+    },
+    "reduction-pass": {
+      "globs": [
+        "**"
+      ],
+      "why": "`**` because this is a standing COMMAND, not a rule about a kind of file. \"Reduction pass\" can be said in any turn, about any repository's always-loaded surfaces, and the session has to already know what it means -- the same reasoning as go-merge, park-it and three-things, which are all at `**` for being phrases rather than file-shaped rules. The occasion index is the channel that matters here; a path trigger could not fire on a sentence. The second half of the occasion (\"an always-loaded surface is near its ceiling\") is served by tools/precedent_gate.py's merge and push gates, which print the headroom notice, rather than by any glob.",
+      "decided": "2026-09-14, when the practice was added"
     }
   },
   "gates": {
