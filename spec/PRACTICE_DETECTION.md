@@ -1,13 +1,13 @@
 ---
 title:         "Plan: detection at the end of a turn"
 kind:          proposal
-status:        drafted
+status:        executed
 opened:        2026-09-14
 closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       Make the system notice candidate practices on its own — a closing line in every reply that names a candidate or says there was none, plus a phrase detector on the person's own messages.
+summary:       Makes the system notice candidate practices on its own — at the close of a session that merged something and is ready to archive, one candidate at most, and only when a detector found something in that session's own material. Built 2026-09-14.
 ---
 # Plan: detection at the end of a turn
 
@@ -70,60 +70,66 @@ reads the standing instruction and chooses to run the command.
 moment that arrives unconditionally, at the end of every turn, with the
 session's own work still in front of it.
 
-## The design
+## What was built
 
-### Part 1 — a closing line that names a candidate, or says there was none
+**Morgan narrowed the design before it was built, and every limit he set is
+a measured condition rather than a line of guidance.** The first draft had a
+closing sentence on every reply — one phrase naming a candidate, one saying
+there was none. He replaced that with something much quieter: *"this should
+just be a bullet point within that section, targeting a maximum of 1 per
+session, without forcing it."*
 
-**The judgment is soft; the disclosure is hard.** A new practice on the
-`reply` gate asks the session, as it writes its closing section, whether
-anything in this turn's work was a rule rather than a one-off. That judgment
-is advisory — the session may honestly conclude nothing was. **What is
-enforced is that the reply says which.**
+**One bullet, in the closing list, and only when all four of these hold:**
 
-The enforcement rides on [tools/precedent_reply_check.py](../tools/precedent_reply_check.py),
-which reads a `reply_check.json` from each resolved source and **refuses the
-turn** when a declared requirement is unmet. That mechanism already carries
-the `## Next Steps` heading and the archive sentence. A third requirement —
-one of two phrases, one naming a candidate and one saying there was none —
-is the same shape and needs no new machinery.
+| Condition | Why | How it is measured |
+|---|---|---|
+| This session **merged** something | *"if there wasn't, we were just talking!"* | the transcript's own tool calls — `git merge`, `gh pr merge`, the GitHub merge tool |
+| The reply says the session is **ready to archive** | *"if it's not ready to be archived, it's not yet ready for the suggestion"* | the declared archive sentence appears in the reply being written |
+| **One per session**, not one per reply | so it cannot become a drip | no earlier reply this session carried the candidate marker |
+| A detector found something **in this session's own material** | *"shouldn't be random stuff from other conversations"* | the person's own messages, and commits made since the session started |
 
-**The argument for hard disclosure rather than hard detection is one this
-reply-check mechanism already rests on.** The requirement it carries today is
-a closing sentence that must say one of two things, precisely because a reply
-that omits the sentence and a reply that says "nothing is outstanding" look
-identical on the page and mean opposite things. Identical reasoning here.
-Forcing a session to *find* something trains it to invent; forcing it to
-*say which of two things happened* costs one sentence and cannot be complied
-with accidentally.
+**The fourth condition is what replaced hard disclosure**, and it is a
+better answer than the one it replaced. Because the hook fires only on
+positive evidence, a session with nothing to offer is never interrupted —
+and is never made to say it found nothing either. The reply of an ordinary
+session is exactly what it would have been.
 
-**At most one candidate reaches the reply. Any others are written, not
-raised.** Candidates are designed to cost nothing —
-[spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md): *"creating one costs
-nothing; ignoring one costs nothing"*, and no loader ever reads
-`candidates/`. So the cap protects the reader's attention, not the
-repository, and it belongs on what is surfaced rather than on what is
-recorded. Write down everything worth acting on; raise only what the reader
-must decide now.
+### The pieces
 
-### Part 2 — a phrase detector on the person's own messages
+- **[tools/precedent_close_detect.py](../tools/precedent_close_detect.py)** —
+  the trigger Stage 1 never had. It reads the Stop hook's payload, measures
+  all four conditions against the session transcript, and blocks the close
+  only when every one of them holds, naming what it found and saying plainly
+  that a one-off is a valid answer.
+- **[practices/merged-session-offers-a-practice.md](../practices/merged-session-offers-a-practice.md)** —
+  the universal practice, on the `reply` gate.
+- **[tools/precedent_detect.py](../tools/precedent_detect.py)** — refactored
+  so its signals are callable functions rather than CLI printers. Half of
+  why Stage 1 was never invoked is that there was nothing to call.
+- **The Stop hook** — in
+  [.claude/hooks/stop-git-check.sh](../.claude/hooks/stop-git-check.sh) and
+  in the template it is instantiated from
+  ([templates/harness/claude-code/hooks/stop-git-check.sh](../templates/harness/claude-code/hooks/stop-git-check.sh)),
+  alongside the reply check it already ran.
+- **A `close_detect.json` per source** — the phrases are declared, never
+  compiled in, exactly as `reply_check.json` already works. A repo whose
+  sources declare none is never blocked by any of this.
 
-**The plan calls an explicit standing instruction *"the highest-signal moment
-the system will ever get"*, and today it is handled ad hoc.**
-`precedent_detect.py explicit-instruction` already detects it, over supplied
-text, with patterns deliberately narrowed to the standing-rule shape rather
-than the bare words. It has never been connected to anything.
+**Blocking rather than printing is forced by the moment, not chosen.** A
+Stop hook's stdout does not reach the model on a clean exit — the same
+finding that put the reply gate's brief in a `UserPromptSubmit` hook — so an
+advisory print at the close reaches nobody. Exit 2 is the only channel that
+arrives, and firing it on evidence only is what keeps that from being a tax.
 
-A `UserPromptSubmit` hook pipes the incoming message through it and surfaces
-any hit to the session before the turn begins. That hook type is already in
-use here — the freshness guard runs in it — so this is wiring, not
-invention.
+### Where Part 2 went
 
-**The two parts catch different things and do not overlap.** Part 2 catches
-rules the person states; it lowers the cost of writing up a decision they
-have already made, but they remain the originator. **Part 1 catches rules
-nobody stated** — a fix that took three attempts, a correction absorbed
-without comment, a trap hit and worked around. That is the half currently
-missing entirely, and it is the reason Part 1 leads.
+The original Part 2 was a `UserPromptSubmit` hook running the
+explicit-instruction detector on each incoming message. **That surface
+contradicts the rule Morgan set** — *"I don't want to DISTRACT people
+working on something to propose practices"* — so the detector runs over the
+person's messages at the **close** instead, where it is subject to all four
+conditions above. Nothing about the signal was dropped; only the moment it
+is raised at moved to the end.
 
 ## What this does not do
 
@@ -135,9 +141,12 @@ missing entirely, and it is the reason Part 1 leads.
   cited-only for the reason above.
 - **It does not add a check-failure-history signal.**
   `repeated-check-failure` needs a persistent log of runs over time, which
-  nothing here keeps; [precedent_detect.py](../tools/precedent_detect.py) names that gap in its own
-  header
-  and this proposal leaves it open.
+  nothing here keeps; [precedent_detect.py](../tools/precedent_detect.py)
+  names that gap in its own header and this leaves it open.
+- **It cannot see a rule nobody said and no commit undid.** The session's own
+  judgment about its finished work is the practice's Rule text, loaded at the
+  `reply` gate and advisory — the mechanical half fires on evidence, and
+  evidence is narrower than noticing. That gap is the open question below.
 
 ## The open question, stated rather than buried
 
@@ -150,7 +159,7 @@ and a cheap closed question is structurally the framing that did **not** hit
 the ceiling, unlike a whole-catalogue sweep over a finished diff. It marked
 that reasoning as reasoning, not measurement, and deferred the test.
 
-**This proposal is a cheap way to finally run it.** A candidate file is a
+**This is a cheap way to finally run it.** A candidate file is a
 dated record, so after some weeks of real use the questions are countable:
 how many were raised, how many promoted, and how many rules the person still
 had to catch themselves. If the ceiling does reach this task, the closing
@@ -165,3 +174,11 @@ evidence above was the answer. **The closing-line shape is his** — he
 proposed hanging detection off the `## Next Steps` section already enforced
 at the end of every reply, capped at one per session so it cannot become
 noise. He chose to include Part 2 alongside it; `strength: decided`.
+
+**He then narrowed it, same day, and said to build it.** Not one per reply
+but one per session; only in the final message after a merge; only from that
+conversation's own material; and only alongside the sentence that says the
+session is ready to archive. That last condition is the one that turned the
+design from a closing line into something that mostly says nothing, and it
+is his: *"I don't want to DISTRACT people working on something to propose
+practices."* Built the same day; `strength: decided`.
