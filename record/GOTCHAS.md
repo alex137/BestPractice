@@ -153,6 +153,17 @@ your uncommitted files and nothing else. Fix both with a bounded `git fetch
 --depth=500 origin <branch>`; some git policy hooks block `--unshallow`, and a
 bounded fetch works either way.
 
+**Since 2026-09-14 the primary repo does this for you**, in
+[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh): a shallow
+clone is deepened at session start, before anything reads history, bounded by
+`timeout` and falling back to `--deepen` where `--unshallow` is refused.
+Measured against this remote: 2.7 MB of history before, 9.5 MB after, 4
+seconds. **What it does NOT cover is every case this entry is about** — a
+sibling attached mid-session runs none of its own hooks
+([g15](#g15)), a CI checkout is its own shallow clone, and a source set has no
+such hook at all. In any of those, the manual fetch above is still the fix, and
+a tool reporting a suspiciously clean result is still the symptom.
+
 
 ## 7. <a id="g7"></a>git clone --depth 1 /some/path is ignored; git only honours --depth over a ...
 

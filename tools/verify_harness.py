@@ -5993,6 +5993,80 @@ def check_precedent_check_fires():
                       'does not just walk every directory',
                       _bs2_rc == 0 and _BS_ORPHAN not in _bs2_out))
 
+        # ...and the DECLINE, since 2026-09-14. A source declares its
+        # harness adapters and the consuming repo's sync writes them into
+        # .claude/hooks/ without touching settings.json, on purpose -- so a
+        # repo that does not want one cannot end up wired, and before this
+        # the check reported that correct decision as an orphan forever.
+        # Four states, because a decline is only worth having if the three
+        # ways it can be wrong are reported too: no reason, no such file,
+        # and a decline sitting beside a hook that actually runs.
+        # Same spelling discipline as the block above -- the declined path
+        # is joined at runtime, never written here as a path literal, or
+        # this source (which the check reads as a possible caller) would
+        # make its own planted orphan reachable.
+        _DECLINED = 'zzz-declined.sh'
+        _hook_ref = lambda n: '.claude/' + 'hooks' + '/' + n
+
+        def _plant_decline(repo, reason=None, path=None, also_wire=False):
+            (repo / '.claude' / 'hooks' / _DECLINED).write_text(
+                '#!/bin/sh\necho declined\n', encoding='utf-8')
+            if also_wire:
+                sp = repo / '.claude' / 'settings.json'
+                d = json.loads(sp.read_text(encoding='utf-8'))
+                d.setdefault('hooks', {}).setdefault('SessionStart', []).append(
+                    {'hooks': [{'type': 'command',
+                                'command': '$CLAUDE_PROJECT_DIR/'
+                                           + _hook_ref(_DECLINED)}]})
+                sp.write_text(json.dumps(d, indent=2), encoding='utf-8')
+            cp = repo / 'precedent.json'
+            cfg = json.loads(cp.read_text(encoding='utf-8'))
+            entry = {'path': path if path is not None
+                     else _hook_ref(_DECLINED)}
+            if reason is not None:
+                entry['reason'] = reason
+            cfg['declined_adapters'] = [entry]
+            cp.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+
+        _d1 = fresh('hooks-decline-declared')
+        _plant_decline(_d1, reason='our own bootstrap already does this')
+        _d1_rc, _d1_out = run(_d1, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a hook declined WITH a '
+                      'reason is satisfied by the reason, not by wiring it',
+                      _d1_rc == 0 and _DECLINED not in _d1_out))
+
+        _d2 = fresh('hooks-decline-reasonless')
+        _plant_decline(_d2, reason=None)
+        _d2_rc, _d2_out = run(_d2, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline with NO reason '
+                      'is a silenced check and is reported as one',
+                      _d2_rc == 1 and 'with no reason' in _d2_out
+                      and _DECLINED in _d2_out))
+
+        _d3 = fresh('hooks-decline-stale-path')
+        _plant_decline(_d3, reason='we do not want it',
+                       path=_hook_ref('zzz-not-here.sh'))
+        _d3_rc, _d3_out = run(_d3, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline naming a file '
+                      'that is not there is reported, so an exemption cannot '
+                      'outlive what it exempted',
+                      _d3_rc == 1 and 'no such file is here' in _d3_out))
+        # The plant above ALSO leaves a real orphan on disk, undeclined.
+        # Asserting only the stale-path message would pass on the orphan
+        # finding alone (practice: control-asserts-which-failure).
+        cases.append(('hooks-on-disk-are-reachable: ...and that case reports '
+                      'the stale declaration separately from the orphan it '
+                      'failed to cover',
+                      'zzz-not-here.sh' in _d3_out and _DECLINED in _d3_out))
+
+        _d4 = fresh('hooks-decline-contradicted')
+        _plant_decline(_d4, reason='we decided against it', also_wire=True)
+        _d4_rc, _d4_out = run(_d4, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline for a hook '
+                      'something DOES call is reported, because the note is '
+                      'what the next reader trusts',
+                      _d4_rc == 1 and 'something does call it' in _d4_out))
+
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
             up = repo / 'process' / 'upstream' / 'tools'
@@ -8881,17 +8955,66 @@ def check_sync_refuses_to_lose_a_recorded_practice():
                       r.returncode == 0
                       and not (repo / 'practices' / 'team-x-rule.md').exists()))
 
-        # 4. DROPPING the source is a decision already made -- report, allow.
+        # 4. DROPPING the source: refused too, since 2026-09-14. This used
+        #    to assert returncode == 0 on the reasoning that a drop is a
+        #    decision somebody just made -- and the matching is by NAME, so
+        #    a RENAME is indistinguishable from a drop here and would have
+        #    been written under the same reassuring message. Case 5 is the
+        #    one that could not be told apart; this one is its twin.
         repo2, team2, user2 = _repo(tmp / 'b')
         _sync(repo2, user2); _commit(repo2)
         cfg = json.loads((repo2 / 'precedent.json').read_text())
         cfg['sources'] = [s for s in cfg['sources'] if s['level'] != 'team']
         (repo2 / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
         r = _sync(repo2, user2)
-        cases.append(('dropping a source from precedent.json is allowed, not '
-                      'refused', r.returncode == 0))
-        cases.append(('and it says which practices went with it',
+        cases.append(('an undeclared recorded source REFUSES rather than '
+                      'deleting', r.returncode != 0))
+        # practice: control-asserts-which-failure -- a non-zero exit proves
+        # nothing about WHICH guard fired, and the fixture above can trip at
+        # least two others. Assert the three states this message names.
+        cases.append(('and the refusal names all three states it cannot '
+                      'tell apart',
+                      all(w in r.stderr for w in ('DROPPED', 'RENAMED',
+                                                  'RETIRED'))))
+        cases.append(('and it says which practices are at stake',
                       'team-x-rule' in r.stderr))
+        cases.append(('and the practice files survive the refusal',
+                      (repo2 / 'practices' / 'team-x-rule.md').exists()))
+        r = _sync(repo2, user2, '--allow-removals')
+        cases.append(('--allow-removals proceeds once you know which it is',
+                      r.returncode == 0
+                      and not (repo2 / 'practices' / 'team-x-rule.md').exists()))
+
+        # 5. THE INCIDENT ITSELF, and it takes two changes to reproduce.
+        #    A rename ALONE deletes nothing: the source still resolves and
+        #    still produces the same slugs, so nothing is lost and the guard
+        #    has no occasion to fire -- asserted below, because a fixture
+        #    that cannot tell a safe rename from a dangerous one would make
+        #    this whole case unfalsifiable. The damage needs a rename PLUS a
+        #    practice that really does go: then the slug is lost, the
+        #    recorded source name matches nothing, and before 2026-09-14
+        #    that was written and reported as the person having dropped the
+        #    source on purpose. The 2026-09-14 removals were correct only
+        #    because the four practices were retired upstream as well.
+        repo3, team3, user3 = _repo(tmp / 'c2')
+        _sync(repo3, user3); _commit(repo3)
+        cfg = json.loads((repo3 / 'precedent.json').read_text())
+        for s in cfg['sources']:
+            if s['level'] == 'team':
+                s['name'] = 'precedent-team-x-renamed'
+        (repo3 / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        r = _sync(repo3, user3)
+        cases.append(('a rename ALONE loses nothing and is not refused',
+                      r.returncode == 0
+                      and (repo3 / 'practices' / 'team-x-rule.md').exists()))
+        _commit(repo3)
+        (team3 / 'practices' / 'team-x-rule.md').unlink()
+        r = _sync(repo3, user3)
+        cases.append(('a rename PLUS a real removal refuses instead of '
+                      'deleting under a dropped-source message',
+                      r.returncode != 0))
+        cases.append(('and the practice survives that refusal',
+                      (repo3 / 'practices' / 'team-x-rule.md').exists()))
 
     failed = [n for n, ok in cases if not ok]
     check(f'a sync refuses to lose a practice the committed manifest records '
@@ -13506,7 +13629,11 @@ def check_rendered_docs_are_current():
                        'no render to compare')
         return
 
-    STAMP = _re.compile(r'<div class="renderstamp">[^<]*</div>')
+    # the stamp is a <time> element since 2026-09-14 (reader-local rewrite,
+    # dependent repo #1's check-in); the old <div> form is still masked so the
+    # check stays green across the boundary commit.
+    STAMP = _re.compile(
+        r'<(?:div|time) class="renderstamp"[^>]*>[^<]*</(?:div|time)>')
     stale, missing = [], []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-check-'))
     try:

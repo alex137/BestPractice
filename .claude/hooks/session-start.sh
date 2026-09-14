@@ -50,6 +50,42 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
   fi
 fi
 
+# Make this checkout's HISTORY complete, not just its files.
+#
+# practice: durable-fix. The container clones this repo `--depth 1`, so every
+# file of the branch is present and current and almost none of the past is.
+# The files are what a person notices; the past is what the TOOLS read, and
+# three of them degrade on a truncated one without ever failing:
+# behavioral_replay.py has nothing to replay, doc_lint.py silently narrows
+# from "the files changed against the base branch" to "the files not
+# committed yet", and precedent_check.py's `scope: tree` checks read an empty
+# `git log` as `0 violated` rather than as "could not check"
+# (record/GOTCHAS.md#g6, #g8). Git itself is not immune: a branch that is
+# merely BEHIND reads as diverged when the two truncated stretches do not
+# overlap, which cost a whole session on 2026-09-14 (#g37) before the
+# freshness guard learned to deepen before believing its own counts.
+#
+# Measured 2026-09-14 against this remote through this container's proxy, in
+# exactly the order below (refspec widened first, so the deepen reaches every
+# branch rather than one): 2.7 MB of history before, 9.5 MB after, 4 seconds.
+# That is the whole cost, once per session, which is why this is
+# unconditional rather than clever about which sessions need it.
+#
+# Bounded and never fatal. `timeout` caps a slow or hanging network so a
+# session cannot be held at the door, and `--deepen` is the fallback because
+# some git policy hooks refuse `--unshallow` outright. A failure reports and
+# continues: a session with a short history is worse off than one without,
+# and far better off than a session that does not start.
+if git rev-parse --git-dir >/dev/null 2>&1 \
+   && [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  if timeout 90 git fetch --quiet --unshallow 2>/dev/null \
+     || timeout 90 git fetch --quiet --deepen=1000 2>/dev/null; then
+    echo "NOTE: this clone carried only the most recent commits; fetched the rest of the history so history-reading tools do not silently degrade. (See AGENTS.md gotchas g6, g8, g37.)" >&2
+  else
+    echo "WARN: could not deepen this shallow clone -- behavioral_replay.py, doc_lint.py's changed-files scope and precedent_check.py's tree checks may report success while checking little or nothing. Remedy: git fetch --unshallow" >&2
+  fi
+fi
+
 # FRESHNESS LIVES IN .claude/hooks/freshness-guard.sh, NOT HERE.
 # This file briefly carried its own fetch-and-fast-forward block (added
 # 2026-09-06). A parallel session had meanwhile built freshness-guard.sh,

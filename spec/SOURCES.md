@@ -186,8 +186,30 @@ The first replacement of content the tree never recorded as materialized — a
 hand-copy being adopted, or a local edit being reverted — prints a notice
 naming the file, while an ordinary update from a source that moved stays quiet.
 
+**A consumer can DECLINE an adapter, since 2026-09-14, and the reason is what
+satisfies the check.** The sync writes an adapter in and deliberately will not
+touch the consumer's `settings.json`, so a repo that does not want one cannot
+end up wired — and `hooks-on-disk-are-reachable` then reported that correct
+decision as an orphaned hook, permanently, with no way to clear it but to wire
+a hook the repo had decided against. So the consumer declares it:
+
+```json
+"declined_adapters": [
+  {"path": ".claude/hooks/freshness-guard.sh",
+   "reason": "tools/bootstrap.sh already fetches and fast-forwards"}
+]
+```
+
+Same shape and same requirement as `filename_separator_exempt`: **a decline
+with no reason is reported**, because the reason is the whole thing separating
+a decision from a silenced check — the next reader has to be able to disagree
+with it. Two more states are reported rather than quietly accepted, since both
+mean the declaration has come loose from the tree: a decline naming a file that
+is not there, and a decline sitting beside a hook that something actually
+calls. It reports; it never wires anything, and it never unwires anything.
+
 **Not yet done, deliberately: this repository declares no adapters of its own.**
-The six hook templates under
+The eight hook templates under
 [templates/harness/claude-code/hooks/](../templates/harness/claude-code/hooks/)
 are still installed by hand, because switching them on would start writing into
 every consuming repo's `.claude/hooks/` — a real behavioural change to every
