@@ -172,7 +172,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 118 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 119 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -299,6 +299,8 @@ When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
 When a practice lands or a candidate is raised, at any level:
   disclose-landing — state plainly what happened and where — individual, named team, or universal
+When a setting has no value from the person -- at install, at setup, or in the middle of work:
+  declared-default-is-applied — apply the declared default and name it in passing; never ask
 When a tool warns about already-published git history:
   no-rewrite-for-warnings — fix the setting forward; never rewrite published history
 When a tool, hook or error message names the possible causes of a failure:

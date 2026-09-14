@@ -196,6 +196,21 @@
       "why": "The mark is written into the frontmatter of a practice file or a decision record, so those paths ARE the distinguishing condition: a file that records someone's approval. The reply gate carries the other half -- citing a past approval back to them -- which no glob reaches.",
       "decided": "2026-09-09"
     },
+    "declared-default-is-applied": {
+      "globs": [
+        "SETUP.md",
+        "INSTALL.md",
+        "PER_MACHINE_SETUP.md",
+        "documentation/*.md",
+        "templates/GETTING_STARTED.md"
+      ],
+      "why": "Routed at the documents that actually tempt a session into asking: the install runbook, the guided-setup script, the per-machine settings page, the reader-facing guides, and the member onboarding template. The occasion itself -- a setting the person has not chosen -- arises in conversation more often than in a file, which is what the reply gate covers; these globs catch the other half, a session writing one of those documents and putting a question into it.",
+      "decided": "2026-09-14, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Asking happens in a reply. The reply gate is the only moment that reaches the question before it is put to the person."
+    },
     "declared-pronouns": {
       "globs": [
         "**"

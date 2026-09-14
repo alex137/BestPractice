@@ -128,6 +128,35 @@ Either way: nothing you suggest is ever adopted without a real yes from
 whoever it actually affects, and nothing you say is ever quietly
 forgotten. An idea nobody has acted on yet stays on record, not lost.
 
+## What It Knows About You, and How to Change It
+
+A handful of small things about you are used by every assistant working on
+the project, and **you will never be asked for any of them.** Each one has a
+sensible answer that applies until you say otherwise:
+
+- **Your name and email address**, which go on everything saved in your
+  name. Taken from the account you signed in with.
+- **The timezone dates and times are stamped in.** New York, unless your own
+  settings say different. (It has to be *some* real place — otherwise records
+  made by people in different countries can't be put in order.)
+- **How you're referred to in writing** — he, she, or they. **They**, until
+  you say which you prefer; nobody guesses from a name.
+- **Your own personal rules**, if you keep a set of them — the habits that
+  follow you between projects rather than belonging to this one. You don't
+  need one, and most people start without.
+
+**To change any of it, just say so** — *"my timezone is Madrid"*, *"refer to
+me as he"*, *"my work email is the other one"* — at any moment, in the middle
+of anything else. The assistant knows where each one is written down and puts
+it there. **You can also ask what it currently has**, the same way.
+
+**None of this is worth a wrong-footed setup conversation**, which is why
+nobody raises it on day one: a date stamped in the wrong city's time is a
+small, visible, one-sentence fix whenever you happen to notice it. If you
+want the technical version — what each setting is called and what breaks
+without it — it is
+[Per-Machine Setup](../PER_MACHINE_SETUP.md).
+
 ## Two Things You Can Fill in Whenever You Like
 
 Whoever set this project up was told to do the essentials and stop, so two

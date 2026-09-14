@@ -229,6 +229,17 @@ the project is wrong without them.
 
 ## Rules While Guiding
 
+- **Never ask about a setting that already has a default.** The timezone
+  dates are stamped in, how the person is referred to in writing, whether
+  their approval travels between sessions — each has a declared answer that
+  applies until they say otherwise. Apply it, mention it in passing at most,
+  and point them at
+  [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)'s "What Applies Until You Set
+  Any of It" once (practice
+  [declared-default-is-applied](practices/declared-default-is-applied.md)).
+  A wrong timezone is a one-sentence fix whenever they notice; the question
+  that would have prevented it costs them a decision on the day they know
+  least.
 - One step at a time; never assume git vocabulary. "Branch" and "merge"
   get a five-word gloss the first time they appear.
 - Do the work yourself wherever an agent can; involve the administrator
