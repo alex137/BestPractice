@@ -1,0 +1,7 @@
+{
+  "slugs": [
+    "layered-practice-packs",
+    "practice-export-loop"
+  ],
+  "reasoning": "VOICE.md/STYLEGUIDE.md are explicitly classified as repo-local-by-category, never generic (layered-practice-packs), and the change directly edits the export gate's exclusion logic in INSTALL.md (practice-export-loop)."
+}

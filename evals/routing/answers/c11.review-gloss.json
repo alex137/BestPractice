@@ -1,0 +1,1 @@
+{"slugs": ["session-bootstrap", "doc-references-are-links"], "reasoning": "The change directly extends the session-bootstrap practice (a stop-hook mirroring the session-start hook discipline) and its documentation edits add new relative markdown links to repo files, which is exactly what doc-references-are-links governs."}

@@ -1,0 +1,1 @@
+{"slugs": ["session-bootstrap", "doc-references-are-links"], "reasoning": "The diff adds a SessionStart hook plus a settings.json permissions allowlist (session-bootstrap) and an AGENTS.md quick-index table that uses relative markdown links to reference repo files (doc-references-are-links); no other shown practice's Rule is visibly implicated by what's in the diff."}

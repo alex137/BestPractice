@@ -1,0 +1,55 @@
+#!/bin/sh
+# Precedent leak gate — pre-push.
+#
+# Install:  cp templates/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+#      or:  git config core.hooksPath templates/hooks
+#
+# Precedent is a branch of a PUBLIC repository, so a push is a publication and
+# cannot be taken back. This runs the leak gate over exactly what the push
+# would send, and refuses the push on any hit.
+#
+# This hook is the layer that knows the WORDS: set PRECEDENT_LEAK_BLOCKLIST to
+# a blocklist kept OUTSIDE this repo (in your individual set) and the
+# vocabulary layer runs too. CI cannot do that — it has no access to a private
+# list — so CI is the unbypassable structural backstop and this is the
+# complete check. Neither alone is the whole gate.
+#
+# Once you have a blocklist, also run
+#     git config precedent.requireVocabulary true
+# so that LOSING the variable — a new terminal, a cron job, a cloud session —
+# fails the push instead of quietly downgrading it to the structural half.
+#
+# `git push --no-verify` skips this. That is git's design, not a hole to plug
+# here: the CI workflow is what catches a bypass, and it runs on the server.
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+GATE="$ROOT/tools/leak_gate.py"
+
+# The PUSH gate (`no-rewrite-for-warnings`, `verify-postcondition`,
+# `scrub-gate`). This is the gate-triggered channel's one WIRED invocation
+# point: those practices fire at a moment rather than in a file, so no path
+# glob reaches them, and reaching them by remembering to is what this repo has
+# measured not to work. Printing the Rules costs nothing when they are already
+# being followed and is the whole channel when they are not. It never blocks
+# the push — the leak gate below is what blocks.
+if [ -f "$ROOT/tools/precedent_gate.py" ]; then
+    python3 "$ROOT/tools/precedent_gate.py" push >&2 || true
+fi
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+    case "$local_sha" in
+        0000000000000000000000000000000000000000) continue ;;   # branch deletion
+    esac
+    case "$remote_sha" in
+        0000000000000000000000000000000000000000)
+            # A NEW branch publishes every commit the remote does not already
+            # have -- not just the tree those commits end at. Scanning the
+            # working tree here would have missed a private term that was
+            # committed and then removed further up the branch, which is
+            # exactly the miss that made the gate read blobs out of git in
+            # the first place.
+            python3 "$GATE" --range "$local_sha --not --remotes" ;;
+        *)
+            python3 "$GATE" --range "$remote_sha..$local_sha" ;;
+    esac
+done

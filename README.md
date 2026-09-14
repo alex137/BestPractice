@@ -1,5 +1,14 @@
 # BestPractice
 
+> **This branch is being restructured into Precedent.** If you have arrived
+> here wanting to *use* the practice engine on your own project, read
+> [ADOPTING.md](ADOPTING.md) — it is written for that, and assumes no
+> programming. The design and its evidence are in
+> [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md). Everything below is
+> BestPractice's own documentation, still accurate for the parts the rewrite
+> has not reached; it is rewritten in place as later phases land rather than
+> kept as a second, drifting copy.
+
 **Keep the project's memory in GitHub, and let people work with that
 memory through AI conversations.**
 
@@ -125,14 +134,16 @@ Hand installation, updates, and contributing improvements back:
 [INSTALL.md](INSTALL.md). The working method, for power users:
 [METHOD.md](METHOD.md). Phone and per-assistant setups:
 [MOBILE.md](MOBILE.md). Automatic repository checks:
-[GITHUB_ACTIONS.md](GITHUB_ACTIONS.md). The full practice catalog:
-[PRACTICES.md](PRACTICES.md). Slide decks built from plain files:
-[deck/](deck/). Git in eight ideas: [GIT.md](GIT.md). Open items and
-roadmap: [TODO.md](TODO.md). Repository index for agents:
+[GITHUB_ACTIONS.md](GITHUB_ACTIONS.md). The pre-split practice catalog
+(52 of the current, larger set — see [practices/](practices/) for the
+complete, current one): [PRACTICES.md](PRACTICES.md). Slide decks built
+from plain files: [deck/](deck/). Git in eight ideas: [GIT.md](GIT.md).
+Open items and roadmap: [TODO.md](TODO.md). Repository index for agents:
 [AGENTS.md](AGENTS.md).
 
 A separate project grew out of this one:
 **[GitAround](https://github.com/alex137/GitAround)**, a way to read a
 project and follow what is changing in it from a browser, for people who
-would rather not work through GitHub's own screens. It is a proposal
-looking for feedback, not something you can install yet.
+would rather not work through GitHub's own screens. It has been a
+separate, standalone product since 2026-08-14, no longer a proposal
+staged inside this repo.

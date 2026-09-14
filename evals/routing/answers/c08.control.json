@@ -1,0 +1,9 @@
+{
+  "slugs": [
+    "readers-vocabulary",
+    "index-remembers-past",
+    "quick-index",
+    "repo-is-memory"
+  ],
+  "reasoning": "Adds an AGENTS.md quick-index row and README pointer per the outward-facing-wording practice, records the lineage/supersession of the moved-out project, and captures knowledge in committed files that would otherwise only live in a disposable thread."
+}

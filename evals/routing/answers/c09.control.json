@@ -1,0 +1,8 @@
+{
+  "slugs": [
+    "docs-track-models",
+    "checkable-gets-checked",
+    "convention-to-audit"
+  ],
+  "reasoning": "Builds the mechanical enforcement of docs-track-models' rule 2 (never restate a generated figure), verified against the whole tree in both directions before shipping (checkable-gets-checked), promoting a previously-stated-but-ungated rule into a script that fails (convention-to-audit)."
+}
