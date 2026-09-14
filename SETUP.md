@@ -62,9 +62,9 @@ asks for it by name.
    as INSTALL.md §1 step 9 describes for an existing repo. This is real,
    working tooling, not a promise: it hands them a starter file in the
    right format and the exact config to wire in, in the same sitting.
-   `VOICE.md` and `STYLEGUIDE.md` are installed as the templates' near-empty
-   skeletons for now — they get filled in with the administrator in step 4,
-   not guessed at here.
+   `VOICE.md` and `STYLEGUIDE.md` install as the templates' near-empty
+   skeletons and **stay that way** — filling them in is not part of an
+   install (see "What an install does not do" below).
    Respect the root-hygiene rule (INSTALL.md §1): nothing from
    Precedent lands at the repo root except the instantiated files —
    all upstream docs stay under `process/upstream/`.
@@ -73,26 +73,15 @@ asks for it by name.
 4. **Walk them through what you made — don't just list files.** Show
    `GETTING_STARTED.md` (what their members will see) and summarize the
    instructions file (the contract future AI sessions work under) in two
-   or three plain sentences each. Then ask about the two identity files
-   directly, as their own moment, not folded into the general "anything to
-   adjust" offer:
-   - Walk them through `VOICE.md`'s sections and fill in what they can
-     answer: who this project sounds like, who reads its output, the domain
-     words that must be used or avoided, and anything it deliberately does
-     differently from the general rules. **Say plainly that general writing
-     quality is not in this file** — the practice catalogue covers that for
-     every project at once, so this one holds only what is true here and
-     would be wrong elsewhere. A section left `<undecided>` is a fine
-     answer; do not invent a voice for a project that has not chosen one.
-   - Ask if a formal brand guideline exists — a PDF, a slide deck, a
-     design team's style manual. If yes, read it and write the relevant
-     rules into `STYLEGUIDE.md` yourself; never attach or vendor the
-     source document into the repo (INSTALL.md §1). If no such guideline
-     exists yet, leave `STYLEGUIDE.md` as the empty skeleton — mark it
-     `<undecided>`, don't invent colors or fonts.
-   Tell them plainly that both files stay local to their project and are
-   never proposed back to the public Precedent repo. Offer to adjust
-   anything else.
+   or three plain sentences each. Offer to adjust anything.
+
+   Then **mention `VOICE.md` and `STYLEGUIDE.md` in one breath and move
+   on**: both shipped empty, both are optional, both stay local to their
+   project and are never proposed back to the public Precedent repo, and
+   they can fill either in whenever they like by just saying so to an
+   assistant — *"help me fill in VOICE.md"*. **Do not walk them through
+   the sections, and do not ask whether a brand guideline exists.** That
+   is a good conversation and it is not this one.
 5. **Merge for them or with them.** If you can merge, ask "Shall I make
    this live?" and do it on their yes. If only they can merge, give them
    the pull-request link and tell them exactly what to press.
@@ -206,6 +195,37 @@ it runs inside your ordinary work. The section references are to
   manifest and audit internals (§5–§6) run inside your normal work and
   need no sign-off unless you specifically flag a conflict or a judgment
   call.
+
+## What an Install Does Not Do
+
+**An install, an upgrade and a migration all do the essentials and stop.**
+They get the project working, correctly, with the fewest decisions asked of
+the administrator — and everything that would merely make it *better* is
+named once and deferred. The person is at their least informed on the day
+they install, so a decision put to them then is the worst version of that
+decision they will ever make, and it lengthens the one conversation that
+most needs to feel short.
+
+So these are **out of scope** for you, and are mentioned in one sentence
+each, not worked through:
+
+- **`VOICE.md`** — the project's own voice, its audiences, its domain
+  vocabulary. Ships near-empty and stays that way.
+- **`STYLEGUIDE.md`** — the visual identity. Ships near-empty; do not ask
+  whether a brand guideline exists, and never read, attach or vendor one.
+- **Anything else that is a refinement rather than a requirement**, whether
+  or not it is on this list. The test: *would the project work correctly
+  without this today?* If yes, it is a later conversation.
+
+**What you do say, once:** these files exist, they are optional, they stay
+local to the project, and **the administrator can fill any of them in at
+any time just by asking an assistant** — *"help me fill in VOICE.md"*. That
+sentence is the whole handover.
+
+**What is in scope and must not be skipped as "polish":** the private-word
+blocklist, the commit identity, the team and individual source question,
+and anything a mechanical check fails without. Those are not refinements —
+the project is wrong without them.
 
 ## Rules While Guiding
 

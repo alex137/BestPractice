@@ -28,6 +28,36 @@ that wants the three-source loader directly, never going through
 `process/upstream/`, uses §0 instead; it sits after §1 because it is the
 rarer path.
 
+## Essentials Only — What an Install, Upgrade or Migration Leaves for Later
+
+**Read this before §0, §1 or §2, because it governs all three.** An
+install, an upgrade and a migration do the essentials, correctly, and stop.
+Everything that would merely make the result *better* is named once, in a
+sentence, and left for a later conversation.
+
+**The test, applied per step: would the project work correctly without this
+today?** If yes, it is not install work. Say it exists, say it is optional,
+say the administrator can have it done any time by asking an assistant —
+then move on. Do not walk them through it, and do not ask a question whose
+answer only refines something already working.
+
+**Why, since the temptation is to be thorough:** the person is at their
+least informed about Precedent on the day they install it, so a decision
+put to them then is the worst version of that decision they will ever make.
+It also lengthens the conversation that most needs to feel short, and every
+extra question is a chance to lose them before the essentials land.
+
+`VOICE.md` and `STYLEGUIDE.md` are the standing examples — both ship
+near-empty, both stay that way through install, upgrade and migration alike.
+**The rule is not about those two files.** It is about every step: a
+refinement is deferred whether or not it appears on a list here.
+
+**What is never deferred as "polish":** the private-word blocklist, the
+commit identity, the team and individual source question, the audit passing,
+and anything a mechanical check fails without. Those are not refinements —
+the project is wrong without them, and an install that skips one has not
+installed.
+
 For what each practice is and why, read [practices/](practices/) — indexed
 by [MAP.md](MAP.md), one rule at a time with
 `python3 tools/precedent_show.py SLUG`. ([PRACTICES.md](PRACTICES.md) is
@@ -74,27 +104,19 @@ list.)
    - `templates/MAP.md.template` → `MAP.md`; `templates/TODO.md.template` →
      `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
      domain-appropriate name).
-   - `templates/VOICE.md.template` → `VOICE.md`; `templates/STYLEGUIDE.md.template`
-     → `STYLEGUIDE.md`. Unlike the files above, these are **not** rewritten
-     with the repo's subject matter — **both ship as near-empty skeletons**,
-     because general writing quality is the practice catalogue's job and
-     visual identity is specific to each company. VOICE.md carries only
-     this project's own voice: its voice target, its audiences, its domain
-     vocabulary, and any deliberate departure from a catalogue rule. Every
-     section may legitimately stay `<undecided>`. Instead, **prompt the
-     administrator explicitly**: walk them through VOICE.md's sections and
-     fill in what they can answer; ask whether a
-     formal brand guideline exists (a PDF, a slide deck, a design team's
-     style manual) to fill in STYLEGUIDE.md from. If one exists, read it and
-     transcribe the relevant rules into STYLEGUIDE.md as plain text — never
-     attach, vendor, or link the source document itself into the repo. If no
-     visual identity exists yet, leave STYLEGUIDE.md's sections marked
-     `<undecided>` rather than inventing values. Record both as `local-only`
-     in the manifest (§5) — **neither file is ever exported upstream**
-     (§3–§4): a project's voice and brand are its own identity, not a
-     generic practice, and both live at the repo root rather than under
-     `process/upstream/`, so the check-in tooling structurally never touches
-     them.
+   - `templates/VOICE.md.template` → `VOICE.md`;
+     `templates/STYLEGUIDE.md.template` → `STYLEGUIDE.md`. **Copy the
+     skeletons and stop.** Unlike the files above, these are not rewritten
+     with the repo's subject matter, and **filling them in is out of scope
+     for an install** — see [Essentials only](#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later).
+     Do not walk the administrator through VOICE.md's sections and do not
+     ask whether a brand guideline exists; say once that both exist, are
+     optional, and can be filled in any time by asking an assistant.
+     Record both as `local-only` in the manifest (§5) — **neither file is
+     ever exported upstream** (§3–§4): a project's voice and brand are its
+     own identity, not a generic practice, and both live at the repo root
+     rather than under `process/upstream/`, so the check-in tooling
+     structurally never touches them.
    - `templates/GETTING_STARTED.md` → `GETTING_STARTED.md` at the repo
      root: the member-facing onboarding page, one section per kind of AI
      user. (This template keeps a plain `.md` name on purpose — it
@@ -707,6 +729,12 @@ cover, by design and not oversight:
 *Knowing* an update exists is automated: the session-start bootstrap runs
 `checkin.py fresh` (one `ls-remote`, notice-only). *Taking* it is the
 deliberate procedure below.
+
+**[Essentials only](#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later)
+governs an update exactly as it governs an install.** An update brings the
+project to current and stops; a newly shipped template that is optional gets
+one sentence, not a walkthrough. `VOICE.md` and `STYLEGUIDE.md` in
+particular are never filled in by an update.
 
 **Which install model is this? Steps 1–5 are §1's, and a §0 install skips
 them.** §1 vendors upstream's *prose* under `process/upstream/` and tracks it

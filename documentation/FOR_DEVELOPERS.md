@@ -41,8 +41,8 @@ The §1 sequence, in short — each step is spelled out in full at the link:
    `.gitignore` baseline, and the harness adapter(s) from
    [templates/harness/](../templates/harness/) for whichever assistant
    will work the repo. `VOICE.md` and `STYLEGUIDE.md` are the exception:
-   both ship near-empty and are filled from what the administrator can
-   actually answer, never invented.
+   both ship near-empty and **stay that way** — see "Optional, and
+   deliberately left for later" below.
 3. **Ask the two questions only a person can answer** — which private
    names and code words must never reach a public file (this becomes the
    leak blocklist), and whether the team or the person already has a
@@ -61,6 +61,27 @@ covers domain practice packs, and
 is what each person sets on each machine — including the credential that
 lets a hosted session reach a private practice source without an
 `add_repo` dance.
+
+### Optional, and Deliberately Left for Later
+
+**An install does the essentials and stops**
+([INSTALL.md](../INSTALL.md#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later)).
+Two files ship near-empty on purpose and are not filled in by an install,
+an upgrade or a migration:
+
+- **`VOICE.md`** — how this project sounds: its voice, its audiences, its
+  domain vocabulary, and any deliberate departure from a catalogue rule.
+  General writing quality is not in it; the practice catalogue covers that
+  for every project at once.
+- **`STYLEGUIDE.md`** — the visual identity, transcribed as plain text from
+  whatever brand guideline exists. Never attach, vendor or link the source
+  document into the repo.
+
+Both stay local to the project and are never exported upstream. **Fill
+either in whenever you want by asking your assistant** — *"help me fill in
+VOICE.md"* — and a section left `<undecided>` is a real answer, not a gap.
+The same goes for anything else that would refine a working project rather
+than make it work: it is a later conversation by design, not an oversight.
 
 ### What Actually Bites
 

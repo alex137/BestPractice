@@ -128,6 +128,27 @@ Either way: nothing you suggest is ever adopted without a real yes from
 whoever it actually affects, and nothing you say is ever quietly
 forgotten. An idea nobody has acted on yet stays on record, not lost.
 
+## Two Things You Can Fill in Whenever You Like
+
+Whoever set this project up was told to do the essentials and stop, so two
+files were created empty on purpose and are waiting for you. Neither is
+urgent, and a project works perfectly well with both left blank.
+
+- **`VOICE.md`** — how this project should sound. Who it sounds like, who
+  reads it, the words your field insists on and the ones it can't use, and
+  anything you want done differently from the general rules.
+- **`STYLEGUIDE.md`** — how it should look. Colors, fonts, logo rules —
+  whatever your brand guideline says, if you have one.
+
+**To fill either in, just say so to your assistant** — *"help me fill in
+VOICE.md"* — and it will ask you questions and write down your answers. You
+can do it today, next month, or never. **Both stay entirely inside your own
+project**; nothing in them is ever shared with anyone outside it.
+
+**Anything you leave blank is a real answer**, not a hole. A project that
+hasn't decided how it sounds yet is better off saying so than having someone
+guess on its behalf.
+
 ## What You Can't Do (on Purpose)
 
 Your access is deliberately limited so nothing you do can break the

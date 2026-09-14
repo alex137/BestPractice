@@ -12,6 +12,86 @@ found the individual source's clone URL living in a public repository's
 tracked hook, moved it to the private per-person config where it belongs,
 and then had nowhere to say so.
 
+## Copy-Paste Setup
+
+**The whole of this page, as four blocks to paste and edit.** Everything
+below this section explains what each one does and what breaks without it;
+if you just want it working, these are enough.
+
+**1. Your environment variables.** On Claude Code on the web, these go in
+the environment's own configuration; locally, in your shell profile
+(`~/.bashrc`, `~/.zshrc`). Replace the four bracketed values.
+
+```sh
+# Reaching your private practice sets from a hosted session
+export PRECEDENT_GIT_TOKEN="github_pat_<your read-only token>"
+export PRECEDENT_SOURCE_BASE_URL="https://github.com/<your-github-account>"
+export PRECEDENT_PING=1          # throwaway: proves the variables arrive at all
+
+# Who your commits are by, and in what zone
+export PRECEDENT_COMMIT_NAME="<Your Name>"
+export PRECEDENT_COMMIT_EMAIL="<you@example.com>"
+export PRECEDENT_COMMIT_TZ="America/New_York"   # an IANA zone name, never an offset
+
+# Freshness-check repositories your project's own hooks never reach.
+# Write `~/name`, never a spelled-out path: $HOME differs between containers.
+export PRECEDENT_FRESHNESS_ALSO="~/precedent-individual=main"
+```
+
+**2. Your user-level config**, at `~/.config/precedent/config.json` — the
+file that tells every tool where your individual practice set lives. Never
+in a shared project's tracked files.
+
+```sh
+mkdir -p ~/.config/precedent && cat > ~/.config/precedent/config.json <<'JSON'
+{
+  "format_version": 1,
+  "individual": {
+    "name": "precedent-individual",
+    "path": "<absolute path to your local clone>",
+    "repo_url": "https://github.com/<your-github-account>/precedent-individual"
+  }
+}
+JSON
+```
+
+**3. Your `identity.json`**, inside your individual set. **Fill in the
+timezone** — it is the field that fails silently, because name and email
+resolve from the GitHub account the session is authenticated as and a zone
+resolves from nowhere.
+
+```json
+{
+  "format_version": 1,
+  "name": "Your Name",
+  "email": "you@example.com",
+  "timezone": "America/New_York",
+  "pronouns": "they/them",
+  "grandfathered_commit_shas": []
+}
+```
+
+**4. The leak gate's vocabulary layer**, if your private sources resolve.
+The git config is per checkout and the gate fails open without it.
+
+```sh
+git config precedent.requireVocabulary true
+# Optional — only if your blocklist lives somewhere other than your
+# individual set, which the gate now reads by default:
+export PRECEDENT_LEAK_BLOCKLIST="$HOME/precedent-individual/leak-blocklist.txt"
+```
+
+**Then check it worked, in a NEW session** — an environment change never
+reaches one already running:
+
+```sh
+env | grep -c PRECEDENT                      # not 0
+python3 tools/precedent_source_credentials.py # OK
+python3 tools/precedent_session_check.py      # each guarantee, by effect
+env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT
+#   ^ must name you and your declared offset, not the bot and not UTC
+```
+
 ## Required, and Silent When Missing
 
 | Setting | Where | What happens without it |
