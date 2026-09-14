@@ -41,8 +41,52 @@ audience). This is distinct from:
 
 ## The pattern
 
-There is no single tool for this — it's two existing operations, run in
-sequence, never as a silent file edit or a copy-and-delete:
+**Since 2026-09-14 one tool does both steps, in the one safe order.** Run
+it from a checkout of Precedent — the sets and the consuming repositories
+do not vendor it, and the paths are the sets':
+
+```
+python3 tools/precedent_move.py --slug <slug> \
+    --from individual|team --from-path <the set it lives in> \
+    --to individual|team|universal --to-path <the set or Precedent clone> \
+    --approved-by "<name>" [--strength decided|assented] [--story "<text>"]
+```
+
+It lands the practice at the destination with its Rule, Detail, Why and
+Story carried verbatim and the destination's approval recorded, then
+deduplicates the source copy (`status: deduplicated`, `in_force_at:` the
+slug, one dated `## Story` line), and regenerates both sets' views. It
+refuses an empty Story (`--story` fills it), a slug the destination already
+carries, an approver not listed in a team set's `approvers.json`, a
+`checked_by` naming a check the destination cannot run, and any move *out
+of* universal. **With `--to universal` it drafts only** — the file goes
+into the clone's `practices/`, the clone's own [`build_views.py`](../tools/build_views.py) and
+`doc_sync.py --write` run so its deep check is green on the draft, and the
+source stays active. Commit that on a branch and open the pull request.
+**Run it again with `--dedupe-only` only once the pull request has merged
+AND every repository consuming the source set has taken the new universal
+catalogue** ([INSTALL.md](../INSTALL.md) §2 step 0, or `Update Vendors`):
+a consumer still vendoring the old catalogue sees the rule in neither
+source, and its next [`precedent_sync_views.py`](../tools/precedent_sync_views.py) refuses to write until it is
+refreshed. That refusal is correct and is what you will see if you
+deduplicate early.
+
+Morgan, 2026-09-14, on why this stopped being two hand steps: he had "had
+bumps doing that". A rehearsal the same day, by a session reading only the
+previous version of this page, found why: the candidate tool takes one
+`--proposed-rule` string, so an existing file's `## Detail`, `## Why` and
+`index_clause` never had a way in and were restored by hand after landing;
+a moved practice has a recurrence of one, so the promotion refused it
+until a `--cost-if-once` was invented; an honest `--against` naming the
+source set refused the landing as a duplicate; and no tool wrote the
+deduplication, so it was done from memory or not at all. Its fixture in
+[tools/verify_harness.py](../tools/verify_harness.py) moves a practice
+through every direction on every harness run, and rehearses the
+copy-and-delete below.
+
+**What the tool does, step by step** — the two operations below, which
+are still the definition of a correct move and what a session checks a
+hand-done one against:
 
 1. **Land it at the destination, through that level's own creation
    approval**, exactly as if it were new (Stage 4). Use the existing
@@ -53,28 +97,40 @@ sequence, never as a silent file edit or a copy-and-delete:
    original context is reliably in front of somebody, and
    [catalogue-carries-stories](../practices/catalogue-carries-stories.md)
    will hold the destination red until it is filled anyway. The destination's own owner has
-   to actually agree it belongs there:
-   - **To an individual set**: the person's own *"yes"* — `precedent_land.py --level individual --approved-by NAME`, direct.
+   to actually agree it belongs there, and the tool records that agreement
+   in the landed file's `approved_by:`:
+   - **To an individual set**: the person's own *"yes"* — `--approved-by`
+     their name, direct.
    - **To a team set**: a listed approver of *that* team's own say-so —
-     `precedent_land.py --level team --approved-by NAME`, or
-     `precedent_candidate.py create --level team --as-issue true` first if
-     whoever's proposing it isn't one
-     ([spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)).
+     `--approved-by` a name in that set's `approvers.json`, which the tool
+     checks. Someone who is not one raises it first, as an Issue on the
+     team set ([spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue));
+     the approver then runs the tool. **The creation pipeline
+     ([`precedent_candidate.py`](../tools/precedent_candidate.py), [`precedent_land.py`](../tools/precedent_land.py)) is not the way to
+     move an existing practice**: it carries a rule and an observation,
+     not a file, and the rehearsal above lists what it drops.
    - **To universal**: a pull request (PR) to Precedent, reviewed and merged
      by someone other than whoever proposed it — same as any new universal
-     practice.
+     practice. The tool drafts the file; the PR is the approval.
 2. **Deduplicate it at the source, through that level's own removal
    approval** (Stage 6's table) — **never** a plain delete, and never done as
    a side effect of step 1. Set `status: deduplicated` and
    `in_force_at: <the slug you just landed>`, and add one line to `## Story`
    naming where it went and why:
    - **Individual**: the owner's own *"yes, drop the copy"*.
-   - **Team**: an approver's review, through the same `approvers.json`
-     mechanism as any other change to that set — even when the destination
-     is the *same person's own* individual set, because removing something
-     from a team's binding set is still a change to what the whole team is
-     bound by, not just a personal preference about where the rule lives.
+   - **Team**: an approver's review, as for any other change to that set —
+     even when the destination is the *same person's own* individual set,
+     because removing something from a team's binding set is still a
+     change to what the whole team is bound by, not just a personal
+     preference about where the rule lives. Nothing mechanical records who
+     approved a removal: the tool writes the approver's name into the
+     `## Story` line it appends, and a hand-done one writes the same line.
    - **Universal**: a PR, same as any universal change.
+
+   Done by hand, step 2 is a three-line edit of the source file — the two
+   frontmatter fields and the Story line — and nothing else. No tool other
+   than [`precedent_move.py`](../tools/precedent_move.py) writes it: [`precedent_retire.py`](../tools/precedent_retire.py) only reports,
+   and [`precedent_migrate_status.py`](../tools/precedent_migrate_status.py) refuses an active practice.
 
 **This step is a deduplication, not a retirement, and the distinction is the
 whole safety property of the move.** The rule is not being withdrawn — it is
@@ -93,9 +149,30 @@ where nobody is bound by a rule everyone still agrees is worth having.
 this document survives the rename almost unchanged.** Landing first means a
 correct move passes through a deliberate moment of duplication, so by the
 time step 2 runs there genuinely *is* a surviving copy to point
-`in_force_at:` at — and the check can resolve it against the real sources
-rather than taking the mover's word for it. A move done in the other order
-has nothing to name, which is precisely the state a lost rule is in.
+`in_force_at:` at — and the resolver checks that it resolves, against the
+real sources, rather than taking the mover's word for it. A move done in
+the other order has nothing to name, which is precisely the state a lost
+rule is in.
+
+**Who checks what, since 2026-09-14** — before that day only Precedent's
+own harness asked whether a forwarding address resolved, so for the
+team ↔ individual directions this page exists for, the property was
+asserted here and verified nowhere a set or a consumer could run:
+
+- [`precedent_resolve.py`](../tools/precedent_resolve.py) reports `IN FORCE NOWHERE: <slug> (<source>)` for
+  a deduplicated practice whose `in_force_at:` names a slug that no
+  resolved source has active. [`precedent_sync_views.py`](../tools/precedent_sync_views.py) prints the same
+  line, on `--check` and on a write.
+- [`precedent_sync_views.py`](../tools/precedent_sync_views.py) also names a **copy-and-delete**: a slug the
+  consumer's committed `MANIFEST.json` recorded from one declared source,
+  now taken from another, with nothing left at the first — neither an
+  active copy (which the resolver reports as overridden) nor a deduplicated
+  one. A warning, not a refusal: the rule is in force; what is missing is
+  the record saying it left, which is the thing a session reading the old
+  set will look for.
+- Neither catches a rule that was withdrawn at the source and landed
+  nowhere at all, when the consumer never recorded it — the MANIFEST guard
+  is the baseline, and a fresh install has none.
 
 ## The asymmetry that already exists, and the one that doesn't
 
@@ -147,11 +224,10 @@ practice from individual back out to a team, exactly as the note on
 
 ## What this does not give you
 
-No tool automates the land-then-deduplicate sequence above the way
-`precedent_land.py` automates candidate → landed practice for a genuinely
-new one. Composing the two steps by hand is what this document is for;
-building a dedicated `precedent_move.py` that does both atomically, and
-enforces the ordering, is real future work this move surfaced but did not
-attempt — the same call [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)
-already made for its own "known gap," naming the work plainly rather than
-scope-creeping it into an unrelated change.
+Until 2026-09-14 this section said no tool automated the two steps and
+named a [`precedent_move.py`](../tools/precedent_move.py) as future work; it exists now (above). What
+still stays by hand: a `checked_by` practice's check script and test move
+before the practice does (the tool refuses until they have), a move
+between two sets this session cannot both write to is two sessions'
+work, and committing and publishing each set is the owner's act — the
+tool writes files and regenerates views, and nothing else.

@@ -704,6 +704,30 @@ def verify(level, path):
             missing.append(f"freshness-guard.sh `{mode}` is installed but NOT "
                            f"WIRED in .claude/settings.json (the adapter at "
                            f"{HARNESS_SETTINGS_REL} wires it)")
+
+    # The set's own instructions file, with the markers its generator
+    # writes between. Not in either skeleton and not written by bootstrap
+    # until 2026-09-14, so every set created before then has whatever its
+    # author wrote by hand -- usually a file, sometimes without the
+    # markers, in which case `build_views.py` fails on the set's first
+    # pull request and precedent_move.py cannot regenerate the set's views
+    # after landing a practice in it.
+    agents = path / 'AGENTS.md'
+    if not agents.is_file():
+        missing.append("AGENTS.md (written by this tool's bootstrap since "
+                       "2026-09-14; without it the set's own build_views.py "
+                       "fails, so the drift workflow is red and "
+                       "precedent_move.py cannot regenerate the set's views)")
+    else:
+        try:
+            body = agents.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            body = ''
+        if 'BEGIN GENERATED: precedent-loader' not in body:
+            missing.append("AGENTS.md carries no "
+                           "`<!-- BEGIN GENERATED: precedent-loader -->` "
+                           "marker, so build_views.py has nowhere to write "
+                           "the loader block and fails")
     return missing + _malformed(level, path)
 
 
@@ -1018,8 +1042,58 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     if _changed:
         written.append(_cfg)
     written += precedent_vendor_engine.seed(dest)
+    written += _write_instructions_and_views(dest, level, name)
 
     return {'dest': dest, 'written': written}
+
+
+def _write_instructions_and_views(dest, level, name):
+    """A set's AGENTS.md with the loader markers, then its generated views.
+
+    Until 2026-09-14 bootstrap seeded build_views.py and installed a
+    workflow that runs `build_views.py --check`, and wrote no AGENTS.md for
+    either to read -- so a new set's own generator failed on its first run
+    (`AGENTS.md does not exist`), the drift workflow went red on the set's
+    first pull request, and precedent_move.py could not regenerate the
+    views of a set it had just landed a practice in. Every real set carries
+    the file; the skeleton did not, and nothing said to write one. The
+    opening paragraph is the set's own to rewrite; the markers and the
+    block between them are the generator's
+    (practice: generated-artifact-provenance)."""
+    dest = pathlib.Path(dest)
+    agents = dest / 'AGENTS.md'
+    written = []
+    if not agents.exists():
+        what = ('a **team** source, named for a subject rather than a roster; any '
+                'team whose work includes that subject declares it alongside its own'
+                if level == 'team' else
+                'an **individual** source: one person\'s own practices, declared in '
+                'their own user-level config and never in a shared project')
+        agents.write_text(
+            f'# Repository notes for agents\n\n'
+            f'This repo IS `{name}` -- {what} -- for '
+            f'[Precedent](https://github.com/alex137/BestPractice). '
+            f'[README.md](README.md) says what is here and how a practice lands.\n\n'
+            f'<!-- BEGIN GENERATED: precedent-loader -->\n'
+            f'<!-- END GENERATED -->\n',
+            encoding='utf-8')
+        written.append(agents)
+    bv = dest / 'tools' / 'build_views.py'
+    if bv.is_file():
+        # -B: the generator runs INSIDE the set, and a tools/__pycache__/ it
+        # left behind read as bootstrap drift in every audit afterwards.
+        r = subprocess.run([sys.executable, '-B', str(bv)], cwd=str(dest),
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            # Never fatal: the set is complete without views, and the drift
+            # workflow says so on its first run. Say what happened rather
+            # than nothing (practice: fail-gracefully).
+            print(f'bootstrap: the new set\'s views were not generated -- '
+                  f'{(r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else "build_views exit " + str(r.returncode)}',
+                  file=sys.stderr)
+        else:
+            written += [dest / n for n in ('MAP.md', 'GLOSSARY.md') if (dest / n).is_file()]
+    return written
 
 
 def _load_json(path):

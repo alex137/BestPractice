@@ -229,6 +229,17 @@ which is the failure this repointing exists to end — write
     the question is Alex's and Morgan's together, since it decides which
     branch adopters and check-ins target)
 
+    **Answered 2026-09-14, and the answer is neither of the two above.**
+    Morgan: *"work should still land to the precedent-beta-v01 branch; but I
+    will regularly merge the precedent branch with main"* (`strength:
+    decided`). So the branch stays the landing branch, `main` takes it by
+    his regular merges (the histories are joined since the same day, so
+    each is an ordinary merge), and this practice's expiry is reworded from
+    "when the branch is merged into main" — which has now happened and will
+    keep happening — to "when Morgan or Alex says work moves to main". The
+    retirement steps stay as written. **Disposition:** wait (2026-09-14,
+    Morgan's answer above)
+
     **What that merge will actually look like, rehearsed 2026-09-07 in a
     throwaway worktree and thrown away.** Two things worth not
     re-deriving under time pressure:
@@ -7049,3 +7060,22 @@ which is the failure this repointing exists to end — write
     registry instead of the file. **Disposition:** wait (2026-09-14; done,
     kept for the record)
 
+
+108. <a id="withdrawn-and-landed-nowhere-with-no-baseline"></a>**A rule
+    withdrawn at its source and landed nowhere is still caught only where a
+    consumer had already recorded it.** The move rehearsal of 2026-09-14
+    ([spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md), "the fifth
+    question") produced three reports that day — the resolver's `IN FORCE
+    NOWHERE` for a forwarding address that resolves in no source, the
+    sync's copy-and-delete warning, and
+    [tools/precedent_move.py](tools/precedent_move.py) refusing the unsafe
+    states — and all three take a baseline: a deduplicated file with a
+    target, or a committed `MANIFEST.json` naming the slug. A practice
+    deleted outright from a set, in a consumer that never synced it, is
+    reported by nothing; only the set's own `git log` shows the delete.
+    **Blocked on:** a design for what a set itself could refuse — a
+    `git diff` guard in the set's own check that treats a deleted
+    `practices/*.md` as a finding unless a deduplicated or retired record
+    replaced it is the obvious shape, and it would sit in the set's
+    `precedent-check.yml`. **Disposition:** wait (2026-09-14, the move
+    rehearsal)

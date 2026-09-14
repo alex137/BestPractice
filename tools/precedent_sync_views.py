@@ -83,7 +83,7 @@ def _lost_practices(repo, res, sources, withheld):
     catalogue has nothing to lose, and a guard that guessed here would fire
     on every fresh install.
     """
-    empty = {'blocking': [], 'source_dropped': []}
+    empty = {'blocking': [], 'source_dropped': [], 'moved_without_record': []}
     try:
         r = subprocess.run(['git', '-C', str(repo), 'show', 'HEAD:MANIFEST.json'],
                            capture_output=True, text=True, timeout=30)
@@ -120,12 +120,35 @@ def _lost_practices(repo, res, sources, withheld):
     withheld = set(withheld or ())
     declared = {s.get('name') for s in sources}
 
-    out = {'blocking': [], 'source_dropped': []}
+    out = {'blocking': [], 'source_dropped': [], 'moved_without_record': []}
+    # Where each slug's record at its OLD source went: still there and
+    # shadowed (a copy, both ends active), or withdrawn with a forwarding
+    # address (a move done right), or simply gone (a copy-and-delete).
+    shadowed_at = {(s['slug'], s['shadowed'].get('source'))
+                   for s in (res.get('shadowed') or []) if isinstance(s, dict)}
+    withdrawn_at = {(r.get('slug'), r.get('source'))
+                    for r in (res.get('retired') or []) if isinstance(r, dict)}
     for entry in recorded:
         if not isinstance(entry, dict):
             continue
         slug, src = entry.get('slug'), entry.get('source')
-        if not slug or slug in now or slug in withheld:
+        if not slug or slug in withheld:
+            continue
+        if slug in now:
+            # Still in force -- but from where? A slug this repository
+            # recorded from one declared source and now takes from another,
+            # with NOTHING left at the recorded source, is the copy-and-
+            # delete spec/MOVING_PRACTICES.md says never to do, and until
+            # 2026-09-14 nothing noticed: the rehearsal that day did exactly
+            # that and every check stayed green. A deduplicated copy at the
+            # old source, or an active one the resolver reports as
+            # overridden, is a record; an absence is not.
+            here = (pracs[slug].get('source') if isinstance(pracs, dict)
+                    and isinstance(pracs.get(slug), dict) else None)
+            if (here and src and src != here and src in declared
+                    and (slug, src) not in shadowed_at
+                    and (slug, src) not in withdrawn_at):
+                out['moved_without_record'].append((slug, src, here))
             continue
         (out['source_dropped'] if src not in declared
          else out['blocking']).append((slug, src))
@@ -154,6 +177,10 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
         print(f"precedent_sync_views: the {m['level']} source {m['name']!r} "
               f"is not available ({m['reason']}).",
               file=sys.stderr)
+    for d in res.get('dangling', ()):
+        # The resolver established it; a sync is where somebody is looking.
+        print(f"precedent_sync_views: IN FORCE NOWHERE -- {d['slug']} "
+              f"({d['source']}): {d['why']}", file=sys.stderr)
 
     # REFUSE TO WRITE from an incomplete source set. materialize() rebuilds
     # practices/ by delete-and-rewrite, so a source that merely failed to
@@ -404,6 +431,18 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
                 "which makes the removal correct for a reason that has "
                 "nothing to do with the source. `--allow-removals` proceeds "
                 "once you know which one you have.")
+        for slug, was, here in sorted(_lost['moved_without_record']):
+            # A warning, not a refusal: the rule IS in force, from `here`.
+            # What is missing is the record at `was` saying it left.
+            print(f"precedent_sync_views: {slug} was recorded from {was} and "
+                  f"now comes from {here}, and {was} carries no copy of it at "
+                  f"all -- neither active nor `status: deduplicated` pointing "
+                  f"here. That is a copy-and-delete, not a move: "
+                  f"tools/precedent_move.py in Precedent leaves the source "
+                  f"copy deduplicated with a forwarding address, and a "
+                  f"session reading the old set can then still find where "
+                  f"the rule went (spec/MOVING_PRACTICES.md).",
+                  file=sys.stderr)
         if _lost['source_dropped']:
             print("precedent_sync_views: removing "
                   f"{len(_lost['source_dropped'])} practice(s) whose recorded "

@@ -354,8 +354,11 @@ method"). Build the fixtures.
   ([SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md), as a non-technical administrator),
   the loader install ([INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0, as a developer — both by
   running `tools/precedent_install.py` as an adopter would and by reading
-  the numbered steps against what it did), the migration, and the update
-  below. Each rehearsal ends by running the result's own checks and
+  the numbered steps against what it did), the migration, the update
+  below, and a practice moved between levels
+  ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md), with
+  `tools/precedent_move.py` and, separately, by hand against its two
+  steps). Each rehearsal ends by running the result's own checks and
   reporting the real output. **Then ask one more question of each: is what
   landed what the pitch promised?** Read the result against
   [documentation/ADOPTING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/ADOPTING.md) and the README, not
