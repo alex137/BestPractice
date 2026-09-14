@@ -290,6 +290,82 @@ _behind_base_count() {
   _git rev-list --count "HEAD..origin/$1" 2>/dev/null || printf '?'
 }
 
+# A shallow clone counts every commit back to its graft point as LOCAL, so a
+# checkout that is merely behind reads as diverged -- and both modes below
+# then decline to update it, which is the one outcome worse than either. Cost
+# on 2026-09-13: a session ran a whole thread against a day-old tree, applying
+# rules that had been superseded, and only found out when an unrelated command
+# was blocked. Deepen once and recount before believing the counts.
+# practice: durable-fix. See record/GOTCHAS.md#g12 for the merge-base shape of
+# the same false negative.
+_deepen_if_shallow() {
+  _is_shallow || return 1
+  _git fetch --quiet --deepen=500 origin "$1" 2>/dev/null && return 0
+  # Some git policy hooks refuse --unshallow; a bounded deepen is tried first
+  # for that reason, and a failure here is not fatal -- the caller keeps the
+  # counts it already had and says they are approximate.
+  _git fetch --quiet --unshallow origin "$1" 2>/dev/null && return 0
+  return 1
+}
+
+# How far apart in TIME the two tips are, which is the quantity a person
+# actually judges risk on: "132 commits behind" says nothing, "your copy is a
+# day older than the tip" says everything. Both timestamps come from git, so
+# nothing here depends on the container's clock.
+# practice: no-invented-specifics.
+_gap_seconds() {
+  local mine theirs
+  mine="$(_git log -1 --format=%ct HEAD 2>/dev/null)" || return 1
+  theirs="$(_git log -1 --format=%ct "origin/$1" 2>/dev/null)" || return 1
+  case "$mine$theirs" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$theirs" -gt "$mine" ] || { printf '0'; return 0; }
+  printf '%s' "$((theirs - mine))"
+}
+
+# The limit past which "behind" stops being a note and becomes the headline.
+# Declared in precedent.json rather than compiled in, because a threshold
+# nobody decided is doctrine (practice: constants-are-risk-inputs). A repo
+# with no declaration, or no python3 on the hook path, falls back to the
+# engine default; `git config precedent.freshness.staleHours N` overrides
+# both for one checkout.
+_stale_hours() {
+  local v
+  v="$(_git config --get precedent.freshness.staleHours 2>/dev/null || true)"
+  case "$v" in ''|*[!0-9]*) v="" ;; esac
+  if [ -z "$v" ] && [ -n "$ROOT" ] && [ -f "$ROOT/precedent.json" ]; then
+    v="$(python3 -c 'import json,sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    raise SystemExit(0)
+h = d.get("stale_checkout_hours")
+if isinstance(h, int) and h > 0:
+    print(h)' "$ROOT/precedent.json" 2>/dev/null || true)"
+  fi
+  case "$v" in ''|*[!0-9]*) v=24 ;; esac
+  printf '%s' "$v"
+}
+
+# One phrase, appended to every message that reports a checkout as behind, so
+# the age travels with the count wherever the count is printed.
+# practice: one-formatter-per-quantity.
+_age_phrase() {
+  local gap limit hours
+  gap="$(_gap_seconds "$1")" || { printf ''; return 0; }
+  [ "$gap" -gt 0 ] || { printf ''; return 0; }
+  hours="$((gap / 3600))"
+  limit="$(_stale_hours)"
+  if [ "$hours" -ge "$limit" ]; then
+    if [ "$hours" -ge 48 ]; then
+      printf ' STALE: this copy is %s day(s) older than origin/%s, past the %sh limit -- treat it as out of date and deal with it before working.' "$((hours / 24))" "$1" "$limit"
+    else
+      printf ' STALE: this copy is %sh older than origin/%s, past the %sh limit -- treat it as out of date and deal with it before working.' "$hours" "$1" "$limit"
+    fi
+  elif [ "$hours" -ge 1 ]; then
+    printf ' (This copy is %sh older than origin/%s; the limit is %sh.)' "$hours" "$1" "$limit"
+  fi
+}
+
 # The whole idle test: one stat and a subtraction, no network, no daemon.
 # Returns 0 when a check is due. Stamps on the way through, so a burst of
 # prompts costs one check between them rather than one each.
@@ -348,13 +424,17 @@ _session_start_one() {
     local behind ahead
     behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
     ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
+    if [ "$ahead" != "0" ] && _deepen_if_shallow "$branch"; then
+      behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
+      ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
+    fi
     if [ "$behind" != "0" ]; then
       if _dirty; then
-        echo "WARN: freshness-guard: '$branch' is $behind commit(s) behind origin/$branch, and the working tree has uncommitted changes -- NOT updating it automatically. Commit or stash, then: git merge --ff-only origin/$branch" >&2
+        echo "WARN: freshness-guard: '$branch' is $behind commit(s) behind origin/$branch, and the working tree has uncommitted changes -- NOT updating it automatically.$(_age_phrase "$branch") Commit or stash, then: git merge --ff-only origin/$branch" >&2
       elif [ "$ahead" != "0" ]; then
-        echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- NOT updating it automatically. Reconcile deliberately; do not discard either side." >&2
+        echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- NOT updating it automatically.$(_age_phrase "$branch") Reconcile deliberately; do not discard either side." >&2
       elif [ "$fetched" -eq 0 ]; then
-        echo "WARN: freshness-guard: '$branch' looks $behind commit(s) behind, but the fetch failed -- not acting on an unverified comparison." >&2
+        echo "WARN: freshness-guard: '$branch' looks $behind commit(s) behind, but the fetch failed -- not acting on an unverified comparison.$(_age_phrase "$branch")" >&2
       else
         local before
         before="$(_git rev-parse HEAD 2>/dev/null)"
@@ -524,11 +604,15 @@ _pre_write_one() {
     local behind ahead
     behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
     ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
+    if [ "$ahead" != "0" ] && _deepen_if_shallow "$branch"; then
+      behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
+      ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
+    fi
     if [ "$behind" != "0" ]; then
       if _dirty; then
-        _block "'$branch' is $behind commit(s) behind origin/$branch and the working tree is dirty. Commit or stash first, then: git merge --ff-only origin/$branch"
+        _block "'$branch' is $behind commit(s) behind origin/$branch and the working tree is dirty.$(_age_phrase "$branch") Commit or stash first, then: git merge --ff-only origin/$branch"
       elif [ "$ahead" != "0" ]; then
-        _block "'$branch' has diverged from origin/$branch ($ahead local, $behind remote). Reconcile it deliberately -- this guard will not choose a side for you."
+        _block "'$branch' has diverged from origin/$branch ($ahead local, $behind remote).$(_age_phrase "$branch") Reconcile it deliberately -- this guard will not choose a side for you."
       else
         local before
         before="$(_git rev-parse HEAD 2>/dev/null)"

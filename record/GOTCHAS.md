@@ -783,3 +783,59 @@ impersonates a real failure**, which is why this is worth a gotcha rather than
 a shrug: a stale `in_progress` and a genuinely hung job render identically,
 and "it's been N minutes" is exactly the sentence that makes a session stop
 waiting.
+
+## 37. <a id="g37"></a>A shallow clone makes a merely-behind checkout read as diverged, so the guard ...
+
+**A shallow clone counts every commit back to its graft point as LOCAL, so a
+checkout that is only BEHIND reads as diverged — and the freshness guard then
+refuses to update it, which is worse than either.** 2026-09-13: a session came
+up on a checkout from the previous morning, 172 commits behind
+`origin/precedent-beta-v01`. The guard's session-start pass fetched, computed
+`behind=172` and `ahead=132`, concluded the two copies had gone their separate
+ways, and warned instead of fast-forwarding — correct behaviour for a genuine
+divergence, and there was none: after a deeper fetch, `merge-base` resolved to
+`HEAD` itself and the local-only count was **zero**.
+
+**What it cost is the part worth keeping.** The session wrote a whole reply
+against a day-old tree — including rules that had been superseded that
+morning — and the tell was not a git error but a defect the person had already
+reported fixed: the fix (a `UserPromptSubmit` reply gate, landed at 14:12 that
+day) simply did not exist in the files the session had. **A stale checkout
+does not announce itself as staleness; it announces itself as your own work
+being wrong.** The session only found out because an unrelated command tripped
+the pre-write guard, which reported the same phantom divergence.
+
+**Both of the obvious readings are wrong.** "Origin has moved and I should
+re-push" is wrong — nothing local existed. "The guard is broken and should be
+overridden" is wrong, and `git config precedent.freshness.override true`
+switches off the stale-base check as well, which catches the most expensive
+failure class in this file.
+
+**Reproduce it in four commands**, which is how the fix was verified: clone
+`--depth 1` over `file://` (a local path ignores `--depth`, gotcha
+[g7](#g7)), add commits upstream, then `git fetch --depth=1 origin <branch>`.
+The fetched tip lands as a **disjoint graft** with no path back to `HEAD`, so
+`rev-list --count origin/<branch>..HEAD` counts everything the shallow clone
+can see and calls it local. A plain `git fetch` on an already-shallow
+repository can produce the same disjoint state, which is why the guard's own
+fetch was not enough.
+
+**Fixed 2026-09-13** in both copies of
+[.claude/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/.claude/hooks/freshness-guard.sh):
+when the counts say diverged and the clone is shallow, `_deepen_if_shallow`
+fetches `--deepen=500` (falling back to `--unshallow`, which some git policy
+hooks refuse) and both counts are recomputed before anything is believed. The
+same recount runs in the pre-write mode. Verified against a fixture that
+reproduces the phantom: the old copy prints `has diverged ... NOT updating`
+and leaves `HEAD` behind; the patched copy deepens, recounts 3 rather than 1,
+and fast-forwards.
+
+**The same commit added the quantity a person can actually judge.** Every
+message reporting a checkout as behind now carries how much OLDER it is than
+the remote tip — computed from the two tips' commit times, never from the
+container's clock — and past a declared limit (`stale_checkout_hours` in
+[precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json),
+24) it is labelled `STALE` rather than merely behind. Morgan's reasoning for
+wanting the time and not the count, 2026-09-13: over a missed hour *"chances
+are not much changed"*, over a few days *"chances are a lot did, thus
+increasing the risk of problems."*

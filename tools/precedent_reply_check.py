@@ -202,8 +202,17 @@ def main():
     bad = violations(text, reqs)
     if not bad:
         return 0
-    print('The reply gate blocked this turn. Rewrite the closing of the reply '
-          'before stopping:', file=sys.stderr)
+    # The reply that was just refused has ALREADY been shown to the person --
+    # a Stop hook cannot un-show it. So the only correct repair is to emit the
+    # missing closing on its own; re-sending the whole answer makes them read
+    # it twice, which is what happened on 2026-09-13 when this message said
+    # only "rewrite the closing" and the session rewrote everything.
+    # practice: durable-fix, label-describes-content.
+    print('The reply gate blocked this turn. The person has ALREADY SEEN the '
+          'reply above, so do NOT write it again: output ONLY the missing '
+          'closing section(s) named below, as a short addition to what you '
+          'already said. Nothing else -- no summary, no restatement, no '
+          'apology.', file=sys.stderr)
     for b in bad:
         print(f'  - {b}', file=sys.stderr)
     print('  Full rules: `python3 tools/precedent_gate.py reply`.', file=sys.stderr)
