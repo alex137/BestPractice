@@ -27,9 +27,19 @@ on:
       - "process/upstream/tools/doc_lint.py"
       - "tools/doc_lint.py"
       - ".github/workflows/bestpractice-docs.yml"
+  # EVERY BRANCH, not just the default one (2026-09-14). This read
+  # `branches: [main]` until then, which covers the branch a repo merges
+  # INTO and leaves every branch work actually happens on unchecked until
+  # somebody opens a pull request. Upstream had the identical bug in its own
+  # .github/workflows/docs.yml, where the branch carrying all the traffic is
+  # not `main` at all, so the linter watched an empty branch for weeks.
+  #
+  # `pull_request:` above stays, unlike upstream's copy, and the difference
+  # is deliberate: this file lands in repositories nobody here controls, and
+  # a fork's pushes do not fire `push` in the repo being contributed to. A
+  # duplicate run on a PR from an internal branch is the price of covering
+  # the fork case in a repo we cannot inspect.
   push:
-    branches:
-      - main
     paths:
       - "**/*.md"
       - "process/upstream/tools/doc_lint.py"

@@ -25,7 +25,19 @@
 name: Precedent checks
 
 on:
-  pull_request:
+  # PUSH, ON EVERY BRANCH (2026-09-14). This was `pull_request:` alone until
+  # then, which means a session pushing straight to a source set's own branch
+  # -- the normal way work lands in a private, single-owner practice set --
+  # ran no check whatsoever. The gate existed and simply never fired.
+  #
+  # push rather than pull_request, not both, for the reason BestPractice's
+  # leak-gate.yml measured: a push run and a pull_request run test the same
+  # tree whenever the branch is current with its base, check runs attach to
+  # the head SHA whatever event produced them so the PR still shows this
+  # result, and running both fires every check twice on the same commit.
+  # A source set is private and nobody forks it, which is the one case that
+  # would argue the other way.
+  push:
   workflow_dispatch:
 
 # No `paths:` filter, for the same reason views-drift.yml gives: the inputs
