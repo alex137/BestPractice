@@ -5868,11 +5868,26 @@ def check_precedent_check_fires():
                 "`STYLEGUIDE.md` from.\n"))
         case('install-declares-its-scope', _plant_idis)
 
-        # environment-gotchas -- an entry that is a bare fix
+        # environment-gotchas -- an entry that is a bare fix.
+        #
+        # Anchored on the SECTION HEADING, never on the wording of any one
+        # entry. The first spelling matched the literal string
+        # "- **`pip install cmarkgfm`", and stopped planting anything the day
+        # that entry was reworded to name a second package (2026-09-14) --
+        # `str.replace` of an absent needle is a silent no-op, so the plant
+        # vanished and the check "failed" by passing. A fixture keyed on
+        # prose rots the first time somebody improves the prose; this one
+        # asserts its anchor instead (practice: fixture-owns-its-state).
         def _plant_eg(repo):
-            rewrite(repo, 'AGENTS.md', lambda t: t.replace(
-                '- **`pip install cmarkgfm`',
-                '- `pip install cmarkgfm`.\n\n- **`pip install cmarkgfm`', 1))
+            def _insert(t):
+                m = re.search(r'(?m)^#{1,4}[^\n]*rediscover these[^\n]*$', t)
+                if not m:
+                    raise AssertionError(
+                        'environment-gotchas plant: no "do NOT rediscover '
+                        'these" heading in the fixture AGENTS.md, so nothing '
+                        'was planted and the case below would assert nothing')
+                return t[:m.end()] + '\n\n- `pip install cmarkgfm`.\n' + t[m.end():]
+            rewrite(repo, 'AGENTS.md', _insert)
         case('environment-gotchas', _plant_eg)
 
         # session-bootstrap -- setup named in prose, no hook to run it

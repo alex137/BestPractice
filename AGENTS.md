@@ -528,9 +528,9 @@ fixed, and only the entry says which.
 retired it. Nothing is ever deleted.
 
 - **`pip install cmarkgfm markdown`, or two gates degrade in silence and
-  `verify_harness.py` fails three checks that have nothing to do with your
-  diff — and a container missing them is telling you no SessionStart hook
-  ran.** [story](record/GOTCHAS.md#g1)
+  [verify_harness.py](tools/verify_harness.py) fails three checks that have
+  nothing to do with your diff — and a container missing them is telling you
+  no SessionStart hook ran.** [story](record/GOTCHAS.md#g1)
 
 - **A git helper that returns stdout and drops the exit code will hand you a
   confident wrong answer — this is the most-repeated bug in the project.**
