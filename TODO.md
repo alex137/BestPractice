@@ -4947,6 +4947,22 @@ which is the failure this repointing exists to end — write
     most of the rules he wants are not loaded. **The measurement that missed it
     checked that the file was written, never that a session is told to read
     it.**
+
+    **What the rollout now needs, and why it cannot be done from here.** Each
+    set vendors the engine as tracked files, so it needs
+    `python3 tools/precedent_refresh_sources.py --apply --commit` run from a
+    BestPractice checkout and the regenerated `AGENTS.md` committed and pushed
+    in that set. A session rooted in a set can get that checkout in seconds --
+    `git clone --depth 1 --branch precedent-beta-v01
+    https://github.com/alex137/BestPractice` is public and took 1 second on
+    2026-09-14 (gotcha 33). A session rooted HERE cannot finish it: the git
+    proxy answers 403 for `themorgan/*` ("not in this session's authorized
+    repository set") and `add_repo` refuses the cross-owner add. **On
+    2026-09-14 it could not even enumerate the live sessions to wake** --
+    `list_sessions` was refused by the harness's own permission classifier,
+    which is a permission refusal rather than a repository wall, so
+    [spawn-session](practices/spawn-session.md) sends it back to Morgan
+    instead of spawning beside whatever is already running.
     **Disposition:** wait
 
 81. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
