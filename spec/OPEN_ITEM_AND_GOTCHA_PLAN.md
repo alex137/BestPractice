@@ -7,30 +7,204 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       Both TODO.md and the gotchas index capture mechanically and drain by hand, so both only grow. Classifies the 57 live open items by who can clear them, proposes splitting the file along that line, and gives the gotchas an exit condition per entry.
+summary:       Both TODO.md and the gotchas index capture mechanically and drain by hand, so both only grow. Second draft, rewritten against Morgan's nine responses: one item is one file with a permanent address, filed by kind and labelled by owner, with every list generated. Classifies the 57 live open items, sizes the reference migration, and gives the gotchas an exit condition per entry.
 ---
 # Open Items and Gotchas: What to Split, What to Retire, What to Just Do
 
-**Nothing here is done.** This is the written-up version of a 2026-09-14
-conversation, for review. Every figure in it is a measurement taken that day
-against `precedent-beta-v01` at `6fc0596` — a snapshot, not a live rollup, so
-read the counts as *what it looked like on the 14th*.
+**Nothing here is done.** Second draft, rewritten 2026-09-14 after Morgan read
+the first and answered it in nine points. Every figure is a measurement taken
+that day against `precedent-beta-v01` — a snapshot, not a live rollup.
 
-## What I Am Asking You to Decide
+## The One Idea That Answers Most of It
 
-Six things, each independent. Say yes to any subset.
+**One item is one file. The file is created once, keeps its name forever, and
+never moves. Everything that changes about it — its state, its owner, whether
+it is done — is a field inside it. Every list a person reads is generated from
+those fields.**
 
-| # | Decision | If yes | If no |
-|---|---|---|---|
-| 1 | Prune the 34 closed items out of [TODO.md](../TODO.md) | The file halves; closed items keep their anchors in a record file | The file keeps growing; over half of it is history |
-| 2 | Split [TODO.md](../TODO.md) by **who can clear an item** | Four smaller files, each with one reader | One file serving four readers, as now |
-| 3 | Treat the 18 source-set items as **one project**, not 18 items | One checklist, one sweep, four sessions | 18 separate items, each re-orienting from scratch |
-| 4 | Give me a standing rule for the 16 unblocked engine defects | Either they get fixed on sight or they get closed | They accumulate; nothing says which |
-| 5 | Add a **`Retires when:`** line to every gotcha | Each entry states what would kill it; a pass can ask | The index grows monotonically, as it has |
-| 6 | Backfill that line on the five gotchas that already claim a fix landed | Those five can be tested and likely archived | They stay live and every session reads them |
+That single rule settles most of the nine points at once, and it settles them
+in the same shape the practice catalogue already uses: `practices/*.md` plus a
+generated [MAP.md](../MAP.md). It is not a new architecture; it is the one
+this repository already runs.
 
-**My recommendation: yes to 1, 3, 5 and 6 now; 2 after 1 (pruning changes what
-the split looks like); 4 is the one genuinely worth arguing about.**
+**Why "never moves" is the load-bearing half.** A file that moves when its
+state changes breaks every link to it, and this repository links to open items
+from tool comments, spec documents and [AGENTS.md](../AGENTS.md). A status
+field costs one line and breaks nothing.
+
+## Answering the Nine Points
+
+| # | Morgan's idea | Verdict |
+|---|---|---|
+| 1 | Slugs instead of numbers | **Accepted** — and half-done already: every item has an anchor, and the file's own header says never to cite the number |
+| 1b | The date inside the slug | **Pushback** — `opened:` as a field, with **age in days** computed into the generated index. Age is the thing you want; a date is arithmetic |
+| 2 | Split by type, one file per type | **Accepted** — and the type axis already exists, unused, in [templates/TODO.md.template](../templates/TODO.md.template) |
+| 3 | Do **not** organize by who owns it | **Accepted, and my first draft was wrong** — see below |
+| 4 | One `todo/` directory; `TODO.md` renamed | **Accepted** |
+| 4b | A separate file or directory for completed items | **Pushback** — a `status:` field instead. Nothing moves, so nothing breaks |
+| 5 | The very deep check sweeps the open items | **Accepted** |
+| 6 | Decision strength on each item | **Pushback, partly** — only where an item carries an approval, and no bulk backfill by a session |
+| 7 | The very deep check reviews the gotchas | **Accepted — and it already half does.** Measured, not recalled |
+| 8 | Gotcha slugs, `gotcha-` and `todo-` prefixes | **Accepted**, with one reservation about stutter |
+| 9 | One `.md` file per item, like the practices | **Accepted — this is the keystone** |
+
+### Where My First Draft Was Wrong (Point 3)
+
+You are right, and the mistake is worse than you said. **I labelled the axis
+"who can clear it" and then did not actually sort by owner** — four of the five
+groups are kinds of work (a defect, a decision, a verification, a project) and
+only one named a person. So the grouping was defensible and the label was not,
+and a label that says "owner" invites exactly the failure you describe: a list
+that reads as assignments, half of them wrong, and the rest read as somebody
+else's problem.
+
+**The evidence that kind is the right axis is already in the repository.**
+[templates/TODO.md.template](../templates/TODO.md.template) — the file every
+adopting repo instantiates — defines four kinds and says the typed convention
+is "the load-bearing part": **analysis** (agent-doable from the desk),
+**verify** (source-check before external use), **physical** (needs hardware, a
+vendor, a test), **decision** (the user's call). BestPractice's own
+[TODO.md](../TODO.md) does not use them.
+
+So: **file by kind, label by owner.** `owner:` is a field like any other, it
+changes without moving anything, and the generated index can show it as a
+column — visible, sortable, and never the thing that decides where an item
+lives.
+
+## What an Item File Looks Like
+
+```
+todo/todo-source-set-push-triggers.md
+
+---
+slug:       todo-source-set-push-triggers
+kind:       analysis            # analysis | verify | physical | decision
+status:     open                # open | done | dropped
+opened:     2026-09-14
+closed:     null
+blocked_on: "a session rooted in each practice set"
+owner:      null                # a person, only when one is genuinely needed
+project:    source-sets         # optional; groups items that are one job
+disposition: wait               # wait | ask | parked  (open-item-disposition)
+strength:   null                # decided | assented — only if this records an approval
+---
+## What
+## Why it is not done
+## How it closes
+```
+
+**Five of those fields are the nine points**, which is the argument for the
+shape: `slug` is point 1, `kind` is points 2 and 3, `status` is 4b, `opened`
+is 1b, `strength` is 6.
+
+### Generated Views, Not Hand-Maintained Lists
+
+`todo/INDEX.md`, built by a generator the way [MAP.md](../MAP.md) is, carrying
+at least:
+
+- **One table per kind** — the four files you wanted, as sections of one
+  generated page rather than four hand-edited files that drift.
+- **Age in days**, computed from `opened:`, sorted oldest first. This is point
+  1b done better than a date in a name: *"open 47 days"* is the sentence you
+  actually want, and no one has to subtract.
+- **A "nothing is blocking this" view** — every `open` item with no
+  `blocked_on`. That is the 16-item group below, and it is a query, not a file.
+- **Open decisions**, for the one list you are ever asked to read.
+- **Done items**, last, collapsed to one line each.
+
+**Why generated rather than four real files:** four hand-maintained files are
+four things to keep sorted, and an item whose `blocked_on` clears has to be
+moved by hand or it lies. A generator reads the field and the view is right
+the next time it runs. If you would rather have four physical files, that is a
+legitimate variant — it costs the drift, and I would not take it.
+
+## The Migration, Which You Flagged and Which Is the Real Work
+
+Measured today, so the size is known rather than guessed:
+
+| What refers to an item by a name that would change | Count | Where |
+|---|---|---|
+| `TODO.md#slug` links outside the file | 23 | spec documents, [AGENTS.md](../AGENTS.md), practice files |
+| `TODO.md item N` in prose | 8 | 5 tool files, including [tools/precedent_check.py](../tools/precedent_check.py) and [tools/verify_harness.py](../tools/verify_harness.py) |
+| `#gN` gotcha anchors | 52 | 6 files, including [record/GOTCHAS.md](../record/GOTCHAS.md) citing its own entries |
+
+**The 8 prose references are already broken and nobody noticed.** They name
+"item 18" and "item 20" — numbers that shift whenever anything is added or
+reordered, which is the exact failure [TODO.md](../TODO.md)'s own header was
+written to end. Whatever else happens, those 8 are wrong today.
+
+The sequence, in order:
+
+1. **Freeze the numbering.** Delete the visible numbers from the file before
+   anything else moves. Nothing can then be cited by number.
+2. **Fix the 8 prose references** to cite anchors. This is independently worth
+   doing and needs none of the rest.
+3. **Split into files**, one per item, slug unchanged except for the `todo-`
+   prefix, with a mapping table written into the migration commit.
+4. **Repoint the 23 links**, mechanically, from the mapping table
+   ([rename-updates-links](../practices/rename-updates-links.md)).
+5. **Add a check that fails on a stale reference** — a link to `TODO.md#x`, or
+   the phrase `item N`, after the migration. Without step 5 this decays in a
+   week, and a migration with no guard is the thing
+   [checkable-gets-checked](../practices/checkable-gets-checked.md) exists to
+   refuse.
+
+**The part outside this repository, which is bigger than the part inside.**
+The item format lives in [templates/TODO.md.template](../templates/TODO.md.template),
+so it reaches every adopting repo, and the four practice sets already disagree
+about it: the individual set's `TODO.md` is 4,344 words with **no anchors at
+all**, `precedent-team-writing` has 3 numbered items, and
+`precedent-team-repo-maintenance` and `precedent-team-working-style` have no
+`TODO.md` at all. **So there is no single old format to convert from** — there
+are four, and a migration tool that assumes this repository's shape will fail
+on three of them. The honest sequencing is: settle the format here, ship the
+template, and convert each set in a session rooted in it
+([cross-source-rollout](../practices/cross-source-rollout.md)), rather than
+claiming a one-pass conversion that cannot exist.
+
+## What I Would Not Do
+
+**A date inside the slug (point 1b).** Three reasons, none fatal on its own:
+a date is not an age, so you still do the arithmetic; a name that carries a
+date can never be corrected if the date is wrong, because the name is the
+address; and an item that gets split or merged inherits a date that is now a
+lie. What your version buys, and my version does not, is **the date visible in
+a plain directory listing with no tool involved** — which is a real advantage
+on a day when the generator is broken. **My pick: `opened:` plus computed age.
+If you want the date in the name anyway, say so and it is a one-word change to
+the naming rule.**
+
+**A separate completed file, or an open/done pair per kind (point 4b).** Both
+shapes move a file when an item closes, and a moved file breaks every link to
+it — including the links this plan is about to create 23 of. `status: done`
+costs one line, the generated index puts done items where you want them, and
+the file keeps its address forever. **You are right that the whole thing is the
+record; the answer is that `todo/` *is* the record, and nothing needs a
+`record/` copy.**
+
+**Decision strength on every item (point 6).** The field is right where an item
+carries an approval, and wrong as a requirement, because most items are
+findings nobody approved — writing `strength:` on one of those records an
+approval that never happened.
+[decision-strength](../practices/decision-strength.md) is explicit that an
+unmarked approval means **unknown**, never `decided`.
+
+**And the backfill you offered to do is the one part I would push back on
+hardest.** That practice deliberately backfilled nothing, permanently, because
+guessing which past "ok" was enthusiastic is the invention
+[no-invented-specifics](../practices/no-invented-specifics.md) forbids. **The
+exception is you**: you can state a strength on a still-open item today,
+because that is a fresh statement rather than a reconstruction. What I would
+not do is make it a chore — set it when an item is next touched, and leave the
+rest unmarked, which is a true state.
+
+**A `gotcha-` prefix on files inside a `gotchas/` directory** reads as stutter,
+and I would have used the directory alone. **The reason I accept it anyway is
+`precedent_show.py`**: it takes a bare slug, practices already own that
+namespace, and a todo or gotcha slug colliding with a practice slug is a real
+possibility with a silent failure mode. The prefix makes the namespace visible
+in every citation, including prose where no directory is in sight. Same
+argument for `todo-`.
 
 ## The Diagnosis Both Files Share
 
@@ -44,15 +218,14 @@ Both are **captured mechanically and drained by hand.**
   somebody to feel like doing it.
 
 A pump with a mechanical trigger and a discretionary drain only runs one way.
-That is the whole story, and it is not a failure of discipline: the capture
-side is working exactly as designed, and [repo-is-memory](../practices/repo-is-memory.md)
-is why it should keep working that way.
+That is not a failure of discipline: the capture side is working exactly as
+designed, and [repo-is-memory](../practices/repo-is-memory.md) is why it
+should keep working that way.
 
 **The gotchas file already had half this fixed.** The 2026-09-13 split put a
 one-line index in [AGENTS.md](../AGENTS.md) and the stories in
 [record/GOTCHAS.md](../record/GOTCHAS.md), which flattened the *reading cost*
-and left the *count* alone. TODO.md has had neither fix: it is still one file,
-read whole.
+and left the *count* alone.
 
 ## TODO.md On 2026-09-14
 
@@ -73,78 +246,40 @@ history (which only reaches 2026-09-06 — anchors were introduced then, so
 **Forty of the 57 were written in the last eight days**, at roughly five a day.
 That is not a backlog that built up over months; it is the current rate.
 
-### The Classification That Matters: Who Can Clear It
+### The Five Groups, Re-Labelled
 
-Sorting by subject produces five piles that all look equally stuck. Sorting by
-**who or what has to move first** produces one useful finding:
+Same five groups as the first draft. The axis is now what each item **is**, not
+who owns it, and the owner column is a label inside the item.
 
-| Group | What it is | Items | Who clears it |
-|---|---|---|---|
-| A | Source-set work | 18 | A session rooted in each of the four sets |
-| B | Engine defects found here, fixable here | 16 | **Nobody — these are just not done** |
-| C | Decisions | 10 | You, and only you |
-| D | Waiting on the outside world | 5 | A platform changing |
-| E | Waiting on a project, person or phase that does not exist | 8 | An event |
+| Group | What it is | Items | Kind | Why it is not done |
+|---|---|---|---|---|
+| A | Source-set work | **18** | analysis | Needs a session rooted in each of the four sets |
+| B | Engine defects found here | **16** | analysis | **Nothing is blocking them** |
+| C | Decisions | **10** | decision | Waiting on one person |
+| D | Outside-world checks | 5 | verify | A platform has to change |
+| E | Waiting on a project, person or phase | 8 | physical | An event has to happen |
 
-**Groups A and B are 34 of the 57, and neither is really a list of items.**
+**Group A is one project wearing 18 hats**, which is what the `project:` field
+is for: every one of them is "the four practice sets need X", each found by a
+different session doing something else. As 18 items each costs a fresh
+re-orientation; as one project with a per-set checklist it is one sweep.
 
-**Group A is one project wearing 18 hats.** Every one of them is "the four
-practice sets need X" — a vendored fix, a workflow trigger, a declared
-ceiling, a wired hook. They accumulated one at a time because each was found
-by a different session doing something else, and each was correctly queued
-under [todo-is-a-handoff](../practices/todo-is-a-handoff.md) as blocked on a
-session this repository cannot be. The item
-[`attach-private-sources`](../TODO.md#attach-private-sources) already says it
-"unblocks four other items at once"; the real number is closer to 18.
+**Group B is the rule failing.** Nothing external blocks any of them — defects
+in this repository's own engine, found by its own audits, fixable from a
+session exactly like the one that found them.
+[todo-is-a-handoff](../practices/todo-is-a-handoff.md) says "would enlarge
+this turn" is not a reason to queue, and its own `checked_by` is `null`, so
+nothing catches it. **This is the group that needs a rule, not a filing
+change**, and it is the one decision below I would argue with you about.
 
-**Group B is the rule failing.** Nothing external blocks any of these. They
-are defects found by this repository's own audits, in this repository's own
-engine, fixable from a session exactly like the one that found them.
-[todo-is-a-handoff](../practices/todo-is-a-handoff.md) says plainly that
-"would enlarge this turn" is not a reason to queue — and its own `checked_by`
-is `null`, so nothing catches it. Sixteen items is what that costs.
-
-**Group C is ten decisions scattered through 57 items**, five of which you
-have never been shown because they sit at `wait` and
+**Group C is ten decisions scattered through 57 items**, five of which you have
+never seen because they sit at `wait` and
 [open-item-disposition](../practices/open-item-disposition.md) correctly keeps
-sessions quiet about them. That rule is doing its job; what is missing is a
-place where the decisions sit *together* so you can clear several in one
-sitting instead of meeting them one interruption at a time.
+sessions quiet. That rule is working; what is missing is a generated view where
+the decisions sit together.
 
-**Groups D and E are the file working as intended** — 13 items genuinely
-waiting on something outside the repository. These are the handoffs the file
-exists for, and they should be quiet and out of the way.
-
-### What I Propose for TODO.md
-
-**Step 1 — prune (no decisions in it).** Move the 34 closed items to
-`record/todo-closed.md`, keeping every anchor so existing citations still
-resolve ([rename-updates-links](../practices/rename-updates-links.md) applies
-to the links, and the anchors are permanent by the file's own header rule).
-Roughly halves the file. **Cost: one session. Risk: none.**
-
-**Step 2 — split by clearer, not by subject.** Four files, each with exactly
-one reader and one question:
-
-- [TODO.md](../TODO.md) — Group B only, renamed in spirit to *work nobody is
-  blocking*.
-  Anything here is a standing invitation to just do it.
-- `DECISIONS_OPEN.md` — Group C. The only file you are ever asked to read.
-- `spec/SOURCE_SET_SWEEP.md` — Group A, as one checklist with a per-set
-  column, not as items.
-- `record/todo-dormant.md` — Groups D and E, with each item's trigger stated:
-  *"reopen when Grok gains repository access."* Nothing reads it routinely.
-
-**Step 3 — close the intake asymmetry.** Wire the check
-[todo-is-a-handoff](../practices/todo-is-a-handoff.md) already nominates for
-itself: scan each item for a stated blocked-on reason and fail the ones
-without. That is what keeps Group B from reappearing, and it is the only part
-of this that changes behaviour rather than layout.
-
-**What I deliberately did not propose: a periodic sweep.** A sweep is another
-discretionary drain, and the file already has one in
-[todo-is-a-handoff](../practices/todo-is-a-handoff.md)'s Install section that
-has not been run.
+**Groups D and E are the file working as intended** — 13 things genuinely
+waiting on the outside world.
 
 ### The 57, Classified
 
@@ -175,7 +310,7 @@ file's history; `Words` is how long the item has grown.
 | [`set-ci-skips-vendored-tests`](../TODO.md#set-ci-skips-vendored-tests) | 09-14 | 166 | wait | No practice set's CI runs the vendored checks' own test suite, so a red suite sits under a green pull request |
 | [`set-cannot-show-a-universal-practice`](../TODO.md#set-cannot-show-a-universal-practice) | 09-14 | 317 | wait | In a practice SET, `precedent_show.py SLUG` cannot read any universal practice — and the generated file that delivers those practices tells its reader to run exactly that command |
 
-### B. Engine Defects, Fixable Here — 16 Items
+### B. Engine Defects, Nothing Blocking — 16 Items
 
 | Item | Since | Words | Disp. | What it is |
 |---|---|---|---|---|
@@ -196,7 +331,7 @@ file's history; `Words` is how long the item has grown.
 | [`engine-root-in-a-vendored-tree`](../TODO.md#engine-root-in-a-vendored-tree) | 09-14 | 205 | wait | Five engine tools read the wrong repo when vendored, and five more have not been checked |
 | [`sync-views-blames-a-dropped-source-for-a-retirement`](../TODO.md#sync-views-blames-a-dropped-source-for-a-retirement) | 09-14 | 167 | wait | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically |
 
-### C. Decisions Only Morgan Can Make — 10 Items
+### C. Decisions — 10 Items
 
 | Item | Since | Words | Disp. | What it is |
 |---|---|---|---|---|
@@ -250,82 +385,151 @@ Live entries in the index, by day:
 08-31   5      09-06  16      09-11  36
 09-03   7      09-07  26      09-12  36
 09-05   9      09-09  31      09-13  36  ← the split
-              09-10  32      09-14  38
+               09-10  32      09-14  38
 ```
 
 **Five to 38 in two weeks.** The section reached 7,182 words on 09-12; the
-split cut what every session loads to 1,197 and moved the text, unchanged, to
-the record. **That fixed the cost and not the count** — two entries have been
-added since, and the index is climbing again at roughly 30 words each.
+split cut what every session loads to 1,197. **That fixed the cost and not the
+count.** Retirement does happen — 33 entries archived — but it has no
+*trigger*: an entry is archived when somebody reads it and judges it dead, and
+nobody schedules that reading.
 
-**Retirement does happen** — 33 entries have been archived, which is a better
-record than TODO.md's. What it does not have is a *trigger*: an entry is
-archived when somebody reads it and judges it dead, and nobody schedules that
-reading.
+### The Updated Plan
 
-### The Specific Plan
+**1. Every gotcha becomes its own file** (point 9), in `gotchas/`, named
+`gotcha-<slug>.md`, with frontmatter carrying `slug`, `opened`, `status`
+(`live` | `retired`) and `retires_when`. **The archive stops being a separate
+file**: a retired entry is the same file with `status: retired`, which is the
+same "never move it" rule as the open items, and it means the 52 `#gN`
+references migrate once rather than twice.
 
-**1. Every gotcha carries a `Retires when:` line, in the record entry.**
-One line, stating the condition under which the entry stops being worth a
-session's attention. Three shapes cover almost everything:
+**2. `Retires when:` on every entry** — the condition under which it stops
+being worth a session's attention. Three shapes cover nearly everything:
 
 ```
-**Retires when:** a mechanical check refuses this, and the check is named here.
-**Retires when:** the harness fixes <the specific behaviour>. Re-test on any
-  harness change that touches it.
-**Retires when:** nothing has hit this since <date> and the mechanism it
-  describes no longer exists.
+retires_when: "a mechanical check refuses this — name the check here"
+retires_when: "the harness fixes <the specific behaviour>; re-test on any
+               harness change touching it"
+retires_when: "nothing has hit this since <date> and the mechanism is gone"
 ```
 
-**Why it goes in the record and not the index:** the index is what every
-session pays for, and a retirement condition is read by whoever is auditing,
-not by whoever just hit the trap. Same reasoning as the 09-13 split.
-
-**2. Backfill it on the five entries that already say a fix landed** —
+**3. Backfill it on the five entries that already claim a fix landed** —
 [g3](../record/GOTCHAS.md#g3), [g4](../record/GOTCHAS.md#g4),
 [g18](../record/GOTCHAS.md#g18), [g21](../record/GOTCHAS.md#g21),
-[g37](../record/GOTCHAS.md#g37). Each claims its cause was closed; each is
-still in the index every session reads. Writing the condition down is what
-makes them testable, and I expect two or three to archive on the first test.
+[g37](../record/GOTCHAS.md#g37). I expect two or three to archive on the first
+test.
 
 **[g37](../record/GOTCHAS.md#g37) is the one to be careful with**, and it is
-the reason this is worth doing rather than obvious. It says "fixed
-2026-09-13", and then says it fired again on 09-14 — because the fix lives in
-the working tree and cannot reach a checkout too stale to contain it. It fired
-again in this very session, on the 14th, and the session it hit (mine) wrote a
-day-old answer before noticing. **So its condition is not "the fix landed": it
-is "every checkout that can go stale carries the fix, including the four
-source sets — which the entry itself says do not."** Only reading the whole
-entry tells you that, which is exactly the argument for making each entry
-state its own exit.
+why this is worth doing rather than obvious. It says "fixed 2026-09-13", then
+says it fired again on 09-14 — because the fix lives in the working tree and
+cannot reach a checkout too stale to contain it. It fired again on 09-14 in the
+session that wrote this document, which then wrote a day-old answer before
+noticing. **Its condition is therefore not "the fix landed": it is "every
+checkout that can go stale carries the fix, including the four source sets —
+which the entry itself says do not."** Only reading the whole entry tells you
+that, which is the argument for making each entry state its own exit.
 
-**3. Add a `Retires when:` line to the adding instructions** in the index
-header, so new entries carry one from the start.
+**4. The index keeps carrying only the symptom and the link.** The retirement
+condition lives in the entry, not the index: every session pays for the index,
+and only an auditor needs the condition.
 
-**4. Once every entry has one, a pass becomes possible** — read the conditions,
-not the stories, and test the ones that claim to be met. That is a cheap
-recurring job in a way "re-read 38 gotchas and judge" never was. **Whether to
-wire it into [very-deep-check](../practices/very-deep-check.md)'s currency pass
-is a separate decision** and I am not proposing it here: that pass already reads
-the record's bodies, and adding a fifth thing to a check nobody runs routinely
-solves nothing.
+### Point 7: The Very Deep Check Already Half Does This
 
-### What This Does Not Fix
+Measured in [tools/very_deep_check.py](../tools/very_deep_check.py), not
+recalled: it has a **gotcha currency pass** that finds the gotchas section in
+an instructions file, follows each index line into
+[record/GOTCHAS.md](../record/GOTCHAS.md), and reads the bodies, with a
+120-day staleness threshold. So the mechanism you are asking for exists and
+runs; what it cannot do is test a condition no entry states.
 
-**The count still only goes up while the environment keeps producing traps.**
-A `Retires when:` line makes retirement *checkable*; it does not make the
-harness stop breaking. Several of the 38 describe container behaviour nobody
-here controls, and those are permanent until the platform changes.
+**So point 7 is cheap: teach the existing pass to read `retires_when` and
+report the entries whose condition looks met.** That is a change to a pass
+that already runs, not a fifth thing bolted onto a check nobody runs — which
+is what I argued against in the first draft, and it does not apply here.
 
-**And a gotcha is a band-aid by construction.**
-[durable-fix](../practices/durable-fix.md) ranks a committed file above
-knowledge a session has to carry, and every gotcha is the second thing. The
-right destination for an entry is a check that refuses the mistake — which is
-what the first `Retires when:` shape above is really asking each entry to
-name. **Some cannot be moved there**, and saying so per entry is more honest
-than the current position, which says nothing.
+**What it still is not, and I want this said plainly: the very deep check runs
+on request.** A sweep there is better than nothing and it is not a schedule.
+[record/very-deep-check-ledger.json](../record/very-deep-check-ledger.json)
+already records what each pass returns run after run, so if this one finds
+nothing for several runs it will show up there and be owed a keep, cheapen or
+retire answer — same as every other pass.
 
-## What I Would Need From You to Start
+### Point 5: The Same Sweep for Open Items
 
-Nothing beyond a yes to any row in the table at the top. None of this needs a
-decision you have not already been shown, and none of it touches `main`.
+Accepted, with one thing already built to fold in:
+[tools/todo_progress.py](../tools/todo_progress.py) matches a change against
+what items name, at merge time. That is the "did this close something" half.
+The very-deep-check pass is the other half — **read every open item's `opened`
+and `blocked_on`, and report** the ones with no stated blocker (Group B, which
+should have been done rather than queued), the ones whose blocker names
+something that no longer exists, and the oldest few by age.
+
+**Both halves report; neither closes anything.**
+[item-closes-on-its-condition](../practices/item-closes-on-its-condition.md)
+already puts the closing judgement on a person or on the session that did the
+work, and a sweep that closes items on a heuristic would undo that.
+
+## What This Costs
+
+Worth saying flatly, because it is the argument against doing it at all:
+
+- **≈91 item files and ≈71 gotcha files** in this repository, plus a generator
+  and an index, plus the 83 measured references to repoint.
+- **A format change that leaves this repository**, through
+  [templates/TODO.md.template](../templates/TODO.md.template), into every
+  adopting repo and the four practice sets — which, as above, are in four
+  different states today.
+- **Per-item overhead goes up.** A one-line open item becomes a file with ten
+  lines of frontmatter. For a 900-word item that is nothing; for a one-liner it
+  is most of the file. The practices took that trade and it was right there,
+  where every file is substantial. **Open items are shorter and more numerous,
+  so the trade is worse here** — the median live item is ≈300 words, but the
+  shortest is 28.
+
+**My honest read: the per-item file wins anyway**, because the alternative is
+one file that no tool can slice and every session reads whole. But it is a
+real cost and the first draft did not name it.
+
+## Suggested Order
+
+Cheap and independent first, so nothing waits on the big migration:
+
+1. **Fix the 8 broken `item N` references.** No decisions, no format change.
+2. **Prune the 34 closed items** — under the new scheme they become
+   `status: done`, so this is the same work either way.
+3. **Delete the visible numbers** from [TODO.md](../TODO.md), so nothing new
+   can cite one.
+4. **Write the format** (the frontmatter above) as a spec document, and only
+   then split the files.
+5. **Split, repoint, and add the stale-reference check**, in one commit per
+   step.
+6. **Gotchas in the same shape**, after the open items have proved it.
+7. **The two very-deep-check passes**, last, because they read the fields the
+   steps above create.
+
+## What Is Still Open Between Us
+
+Four things, and only the last is big.
+
+**The date in the slug.** Mine is `opened:` as a field with age computed into
+the index; yours is the date in the name. Yours is visible with no tool, mine
+is correctable and gives you age rather than a date to subtract. **One word of
+the naming rule either way — say which and it is settled.**
+
+**Four physical files, or one generated index with four sections.** You asked
+for four files. I would generate them, because a hand-maintained file whose
+`blocked_on` has cleared lies until somebody moves the item. **If you want four
+real files, that is a legitimate variant and the cost is drift.**
+
+**The rule for Group B — the 16 items nothing is blocking.** This is the one
+worth arguing about, because it changes how the work goes rather than where the
+files live. My position is fix-on-sight: a session that finds a defect it can
+fix, fixes it, and a defect that gets queued with no stated blocker is closed at
+the next sweep rather than carried. **The counter-argument is real** — that rule
+turns every audit finding into an unplanned detour, and some of those 16 are
+half-day jobs. **I would still take it**, because the alternative is what is
+already happening.
+
+**Whether the whole per-item-file migration is worth its cost**, given the
+section above. The cheap steps 1 to 3 are worth doing whatever you decide here,
+and they are reversible.
