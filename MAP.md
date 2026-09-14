@@ -54,7 +54,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
 | [go-merge](practices/go-merge.md) | on-demand | a message carries a standing merge-authorization phrase |
-| [handoff-is-pasteable](practices/handoff-is-pasteable.md) | on-demand | asking the person to do something in another session |
+| [handoff-is-pasteable](practices/handoff-is-pasteable.md) | on-demand | asking the person to do something in another session, or pointing them at one |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
 | [index-remembers-past](practices/index-remembers-past.md) | on-demand | a document replaces or is replaced by an earlier one |

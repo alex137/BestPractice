@@ -4,8 +4,8 @@ title:       A handoff to another session is a repo name, a paste block, and a w
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "asking the person to do something in another session"
-index_clause: "name the repo, give the exact text to paste, end with the way back"
+occasion:    "asking the person to do something in another session, or pointing them at one"
+index_clause: "any reply that sends them elsewhere ships the words: repo, copy block, way back"
 gates:       ["reply"]
 checked_by:  null
 defines:     []
@@ -14,7 +14,10 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-10"
-approved_by: "Morgan"
+approved_by: "Morgan; widened 2026-09-14, Morgan -- a reply that merely POINTS at
+  another session owes the exact text too: \"whenever you tell me I should tell
+  another session something, you must *ALWAYS* give me the exact text to use, in a
+  way that I can just click the 'copy' button\""
 strength:    decided
 source_practice_number: null
 ---
@@ -30,6 +33,22 @@ to click it. The three things below then describe the *seeded prompt*
 rather than something the person retypes, and they are unchanged. **The
 paste block is the fallback for when no such tool exists** — and falling
 back is said out loud, never done silently.
+
+**This fires on any reply that leaves the person with something to say to
+another session — not only on a deliberate handoff.** *"Continue there if
+you want them current"*, *"that one is the other window's to finish"*,
+*"you may want to mention this over there"* are all covered. **An offer
+counts, and a passing mention counts.** The test is not whether you framed
+it as a handoff; it is whether they will have to say something somewhere
+else as a result of reading your reply. If they will, **the words are yours
+to write, not theirs to compose.**
+
+**The text goes in a block of its own, theirs to copy.** Not a sentence of
+prose they reword, not a clause inside a paragraph about something else. A
+task named in prose is a task they skim past — and the one that survives
+the skim gets relayed in their own approximate words, which is the same
+paraphrase hop this rule exists to remove. **Separating the block is what
+makes the task visible at all**, and that is load-bearing, not cosmetic.
 
 When work has to happen in a session other than this one, the reply hands
 over **three things, always, in this order** -- and a *seeded* prompt carries
@@ -165,6 +184,35 @@ right repo, and already seeded with the prompt you want to give it"*. It
 does not replace anything here; it changes what the person has to do with
 the three things from *paste them* to *click once*, wherever the harness
 allows that.
+
+**Widened 2026-09-14, out of this repository failing the smaller case.** A
+session here closed by reporting that the four practice sets sat pinned
+behind BestPractice, and ended: *"That's Vendor update and precedent
+migration's rollout to finish — I stood down rather than roll them forward.
+Continue there if you want them current."* Every clause above was already in
+force and **none of them fired**, because the session did not believe it was
+handing anything over — it believed it was saying where things stood. What
+reached Morgan was a task wearing a status line's clothes, with the message
+he would have to compose left entirely to him.
+
+He asked for the widening in his own words: *"whenever you tell me I should
+tell another session something, you must *ALWAYS* give me the exact text to
+use, in a way that I can just click the 'copy' button."* He gave three
+reasons, and the order matters — it is easier for him; **"it makes it less
+likely I miss the fact that I need to do this"**; and it makes it *"less
+likely I say it to the other session in an unclear way."* The middle one
+decided the shape. A convenience argument would have justified a tidier
+sentence; a **visibility** argument only gets satisfied by a block that sits
+apart from the prose, which is why that is written as a requirement rather
+than a formatting preference.
+
+**The pointer itself was not the lapse.** A session that finds a window
+already working on something is supposed to send the person there rather
+than spawn a second one beside it — that is the correct move, and other
+rules in force ask for it. What was missing is everything after the
+pointing: this rule now supplies it, so "go tell that window" and "here are
+the words" stop being two separate decisions. **Strength:** decided
+(2026-09-14, Morgan).
 
 ## Install
 Nothing to configure. It fires when a reply asks the person to go elsewhere.
