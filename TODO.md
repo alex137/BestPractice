@@ -4653,8 +4653,14 @@ which is the failure this repointing exists to end — write
     it is what gates every reply in a session that resolves it — including the
     session that checked. The paragraph below describes the state on
     2026-09-13 and is kept as the record of what was true then.
-    **Recommendation, 2026-09-14: close this item's individual half on its
-    stated condition and keep only the engine-rollout half open.** What is
+    **DECIDED 2026-09-14: the individual half is CLOSED on its stated
+    condition, and only the engine-rollout half stays open.** Morgan took the
+    recommendation as written — *"let's implement your recommendation"* — with
+    no argument for it, so **strength: assented (2026-09-14, Morgan)**. The
+    stated condition was that the individual set carry a `reply_check.json`
+    declaring the heading pattern and the two closing sentences: it is on that
+    set's `origin/main`, and it gated the reply of the session that checked,
+    which is the condition met rather than resembled. What is
     genuinely left is that the four attached sources still run an older
     vendored engine, so none of them can declare a CONDITIONAL requirement of
     its own — the object-vs-list form and
@@ -4715,9 +4721,13 @@ which is the failure this repointing exists to end — write
     anyone opens it, the text has to be rebuilt from this item plus the
     practice's own history.
 
-    **blocked-on:** the individual set not being pushable from a session rooted
-    here. **Disposition:** ask (2026-09-13, this session) — the written half
-    dies with this container otherwise.
+    **blocked-on:** the four attached sets still running the `c3c78d9` engine.
+    Refreshing them is vendor-update work inside those repositories, with its
+    own runbook and its own authorization, and the sessions doing those
+    rollouts own it — there is nothing here to hand anyone.
+    **Disposition:** wait (2026-09-14) — the 2026-09-13 `ask` was there because
+    the written individual half would die with that container; it did not, it
+    landed, and nothing left in this item needs Morgan.
 
 79. <a id="views-drift-vs-suite-workflow"></a>**Decide whether a source set
     that runs the whole check suite in continuous integration should still
@@ -4986,14 +4996,79 @@ which is the failure this repointing exists to end — write
     practice, which is the nearest existing machinery and the place to start
     reading.
 
-    **Recommendation, 2026-09-14: run the measurement, wire nothing yet.**
-    The item already specifies it — universal's checks against ONE set,
-    every finding sorted into (a) real, (b) not applicable to a set at all,
-    (c) already covered by the set's own copy. That is a bounded job with a
-    concrete output, and it turns an open-ended "should a set run these?" into
-    a list somebody can act on. Wiring before the count is what the
-    `not_binding` reasoning above warns against, and the cost of guessing
-    wrong is a permanently red gate in four repositories.
+    **DECIDED 2026-09-14: run the measurement, wire nothing.** Morgan took the
+    recommendation as written — *"okay let's implement your suggestion"* —
+    with no argument for it, so **strength: assented (2026-09-14, Morgan)**.
+    Wiring before the count is what the `not_binding` reasoning above warns
+    against, and the cost of guessing wrong is a permanently red gate in four
+    repositories.
+
+    **MEASURED 2026-09-14, and the measurement half CLOSES on its stated
+    condition.** The set was `precedent-team-writing`, copied to scratch and
+    given the current upstream engine — every file in
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)'s
+    `ENGINE_FILES`, 20 of them — so the run says what a REFRESHED set does,
+    not what a 249-commit-stale one does. Nothing was wired, and nothing was
+    written to any set.
+
+    **As the gate stands today, 3 universal checks reach a set and 42 do not
+    — and the 42 skip for ONE reason, not 42.** Every one prints *"no
+    practices/<slug>.md in this repo, so the practice is not in force here"*.
+    That is a file-presence test, and shape 3 deliberately does not satisfy it:
+    it routes the universal text through an untracked
+    `.precedent/SESSION_PRACTICES.md` rather than committing a second copy.
+    The three that do reach it are exactly the three carrying
+    `binds_publishers` — `catalogue-carries-stories`, `practice-links-travel`,
+    `generated-artifact-provenance`. So that machinery is not just the place to
+    start reading; it is already the whole of the answer, in production.
+
+    **With the presence gate forced open in the scratch copy, the whole
+    catalogue against one set is 24 passed, 5 violated, 1 advisory, 23
+    skipped.** Sorted the way this item asked:
+
+    - **(a) real findings: one, and it is a defect in a CHECK, not in the
+      set.** `code-cites-practice` reads
+      `tools/precedent_close_detect.py`'s citations of `declared-pronouns` and
+      `fail-gracefully` as typos, because it resolves a slug against the local
+      `practices/` directory — which in a practice set holds that set's own
+      catalogue and nothing else. Both slugs are real upstream. Every set given
+      the current engine would go red here, on engine files it did not write.
+    - **(b) not applicable to a set at all: the other four.** Three are
+      expectations of a consuming repo's `AGENTS.md` that a 17-practice
+      catalogue does not meet by design — `quick-index`,
+      `environment-gotchas`, `two-check-levels` — and `routing-audit` names
+      `tools/routing_audit.py`, which is not in `ENGINE_FILES` at all. This is
+      what `not_binding` is for.
+    - **(c) already covered by the set's own re-declared copy: none.** The
+      set's 17 practices meet the registry at three slugs — `draft-marker`,
+      `no-stale-counts`, `deliverables-carry-no-process` — and not one of them
+      is a universal practice. They are the writing team's own, with checks in
+      the shared engine, which is that engine working as designed. The
+      redeclaration `binds_publishers` was meant to end is genuinely absent.
+
+    **Half the catalogue cannot run in a set at any gate setting**, which this
+    item did not know: 13 of the 23 skips are a tool that is not vendored —
+    `doc_lint.py`, `doc_sync.py`, `doc_lifecycle.py`, `title_case.py`,
+    `practice_audit.py`, `model_audit.py`. Opening the gate buys nothing for
+    those without a second, larger decision about what a set contains. The
+    other 10 skip because there is honestly nothing there to check.
+
+    **What the count says about wiring, now that it is counted rather than
+    reasoned:** opening the presence gate today would turn four repositories
+    red for five reasons, four of which nobody would act on, and would not
+    enforce one universal rule that is not already enforced. The
+    `binds_publishers` three are the rules whose SUBJECT is a published
+    catalogue — a check reaches a set when the set is what the rule is about,
+    not because the set can read the rule. That is the boundary, and the
+    measurement endorses it.
+
+    **What is left, and it is small:** teach `code-cites-practice` to resolve a
+    slug across the resolved sources rather than the local directory. Not done
+    in the same breath as the measurement, on purpose —
+    [tools/precedent_check.py](tools/precedent_check.py)'s own header warns
+    against "a behaviour change nobody asked for, in every consuming repo at
+    once", and changing how a slug resolves is exactly that. It wants its own
+    branch and its own harness case.
     **It pairs with item 87**, found 2026-09-14: a set cannot even run
     `precedent_show.py` on a universal slug, because `practices/` there holds
     the set's own files only. That is the same boundary from the READING side
@@ -5001,14 +5076,12 @@ which is the failure this repointing exists to end — write
     the measurement should read both items together rather than discover the
     second one halfway through.
 
-    **Not blocked on anything external** — it needs a session with a set
-    attached, which is the ordinary condition here. It is queued rather than
-    done because it is a measurement pass with an unknown answer, not a
-    change with a known shape, and shape 3's reading half is worth landing
-    without waiting on it.
-    He asked for it to be noted as an issue to review, so raising it with him
-    is what he asked for.
-    **Disposition:** ask (2026-09-13, Morgan)
+    **The reason this was queued is spent.** It was queued as "a measurement
+    pass with an unknown answer, not a change with a known shape" — the answer
+    is above, and the shape that is left is one check's slug resolution.
+    **Disposition:** wait (2026-09-14) — the 2026-09-13 `ask` was Morgan asking
+    for this to be reviewed, and he has reviewed it; the `code-cites-practice`
+    fix is ordinary work that needs nothing from him.
 
 
 84. <a id="vendor-very-deep-check-into-sets"></a>**Vendor
@@ -5602,7 +5675,7 @@ which is the failure this repointing exists to end — write
 
   **Disposition:** ask (2026-09-14, the session that hit the refusal)
 
-93. <a id="one-unrelated-item-at-the-close"></a>**`closing-items-are-this-thread`
+95. <a id="one-unrelated-item-at-the-close"></a>**`closing-items-are-this-thread`
     forbids every unrelated item; Morgan asked for exactly one, and only at
     the close.** Asked for 2026-09-14, in his own words: *"please only give me
     ONE to-do that is unrelated to the issue, and ONLY do that when the issue
@@ -5632,3 +5705,44 @@ which is the failure this repointing exists to end — write
     proxy — both established by measurement, not assumed. A session rooted in
     that set lands it; this one cannot. Recorded here so the wording survives
     the window that produced it.
+
+96. <a id="agents-md-ceiling-policy"></a>**Decide the STANDING answer to
+    `AGENTS.md`'s ceiling: a reduction pass every time somebody hits it, or a
+    higher declared number.** Item
+    [1](TODO.md#agents-md-over-its-ceiling) closed the instance and item
+    [82](TODO.md#session-load-under-20k) is done and parked, so the policy
+    question has had no home anywhere.
+
+    **The instance is closed and the pressure is not.** Measured on
+    `precedent-beta-v01` at `74eb776`, 2026-09-14: `AGENTS.md` is **11,553
+    tokens against the 12,000** in
+    [tools/session_load_budgets.json](tools/session_load_budgets.json), so
+    there are 447 tokens of headroom. The only reason there are any is that
+    the file went over three separate times in two days and somebody paid a
+    reduction pass each time — the gotchas preamble (12,026 → 11,917,
+    [PR #357](https://github.com/alex137/BestPractice/pull/357)), then the
+    quick index, where 14 rows had grown from *"looking for X → go to Y"* into
+    abstracts of the documents they only need to point at (11,917 → 11,546 at
+    `5b2f1ab`; item 1 records 11,538, measured on that branch before the merge
+    that carried it). Both cuts were duplication rather than content, and both
+    were paid mid-task by sessions doing something else.
+
+    **What makes it structural rather than a run of bad luck:** every gotcha,
+    every quick-index row and every standing command comes out of the same
+    12,000, the occasion index is GENERATED and cannot be hand-trimmed, and
+    the catalogue grows by design.
+    [session-load-budget](practices/session-load-budget.md) forbids the easy
+    move — raising the number to clear a red — and names the alternative,
+    which is what the two passes above did. Nobody has costed what doing that
+    forever is worth against the alternatives.
+
+    **A session is on it, rooted here and seeded with the whole question**,
+    created 2026-09-14:
+    [session_016g7xNkvTFffAchb3vDtBxp](https://claude.ai/code/session_016g7xNkvTFffAchb3vDtBxp).
+    Morgan asked for a separate tab in his own words — *"this is bigger so it
+    deserves a separate tab"* — so the spawn is his, not the session's.
+    **Strength:** decided (2026-09-14, Morgan), on the tab; the question's
+    answer is what that session is for and is not decided by anyone yet.
+
+    **Disposition:** wait (2026-09-14) — it waits on that session's costed
+    options reaching Morgan, and nobody chases it here.
